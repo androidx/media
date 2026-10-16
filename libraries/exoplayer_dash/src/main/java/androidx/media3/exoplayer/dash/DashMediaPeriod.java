@@ -27,7 +27,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -308,9 +307,9 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     int[] streamIndexToTrackGroupIndex = getStreamIndexToTrackGroupIndex(selections);

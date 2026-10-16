@@ -17,8 +17,8 @@ package androidx.media3.common.util;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** A utility class to keep a queue of values with timestamps. This class is thread safe. */
 @UnstableApi
@@ -27,7 +27,7 @@ public final class TimedValueQueue<V> {
 
   // Looping buffer for timestamps and values
   private long[] timestamps;
-  private @NullableType V[] values;
+  private @Nullable V[] values;
   private int first;
   private int size;
 
@@ -148,7 +148,7 @@ public final class TimedValueQueue<V> {
     }
     int newCapacity = capacity * 2;
     long[] newTimestamps = new long[newCapacity];
-    @NullableType V[] newValues = newArray(newCapacity);
+    @Nullable V[] newValues = newArray(newCapacity);
     // Reset the loop starting index to 0 while coping to the new buffer.
     // First copy the values from 'first' index to the end of original array.
     int length = capacity - first;
@@ -172,7 +172,7 @@ public final class TimedValueQueue<V> {
   }
 
   @SuppressWarnings("unchecked")
-  private static <V> @NullableType V[] newArray(int length) {
+  private static <V> @Nullable V[] newArray(int length) {
     return (V[]) new Object[length];
   }
 }

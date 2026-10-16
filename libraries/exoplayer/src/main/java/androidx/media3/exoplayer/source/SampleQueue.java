@@ -34,7 +34,6 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -96,7 +95,7 @@ public class SampleQueue implements TrackOutput {
   private int[] sizes;
   private int[] flags;
   private long[] timesUs;
-  private @NullableType CryptoData[] cryptoDatas;
+  private @Nullable CryptoData[] cryptoDatas;
 
   private int length;
   private int absoluteFirstIndex;

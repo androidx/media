@@ -24,7 +24,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -32,7 +31,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -47,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -249,7 +248,7 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
       OnOutputFrameAvailableForRenderingListener onFrameAvailableListener,
       boolean renderFramesAutomatically)
       throws Exception {
-    AtomicReference<@NullableType VideoFrameProcessingException>
+    AtomicReference<@Nullable VideoFrameProcessingException>
         videoFrameProcessingExceptionReference = new AtomicReference<>();
     BlankFrameProducer blankFrameProducer = new BlankFrameProducer(WIDTH, HEIGHT);
     CountDownLatch videoFrameProcessorReadyCountDownLatch = new CountDownLatch(1);
@@ -333,8 +332,8 @@ public final class DefaultVideoFrameProcessorVideoFrameRenderingTest {
     if (!videoFrameProcessingEndedCountDownLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
       testTimedOut = true;
     }
-    @Nullable
-    Exception videoFrameProcessingException = videoFrameProcessingExceptionReference.get();
+    @Nullable Exception videoFrameProcessingException =
+        videoFrameProcessingExceptionReference.get();
     if (videoFrameProcessingException != null || testTimedOut) {
       throw new IllegalStateException(videoFrameProcessingException);
     }

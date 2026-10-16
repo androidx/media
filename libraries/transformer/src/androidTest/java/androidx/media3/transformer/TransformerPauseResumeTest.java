@@ -33,7 +33,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.inspector.MetadataRetriever;
@@ -54,6 +53,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -433,7 +433,7 @@ public class TransformerPauseResumeTest {
     }
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
     // Prepare transformer to resume and to get progress.
-    SettableFuture<@NullableType Exception> transformerExceptionFuture = SettableFuture.create();
+    SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer.Listener transformerListener =
         new Transformer.Listener() {
           @Override
@@ -509,7 +509,7 @@ public class TransformerPauseResumeTest {
     }
     InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
     // Prepare transformer to resume and to get progress.
-    SettableFuture<@NullableType Exception> transformerExceptionFuture = SettableFuture.create();
+    SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer.Listener transformerListener =
         new Transformer.Listener() {
           @Override
@@ -584,7 +584,7 @@ public class TransformerPauseResumeTest {
               initialTransformer.cancel();
             });
 
-    SettableFuture<@NullableType Exception> transformerExceptionFuture = SettableFuture.create();
+    SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer.Listener transformerListener =
         new Transformer.Listener() {
           @Override

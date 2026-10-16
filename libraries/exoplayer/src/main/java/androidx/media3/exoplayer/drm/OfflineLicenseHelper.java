@@ -28,7 +28,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -327,7 +326,7 @@ public final class OfflineLicenseHelper {
     DrmSession drmSession =
         acquireFirstSessionOnHandlerThread(licenseMode, offlineLicenseKeySetId, format);
 
-    SettableFuture<byte @NullableType []> keySetId = SettableFuture.create();
+    SettableFuture<byte @Nullable []> keySetId = SettableFuture.create();
     handler.post(
         () -> {
           try {
@@ -405,7 +404,7 @@ public final class OfflineLicenseHelper {
     // (drmSession.state == STATE_ERROR).
     drmListenerConditionVariable.block();
 
-    SettableFuture<@NullableType DrmSessionException> drmSessionError = SettableFuture.create();
+    SettableFuture<@Nullable DrmSessionException> drmSessionError = SettableFuture.create();
     handler.post(
         () -> {
           try {

@@ -44,7 +44,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -120,7 +119,7 @@ import org.jspecify.annotations.Nullable;
   private final int inputIndex;
   private final boolean videoPrewarmingEnabled;
   @Nullable private final CompositionRendererListener compositionRendererListener;
-  private final Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+  private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
   private final RendererTracker rendererTracker;
 
@@ -158,7 +157,7 @@ import org.jspecify.annotations.Nullable;
       int inputIndex,
       boolean videoPrewarmingEnabled,
       CompositionRendererListener compositionRendererListener,
-      Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+      Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
       long lateThresholdToDropInputUs) {
     return new SequenceRenderersFactory(
         context,
@@ -180,7 +179,7 @@ import org.jspecify.annotations.Nullable;
       int inputIndex,
       boolean videoPrewarmingEnabled,
       @Nullable CompositionRendererListener compositionRendererListener,
-      Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+      Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
       long lateThresholdToDropInputUs) {
     this.context = context;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
@@ -801,8 +800,7 @@ import org.jspecify.annotations.Nullable;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
     private final TargetFrameRateHelper targetFrameRateHelper;
-    private final Supplier<@NullableType HardwareBufferFrameReader>
-        hardwareBufferFrameReaderSupplier;
+    private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
 
     @Nullable private InputSurface inputSurface;
     private @MonotonicNonNull Format nextFormat;
@@ -817,7 +815,7 @@ import org.jspecify.annotations.Nullable;
         Handler eventHandler,
         VideoRendererEventListener videoRendererEventListener,
         CompositionRendererListener compositionRendererListener,
-        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
         long lateThresholdToDropInputUs,
         RendererTracker rendererTracker) {
       super(
@@ -1099,8 +1097,7 @@ import org.jspecify.annotations.Nullable;
       implements RendererWakeupListener, RendererTracker.TrackedRenderer {
 
     private final CompositionRendererListener compositionRendererListener;
-    private final Supplier<@NullableType HardwareBufferFrameReader>
-        hardwareBufferFrameReaderSupplier;
+    private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
     private final RendererTracker rendererTracker;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
@@ -1117,7 +1114,7 @@ import org.jspecify.annotations.Nullable;
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
         CompositionRendererListener compositionRendererListener,
-        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
         RendererTracker rendererTracker) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
       this.compositionRendererListener = compositionRendererListener;

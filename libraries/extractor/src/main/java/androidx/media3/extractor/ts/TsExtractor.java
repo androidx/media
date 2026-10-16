@@ -25,11 +25,9 @@ import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -57,6 +55,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the MPEG-2 TS container format. */
 @UnstableApi
@@ -696,7 +695,7 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DVB_EXT_DTS_UHD = 0x21;
 
     private final ParsableBitArray pmtScratch;
-    private final SparseArray<@NullableType TsPayloadReader> trackIdToReaderScratch;
+    private final SparseArray<@Nullable TsPayloadReader> trackIdToReaderScratch;
     private final SparseIntArray trackIdToPidScratch;
     private final int pid;
 
@@ -795,8 +794,7 @@ public final class TsExtractor implements Extractor {
           continue;
         }
 
-        @Nullable
-        TsPayloadReader reader =
+        @Nullable TsPayloadReader reader =
             mode == MODE_HLS && streamType == TS_STREAM_TYPE_ID3
                 ? id3Reader
                 : payloadReaderFactory.createPayloadReader(streamType, esInfo);

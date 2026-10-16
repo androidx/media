@@ -38,7 +38,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -2548,7 +2547,7 @@ public class MatroskaExtractor implements Extractor {
           bitstreamChromaBitdepth = hevcConfig.bitdepthChroma;
           break;
         case CODEC_ID_FOURCC:
-          Pair<String, @NullableType List<byte[]>> pair =
+          Pair<String, @Nullable List<byte[]>> pair =
               parseFourCcPrivate(new ParsableByteArray(getCodecPrivate(codecId)));
           mimeType = pair.first;
           initializationData = pair.second;
@@ -3041,8 +3040,8 @@ public class MatroskaExtractor implements Extractor {
      *     is {@code null}.
      * @throws ParserException If the initialization data could not be built.
      */
-    private static Pair<String, @NullableType List<byte[]>> parseFourCcPrivate(
-        ParsableByteArray buffer) throws ParserException {
+    private static Pair<String, @Nullable List<byte[]>> parseFourCcPrivate(ParsableByteArray buffer)
+        throws ParserException {
       try {
         buffer.skipBytes(16); // size(4), width(4), height(4), planes(2), bitcount(2).
         long compression = buffer.readLittleEndianUnsignedInt();

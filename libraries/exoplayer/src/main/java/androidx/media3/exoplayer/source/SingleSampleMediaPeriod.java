@@ -22,7 +22,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
@@ -121,9 +120,9 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     for (int i = 0; i < selections.length; i++) {

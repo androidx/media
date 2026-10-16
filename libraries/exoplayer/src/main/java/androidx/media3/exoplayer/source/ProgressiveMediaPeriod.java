@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -36,7 +35,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
@@ -96,6 +94,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} that extracts data using an {@link Extractor}. */
 /* package */ final class ProgressiveMediaPeriod
@@ -321,9 +320,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     assertPrepared();
@@ -982,17 +981,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SampleQueue.createWithDrm(allocator, drmSessionManager, drmEventDispatcher);
     ControlledTrackOutput trackOutput = new ControlledTrackOutput(sampleQueue);
     sampleQueue.setUpstreamFormatChangeListener(this);
-    @NullableType
-    TrackId[] sampleQueueTrackIds = Arrays.copyOf(this.sampleQueueTrackIds, trackCount + 1);
+    @Nullable TrackId[] sampleQueueTrackIds =
+        Arrays.copyOf(this.sampleQueueTrackIds, trackCount + 1);
     sampleQueueTrackIds[trackCount] = id;
     this.sampleQueueTrackIds = Util.castNonNullTypeArray(sampleQueueTrackIds);
 
-    @NullableType SampleQueue[] sampleQueues = Arrays.copyOf(this.sampleQueues, trackCount + 1);
+    @Nullable SampleQueue[] sampleQueues = Arrays.copyOf(this.sampleQueues, trackCount + 1);
     sampleQueues[trackCount] = sampleQueue;
     this.sampleQueues = Util.castNonNullTypeArray(sampleQueues);
 
-    @NullableType
-    ControlledTrackOutput[] controlledTrackOutputs =
+    @Nullable ControlledTrackOutput[] controlledTrackOutputs =
         Arrays.copyOf(this.controlledTrackOutputs, trackCount + 1);
     controlledTrackOutputs[trackCount] = trackOutput;
     this.controlledTrackOutputs = Util.castNonNullTypeArray(controlledTrackOutputs);

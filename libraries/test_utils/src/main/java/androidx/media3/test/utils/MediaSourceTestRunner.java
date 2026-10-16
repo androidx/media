@@ -26,10 +26,8 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -56,6 +54,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import org.checkerframework.dataflow.qual.SideEffectFree;
+import org.jspecify.annotations.Nullable;
 
 /** A runner for {@link MediaSource} tests. */
 @UnstableApi
@@ -70,7 +69,7 @@ public class MediaSourceTestRunner {
   private final Allocator allocator;
 
   private final LinkedBlockingDeque<Timeline> timelines;
-  private final CopyOnWriteArrayList<Pair<Integer, @NullableType MediaPeriodId>> completedLoads;
+  private final CopyOnWriteArrayList<Pair<Integer, @Nullable MediaPeriodId>> completedLoads;
 
   @Nullable private Timeline timeline;
 
@@ -116,7 +115,7 @@ public class MediaSourceTestRunner {
    *
    * @param callable The {@link Callable} to run.
    */
-  public <T extends @NullableType Object> ListenableFuture<T> asyncRunOnPlaybackThread(
+  public <T extends @Nullable Object> ListenableFuture<T> asyncRunOnPlaybackThread(
       Callable<T> callable) {
     SettableFuture<T> result = SettableFuture.create();
     playbackHandler.post(
@@ -319,7 +318,7 @@ public class MediaSourceTestRunner {
    */
   public void assertCompletedManifestLoads(Integer... windowIndices) {
     List<Integer> expectedWindowIndices = new ArrayList<>(Arrays.asList(windowIndices));
-    for (Pair<Integer, @NullableType MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
+    for (Pair<Integer, @Nullable MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
       if (windowIndexAndMediaPeriodId.second == null) {
         assertWithMessage("Missing expected load")
             .that(expectedWindowIndices)
@@ -343,7 +342,7 @@ public class MediaSourceTestRunner {
     Timeline.Period period = new Timeline.Period();
     Timeline timeline = checkNotNull(this.timeline);
     HashSet<MediaPeriodId> expectedLoads = new HashSet<>(Arrays.asList(mediaPeriodIds));
-    for (Pair<Integer, @NullableType MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
+    for (Pair<Integer, @Nullable MediaPeriodId> windowIndexAndMediaPeriodId : completedLoads) {
       int windowIndex = windowIndexAndMediaPeriodId.first;
       MediaPeriodId mediaPeriodId = windowIndexAndMediaPeriodId.second;
       if (mediaPeriodId != null && expectedLoads.remove(mediaPeriodId)) {

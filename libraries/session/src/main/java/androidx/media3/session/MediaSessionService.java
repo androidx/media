@@ -51,7 +51,6 @@ import androidx.lifecycle.LifecycleService;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -877,7 +876,7 @@ public abstract class MediaSessionService extends LifecycleService {
    * @return A future that completes when the notification has been updated.
    */
   @UnstableApi
-  public ListenableFuture<@NullableType Void> onUpdateNotificationAsync(
+  public ListenableFuture<@Nullable Void> onUpdateNotificationAsync(
       MediaSession session, boolean startInForegroundRequired) {
     onUpdateNotification(session, startInForegroundRequired);
     return defaultMethodCalled

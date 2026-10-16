@@ -17,12 +17,12 @@ package androidx.media3.common.util;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import androidx.annotation.Nullable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link RunnableFuture} that supports additional uninterruptible operations to query whether
@@ -32,7 +32,7 @@ import java.util.concurrent.TimeoutException;
  * @param <E> The type of any {@link ExecutionException} cause.
  */
 @UnstableApi
-public abstract class RunnableFutureTask<R extends @NullableType Object, E extends Exception>
+public abstract class RunnableFutureTask<R extends @Nullable Object, E extends Exception>
     implements RunnableFuture<R> {
 
   private final ConditionVariable started;

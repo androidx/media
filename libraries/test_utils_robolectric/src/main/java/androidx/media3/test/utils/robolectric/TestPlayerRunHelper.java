@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -30,7 +29,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -49,6 +47,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper methods to block the calling thread until the provided {@link ExoPlayer} instance reaches
@@ -304,7 +303,7 @@ public final class TestPlayerRunHelper {
      *     created via {@link #withTimeoutMs(long)}.
      */
     public final Timeline untilTimelineChanges() throws PlaybackException, TimeoutException {
-      AtomicReference<@NullableType Timeline> receivedTimeline = new AtomicReference<>();
+      AtomicReference<@Nullable Timeline> receivedTimeline = new AtomicReference<>();
       Player.Listener listener =
           new Player.Listener() {
             @Override

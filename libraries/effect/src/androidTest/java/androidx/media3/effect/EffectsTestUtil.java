@@ -31,7 +31,6 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.text.SpannableString;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -39,7 +38,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TextureBitmapReader;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for effects tests. */
 /* package */ class EffectsTestUtil {
@@ -111,7 +110,7 @@ import java.util.function.Consumer;
     @Nullable DefaultVideoFrameProcessor defaultVideoFrameProcessor = null;
 
     try {
-      AtomicReference<@NullableType VideoFrameProcessingException>
+      AtomicReference<@Nullable VideoFrameProcessingException>
           videoFrameProcessingExceptionReference = new AtomicReference<>();
       BlankFrameProducer blankFrameProducer = new BlankFrameProducer(frameWidth, frameHeight);
       CountDownLatch videoFrameProcessorReadyCountDownLatch = new CountDownLatch(1);
@@ -204,11 +203,11 @@ import java.util.function.Consumer;
   }
 
   private static void checkNoVideoFrameProcessingExceptionIsThrown(
-      AtomicReference<@NullableType VideoFrameProcessingException>
+      AtomicReference<@Nullable VideoFrameProcessingException>
           videoFrameProcessingExceptionReference)
       throws Exception {
-    @Nullable
-    Exception videoFrameProcessingException = videoFrameProcessingExceptionReference.get();
+    @Nullable Exception videoFrameProcessingException =
+        videoFrameProcessingExceptionReference.get();
     if (videoFrameProcessingException != null) {
       throw videoFrameProcessingException;
     }

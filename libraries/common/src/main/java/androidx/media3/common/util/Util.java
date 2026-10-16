@@ -606,7 +606,7 @@ public final class Util {
    * @return True if the array contains an object equal to the item being searched for.
    */
   @UnstableApi
-  public static boolean contains(@NullableType Object[] items, @Nullable Object item) {
+  public static boolean contains(@Nullable Object[] items, @Nullable Object item) {
     for (Object arrayItem : items) {
       if (Objects.equals(arrayItem, item)) {
         return true;
@@ -686,7 +686,7 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull("#1")
-  public static <T> T[] castNonNullTypeArray(@NullableType T[] value) {
+  public static <T> T[] castNonNullTypeArray(@Nullable T[] value) {
     return value;
   }
 
@@ -730,7 +730,7 @@ public final class Util {
    */
   @UnstableApi
   public static <T> T[] nullSafeArrayAppend(T[] original, T newElement) {
-    @NullableType T[] result = Arrays.copyOf(original, original.length + 1);
+    @Nullable T[] result = Arrays.copyOf(original, original.length + 1);
     result[original.length] = newElement;
     return castNonNullTypeArray(result);
   }
@@ -946,7 +946,7 @@ public final class Util {
    * @return A {@link ListenableFuture} for the transformed result.
    */
   @UnstableApi
-  public static <T extends @NullableType Object, U extends @NullableType Object>
+  public static <T extends @Nullable Object, U extends @Nullable Object>
       ListenableFuture<T> transformFutureAsync(
           ListenableFuture<U> future, AsyncFunction<U, T> transformFunction) {
     // This is a simplified copy of Guava's Futures.transformAsync.

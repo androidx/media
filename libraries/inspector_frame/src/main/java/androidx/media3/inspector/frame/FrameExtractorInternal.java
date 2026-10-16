@@ -60,7 +60,6 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
@@ -198,8 +197,7 @@ import org.jspecify.annotations.Nullable;
   private final ExecutionSequencer executionSequencer;
   private final Handler playerHandler;
   private final AtomicBoolean extractedFrameNeedsRendering;
-  private final AtomicReference<
-          CallbackToFutureAdapter.@NullableType Completer<FrameExtractor.Frame>>
+  private final AtomicReference<CallbackToFutureAdapter.@Nullable Completer<FrameExtractor.Frame>>
       activeTaskCompleter;
 
   @Nullable private ExoPlayer player;
@@ -321,8 +319,8 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Gets the decoder counters from the player. */
-  /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
-    return CallbackToFutureAdapter.<@NullableType DecoderCounters>getFuture(
+  /* package */ ListenableFuture<@Nullable DecoderCounters> getDecoderCounters() {
+    return CallbackToFutureAdapter.<@Nullable DecoderCounters>getFuture(
         completer -> {
           ListenableFuture<Void> unused =
               executionSequencer.submit(

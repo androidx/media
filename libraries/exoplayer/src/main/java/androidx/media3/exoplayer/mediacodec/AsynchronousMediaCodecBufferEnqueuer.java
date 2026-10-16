@@ -28,7 +28,6 @@ import android.os.Message;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.CryptoInfo;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -55,7 +54,7 @@ import org.jspecify.annotations.Nullable;
   private final MediaCodec codec;
   private final HandlerThread handlerThread;
   private @MonotonicNonNull Handler handler;
-  private final AtomicReference<@NullableType RuntimeException> pendingRuntimeException;
+  private final AtomicReference<@Nullable RuntimeException> pendingRuntimeException;
   private final ConditionVariable conditionVariable;
   private boolean started;
 

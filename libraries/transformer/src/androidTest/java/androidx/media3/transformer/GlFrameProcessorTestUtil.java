@@ -18,14 +18,13 @@ package androidx.media3.transformer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.util.GlUtil.GlException;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.FrameProcessorUtils;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /** Utility class containing fakes for GlFrameProcessor testing. */
 @RequiresApi(26)
@@ -34,7 +33,7 @@ public final class GlFrameProcessorTestUtil {
   @Nullable
   public static Exception closeTestingGlResources(
       ExecutorService glExecutorService, GlObjectsProvider glObjectsProvider, long timeoutMs) {
-    AtomicReference<@NullableType Exception> releaseException = new AtomicReference<>();
+    AtomicReference<@Nullable Exception> releaseException = new AtomicReference<>();
     try {
       glExecutorService
           .submit(

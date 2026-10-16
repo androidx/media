@@ -54,7 +54,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.NetworkTypeObserver;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.FileDataSource;
@@ -575,8 +574,7 @@ public final class MediaMetricsListener
         builder.setAudioSampleRate(format.sampleRate);
       }
       if (format.language != null) {
-        Pair<String, @NullableType String> languageAndRegion =
-            getLanguageAndRegion(format.language);
+        Pair<String, @Nullable String> languageAndRegion = getLanguageAndRegion(format.language);
         builder.setLanguage(languageAndRegion.first);
         if (languageAndRegion.second != null) {
           builder.setLanguageRegion(languageAndRegion.second);
@@ -675,7 +673,7 @@ public final class MediaMetricsListener
     }
   }
 
-  private static Pair<String, @NullableType String> getLanguageAndRegion(String languageCode) {
+  private static Pair<String, @Nullable String> getLanguageAndRegion(String languageCode) {
     String[] parts = Util.split(languageCode, "-");
     return Pair.create(parts[0], parts.length >= 2 ? parts[1] : null);
   }

@@ -27,10 +27,8 @@ import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.TestServiceRegistry.OnDestroyListener;
@@ -40,6 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 
 /** A mock MediaSessionService */
 public class MockMediaSessionService extends MediaSessionService {
@@ -129,7 +128,7 @@ public class MockMediaSessionService extends MediaSessionService {
   }
 
   @Override
-  public ListenableFuture<@NullableType Void> onUpdateNotificationAsync(
+  public ListenableFuture<@Nullable Void> onUpdateNotificationAsync(
       MediaSession session, boolean startInForegroundRequired) {
     TestServiceRegistry registry = TestServiceRegistry.getInstance();
     OnUpdateMediaNotificationAsyncHandler onUpdateMediaNotificationAsyncHandler =

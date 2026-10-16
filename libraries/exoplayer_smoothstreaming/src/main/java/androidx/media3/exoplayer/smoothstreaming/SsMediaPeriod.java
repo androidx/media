@@ -18,12 +18,10 @@ package androidx.media3.exoplayer.smoothstreaming;
 import static androidx.media3.common.util.Util.nullSafeListToArray;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
@@ -49,6 +47,7 @@ import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A SmoothStreaming {@link MediaPeriod}. */
 /* package */ final class SsMediaPeriod
@@ -139,9 +138,9 @@ import java.util.List;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     ArrayList<ChunkSampleStream<SsChunkSource>> sampleStreamsList = new ArrayList<>();

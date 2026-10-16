@@ -20,9 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnknownNull;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -33,6 +31,7 @@ import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Composite {@link MediaSource} consisting of multiple child sources.
@@ -40,7 +39,7 @@ import java.util.Objects;
  * @param <T> The type of the id used to identify prepared child sources.
  */
 @UnstableApi
-public abstract class CompositeMediaSource<T extends @NullableType Object> extends BaseMediaSource {
+public abstract class CompositeMediaSource<T extends @Nullable Object> extends BaseMediaSource {
 
   private final HashMap<T, MediaSourceAndListener<T>> childSources;
 
@@ -206,7 +205,7 @@ public abstract class CompositeMediaSource<T extends @NullableType Object> exten
     return mediaTimeMs;
   }
 
-  private static final class MediaSourceAndListener<T extends @NullableType Object> {
+  private static final class MediaSourceAndListener<T extends @Nullable Object> {
 
     public final MediaSource mediaSource;
     public final MediaSourceCaller caller;

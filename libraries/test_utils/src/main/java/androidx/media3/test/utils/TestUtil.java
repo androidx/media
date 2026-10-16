@@ -35,7 +35,6 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.Parcel;
 import android.view.SurfaceView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -46,7 +45,6 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
@@ -103,6 +101,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.function.ThrowingRunnable;
 import org.mockito.Mockito;
 
@@ -865,7 +864,7 @@ public class TestUtil {
       }
       T delegate = mock(superType);
       F forwardingInstance = forwardingInstanceFactory.apply(delegate);
-      @NullableType Object[] parameters = new Object[method.getParameterCount()];
+      @Nullable Object[] parameters = new Object[method.getParameterCount()];
       for (int i = 0; i < method.getParameterCount(); i++) {
         parameters[i] = tryCreateMockInstance(method.getParameterTypes()[i]);
       }
@@ -884,8 +883,7 @@ public class TestUtil {
    * instead.
    */
   @SuppressWarnings("unchecked")
-  private static <T extends @NullableType Object> @Nullable T tryCreateMockInstance(
-      Class<T> clazz) {
+  private static <T extends @Nullable Object> @Nullable T tryCreateMockInstance(Class<T> clazz) {
     if (clazz.isPrimitive()) {
       // Get a default value of the right primitive type by creating a single-element array.
       return (T) Array.get(Array.newInstance(clazz, 1), 0);
@@ -911,7 +909,7 @@ public class TestUtil {
   // The nullness checker is deliberately over-conservative and doesn't permit passing a null
   // parameter to Constructor.newInstance(), even if the real constructor does accept null.
   @SuppressWarnings({"unchecked", "nullness:argument.type.incompatible"})
-  private static <T extends @NullableType Object> @Nullable T tryCreateInstance(Class<T> clazz) {
+  private static <T extends @Nullable Object> @Nullable T tryCreateInstance(Class<T> clazz) {
     Constructor<T>[] constructors = (Constructor<T>[]) clazz.getConstructors();
     // Start with the constructor with fewest parameters.
     Arrays.sort(constructors, Comparator.comparingInt(c -> c.getParameterTypes().length));
@@ -955,8 +953,8 @@ public class TestUtil {
     return null;
   }
 
-  private static @NullableType Object[] createParameters(Class<?>[] parameterTypes) {
-    @NullableType Object[] parameters = new Object[parameterTypes.length];
+  private static @Nullable Object[] createParameters(Class<?>[] parameterTypes) {
+    @Nullable Object[] parameters = new Object[parameterTypes.length];
     for (int i = 0; i < parameters.length; i++) {
       parameters[i] = tryCreateMockInstance(parameterTypes[i]);
     }

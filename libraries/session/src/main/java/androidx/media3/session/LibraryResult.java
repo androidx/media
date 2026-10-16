@@ -31,7 +31,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BundleCollectionUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
@@ -48,7 +47,7 @@ import org.jspecify.annotations.Nullable;
  * A result to be used with {@link ListenableFuture} for asynchronous calls between {@link
  * MediaLibraryService.MediaLibrarySession} and {@link MediaBrowser}.
  */
-public final class LibraryResult<V extends @NullableType Object> {
+public final class LibraryResult<V extends @Nullable Object> {
 
   /** Result codes. */
   @Documented
@@ -246,7 +245,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    * @param errorCode The error code.
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(@Code int errorCode) {
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(@Code int errorCode) {
     return ofError(new SessionError(errorCode, SessionError.DEFAULT_ERROR_MESSAGE, Bundle.EMPTY));
   }
 
@@ -263,7 +262,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    * @param params The optional parameters to describe the error.
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(
       @Code int errorCode, @Nullable LibraryParams params) {
     return new LibraryResult<>(
         /* resultCode= */ errorCode,
@@ -282,8 +281,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   @UnstableApi
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(
-      SessionError sessionError) {
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(SessionError sessionError) {
     return new LibraryResult<>(
         /* resultCode= */ sessionError.code,
         SystemClock.elapsedRealtime(),
@@ -303,7 +301,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   @UnstableApi
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(
       SessionError sessionError, LibraryParams params) {
     return new LibraryResult<>(
         /* resultCode= */ sessionError.code,

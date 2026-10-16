@@ -48,7 +48,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -92,10 +91,10 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   private static final Pattern REGEX_CRYPTO_INFO_PATTERN =
       Pattern.compile("pattern \\(encrypt: (\\d+), skip: (\\d+)\\)");
 
-  private final ArrayList<@NullableType TrackOutput> trackOutputs;
-  private final ArrayList<@NullableType Format> trackFormats;
-  private final ArrayList<@NullableType CryptoInfo> lastReceivedCryptoInfos;
-  private final ArrayList<@NullableType CryptoData> lastOutputCryptoDatas;
+  private final ArrayList<@Nullable TrackOutput> trackOutputs;
+  private final ArrayList<@Nullable Format> trackFormats;
+  private final ArrayList<@Nullable CryptoInfo> lastReceivedCryptoInfos;
+  private final ArrayList<@Nullable CryptoData> lastOutputCryptoDatas;
   private final DataReaderAdapter scratchDataReaderAdapter;
   private final boolean expectDummySeekMap;
   private final @C.TrackType int primaryTrackType;

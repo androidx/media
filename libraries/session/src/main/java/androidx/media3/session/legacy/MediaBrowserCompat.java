@@ -71,7 +71,6 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.session.legacy.MediaControllerCompat.TransportControls;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -672,7 +671,7 @@ public final class MediaBrowserCompat {
           List<MediaBrowserCompat.MediaItem> itemList =
               checkNotNull(MediaItem.fromMediaItemList(children));
           final List<SubscriptionCallback> callbacks = sub.getCallbacks();
-          final List<@NullableType Bundle> optionsList = sub.getOptionsList();
+          final List<@Nullable Bundle> optionsList = sub.getOptionsList();
           for (int i = 0; i < callbacks.size(); ++i) {
             Bundle options = optionsList.get(i);
             if (options == null) {
@@ -979,7 +978,7 @@ public final class MediaBrowserCompat {
           browserFwk.unsubscribe(parentId);
         } else {
           final List<SubscriptionCallback> callbacks = sub.getCallbacks();
-          final List<@NullableType Bundle> optionsList = sub.getOptionsList();
+          final List<@Nullable Bundle> optionsList = sub.getOptionsList();
           for (int i = callbacks.size() - 1; i >= 0; --i) {
             if (callbacks.get(i) == callback) {
               callbacks.remove(i);
@@ -998,7 +997,7 @@ public final class MediaBrowserCompat {
                 parentId, null, checkNotNull(callbacksMessenger));
           } else {
             final List<SubscriptionCallback> callbacks = sub.getCallbacks();
-            final List<@NullableType Bundle> optionsList = sub.getOptionsList();
+            final List<@Nullable Bundle> optionsList = sub.getOptionsList();
             for (int i = callbacks.size() - 1; i >= 0; --i) {
               if (callbacks.get(i) == callback) {
                 serviceBinderWrapper.removeSubscription(
@@ -1292,7 +1291,7 @@ public final class MediaBrowserCompat {
 
   private static class Subscription {
     private final List<SubscriptionCallback> callbacks;
-    private final List<@NullableType Bundle> optionsList;
+    private final List<@Nullable Bundle> optionsList;
 
     public Subscription() {
       callbacks = new ArrayList<>();
@@ -1303,7 +1302,7 @@ public final class MediaBrowserCompat {
       return callbacks.isEmpty();
     }
 
-    public List<@NullableType Bundle> getOptionsList() {
+    public List<@Nullable Bundle> getOptionsList() {
       return optionsList;
     }
 

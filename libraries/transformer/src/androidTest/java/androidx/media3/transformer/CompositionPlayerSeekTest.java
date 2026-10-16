@@ -48,7 +48,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
@@ -73,6 +72,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -892,7 +892,7 @@ public class CompositionPlayerSeekTest {
         ImmutableList.of(VIDEO_MEDIA_ITEM.editedMediaItem(), IMAGE_MEDIA_ITEM.editedMediaItem());
 
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
-    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+    AtomicReference<@Nullable PlaybackException> playbackException = new AtomicReference<>();
     AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
 
     getInstrumentation()
@@ -1497,7 +1497,7 @@ public class CompositionPlayerSeekTest {
         createInputTimestampRecordingShaderProgram(
             numberOfFramesBeforeSeeking, waitUntilNumberOfFramesOrError);
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
-    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+    AtomicReference<@Nullable PlaybackException> playbackException = new AtomicReference<>();
 
     List<EditedMediaItem> editedMediaItems = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {
@@ -1592,7 +1592,7 @@ public class CompositionPlayerSeekTest {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
-    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+    AtomicReference<@Nullable PlaybackException> playbackException = new AtomicReference<>();
 
     List<EditedMediaItem> editedMediaItems = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {

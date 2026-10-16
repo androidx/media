@@ -28,7 +28,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
@@ -315,9 +314,9 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     // Map each selection and stream onto a child period index.
@@ -342,8 +341,8 @@ import org.jspecify.annotations.Nullable;
     streamWrapperIndices.clear();
     // Select tracks for each child, copying the resulting streams back into a new streams array.
     SampleStream[] newStreams = new SampleStream[selections.length];
-    @NullableType SampleStream[] childStreams = new SampleStream[selections.length];
-    @NullableType ExoTrackSelection[] childSelections = new ExoTrackSelection[selections.length];
+    @Nullable SampleStream[] childStreams = new SampleStream[selections.length];
+    @Nullable ExoTrackSelection[] childSelections = new ExoTrackSelection[selections.length];
     int newEnabledSampleStreamWrapperCount = 0;
     HlsSampleStreamWrapper[] newEnabledSampleStreamWrappers =
         new HlsSampleStreamWrapper[sampleStreamWrappers.length];

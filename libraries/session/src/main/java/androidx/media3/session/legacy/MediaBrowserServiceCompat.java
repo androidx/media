@@ -76,7 +76,6 @@ import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
 import androidx.core.util.Pair;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import java.io.FileDescriptor;
@@ -357,10 +356,10 @@ public abstract class MediaBrowserServiceCompat extends Service {
     @SuppressWarnings("WeakerAccess") /* synthetic access */
     void notifyChildrenChangedForCompatOnHandler(
         ConnectionRecord connection, String parentId, @Nullable Bundle options) {
-      List<Pair<@NullableType IBinder, @NullableType Bundle>> callbackList =
+      List<Pair<@Nullable IBinder, @Nullable Bundle>> callbackList =
           connection.subscriptions.get(parentId);
       if (callbackList != null) {
-        for (Pair<@NullableType IBinder, @NullableType Bundle> callback : callbackList) {
+        for (Pair<@Nullable IBinder, @Nullable Bundle> callback : callbackList) {
           if (MediaBrowserCompatUtils.hasDuplicatedItems(options, callback.second)) {
             performLoadChildren(parentId, connection, callback.second, options);
           }
@@ -605,8 +604,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
     public final RemoteUserInfo browserInfo;
     @Nullable public final Bundle rootHints;
     @Nullable public final ServiceCallbacks callbacks;
-    public final HashMap<
-            @NullableType String, List<Pair<@NullableType IBinder, @NullableType Bundle>>>
+    public final HashMap<@Nullable String, List<Pair<@Nullable IBinder, @Nullable Bundle>>>
         subscriptions = new HashMap<>();
 
     ConnectionRecord(
@@ -1461,12 +1459,11 @@ public abstract class MediaBrowserServiceCompat extends Service {
       @Nullable IBinder token,
       @Nullable Bundle options) {
     // Save the subscription
-    List<Pair<@NullableType IBinder, @NullableType Bundle>> callbackList =
-        connection.subscriptions.get(id);
+    List<Pair<@Nullable IBinder, @Nullable Bundle>> callbackList = connection.subscriptions.get(id);
     if (callbackList == null) {
       callbackList = new ArrayList<>();
     }
-    for (Pair<@NullableType IBinder, @NullableType Bundle> callback : callbackList) {
+    for (Pair<@Nullable IBinder, @Nullable Bundle> callback : callbackList) {
       if (token == callback.first
           && MediaBrowserCompatUtils.areSameOptions(options, callback.second)) {
         return;
@@ -1490,10 +1487,10 @@ public abstract class MediaBrowserServiceCompat extends Service {
         return connection.subscriptions.remove(id) != null;
       }
       boolean removed = false;
-      List<Pair<@NullableType IBinder, @NullableType Bundle>> callbackList =
+      List<Pair<@Nullable IBinder, @Nullable Bundle>> callbackList =
           connection.subscriptions.get(id);
       if (callbackList != null) {
-        Iterator<Pair<@NullableType IBinder, @NullableType Bundle>> iter = callbackList.iterator();
+        Iterator<Pair<@Nullable IBinder, @Nullable Bundle>> iter = callbackList.iterator();
         while (iter.hasNext()) {
           if (token == iter.next().first) {
             removed = true;

@@ -31,7 +31,6 @@ import android.util.SparseBooleanArray;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.util.AtomicFile;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.database.DatabaseProvider;
@@ -91,7 +90,7 @@ import org.jspecify.annotations.Nullable;
    * <p>When the index is next stored (id -> null) entries are removed, making the ids eligible for
    * reuse.
    */
-  private final SparseArray<@NullableType String> idToKey;
+  private final SparseArray<@Nullable String> idToKey;
 
   /**
    * Tracks ids for which (id -> null) entries are present in idToKey, so that they can be removed
@@ -350,7 +349,7 @@ import org.jspecify.annotations.Nullable;
    * returns the smallest unused non-negative integer.
    */
   @VisibleForTesting
-  /* package */ static int getNewId(SparseArray<@NullableType String> idToKey) {
+  /* package */ static int getNewId(SparseArray<@Nullable String> idToKey) {
     int size = idToKey.size();
     int id = size == 0 ? 0 : (idToKey.keyAt(size - 1) + 1);
     if (id < 0) { // In case if we pass max int value.
@@ -448,7 +447,7 @@ import org.jspecify.annotations.Nullable;
      * @param idToKey The id to key map to populate with persisted data.
      * @throws IOException If an error occurs loading the index.
      */
-    void load(HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey)
+    void load(HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey)
         throws IOException;
 
     /**
@@ -542,7 +541,7 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     public void load(
-        HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey) {
+        HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey) {
       checkState(!changed);
       if (!readFile(content, idToKey)) {
         content.clear();
@@ -576,7 +575,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     private boolean readFile(
-        HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey) {
+        HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey) {
       if (!atomicFile.exists()) {
         return true;
       }
@@ -757,7 +756,7 @@ import org.jspecify.annotations.Nullable;
             + " BLOB NOT NULL)";
 
     private final DatabaseProvider databaseProvider;
-    private final SparseArray<@NullableType CachedContent> pendingUpdates;
+    private final SparseArray<@Nullable CachedContent> pendingUpdates;
 
     private @MonotonicNonNull String hexUid;
     private @MonotonicNonNull String tableName;
@@ -798,8 +797,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    public void load(
-        HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey)
+    public void load(HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey)
         throws IOException {
       checkState(pendingUpdates.size() == 0);
       try {

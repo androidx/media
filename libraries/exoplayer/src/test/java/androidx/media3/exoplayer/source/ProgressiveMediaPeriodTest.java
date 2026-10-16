@@ -25,7 +25,6 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
@@ -33,7 +32,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4TrackReferenceData;
@@ -83,6 +81,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
@@ -178,8 +177,8 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(trackGroups.get(0).type).isEqualTo(C.TRACK_TYPE_VIDEO);
     assertThat(trackGroups.get(1).type).isEqualTo(C.TRACK_TYPE_AUDIO);
     assertThat(trackGroups.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[1] =
         new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
@@ -229,8 +228,8 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(trackGroups.get(0).type).isEqualTo(C.TRACK_TYPE_VIDEO);
     assertThat(trackGroups.get(1).type).isEqualTo(C.TRACK_TYPE_AUDIO);
     assertThat(trackGroups.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -281,8 +280,8 @@ public final class ProgressiveMediaPeriodTest {
             new DefaultLoadErrorHandlingPolicy());
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -374,8 +373,8 @@ public final class ProgressiveMediaPeriodTest {
             new DefaultLoadErrorHandlingPolicy());
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -580,8 +579,8 @@ public final class ProgressiveMediaPeriodTest {
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -676,8 +675,8 @@ public final class ProgressiveMediaPeriodTest {
             dataSource,
             new DefaultLoadErrorHandlingPolicy());
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[1] =
         new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
@@ -838,8 +837,8 @@ public final class ProgressiveMediaPeriodTest {
             /* executorReleased= */ null);
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
 
     // 1. Initially select only the audio track (track 0).
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
@@ -883,8 +882,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_edit_list.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
     selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
 
@@ -964,8 +963,8 @@ public final class ProgressiveMediaPeriodTest {
             /* executor= */ null,
             /* executorReleased= */ null);
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
 
     long unused =
@@ -1061,8 +1060,8 @@ public final class ProgressiveMediaPeriodTest {
             /* executor= */ null,
             /* executorReleased= */ null);
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     // Select the second video track (track index 1, MP4 track ID 2).
     selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
 
@@ -1099,8 +1098,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     // Select video track (track 0).
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
     long unused =
@@ -1120,8 +1119,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     // Select audio track (track 1), which has AAC sync samples.
     selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
     long unused =
@@ -1185,8 +1184,8 @@ public final class ProgressiveMediaPeriodTest {
             /* executorReleased= */ null);
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
     long unused =
         mediaPeriod.selectTracks(
@@ -1259,8 +1258,8 @@ public final class ProgressiveMediaPeriodTest {
             /* executorReleased= */ null);
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
     long unused =
         mediaPeriod.selectTracks(
@@ -1326,8 +1325,8 @@ public final class ProgressiveMediaPeriodTest {
             /* executorReleased= */ null);
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
     long unused =
         mediaPeriod.selectTracks(
@@ -1351,8 +1350,8 @@ public final class ProgressiveMediaPeriodTest {
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
     assertThat(trackGroups.length).isEqualTo(2);
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -1414,8 +1413,8 @@ public final class ProgressiveMediaPeriodTest {
   /** Selects only the track at {@code trackIndex} from position zero, discarding the streams. */
   private static void selectOnlyTrack(ProgressiveMediaPeriod mediaPeriod, int trackIndex) {
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     selections[trackIndex] =
         new FakeTrackSelection(trackGroups.get(trackIndex), /* selectedIndex= */ 0);
     long unused =
@@ -1629,8 +1628,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -1673,8 +1672,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -1719,8 +1718,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
 
     // Set end position when prepared but enabledTrackCount == 0.
@@ -1773,8 +1772,8 @@ public final class ProgressiveMediaPeriodTest {
             new DefaultLoadErrorHandlingPolicy());
 
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -1844,8 +1843,8 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(trackGroups.get(1).type).isEqualTo(C.TRACK_TYPE_AUDIO);
     assertThat(trackGroups.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
 
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     // Select ONLY the text track (index 2).
     selections[2] =
@@ -1897,8 +1896,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -1943,8 +1942,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2003,8 +2002,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2101,8 +2100,8 @@ public final class ProgressiveMediaPeriodTest {
               }
             });
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2167,8 +2166,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2227,8 +2226,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2275,8 +2274,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2337,8 +2336,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2392,8 +2391,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2452,8 +2451,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[1] =
         new FakeTrackSelection(trackGroups.get(1), new int[] {0}, /* selectedIndex= */ 0);
@@ -2509,8 +2508,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
@@ -2571,8 +2570,8 @@ public final class ProgressiveMediaPeriodTest {
               }
             });
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
-    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
     selections[0] =
         new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);

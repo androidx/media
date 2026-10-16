@@ -27,7 +27,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -568,7 +567,7 @@ import org.jspecify.annotations.Nullable;
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData,
         int retryCount) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -588,7 +587,7 @@ import org.jspecify.annotations.Nullable;
         MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -604,7 +603,7 @@ import org.jspecify.annotations.Nullable;
         MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -622,7 +621,7 @@ import org.jspecify.annotations.Nullable;
         MediaLoadData mediaLoadData,
         IOException error,
         boolean wasCanceled) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -642,7 +641,7 @@ import org.jspecify.annotations.Nullable;
         int windowIndex,
         MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         MediaLoadData mediaLoadData) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -657,7 +656,7 @@ import org.jspecify.annotations.Nullable;
         int windowIndex,
         MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         MediaLoadData mediaLoadData) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -674,7 +673,7 @@ import org.jspecify.annotations.Nullable;
         int windowIndex,
         MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         @DrmSession.State int state) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -689,7 +688,7 @@ import org.jspecify.annotations.Nullable;
         int windowIndex,
         MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         KeyRequestInfo keyRequestInfo) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -702,7 +701,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onDrmSessionManagerError(
         int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId, Exception error) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -715,7 +714,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onDrmKeysRestored(
         int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -726,7 +725,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onDrmKeysRemoved(
         int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -737,7 +736,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onDrmSessionReleased(
         int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
-      @Nullable Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -748,7 +747,7 @@ import org.jspecify.annotations.Nullable;
 
     /** Updates the event parameters and returns whether the event should be dispatched. */
     @Nullable
-    private Pair<Integer, MediaSource.@NullableType MediaPeriodId> getEventParameters(
+    private Pair<Integer, MediaSource.@Nullable MediaPeriodId> getEventParameters(
         int childWindowIndex, MediaSource.@Nullable MediaPeriodId childMediaPeriodId) {
       MediaSource.@Nullable MediaPeriodId mediaPeriodId = null;
       if (childMediaPeriodId != null) {

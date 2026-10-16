@@ -35,7 +35,6 @@ import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
@@ -571,7 +570,7 @@ public class DashManifestParser extends DefaultHandler
         }
         baseUrls.addAll(parseBaseUrl(xpp, parentBaseUrls, dvbProfileDeclared));
       } else if (XmlPullParserUtil.isStartTag(xpp, "ContentProtection")) {
-        Pair<@NullableType String, @NullableType SchemeData> contentProtection =
+        Pair<@Nullable String, @Nullable SchemeData> contentProtection =
             parseContentProtection(xpp);
         if (contentProtection.first != null) {
           drmSchemeType = contentProtection.first;
@@ -774,8 +773,8 @@ public class DashManifestParser extends DefaultHandler
    * @return The scheme type and/or {@link SchemeData} parsed from the ContentProtection element.
    *     Either or both may be null, depending on the ContentProtection element being parsed.
    */
-  protected Pair<@NullableType String, @NullableType SchemeData> parseContentProtection(
-      XmlPullParser xpp) throws XmlPullParserException, IOException {
+  protected Pair<@Nullable String, @Nullable SchemeData> parseContentProtection(XmlPullParser xpp)
+      throws XmlPullParserException, IOException {
     @Nullable String schemeType = null;
     @Nullable String licenseServerUrl = null;
     byte @Nullable [] data = null;
@@ -968,7 +967,7 @@ public class DashManifestParser extends DefaultHandler
                 segmentBaseAvailabilityTimeOffsetUs,
                 timeShiftBufferDepthMs);
       } else if (XmlPullParserUtil.isStartTag(xpp, "ContentProtection")) {
-        Pair<@NullableType String, @NullableType SchemeData> contentProtection =
+        Pair<@Nullable String, @Nullable SchemeData> contentProtection =
             parseContentProtection(xpp);
         if (contentProtection.first != null) {
           drmSchemeType = contentProtection.first;
@@ -1391,7 +1390,7 @@ public class DashManifestParser extends DefaultHandler
     do {
       xpp.next();
       if (XmlPullParserUtil.isStartTag(xpp, "Event")) {
-        Pair<Pair<Long, EventMessage>, @NullableType AlternativeMpdEvent> parsedEvent =
+        Pair<Pair<Long, EventMessage>, @Nullable AlternativeMpdEvent> parsedEvent =
             parseEventWithAlternativeMpdEvent(
                 xpp,
                 schemeIdUri,
@@ -1603,7 +1602,7 @@ public class DashManifestParser extends DefaultHandler
     return new EventMessage(schemeIdUri, value, durationMs, id, messageData);
   }
 
-  private Pair<Pair<Long, EventMessage>, @NullableType AlternativeMpdEvent>
+  private Pair<Pair<Long, EventMessage>, @Nullable AlternativeMpdEvent>
       parseEventWithAlternativeMpdEvent(
           XmlPullParser xpp,
           String schemeIdUri,

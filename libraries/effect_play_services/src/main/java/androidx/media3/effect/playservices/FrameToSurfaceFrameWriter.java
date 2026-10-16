@@ -23,11 +23,9 @@ import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageWriter;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
@@ -38,6 +36,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link FrameWriter} that receives input frames from upstream and feeds them into a downstream
@@ -100,7 +99,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // calls onFrameReleased when an output frame has been consumed or setOutputSurface when ready)
   // without locking.
   private final AtomicInteger inFlightCount;
-  private final AtomicReference<@NullableType WakeupListenerHolder> pendingWakeup;
+  private final AtomicReference<@Nullable WakeupListenerHolder> pendingWakeup;
   private final MonotonicTimestampGenerator timestampGenerator;
 
   private volatile @MonotonicNonNull ImageWriter imageWriter;

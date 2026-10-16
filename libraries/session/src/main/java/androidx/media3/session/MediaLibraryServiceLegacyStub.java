@@ -33,13 +33,11 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaSession.ControllerCb;
@@ -61,6 +59,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implementation of {@link MediaBrowserServiceCompat} for interoperability between {@link
@@ -87,7 +86,7 @@ import java.util.concurrent.atomic.AtomicReference;
       return null;
     }
 
-    AtomicReference<@NullableType BrowserRoot> rootReference = new AtomicReference<>();
+    AtomicReference<@Nullable BrowserRoot> rootReference = new AtomicReference<>();
     ConditionVariable haveRoot = new ConditionVariable();
 
     RemoteUserInfo browserInfo = getCurrentBrowserInfo();
@@ -106,10 +105,10 @@ import java.util.concurrent.atomic.AtomicReference;
   private void getRootOnHandler(
       RemoteUserInfo browserInfo,
       @Nullable Bundle rootHints,
-      AtomicReference<@NullableType BrowserRoot> rootReference,
+      AtomicReference<@Nullable BrowserRoot> rootReference,
       ConditionVariable haveRoot) {
-    @Nullable
-    ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+    @Nullable ControllerInfo controller =
+        getConnectedControllersManager().getController(browserInfo);
     if (controller == null) {
       haveRoot.open();
       return;
@@ -136,8 +135,7 @@ import java.util.concurrent.atomic.AtomicReference;
         }
       }
     }
-    @Nullable
-    LibraryParams params =
+    @Nullable LibraryParams params =
         LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), rootHints);
     ListenableFuture<LibraryResult<MediaItem>> future =
         librarySessionImpl.onGetLibraryRootOnHandler(controller, params);
@@ -150,8 +148,7 @@ import java.util.concurrent.atomic.AtomicReference;
           public void onSuccess(@Nullable LibraryResult<MediaItem> result) {
             // Running on arbitrary future callback.
             if (result != null && result.resultCode == RESULT_SUCCESS && result.value != null) {
-              @Nullable
-              Bundle extras =
+              @Nullable Bundle extras =
                   result.params != null
                       ? LegacyConversions.convertToRootHints(result.params)
                       : new Bundle();
@@ -197,8 +194,8 @@ import java.util.concurrent.atomic.AtomicReference;
     }
     postOrRunOnApplicationHandler(
         () -> {
-          @Nullable
-          ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+          @Nullable ControllerInfo controller =
+              getConnectedControllersManager().getController(browserInfo);
           if (controller == null) {
             return;
           }
@@ -207,8 +204,7 @@ import java.util.concurrent.atomic.AtomicReference;
                   controller, SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE)) {
             return;
           }
-          @Nullable
-          LibraryParams params =
+          @Nullable LibraryParams params =
               LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), option);
           ignoreFuture(librarySessionImpl.onSubscribeOnHandler(controller, id, params));
         });
@@ -224,8 +220,8 @@ import java.util.concurrent.atomic.AtomicReference;
     }
     postOrRunOnApplicationHandler(
         () -> {
-          @Nullable
-          ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+          @Nullable ControllerInfo controller =
+              getConnectedControllersManager().getController(browserInfo);
           if (controller == null) {
             return;
           }
@@ -258,8 +254,8 @@ import java.util.concurrent.atomic.AtomicReference;
     result.detach();
     postOrRunOnApplicationHandler(
         () -> {
-          @Nullable
-          ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+          @Nullable ControllerInfo controller =
+              getConnectedControllersManager().getController(browserInfo);
           if (controller == null) {
             result.sendResult(/* result= */ null);
             return;
@@ -284,10 +280,9 @@ import java.util.concurrent.atomic.AtomicReference;
                 ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
                     librarySessionImpl.onGetChildrenOnHandler(
                         controller, parentId, page, pageSize, params);
-                ListenableFuture<@NullableType List<MediaBrowserCompat.MediaItem>>
-                    browserItemsFuture =
-                        Util.transformFutureAsync(
-                            future, createMediaItemsToBrowserItemsAsyncFunction());
+                ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
+                    Util.transformFutureAsync(
+                        future, createMediaItemsToBrowserItemsAsyncFunction());
                 sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
                 return;
               }
@@ -302,7 +297,7 @@ import java.util.concurrent.atomic.AtomicReference;
           ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
               librarySessionImpl.onGetChildrenOnHandler(
                   controller, parentId, /* page= */ 0, /* pageSize= */ Integer.MAX_VALUE, params);
-          ListenableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
+          ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
               Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
           sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
         });
@@ -319,8 +314,8 @@ import java.util.concurrent.atomic.AtomicReference;
     result.detach();
     postOrRunOnApplicationHandler(
         () -> {
-          @Nullable
-          ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+          @Nullable ControllerInfo controller =
+              getConnectedControllersManager().getController(browserInfo);
           if (controller == null) {
             result.sendResult(/* result= */ null);
             return;
@@ -333,7 +328,7 @@ import java.util.concurrent.atomic.AtomicReference;
           }
           ListenableFuture<LibraryResult<MediaItem>> future =
               librarySessionImpl.onGetItemOnHandler(controller, itemId);
-          ListenableFuture<MediaBrowserCompat.@NullableType MediaItem> browserItemFuture =
+          ListenableFuture<MediaBrowserCompat.@Nullable MediaItem> browserItemFuture =
               Util.transformFutureAsync(future, createMediaItemToBrowserItemAsyncFunction());
           sendLibraryResultWithMediaItemWhenReady(result, browserItemFuture);
         });
@@ -351,8 +346,8 @@ import java.util.concurrent.atomic.AtomicReference;
     result.detach();
     postOrRunOnApplicationHandler(
         () -> {
-          @Nullable
-          ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+          @Nullable ControllerInfo controller =
+              getConnectedControllersManager().getController(browserInfo);
           if (controller == null) {
             result.sendResult(/* result= */ null);
             return;
@@ -368,8 +363,7 @@ import java.util.concurrent.atomic.AtomicReference;
           }
           BrowserLegacyCb cb = (BrowserLegacyCb) checkNotNull(controller.getControllerCb());
           cb.registerSearchRequest(controller, query, extras, result);
-          @Nullable
-          LibraryParams params =
+          @Nullable LibraryParams params =
               LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), extras);
           ignoreFuture(librarySessionImpl.onSearchOnHandler(controller, query, params));
           // Actual search result will be sent by notifySearchResultChanged().
@@ -382,8 +376,8 @@ import java.util.concurrent.atomic.AtomicReference;
     RemoteUserInfo browserInfo = getCurrentBrowserInfo();
     postOrRunOnApplicationHandler(
         () -> {
-          @Nullable
-          ControllerInfo controller = getConnectedControllersManager().getController(browserInfo);
+          @Nullable ControllerInfo controller =
+              getConnectedControllersManager().getController(browserInfo);
           if (controller == null) {
             result.sendError(/* extras= */ null);
             return;
@@ -433,7 +427,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
   private static void sendLibraryResultWithMediaItemWhenReady(
       Result<MediaBrowserCompat.MediaItem> result,
-      ListenableFuture<MediaBrowserCompat.@NullableType MediaItem> future) {
+      ListenableFuture<MediaBrowserCompat.@Nullable MediaItem> future) {
     future.addListener(
         () -> {
           try {
@@ -449,7 +443,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
   private static void sendLibraryResultWithMediaItemsWhenReady(
       Result<List<MediaBrowserCompat.MediaItem>> result,
-      ListenableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> future) {
+      ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> future) {
     future.addListener(
         () -> {
           try {
@@ -467,11 +461,11 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   private AsyncFunction<
-          LibraryResult<ImmutableList<MediaItem>>, @NullableType List<MediaBrowserCompat.MediaItem>>
+          LibraryResult<ImmutableList<MediaItem>>, @Nullable List<MediaBrowserCompat.MediaItem>>
       createMediaItemsToBrowserItemsAsyncFunction() {
     return result -> {
       checkNotNull(result, "LibraryResult must not be null");
-      SettableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> outputFuture =
+      SettableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> outputFuture =
           SettableFuture.create();
       if (result.resultCode != RESULT_SUCCESS || result.value == null) {
         outputFuture.set(null);
@@ -484,7 +478,7 @@ import java.util.concurrent.atomic.AtomicReference;
         return outputFuture;
       }
 
-      List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
+      List<@Nullable ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
       outputFuture.addListener(
           () -> {
             if (outputFuture.isCancelled()) {
@@ -521,9 +515,9 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   private void handleBitmapFuturesAllCompletedAndSetOutputFuture(
-      List<@NullableType ListenableFuture<Bitmap>> bitmapFutures,
+      List<@Nullable ListenableFuture<Bitmap>> bitmapFutures,
       List<MediaItem> mediaItems,
-      SettableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> outputFuture) {
+      SettableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> outputFuture) {
     List<MediaBrowserCompat.MediaItem> outputMediaItems = new ArrayList<>();
     for (int i = 0; i < bitmapFutures.size(); i++) {
       @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
@@ -540,7 +534,7 @@ import java.util.concurrent.atomic.AtomicReference;
     outputFuture.set(outputMediaItems);
   }
 
-  private static <T> void cancelAllFutures(List<@NullableType ListenableFuture<T>> futures) {
+  private static <T> void cancelAllFutures(List<@Nullable ListenableFuture<T>> futures) {
     for (int i = 0; i < futures.size(); i++) {
       if (futures.get(i) != null) {
         futures.get(i).cancel(/* mayInterruptIfRunning= */ false);
@@ -548,12 +542,11 @@ import java.util.concurrent.atomic.AtomicReference;
     }
   }
 
-  private AsyncFunction<LibraryResult<MediaItem>, MediaBrowserCompat.@NullableType MediaItem>
+  private AsyncFunction<LibraryResult<MediaItem>, MediaBrowserCompat.@Nullable MediaItem>
       createMediaItemToBrowserItemAsyncFunction() {
     return result -> {
       checkNotNull(result, "LibraryResult must not be null");
-      SettableFuture<MediaBrowserCompat.@NullableType MediaItem> outputFuture =
-          SettableFuture.create();
+      SettableFuture<MediaBrowserCompat.@Nullable MediaItem> outputFuture = SettableFuture.create();
       if (result.resultCode != RESULT_SUCCESS || result.value == null) {
         outputFuture.set(null);
         return outputFuture;
@@ -684,14 +677,13 @@ import java.util.concurrent.atomic.AtomicReference;
                 page = 0;
                 pageSize = Integer.MAX_VALUE;
               }
-              @Nullable
-              LibraryParams libraryParams =
+              @Nullable LibraryParams libraryParams =
                   LegacyConversions.convertToLibraryParams(
                       librarySessionImpl.getContext(), request.extras);
               ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
                   librarySessionImpl.onGetSearchResultOnHandler(
                       request.controller, request.query, page, pageSize, libraryParams);
-              ListenableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> mediaItemsFuture =
+              ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> mediaItemsFuture =
                   Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
               sendLibraryResultWithMediaItemsWhenReady(request.result, mediaItemsFuture);
             }

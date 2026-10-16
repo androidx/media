@@ -88,7 +88,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
@@ -475,7 +474,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void builder_buildCalledOnNonHandlerThread_throws() throws InterruptedException {
-    AtomicReference<@NullableType Exception> exception = new AtomicReference<>();
+    AtomicReference<@Nullable Exception> exception = new AtomicReference<>();
     ConditionVariable conditionVariable = new ConditionVariable();
 
     Thread thread =
@@ -500,7 +499,7 @@ public class CompositionPlayerTest {
   @Test
   public void instance_accessedByWrongThread_throws() throws InterruptedException {
     player = createTestCompositionPlayer();
-    AtomicReference<@NullableType RuntimeException> exception = new AtomicReference<>();
+    AtomicReference<@Nullable RuntimeException> exception = new AtomicReference<>();
     ConditionVariable conditionVariable = new ConditionVariable();
     HandlerThread handlerThread = new HandlerThread("test");
     handlerThread.start();

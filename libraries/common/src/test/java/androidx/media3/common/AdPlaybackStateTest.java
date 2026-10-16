@@ -1205,7 +1205,7 @@ public class AdPlaybackStateTest {
             .withAdId(/* adId= */ "0", /* index= */ 0)
             .withAdId(/* adId= */ "2", /* index= */ 2);
 
-    // Asserts that the missing @NullableType in fromBundle() isn't harmful.
+    // Asserts that the missing @Nullable in fromBundle() isn't harmful.
     assertThat(
             AdPlaybackState.AdGroup.fromBundle(
                     adGroup.toBundle(MediaLibraryInfo.INTERFACE_VERSION),

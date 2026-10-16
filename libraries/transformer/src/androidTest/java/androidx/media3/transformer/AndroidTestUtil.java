@@ -33,7 +33,6 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.os.Handler;
 import android.util.Rational;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -46,7 +45,6 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoGraph.Listener;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
@@ -90,6 +88,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.AssumptionViolatedException;
 
 /** Utilities for instrumentation tests. */
@@ -194,8 +193,7 @@ public final class AndroidTestUtil {
     public static void runAsyncTaskAndWait(ThrowingRunnable<?> task, int timeoutSeconds)
         throws TimeoutException, InterruptedException {
       CountDownLatch countDownLatch = new CountDownLatch(1);
-      AtomicReference<@NullableType Exception> unexpectedExceptionReference =
-          new AtomicReference<>();
+      AtomicReference<@Nullable Exception> unexpectedExceptionReference = new AtomicReference<>();
       InstrumentationRegistry.getInstrumentation()
           .runOnMainSync(
               () -> {

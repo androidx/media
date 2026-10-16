@@ -38,7 +38,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -67,6 +66,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -363,8 +363,8 @@ public class FrameExtractorTest {
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
       int initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
-      AtomicReference<@NullableType Frame> frameAtomicReference = new AtomicReference<>();
-      AtomicReference<@NullableType Throwable> throwableAtomicReference = new AtomicReference<>();
+      AtomicReference<@Nullable Frame> frameAtomicReference = new AtomicReference<>();
+      AtomicReference<@Nullable Throwable> throwableAtomicReference = new AtomicReference<>();
       ConditionVariable frameReady = new ConditionVariable();
 
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);

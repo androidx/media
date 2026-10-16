@@ -25,10 +25,8 @@ import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.DefaultImagePlanesFrame;
@@ -46,6 +44,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link FrameWriter} that saves rendered {@link Frame} instances as bitmaps.
@@ -78,7 +77,7 @@ import java.util.concurrent.atomic.AtomicReference;
   private final FrameWriter.Info info;
   private final long fenceTimeoutMs;
   private final FrameBackend frameBackend;
-  private final AtomicReference<@NullableType Thread> callingThread;
+  private final AtomicReference<@Nullable Thread> callingThread;
 
   private boolean hasCapacity;
   @Nullable private Runnable pendingWakeupListener;

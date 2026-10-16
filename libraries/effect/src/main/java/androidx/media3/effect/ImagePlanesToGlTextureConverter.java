@@ -29,7 +29,6 @@ import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RawRes;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -40,7 +39,6 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
@@ -57,6 +55,7 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Converts an {@link ImagePlanesFrame} to a {@link GlTextureFrame}.
@@ -287,7 +286,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private abstract class PlaneLayoutRenderer {
 
     /** The GL textures holding the uploaded planes of the current frame. */
-    /* package */ final @NullableType PlaneTexture[] planeTextures;
+    /* package */ final @Nullable PlaneTexture[] planeTextures;
 
     /**
      * The fraction of each plane texture's width that holds visible pixels (excluding row-stride

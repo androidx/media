@@ -18,12 +18,10 @@ package androidx.media3.exoplayer.source;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -36,6 +34,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Merges multiple {@link MediaPeriod}s. */
 /* package */ final class MergingMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
@@ -112,9 +111,9 @@ import java.util.List;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     // Map each selection and stream onto a child period index.
@@ -134,9 +133,9 @@ import java.util.List;
     }
     streamPeriodIndices.clear();
     // Select tracks for each child, copying the resulting streams back into a new streams array.
-    @NullableType SampleStream[] newStreams = new SampleStream[selections.length];
-    @NullableType SampleStream[] childStreams = new SampleStream[selections.length];
-    @NullableType ExoTrackSelection[] childSelections = new ExoTrackSelection[selections.length];
+    @Nullable SampleStream[] newStreams = new SampleStream[selections.length];
+    @Nullable SampleStream[] childStreams = new SampleStream[selections.length];
+    @Nullable ExoTrackSelection[] childSelections = new ExoTrackSelection[selections.length];
     ArrayList<MediaPeriod> enabledPeriodsList = new ArrayList<>(periods.length);
     for (int i = 0; i < periods.length; i++) {
       for (int j = 0; j < selections.length; j++) {

@@ -17,7 +17,6 @@ package androidx.media3.test.utils;
 
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.RendererCapabilities.AdaptiveSupport;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.test.core.app.ApplicationProvider;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link MappingTrackSelector} that returns {@link FakeTrackSelection}s. */
 @UnstableApi
@@ -61,7 +61,7 @@ public class FakeTrackSelector extends DefaultTrackSelector {
 
   @Override
   protected void selectAllTracks(
-      ExoTrackSelection.@NullableType Definition[] definitions,
+      ExoTrackSelection.@Nullable Definition[] definitions,
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
@@ -98,7 +98,7 @@ public class FakeTrackSelector extends DefaultTrackSelector {
 
     @Override
     public final ExoTrackSelection[] createTrackSelections(
-        ExoTrackSelection.@NullableType Definition[] definitions,
+        ExoTrackSelection.@Nullable Definition[] definitions,
         BandwidthMeter bandwidthMeter,
         MediaPeriodId mediaPeriodId,
         Timeline timeline) {

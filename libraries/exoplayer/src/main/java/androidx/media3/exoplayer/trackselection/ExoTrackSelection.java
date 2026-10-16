@@ -15,13 +15,11 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.chunk.Chunk;
@@ -29,6 +27,7 @@ import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link TrackSelection} that can change the individually selected track as a result of calling
@@ -95,9 +94,8 @@ public interface ExoTrackSelection extends TrackSelection {
      * @return The created selections. Must have the same length as {@code definitions} and may
      *     include null values.
      */
-    @NullableType
-    ExoTrackSelection[] createTrackSelections(
-        @NullableType Definition[] definitions,
+    @Nullable ExoTrackSelection[] createTrackSelections(
+        @Nullable Definition[] definitions,
         BandwidthMeter bandwidthMeter,
         MediaPeriodId mediaPeriodId,
         Timeline timeline);
@@ -137,8 +135,7 @@ public interface ExoTrackSelection extends TrackSelection {
   int getSelectionReason();
 
   /** Returns optional data associated with the current track selection. */
-  @Nullable
-  Object getSelectionData();
+  @Nullable Object getSelectionData();
 
   // Adaptation.
 

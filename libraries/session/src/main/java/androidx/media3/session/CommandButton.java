@@ -39,7 +39,6 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.TrackSelectionParameters;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -828,8 +827,8 @@ public final class CommandButton {
     public static final class Builder {
 
       private final SparseIntArray maxButtonsPerSlot;
-      private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
-      private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+      private final SparseArray<Player.@Nullable Commands> allowedPlayerCommandsPerSlot;
+      private final SparseArray<@Nullable SessionCommands> allowedSessionCommandsPerSlot;
       private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
       private boolean buildCalled;
 
@@ -930,8 +929,8 @@ public final class CommandButton {
     }
 
     private final SparseIntArray maxButtonsPerSlot;
-    private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
-    private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+    private final SparseArray<Player.@Nullable Commands> allowedPlayerCommandsPerSlot;
+    private final SparseArray<@Nullable SessionCommands> allowedSessionCommandsPerSlot;
     private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
 
     private DisplayConstraints(Builder builder) {

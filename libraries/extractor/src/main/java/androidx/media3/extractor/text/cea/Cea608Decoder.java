@@ -28,13 +28,11 @@ import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.Subtitle;
@@ -46,6 +44,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleDecoder} for CEA-608 (also known as "line 21 captions" and "EIA-608"). */
 @UnstableApi
@@ -710,7 +709,7 @@ public final class Cea608Decoder extends CeaDecoder {
     // preference, then middle alignment, then end alignment.
     @Cue.AnchorType int positionAnchor = Cue.ANCHOR_TYPE_END;
     int cueBuilderCount = cueBuilders.size();
-    List<@NullableType Cue> cueBuilderCues = new ArrayList<>(cueBuilderCount);
+    List<@Nullable Cue> cueBuilderCues = new ArrayList<>(cueBuilderCount);
     for (int i = 0; i < cueBuilderCount; i++) {
       @Nullable Cue cue = cueBuilders.get(i).build(/* forcedPositionAnchor= */ Cue.TYPE_UNSET);
       cueBuilderCues.add(cue);

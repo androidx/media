@@ -79,7 +79,6 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.Frame;
@@ -1628,8 +1627,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     boolean sequenceContainsVideo =
         composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
     SequenceRenderersFactory renderersFactory;
-    Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier =
-        () -> null;
+    Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier = () -> null;
     if (frameProcessor != null) {
       // TODO: b/449956936 - Support MediaCodec tone mapping with packet consumer.
       checkState(!requestMediaCodecToneMapping);
@@ -2330,7 +2328,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public final ExoPlayer player;
     public final SequenceRenderersFactory renderersFactory;
     public final CompositionTrackSelector trackSelector;
-    final Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+    final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
     final boolean shouldReleaseHardwareBufferFrameReader;
 
     private SequencePlayerHolder(
@@ -2340,7 +2338,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Clock clock,
         SequenceRenderersFactory renderersFactory,
         int inputIndex,
-        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
         boolean shouldReleaseHardwareBufferFrameReader) {
       trackSelector =
           new CompositionTrackSelector(

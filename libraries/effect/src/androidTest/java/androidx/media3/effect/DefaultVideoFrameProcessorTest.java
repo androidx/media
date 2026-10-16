@@ -25,7 +25,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -35,7 +34,6 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -50,6 +48,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -467,7 +466,7 @@ public class DefaultVideoFrameProcessorTest {
   public void registerInputStreamWithAutomaticFrameRegistration_succeeds() throws Exception {
     CountDownLatch inputStreamRegisteredCountDownLatch = new CountDownLatch(1);
     ConditionVariable outputFrameAvailableConditionVariable = new ConditionVariable();
-    AtomicReference<@NullableType Exception> error = new AtomicReference<>();
+    AtomicReference<@Nullable Exception> error = new AtomicReference<>();
     CountDownLatch endedCountDownLatch = new CountDownLatch(1);
     defaultVideoFrameProcessor =
         createDefaultVideoFrameProcessor(

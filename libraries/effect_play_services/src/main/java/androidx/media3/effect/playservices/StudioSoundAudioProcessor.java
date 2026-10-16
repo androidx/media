@@ -22,7 +22,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
@@ -32,7 +31,6 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.media.effect.studiosound.ProcessingResult;
@@ -61,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link AudioProcessor} implementation for audio source separation using the <a
@@ -161,10 +160,10 @@ public final class StudioSoundAudioProcessor extends BaseAudioProcessor {
 
   private final Client client;
 
-  private final AtomicReference<@NullableType List<ProcessingResult>> pendingResults;
+  private final AtomicReference<@Nullable List<ProcessingResult>> pendingResults;
   private final AtomicBoolean isSessionPending;
   private final AtomicInteger pendingStatusCode;
-  private final AtomicReference<@NullableType Thread> processingThread;
+  private final AtomicReference<@Nullable Thread> processingThread;
 
   private final ExecutorService internalExecutorService;
   private final CatchingExecutor catchingExecutor;
@@ -562,7 +561,7 @@ public final class StudioSoundAudioProcessor extends BaseAudioProcessor {
 
   private static final class CatchingExecutor implements Executor {
 
-    final AtomicReference<@NullableType Throwable> lastCaughtException;
+    final AtomicReference<@Nullable Throwable> lastCaughtException;
     private final Executor delegate;
 
     CatchingExecutor(Executor delegate) {

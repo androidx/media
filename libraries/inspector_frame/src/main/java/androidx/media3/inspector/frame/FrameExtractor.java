@@ -32,7 +32,6 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.Presentation;
@@ -354,7 +353,7 @@ public final class FrameExtractor implements AutoCloseable {
   }
 
   @VisibleForTesting
-  /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
+  /* package */ ListenableFuture<@Nullable DecoderCounters> getDecoderCounters() {
     return FrameExtractorInternal.getInstance().getDecoderCounters();
   }
 }

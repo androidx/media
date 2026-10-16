@@ -18,10 +18,8 @@ package androidx.media3.exoplayer.source.preload;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -31,6 +29,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} that has data preloaded before playback. */
 /* package */ final class PreloadMediaPeriod implements MediaPeriod {
@@ -108,9 +107,9 @@ import java.util.Objects;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     return selectTracksInternal(
@@ -118,9 +117,9 @@ import java.util.Objects;
   }
 
   private long selectTracksInternal(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     if (preloadTrackSelectionHolder == null) {
@@ -175,10 +174,10 @@ import java.util.Objects;
   }
 
   private static boolean maybeUpdatePreloadTrackSelectionHolderForReselection(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       PreloadTrackSelectionHolder preloadTrackSelectionHolder) {
-    @NullableType
-    ExoTrackSelection[] preloadSelections = checkNotNull(preloadTrackSelectionHolder).selections;
+    @Nullable ExoTrackSelection[] preloadSelections =
+        checkNotNull(preloadTrackSelectionHolder).selections;
     boolean needsReselection = false;
     for (int i = 0; i < selections.length; i++) {
       ExoTrackSelection selection = selections[i];
@@ -229,9 +228,8 @@ import java.util.Objects;
     return true;
   }
 
-  public long selectTracksForPreloading(
-      @NullableType ExoTrackSelection[] selections, long positionUs) {
-    @NullableType SampleStream[] preloadedSampleStreams = new SampleStream[selections.length];
+  public long selectTracksForPreloading(@Nullable ExoTrackSelection[] selections, long positionUs) {
+    @Nullable SampleStream[] preloadedSampleStreams = new SampleStream[selections.length];
     boolean[] preloadedStreamResetFlags = new boolean[selections.length];
     boolean[] mayRetainStreamFlags = new boolean[selections.length];
     long trackSelectionPositionUs =
@@ -313,16 +311,16 @@ import java.util.Objects;
   }
 
   private static class PreloadTrackSelectionHolder {
-    public final @NullableType ExoTrackSelection[] selections;
+    public final @Nullable ExoTrackSelection[] selections;
     public final boolean[] mayRetainStreamFlags;
-    public final @NullableType SampleStream[] streams;
+    public final @Nullable SampleStream[] streams;
     public final boolean[] streamResetFlags;
     public final long trackSelectionPositionUs;
 
     public PreloadTrackSelectionHolder(
-        @NullableType ExoTrackSelection[] selections,
+        @Nullable ExoTrackSelection[] selections,
         boolean[] mayRetainStreamFlags,
-        @NullableType SampleStream[] streams,
+        @Nullable SampleStream[] streams,
         boolean[] streamResetFlags,
         long trackSelectionPositionUs) {
       this.selections = selections;

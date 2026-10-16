@@ -39,7 +39,6 @@ import android.view.KeyEvent;
 import android.view.Surface;
 import android.view.WindowManager;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.annotation.VisibleForTesting;
@@ -64,7 +63,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -85,6 +83,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A session that allows a media app to expose its player functionality, information of the playlist
@@ -790,8 +789,7 @@ public class MediaSession {
           + "}";
     }
 
-    @Nullable
-    /* package */ ControllerCb getControllerCb() {
+    @Nullable /* package */ ControllerCb getControllerCb() {
       return controllerCb;
     }
 
@@ -2869,7 +2867,7 @@ public class MediaSession {
       BuilderT extends BuilderBase<SessionT, BuilderT, CallbackT>,
       CallbackT extends Callback> {
 
-    private static final AtomicReference<@NullableType ImmutableIntArray> bitmapSizesToAvoidApi29 =
+    private static final AtomicReference<@Nullable ImmutableIntArray> bitmapSizesToAvoidApi29 =
         new AtomicReference<>(/* initialValue= */ null);
 
     /* package */ final Context context;

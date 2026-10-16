@@ -129,7 +129,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
@@ -1944,9 +1943,9 @@ public final class ExoPlayerTest {
                 mediaSourceEventDispatcher) {
               @Override
               public long selectTracks(
-                  @NullableType ExoTrackSelection[] selections,
+                  @Nullable ExoTrackSelection[] selections,
                   boolean[] mayRetainStreamFlags,
-                  @NullableType SampleStream[] streams,
+                  @Nullable SampleStream[] streams,
                   boolean[] streamResetFlags,
                   long positionUs) {
                 long result =
@@ -1990,9 +1989,9 @@ public final class ExoPlayerTest {
                 mediaSourceEventDispatcher) {
               @Override
               public long selectTracks(
-                  @NullableType ExoTrackSelection[] selections,
+                  @Nullable ExoTrackSelection[] selections,
                   boolean[] mayRetainStreamFlags,
-                  @NullableType SampleStream[] streams,
+                  @Nullable SampleStream[] streams,
                   boolean[] streamResetFlags,
                   long positionUs) {
                 long result =
@@ -2056,7 +2055,7 @@ public final class ExoPlayerTest {
         new FakeTrackSelector() {
           @Override
           protected void selectAllTracks(
-              ExoTrackSelection.@NullableType Definition[] definitions,
+              ExoTrackSelection.@Nullable Definition[] definitions,
               MappedTrackInfo mappedTrackInfo,
               int[][][] rendererFormatSupports,
               int[] rendererMixedMimeTypeAdaptationSupports,
@@ -16921,9 +16920,9 @@ public final class ExoPlayerTest {
 
     @Override
     public long selectTracks(
-        @NullableType ExoTrackSelection[] selections,
+        @Nullable ExoTrackSelection[] selections,
         boolean[] mayRetainStreamFlags,
-        @NullableType SampleStream[] streams,
+        @Nullable SampleStream[] streams,
         boolean[] streamResetFlags,
         long positionUs) {
       exoTrackSelectionReferenceList.set(selections);

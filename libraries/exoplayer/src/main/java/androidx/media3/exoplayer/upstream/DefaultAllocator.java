@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Arrays;
@@ -38,7 +37,7 @@ public final class DefaultAllocator implements Allocator {
   private int targetBufferSize;
   private int allocatedCount;
   private int availableCount;
-  private @NullableType Allocation[] availableAllocations;
+  private @Nullable Allocation[] availableAllocations;
 
   /**
    * Constructs an instance without creating any {@link Allocation}s up front.

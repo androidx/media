@@ -22,11 +22,9 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import java.nio.ByteBuffer;
@@ -36,6 +34,7 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * GLSurfaceView implementing {@link VideoDecoderOutputBufferRenderer} for rendering {@link
@@ -147,8 +146,7 @@ public final class VideoDecoderGLSurfaceView extends GLSurfaceView
     private final int[] texLocations;
     private final int[] previousWidths;
     private final int[] previousStrides;
-    private final AtomicReference<@NullableType VideoDecoderOutputBuffer>
-        pendingOutputBufferReference;
+    private final AtomicReference<@Nullable VideoDecoderOutputBuffer> pendingOutputBufferReference;
 
     // Kept in field rather than a local variable in order not to get garbage collected before
     // glDrawArrays uses it.
@@ -204,8 +202,7 @@ public final class VideoDecoderGLSurfaceView extends GLSurfaceView
 
     @Override
     public void onDrawFrame(GL10 unused) {
-      @Nullable
-      VideoDecoderOutputBuffer pendingOutputBuffer =
+      @Nullable VideoDecoderOutputBuffer pendingOutputBuffer =
           pendingOutputBufferReference.getAndSet(/* newValue= */ null);
       if (pendingOutputBuffer == null && renderedOutputBuffer == null) {
         // There is no output buffer to render at the moment.
@@ -299,8 +296,7 @@ public final class VideoDecoderGLSurfaceView extends GLSurfaceView
     }
 
     public void setOutputBuffer(VideoDecoderOutputBuffer outputBuffer) {
-      @Nullable
-      VideoDecoderOutputBuffer oldPendingOutputBuffer =
+      @Nullable VideoDecoderOutputBuffer oldPendingOutputBuffer =
           pendingOutputBufferReference.getAndSet(outputBuffer);
       if (oldPendingOutputBuffer != null) {
         // The old pending output buffer will never be used for rendering, so release it now.

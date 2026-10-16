@@ -23,7 +23,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Player.RepeatMode;
@@ -31,7 +30,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -45,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Holds a queue of media periods, from the currently playing media period at the front to the
@@ -101,8 +100,8 @@ import java.util.Objects;
   private boolean shuffleModeEnabled;
   private PreloadConfiguration preloadConfiguration;
   @Nullable private MediaPeriodHolder playing;
-  private final @NullableType MediaPeriodHolder[] readingPeriods;
-  private final @NullableType MediaPeriodHolder[] prewarmingPeriods;
+  private final @Nullable MediaPeriodHolder[] readingPeriods;
+  private final @Nullable MediaPeriodHolder[] prewarmingPeriods;
   @Nullable private MediaPeriodHolder loading;
   @Nullable private MediaPeriodHolder preloading;
   private int length;
@@ -283,15 +282,14 @@ import java.util.Objects;
       if (windowSequenceNumber == C.INDEX_UNSET) {
         windowSequenceNumber = nextWindowSequenceNumber++;
       }
-      @Nullable
-      MediaPeriodInfo nextInfo =
+      @Nullable MediaPeriodInfo nextInfo =
           getMediaPeriodInfoForPeriodPosition(
               timeline,
               defaultPositionOfNextWindow.first,
               defaultPositionOfNextWindow.second,
               windowSequenceNumber);
-      @Nullable
-      MediaPeriodHolder nextMediaPeriodHolder = removePreloadedMediaPeriodHolder(nextInfo);
+      @Nullable MediaPeriodHolder nextMediaPeriodHolder =
+          removePreloadedMediaPeriodHolder(nextInfo);
       if (nextMediaPeriodHolder == null) {
         // The holder's renderer position offset may be different and is reset when enqueuing.
         long rendererPositionOffsetUs =
@@ -742,7 +740,7 @@ import java.util.Objects;
    * Returns whether any renderer has progressed beyond the duration of the specified media period.
    */
   private boolean hasAnyRendererReadBeyondDuration(
-      @NullableType MediaPeriodHolder[] rendererPeriods,
+      @Nullable MediaPeriodHolder[] rendererPeriods,
       long[] positionsUs,
       MediaPeriodHolder periodHolder,
       long durationInRendererTime) {
@@ -968,8 +966,7 @@ import java.util.Objects;
       period = period.getNext();
     }
     // TODO: Update analytics post to provide correct info on current reading period state
-    @Nullable
-    MediaPeriodId readingPeriodId =
+    @Nullable MediaPeriodId readingPeriodId =
         (readingPeriods.length == 0 || readingPeriods[0] == null)
             ? null
             : readingPeriods[0].info.id;
@@ -1204,8 +1201,7 @@ import java.util.Objects;
         // and start buffering from this point.
         liveStreamStartPositionProjectionUs = max(0, bufferedDurationUs);
       }
-      @Nullable
-      Pair<Object, Long> defaultPositionUs =
+      @Nullable Pair<Object, Long> defaultPositionUs =
           timeline.getPeriodPositionUs(
               window,
               period,
@@ -1230,8 +1226,7 @@ import java.util.Objects;
       }
     }
 
-    @Nullable
-    MediaPeriodId periodId =
+    @Nullable MediaPeriodId periodId =
         resolveMediaPeriodIdForAds(
             timeline, nextPeriodUid, startPositionUs, windowSequenceNumber, window, period);
     if (contentPositionUs != C.TIME_UNSET
@@ -1298,8 +1293,7 @@ import java.util.Objects;
             // position, project the start position forward as if transitioning to a new window.
             liveStreamStartPositionProjectionUs = max(0, bufferedDurationUs);
           }
-          @Nullable
-          Pair<Object, Long> defaultPositionUs =
+          @Nullable Pair<Object, Long> defaultPositionUs =
               timeline.getPeriodPositionUs(
                   window,
                   period,

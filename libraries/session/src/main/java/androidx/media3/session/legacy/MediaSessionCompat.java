@@ -56,7 +56,6 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.versionedparcelable.ParcelUtils;
 import androidx.versionedparcelable.VersionedParcelable;
@@ -2031,7 +2030,7 @@ public class MediaSessionCompat {
 
     private static class ExtraSession extends IMediaSession.Stub {
 
-      private final WeakReference<@NullableType MediaSessionImplBase> mediaSessionImplRef;
+      private final WeakReference<@Nullable MediaSessionImplBase> mediaSessionImplRef;
 
       ExtraSession(MediaSessionImplBase mediaSessionImpl) {
         mediaSessionImplRef = new WeakReference<>(mediaSessionImpl);

@@ -40,7 +40,6 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -1446,12 +1445,12 @@ public final class DownloadHelper {
     private static final class Factory implements ExoTrackSelection.Factory {
 
       @Override
-      public @NullableType ExoTrackSelection[] createTrackSelections(
-          @NullableType Definition[] definitions,
+      public @Nullable ExoTrackSelection[] createTrackSelections(
+          @Nullable Definition[] definitions,
           BandwidthMeter bandwidthMeter,
           MediaPeriodId mediaPeriodId,
           Timeline timeline) {
-        @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[definitions.length];
+        @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[definitions.length];
         for (int i = 0; i < definitions.length; i++) {
           selections[i] =
               definitions[i] == null

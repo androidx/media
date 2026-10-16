@@ -30,7 +30,6 @@ import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
@@ -163,7 +162,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   @Nullable private Timeline contentTimeline;
   @Nullable private Timeline activeTimeline;
   @Nullable private AdPlaybackState adPlaybackState;
-  private @NullableType AdMediaSourceHolder[][] adMediaSourceHolders;
+  private @Nullable AdMediaSourceHolder[][] adMediaSourceHolders;
 
   /**
    * Constructs a new source that inserts ads linearly with the content specified by {@code
@@ -483,10 +482,10 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     return insertionCount;
   }
 
-  private static @NullableType AdMediaSourceHolder[][] growAdMediaSourceHolderGrid(
-      @NullableType AdMediaSourceHolder[][] grid, int insertionCount) {
-    @NullableType
-    AdMediaSourceHolder[][] grownGrid = new AdMediaSourceHolder[grid.length + insertionCount][];
+  private static @Nullable AdMediaSourceHolder[][] growAdMediaSourceHolderGrid(
+      @Nullable AdMediaSourceHolder[][] grid, int insertionCount) {
+    @Nullable AdMediaSourceHolder[][] grownGrid =
+        new AdMediaSourceHolder[grid.length + insertionCount][];
     System.arraycopy(grid, 0, grownGrid, 0, grid.length);
     for (int i = grid.length; i < grownGrid.length; i++) {
       grownGrid[i] = new AdMediaSourceHolder[0];

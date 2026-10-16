@@ -25,14 +25,12 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.Pair;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -49,6 +47,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Base class for {@link TrackSelector}s that first establish a mapping between {@link TrackGroup}s
@@ -305,8 +304,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
       String firstSampleMimeType = null;
       for (int i = 0; i < trackIndices.length; i++) {
         int trackIndex = trackIndices[i];
-        @Nullable
-        String sampleMimeType =
+        @Nullable String sampleMimeType =
             rendererTrackGroups[rendererIndex].get(groupIndex).getFormat(trackIndex).sampleMimeType;
         if (handledTrackCount++ == 0) {
           firstSampleMimeType = sampleMimeType;
@@ -425,7 +423,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
             rendererFormatSupports,
             unmappedTrackGroupArray);
 
-    Pair<@NullableType RendererConfiguration[], @NullableType ExoTrackSelection[]> result =
+    Pair<@Nullable RendererConfiguration[], @Nullable ExoTrackSelection[]> result =
         selectTracks(
             mappedTrackInfo,
             rendererFormatSupports,
@@ -455,7 +453,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
    *     RendererCapabilities#getTrackType()} is {@link C#TRACK_TYPE_NONE}.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  protected abstract Pair<@NullableType RendererConfiguration[], @NullableType ExoTrackSelection[]>
+  protected abstract Pair<@Nullable RendererConfiguration[], @Nullable ExoTrackSelection[]>
       selectTracks(
           MappedTrackInfo mappedTrackInfo,
           @Capabilities int[][][] rendererFormatSupports,

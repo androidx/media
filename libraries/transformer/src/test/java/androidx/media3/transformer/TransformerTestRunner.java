@@ -19,11 +19,11 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.media3.common.util.NullableType;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import java.util.Objects;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /** Helper class to run a {@link Transformer} test. */
 public final class TransformerTestRunner {
@@ -61,7 +61,7 @@ public final class TransformerTestRunner {
   public static ExportResult runLooperWithListener(
       Transformer transformer, Runnable beforeLooperTaskListener)
       throws ExportException, TimeoutException {
-    AtomicReference<@NullableType ExportResult> exportResultRef = new AtomicReference<>();
+    AtomicReference<@Nullable ExportResult> exportResultRef = new AtomicReference<>();
 
     transformer.addListener(
         new Transformer.Listener() {

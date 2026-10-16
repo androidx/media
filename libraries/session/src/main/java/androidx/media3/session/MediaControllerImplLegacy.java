@@ -62,7 +62,6 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.LegacyConversions.ConversionException;
@@ -1456,7 +1455,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void addQueueItems(List<MediaItem> mediaItems, int startIndex) {
-    List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
+    List<@Nullable ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
     final AtomicInteger resultCount = new AtomicInteger(0);
     Runnable handleBitmapFuturesTask =
         () -> {
@@ -1482,7 +1481,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void handleBitmapFuturesAllCompletedAndAddQueueItems(
-      List<@NullableType ListenableFuture<Bitmap>> bitmapFutures,
+      List<@Nullable ListenableFuture<Bitmap>> bitmapFutures,
       List<MediaItem> mediaItems,
       int startIndex) {
     if (released
@@ -1525,7 +1524,7 @@ import org.jspecify.annotations.Nullable;
             getInstance().getTimeDiffMs(),
             hasPendingExtrasChange,
             context);
-    Pair<@NullableType Integer, @NullableType Integer> reasons =
+    Pair<@Nullable Integer, @Nullable Integer> reasons =
         calculateDiscontinuityAndTransitionReason(
             legacyPlayerInfo,
             controllerInfo,
@@ -2386,7 +2385,7 @@ import org.jspecify.annotations.Nullable;
    *
    * <p>The returned reasons may be null if they can't be determined.
    */
-  private static Pair<@NullableType Integer, @NullableType Integer>
+  private static Pair<@Nullable Integer, @Nullable Integer>
       calculateDiscontinuityAndTransitionReason(
           LegacyPlayerInfo oldLegacyPlayerInfo,
           ControllerInfo oldControllerInfo,
@@ -2455,7 +2454,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   private static List<QueueItem> convertToNonNullQueueItemList(
-      @Nullable List<@NullableType QueueItem> queue) {
+      @Nullable List<@Nullable QueueItem> queue) {
     return queue == null ? Collections.emptyList() : MediaUtils.removeNullElements(queue);
   }
 

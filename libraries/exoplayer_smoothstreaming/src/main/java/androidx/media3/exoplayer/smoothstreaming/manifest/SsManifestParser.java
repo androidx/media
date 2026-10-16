@@ -28,7 +28,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest.ProtectionElement;
@@ -105,7 +104,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
     private final String tag;
 
     @Nullable private final ElementParser parent;
-    private final List<Pair<String, @NullableType Object>> normalizedAttributes;
+    private final List<Pair<String, @Nullable Object>> normalizedAttributes;
 
     public ElementParser(@Nullable ElementParser parent, String baseUri, String tag) {
       this.parent = parent;

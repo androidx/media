@@ -35,7 +35,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -172,7 +171,7 @@ public final class BoxParser {
       @Nullable DrmInitData drmInitData,
       boolean ignoreEditLists,
       boolean isQuickTime,
-      Function<@NullableType Track, @NullableType Track> modifyTrackFunction,
+      Function<@Nullable Track, @Nullable Track> modifyTrackFunction,
       boolean omitTrackSampleTable)
       throws ParserException {
     List<TrackSampleTable> trackSampleTables = new ArrayList<>();
@@ -2988,14 +2987,14 @@ public final class BoxParser {
 
   /** Data parsed from an esds box. */
   private static final class EsdsData {
-    private final @NullableType String mimeType;
-    private final byte @NullableType [] initializationData;
+    private final @Nullable String mimeType;
+    private final byte @Nullable [] initializationData;
     private final long bitrate;
     private final long peakBitrate;
 
     public EsdsData(
-        @NullableType String mimeType,
-        byte @NullableType [] initializationData,
+        @Nullable String mimeType,
+        byte @Nullable [] initializationData,
         long bitrate,
         long peakBitrate) {
       this.mimeType = mimeType;

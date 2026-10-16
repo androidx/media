@@ -1933,12 +1933,12 @@ package androidx.media3.session {
   }
 
   public final class MediaBrowser extends androidx.media3.session.MediaController {
-    method public getChildren(_: String, @IntRange(from=0) _: int, @IntRange(from=1) _: int, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<com.google.common.collect.ImmutableList<androidx.media3.common.MediaItem>>>;
+    method public getChildren(_: String, @IntRange(from=0) _: int, @IntRange(from=1) _: int, _: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<com.google.common.collect.ImmutableList<androidx.media3.common.MediaItem>>>;
     method public getItem(_: String): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<androidx.media3.common.MediaItem>>;
-    method public getLibraryRoot(@Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<androidx.media3.common.MediaItem>>;
-    method public getSearchResult(_: String, @IntRange(from=0) _: int, @IntRange(from=1) _: int, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<com.google.common.collect.ImmutableList<androidx.media3.common.MediaItem>>>;
-    method public search(_: String, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<java.lang.Void>>;
-    method public subscribe(_: String, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<java.lang.Void>>;
+    method public getLibraryRoot(_: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<androidx.media3.common.MediaItem>>;
+    method public getSearchResult(_: String, @IntRange(from=0) _: int, @IntRange(from=1) _: int, _: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<com.google.common.collect.ImmutableList<androidx.media3.common.MediaItem>>>;
+    method public search(_: String, _: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<java.lang.Void>>;
+    method public subscribe(_: String, _: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<java.lang.Void>>;
     method public unsubscribe(_: String): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.LibraryResult<java.lang.Void>>;
   }
 
@@ -1951,8 +1951,8 @@ package androidx.media3.session {
   }
 
   public static interface MediaBrowser.Listener extends androidx.media3.session.MediaController.Listener {
-    method public default onChildrenChanged(_: androidx.media3.session.MediaBrowser, _: String, @IntRange(from=0) _: int, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): void;
-    method public default onSearchResultChanged(_: androidx.media3.session.MediaBrowser, _: String, @IntRange(from=0) _: int, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): void;
+    method public default onChildrenChanged(_: androidx.media3.session.MediaBrowser, _: String, @IntRange(from=0) _: int, _: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): void;
+    method public default onSearchResultChanged(_: androidx.media3.session.MediaBrowser, _: String, @IntRange(from=0) _: int, _: androidx.media3.session.MediaLibraryService.@Nullable LibraryParams): void;
   }
 
   public final class MediaConstants {
@@ -2163,10 +2163,10 @@ package androidx.media3.session {
     method public final broadcastCustomCommand(_: androidx.media3.session.SessionCommand, _: android.os.Bundle): void;
     method public static getBitmapDimensionLimit(_: android.content.Context): int;
     method public final getConnectedControllers(): java.util.List<androidx.media3.session.MediaSession.ControllerInfo>;
-    method @Nullable public final getControllerForCurrentRequest(): androidx.media3.session.MediaSession.ControllerInfo;
+    method public final getControllerForCurrentRequest(): androidx.media3.session.MediaSession.@Nullable ControllerInfo;
     method public final getId(): String;
     method public final getPlayer(): androidx.media3.common.Player;
-    method @Nullable public final getSessionActivity(): android.app.PendingIntent;
+    method public final getSessionActivity(): android.app.@Nullable PendingIntent;
     method public getSessionExtras(): android.os.Bundle;
     method public final getToken(): androidx.media3.session.SessionToken;
     method public final release(): void;

@@ -26,7 +26,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -251,8 +250,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     }
 
     @Override
-    public final @NullableType ExoTrackSelection[] createTrackSelections(
-        @NullableType Definition[] definitions,
+    public final @Nullable ExoTrackSelection[] createTrackSelections(
+        @Nullable Definition[] definitions,
         BandwidthMeter bandwidthMeter,
         MediaPeriodId mediaPeriodId,
         Timeline timeline) {
@@ -812,8 +811,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    *     with more than one selected track.
    */
   private static ImmutableList<ImmutableList<AdaptationCheckpoint>> getAdaptationCheckpoints(
-      @NullableType Definition[] definitions) {
-    List<ImmutableList.@NullableType Builder<AdaptationCheckpoint>> checkPointBuilders =
+      @Nullable Definition[] definitions) {
+    List<ImmutableList.@Nullable Builder<AdaptationCheckpoint>> checkPointBuilders =
         new ArrayList<>();
     for (int i = 0; i < definitions.length; i++) {
       if (definitions[i] != null && definitions[i].tracks.length > 1) {
@@ -857,7 +856,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   }
 
   /** Returns sorted track bitrates for all selected tracks. */
-  private static long[][] getSortedTrackBitrates(@NullableType Definition[] definitions) {
+  private static long[][] getSortedTrackBitrates(@Nullable Definition[] definitions) {
     long[][] trackBitrates = new long[definitions.length][];
     for (int i = 0; i < definitions.length; i++) {
       @Nullable Definition definition = definitions[i];
@@ -914,7 +913,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    * @param checkpointBitrates The bitrates of each track at this checkpoint.
    */
   private static void addCheckpoint(
-      List<ImmutableList.@NullableType Builder<AdaptationCheckpoint>> checkPointBuilders,
+      List<ImmutableList.@Nullable Builder<AdaptationCheckpoint>> checkPointBuilders,
       long[] checkpointBitrates) {
     // Total bitrate includes all fixed tracks.
     long totalBitrate = 0;

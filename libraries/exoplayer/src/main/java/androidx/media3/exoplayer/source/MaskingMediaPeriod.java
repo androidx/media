@@ -19,10 +19,8 @@ import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
@@ -32,6 +30,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Media period that defers calling {@link MediaSource#createPeriod(MediaPeriodId, Allocator, long)}
@@ -187,9 +186,9 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     if (preparePositionOverrideUs != C.TIME_UNSET && positionUs == preparePositionUs) {

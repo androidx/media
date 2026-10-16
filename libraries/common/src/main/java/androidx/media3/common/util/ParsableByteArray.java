@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Flags;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps a byte array, providing a set of methods for parsing data from it. Numerical values are
@@ -59,7 +59,7 @@ public final class ParsableByteArray {
           StandardCharsets.UTF_16LE);
 
   // TODO: b/147657250 - Remove once setShouldEnforceLimitOnLegacyMethods is removed.
-  private static final AtomicReference<@NullableType Boolean> shouldEnforceLimitOnLegacyMethods =
+  private static final AtomicReference<@Nullable Boolean> shouldEnforceLimitOnLegacyMethods =
       new AtomicReference<>();
 
   private byte[] data;

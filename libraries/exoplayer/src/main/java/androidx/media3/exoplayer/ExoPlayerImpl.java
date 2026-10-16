@@ -56,7 +56,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -91,7 +90,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.StuckPlayerDetector;
 import androidx.media3.common.util.StuckPlayerException;
@@ -140,6 +138,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.IntConsumer;
+import org.jspecify.annotations.Nullable;
 
 /** The default implementation of {@link ExoPlayer}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -166,7 +165,7 @@ import java.util.function.IntConsumer;
   private final Context applicationContext;
   private final Player wrappingPlayer;
   private final Renderer[] renderers;
-  private final @NullableType Renderer[] secondaryRenderers;
+  private final @Nullable Renderer[] secondaryRenderers;
   private final TrackSelector trackSelector;
   private final HandlerWrapper playbackInfoUpdateHandler;
   private final ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener;
@@ -1584,8 +1583,7 @@ import java.util.function.IntConsumer;
         Log.w(TAG, "Replacing existing SurfaceTextureListener.");
       }
       textureView.setSurfaceTextureListener(componentListener);
-      @Nullable
-      SurfaceTexture surfaceTexture =
+      @Nullable SurfaceTexture surfaceTexture =
           textureView.isAvailable() ? textureView.getSurfaceTexture() : null;
       if (surfaceTexture == null) {
         setVideoOutputInternal(/* videoOutput= */ null);
@@ -2104,8 +2102,8 @@ import java.util.function.IntConsumer;
   @Override
   public boolean isTunnelingEnabled() {
     verifyApplicationThread();
-    for (@Nullable
-    RendererConfiguration config : playbackInfo.trackSelectorResult.rendererConfigurations) {
+    for (@Nullable RendererConfiguration config :
+        playbackInfo.trackSelectorResult.rendererConfigurations) {
       if (config != null && config.tunneling) {
         return true;
       }
@@ -2966,8 +2964,7 @@ import java.util.function.IntConsumer;
           isCleared ? C.INDEX_UNSET : currentWindowIndexInternal,
           isCleared ? C.TIME_UNSET : contentPositionMs);
     }
-    @Nullable
-    Pair<Object, Long> oldPeriodPositionUs =
+    @Nullable Pair<Object, Long> oldPeriodPositionUs =
         oldTimeline.getPeriodPositionUs(
             window, period, currentWindowIndexInternal, Util.msToUs(contentPositionMs));
     Object periodUid = castNonNull(oldPeriodPositionUs).first;

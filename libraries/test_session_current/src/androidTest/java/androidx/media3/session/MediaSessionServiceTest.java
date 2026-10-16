@@ -47,7 +47,6 @@ import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.view.WindowManager;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -55,7 +54,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
@@ -88,6 +86,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -229,8 +228,7 @@ public class MediaSessionServiceTest {
       throws Exception {
     TestServiceRegistry testServiceRegistry = TestServiceRegistry.getInstance();
     AtomicReference<ControllerInfo> onGetSessionControllerInfo = new AtomicReference<>();
-    SettableFuture<@NullableType ControllerInfo> playCommandControllerInfo =
-        SettableFuture.create();
+    SettableFuture<@Nullable ControllerInfo> playCommandControllerInfo = SettableFuture.create();
     AtomicReference<MediaSession> session = new AtomicReference<>();
     testServiceRegistry.setOnGetSessionHandler(
         controllerInfo -> {

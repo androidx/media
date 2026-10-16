@@ -24,15 +24,14 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.os.Bundle;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class containing media specific {@link androidx.core.app.NotificationCompat.Style styles} that
@@ -113,7 +112,7 @@ public class MediaStyleNotificationHelper {
 
     /* package */ final MediaSession session;
 
-    /* package */ int @NullableType [] actionsToShowInCompact;
+    /* package */ int @Nullable [] actionsToShowInCompact;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
     /* package */ int remoteDeviceIconRes;
     @Nullable /* package */ PendingIntent remoteDeviceIntent;

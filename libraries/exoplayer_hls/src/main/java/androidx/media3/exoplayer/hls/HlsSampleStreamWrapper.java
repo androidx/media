@@ -37,7 +37,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.HttpDataSource;
@@ -363,9 +362,9 @@ import org.jspecify.annotations.Nullable;
    *     part of the track selection.
    */
   public boolean selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs,
       boolean forceReset) {
@@ -1407,7 +1406,7 @@ import org.jspecify.annotations.Nullable;
 
   // Internal methods.
 
-  private void updateSampleStreams(@NullableType SampleStream[] streams) {
+  private void updateSampleStreams(@Nullable SampleStream[] streams) {
     hlsSampleStreams.clear();
     for (@Nullable SampleStream stream : streams) {
       if (stream != null) {

@@ -26,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -397,9 +396,9 @@ public class ClippingMediaPeriodTest {
 
       @Override
       public long selectTracks(
-          @NullableType ExoTrackSelection[] selections,
+          @Nullable ExoTrackSelection[] selections,
           boolean[] mayRetainStreamFlags,
-          @NullableType SampleStream[] streams,
+          @Nullable SampleStream[] streams,
           boolean[] streamResetFlags,
           long positionUs) {
         return super.selectTracks(

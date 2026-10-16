@@ -19,12 +19,10 @@ import static androidx.media3.exoplayer.MediaPeriodQueue.areDurationsCompatible;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.source.EmptySampleStream;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -36,6 +34,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
 /* package */ final class MediaPeriodHolder {
@@ -51,7 +50,7 @@ import java.util.Arrays;
   /**
    * The sample streams for each renderer associated with this period. May contain null elements.
    */
-  public final @NullableType SampleStream[] sampleStreams;
+  public final @Nullable SampleStream[] sampleStreams;
 
   /** The target buffer duration to preload. */
   public final long targetPreloadBufferDurationUs;
@@ -452,7 +451,7 @@ import java.util.Arrays;
    * EmptySampleStream} that was associated with it.
    */
   private void disassociateNoSampleRenderersWithEmptySampleStream(
-      @NullableType SampleStream[] sampleStreams) {
+      @Nullable SampleStream[] sampleStreams) {
     for (int i = 0; i < rendererCapabilities.length; i++) {
       if (rendererCapabilities[i].getTrackType() == C.TRACK_TYPE_NONE) {
         sampleStreams[i] = null;
@@ -465,7 +464,7 @@ import java.util.Arrays;
    * an {@link EmptySampleStream}.
    */
   private void associateNoSampleRenderersWithEmptySampleStream(
-      @NullableType SampleStream[] sampleStreams) {
+      @Nullable SampleStream[] sampleStreams) {
     for (int i = 0; i < rendererCapabilities.length; i++) {
       if (rendererCapabilities[i].getTrackType() == C.TRACK_TYPE_NONE
           && trackSelectorResult.isRendererEnabled(i)) {

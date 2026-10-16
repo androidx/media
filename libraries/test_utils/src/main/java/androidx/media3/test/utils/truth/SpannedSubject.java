@@ -37,13 +37,11 @@ import android.text.style.TypefaceSpan;
 import android.text.style.UnderlineSpan;
 import androidx.annotation.CheckResult;
 import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
 import androidx.media3.common.text.VoiceSpan;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.truth.Fact;
 import com.google.common.truth.FailureMetadata;
@@ -54,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A Truth {@link Subject} for assertions on {@link Spanned} instances containing text styling. */
 @UnstableApi
@@ -686,7 +685,7 @@ public final class SpannedSubject extends Subject {
       return;
     }
 
-    @NullableType Object[] matchingSpans = actual.getSpans(start, end, spanClazz);
+    @Nullable Object[] matchingSpans = actual.getSpans(start, end, spanClazz);
     if (matchingSpans.length != 0) {
       failWithoutActual(
           simpleFact(
@@ -996,7 +995,7 @@ public final class SpannedSubject extends Subject {
     @Override
     public AndSpanFlags withFamily(String fontFamily) {
       List<Integer> matchingSpanFlags = new ArrayList<>();
-      List<@NullableType String> spanFontFamilies = new ArrayList<>();
+      List<@Nullable String> spanFontFamilies = new ArrayList<>();
 
       for (TypefaceSpan span : checkNotNull(actualSpans)) {
         spanFontFamilies.add(span.getFamily());
