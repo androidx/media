@@ -84,7 +84,7 @@ class WebGpuTranscodeQualityTest {
     val outputFile = tempFolder.newFile("output.mp4")
     val transformer =
       Transformer.Builder(context)
-        .setFrameProcessorFactory(WebGPUHardwareBufferEffectsPipeline.Factory(context))
+        .setFrameProcessorFactory(WebGPUHardwareBufferEffectsPipeline.Factory())
         .setVideoMimeType(MimeTypes.VIDEO_H264)
         .setEncoderFactory(ForceEncodeEncoderFactory(context))
         .build()

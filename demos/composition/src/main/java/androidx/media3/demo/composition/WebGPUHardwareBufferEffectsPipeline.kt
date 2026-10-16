@@ -15,7 +15,6 @@
  */
 package androidx.media3.demo.composition
 
-import android.content.Context
 import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.GuardedBy
 import androidx.annotation.RequiresApi
@@ -89,6 +88,7 @@ import androidx.webgpu.helper.toSyncFence
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -104,7 +104,6 @@ import kotlinx.coroutines.runBlocking
 @OptIn(ExperimentalWebGpuApi::class)
 class WebGPUHardwareBufferEffectsPipeline
 private constructor(
-  private val context: Context,
   private val webGpu: WebGpu,
   private val forwardSyncFences: Boolean,
   private val output: FrameWriter,
@@ -112,178 +111,145 @@ private constructor(
   private val listener: FrameProcessor.Listener,
 ) : FrameProcessor {
 
-  class Factory
-  @JvmOverloads
-  constructor(private val context: Context, private val forwardSyncFences: Boolean = true) :
-    FrameProcessor.Factory {
-    override fun create(
-      output: FrameWriter,
-      listenerExecutor: Executor,
-      listener: FrameProcessor.Listener,
-    ): FrameProcessor {
-      val webGpu = createDefaultWebGpu()
-      try {
-        return WebGPUHardwareBufferEffectsPipeline(
-          context,
-          webGpu,
-          forwardSyncFences,
-          output,
-          listenerExecutor,
-          listener,
-        )
-      } catch (t: Throwable) {
-        webGpu.close()
-        throw t
-      }
-    }
-  }
-
   private val device: GPUDevice = webGpu.device
 
   /** Coroutine scope bound to WebGPU thread, used for all internal operations. */
   private val pipelineScope = CoroutineScope(webGpu.dispatcher + Job())
 
-  /**
-   * Helper wrapper method to run asynchronous WebGPU tasks on the pipeline scope with centralized
-   * try/catch exception-handling logic.
-   */
-  private fun launchWithExceptionHandling(block: suspend () -> Unit) {
-    pipelineScope.launch {
-      try {
-        block()
-      } catch (t: Throwable) {
-        val exception =
-          t as? VideoFrameProcessingException
-            ?: VideoFrameProcessingException("Error occurred in WebGPU processing pipeline", t)
-
-        // Forward the exception to the media framework listener
-        listenerExecutor.execute { listener.onError(exception) }
-      }
-    }
-  }
-
   private val isReleased = AtomicBoolean(false)
 
   private val lock = Any()
+  private val pipeline: GPURenderPipeline
+  private val sampler: GPUSampler
+
   @GuardedBy("lock") private var needsWakeup = false
   @GuardedBy("lock") private var hasPendingTask = false
   private var endOfStreamSignaled = false
   private var targetFormat: Format? = null
 
-  private val pipeline: GPURenderPipeline
-  private val sampler: GPUSampler
-
   init {
-    val shaderModule =
-      device.createShaderModule(
-        GPUShaderModuleDescriptor(
-          shaderSourceWGSL =
-            GPUShaderSourceWGSL(
-              code =
-                """
-                struct VertexOutput {
-                    @builtin(position) position: vec4<f32>,
-                    @location(0) texCoord: vec2<f32>,
-                }
+    val (createdPipeline, createdSampler) =
+      runBlocking(webGpu.dispatcher) {
+        val renderPipeline =
+          device
+            .createShaderModule(
+              GPUShaderModuleDescriptor(
+                shaderSourceWGSL =
+                  GPUShaderSourceWGSL(
+                    code =
+                      """
+                      struct VertexOutput {
+                          @builtin(position) position: vec4<f32>,
+                          @location(0) texCoord: vec2<f32>,
+                      }
 
-                @vertex
-                fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
-                    var pos = array<vec2<f32>, 4>(
-                        vec2<f32>(-1.0,  1.0),
-                        vec2<f32>(-1.0, -1.0),
-                        vec2<f32>( 1.0,  1.0),
-                        vec2<f32>( 1.0, -1.0)
-                    );
-                    var tex = array<vec2<f32>, 4>(
-                        vec2<f32>(0.0, 0.0),
-                        vec2<f32>(0.0, 1.0),
-                        vec2<f32>(1.0, 0.0),
-                        vec2<f32>(1.0, 1.0)
-                    );
-                    var output: VertexOutput;
-                    output.position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
-                    output.texCoord = tex[vertexIndex];
-                    return output;
-                }
+                      @vertex
+                      fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
+                          var pos = array<vec2<f32>, 4>(
+                              vec2<f32>(-1.0,  1.0),
+                              vec2<f32>(-1.0, -1.0),
+                              vec2<f32>( 1.0,  1.0),
+                              vec2<f32>( 1.0, -1.0)
+                          );
+                          var tex = array<vec2<f32>, 4>(
+                              vec2<f32>(0.0, 0.0),
+                              vec2<f32>(0.0, 1.0),
+                              vec2<f32>(1.0, 0.0),
+                              vec2<f32>(1.0, 1.0)
+                          );
+                          var output: VertexOutput;
+                          output.position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+                          output.texCoord = tex[vertexIndex];
+                          return output;
+                      }
 
-                @group(0) @binding(0) var mySampler: sampler;
-                @group(0) @binding(1) var myTexture: texture_external;
+                      @group(0) @binding(0) var mySampler: sampler;
+                      @group(0) @binding(1) var myTexture: texture_external;
 
-                fn linearToBt709(c: vec3<f32>) -> vec3<f32> {
-                    return select(4.5 * c, 1.099 * pow(max(c, vec3<f32>(0.0)), vec3<f32>(0.45)) - 0.099, c >= vec3<f32>(0.018));
-                }
+                      fn linearToBt709(c: vec3<f32>) -> vec3<f32> {
+                          return select(4.5 * c, 1.099 * pow(max(c, vec3<f32>(0.0)), vec3<f32>(0.45)) - 0.099, c >= vec3<f32>(0.018));
+                      }
 
-                @fragment
-                fn fragmentMain(@location(0) texCoord: vec2<f32>) -> @location(0) vec4<f32> {
-                    let linearColor = textureSampleBaseClampToEdge(myTexture, mySampler, texCoord);
-                    return vec4<f32>(linearToBt709(linearColor.rgb), linearColor.a);
-                }
-                """
-                  .trimIndent()
-            )
-        )
-      )
-
-    val bindGroupLayout =
-      device.createBindGroupLayout(
-        GPUBindGroupLayoutDescriptor(
-          entries =
-            arrayOf(
-              GPUBindGroupLayoutEntry(
-                binding = 0,
-                visibility = ShaderStage.Fragment,
-                sampler = GPUSamplerBindingLayout(),
-              ),
-              GPUBindGroupLayoutEntry(
-                binding = 1,
-                visibility = ShaderStage.Fragment,
-                externalTextureBindingLayout = GPUExternalTextureBindingLayout(),
-              ),
-            )
-        )
-      )
-
-    val pipelineLayout =
-      device.createPipelineLayout(
-        GPUPipelineLayoutDescriptor(bindGroupLayouts = arrayOf(bindGroupLayout))
-      )
-
-    pipeline =
-      device.createRenderPipeline(
-        GPURenderPipelineDescriptor(
-          layout = pipelineLayout,
-          vertex = GPUVertexState(module = shaderModule, entryPoint = "vertexMain"),
-          fragment =
-            GPUFragmentState(
-              module = shaderModule,
-              entryPoint = "fragmentMain",
-              targets =
-                arrayOf(
-                  GPUColorTargetState(
-                    format = TextureFormat.RGBA8Unorm,
-                    blend =
-                      GPUBlendState(
-                        color =
-                          GPUBlendComponent(
-                            srcFactor = BlendFactor.SrcAlpha,
-                            dstFactor = BlendFactor.OneMinusSrcAlpha,
-                            operation = BlendOperation.Add,
-                          ),
-                        alpha =
-                          GPUBlendComponent(
-                            srcFactor = BlendFactor.One,
-                            dstFactor = BlendFactor.OneMinusSrcAlpha,
-                            operation = BlendOperation.Add,
-                          ),
-                      ),
+                      @fragment
+                      fn fragmentMain(@location(0) texCoord: vec2<f32>) -> @location(0) vec4<f32> {
+                          let linearColor = textureSampleBaseClampToEdge(myTexture, mySampler, texCoord);
+                          return vec4<f32>(linearToBt709(linearColor.rgb), linearColor.a);
+                      }
+                      """
+                        .trimIndent()
                   )
-                ),
-            ),
-          primitive = GPUPrimitiveState(topology = PrimitiveTopology.TriangleStrip),
-        )
-      )
-
-    sampler = device.createSampler()
+              )
+            )
+            .use { shaderModule ->
+              device
+                .createBindGroupLayout(
+                  GPUBindGroupLayoutDescriptor(
+                    entries =
+                      arrayOf(
+                        GPUBindGroupLayoutEntry(
+                          binding = 0,
+                          visibility = ShaderStage.Fragment,
+                          sampler = GPUSamplerBindingLayout(),
+                        ),
+                        GPUBindGroupLayoutEntry(
+                          binding = 1,
+                          visibility = ShaderStage.Fragment,
+                          externalTextureBindingLayout = GPUExternalTextureBindingLayout(),
+                        ),
+                      )
+                  )
+                )
+                .use { bindGroupLayout ->
+                  device
+                    .createPipelineLayout(
+                      GPUPipelineLayoutDescriptor(bindGroupLayouts = arrayOf(bindGroupLayout))
+                    )
+                    .use { pipelineLayout ->
+                      device.createRenderPipeline(
+                        GPURenderPipelineDescriptor(
+                          layout = pipelineLayout,
+                          vertex = GPUVertexState(module = shaderModule, entryPoint = "vertexMain"),
+                          fragment =
+                            GPUFragmentState(
+                              module = shaderModule,
+                              entryPoint = "fragmentMain",
+                              targets =
+                                arrayOf(
+                                  GPUColorTargetState(
+                                    format = TextureFormat.RGBA8Unorm,
+                                    blend =
+                                      GPUBlendState(
+                                        color =
+                                          GPUBlendComponent(
+                                            srcFactor = BlendFactor.SrcAlpha,
+                                            dstFactor = BlendFactor.OneMinusSrcAlpha,
+                                            operation = BlendOperation.Add,
+                                          ),
+                                        alpha =
+                                          GPUBlendComponent(
+                                            srcFactor = BlendFactor.One,
+                                            dstFactor = BlendFactor.OneMinusSrcAlpha,
+                                            operation = BlendOperation.Add,
+                                          ),
+                                      ),
+                                  )
+                                ),
+                            ),
+                          primitive = GPUPrimitiveState(topology = PrimitiveTopology.TriangleStrip),
+                        )
+                      )
+                    }
+                }
+            }
+        try {
+          Pair(renderPipeline, device.createSampler())
+        } catch (t: Throwable) {
+          renderPipeline.close()
+          throw t
+        }
+      }
+    pipeline = createdPipeline
+    sampler = createdSampler
     val unused = pipelineScope.launch { webGpu.processEventsLoop() }
   }
 
@@ -323,6 +289,40 @@ private constructor(
     }
   }
 
+  override fun close() {
+    if (!isReleased.getAndSet(true)) {
+      // Cancel the manually managed scope when the class's lifecycle ends
+      pipelineScope.cancel()
+
+      runBlocking(webGpu.dispatcher) {
+        sampler.close()
+        pipeline.close()
+        webGpu.close()
+      }
+    }
+  }
+
+  /**
+   * Helper wrapper method to run asynchronous WebGPU tasks on the pipeline scope with centralized
+   * try/catch exception-handling logic.
+   */
+  private fun launchWithExceptionHandling(block: suspend () -> Unit) {
+    pipelineScope.launch {
+      try {
+        block()
+      } catch (e: CancellationException) {
+        throw e
+      } catch (t: Throwable) {
+        val exception =
+          t as? VideoFrameProcessingException
+            ?: VideoFrameProcessingException("Error occurred in WebGPU processing pipeline", t)
+
+        // Forward the exception to the media framework listener
+        listenerExecutor.execute { listener.onError(exception) }
+      }
+    }
+  }
+
   /** Processes the input frames and queues them downstream. */
   private suspend fun queueInternal(inputFrames: List<AsyncFrame>): Unit = webGpu.execute {
     // Step 1: Check format support and configure the output.
@@ -330,13 +330,14 @@ private constructor(
     if (targetFormat == null) {
       val inputFormat = inputFrames.first().frame.format
       // HDR support is not yet implemented.
-      targetFormat =
+      val configuredFormat =
         Format.Builder()
           .setWidth(inputFormat.width)
           .setHeight(inputFormat.height)
           .setColorInfo(SDR_BT709_LIMITED)
           .build()
-      output.configure(targetFormat!!, USAGE)
+      targetFormat = configuredFormat
+      output.configure(configuredFormat, USAGE)
     }
 
     // Step 2: Attempt to dequeue output frame.
@@ -409,7 +410,7 @@ private constructor(
     val outputFrame = outputAsyncFrame.frame as HardwareBufferFrame
     val outputAhb = checkNotNull(outputFrame.hardwareBuffer)
     Log.d(
-      "WebGPUPipeline",
+      TAG,
       "Processing ${inputAsyncFrames.size} frames. Output: ${outputAhb.width}x${outputAhb.height} format=${outputAhb.format} (0x${outputAhb.format.toString(16)}) usage=0x${outputAhb.usage.toString(16)}",
     )
     val outputWrapper =
@@ -419,24 +420,26 @@ private constructor(
         TextureUsage.RenderAttachment or TextureUsage.CopySrc,
       )
     val inputWrappers = mutableListOf<GPUHardwareBufferExternalTexture>()
+    val activeInputWrappers = mutableListOf<GPUHardwareBufferExternalTexture>()
     var drawCompleteFence: SyncFenceWrapper? = null
     val readCompleteFences = mutableListOf<SyncFenceWrapper?>()
 
     var outputAccessBegun = false
-    val inputAccessBegun = BooleanArray(inputAsyncFrames.size) { false }
 
     try {
       // Wait on the output fence, to ensure it is ready to be written to.
-      val outputFences =
+      val outputFence =
         if (SDK_INT >= 33) {
-          outputAsyncFrame.acquireFence?.let {
-            arrayOf(GPUSyncFence.fromSyncFence(it.asSyncFence()))
-          }
+          outputAsyncFrame.acquireFence?.let { GPUSyncFence.fromSyncFence(it.asSyncFence()) }
         } else {
           null
         }
-      outputWrapper.beginAccess(outputFences)
-      outputAccessBegun = true
+      try {
+        outputWrapper.beginAccess(if (outputFence != null) arrayOf(outputFence) else null)
+        outputAccessBegun = true
+      } finally {
+        outputFence?.close()
+      }
 
       device.createCommandEncoder().use { commandEncoder ->
         outputWrapper.texture.createView().use { outputView ->
@@ -445,7 +448,7 @@ private constructor(
             val inputFrame = inputAsyncFrame.frame as HardwareBufferFrame
             val inputAhb = checkNotNull(inputFrame.hardwareBuffer)
             Log.d(
-              "WebGPUPipeline",
+              TAG,
               "Input frame $i: ${inputAhb.width}x${inputAhb.height} format=${inputAhb.format} (0x${inputAhb.format.toString(16)}) usage=0x${inputAhb.usage.toString(16)}",
             )
             val descriptor =
@@ -460,16 +463,18 @@ private constructor(
             inputWrappers.add(inputWrapper)
 
             // Wait on the input fences, to ensure the input frames are ready to be read from.
-            val inputFences =
+            val inputFence =
               if (SDK_INT >= 33) {
-                inputAsyncFrame.acquireFence?.let {
-                  arrayOf(GPUSyncFence.fromSyncFence(it.asSyncFence()))
-                }
+                inputAsyncFrame.acquireFence?.let { GPUSyncFence.fromSyncFence(it.asSyncFence()) }
               } else {
                 null
               }
-            inputWrapper.beginAccess(inputFences)
-            inputAccessBegun[i] = true
+            try {
+              inputWrapper.beginAccess(if (inputFence != null) arrayOf(inputFence) else null)
+              activeInputWrappers.add(inputWrapper)
+            } finally {
+              inputFence?.close()
+            }
 
             // Draw the input textures into the output texture.
             val renderPassDesc =
@@ -516,7 +521,7 @@ private constructor(
             }
           }
 
-          Log.d("WebGPUPipeline", "Submitting commands to queue")
+          Log.d(TAG, "Submitting commands to queue")
           val commandBuffer = commandEncoder.finish()
           try {
             device.queue.submit(arrayOf(commandBuffer))
@@ -526,42 +531,18 @@ private constructor(
         }
       }
 
-      Log.d("WebGPUPipeline", "GPU work done")
+      Log.d(TAG, "GPU work done")
 
-      val inputReleaseFences = inputWrappers.mapIndexed { i, wrapper ->
+      val inputReleaseFences = inputWrappers.map { wrapper ->
         val fences = wrapper.endAccess()
-        inputAccessBegun[i] = false
-        if (SDK_INT >= 33) {
-          fences.toSyncFence()?.let { syncFence ->
-            if (!forwardSyncFences) {
-              syncFence.awaitForever()
-              null
-            } else {
-              SyncFenceWrapper.of(syncFence)
-            }
-          }
-        } else {
-          null
-        }
+        activeInputWrappers.remove(wrapper)
+        resolveReleaseFence(fences)
       }
       readCompleteFences.addAll(inputReleaseFences)
 
       val outputReleaseFences = outputWrapper.endAccess()
       outputAccessBegun = false
-      val outputReleaseFence =
-        if (SDK_INT >= 33) {
-          outputReleaseFences.toSyncFence()?.let { syncFence ->
-            if (!forwardSyncFences) {
-              syncFence.awaitForever()
-              null
-            } else {
-              SyncFenceWrapper.of(syncFence)
-            }
-          }
-        } else {
-          null
-        }
-      drawCompleteFence = outputReleaseFence
+      drawCompleteFence = resolveReleaseFence(outputReleaseFences)
 
       return@execute ProcessedFrameResult(drawCompleteFence, readCompleteFences)
     } catch (e: Exception) {
@@ -573,22 +554,36 @@ private constructor(
         try {
           outputWrapper.endAccess()?.close()
         } catch (t: Throwable) {
-          Log.e("WebGPUPipeline", "Failed to end output access on error", t)
+          Log.e(TAG, "Failed to end output access on error", t)
         }
       }
-      for (i in inputWrappers.indices) {
-        if (i < inputAccessBegun.size && inputAccessBegun[i]) {
-          try {
-            inputWrappers[i].endAccess()?.close()
-          } catch (t: Throwable) {
-            Log.e("WebGPUPipeline", "Failed to end input $i access on error", t)
-          }
+      for (wrapper in activeInputWrappers) {
+        try {
+          wrapper.endAccess()?.close()
+        } catch (t: Throwable) {
+          Log.e(TAG, "Failed to end input access on error", t)
         }
       }
       inputWrappers.forEach { it.close() }
       outputWrapper.close()
     }
   }
+
+  private fun resolveReleaseFence(gpuSyncFence: GPUSyncFence?): SyncFenceWrapper? =
+    gpuSyncFence.use {
+      if (SDK_INT >= 33) {
+        it.toSyncFence()?.let { syncFence ->
+          if (!forwardSyncFences) {
+            syncFence.use { fence -> fence.awaitForever() }
+            null
+          } else {
+            SyncFenceWrapper.of(syncFence)
+          }
+        }
+      } else {
+        null
+      }
+    }
 
   private fun mapColorInfoToSrcColorSpace(colorInfo: ColorInfo?): GPUColorSpaceDawn {
     val info = colorInfo ?: SDR_BT709_LIMITED
@@ -635,14 +630,26 @@ private constructor(
     }
   }
 
-  override fun close() {
-    if (!isReleased.getAndSet(true)) {
-      // Cancel the manually managed scope when the class's lifecycle ends
-      pipelineScope.cancel()
-
-      sampler.close()
-      pipeline.close()
-      webGpu.close()
+  class Factory @JvmOverloads constructor(private val forwardSyncFences: Boolean = true) :
+    FrameProcessor.Factory {
+    override fun create(
+      output: FrameWriter,
+      listenerExecutor: Executor,
+      listener: FrameProcessor.Listener,
+    ): FrameProcessor {
+      val webGpu = createDefaultWebGpu()
+      try {
+        return WebGPUHardwareBufferEffectsPipeline(
+          webGpu,
+          forwardSyncFences,
+          output,
+          listenerExecutor,
+          listener,
+        )
+      } catch (t: Throwable) {
+        webGpu.close()
+        throw t
+      }
     }
   }
 

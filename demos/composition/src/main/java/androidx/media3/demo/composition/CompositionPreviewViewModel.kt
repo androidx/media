@@ -1086,7 +1086,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       if (settings.webGpuEnabled) {
         // Experimental: WebGPUHardwareBufferEffectsPipeline does not yet apply video effects or
         // rotation.
-        WebGPUHardwareBufferEffectsPipeline.Factory(getApplication())
+        WebGPUHardwareBufferEffectsPipeline.Factory()
       } else {
         DefaultGlFrameProcessor.Factory.Builder(/* context= */ getApplication()).build()
       }
