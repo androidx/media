@@ -830,6 +830,41 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
+  public void
+      writeSampleData_fragmentsBetweenKeyFramesEnabledWithUnexpectedBFrames_fallsBackToKeyFramesOnly()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
+            .setFragmentDurationMs(100)
+            .setFragmentsBetweenKeyFramesEnabled(true)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      // The format declares no reordering, but B-frames appear after the first 6 samples.
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
+      // Samples are in decode order I P P P P P P B B P B B ...
+      for (int i = 0; i < 15; i++) {
+        int frameIndex = i < 6 ? i : (i - 6) % 3 == 0 ? i + 2 : i - 1;
+        writeFakeVideoSample(muxer, trackId, frameIndex * 33_333L, /* isKeyFrame= */ i == 0);
+      }
+    }
+
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // There should be 2 fragments: the second starts at a non-key frame before the first
+    // out-of-order sample is seen, after which fragments end only at key frames.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "fragmented_mp4_with_unexpected_b_frames_and_fragments_between_key_frames.mp4"));
+  }
+
+  @Test
   public void writeSampleData_fragmentsBetweenKeyFramesEnabledWithEmptySample_skipsEmptySample()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
