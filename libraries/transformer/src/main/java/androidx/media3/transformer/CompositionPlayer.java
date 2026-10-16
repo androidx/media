@@ -1714,10 +1714,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
     playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
-    if (frameProcessor != null && sequenceContainsVideo) {
-      playerHolder.player.setVideoSurface(
-          checkNotNull(hardwareBufferFrameReaderSupplier.get()).getSurface());
-    }
     return playerHolder;
   }
 

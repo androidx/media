@@ -1825,8 +1825,6 @@ public class CompositionPlayerTest {
         .isEqualTo(composition.effects.videoEffects);
   }
 
-  // TODO: b/546521739 - Remove min sdk once early Surface transfer is supported below API 33.
-  @Config(minSdk = 33)
   @Test
   public void
       frameProcessorWithAutomaticFrameOutput_videoVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
@@ -1887,8 +1885,6 @@ public class CompositionPlayerTest {
         /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
   }
 
-  // TODO: b/546521739 - Remove min sdk once early Surface transfer is supported below API 33.
-  @Config(minSdk = 33)
   @Test
   public void
       frameProcessorWithAutomaticFrameOutput_videoVideoVideoAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()
@@ -1908,8 +1904,6 @@ public class CompositionPlayerTest {
         /* expectedTimestampsAtEnd= */ getTimestamps(assetInfos, /* withEos= */ true));
   }
 
-  // TODO: b/546521739 - Remove min sdk once early Surface transfer is supported below API 33.
-  @Config(minSdk = 33)
   @Test
   public void
       frameProcessorWithAutomaticFrameOutput_videoVideoImageAndPlayToEndOfFirstItem_outputsAllFramesFromFirstAndSecondItems()

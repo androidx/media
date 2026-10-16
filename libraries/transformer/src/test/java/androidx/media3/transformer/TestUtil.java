@@ -426,6 +426,7 @@ public final class TestUtil {
     @Nullable private Handler handler;
     @Nullable private SurfaceTexture surfaceTexture;
     @Nullable private Surface surface;
+    private boolean isClosed;
 
     public FakeImageReaderAdapter() {
       images = new ArrayDeque<>();
@@ -474,6 +475,7 @@ public final class TestUtil {
 
     @Override
     public void close() {
+      isClosed = true;
       if (surface != null) {
         surface.release();
       }
@@ -483,6 +485,10 @@ public final class TestUtil {
       while (!images.isEmpty()) {
         checkNotNull(images.poll()).close();
       }
+    }
+
+    public boolean isClosed() {
+      return isClosed;
     }
   }
 

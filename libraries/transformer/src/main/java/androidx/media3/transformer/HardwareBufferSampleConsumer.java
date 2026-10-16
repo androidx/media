@@ -46,6 +46,7 @@ import java.util.function.Consumer;
 /* package */ final class HardwareBufferSampleConsumer implements GraphInput {
 
   private final HardwareBufferFrameReader hardwareBufferFrameReader;
+  private final HardwareBufferFrameReader.InputSurface inputSurface;
   private final Composition composition;
   private final int sequenceIndex;
 
@@ -109,6 +110,7 @@ import java.util.function.Consumer;
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
             listenerHandler,
             hardwareBufferJniWrapper);
+    inputSurface = hardwareBufferFrameReader.createInputSurface();
   }
 
   @Override
@@ -139,16 +141,16 @@ import java.util.function.Consumer;
 
   @Override
   public Surface getInputSurface() {
-    return hardwareBufferFrameReader.getSurface();
+    return inputSurface.getSurface();
   }
 
   @Override
   public boolean registerVideoFrame(long presentationTimeUs) {
-    if (!hardwareBufferFrameReader.canAcceptFrameViaSurface()) {
+    if (!inputSurface.canAcceptFrame()) {
       return false;
     }
     checkState(currentFormat != null);
-    hardwareBufferFrameReader.queueFrameViaSurface(
+    inputSurface.queueFrame(
         presentationTimeUs, currentTimeOffsetUs, currentMediaItemIndex, currentFormat);
     return true;
   }
