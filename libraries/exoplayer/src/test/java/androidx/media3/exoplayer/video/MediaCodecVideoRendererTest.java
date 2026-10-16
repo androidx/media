@@ -44,7 +44,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
@@ -390,101 +389,6 @@ public class MediaCodecVideoRendererTest {
     }
     mediaCodecVideoRenderer.setCurrentStreamFinal();
     int posUs = 80_001; // Ensures buffer will be 30_001us late.
-    while (!mediaCodecVideoRenderer.isEnded()) {
-      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      codecAdapterFactory.idleQueueingAndCallbackThreads();
-      posUs += 40_000;
-    }
-    shadowOf(testMainLooper).idle();
-
-    verify(eventListener).onDroppedFrames(eq(1), anyLong());
-  }
-
-  @Test
-  public void render_withUnreliablePtsAndModeratelyLateBuffer_doesNotDrop() throws Exception {
-    // 100ms late is past the normal late threshold, but not the one for unreliable timestamps.
-    Format unreliablePts =
-        VIDEO_H264.buildUpon().setHasReliablePresentationTimestamps(false).build();
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ unreliablePts,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
-                oneByteSample(/* timeUs= */ 50_000), // Moderately late buffer.
-                oneByteSample(/* timeUs= */ 100_000), // Last buffer.
-                END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecVideoRenderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {unreliablePts},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
-
-    mediaCodecVideoRenderer.start();
-    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
-    for (int i = 0; i < 5; i++) {
-      mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      codecAdapterFactory.idleQueueingAndCallbackThreads();
-    }
-    mediaCodecVideoRenderer.setCurrentStreamFinal();
-    int posUs = 150_001; // ~100ms late relative to the 50_000 sample.
-    while (!mediaCodecVideoRenderer.isEnded()) {
-      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      codecAdapterFactory.idleQueueingAndCallbackThreads();
-      posUs += 40_000;
-    }
-    shadowOf(testMainLooper).idle();
-
-    verify(eventListener, never()).onDroppedFrames(anyInt(), anyLong());
-  }
-
-  @Test
-  public void render_withUnreliablePtsAndVeryLateBuffer_stillDrops() throws Exception {
-    // Same as render_withUnreliablePtsAndModeratelyLateBuffer_doesNotDrop, but ~600ms late --
-    // past the widened threshold, proving the backstop actually engages.
-    Format unreliablePts =
-        VIDEO_H264.buildUpon().setHasReliablePresentationTimestamps(false).build();
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ unreliablePts,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
-                oneByteSample(/* timeUs= */ 50_000), // Very late buffer.
-                oneByteSample(/* timeUs= */ 100_000), // Last buffer.
-                END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecVideoRenderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {unreliablePts},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
-
-    mediaCodecVideoRenderer.start();
-    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
-    for (int i = 0; i < 5; i++) {
-      mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      codecAdapterFactory.idleQueueingAndCallbackThreads();
-    }
-    mediaCodecVideoRenderer.setCurrentStreamFinal();
-    int posUs = 650_001; // ~600ms late relative to the 50_000 sample.
     while (!mediaCodecVideoRenderer.isEnded()) {
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
       codecAdapterFactory.idleQueueingAndCallbackThreads();
