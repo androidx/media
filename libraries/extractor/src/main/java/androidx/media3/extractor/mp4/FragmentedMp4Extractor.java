@@ -27,7 +27,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
@@ -79,6 +78,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the FMP4 container format. */
 @SuppressWarnings("ConstantField")
@@ -785,13 +785,13 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     @Nullable Metadata mdtaMetadata = null;
-    @Nullable Mp4Box.ContainerBox meta = moov.getContainerBoxOfType(Mp4Box.TYPE_meta);
+    Mp4Box.@Nullable ContainerBox meta = moov.getContainerBoxOfType(Mp4Box.TYPE_meta);
     if (meta != null) {
       mdtaMetadata = BoxParser.parseMdtaFromMeta(meta);
     }
     GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
     @Nullable Metadata udtaMetadata = null;
-    @Nullable Mp4Box.LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
+    Mp4Box.@Nullable LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
     if (udta != null) {
       udtaMetadata =
           BoxParser.parseUdta(
@@ -1122,8 +1122,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
     parseTruns(traf, trackBundle, flags);
 
-    @Nullable
-    TrackEncryptionBox encryptionBox =
+    @Nullable TrackEncryptionBox encryptionBox =
         trackBundle.moovSampleTable.track.getSampleDescriptionEncryptionBox(
             checkNotNull(fragment.header).sampleDescriptionIndex);
 
@@ -1273,8 +1272,7 @@ public class FragmentedMp4Extractor implements Extractor {
     int fullAtom = tfhd.readInt();
     int atomFlags = BoxParser.parseFullBoxFlags(fullAtom);
     int trackId = tfhd.readInt();
-    @Nullable
-    TrackBundle trackBundle =
+    @Nullable TrackBundle trackBundle =
         haveSideloadedTrack ? trackBundles.valueAt(0) : trackBundles.get(trackId);
     if (trackBundle == null) {
       return null;
@@ -1570,7 +1568,7 @@ public class FragmentedMp4Extractor implements Extractor {
     int perSampleIvSize = sgpd.readUnsignedByte();
     byte[] keyId = new byte[16];
     sgpd.readBytes(keyId, 0, keyId.length);
-    @Nullable byte[] constantIv = null;
+    byte @Nullable [] constantIv = null;
     if (perSampleIvSize == 0) {
       int constantIvSize = sgpd.readUnsignedByte();
       constantIv = new byte[constantIvSize];
@@ -1899,7 +1897,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     // Encryption data.
-    @Nullable TrackOutput.CryptoData cryptoData = null;
+    TrackOutput.@Nullable CryptoData cryptoData = null;
     @Nullable TrackEncryptionBox encryptionBox = trackBundle.getEncryptionBoxIfEncrypted();
     if (encryptionBox != null) {
       cryptoData = encryptionBox.cryptoData;
@@ -2297,8 +2295,8 @@ public class FragmentedMp4Extractor implements Extractor {
 
     @Override
     public SeekMap.SeekPoints getSeekPoints(long timeUs, int trackId) {
-      @Nullable long[] timesUs = trackTimesUs.get(trackId);
-      @Nullable long[] offsets = trackOffsets.get(trackId);
+      long @Nullable [] timesUs = trackTimesUs.get(trackId);
+      long @Nullable [] offsets = trackOffsets.get(trackId);
 
       // Fallback safely if the requested track is missing
       if (timesUs == null || offsets == null) {
@@ -2380,8 +2378,7 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     public void updateDrmInitData(DrmInitData drmInitData) {
-      @Nullable
-      TrackEncryptionBox encryptionBox =
+      @Nullable TrackEncryptionBox encryptionBox =
           moovSampleTable.track.getSampleDescriptionEncryptionBox(
               castNonNull(fragment.header).sampleDescriptionIndex);
       @Nullable String schemeType = encryptionBox != null ? encryptionBox.schemeType : null;
@@ -2603,8 +2600,7 @@ public class FragmentedMp4Extractor implements Extractor {
         return null;
       }
       int sampleDescriptionIndex = castNonNull(fragment.header).sampleDescriptionIndex;
-      @Nullable
-      TrackEncryptionBox encryptionBox =
+      @Nullable TrackEncryptionBox encryptionBox =
           fragment.trackEncryptionBox != null
               ? fragment.trackEncryptionBox
               : moovSampleTable.track.getSampleDescriptionEncryptionBox(sampleDescriptionIndex);

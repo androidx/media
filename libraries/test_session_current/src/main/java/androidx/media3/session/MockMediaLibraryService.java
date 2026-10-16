@@ -82,7 +82,6 @@ import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
@@ -107,6 +106,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 
 /** A mock MediaLibraryService */
 public class MockMediaLibraryService extends MediaLibraryService {
@@ -145,7 +145,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
   @Nullable
   private static LibraryParams expectedParams;
 
-  @Nullable private static byte[] testArtworkData;
+  private static byte @Nullable [] testArtworkData;
   private final AtomicInteger boundControllerCount;
   private final ConditionVariable allControllersUnbound;
 
@@ -627,15 +627,14 @@ public class MockMediaLibraryService extends MediaLibraryService {
         ControllerInfo controller,
         SessionCommand sessionCommand,
         Bundle args,
-        @Nullable MediaSession.ProgressReporter progressReporter) {
+        MediaSession.@Nullable ProgressReporter progressReporter) {
       switch (sessionCommand.customAction) {
         case CUSTOM_ACTION:
           return immediateFuture(
               new SessionResult(SessionResult.RESULT_SUCCESS, CUSTOM_ACTION_EXTRAS));
         case CUSTOM_ACTION_ASSERT_PARAMS:
           @Nullable Bundle paramsBundle = args.getBundle(CUSTOM_ACTION_ASSERT_PARAMS);
-          @Nullable
-          LibraryParams params =
+          @Nullable LibraryParams params =
               paramsBundle == null ? null : LibraryParams.fromBundle(paramsBundle);
           setAssertLibraryParams(params);
           return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));

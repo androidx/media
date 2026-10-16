@@ -1072,7 +1072,7 @@ package androidx.media3.common {
     method public getPeriodByUid(_: Object, _: androidx.media3.common.Timeline.Period): androidx.media3.common.Timeline.Period;
     method public abstract getPeriodCount(): int;
     method public final getPeriodPositionUs(_: androidx.media3.common.Timeline.Window, _: androidx.media3.common.Timeline.Period, _: int, _: long): android.util.Pair<java.lang.Object,java.lang.Long>;
-    method @Nullable public final getPeriodPositionUs(_: androidx.media3.common.Timeline.Window, _: androidx.media3.common.Timeline.Period, _: int, _: long, _: long): android.util.Pair<java.lang.Object,java.lang.Long>;
+    method public final getPeriodPositionUs(_: androidx.media3.common.Timeline.Window, _: androidx.media3.common.Timeline.Period, _: int, _: long, _: long): android.util.@Nullable Pair<java.lang.Object,java.lang.Long>;
     method public getPreviousWindowIndex(_: int, @androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int, _: boolean): int;
     method public abstract getUidOfPeriod(_: int): Object;
     method public final getWindow(_: int, _: androidx.media3.common.Timeline.Window): androidx.media3.common.Timeline.Window;
@@ -1092,7 +1092,7 @@ package androidx.media3.common {
     method public getAdGroupIndexForPositionUs(_: long): int;
     method public getAdGroupTimeUs(_: int): long;
     method public getAdResumePositionUs(): long;
-    method @Nullable public getAdsId(): Object;
+    method public getAdsId(): @Nullable Object;
     method public getDurationMs(): long;
     method public getDurationUs(): long;
     method public getFirstAdIndexToPlay(_: int): int;
@@ -1101,9 +1101,9 @@ package androidx.media3.common {
     method public getPositionInWindowUs(): long;
     method public getRemovedAdGroupCount(): int;
     method public hasPlayedAdGroup(_: int): boolean;
-    field @Nullable public id: Object;
+    field public id: @Nullable Object;
     field public isPlaceholder: boolean;
-    field @Nullable public uid: Object;
+    field public uid: @Nullable Object;
     field public windowIndex: int;
   }
 
@@ -1124,8 +1124,8 @@ package androidx.media3.common {
     field public isPlaceholder: boolean;
     field public isSeekable: boolean;
     field public lastPeriodIndex: int;
-    field @Nullable public liveConfiguration: androidx.media3.common.MediaItem.LiveConfiguration;
-    field @Nullable public manifest: Object;
+    field public liveConfiguration: androidx.media3.common.MediaItem.@Nullable LiveConfiguration;
+    field public manifest: @Nullable Object;
     field public mediaItem: androidx.media3.common.MediaItem;
     field public presentationStartTimeMs: long;
     field public uid: Object;
@@ -1283,18 +1283,18 @@ package androidx.media3.common.text {
     field public static final TYPE_UNSET: int = -2147483648; // 0x80000000
     field public static final VERTICAL_TYPE_LR: int = 2; // 0x2
     field public static final VERTICAL_TYPE_RL: int = 1; // 0x1
-    field @Nullable public final bitmap: android.graphics.Bitmap;
+    field public final bitmap: android.graphics.@Nullable Bitmap;
     field public final bitmapHeight: float;
     field public final line: float;
     field @androidx.media3.common.text.Cue.AnchorType public final lineAnchor: @androidx.media3.common.text.Cue.AnchorType int;
     field @androidx.media3.common.text.Cue.LineType public final lineType: @androidx.media3.common.text.Cue.LineType int;
-    field @Nullable public final multiRowAlignment: android.text.Layout.Alignment;
+    field public final multiRowAlignment: android.text.Layout.@Nullable Alignment;
     field public final position: float;
     field @androidx.media3.common.text.Cue.AnchorType public final positionAnchor: @androidx.media3.common.text.Cue.AnchorType int;
     field public final shearDegrees: float;
     field public final size: float;
-    field @Nullable public final text: CharSequence;
-    field @Nullable public final textAlignment: android.text.Layout.Alignment;
+    field public final text: @Nullable CharSequence;
+    field public final textAlignment: android.text.Layout.@Nullable Alignment;
     field public final textSize: float;
     field @androidx.media3.common.text.Cue.TextSizeType public final textSizeType: @androidx.media3.common.text.Cue.TextSizeType int;
     field @androidx.media3.common.text.Cue.VerticalType public final verticalType: @androidx.media3.common.text.Cue.VerticalType int;
@@ -1877,10 +1877,10 @@ package androidx.media3.session {
     field public final extras: android.os.Bundle;
     field public final icon: @androidx.media3.session.CommandButton.Icon int;
     field @DrawableRes public final iconResId: int;
-    field @Nullable public final iconUri: android.net.Uri;
+    field public final iconUri: android.net.@Nullable Uri;
     field public final isEnabled: boolean;
     field @androidx.media3.common.Player.Command public final playerCommand: @androidx.media3.common.Player.Command int;
-    field @Nullable public final sessionCommand: androidx.media3.session.SessionCommand;
+    field public final sessionCommand: androidx.media3.session.@Nullable SessionCommand;
   }
 
   public static final class CommandButton.Builder {
@@ -2338,17 +2338,17 @@ package androidx.media3.ui {
 
   public class PlayerView extends android.widget.FrameLayout implements androidx.media3.common.AdViewProvider {
     ctor public PlayerView(_: android.content.Context);
-    ctor public PlayerView(_: android.content.Context, @Nullable _: android.util.AttributeSet);
-    ctor public PlayerView(_: android.content.Context, @Nullable _: android.util.AttributeSet, _: int);
+    ctor public PlayerView(_: android.content.Context, _: android.util.@Nullable AttributeSet);
+    ctor public PlayerView(_: android.content.Context, _: android.util.@Nullable AttributeSet, _: int);
     method public getAdViewGroup(): android.view.ViewGroup;
-    method @Nullable public getPlayer(): androidx.media3.common.Player;
+    method public getPlayer(): androidx.media3.common.@Nullable Player;
     method public getUseController(): boolean;
     method public onPause(): void;
     method public onResume(): void;
-    method public setControllerVisibilityListener(@Nullable _: androidx.media3.ui.PlayerView.ControllerVisibilityListener): void;
-    method public setErrorMessageProvider(@Nullable _: androidx.media3.common.ErrorMessageProvider<? super androidx.media3.common.PlaybackException>): void;
-    method public setFullscreenButtonClickListener(@Nullable _: androidx.media3.ui.PlayerView.FullscreenButtonClickListener): void;
-    method public setPlayer(@Nullable _: androidx.media3.common.Player): void;
+    method public setControllerVisibilityListener(_: androidx.media3.ui.PlayerView.@Nullable ControllerVisibilityListener): void;
+    method public setErrorMessageProvider(_: androidx.media3.common.@Nullable ErrorMessageProvider<? super androidx.media3.common.PlaybackException>): void;
+    method public setFullscreenButtonClickListener(_: androidx.media3.ui.PlayerView.@Nullable FullscreenButtonClickListener): void;
+    method public setPlayer(_: androidx.media3.common.@Nullable Player): void;
     method public setUseController(_: boolean): void;
   }
 

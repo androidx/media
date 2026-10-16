@@ -17,12 +17,12 @@ package androidx.media3.exoplayer.drm;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DrmSession} that's in a terminal error state. */
 @UnstableApi
@@ -68,8 +68,7 @@ public final class ErrorStateDrmSession implements DrmSession {
   }
 
   @Override
-  @Nullable
-  public byte[] getOfflineLicenseKeySetId() {
+  public byte @Nullable [] getOfflineLicenseKeySetId() {
     return null;
   }
 
@@ -79,12 +78,12 @@ public final class ErrorStateDrmSession implements DrmSession {
   }
 
   @Override
-  public void acquire(@Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+  public void acquire(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
     // Do nothing.
   }
 
   @Override
-  public void release(@Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+  public void release(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
     // Do nothing.
   }
 }

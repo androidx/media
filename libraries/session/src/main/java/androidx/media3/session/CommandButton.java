@@ -32,7 +32,6 @@ import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -55,6 +54,7 @@ import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A button for a {@link SessionCommand} or {@link Player.Command} that can be displayed by
@@ -879,7 +879,7 @@ public final class CommandButton {
        */
       @CanIgnoreReturnValue
       public Builder setAllowedPlayerCommandsForSlot(
-          @Slot int slot, @Nullable Player.Commands allowedPlayerCommands) {
+          @Slot int slot, Player.@Nullable Commands allowedPlayerCommands) {
         allowedPlayerCommandsPerSlot.put(slot, allowedPlayerCommands);
         return this;
       }
@@ -1050,7 +1050,7 @@ public final class CommandButton {
       }
       boolean canReserveSlot;
       if (button.playerCommand != Player.COMMAND_INVALID) {
-        @Nullable Player.Commands allowedCommands = allowedPlayerCommandsPerSlot.get(slot);
+        Player.@Nullable Commands allowedCommands = allowedPlayerCommandsPerSlot.get(slot);
         canReserveSlot = allowedCommands == null || allowedCommands.contains(button.playerCommand);
       } else if (checkNotNull(button.sessionCommand).commandCode == COMMAND_CODE_CUSTOM) {
         canReserveSlot = areCustomCommandsAllowedPerSlot.get(slot, /* valueIfKeyNotFound= */ true);
@@ -1761,8 +1761,7 @@ public final class CommandButton {
   @UnstableApi
   public static CommandButton fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable Bundle sessionCommandBundle = bundle.getBundle(FIELD_SESSION_COMMAND);
-    @Nullable
-    SessionCommand sessionCommand =
+    @Nullable SessionCommand sessionCommand =
         sessionCommandBundle == null ? null : SessionCommand.fromBundle(sessionCommandBundle);
     @Player.Command
     int playerCommand =
@@ -1776,13 +1775,10 @@ public final class CommandButton {
         interfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
     @Nullable Uri iconUri = bundle.getParcelable(FIELD_ICON_URI);
     @Icon int icon = bundle.getInt(FIELD_ICON, /* defaultValue= */ ICON_UNDEFINED);
-    @Nullable
-    @Slot
-    int[] slots = bundle.getIntArray(FIELD_SLOTS);
+    @Slot int @Nullable [] slots = bundle.getIntArray(FIELD_SLOTS);
     Builder builder = new Builder(icon, iconResId);
     if (sessionCommand != null) {
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               bundle,
               FIELD_PARAMETER,
@@ -1791,8 +1787,7 @@ public final class CommandButton {
       builder.setSessionCommand(sessionCommand, parameter);
     }
     if (playerCommand != Player.COMMAND_INVALID) {
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               bundle,
               FIELD_PARAMETER,
@@ -2166,8 +2161,7 @@ public final class CommandButton {
       int playerCommand =
           getPredefinedCustomCommandCode(
               customCommand.customAction, CUSTOM_COMMAND_PLAYER_COMMAND_PREFIX);
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               customCommand.customExtras,
               CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
@@ -2181,8 +2175,7 @@ public final class CommandButton {
       int sessionCommand =
           getPredefinedCustomCommandCode(
               customCommand.customAction, CUSTOM_COMMAND_SESSION_COMMAND_PREFIX);
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               customCommand.customExtras,
               CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,

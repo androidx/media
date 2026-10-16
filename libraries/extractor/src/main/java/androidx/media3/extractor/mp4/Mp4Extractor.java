@@ -30,7 +30,6 @@ import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Label;
@@ -77,6 +76,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the MP4 container format. */
 @UnstableApi
@@ -277,7 +277,7 @@ public final class Mp4Extractor implements Extractor {
   private ExtractorOutput extractorOutput;
   private Mp4Track[] tracks;
 
-  @Nullable private long[][] accumulatedSampleSizes;
+  private long @Nullable [][] accumulatedSampleSizes;
   private @FileType int fileType;
 
   /**
@@ -641,7 +641,7 @@ public final class Mp4Extractor implements Extractor {
   private void processMoovAtom(ContainerBox moov) throws ParserException {
     // Process metadata first to determine whether to abort processing and seek to the axte atom.
     @Nullable Metadata mdtaMetadata = null;
-    @Nullable Mp4Box.ContainerBox meta = moov.getContainerBoxOfType(Mp4Box.TYPE_meta);
+    Mp4Box.@Nullable ContainerBox meta = moov.getContainerBoxOfType(Mp4Box.TYPE_meta);
     List<@C.AuxiliaryTrackType Integer> auxiliaryTrackTypesForAuxiliaryTracks = new ArrayList<>();
     if (meta != null) {
       mdtaMetadata = BoxParser.parseMdtaFromMeta(meta);
@@ -663,7 +663,7 @@ public final class Mp4Extractor implements Extractor {
     boolean isQuickTime = fileType == FILE_TYPE_QUICKTIME;
     GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
     @Nullable Metadata udtaMetadata = null;
-    @Nullable Mp4Box.LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
+    Mp4Box.@Nullable LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
     if (udta != null) {
       udtaMetadata =
           BoxParser.parseUdta(
@@ -882,8 +882,7 @@ public final class Mp4Extractor implements Extractor {
     if (mdtaMetadata == null || (flags & FLAG_READ_AUXILIARY_TRACKS) == 0) {
       return false;
     }
-    @Nullable
-    MdtaMetadataEntry axteAtomOffsetMetadata =
+    @Nullable MdtaMetadataEntry axteAtomOffsetMetadata =
         mdtaMetadata.getFirstMatchingEntry(
             MdtaMetadataEntry.class,
             mdtaEntry -> mdtaEntry.key.equals(MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_OFFSET));
@@ -903,8 +902,7 @@ public final class Mp4Extractor implements Extractor {
    * (inside axte atom).
    */
   private void maybeSetDefaultSampleOffsetForAuxiliaryTracks(Metadata metadata) {
-    @Nullable
-    MdtaMetadataEntry samplesInterleavedMetadata =
+    @Nullable MdtaMetadataEntry samplesInterleavedMetadata =
         metadata.getFirstMatchingEntry(
             MdtaMetadataEntry.class,
             mdtaEntry -> mdtaEntry.key.equals(MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_INTERLEAVED));

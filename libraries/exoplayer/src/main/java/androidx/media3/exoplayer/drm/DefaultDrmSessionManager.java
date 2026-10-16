@@ -28,7 +28,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
@@ -62,6 +61,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DrmSessionManager} that supports playbacks using {@link ExoMediaDrm}.
@@ -326,7 +326,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private @MonotonicNonNull Looper playbackLooper;
   private @MonotonicNonNull Handler playbackHandler;
   private int mode;
-  @Nullable private byte[] offlineLicenseKeySetId;
+  private byte @Nullable [] offlineLicenseKeySetId;
   private @MonotonicNonNull PlayerId playerId;
 
   /* package */ @Nullable volatile MediaDrmHandler mediaDrmHandler;
@@ -384,7 +384,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
    * @param mode The mode to be set.
    * @param offlineLicenseKeySetId The key set id of the license to be used with the given mode.
    */
-  public void setMode(@Mode int mode, @Nullable byte[] offlineLicenseKeySetId) {
+  public void setMode(@Mode int mode, byte @Nullable [] offlineLicenseKeySetId) {
     checkState(sessions.isEmpty());
     if (mode == MODE_QUERY || mode == MODE_RELEASE) {
       checkNotNull(offlineLicenseKeySetId);
@@ -440,7 +440,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
 
   @Override
   public DrmSessionReference preacquireSession(
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
     // Don't verify the playback thread, preacquireSession can be called from any thread.
     checkState(prepareCallsCount > 0);
     checkNotNull(playbackLooper);
@@ -453,7 +453,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   @Override
   @Nullable
   public DrmSession acquireSession(
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
     verifyPlaybackThread(/* allowBeforeSetPlayer= */ false);
     checkState(prepareCallsCount > 0);
     checkNotNull(playbackLooper);
@@ -468,7 +468,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   @Nullable
   private DrmSession acquireSession(
       Looper playbackLooper,
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher,
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher,
       Format format,
       boolean shouldReleasePreacquiredSessionsBeforeRetrying) {
     maybeCreateMediaDrmHandler(playbackLooper);
@@ -627,7 +627,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private DefaultDrmSession createAndAcquireSessionWithRetry(
       @Nullable List<SchemeData> schemeDatas,
       boolean isPlaceholderSession,
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher,
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher,
       boolean shouldReleasePreacquiredSessionsBeforeRetrying) {
     DefaultDrmSession session =
         createAndAcquireSession(schemeDatas, isPlaceholderSession, eventDispatcher);
@@ -671,7 +671,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
    * DrmSessionEventListener.EventDispatcher)}.
    */
   private void undoAcquisition(
-      DrmSession session, @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+      DrmSession session, DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
     session.release(eventDispatcher);
     if (sessionKeepaliveMs != C.TIME_UNSET) {
       session.release(/* eventDispatcher= */ null);
@@ -707,7 +707,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private DefaultDrmSession createAndAcquireSession(
       @Nullable List<SchemeData> schemeDatas,
       boolean isPlaceholderSession,
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
     checkNotNull(exoMediaDrm);
     // Placeholder sessions should always play clear samples without keys.
     boolean playClearSamplesWithoutKeys = this.playClearSamplesWithoutKeys | isPlaceholderSession;
@@ -920,7 +920,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
 
     @Override
     public void onEvent(
-        ExoMediaDrm md, @Nullable byte[] sessionId, int event, int extra, @Nullable byte[] data) {
+        ExoMediaDrm md, byte @Nullable [] sessionId, int event, int extra, byte @Nullable [] data) {
       checkNotNull(mediaDrmHandler).obtainMessage(event, sessionId).sendToTarget();
     }
   }
@@ -937,7 +937,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
    */
   private class PreacquiredSessionReference implements DrmSessionReference {
 
-    @Nullable private final DrmSessionEventListener.EventDispatcher eventDispatcher;
+    private final DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher;
 
     @Nullable private DrmSession session;
     private boolean isReleased;
@@ -949,7 +949,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
      *     #acquireSession(DrmSessionEventListener.EventDispatcher, Format)}.
      */
     public PreacquiredSessionReference(
-        @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+        DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
       this.eventDispatcher = eventDispatcher;
     }
 

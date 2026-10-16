@@ -20,7 +20,6 @@ import static java.lang.Math.max;
 
 import android.net.Uri;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -59,6 +58,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A default {@link SsChunkSource} implementation. */
 @UnstableApi
@@ -190,8 +190,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
     for (int i = 0; i < chunkExtractors.length; i++) {
       int manifestTrackIndex = trackSelection.getIndexInTrackGroup(i);
       Format format = streamElement.formats[manifestTrackIndex];
-      @Nullable
-      TrackEncryptionBox[] trackEncryptionBoxes =
+      TrackEncryptionBox @Nullable [] trackEncryptionBoxes =
           format.drmInitData != null
               ? checkNotNull(manifest.protectionElement).trackEncryptionBoxes
               : null;
@@ -354,7 +353,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
     int manifestTrackIndex = trackSelection.getIndexInTrackGroup(trackSelectionIndex);
     Uri uri = streamElement.buildRequestUri(manifestTrackIndex, chunkIndex);
 
-    @Nullable CmcdData.Factory cmcdDataFactory = null;
+    CmcdData.@Nullable Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
       cmcdDataFactory =
           new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_SS)
@@ -414,8 +413,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
             numberOfTracks,
             numberOfExcludedTracks,
             /* locationSteeringActive= */ false);
-    @Nullable
-    FallbackSelection fallbackSelection =
+    @Nullable FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     return cancelable
         && fallbackSelection != null
@@ -444,7 +442,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
       ChunkExtractor chunkExtractor,
-      @Nullable CmcdData.Factory cmcdDataFactory) {
+      CmcdData.@Nullable Factory cmcdDataFactory) {
     DataSpec dataSpec = new DataSpec.Builder().setUri(uri).build();
     if (cmcdDataFactory != null) {
       CmcdData cmcdData = cmcdDataFactory.createCmcdData();

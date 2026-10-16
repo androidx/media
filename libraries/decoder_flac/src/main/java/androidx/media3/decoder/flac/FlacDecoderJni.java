@@ -17,7 +17,6 @@ package androidx.media3.decoder.flac;
 
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
@@ -27,6 +26,7 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** JNI wrapper for the libflac Flac decoder. */
 /* package */ final class FlacDecoderJni {
@@ -48,7 +48,7 @@ import java.nio.ByteBuffer;
 
   @Nullable private ByteBuffer byteBufferData;
   @Nullable private ExtractorInput extractorInput;
-  @Nullable private byte[] tempBuffer;
+  private byte @Nullable [] tempBuffer;
   private boolean endOfExtractorInput;
 
   public FlacDecoderJni() throws FlacDecoderException {
@@ -223,8 +223,7 @@ import java.nio.ByteBuffer;
    * @return The corresponding {@link SeekMap.SeekPoints} obtained from the seek table, or {@code
    *     null} if the stream doesn't have a seek table.
    */
-  @Nullable
-  public SeekMap.SeekPoints getSeekPoints(long timeUs) {
+  public SeekMap.@Nullable SeekPoints getSeekPoints(long timeUs) {
     long[] seekPoints = new long[4];
     if (!flacGetSeekPoints(nativeDecoderContext, timeUs, seekPoints)) {
       return null;

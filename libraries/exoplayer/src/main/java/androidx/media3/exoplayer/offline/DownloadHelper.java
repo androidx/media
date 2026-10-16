@@ -30,7 +30,6 @@ import android.os.HandlerThread;
 import android.os.Message;
 import android.util.SparseIntArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -90,6 +89,7 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A helper for initializing and removing downloads.
@@ -115,7 +115,7 @@ public final class DownloadHelper {
 
   /** A factory of {@link DownloadHelper}. */
   public static final class Factory {
-    @Nullable private DataSource.Factory dataSourceFactory;
+    private DataSource.@Nullable Factory dataSourceFactory;
     @Nullable private RenderersFactory renderersFactory;
     private TrackSelectionParameters trackSelectionParameters;
     @Nullable private DrmSessionManager drmSessionManager;
@@ -139,7 +139,7 @@ public final class DownloadHelper {
      * @return This factory, for convenience.
      */
     @CanIgnoreReturnValue
-    public Factory setDataSourceFactory(@Nullable DataSource.Factory dataSourceFactory) {
+    public Factory setDataSourceFactory(DataSource.@Nullable Factory dataSourceFactory) {
       this.dataSourceFactory = dataSourceFactory;
       return this;
     }
@@ -360,7 +360,7 @@ public final class DownloadHelper {
       Context context,
       MediaItem mediaItem,
       @Nullable RenderersFactory renderersFactory,
-      @Nullable DataSource.Factory dataSourceFactory) {
+      DataSource.@Nullable Factory dataSourceFactory) {
     return new DownloadHelper.Factory()
         .setDataSourceFactory(dataSourceFactory)
         .setRenderersFactory(renderersFactory)
@@ -375,7 +375,7 @@ public final class DownloadHelper {
       Context context,
       MediaItem mediaItem,
       @Nullable RenderersFactory renderersFactory,
-      @Nullable DataSource.Factory dataSourceFactory,
+      DataSource.@Nullable Factory dataSourceFactory,
       boolean debugLoggingEnabled) {
     return new DownloadHelper.Factory()
         .setDataSourceFactory(dataSourceFactory)
@@ -392,7 +392,7 @@ public final class DownloadHelper {
       MediaItem mediaItem,
       TrackSelectionParameters trackSelectionParameters,
       @Nullable RenderersFactory renderersFactory,
-      @Nullable DataSource.Factory dataSourceFactory) {
+      DataSource.@Nullable Factory dataSourceFactory) {
     return new DownloadHelper.Factory()
         .setDataSourceFactory(dataSourceFactory)
         .setTrackSelectionParameters(trackSelectionParameters)
@@ -408,7 +408,7 @@ public final class DownloadHelper {
       MediaItem mediaItem,
       TrackSelectionParameters trackSelectionParameters,
       @Nullable RenderersFactory renderersFactory,
-      @Nullable DataSource.Factory dataSourceFactory,
+      DataSource.@Nullable Factory dataSourceFactory,
       boolean debugLoggingEnabled) {
     return new DownloadHelper.Factory()
         .setDataSourceFactory(dataSourceFactory)
@@ -426,7 +426,7 @@ public final class DownloadHelper {
       MediaItem mediaItem,
       TrackSelectionParameters trackSelectionParameters,
       @Nullable RenderersFactory renderersFactory,
-      @Nullable DataSource.Factory dataSourceFactory,
+      DataSource.@Nullable Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager) {
     return new DownloadHelper.Factory()
         .setDataSourceFactory(dataSourceFactory)
@@ -444,7 +444,7 @@ public final class DownloadHelper {
       MediaItem mediaItem,
       TrackSelectionParameters trackSelectionParameters,
       @Nullable RenderersFactory renderersFactory,
-      @Nullable DataSource.Factory dataSourceFactory,
+      DataSource.@Nullable Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager,
       boolean debugLoggingEnabled) {
     return new DownloadHelper.Factory()
@@ -855,7 +855,7 @@ public final class DownloadHelper {
    *
    * @param data Application provided data to store in {@link DownloadRequest#data}.
    */
-  public DownloadRequest getDownloadRequest(@Nullable byte[] data) {
+  public DownloadRequest getDownloadRequest(byte @Nullable [] data) {
     return getDownloadRequest(localConfiguration.uri.toString(), data);
   }
 
@@ -875,7 +875,7 @@ public final class DownloadHelper {
    *     cover to the end of the media.
    */
   public DownloadRequest getDownloadRequest(
-      @Nullable byte[] data, long startPositionMs, long durationMs) {
+      byte @Nullable [] data, long startPositionMs, long durationMs) {
     return getDownloadRequest(localConfiguration.uri.toString(), data, startPositionMs, durationMs);
   }
 
@@ -886,7 +886,7 @@ public final class DownloadHelper {
    * @param id The unique content id.
    * @param data Application provided data to store in {@link DownloadRequest#data}.
    */
-  public DownloadRequest getDownloadRequest(String id, @Nullable byte[] data) {
+  public DownloadRequest getDownloadRequest(String id, byte @Nullable [] data) {
     return getDownloadRequestBuilder(id, data).build();
   }
 
@@ -907,14 +907,14 @@ public final class DownloadHelper {
    *     duration of the media, then the download will just cover to the end of the media.
    */
   public DownloadRequest getDownloadRequest(
-      String id, @Nullable byte[] data, long startPositionMs, long durationMs) {
+      String id, byte @Nullable [] data, long startPositionMs, long durationMs) {
     DownloadRequest.Builder builder = getDownloadRequestBuilder(id, data);
     assertPreparedWithMedia();
     populateDownloadRequestBuilderWithDownloadRange(builder, startPositionMs, durationMs);
     return builder.build();
   }
 
-  private DownloadRequest.Builder getDownloadRequestBuilder(String id, @Nullable byte[] data) {
+  private DownloadRequest.Builder getDownloadRequestBuilder(String id, byte @Nullable [] data) {
     DownloadRequest.Builder requestBuilder =
         new DownloadRequest.Builder(id, localConfiguration.uri)
             .setMimeType(localConfiguration.mimeType)

@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.C;
@@ -42,6 +41,7 @@ import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import java.io.IOException;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract base class suitable for most {@link Renderer} implementations.
@@ -81,19 +81,18 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private @MonotonicNonNull Clock clock;
   private int state;
   @Nullable private SampleStream stream;
-  @Nullable private Format[] streamFormats;
+  private Format @Nullable [] streamFormats;
   private long streamOffsetUs;
   private long lastResetPositionUs;
   private long readingPositionUs;
   private boolean streamIsFinal;
   private boolean throwRendererExceptionIsExecuting;
   private Timeline timeline;
-  @Nullable private MediaSource.MediaPeriodId mediaPeriodId;
+  private MediaSource.@Nullable MediaPeriodId mediaPeriodId;
   private long streamEndPositionUs;
 
   @GuardedBy("lock")
-  @Nullable
-  private RendererCapabilities.Listener rendererCapabilitiesListener;
+  private RendererCapabilities.@Nullable Listener rendererCapabilitiesListener;
 
   /**
    * @param trackType The track type that the renderer handles. One of the {@link C} {@code
@@ -515,8 +514,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * The {@link MediaSource.MediaPeriodId} of the {@link MediaPeriod} producing the {@code stream},
    * or {@code null} if the renderer is disabled.
    */
-  @Nullable
-  protected final MediaSource.MediaPeriodId getMediaPeriodId() {
+  protected final MediaSource.@Nullable MediaPeriodId getMediaPeriodId() {
     return mediaPeriodId;
   }
 
@@ -667,7 +665,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
   /** Called when the renderer capabilities are changed. */
   protected final void onRendererCapabilitiesChanged() {
-    @Nullable RendererCapabilities.Listener listener;
+    RendererCapabilities.@Nullable Listener listener;
     synchronized (lock) {
       listener = rendererCapabilitiesListener;
     }

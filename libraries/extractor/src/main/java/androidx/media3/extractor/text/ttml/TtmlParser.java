@@ -21,7 +21,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.text.Layout;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -48,6 +47,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.PolyNull;
+import org.jspecify.annotations.Nullable;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -270,8 +270,8 @@ public final class TtmlParser implements SubtitleParser {
 
   @Nullable
   private static TtsExtent parseTtsExtent(XmlPullParser xmlParser) {
-    @Nullable
-    String ttsExtent = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_EXTENT);
+    @Nullable String ttsExtent =
+        XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_EXTENT);
     if (ttsExtent == null) {
       return null;
     }
@@ -314,8 +314,8 @@ public final class TtmlParser implements SubtitleParser {
           globalStyles.put(styleId, style);
         }
       } else if (XmlPullParserUtil.isStartTag(xmlParser, TtmlNode.TAG_REGION)) {
-        @Nullable
-        TtmlRegion ttmlRegion = parseRegionAttributes(xmlParser, cellRows, ttsExtent, globalStyles);
+        @Nullable TtmlRegion ttmlRegion =
+            parseRegionAttributes(xmlParser, cellRows, ttsExtent, globalStyles);
         if (ttmlRegion != null) {
           globalRegions.put(ttmlRegion.id, ttmlRegion);
         }
@@ -362,8 +362,8 @@ public final class TtmlParser implements SubtitleParser {
     float position;
     float line;
 
-    @Nullable
-    String regionOrigin = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_ORIGIN);
+    @Nullable String regionOrigin =
+        XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_ORIGIN);
     if (regionOrigin == null) {
       String styleId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_STYLE);
       if (styleId != null) {
@@ -411,8 +411,8 @@ public final class TtmlParser implements SubtitleParser {
 
     float width;
     float height;
-    @Nullable
-    String regionExtent = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_EXTENT);
+    @Nullable String regionExtent =
+        XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_EXTENT);
     if (regionExtent == null) {
       String styleId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_STYLE);
       if (styleId != null) {
@@ -459,8 +459,7 @@ public final class TtmlParser implements SubtitleParser {
     }
 
     @Cue.AnchorType int lineAnchor = Cue.ANCHOR_TYPE_START;
-    @Nullable
-    String displayAlign =
+    @Nullable String displayAlign =
         XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_DISPLAY_ALIGN);
     if (displayAlign == null) {
       String styleId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_STYLE);
@@ -490,8 +489,7 @@ public final class TtmlParser implements SubtitleParser {
     float regionTextHeight = 1.0f / cellRows;
 
     @Cue.VerticalType int verticalType = Cue.TYPE_UNSET;
-    @Nullable
-    String writingDirection =
+    @Nullable String writingDirection =
         XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_WRITING_MODE);
     if (writingDirection != null) {
       switch (Ascii.toLowerCase(writingDirection)) {
@@ -666,8 +664,7 @@ public final class TtmlParser implements SubtitleParser {
     return style == null ? new TtmlStyle() : style;
   }
 
-  @Nullable
-  private static Layout.Alignment parseAlignment(String alignment) {
+  private static Layout.@Nullable Alignment parseAlignment(String alignment) {
     switch (Ascii.toLowerCase(alignment)) {
       case TtmlNode.LEFT:
       case TtmlNode.START:
@@ -693,7 +690,7 @@ public final class TtmlParser implements SubtitleParser {
     long endTime = C.TIME_UNSET;
     String regionId = TtmlNode.ANONYMOUS_REGION_ID;
     @Nullable String imageId = null;
-    @Nullable String[] styleIds = null;
+    String @Nullable [] styleIds = null;
     int attributeCount = parser.getAttributeCount();
     @Nullable TtmlStyle style = parseStyleAttributes(parser, null);
     for (int i = 0; i < attributeCount; i++) {

@@ -39,7 +39,6 @@ import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.view.accessibility.CaptioningManager;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.C.RoleFlags;
@@ -89,6 +88,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A default {@link TrackSelector} suitable for most use cases.
@@ -1821,19 +1821,16 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
       @SuppressWarnings("deprecation") // Filling deprecated field from Bundle
       private void setSelectionOverridesFromBundle(Bundle bundle) {
-        @Nullable
-        int[] rendererIndices =
+        int @Nullable [] rendererIndices =
             bundle.getIntArray(Parameters.FIELD_SELECTION_OVERRIDES_RENDERER_INDICES);
-        @Nullable
-        ArrayList<Bundle> trackGroupArrayBundles =
+        @Nullable ArrayList<Bundle> trackGroupArrayBundles =
             bundle.getParcelableArrayList(Parameters.FIELD_SELECTION_OVERRIDES_TRACK_GROUP_ARRAYS);
         List<TrackGroupArray> trackGroupArrays =
             trackGroupArrayBundles == null
                 ? ImmutableList.of()
                 : BundleCollectionUtil.fromBundleList(
                     TrackGroupArray::fromBundle, trackGroupArrayBundles);
-        @Nullable
-        SparseArray<Bundle> selectionOverrideBundles =
+        @Nullable SparseArray<Bundle> selectionOverrideBundles =
             bundle.getSparseParcelableArray(Parameters.FIELD_SELECTION_OVERRIDES);
         SparseArray<SelectionOverride> selectionOverrides =
             selectionOverrideBundles == null
@@ -1852,7 +1849,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         }
       }
 
-      private SparseBooleanArray makeSparseBooleanArrayFromTrueKeys(@Nullable int[] trueKeys) {
+      private SparseBooleanArray makeSparseBooleanArrayFromTrueKeys(int @Nullable [] trueKeys) {
         if (trueKeys == null) {
           return new SparseBooleanArray();
         }
@@ -2044,8 +2041,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
      */
     @Deprecated
     public boolean hasSelectionOverride(int rendererIndex, TrackGroupArray groups) {
-      @Nullable
-      Map<TrackGroupArray, @NullableType SelectionOverride> overrides =
+      @Nullable Map<TrackGroupArray, @NullableType SelectionOverride> overrides =
           selectionOverrides.get(rendererIndex);
       return overrides != null && overrides.containsKey(groups);
     }
@@ -2063,8 +2059,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @Deprecated
     @Nullable
     public SelectionOverride getSelectionOverride(int rendererIndex, TrackGroupArray groups) {
-      @Nullable
-      Map<TrackGroupArray, @NullableType SelectionOverride> overrides =
+      @Nullable Map<TrackGroupArray, @NullableType SelectionOverride> overrides =
           selectionOverrides.get(rendererIndex);
       return overrides != null ? overrides.get(groups) : null;
     }
@@ -2408,7 +2403,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @UnstableApi
     public static SelectionOverride fromBundle(Bundle bundle) {
       int groupIndex = bundle.getInt(FIELD_GROUP_INDEX, -1);
-      @Nullable int[] tracks = bundle.getIntArray(FIELD_TRACKS);
+      int @Nullable [] tracks = bundle.getIntArray(FIELD_TRACKS);
       int trackType = bundle.getInt(FIELD_TRACK_TYPE, -1);
       checkArgument(groupIndex >= 0 && trackType >= 0);
       checkNotNull(tracks);
@@ -2645,8 +2640,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
   }
 
   @Override
-  @Nullable
-  public RendererCapabilities.Listener getRendererCapabilitiesListener() {
+  public RendererCapabilities.@Nullable Listener getRendererCapabilitiesListener() {
     return this;
   }
 
@@ -2778,8 +2772,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       throws ExoPlaybackException {
     int rendererCount = mappedTrackInfo.getRendererCount();
 
-    @Nullable
-    Pair<ExoTrackSelection.Definition, Integer> selectedAudio =
+    @Nullable Pair<ExoTrackSelection.Definition, Integer> selectedAudio =
         findDefinitionForType(definitions, C.TRACK_TYPE_AUDIO);
     if (selectedAudio == null) {
       selectedAudio =
@@ -2792,17 +2785,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
         definitions[selectedAudio.second] = selectedAudio.first;
       }
     }
-    @Nullable
-    String selectedAudioLanguage =
+    @Nullable String selectedAudioLanguage =
         selectedAudio == null
             ? null
             : selectedAudio.first.group.getFormat(selectedAudio.first.tracks[0]).language;
 
-    @Nullable
-    Pair<ExoTrackSelection.Definition, Integer> selectedVideo =
+    @Nullable Pair<ExoTrackSelection.Definition, Integer> selectedVideo =
         findDefinitionForType(definitions, C.TRACK_TYPE_VIDEO);
-    @Nullable
-    Pair<ExoTrackSelection.Definition, Integer> selectedImage =
+    @Nullable Pair<ExoTrackSelection.Definition, Integer> selectedImage =
         findDefinitionForType(definitions, C.TRACK_TYPE_IMAGE);
     if (selectedVideo == null && selectedImage == null) {
       selectedVideo =
@@ -2823,8 +2813,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
     }
 
-    @Nullable
-    Pair<ExoTrackSelection.Definition, Integer> selectedText =
+    @Nullable Pair<ExoTrackSelection.Definition, Integer> selectedText =
         findDefinitionForType(definitions, C.TRACK_TYPE_TEXT);
     if (selectedText == null) {
       selectedText =
@@ -2881,8 +2870,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     if (params.audioOffloadPreferences.audioOffloadMode == AUDIO_OFFLOAD_MODE_REQUIRED) {
       return null;
     }
-    @Nullable
-    Point viewportSizeFromDisplay =
+    @Nullable Point viewportSizeFromDisplay =
         params.isViewportSizeLimitedByPhysicalDisplaySize && context != null
             ? Util.getCurrentDisplayModeSize(context)
             : null;
@@ -3010,8 +2998,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     if (params.audioOffloadPreferences.audioOffloadMode == AUDIO_OFFLOAD_MODE_REQUIRED) {
       return null;
     }
-    @Nullable
-    String preferredCaptioningLanguage =
+    @Nullable String preferredCaptioningLanguage =
         params.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager
             ? getPreferredLanguageFromCaptioningManager(context)
             : null;
@@ -3153,8 +3140,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    * @return The {@link ExoTrackSelection} for the renderer, or null if no selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  @Nullable
-  protected ExoTrackSelection.Definition selectOtherTrack(
+  protected ExoTrackSelection.@Nullable Definition selectOtherTrack(
       int trackType, TrackGroupArray groups, @Capabilities int[][] formatSupport, Parameters params)
       throws ExoPlaybackException {
     if (params.audioOffloadPreferences.audioOffloadMode == AUDIO_OFFLOAD_MODE_REQUIRED) {
@@ -3305,7 +3291,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
       // If the override is non-empty and applies to this renderer, then apply it. Else we don't
       // want the renderer to be enabled at all, so clear any existing selection.
-      @Nullable ExoTrackSelection.Definition selection;
+      ExoTrackSelection.@Nullable Definition selection;
       if (!overrideForType.trackIndices.isEmpty()
           && mappedTrackInfo.getTrackGroups(rendererIndex).indexOf(overrideForType.mediaTrackGroup)
               != -1) {
@@ -3355,9 +3341,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
       if (!params.hasSelectionOverride(rendererIndex, trackGroups)) {
         continue;
       }
-      @Nullable
-      SelectionOverride override = params.getSelectionOverride(rendererIndex, trackGroups);
-      @Nullable ExoTrackSelection.Definition selection;
+      @Nullable SelectionOverride override =
+          params.getSelectionOverride(rendererIndex, trackGroups);
+      ExoTrackSelection.@Nullable Definition selection;
       if (override != null && override.tracks.length != 0) {
         selection =
             new ExoTrackSelection.Definition(

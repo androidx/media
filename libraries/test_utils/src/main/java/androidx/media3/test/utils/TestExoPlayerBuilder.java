@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
@@ -42,6 +41,7 @@ import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A builder of {@link ExoPlayer} instances for testing. */
 @UnstableApi
@@ -52,9 +52,9 @@ public class TestExoPlayerBuilder {
   private DefaultTrackSelector trackSelector;
   private LoadControl loadControl;
   private BandwidthMeter bandwidthMeter;
-  @Nullable private Renderer[] renderers;
+  private Renderer @Nullable [] renderers;
   @Nullable private RenderersFactory renderersFactory;
-  @Nullable private MediaSource.Factory mediaSourceFactory;
+  private MediaSource.@Nullable Factory mediaSourceFactory;
   private boolean useLazyPreparation;
   private @MonotonicNonNull Looper looper;
   @Nullable private Looper playbackLooper;
@@ -64,7 +64,7 @@ public class TestExoPlayerBuilder {
   private long maxSeekToPreviousPositionMs;
   private boolean deviceVolumeControlEnabled;
   private boolean suppressPlaybackWhenUnsuitableOutput;
-  @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
+  private ExoPlayer.@Nullable PreloadConfiguration preloadConfiguration;
   private int stuckPlayingDetectionTimeoutMs;
   private int stuckSuppressedDetectionTimeoutMs;
   private boolean enforceAdPlaybackOnTimelineRefresh;
@@ -195,8 +195,7 @@ public class TestExoPlayerBuilder {
    * the ones used by the built player, for example if a {@link #setRenderersFactory Renderer
    * factory} has been set.
    */
-  @Nullable
-  public Renderer[] getRenderers() {
+  public Renderer @Nullable [] getRenderers() {
     return renderers;
   }
 
@@ -308,8 +307,7 @@ public class TestExoPlayerBuilder {
    * Returns the {@link MediaSource.Factory} that will be used by the player, or null if no {@link
    * MediaSource.Factory} has been set yet and no default is available.
    */
-  @Nullable
-  public MediaSource.Factory getMediaSourceFactory() {
+  public MediaSource.@Nullable Factory getMediaSourceFactory() {
     return mediaSourceFactory;
   }
 

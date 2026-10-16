@@ -69,7 +69,6 @@ import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
 import androidx.core.util.ObjectsCompat;
@@ -116,6 +115,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.jspecify.annotations.Nullable;
 
 // Getting the commands from MediaControllerCompat
 /* package */ class MediaSessionLegacyStub extends MediaSessionCompat.Callback {
@@ -156,7 +156,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private SessionCommands availableSessionCommands;
   private Player.Commands availablePlayerCommands;
   @Nullable private PlaybackException customPlaybackException;
-  @Nullable private Player.Commands playerCommandsForErrorState;
+  private Player.@Nullable Commands playerCommandsForErrorState;
 
   @SuppressWarnings({
     "PendingIntentMutability", // We can't use SaferPendingIntent
@@ -317,7 +317,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   public void setPlaybackException(
       @Nullable PlaybackException playbackException,
-      @Nullable Player.Commands playerCommandsForErrorState) {
+      Player.@Nullable Commands playerCommandsForErrorState) {
     checkArgument(
         (playbackException == null && playerCommandsForErrorState == null)
             || (playbackException != null && playerCommandsForErrorState != null));
@@ -413,8 +413,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // Below API 26, media button events are sent to the receiver at runtime also. We always want
     // these to arrive at the service at runtime. release() then set the receiver for restart if
     // available.
-    @Nullable
-    ComponentName serviceComponentName =
+    @Nullable ComponentName serviceComponentName =
         getServiceComponentByAction(context, MediaLibraryService.SERVICE_INTERFACE);
     if (serviceComponentName == null) {
       serviceComponentName =
@@ -929,8 +928,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         /* sessionCommand= */ null,
         COMMAND_CODE_SESSION_SET_RATING,
         controller -> {
-          @Nullable
-          MediaItem currentItem =
+          @Nullable MediaItem currentItem =
               sessionImpl.getPlayerWrapper().getCurrentMediaItemWithCommandCheck();
           if (currentItem == null) {
             return;
@@ -1668,7 +1666,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Reuse bitmap futures for identical artwork within this update and from the previous one.
       ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> newQueueBitmapFutures = new ArrayMap<>();
       for (int i = 0; i < mediaItemList.size(); i++) {
-        @Nullable byte[] artworkData = mediaItemList.get(i).mediaMetadata.artworkData;
+        byte @Nullable [] artworkData = mediaItemList.get(i).mediaMetadata.artworkData;
         if (artworkData == null) {
           continue;
         }
@@ -1715,7 +1713,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       List<QueueItem> queueItemList = new ArrayList<>();
       for (int i = 0; i < mediaItems.size(); i++) {
         MediaItem mediaItem = mediaItems.get(i);
-        @Nullable byte[] artworkData = mediaItem.mediaMetadata.artworkData;
+        byte @Nullable [] artworkData = mediaItem.mediaMetadata.artworkData;
         @Nullable Bitmap bitmap = null;
         if (artworkData != null) {
           try {
@@ -1808,8 +1806,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               : player.getDurationWithCommandCheck();
       String newMediaId =
           currentMediaItem != null ? currentMediaItem.mediaId : MediaItem.DEFAULT_MEDIA_ID;
-      @Nullable
-      Uri newMediaUri =
+      @Nullable Uri newMediaUri =
           currentMediaItem != null && currentMediaItem.requestMetadata.mediaUri != null
               ? currentMediaItem.requestMetadata.mediaUri
               : null;
@@ -1974,8 +1971,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           .build();
     }
     // The custom error from the session if present, or the actual error from the player, if any.
-    @Nullable
-    PlaybackException publicPlaybackException =
+    @Nullable PlaybackException publicPlaybackException =
         customPlaybackException != null ? customPlaybackException : player.getPlayerError();
     boolean canReadPositions =
         player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)

@@ -38,7 +38,6 @@ import android.media.MediaFormat;
 import android.media.MediaParser;
 import android.media.MediaParser.TrackData;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.C.SelectionFlags;
@@ -70,6 +69,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link MediaParser.OutputConsumer} implementation that redirects output to an {@link
@@ -102,8 +102,8 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   @Nullable private final Format primaryTrackManifestFormat;
 
   private ExtractorOutput extractorOutput;
-  @Nullable private MediaParser.SeekMap dummySeekMap;
-  @Nullable private MediaParser.SeekMap lastSeekMap;
+  private MediaParser.@Nullable SeekMap dummySeekMap;
+  private MediaParser.@Nullable SeekMap lastSeekMap;
   @Nullable private String containerMimeType;
   @Nullable private ChunkIndex lastChunkIndex;
   @Nullable private TimestampAdjuster timestampAdjuster;
@@ -195,8 +195,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
    * {@link MediaParser.SeekPoint#timeMicros} matches the requested timestamp, and {@link
    * MediaParser.SeekPoint#position} is 0.
    */
-  @Nullable
-  public MediaParser.SeekMap getDummySeekMap() {
+  public MediaParser.@Nullable SeekMap getDummySeekMap() {
     return dummySeekMap;
   }
 
@@ -230,8 +229,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
    * Returns the last output format for each track, or null if not all the tracks have been
    * identified.
    */
-  @Nullable
-  public Format[] getSampleFormats() {
+  public Format @Nullable [] getSampleFormats() {
     if (!tracksFoundCalled) {
       return null;
     }
@@ -276,8 +274,8 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     ensureSpaceForTrackIndex(trackIndex);
     @Nullable TrackOutput trackOutput = trackOutputs.get(trackIndex);
     if (trackOutput == null) {
-      @Nullable
-      String trackTypeString = trackData.mediaFormat.getString(MEDIA_FORMAT_KEY_TRACK_TYPE);
+      @Nullable String trackTypeString =
+          trackData.mediaFormat.getString(MEDIA_FORMAT_KEY_TRACK_TYPE);
       int trackType =
           toTrackTypeConstant(
               trackTypeString != null
@@ -329,7 +327,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
       int flags,
       int size,
       int offset,
-      @Nullable MediaCodec.CryptoInfo cryptoInfo) {
+      MediaCodec.@Nullable CryptoInfo cryptoInfo) {
     if (sampleTimestampUpperLimitFilterUs != C.TIME_UNSET
         && timeUs >= sampleTimestampUpperLimitFilterUs) {
       // Ignore this sample.
@@ -344,8 +342,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   // Private methods.
 
   private boolean maybeObtainChunkIndex(MediaFormat mediaFormat) {
-    @Nullable
-    ByteBuffer chunkIndexSizesByteBuffer =
+    @Nullable ByteBuffer chunkIndexSizesByteBuffer =
         mediaFormat.getByteBuffer(MEDIA_FORMAT_KEY_CHUNK_INDEX_SIZES);
     if (chunkIndexSizesByteBuffer == null) {
       return false;
@@ -531,7 +528,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
 
   @Nullable
   private static DrmInitData toExoPlayerDrmInitData(
-      @Nullable String schemeType, @Nullable android.media.DrmInitData drmInitData) {
+      @Nullable String schemeType, android.media.@Nullable DrmInitData drmInitData) {
     if (drmInitData == null) {
       return null;
     }
@@ -657,7 +654,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
 
   private static final class DataReaderAdapter implements DataReader {
 
-    @Nullable public MediaParser.InputReader input;
+    public MediaParser.@Nullable InputReader input;
 
     @Override
     public int read(byte[] buffer, int offset, int length) throws IOException {

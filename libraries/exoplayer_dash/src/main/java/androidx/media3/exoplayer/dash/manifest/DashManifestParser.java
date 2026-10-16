@@ -25,7 +25,6 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Pair;
 import android.util.Xml;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
@@ -62,6 +61,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -195,8 +195,8 @@ public class DashManifestParser extends DefaultHandler
       } else if (XmlPullParserUtil.isStartTag(xpp, "UTCTiming")) {
         utcTiming = parseUtcTiming(xpp);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Location")) {
-        @Nullable
-        String serviceLocation = XmlPullParserUtil.getAttributeValue(xpp, "serviceLocation");
+        @Nullable String serviceLocation =
+            XmlPullParserUtil.getAttributeValue(xpp, "serviceLocation");
         String locationUrlString = parseText(xpp, "Location").trim();
         Uri resolvedUrl = Uri.parse(UriUtil.resolve(documentBaseUriString, locationUrlString));
         locations.add(
@@ -537,11 +537,9 @@ public class DashManifestParser extends DefaultHandler
 
     @Nullable String mimeType = XmlPullParserUtil.getAttributeValue(xpp, "mimeType");
     @Nullable String codecs = XmlPullParserUtil.getAttributeValue(xpp, "codecs");
-    @Nullable
-    String supplementalCodecs =
+    @Nullable String supplementalCodecs =
         XmlPullParserUtil.getAttributeValue(xpp, "scte214:supplementalCodecs");
-    @Nullable
-    String supplementalProfiles =
+    @Nullable String supplementalProfiles =
         XmlPullParserUtil.getAttributeValue(xpp, "scte214:supplementalProfiles");
     int width = parseInt(xpp, "width", Format.NO_VALUE);
     int height = parseInt(xpp, "height", Format.NO_VALUE);
@@ -710,8 +708,8 @@ public class DashManifestParser extends DefaultHandler
     boolean inband = parseBoolean(xpp, "inband", /* defaultValue= */ false);
     @ProducerReferenceTime.ProducerReferenceTimeType
     int type = parseProducerReferenceTimeType(XmlPullParserUtil.getAttributeValue(xpp, "type"));
-    @Nullable
-    String applicationScheme = XmlPullParserUtil.getAttributeValue(xpp, "applicationScheme");
+    @Nullable String applicationScheme =
+        XmlPullParserUtil.getAttributeValue(xpp, "applicationScheme");
     long wallClockTimeMs = parseDateTime(xpp, "wallClockTime", C.TIME_UNSET);
     long presentationTime = parseLong(xpp, "presentationTime", C.TIME_UNSET);
     @Nullable UtcTimingElement utcTiming = null;
@@ -780,7 +778,7 @@ public class DashManifestParser extends DefaultHandler
       XmlPullParser xpp) throws XmlPullParserException, IOException {
     @Nullable String schemeType = null;
     @Nullable String licenseServerUrl = null;
-    @Nullable byte[] data = null;
+    byte @Nullable [] data = null;
     @Nullable UUID uuid = null;
 
     @Nullable String schemeIdUri = XmlPullParserUtil.getAttributeValue(xpp, "schemeIdUri");
@@ -788,8 +786,8 @@ public class DashManifestParser extends DefaultHandler
       switch (Ascii.toLowerCase(schemeIdUri)) {
         case "urn:mpeg:dash:mp4protection:2011":
           schemeType = XmlPullParserUtil.getAttributeValue(xpp, "value");
-          @Nullable
-          String defaultKid = XmlPullParserUtil.getAttributeValueIgnorePrefix(xpp, "default_KID");
+          @Nullable String defaultKid =
+              XmlPullParserUtil.getAttributeValueIgnorePrefix(xpp, "default_KID");
           if (!TextUtils.isEmpty(defaultKid)
               && !"00000000-0000-0000-0000-000000000000".equals(defaultKid)) {
             String[] defaultKidStrings = defaultKid.split("\\s+");
@@ -907,14 +905,12 @@ public class DashManifestParser extends DefaultHandler
     if (codecs == null) {
       codecs = adaptationSetCodecs;
     }
-    @Nullable
-    String supplementalCodecs =
+    @Nullable String supplementalCodecs =
         XmlPullParserUtil.getAttributeValue(xpp, "scte214:supplementalCodecs");
     if (supplementalCodecs == null) {
       supplementalCodecs = adaptationSetSupplementalCodecs;
     }
-    @Nullable
-    String supplementalProfiles =
+    @Nullable String supplementalProfiles =
         XmlPullParserUtil.getAttributeValue(xpp, "scte214:supplementalProfiles");
     if (supplementalProfiles == null) {
       supplementalProfiles = adaptationSetSupplementalProfiles;
@@ -1289,11 +1285,9 @@ public class DashManifestParser extends DefaultHandler
         getFinalAvailabilityTimeOffset(
             baseUrlAvailabilityTimeOffsetUs, segmentBaseAvailabilityTimeOffsetUs);
 
-    @Nullable
-    UrlTemplate mediaTemplate =
+    @Nullable UrlTemplate mediaTemplate =
         parseUrlTemplate(xpp, "media", parent != null ? parent.mediaTemplate : null);
-    @Nullable
-    UrlTemplate initializationTemplate =
+    @Nullable UrlTemplate initializationTemplate =
         parseUrlTemplate(
             xpp, "initialization", parent != null ? parent.initializationTemplate : null);
 
@@ -1644,7 +1638,7 @@ public class DashManifestParser extends DefaultHandler
     boolean seenPresentation = false;
     boolean insidePresentation = false;
     int depth = 0;
-    @Nullable AlternativeMpdEvent.Builder builder = null;
+    AlternativeMpdEvent.@Nullable Builder builder = null;
     List<Descriptor> supplementalProperties = new ArrayList<>();
     xpp.nextToken();
     while (depth > 0 || !XmlPullParserUtil.isEndTag(xpp, "Event")) {
@@ -1707,8 +1701,7 @@ public class DashManifestParser extends DefaultHandler
     return Pair.create(timedEventMessage, alternativeMpdEvent);
   }
 
-  @Nullable
-  private static AlternativeMpdEvent.Builder parseAlternativeMpdPresentationAttributes(
+  private static AlternativeMpdEvent.@Nullable Builder parseAlternativeMpdPresentationAttributes(
       XmlPullParser xpp,
       @AlternativeMpdEvent.Type int type,
       long id,
@@ -1894,8 +1887,8 @@ public class DashManifestParser extends DefaultHandler
     @Nullable String title = null;
     @Nullable String source = null;
     @Nullable String copyright = null;
-    @Nullable
-    String moreInformationUrl = XmlPullParserUtil.getAttributeValue(xpp, "moreInformationURL");
+    @Nullable String moreInformationUrl =
+        XmlPullParserUtil.getAttributeValue(xpp, "moreInformationURL");
     @Nullable String lang = XmlPullParserUtil.getAttributeValue(xpp, "lang");
     do {
       xpp.next();

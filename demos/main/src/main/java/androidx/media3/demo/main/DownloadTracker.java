@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.fragment.app.FragmentManager;
 import androidx.media3.common.C;
@@ -58,6 +57,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks media that has been downloaded. */
 @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -174,7 +174,7 @@ public class DownloadTracker {
     private boolean tracksInfoAvailable;
     private TrackSelectionDialog trackSelectionDialog;
     private WidevineOfflineLicenseFetchTask widevineOfflineLicenseFetchTask;
-    @Nullable private byte[] keySetId;
+    private byte @Nullable [] keySetId;
 
     public StartDownloadDialogHelper(
         FragmentManager fragmentManager, DownloadHelper downloadHelper, MediaItem mediaItem) {
@@ -382,8 +382,8 @@ public class DownloadTracker {
     private final ExecutorService executorService;
 
     @Nullable Future<?> future;
-    @Nullable private byte[] keySetId;
-    @Nullable private DrmSession.DrmSessionException drmSessionException;
+    private byte @Nullable [] keySetId;
+    private DrmSession.@Nullable DrmSessionException drmSessionException;
 
     public WidevineOfflineLicenseFetchTask(
         Format format,

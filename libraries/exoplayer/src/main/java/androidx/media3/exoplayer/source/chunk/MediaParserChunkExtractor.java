@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.annotation.SuppressLint;
 import android.media.MediaFormat;
 import android.media.MediaParser;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -51,6 +50,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** {@link ChunkExtractor} implemented on top of the platform's {@link MediaParser}. */
 @RequiresApi(30)
@@ -153,7 +153,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
   private final DiscardingTrackOutput discardingTrackOutput;
   private long pendingSeekUs;
   @Nullable private TrackOutputProvider trackOutputProvider;
-  @Nullable private Format[] sampleFormats;
+  private Format @Nullable [] sampleFormats;
 
   /**
    * Creates a new instance.
@@ -233,16 +233,15 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
     return outputConsumerAdapter.getChunkIndex();
   }
 
-  @Nullable
   @Override
-  public Format[] getSampleFormats() {
+  public Format @Nullable [] getSampleFormats() {
     return sampleFormats;
   }
 
   // Internal methods.
 
   private void maybeExecutePendingSeek() {
-    @Nullable MediaParser.SeekMap dummySeekMap = outputConsumerAdapter.getDummySeekMap();
+    MediaParser.@Nullable SeekMap dummySeekMap = outputConsumerAdapter.getDummySeekMap();
     if (pendingSeekUs != C.TIME_UNSET && dummySeekMap != null) {
       mediaParser.seek(dummySeekMap.getSeekPoints(pendingSeekUs).first);
       pendingSeekUs = C.TIME_UNSET;

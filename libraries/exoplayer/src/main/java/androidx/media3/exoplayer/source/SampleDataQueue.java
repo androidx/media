@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.ParsableByteArray;
@@ -36,6 +35,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** A queue of media sample data. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -350,11 +350,11 @@ import java.util.Arrays;
     }
 
     // Write the clear and encrypted subsample sizes.
-    @Nullable int[] clearDataSizes = cryptoInfo.numBytesOfClearData;
+    int @Nullable [] clearDataSizes = cryptoInfo.numBytesOfClearData;
     if (clearDataSizes == null || clearDataSizes.length < subsampleCount) {
       clearDataSizes = new int[subsampleCount];
     }
-    @Nullable int[] encryptedDataSizes = cryptoInfo.numBytesOfEncryptedData;
+    int @Nullable [] encryptedDataSizes = cryptoInfo.numBytesOfEncryptedData;
     if (encryptedDataSizes == null || encryptedDataSizes.length < subsampleCount) {
       encryptedDataSizes = new int[subsampleCount];
     }
@@ -544,8 +544,7 @@ import java.util.Arrays;
     }
 
     @Override
-    @Nullable
-    public Allocator.AllocationNode next() {
+    public Allocator.@Nullable AllocationNode next() {
       if (next == null || next.allocation == null) {
         return null;
       } else {

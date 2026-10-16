@@ -55,7 +55,6 @@ import android.widget.TextView;
 import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.AdOverlayInfo;
@@ -86,6 +85,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A high level view for {@link Player} media playbacks. It displays video, subtitles and album art
@@ -321,8 +321,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Nullable private ControllerVisibilityListener controllerVisibilityListener;
 
   @SuppressWarnings("deprecation")
-  @Nullable
-  private PlayerControlView.VisibilityListener legacyControllerVisibilityListener;
+  private PlayerControlView.@Nullable VisibilityListener legacyControllerVisibilityListener;
 
   @Nullable private FullscreenButtonClickListener fullscreenButtonClickListener;
 
@@ -1111,7 +1110,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Deprecated
   @UnstableApi
   public void setControllerVisibilityListener(
-      @Nullable PlayerControlView.VisibilityListener listener) {
+      PlayerControlView.@Nullable VisibilityListener listener) {
     checkNotNull(controller);
     if (this.legacyControllerVisibilityListener == listener) {
       return;
@@ -1173,7 +1172,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Deprecated
   @UnstableApi
   public void setControllerOnFullScreenModeChangedListener(
-      @Nullable PlayerControlView.OnFullScreenModeChangedListener listener) {
+      PlayerControlView.@Nullable OnFullScreenModeChangedListener listener) {
     checkNotNull(controller);
     this.fullscreenButtonClickListener = null;
     controller.setOnFullScreenModeChangedListener(listener);
@@ -1339,7 +1338,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setExtraAdGroupMarkers(
-      @Nullable long[] extraAdGroupTimesMs, @Nullable boolean[] extraPlayedAdGroups) {
+      long @Nullable [] extraAdGroupTimesMs, boolean @Nullable [] extraPlayedAdGroups) {
     checkNotNull(controller);
     controller.setExtraAdGroupMarkers(extraAdGroupTimesMs, extraPlayedAdGroups);
   }
@@ -1352,7 +1351,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setAspectRatioListener(
-      @Nullable AspectRatioFrameLayout.AspectRatioListener listener) {
+      AspectRatioFrameLayout.@Nullable AspectRatioListener listener) {
     checkNotNull(contentFrame);
     contentFrame.setAspectRatioListener(listener);
   }
@@ -2008,8 +2007,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
         Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
       mainLooperHandler.post(
           () -> {
-            @Nullable
-            AttachedSurfaceControl rootSurfaceControl = surfaceView.getRootSurfaceControl();
+            @Nullable AttachedSurfaceControl rootSurfaceControl =
+                surfaceView.getRootSurfaceControl();
             if (rootSurfaceControl == null) {
               // The SurfaceView isn't attached to a window, so don't apply the workaround.
               return;

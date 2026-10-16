@@ -27,7 +27,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem.LocalConfiguration;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -42,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A flexible representation of the structure of media. A timeline is able to represent the
@@ -233,7 +233,7 @@ public abstract class Timeline {
      * The {@link MediaItem.LiveConfiguration} that is used or null if {@link #isLive()} returns
      * false.
      */
-    @Nullable public MediaItem.LiveConfiguration liveConfiguration;
+    public MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
     /**
      * Whether this window contains placeholder information because the real information has yet to
@@ -283,7 +283,7 @@ public abstract class Timeline {
         long elapsedRealtimeEpochOffsetMs,
         boolean isSeekable,
         boolean isDynamic,
-        @Nullable MediaItem.LiveConfiguration liveConfiguration,
+        MediaItem.@Nullable LiveConfiguration liveConfiguration,
         long defaultPositionUs,
         long durationUs,
         int firstPeriodIndex,
@@ -478,7 +478,7 @@ public abstract class Timeline {
         bundle.putBoolean(FIELD_IS_DYNAMIC, isDynamic);
       }
 
-      @Nullable MediaItem.LiveConfiguration liveConfiguration = this.liveConfiguration;
+      MediaItem.@Nullable LiveConfiguration liveConfiguration = this.liveConfiguration;
       if (liveConfiguration != null) {
         bundle.putBundle(FIELD_LIVE_CONFIGURATION, liveConfiguration.toBundle());
       }
@@ -525,8 +525,7 @@ public abstract class Timeline {
     @UnstableApi
     public static Window fromBundle(Bundle bundle, int interfaceVersion) {
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
-      @Nullable
-      MediaItem mediaItem =
+      @Nullable MediaItem mediaItem =
           mediaItemBundle != null
               ? MediaItem.fromBundle(mediaItemBundle, interfaceVersion)
               : MediaItem.EMPTY;
@@ -539,8 +538,7 @@ public abstract class Timeline {
       boolean isSeekable = bundle.getBoolean(FIELD_IS_SEEKABLE, /* defaultValue= */ false);
       boolean isDynamic = bundle.getBoolean(FIELD_IS_DYNAMIC, /* defaultValue= */ false);
       @Nullable Bundle liveConfigurationBundle = bundle.getBundle(FIELD_LIVE_CONFIGURATION);
-      @Nullable
-      MediaItem.LiveConfiguration liveConfiguration =
+      MediaItem.@Nullable LiveConfiguration liveConfiguration =
           liveConfigurationBundle != null
               ? MediaItem.LiveConfiguration.fromBundle(liveConfigurationBundle)
               : null;
@@ -1635,7 +1633,7 @@ public abstract class Timeline {
     ImmutableList<Period> periods =
         fromBundleListRetriever(
             item -> Period.fromBundle(item, interfaceVersion), bundle.getBinder(FIELD_PERIODS));
-    @Nullable int[] shuffledWindowIndices = bundle.getIntArray(FIELD_SHUFFLED_WINDOW_INDICES);
+    int @Nullable [] shuffledWindowIndices = bundle.getIntArray(FIELD_SHUFFLED_WINDOW_INDICES);
 
     return new RemotableTimeline(
         windows,
