@@ -73,7 +73,6 @@ import android.os.Looper;
 import android.util.Rational;
 import android.view.Surface;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
@@ -133,6 +132,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -3848,7 +3848,7 @@ public class CompositionPlayerTest {
     }
 
     @Override
-    public HandlerWrapper createHandler(Looper looper, @Nullable Handler.Callback callback) {
+    public HandlerWrapper createHandler(Looper looper, Handler.@Nullable Callback callback) {
       return delegate.createHandler(looper, callback);
     }
 

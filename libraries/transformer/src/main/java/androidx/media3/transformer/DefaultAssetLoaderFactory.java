@@ -25,7 +25,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import android.media.metrics.LogSessionId;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.BitmapLoader;
@@ -39,6 +38,7 @@ import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.concurrent.Executors;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** The default {@link AssetLoader.Factory} implementation. */
 @UnstableApi
@@ -49,9 +49,9 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
   private final Clock clock;
-  @Nullable private final MediaSource.Factory mediaSourceFactory;
+  private final MediaSource.@Nullable Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
-  @Nullable private final TrackSelector.Factory trackSelectorFactory;
+  private final TrackSelector.@Nullable Factory trackSelectorFactory;
   @Nullable private final LogSessionId logSessionId;
 
   private AssetLoader.@MonotonicNonNull Factory imageAssetLoaderFactory;
@@ -84,7 +84,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
     this.mediaSourceFactory = null;
     this.trackSelectorFactory = null;
     this.logSessionId = logSessionId;
-    @Nullable BitmapFactory.Options options = null;
+    BitmapFactory.@Nullable Options options = null;
     if (SDK_INT >= 26) {
       options = new BitmapFactory.Options();
       options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
@@ -134,7 +134,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       Context context,
       Codec.DecoderFactory decoderFactory,
       Clock clock,
-      @Nullable MediaSource.Factory mediaSourceFactory,
+      MediaSource.@Nullable Factory mediaSourceFactory,
       BitmapLoader bitmapLoader) {
     // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
     this.context = context.getApplicationContext();
@@ -164,7 +164,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       Context context,
       Codec.DecoderFactory decoderFactory,
       Clock clock,
-      @Nullable MediaSource.Factory mediaSourceFactory,
+      MediaSource.@Nullable Factory mediaSourceFactory,
       BitmapLoader bitmapLoader,
       TrackSelector.Factory trackSelectorFactory) {
     // TODO: b/381519379 - Deprecate this constructor and replace with a builder.

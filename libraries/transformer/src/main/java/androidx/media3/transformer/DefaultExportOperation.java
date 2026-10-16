@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.media.metrics.LogSessionId;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import androidx.media3.transformer.ExportResult.ProcessedInput;
 import androidx.media3.transformer.Transformer.ProgressState;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExportOperation} implementation for single export operations. */
 /* package */ final class DefaultExportOperation implements ExportOperation {
@@ -40,7 +40,7 @@ import java.io.IOException;
   private final Context context;
   private final Composition composition;
   private final TransformationRequest transformationRequest;
-  @Nullable private final AssetLoader.Factory assetLoaderFactory;
+  private final AssetLoader.@Nullable Factory assetLoaderFactory;
   private final AudioMixer.Factory audioMixerFactory;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
   private final Codec.EncoderFactory encoderFactory;
@@ -52,7 +52,7 @@ import java.io.IOException;
   private final DebugViewProvider debugViewProvider;
   private final Clock clock;
 
-  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
+  private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
   @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
@@ -70,7 +70,7 @@ import java.io.IOException;
       Context context,
       Composition composition,
       TransformationRequest transformationRequest,
-      @Nullable AssetLoader.Factory assetLoaderFactory,
+      AssetLoader.@Nullable Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -81,7 +81,7 @@ import java.io.IOException;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable FrameProcessor.Factory frameProcessorFactory,
+      FrameProcessor.@Nullable Factory frameProcessorFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,

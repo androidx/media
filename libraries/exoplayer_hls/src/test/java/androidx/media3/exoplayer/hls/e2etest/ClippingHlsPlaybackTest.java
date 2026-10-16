@@ -25,7 +25,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
@@ -54,6 +53,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
+import org.jspecify.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -606,7 +606,7 @@ public final class ClippingHlsPlaybackTest {
     @Override
     public void onLoadStarted(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventInfo,
         MediaLoadData mediaLoadData,
         int retryCount) {
@@ -624,7 +624,7 @@ public final class ClippingHlsPlaybackTest {
     @Override
     public void onLoadCompleted(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventInfo,
         MediaLoadData mediaLoadData) {
       if (mediaLoadData.dataType == C.DATA_TYPE_MEDIA

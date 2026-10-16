@@ -39,7 +39,6 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Pair;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
@@ -86,6 +85,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /** Implements the internal behavior of {@code MediaExtractorCompat}. */
 /* package */ final class MediaExtractorCompatInternal {
@@ -628,8 +628,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
    * @return The {@link DrmInitData} in the content, or {@code null} if no recognizable DRM format
    *     is found.
    */
-  /* package */ @Nullable
-  DrmInitData getDrmInitData() {
+  /* package */ @Nullable DrmInitData getDrmInitData() {
     for (int i = 0; i < tracks.size(); i++) {
       Format format =
           tracks.get(i).getFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
@@ -713,8 +712,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
    *     scheme, and the byte array contains the scheme-specific data. Returns {@code null} if no
    *     PSSH data exists.
    */
-  /* package */ @Nullable
-  Map<UUID, byte[]> getPsshInfo() {
+  /* package */ @Nullable Map<UUID, byte[]> getPsshInfo() {
     @Nullable DrmInitData drmInitData = getDrmInitData();
     if (drmInitData == null) {
       return null;
@@ -727,7 +725,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
         continue;
       }
 
-      @Nullable PsshAtomUtil.PsshAtom parsedPsshAtom = PsshAtomUtil.parsePsshAtom(schemeData.data);
+      PsshAtomUtil.@Nullable PsshAtom parsedPsshAtom = PsshAtomUtil.parsePsshAtom(schemeData.data);
       if (parsedPsshAtom != null) {
         psshDataMap.put(parsedPsshAtom.uuid, parsedPsshAtom.schemeData);
       }
@@ -852,8 +850,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
             mediaExtractorSampleQueue,
             /* isCompatibilityTrack= */ false,
             /* compatibilityTrackMimeType= */ null));
-    @Nullable
-    String compatibilityTrackMimeType =
+    @Nullable String compatibilityTrackMimeType =
         MediaCodecUtil.getAlternativeCodecMimeType(newUpstreamFormat);
     if (compatibilityTrackMimeType != null) {
       mediaExtractorSampleQueue.setCompatibilityTrackIndex(tracks.size());

@@ -78,7 +78,6 @@ import android.os.RemoteException;
 import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceHolder;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.AudioAttributes;
@@ -124,6 +123,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class that handles incoming commands from {@link MediaController} and {@link MediaBrowser} to
@@ -383,8 +383,8 @@ import java.util.function.Consumer;
       IBinder callerBinder = caller.asBinder();
       postOrRunOnApplicationHandler(
           () -> {
-            @Nullable
-            ControllerInfo controller = connectedControllersManager.getController(callerBinder);
+            @Nullable ControllerInfo controller =
+                connectedControllersManager.getController(callerBinder);
             if (controller != null) {
               task.run(controller, sequenceNumber);
             }
@@ -433,16 +433,15 @@ import java.util.function.Consumer;
     long token = Binder.clearCallingIdentity();
     try {
       @SuppressWarnings({"unchecked", "cast.unsafe"})
-      @Nullable
-      K sessionImpl = (K) this.sessionImpl.get();
+      @Nullable K sessionImpl = (K) this.sessionImpl.get();
       if (sessionImpl == null || sessionImpl.isReleased()) {
         return;
       }
       IBinder callerBinder = caller.asBinder();
       postOrRunOnApplicationHandler(
           () -> {
-            @Nullable
-            ControllerInfo controller = connectedControllersManager.getController(callerBinder);
+            @Nullable ControllerInfo controller =
+                connectedControllersManager.getController(callerBinder);
             if (controller == null) {
               return;
             }
@@ -593,8 +592,8 @@ import java.util.function.Consumer;
                     PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
                     Player.Commands controllerPlayerCommands;
                     PlayerInfo playerInfo = sessionImpl.getPlayerInfo();
-                    @Nullable
-                    PlaybackException sessionPlaybackException = sessionImpl.getPlaybackException();
+                    @Nullable PlaybackException sessionPlaybackException =
+                        sessionImpl.getPlaybackException();
                     if (sessionPlaybackException == null) {
                       controllerPlayerCommands = connectionResultToUse.availablePlayerCommands;
                     } else {
@@ -813,8 +812,7 @@ import java.util.function.Consumer;
       IBinder callerBinder = caller.asBinder();
       postOrRunOnApplicationHandler(
           () -> {
-            @Nullable
-            SequencedFutureManager manager =
+            @Nullable SequencedFutureManager manager =
                 connectedControllersManager.getSequencedFutureManager(callerBinder);
             if (manager != null) {
               manager.setFutureResult(sequenceNumber, result);
@@ -1024,8 +1022,8 @@ import java.util.function.Consumer;
       IBinder callerBinder = caller.asBinder();
       postOrRunOnApplicationHandler(
           () -> {
-            @Nullable
-            ControllerInfo controller = connectedControllersManager.getController(callerBinder);
+            @Nullable ControllerInfo controller =
+                connectedControllersManager.getController(callerBinder);
             if (controller == null) {
               return;
             }
@@ -2330,8 +2328,7 @@ import java.util.function.Consumer;
     Format[] updatedFormats = new Format[trackGroup.length];
     for (int i = 0; i < trackGroup.length; i++) {
       Format format = trackGroup.getFormat(i);
-      @Nullable
-      String uniquePrimaryTrackGroupId =
+      @Nullable String uniquePrimaryTrackGroupId =
           format.primaryTrackGroupId != null
               ? trackGroupOriginalToUniqueIdMap.get(format.primaryTrackGroupId)
               : null;
@@ -2891,7 +2888,7 @@ import java.util.function.Consumer;
   /* package */ static class SurfaceHolderWithSize implements SurfaceHolder {
     private final Surface surface;
     private final Rect surfaceFrame = new Rect();
-    @Nullable private SurfaceHolder.Callback callback;
+    private SurfaceHolder.@Nullable Callback callback;
 
     SurfaceHolderWithSize(Surface surface) {
       this.surface = surface;

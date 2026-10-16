@@ -17,10 +17,10 @@ package androidx.media3.extractor;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Rechunks TrueHD sample data into groups of {@link Ac3Util#TRUEHD_RECHUNK_SAMPLE_COUNT} samples.
@@ -64,7 +64,7 @@ public final class TrueHdSampleRechunker {
       @C.BufferFlags int flags,
       int size,
       int offset,
-      @Nullable TrackOutput.CryptoData cryptoData) {
+      TrackOutput.@Nullable CryptoData cryptoData) {
     checkState(
         chunkOffset <= size + offset,
         "TrueHD chunk samples must be contiguous in the sample queue.");
@@ -85,7 +85,7 @@ public final class TrueHdSampleRechunker {
   }
 
   public void outputPendingSampleMetadata(
-      TrackOutput trackOutput, @Nullable TrackOutput.CryptoData cryptoData) {
+      TrackOutput trackOutput, TrackOutput.@Nullable CryptoData cryptoData) {
     if (chunkSampleCount > 0) {
       trackOutput.sampleMetadata(chunkTimeUs, chunkFlags, chunkSize, chunkOffset, cryptoData);
       chunkSampleCount = 0;

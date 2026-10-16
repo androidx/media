@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -32,6 +31,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.TimestampIterator;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 
 /** A wrapper for {@link VideoGraph} input that handles {@link GraphInput} events. */
 /* package */ final class VideoEncoderGraphInput implements GraphInput {
@@ -143,8 +143,8 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   private static boolean isMediaItemForSurfaceAssetLoader(EditedMediaItem editedMediaItem) {
-    @Nullable
-    MediaItem.LocalConfiguration localConfiguration = editedMediaItem.mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration localConfiguration =
+        editedMediaItem.mediaItem.localConfiguration;
     if (localConfiguration == null) {
       return false;
     }

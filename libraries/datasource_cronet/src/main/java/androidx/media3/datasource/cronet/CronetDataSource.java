@@ -23,7 +23,6 @@ import static org.chromium.net.UrlRequest.Builder.REQUEST_PRIORITY_MEDIUM;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
@@ -68,6 +67,7 @@ import org.chromium.net.NetworkException;
 import org.chromium.net.UrlRequest;
 import org.chromium.net.UrlRequest.Status;
 import org.chromium.net.UrlResponseInfo;
+import org.jspecify.annotations.Nullable;
 
 /**
  * DataSource without intermediate buffer based on Cronet API set using UrlRequest.
@@ -92,10 +92,10 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     private final Executor executor;
     private final RequestProperties defaultRequestProperties;
     // TODO: Remove when CronetEngineWrapper is deleted.
-    @Nullable private final DefaultHttpDataSource.Factory internalFallbackFactory;
+    private final DefaultHttpDataSource.@Nullable Factory internalFallbackFactory;
 
     // TODO: Remove when CronetEngineWrapper is deleted.
-    @Nullable private HttpDataSource.Factory fallbackFactory;
+    private HttpDataSource.@Nullable Factory fallbackFactory;
     @Nullable private Predicate<String> contentTypePredicate;
     @Nullable private TransferListener transferListener;
     @Nullable private String userAgent;
@@ -340,7 +340,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     @SuppressWarnings("deprecation") // Intentionally referring to deprecated parameter
     @UnstableApi
     @Deprecated
-    public Factory setFallbackFactory(@Nullable HttpDataSource.Factory fallbackFactory) {
+    public Factory setFallbackFactory(HttpDataSource.@Nullable Factory fallbackFactory) {
       this.fallbackFactory = fallbackFactory;
       return this;
     }
@@ -647,8 +647,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
         responseBody = Util.EMPTY_BYTE_ARRAY;
       }
 
-      @Nullable
-      IOException cause =
+      @Nullable IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;

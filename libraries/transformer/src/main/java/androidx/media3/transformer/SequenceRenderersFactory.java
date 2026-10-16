@@ -37,7 +37,6 @@ import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Effect;
@@ -75,6 +74,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link RenderersFactory} for an {@link EditedMediaItemSequence}. */
 /* package */ final class SequenceRenderersFactory implements RenderersFactory {
@@ -116,7 +116,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Context context;
   private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
   @Nullable private final VideoSink videoSink;
-  @Nullable private final ImageDecoder.Factory imageDecoderFactory;
+  private final ImageDecoder.@Nullable Factory imageDecoderFactory;
   private final int inputIndex;
   private final boolean videoPrewarmingEnabled;
   @Nullable private final CompositionRendererListener compositionRendererListener;
@@ -134,7 +134,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       VideoSink videoSink,
-      @Nullable ImageDecoder.Factory imageDecoderFactory,
+      ImageDecoder.@Nullable Factory imageDecoderFactory,
       int inputIndex,
       boolean videoPrewarmingEnabled,
       long lateThresholdToDropInputUs) {
@@ -154,7 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public static SequenceRenderersFactory createForHardwareBuffer(
       Context context,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
-      @Nullable ImageDecoder.Factory imageDecoderFactory,
+      ImageDecoder.@Nullable Factory imageDecoderFactory,
       int inputIndex,
       boolean videoPrewarmingEnabled,
       CompositionRendererListener compositionRendererListener,
@@ -176,7 +176,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       @Nullable VideoSink videoSink,
-      @Nullable ImageDecoder.Factory imageDecoderFactory,
+      ImageDecoder.@Nullable Factory imageDecoderFactory,
       int inputIndex,
       boolean videoPrewarmingEnabled,
       @Nullable CompositionRendererListener compositionRendererListener,

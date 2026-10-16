@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.base.Charsets;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} for media loaded outside of the usual ExoPlayer loading mechanism.
@@ -127,7 +127,7 @@ public final class ExternallyLoadedMediaSource extends BaseMediaSource {
 
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     MediaItem.LocalConfiguration oldConfiguration = checkNotNull(getMediaItem().localConfiguration);
     return newConfiguration != null
         && newConfiguration.uri.equals(oldConfiguration.uri)

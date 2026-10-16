@@ -26,7 +26,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -77,6 +76,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A SmoothStreaming {@link MediaSource}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -93,14 +93,14 @@ public final class SsMediaSource extends BaseMediaSource
   public static final class Factory implements MediaSourceFactory {
 
     private final SsChunkSource.Factory chunkSourceFactory;
-    @Nullable private final DataSource.Factory manifestDataSourceFactory;
+    private final DataSource.@Nullable Factory manifestDataSourceFactory;
 
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
+    private CmcdConfiguration.@Nullable Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private long livePresentationDelayMs;
-    @Nullable private ParsingLoadable.Parser<? extends SsManifest> manifestParser;
+    private ParsingLoadable.@Nullable Parser<? extends SsManifest> manifestParser;
     @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
@@ -140,7 +140,7 @@ public final class SsMediaSource extends BaseMediaSource
      */
     public Factory(
         SsChunkSource.Factory chunkSourceFactory,
-        @Nullable DataSource.Factory manifestDataSourceFactory) {
+        DataSource.@Nullable Factory manifestDataSourceFactory) {
       this.chunkSourceFactory = checkNotNull(chunkSourceFactory);
       this.manifestDataSourceFactory = manifestDataSourceFactory;
       this.downloadExecutorSupplier = null;
@@ -202,7 +202,7 @@ public final class SsMediaSource extends BaseMediaSource
      */
     @CanIgnoreReturnValue
     public Factory setManifestParser(
-        @Nullable ParsingLoadable.Parser<? extends SsManifest> manifestParser) {
+        ParsingLoadable.@Nullable Parser<? extends SsManifest> manifestParser) {
       this.manifestParser = manifestParser;
       return this;
     }
@@ -292,8 +292,7 @@ public final class SsMediaSource extends BaseMediaSource
               .setMimeType(MimeTypes.APPLICATION_SS)
               .setUri(hasUri ? mediaItem.localConfiguration.uri : Uri.EMPTY)
               .build();
-      @Nullable
-      CmcdConfiguration cmcdConfiguration =
+      @Nullable CmcdConfiguration cmcdConfiguration =
           cmcdConfigurationFactory == null
               ? null
               : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
@@ -321,7 +320,7 @@ public final class SsMediaSource extends BaseMediaSource
     @Override
     public SsMediaSource createMediaSource(MediaItem mediaItem) {
       checkNotNull(mediaItem.localConfiguration);
-      @Nullable ParsingLoadable.Parser<? extends SsManifest> manifestParser = this.manifestParser;
+      ParsingLoadable.@Nullable Parser<? extends SsManifest> manifestParser = this.manifestParser;
       if (manifestParser == null) {
         manifestParser = new SsManifestParser();
       }
@@ -329,8 +328,7 @@ public final class SsMediaSource extends BaseMediaSource
       if (!streamKeys.isEmpty()) {
         manifestParser = new FilteringManifestParser<>(manifestParser, streamKeys);
       }
-      @Nullable
-      CmcdConfiguration cmcdConfiguration =
+      @Nullable CmcdConfiguration cmcdConfiguration =
           cmcdConfigurationFactory == null
               ? null
               : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
@@ -397,8 +395,8 @@ public final class SsMediaSource extends BaseMediaSource
   private SsMediaSource(
       MediaItem mediaItem,
       @Nullable SsManifest manifest,
-      @Nullable DataSource.Factory manifestDataSourceFactory,
-      @Nullable ParsingLoadable.Parser<? extends SsManifest> manifestParser,
+      DataSource.@Nullable Factory manifestDataSourceFactory,
+      ParsingLoadable.@Nullable Parser<? extends SsManifest> manifestParser,
       SsChunkSource.Factory chunkSourceFactory,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       @Nullable CmcdConfiguration cmcdConfiguration,
@@ -439,7 +437,7 @@ public final class SsMediaSource extends BaseMediaSource
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
     MediaItem.LocalConfiguration existingConfiguration =
         checkNotNull(getMediaItem().localConfiguration);
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)

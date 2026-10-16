@@ -27,7 +27,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -58,6 +57,7 @@ import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -1133,7 +1133,7 @@ public class DefaultHlsPlaylistTrackerTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,

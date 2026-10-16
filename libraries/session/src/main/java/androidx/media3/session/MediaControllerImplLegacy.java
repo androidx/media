@@ -39,7 +39,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -87,6 +86,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaControllerImplLegacy implements MediaController.MediaControllerImpl {
@@ -553,8 +553,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
-    @Nullable
-    String currentMediaItemMediaId =
+    @Nullable String currentMediaItemMediaId =
         legacyPlayerInfo.mediaMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID);
     if (mediaId.equals(currentMediaItemMediaId)) {
       controllerCompat
@@ -638,7 +637,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   public ListenableFuture<SessionResult> sendCustomCommand(
       SessionCommand command,
       Bundle args,
-      @Nullable MediaController.ProgressListener progressListener) {
+      MediaController.@Nullable ProgressListener progressListener) {
     return sendCustomCommand(command, args);
   }
 
@@ -1879,7 +1878,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     @Override
-    public void onAudioInfoChanged(@Nullable MediaControllerCompat.PlaybackInfo newPlaybackInfo) {
+    public void onAudioInfoChanged(MediaControllerCompat.@Nullable PlaybackInfo newPlaybackInfo) {
       pendingLegacyPlayerInfo = pendingLegacyPlayerInfo.copyWithPlaybackInfoCompat(newPlaybackInfo);
       startWaitingForPendingChanges();
     }
@@ -2256,8 +2255,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         || isCurrentActiveQueueIdChanged
         || isQueueChanged) {
       int activeQueueIndex = findQueueItemIndex(newLegacyPlayerInfo.queue, newActiveQueueId);
-      @Nullable
-      MediaDescriptionCompat currentDescriptionCompat =
+      @Nullable MediaDescriptionCompat currentDescriptionCompat =
           activeQueueIndex != C.INDEX_UNSET
               ? newLegacyPlayerInfo.queue.get(activeQueueIndex).getDescription()
               : null;
@@ -2677,7 +2675,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private static final class LegacyPlayerInfo {
 
-    @Nullable public final MediaControllerCompat.PlaybackInfo playbackInfoCompat;
+    public final MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat;
     @Nullable public final PlaybackStateCompat playbackStateCompat;
     @Nullable public final MediaMetadataCompat mediaMetadataCompat;
     public final List<QueueItem> queue;
@@ -2698,7 +2696,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     public LegacyPlayerInfo(
-        @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat,
+        MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat,
         @Nullable PlaybackStateCompat playbackStateCompat,
         @Nullable MediaMetadataCompat mediaMetadataCompat,
         List<QueueItem> queue,
@@ -2788,7 +2786,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
     @CheckResult
     public LegacyPlayerInfo copyWithPlaybackInfoCompat(
-        @Nullable MediaControllerCompat.PlaybackInfo playbackInfo) {
+        MediaControllerCompat.@Nullable PlaybackInfo playbackInfo) {
       return new LegacyPlayerInfo(
           playbackInfo,
           playbackStateCompat,

@@ -28,7 +28,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
@@ -53,6 +52,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link FrameProcessor} decorator that routes video frames through Google Play services {@link
@@ -110,7 +110,7 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
     private boolean isDeblurAndDenoiseVideoEnabled;
     private boolean isUpscaleVideoEnabled;
     @Nullable private Looper looper;
-    @Nullable private EnhancementSessionManager.Client sessionManagerClient;
+    private EnhancementSessionManager.@Nullable Client sessionManagerClient;
     @Nullable private HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
 
     /** Creates a builder with the specified context and base {@link FrameProcessor.Factory}. */
@@ -200,7 +200,7 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
         boolean isDeblurAndDenoiseVideoEnabled,
         boolean isUpscaleVideoEnabled,
         @Nullable Looper looper,
-        @Nullable EnhancementSessionManager.Client sessionManagerClient,
+        EnhancementSessionManager.@Nullable Client sessionManagerClient,
         @Nullable HardwareBufferNativeHelpers hardwareBufferNativeHelpers) {
       this.baseFrameProcessorFactory = baseFrameProcessorFactory;
       this.isTonemappingEnabled = isTonemappingEnabled;

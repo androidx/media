@@ -19,7 +19,6 @@ import static androidx.media3.exoplayer.drm.DefaultDrmSessionManager.MODE_PLAYBA
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
@@ -29,6 +28,7 @@ import com.google.common.primitives.Ints;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation of {@link DrmSessionManagerProvider}. */
 @UnstableApi
@@ -42,7 +42,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
   @GuardedBy("lock")
   private @MonotonicNonNull DrmSessionManager manager;
 
-  @Nullable private DataSource.Factory drmHttpDataSourceFactory;
+  private DataSource.@Nullable Factory drmHttpDataSourceFactory;
   @Nullable private String userAgent;
   @Nullable private LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
 
@@ -57,7 +57,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
    * @param drmDataSourceFactory The data source factory or {@code null} to use {@link
    *     DefaultHttpDataSource.Factory}.
    */
-  public void setDrmHttpDataSourceFactory(@Nullable DataSource.Factory drmDataSourceFactory) {
+  public void setDrmHttpDataSourceFactory(DataSource.@Nullable Factory drmDataSourceFactory) {
     this.drmHttpDataSourceFactory = drmDataSourceFactory;
   }
 
@@ -86,8 +86,8 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
   @Override
   public DrmSessionManager get(MediaItem mediaItem) {
     checkNotNull(mediaItem.localConfiguration);
-    @Nullable
-    MediaItem.DrmConfiguration drmConfiguration = mediaItem.localConfiguration.drmConfiguration;
+    MediaItem.@Nullable DrmConfiguration drmConfiguration =
+        mediaItem.localConfiguration.drmConfiguration;
     if (drmConfiguration == null) {
       return DrmSessionManager.DRM_UNSUPPORTED;
     }

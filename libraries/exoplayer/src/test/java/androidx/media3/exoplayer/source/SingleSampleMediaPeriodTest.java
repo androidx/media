@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.datasource.DataSpec;
@@ -31,6 +30,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -48,7 +48,7 @@ public final class SingleSampleMediaPeriodTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,
@@ -110,7 +110,7 @@ public final class SingleSampleMediaPeriodTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,

@@ -25,7 +25,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -54,6 +53,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages the internal logic for retrieving metadata from a {@link MediaItem}.
@@ -339,7 +339,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               @Override
               public void onLoadError(
                   int windowIndex,
-                  @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                  MediaSource.@Nullable MediaPeriodId mediaPeriodId,
                   LoadEventInfo loadEventInfo,
                   MediaLoadData mediaLoadData,
                   IOException error,

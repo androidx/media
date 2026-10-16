@@ -54,7 +54,6 @@ import android.util.SparseIntArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -82,6 +81,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class TransformerInternal {
 
@@ -135,7 +135,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final HandlerWrapper applicationHandler;
   private final Clock clock;
 
-  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
+  private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
   @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
@@ -203,7 +203,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       Composition composition,
       TransformationRequest transformationRequest,
-      @Nullable AssetLoader.Factory assetLoaderFactory,
+      AssetLoader.@Nullable Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -215,7 +215,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable FrameProcessor.Factory frameProcessorFactory,
+      FrameProcessor.@Nullable Factory frameProcessorFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
@@ -678,8 +678,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           createEncodedSampleExporter(trackType);
         }
 
-        @Nullable
-        SampleExporter sampleExporter = assetLoaderInputTracker.getSampleExporter(trackType);
+        @Nullable SampleExporter sampleExporter =
+            assetLoaderInputTracker.getSampleExporter(trackType);
         if (sampleExporter == null) {
           return null;
         }

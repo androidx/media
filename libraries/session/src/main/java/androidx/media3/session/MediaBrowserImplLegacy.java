@@ -26,7 +26,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Looper;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
@@ -44,6 +43,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.jspecify.annotations.Nullable;
 
 /** Implementation of MediaBrowser with the {@link MediaBrowserCompat} for legacy support. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -380,7 +380,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   public ListenableFuture<SessionResult> sendCustomCommand(
       SessionCommand command,
       Bundle args,
-      @Nullable MediaController.ProgressListener progressListener) {
+      MediaController.@Nullable ProgressListener progressListener) {
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (getAvailableSessionCommands().contains(command)) {
       // All commands that are declared as custom commands in the legacy playback state are sent to
@@ -486,8 +486,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             Log.w(TAG, "Failed to get custom browser action root list", e);
           }
           if (parcelableArrayList != null) {
-            @Nullable
-            ImmutableMap.Builder<String, CommandButton> commandButtonsForMediaItemsBuilder = null;
+            ImmutableMap.@Nullable Builder<String, CommandButton>
+                commandButtonsForMediaItemsBuilder = null;
             // Converting custom browser action bundles to media item command buttons.
             for (int i = 0; i < parcelableArrayList.size(); i++) {
               CommandButton commandButton =

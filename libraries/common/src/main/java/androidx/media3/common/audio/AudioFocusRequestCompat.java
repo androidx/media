@@ -23,13 +23,13 @@ import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Compatibility version of an {@link AudioFocusRequest} with fallbacks for older Android versions.
@@ -182,7 +182,7 @@ public final class AudioFocusRequestCompat {
    */
   public static final class Builder {
     private @AudioManagerCompat.AudioFocusGain int focusGain;
-    @Nullable private AudioManager.OnAudioFocusChangeListener onAudioFocusChangeListener;
+    private AudioManager.@Nullable OnAudioFocusChangeListener onAudioFocusChangeListener;
     @Nullable private Handler focusChangeHandler;
     private AudioAttributes audioAttributes;
     private boolean pauseOnDuck;

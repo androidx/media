@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Util.parseXsDateTime;
 
 import android.os.Handler;
 import android.os.Message;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
@@ -41,6 +40,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handles all emsg messages from all media tracks for the player.
@@ -207,8 +207,7 @@ public final class PlayerEmsgHandler implements Handler.Callback {
     }
   }
 
-  @Nullable
-  private Map.Entry<Long, Long> ceilingExpiryEntryForPublishTime(long publishTimeMs) {
+  private Map.@Nullable Entry<Long, Long> ceilingExpiryEntryForPublishTime(long publishTimeMs) {
     return manifestPublishTimeToExpiryTimeUs.ceilingEntry(publishTimeMs);
   }
 

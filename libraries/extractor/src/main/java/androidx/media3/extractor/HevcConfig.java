@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
@@ -25,6 +24,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.NalUnitUtil;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** HEVC configuration data. */
 @UnstableApi
@@ -67,7 +67,7 @@ public final class HevcConfig {
    * @throws ParserException If an error occurred parsing the data.
    */
   private static HevcConfig parseImpl(
-      ParsableByteArray data, boolean layered, @Nullable NalUnitUtil.H265VpsData vpsData)
+      ParsableByteArray data, boolean layered, NalUnitUtil.@Nullable H265VpsData vpsData)
       throws ParserException {
     try {
       // Skip to the NAL unit length size field.
@@ -110,7 +110,7 @@ public final class HevcConfig {
       float pixelWidthHeightRatio = 1;
       int maxNumReorderPics = Format.NO_VALUE;
       @Nullable String codecs = null;
-      @Nullable NalUnitUtil.H265VpsData currentVpsData = vpsData;
+      NalUnitUtil.@Nullable H265VpsData currentVpsData = vpsData;
       for (int i = 0; i < numberOfArrays; i++) {
         int nalUnitType =
             data.readUnsignedByte() & 0x3F; // completeness (1), reserved (1), nal_unit_type (6)
@@ -271,7 +271,7 @@ public final class HevcConfig {
   @Nullable public final String codecs;
 
   /** The parsed representation of VPS data or {@code null} if not available. */
-  @Nullable public final NalUnitUtil.H265VpsData vpsData;
+  public final NalUnitUtil.@Nullable H265VpsData vpsData;
 
   private HevcConfig(
       List<byte[]> initializationData,
@@ -290,7 +290,7 @@ public final class HevcConfig {
       float pixelWidthHeightRatio,
       int maxNumReorderPics,
       @Nullable String codecs,
-      @Nullable NalUnitUtil.H265VpsData vpsData) {
+      NalUnitUtil.@Nullable H265VpsData vpsData) {
     this.initializationData = initializationData;
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
     this.maxSubLayers = maxSubLayers;

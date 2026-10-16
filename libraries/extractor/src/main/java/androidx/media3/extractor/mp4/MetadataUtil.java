@@ -17,7 +17,6 @@ package androidx.media3.extractor.mp4;
 
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -35,6 +34,7 @@ import androidx.media3.extractor.metadata.id3.InternalFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for handling metadata in MP4. */
 /* package */ final class MetadataUtil {
@@ -146,8 +146,8 @@ import com.google.common.collect.ImmutableList;
    * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return The parsed element, or null if the element's type was not recognized.
    */
-  @Nullable
-  public static Metadata.Entry parseIlstElement(ParsableByteArray ilst, boolean ignoreArtwork) {
+  public static Metadata.@Nullable Entry parseIlstElement(
+      ParsableByteArray ilst, boolean ignoreArtwork) {
     int position = ilst.getPosition();
     int size = ilst.readInt();
     if (size < Mp4Box.HEADER_SIZE) {

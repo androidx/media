@@ -68,7 +68,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Display;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
@@ -137,6 +136,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -1092,7 +1092,7 @@ public class MediaCodecVideoRendererTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,
@@ -1198,7 +1198,7 @@ public class MediaCodecVideoRendererTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,
@@ -8034,7 +8034,7 @@ public class MediaCodecVideoRendererTest {
       @Nullable
       @Override
       public DrmSession acquireSession(
-          @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+          DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
         DrmSession session = mock(DrmSession.class);
         when(session.getState()).thenReturn(DrmSession.STATE_OPENED_WITH_KEYS);
         when(session.getCryptoConfig()).thenReturn(new FakeCryptoConfig());

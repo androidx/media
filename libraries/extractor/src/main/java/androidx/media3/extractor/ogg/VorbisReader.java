@@ -17,7 +17,6 @@ package androidx.media3.extractor.ogg;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -31,6 +30,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /** {@link StreamReader} to extract Vorbis data out of Ogg byte stream. */
 /* package */ final class VorbisReader extends StreamReader {
@@ -39,8 +39,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   private int previousPacketBlockSize;
   private boolean seenFirstAudioPacket;
 
-  @Nullable private VorbisUtil.VorbisIdHeader vorbisIdHeader;
-  @Nullable private VorbisUtil.CommentHeader commentHeader;
+  private VorbisUtil.@Nullable VorbisIdHeader vorbisIdHeader;
+  private VorbisUtil.@Nullable CommentHeader commentHeader;
 
   public static boolean verifyBitstreamType(ParsableByteArray data) {
     try {
@@ -113,8 +113,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     codecInitializationData.add(idHeader.data);
     codecInitializationData.add(vorbisSetup.setupHeaderData);
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         androidx.media3.extractor.VorbisUtil.parseVorbisComments(
             ImmutableList.copyOf(vorbisSetup.commentHeader.comments));
 
@@ -133,8 +132,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   }
 
   @VisibleForTesting
-  @Nullable
-  /* package */ VorbisSetup readSetupHeaders(ParsableByteArray scratch) throws IOException {
+  @Nullable /* package */ VorbisSetup readSetupHeaders(ParsableByteArray scratch)
+      throws IOException {
 
     if (vorbisIdHeader == null) {
       vorbisIdHeader = VorbisUtil.readVorbisIdentificationHeader(scratch);

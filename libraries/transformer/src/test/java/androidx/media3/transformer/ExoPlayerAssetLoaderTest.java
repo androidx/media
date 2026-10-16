@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -35,6 +34,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowSystemClock;
@@ -171,7 +171,7 @@ public class ExoPlayerAssetLoaderTest {
       AssetLoader.Listener listener,
       Clock clock,
       String uri,
-      @Nullable TrackSelector.Factory trackSelectorFactory) {
+      TrackSelector.@Nullable Factory trackSelectorFactory) {
     Context context = ApplicationProvider.getApplicationContext();
     Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(uri)).build();

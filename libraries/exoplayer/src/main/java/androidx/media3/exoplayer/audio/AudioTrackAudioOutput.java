@@ -31,7 +31,6 @@ import android.media.PlaybackParams;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
@@ -50,6 +49,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link AudioOutput} that wraps an {@link AudioTrack}. */
 public final class AudioTrackAudioOutput implements AudioOutput {
@@ -616,7 +616,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     private final CapabilityChangeListener capabilityChangeListener;
     private final Handler playbackThreadHandler;
 
-    @Nullable private AudioRouting.OnRoutingChangedListener listener;
+    private AudioRouting.@Nullable OnRoutingChangedListener listener;
 
     private OnRoutingChangedListener(
         AudioTrack audioTrack, CapabilityChangeListener capabilityChangeListener) {

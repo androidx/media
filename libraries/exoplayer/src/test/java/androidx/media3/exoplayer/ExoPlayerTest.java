@@ -100,7 +100,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -222,6 +221,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -2330,7 +2330,7 @@ public final class ExoPlayerTest {
               @Override
               protected FakeSampleStream createSampleStream(
                   Allocator allocator,
-                  @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
                   DrmSessionManager drmSessionManager,
                   DrmSessionEventListener.EventDispatcher drmEventDispatcher,
                   Format initialFormat,
@@ -8890,7 +8890,7 @@ public final class ExoPlayerTest {
               @Override
               protected FakeSampleStream createSampleStream(
                   Allocator allocator,
-                  @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
                   DrmSessionManager drmSessionManager,
                   DrmSessionEventListener.EventDispatcher drmEventDispatcher,
                   Format initialFormat,
@@ -10249,7 +10249,7 @@ public final class ExoPlayerTest {
               @Override
               protected FakeSampleStream createSampleStream(
                   Allocator allocator,
-                  @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
                   DrmSessionManager drmSessionManager,
                   DrmSessionEventListener.EventDispatcher drmEventDispatcher,
                   Format initialFormat,
@@ -10319,7 +10319,7 @@ public final class ExoPlayerTest {
               @Override
               protected FakeSampleStream createSampleStream(
                   Allocator allocator,
-                  @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
                   DrmSessionManager drmSessionManager,
                   DrmSessionEventListener.EventDispatcher drmEventDispatcher,
                   Format initialFormat,
@@ -16607,7 +16607,7 @@ public final class ExoPlayerTest {
         @Override
         protected FakeSampleStream createSampleStream(
             Allocator allocator,
-            @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+            MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
             DrmSessionManager drmSessionManager,
             DrmSessionEventListener.EventDispatcher drmEventDispatcher,
             Format initialFormat,

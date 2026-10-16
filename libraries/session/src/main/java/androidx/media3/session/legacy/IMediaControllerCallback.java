@@ -18,8 +18,8 @@ package androidx.media3.session.legacy;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Callback interface for a MediaSessionCompat to send updates to a MediaControllerCompat. This is
@@ -44,7 +44,7 @@ public interface IMediaControllerCallback extends android.os.IInterface {
      * interface, generating a proxy if needed.
      */
     @Nullable
-    public static IMediaControllerCallback asInterface(@Nullable android.os.IBinder obj) {
+    public static IMediaControllerCallback asInterface(android.os.@Nullable IBinder obj) {
       if ((obj == null)) {
         return null;
       }
@@ -62,7 +62,7 @@ public interface IMediaControllerCallback extends android.os.IInterface {
 
     @Override
     public boolean onTransact(
-        int code, android.os.Parcel data, @Nullable android.os.Parcel reply, int flags)
+        int code, android.os.Parcel data, android.os.@Nullable Parcel reply, int flags)
         throws android.os.RemoteException {
       String descriptor = DESCRIPTOR;
       switch (code) {

@@ -28,7 +28,6 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -50,6 +49,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wrapper around a {@link DefaultShaderProgram} that renders to either the provided output surface
@@ -96,7 +96,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final TexturePool outputTexturePool;
   private final LongArrayQueue outputTextureTimestamps; // Synchronized with outputTexturePool.
   private final LongArrayQueue syncObjects;
-  @Nullable private final GlTextureProducer.Listener textureOutputListener;
+  private final GlTextureProducer.@Nullable Listener textureOutputListener;
   private final @WorkingColorSpace int sdrWorkingColorSpace;
   private final boolean renderFramesAutomatically;
 
@@ -129,7 +129,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor videoFrameProcessorListenerExecutor,
       VideoFrameProcessor.Listener videoFrameProcessorListener,
-      @Nullable GlTextureProducer.Listener textureOutputListener,
+      GlTextureProducer.@Nullable Listener textureOutputListener,
       int textureOutputCapacity,
       @WorkingColorSpace int sdrWorkingColorSpace,
       boolean renderFramesAutomatically) {

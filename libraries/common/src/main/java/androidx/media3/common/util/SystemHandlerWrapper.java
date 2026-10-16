@@ -21,10 +21,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** The standard implementation of {@link HandlerWrapper}. */
 /* package */ final class SystemHandlerWrapper implements HandlerWrapper {
@@ -144,7 +144,7 @@ import java.util.List;
 
   private static final class SystemMessage implements Message {
 
-    @Nullable private android.os.Message message;
+    private android.os.@Nullable Message message;
     @Nullable private SystemHandlerWrapper handler;
 
     @CanIgnoreReturnValue

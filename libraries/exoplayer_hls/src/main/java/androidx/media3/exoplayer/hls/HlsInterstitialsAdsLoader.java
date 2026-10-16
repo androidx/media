@@ -51,7 +51,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.LongSparseArray;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
@@ -105,6 +104,7 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@linkplain AdsLoader ads loader} that reads interstitials from the HLS playlist, adds them to
@@ -302,7 +302,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     private AdsMediaSourceFactory(
         HlsInterstitialsAdsLoader adsLoader,
         @Nullable Context context,
-        @Nullable MediaSource.Factory mediaSourceFactory,
+        MediaSource.@Nullable Factory mediaSourceFactory,
         AdViewProvider adViewProvider) {
       checkArgument(context != null || mediaSourceFactory != null);
       this.adsLoader = adsLoader;
@@ -1311,8 +1311,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     checkState(isStarted || isReleased);
     boolean wasUnsupportedSource =
         adsMediaSourceSessionManager.isUnsupportedContentMediaSource(adsId);
-    @Nullable
-    AdPlaybackState adPlaybackState = adsMediaSourceSessionManager.stopContentSource(adsId);
+    @Nullable AdPlaybackState adPlaybackState =
+        adsMediaSourceSessionManager.stopContentSource(adsId);
     @Nullable Player player = this.player;
     if (player != null && adsMediaSourceSessionManager.isIdle()) {
       player.removeListener(playerListener);
@@ -1954,8 +1954,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   }
 
   @VisibleForTesting
-  @Nullable
-  /* package */ Interstitial getAssetListInterstitial(Object adsId, String id) {
+  @Nullable /* package */ Interstitial getAssetListInterstitial(Object adsId, String id) {
     HlsAdSession session = adsMediaSourceSessionManager.getSession(adsId);
     HlsMediaPlaylist lastProcessedPlaylist = session != null ? session.lastProcessedPlaylist : null;
     if (lastProcessedPlaylist == null) {
@@ -2224,8 +2223,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       awaitingFirstAdToStart = true;
     }
 
-    @Nullable
-    /* package */ AssetListData getNextUnresolvedAssetListData(long periodPositionUs) {
+    @Nullable /* package */ AssetListData getNextUnresolvedAssetListData(long periodPositionUs) {
       Map.Entry<Long, AssetListData> entry = unresolvedAssetLists.ceilingEntry(periodPositionUs);
       return entry != null ? entry.getValue() : null;
     }
@@ -2251,8 +2249,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
 
     @CanIgnoreReturnValue
-    @Nullable
-    /* package */ AssetListData removeUnresolvedAssetList(long adGroupTimeUs) {
+    @Nullable /* package */ AssetListData removeUnresolvedAssetList(long adGroupTimeUs) {
       long adGroupInsertionTimeUs =
           adGroupTimeUs == C.TIME_END_OF_SOURCE ? Long.MAX_VALUE : adGroupTimeUs;
       return unresolvedAssetLists.remove(adGroupInsertionTimeUs);

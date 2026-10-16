@@ -35,7 +35,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -74,6 +73,7 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Plays audio data. The implementation delegates to an {@link AudioOutput} and handles playback
@@ -277,7 +277,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     @Nullable private final Context context;
     private AudioCapabilities audioCapabilities;
-    @Nullable private androidx.media3.common.audio.AudioProcessorChain audioProcessorChain;
+    private androidx.media3.common.audio.@Nullable AudioProcessorChain audioProcessorChain;
     private boolean enableFloatOutput;
     private boolean enableAudioOutputPlaybackParameters;
 

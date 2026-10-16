@@ -29,15 +29,15 @@ import android.media.session.MediaSession;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.SessionToken.SessionTokenImpl;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class SessionTokenImplLegacy implements SessionTokenImpl {
 
-  @Nullable private final MediaSessionCompat.Token legacyToken;
+  private final MediaSessionCompat.@Nullable Token legacyToken;
 
   private final int uid;
 
@@ -71,7 +71,7 @@ import java.util.Objects;
   }
 
   private SessionTokenImplLegacy(
-      @Nullable MediaSessionCompat.Token legacyToken,
+      MediaSessionCompat.@Nullable Token legacyToken,
       int uid,
       int type,
       @Nullable ComponentName componentName,
@@ -180,9 +180,8 @@ import java.util.Objects;
     return legacyToken;
   }
 
-  @Nullable
   @Override
-  public MediaSession.Token getPlatformToken() {
+  public MediaSession.@Nullable Token getPlatformToken() {
     return legacyToken == null ? null : legacyToken.getToken();
   }
 
@@ -208,8 +207,7 @@ import java.util.Objects;
   /** Restores a {@code SessionTokenImplLegacy} from a {@link Bundle}. */
   public static SessionTokenImplLegacy fromBundle(Bundle bundle) {
     @Nullable Bundle legacyTokenBundle = bundle.getBundle(FIELD_LEGACY_TOKEN);
-    @Nullable
-    MediaSessionCompat.Token legacyToken =
+    MediaSessionCompat.@Nullable Token legacyToken =
         legacyTokenBundle == null ? null : MediaSessionCompat.Token.fromBundle(legacyTokenBundle);
     checkArgument(bundle.containsKey(FIELD_UID), "uid should be set.");
     int uid = bundle.getInt(FIELD_UID);

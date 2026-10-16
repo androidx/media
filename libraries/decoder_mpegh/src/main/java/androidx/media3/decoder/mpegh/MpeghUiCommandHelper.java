@@ -17,7 +17,6 @@ package androidx.media3.decoder.mpegh;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper class for MPEG-H UI handling.
@@ -70,7 +70,7 @@ public final class MpeghUiCommandHelper {
   private final Map<Integer, String> systemCommands;
 
   @Nullable private Set<String> subscribedCodecParameterKeys;
-  @Nullable private AudioRendererEventListener.EventDispatcher eventDispatcher;
+  private AudioRendererEventListener.@Nullable EventDispatcher eventDispatcher;
   @Nullable private ByteBuffer persistenceStorage;
   private boolean forceUiUpdate;
 
@@ -174,7 +174,7 @@ public final class MpeghUiCommandHelper {
    *
    * @param dispatcher The {@link AudioRendererEventListener.EventDispatcher}.
    */
-  public void setEventDispatcher(@Nullable AudioRendererEventListener.EventDispatcher dispatcher) {
+  public void setEventDispatcher(AudioRendererEventListener.@Nullable EventDispatcher dispatcher) {
     synchronized (lock) {
       eventDispatcher = dispatcher;
     }
@@ -185,8 +185,7 @@ public final class MpeghUiCommandHelper {
    *
    * @return The {@link AudioRendererEventListener.EventDispatcher}, or {@code null} if not set.
    */
-  @Nullable
-  public AudioRendererEventListener.EventDispatcher getEventDispatcher() {
+  public AudioRendererEventListener.@Nullable EventDispatcher getEventDispatcher() {
     synchronized (lock) {
       return eventDispatcher;
     }

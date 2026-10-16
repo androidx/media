@@ -57,7 +57,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.collection.ArraySet;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
@@ -106,6 +105,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.jspecify.annotations.Nullable;
 
 // TODO: b/138091975 - Don't ignore future return values if feasible.
 // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -151,7 +151,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   @Nullable private TextureView videoTextureView;
   private Size surfaceSize;
   @Nullable private IMediaSession iSession;
-  @Nullable private android.media.session.MediaController platformController;
+  private android.media.session.@Nullable MediaController platformController;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
   @Nullable private PlayerInfo pendingPlayerInfo;
@@ -2744,8 +2744,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   /** Returns session interface if the controller can send the predefined command. */
-  @Nullable
-  IMediaSession getSessionInterfaceWithSessionCommandIfAble(
+  @Nullable IMediaSession getSessionInterfaceWithSessionCommandIfAble(
       @SessionCommand.CommandCode int commandCode) {
     checkArgument(commandCode != SessionCommand.COMMAND_CODE_CUSTOM);
     if (!sessionCommands.contains(commandCode)) {
@@ -2756,8 +2755,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   /** Returns session interface if the controller can send the custom command. */
-  @Nullable
-  IMediaSession getSessionInterfaceWithSessionCommandIfAble(SessionCommand command) {
+  @Nullable IMediaSession getSessionInterfaceWithSessionCommandIfAble(SessionCommand command) {
     checkArgument(command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM);
     if (!sessionCommands.contains(command)
         && !CommandButton.isPredefinedCustomCommandButtonCode(command.customAction)) {
@@ -2928,8 +2926,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     if (!isConnected()) {
       return;
     }
-    @Nullable
-    ProgressListener progressListener =
+    @Nullable ProgressListener progressListener =
         pendingCustomActionProgressListeners.get(customActionFutureSequence);
     if (progressListener != null) {
       progressListener.onProgress(getInstance(), command, args, progressData);

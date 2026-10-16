@@ -28,7 +28,6 @@ import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps an {@linkplain Codec encoder} and provides its input {@link Surface}.
@@ -348,8 +348,7 @@ import org.checkerframework.dataflow.qual.Pure;
     return encoder != null ? encoder.getOutputBuffer() : null;
   }
 
-  @Nullable
-  public MediaCodec.BufferInfo getOutputBufferInfo() throws ExportException {
+  public MediaCodec.@Nullable BufferInfo getOutputBufferInfo() throws ExportException {
     return encoder != null ? encoder.getOutputBufferInfo() : null;
   }
 

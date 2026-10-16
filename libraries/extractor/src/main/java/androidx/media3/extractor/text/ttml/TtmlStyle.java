@@ -20,13 +20,13 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.graphics.Typeface;
 import android.text.Layout;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Style object of a <code>TtmlNode</code> */
 /* package */ final class TtmlStyle {
@@ -91,8 +91,8 @@ import java.lang.annotation.Target;
   @Nullable private String id;
   private @RubyType int rubyType;
   private @TextAnnotation.Position int rubyPosition;
-  @Nullable private Layout.Alignment textAlign;
-  @Nullable private Layout.Alignment multiRowAlign;
+  private Layout.@Nullable Alignment textAlign;
+  private Layout.@Nullable Alignment multiRowAlign;
   private @OptionalBoolean int textCombine;
   @Nullable private TextEmphasis textEmphasis;
   private float shearPercentage;
@@ -331,24 +331,22 @@ import java.lang.annotation.Target;
     return rubyPosition;
   }
 
-  @Nullable
-  public Layout.Alignment getTextAlign() {
+  public Layout.@Nullable Alignment getTextAlign() {
     return textAlign;
   }
 
   @CanIgnoreReturnValue
-  public TtmlStyle setTextAlign(@Nullable Layout.Alignment textAlign) {
+  public TtmlStyle setTextAlign(Layout.@Nullable Alignment textAlign) {
     this.textAlign = textAlign;
     return this;
   }
 
-  @Nullable
-  public Layout.Alignment getMultiRowAlign() {
+  public Layout.@Nullable Alignment getMultiRowAlign() {
     return multiRowAlign;
   }
 
   @CanIgnoreReturnValue
-  public TtmlStyle setMultiRowAlign(@Nullable Layout.Alignment multiRowAlign) {
+  public TtmlStyle setMultiRowAlign(Layout.@Nullable Alignment multiRowAlign) {
     this.multiRowAlign = multiRowAlign;
     return this;
   }

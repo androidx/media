@@ -44,7 +44,6 @@ import android.util.Pair;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
 import androidx.core.content.ContextCompat;
@@ -74,6 +73,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Superclass to be extended by services hosting {@link MediaSession media sessions}.
@@ -438,8 +438,7 @@ public abstract class MediaSessionService extends LifecycleService {
     }
   }
 
-  @Nullable
-  /* package */ MediaSession getSessionByUri(Uri sessionUri) {
+  @Nullable /* package */ MediaSession getSessionByUri(Uri sessionUri) {
     synchronized (lock) {
       for (MediaSession session : sessions.values()) {
         if (Objects.equals(session.getImpl().getUri(), sessionUri)) {
@@ -950,7 +949,7 @@ public abstract class MediaSessionService extends LifecycleService {
   /* package */ void onForegroundServiceStartNotAllowedException() {
     mainHandler.post(
         () -> {
-          @Nullable MediaSessionService.Listener serviceListener = getListener();
+          MediaSessionService.@Nullable Listener serviceListener = getListener();
           if (serviceListener != null) {
             serviceListener.onForegroundServiceStartNotAllowedException();
           }
@@ -962,7 +961,7 @@ public abstract class MediaSessionService extends LifecycleService {
   }
 
   private MediaNotificationManager getMediaNotificationManager(
-      @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
+      MediaNotification.@Nullable Provider initialMediaNotificationProvider) {
     if (mediaNotificationManager == null) {
       if (initialMediaNotificationProvider == null) {
         checkNotNull(getBaseContext(), "Accessing service context before onCreate()");

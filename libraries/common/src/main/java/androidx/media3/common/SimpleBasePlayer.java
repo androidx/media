@@ -33,7 +33,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -57,6 +56,7 @@ import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A base implementation for {@link Player} that reduces the number of methods to implement to a
@@ -1384,7 +1384,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private MediaItem mediaItem;
       @Nullable private MediaMetadata mediaMetadata;
       @Nullable private Object manifest;
-      @Nullable private MediaItem.LiveConfiguration liveConfiguration;
+      private MediaItem.@Nullable LiveConfiguration liveConfiguration;
       private long presentationStartTimeMs;
       private long windowStartTimeMs;
       private long elapsedRealtimeEpochOffsetMs;
@@ -1518,7 +1518,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
        * @return This builder.
        */
       @CanIgnoreReturnValue
-      public Builder setLiveConfiguration(@Nullable MediaItem.LiveConfiguration liveConfiguration) {
+      public Builder setLiveConfiguration(MediaItem.@Nullable LiveConfiguration liveConfiguration) {
         this.liveConfiguration = liveConfiguration;
         return this;
       }
@@ -1715,7 +1715,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     @Nullable public final Object manifest;
 
     /** The active {@link MediaItem.LiveConfiguration}, or null if the media item is not live. */
-    @Nullable public final MediaItem.LiveConfiguration liveConfiguration;
+    public final MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
     /**
      * The start time of the presentation, in milliseconds since the Unix epoch, or {@link
@@ -3729,8 +3729,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           });
     }
     if (mediaItemTransitionReason != C.INDEX_UNSET) {
-      @Nullable
-      MediaItem mediaItem =
+      @Nullable MediaItem mediaItem =
           newState.timeline.isEmpty()
               ? null
               : newState.timeline.getWindow(getCurrentMediaItemIndexInternal(newState), window)

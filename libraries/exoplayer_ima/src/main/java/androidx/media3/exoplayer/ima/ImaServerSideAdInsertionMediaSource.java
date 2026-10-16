@@ -47,7 +47,6 @@ import android.util.Pair;
 import android.view.ViewGroup;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.MainThread;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
@@ -111,6 +110,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** MediaSource for IMA server side inserted ad streams. */
 public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSource<Void> {
@@ -227,7 +227,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       @Nullable private ImaSdkSettings imaSdkSettings;
       private StreamEventListener streamEventListener;
       @Nullable private AdEventListener adEventListener;
-      @Nullable private AdErrorEvent.AdErrorListener adErrorListener;
+      private AdErrorEvent.@Nullable AdErrorListener adErrorListener;
       private State state;
       private ImmutableList<CompanionAdSlot> companionAdSlots;
       @Nullable private AdSlot pauseAdSlot;
@@ -459,8 +459,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
       /** Restores a {@code State} from a {@link Bundle}. */
       public static State fromBundle(Bundle bundle) {
-        @Nullable
-        ImmutableMap.Builder<String, AdPlaybackState> adPlaybackStateMap =
+        ImmutableMap.@Nullable Builder<String, AdPlaybackState> adPlaybackStateMap =
             new ImmutableMap.Builder<>();
         Bundle adPlaybackStateBundle = checkNotNull(bundle.getBundle(FIELD_AD_PLAYBACK_STATES));
         for (String key : adPlaybackStateBundle.keySet()) {
@@ -695,7 +694,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     MediaItem existingMediaItem = getMediaItem();
     MediaItem.LocalConfiguration existingConfiguration =
         checkNotNull(existingMediaItem.localConfiguration);
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)

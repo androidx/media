@@ -25,7 +25,6 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.MediaItem;
@@ -43,6 +42,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A result to be used with {@link ListenableFuture} for asynchronous calls between {@link
@@ -161,7 +161,7 @@ public final class LibraryResult<V extends @NullableType Object> {
   private final @ValueType int valueType;
 
   /** The optional parameters. */
-  @Nullable public final MediaLibraryService.LibraryParams params;
+  public final MediaLibraryService.@Nullable LibraryParams params;
 
   /** The optional session error. */
   @UnstableApi @Nullable public final SessionError sessionError;
@@ -492,8 +492,7 @@ public final class LibraryResult<V extends @NullableType Object> {
     long completionTimeMs =
         bundle.getLong(FIELD_COMPLETION_TIME_MS, /* defaultValue= */ SystemClock.elapsedRealtime());
     @Nullable Bundle paramsBundle = bundle.getBundle(FIELD_PARAMS);
-    @Nullable
-    MediaLibraryService.LibraryParams params =
+    MediaLibraryService.@Nullable LibraryParams params =
         paramsBundle == null ? null : LibraryParams.fromBundle(paramsBundle);
     @Nullable SessionError sessionError = null;
     @Nullable Bundle sessionErrorBundle = bundle.getBundle(FIELD_SESSION_ERROR);

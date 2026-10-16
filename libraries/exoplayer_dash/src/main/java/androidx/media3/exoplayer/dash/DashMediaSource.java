@@ -32,7 +32,6 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -110,6 +109,7 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /** A DASH {@link MediaSource}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -125,15 +125,15 @@ public final class DashMediaSource extends BaseMediaSource {
   public static final class Factory implements MediaSourceFactory {
 
     private final DashChunkSource.Factory chunkSourceFactory;
-    @Nullable private final DataSource.Factory manifestDataSourceFactory;
+    private final DataSource.@Nullable Factory manifestDataSourceFactory;
 
-    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
+    private CmcdConfiguration.@Nullable Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private long fallbackTargetLiveOffsetMs;
     private long minLiveStartPositionUs;
-    @Nullable private ParsingLoadable.Parser<? extends DashManifest> manifestParser;
+    private ParsingLoadable.@Nullable Parser<? extends DashManifest> manifestParser;
     @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
@@ -174,7 +174,7 @@ public final class DashMediaSource extends BaseMediaSource {
      */
     public Factory(
         DashChunkSource.Factory chunkSourceFactory,
-        @Nullable DataSource.Factory manifestDataSourceFactory) {
+        DataSource.@Nullable Factory manifestDataSourceFactory) {
       this.chunkSourceFactory = checkNotNull(chunkSourceFactory);
       this.manifestDataSourceFactory = manifestDataSourceFactory;
       drmSessionManagerProvider = new DefaultDrmSessionManagerProvider();
@@ -276,7 +276,7 @@ public final class DashMediaSource extends BaseMediaSource {
      */
     @CanIgnoreReturnValue
     public Factory setManifestParser(
-        @Nullable ParsingLoadable.Parser<? extends DashManifest> manifestParser) {
+        ParsingLoadable.@Nullable Parser<? extends DashManifest> manifestParser) {
       this.manifestParser = manifestParser;
       return this;
     }
@@ -345,8 +345,7 @@ public final class DashMediaSource extends BaseMediaSource {
         mediaItemBuilder.setUri(Uri.EMPTY);
       }
       mediaItem = mediaItemBuilder.build();
-      @Nullable
-      CmcdConfiguration cmcdConfiguration =
+      @Nullable CmcdConfiguration cmcdConfiguration =
           cmcdConfigurationFactory == null
               ? null
               : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
@@ -375,7 +374,7 @@ public final class DashMediaSource extends BaseMediaSource {
     @Override
     public DashMediaSource createMediaSource(MediaItem mediaItem) {
       checkNotNull(mediaItem.localConfiguration);
-      @Nullable ParsingLoadable.Parser<? extends DashManifest> manifestParser = this.manifestParser;
+      ParsingLoadable.@Nullable Parser<? extends DashManifest> manifestParser = this.manifestParser;
       if (manifestParser == null) {
         manifestParser = new DashManifestParser();
       }
@@ -383,8 +382,7 @@ public final class DashMediaSource extends BaseMediaSource {
       if (!streamKeys.isEmpty()) {
         manifestParser = new FilteringManifestParser<>(manifestParser, streamKeys);
       }
-      @Nullable
-      CmcdConfiguration cmcdConfiguration =
+      @Nullable CmcdConfiguration cmcdConfiguration =
           cmcdConfigurationFactory == null
               ? null
               : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
@@ -502,8 +500,8 @@ public final class DashMediaSource extends BaseMediaSource {
   private DashMediaSource(
       MediaItem mediaItem,
       @Nullable DashManifest manifest,
-      @Nullable DataSource.Factory manifestDataSourceFactory,
-      @Nullable ParsingLoadable.Parser<? extends DashManifest> manifestParser,
+      DataSource.@Nullable Factory manifestDataSourceFactory,
+      ParsingLoadable.@Nullable Parser<? extends DashManifest> manifestParser,
       DashChunkSource.Factory chunkSourceFactory,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       @Nullable CmcdConfiguration cmcdConfiguration,
@@ -576,7 +574,7 @@ public final class DashMediaSource extends BaseMediaSource {
     MediaItem existingMediaItem = getMediaItem();
     MediaItem.LocalConfiguration existingConfiguration =
         checkNotNull(existingMediaItem.localConfiguration);
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
@@ -897,8 +895,7 @@ public final class DashMediaSource extends BaseMediaSource {
             /* numberOfTracks= */ 1,
             /* numberOfExcludedTracks= */ 0,
             /* locationSteeringActive= */ isContentSteeringActive());
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
 
     if (fallbackSelection != null
@@ -1609,8 +1606,8 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private static boolean isIndexExplicit(Period period) {
     for (int i = 0; i < period.adaptationSets.size(); i++) {
-      @Nullable
-      DashSegmentIndex index = period.adaptationSets.get(i).representations.get(0).getIndex();
+      @Nullable DashSegmentIndex index =
+          period.adaptationSets.get(i).representations.get(0).getIndex();
       if (index == null || index.isExplicit()) {
         return true;
       }
@@ -1683,7 +1680,7 @@ public final class DashMediaSource extends BaseMediaSource {
     private final long windowDefaultStartPositionUs;
     private final DashManifest manifest;
     private final MediaItem mediaItem;
-    @Nullable private final MediaItem.LiveConfiguration liveConfiguration;
+    private final MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
     public DashTimeline(
         long presentationStartTimeMs,
@@ -1695,7 +1692,7 @@ public final class DashMediaSource extends BaseMediaSource {
         long windowDefaultStartPositionUs,
         DashManifest manifest,
         MediaItem mediaItem,
-        @Nullable MediaItem.LiveConfiguration liveConfiguration) {
+        MediaItem.@Nullable LiveConfiguration liveConfiguration) {
       checkState(manifest.dynamic == (liveConfiguration != null));
       this.presentationStartTimeMs = presentationStartTimeMs;
       this.windowStartTimeMs = windowStartTimeMs;
@@ -1798,8 +1795,7 @@ public final class DashMediaSource extends BaseMediaSource {
       }
       // If there are multiple video adaptation sets with unaligned segments, the initial time may
       // not correspond to the start of a segment in both, but this is an edge case.
-      @Nullable
-      DashSegmentIndex snapIndex =
+      @Nullable DashSegmentIndex snapIndex =
           period.adaptationSets.get(videoAdaptationSetIndex).representations.get(0).getIndex();
       if (snapIndex == null || snapIndex.getSegmentCount(periodDurationUs) == 0) {
         // Video adaptation set does not include a non-empty index for snapping.

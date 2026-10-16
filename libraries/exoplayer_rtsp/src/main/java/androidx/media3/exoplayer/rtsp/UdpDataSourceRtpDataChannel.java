@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Util;
@@ -28,6 +27,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.datasource.UdpDataSource;
 import com.google.common.primitives.Ints;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link RtpDataChannel} for UDP transport. */
 /* package */ final class UdpDataSourceRtpDataChannel implements RtpDataChannel {
@@ -67,9 +67,9 @@ import java.io.IOException;
     return true;
   }
 
-  @Nullable
   @Override
-  public RtspMessageChannel.InterleavedBinaryDataListener getInterleavedBinaryDataListener() {
+  public RtspMessageChannel.@Nullable InterleavedBinaryDataListener
+      getInterleavedBinaryDataListener() {
     return null;
   }
 

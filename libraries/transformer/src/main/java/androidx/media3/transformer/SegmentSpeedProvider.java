@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 import static androidx.media3.extractor.metadata.mp4.SlowMotionData.Segment.BY_START_THEN_END_THEN_DIVISOR;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.audio.SpeedProvider;
@@ -31,6 +30,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SpeedProvider} for slow motion segments. */
 /* package */ class SegmentSpeedProvider implements SpeedProvider {
@@ -50,7 +50,7 @@ import java.util.TreeMap;
   @Override
   public float getSpeed(long timeUs) {
     checkArgument(timeUs >= 0);
-    @Nullable Map.Entry<Long, Float> entry = speedsByStartTimeUs.floorEntry(timeUs);
+    Map.@Nullable Entry<Long, Float> entry = speedsByStartTimeUs.floorEntry(timeUs);
     return entry != null ? entry.getValue() : baseSpeedMultiplier;
   }
 

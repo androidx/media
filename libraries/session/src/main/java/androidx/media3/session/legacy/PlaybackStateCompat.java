@@ -28,13 +28,13 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.LongDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Playback state for a {@link MediaSessionCompat}. This includes a state like {@link
@@ -879,7 +879,7 @@ public final class PlaybackStateCompat implements Parcelable {
     private final int icon;
     @Nullable private final Bundle extras;
 
-    @Nullable private PlaybackState.CustomAction customActionFwk;
+    private PlaybackState.@Nullable CustomAction customActionFwk;
 
     /** Use {@link PlaybackStateCompat.CustomAction.Builder#build()}. */
     CustomAction(String action, CharSequence name, int icon, @Nullable Bundle extras) {

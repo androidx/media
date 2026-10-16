@@ -25,7 +25,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -43,6 +42,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Size;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A wrapper of {@link Player} given by constructor of {@link MediaSession} or {@link
@@ -970,7 +970,7 @@ import java.util.List;
     private final boolean isSeekable;
     private final boolean isDynamic;
     private final boolean isPlaceholder;
-    @Nullable private final MediaItem.LiveConfiguration liveConfiguration;
+    private final MediaItem.@Nullable LiveConfiguration liveConfiguration;
     private final long durationUs;
 
     public CurrentMediaItemOnlyTimeline(PlayerWrapper player) {

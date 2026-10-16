@@ -22,7 +22,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -51,6 +50,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A helper for pre-caching a single media. */
 @UnstableApi
@@ -282,7 +282,7 @@ public final class PreCacheHelper {
 
   private final MediaItem mediaItem;
 
-  @Nullable private final MediaSource.Factory testMediaSourceFactory;
+  private final MediaSource.@Nullable Factory testMediaSourceFactory;
   private final DownloadHelper.Factory downloadHelperFactory;
   private final DownloaderFactory downloaderFactory;
   @Nullable private final Listener listener;
@@ -292,7 +292,7 @@ public final class PreCacheHelper {
 
   /* package */ PreCacheHelper(
       MediaItem mediaItem,
-      @Nullable MediaSource.Factory testMediaSourceFactory,
+      MediaSource.@Nullable Factory testMediaSourceFactory,
       DownloadHelper.Factory downloadHelperFactory,
       DownloaderFactory downloaderFactory,
       Looper preCacheLooper,

@@ -24,7 +24,6 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -46,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** Utility class containing fakes for GlFrameProcessor testing. */
 public final class GlFrameProcessorTestUtil {
@@ -366,7 +366,7 @@ public final class GlFrameProcessorTestUtil {
 
   public static final class FakeCompositorGlProgram implements CompositorGlProgram {
     @Nullable public VideoFrameProcessingException exceptionToThrow;
-    @Nullable public GlUtil.GlException glExceptionToThrow;
+    public GlUtil.@Nullable GlException glExceptionToThrow;
 
     @Override
     public void drawFrame(List<GlCompositionFrame> inputFrameInfos, GlTextureInfo outputTexture)

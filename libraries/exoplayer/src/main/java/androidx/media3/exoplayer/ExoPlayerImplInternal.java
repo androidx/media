@@ -38,7 +38,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AudioAttributes;
@@ -94,6 +93,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Implements the internal behavior of {@link ExoPlayerImpl}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -335,8 +335,7 @@ import java.util.Objects;
     playbackInfoUpdate = new PlaybackInfoUpdate(playbackInfo);
     rendererCapabilities = new RendererCapabilities[renderers.length];
     rendererReportedReady = new boolean[renderers.length];
-    @Nullable
-    RendererCapabilities.Listener rendererCapabilitiesListener =
+    RendererCapabilities.@Nullable Listener rendererCapabilitiesListener =
         trackSelector.getRendererCapabilitiesListener();
 
     boolean hasSecondaryRenderers = false;
@@ -1727,8 +1726,7 @@ import java.util.Objects;
     long periodPositionUs;
     long requestedContentPositionUs;
     boolean seekPositionAdjusted;
-    @Nullable
-    Pair<Object, Long> resolvedSeekPosition =
+    @Nullable Pair<Object, Long> resolvedSeekPosition =
         resolveSeekPositionUs(
             playbackInfo.timeline,
             seekPosition,
@@ -2826,8 +2824,8 @@ import java.util.Objects;
     boolean loadingPeriodChanged = false;
     queue.reevaluateBuffer(rendererPositionUs);
     if (queue.shouldLoadNextMediaPeriod()) {
-      @Nullable
-      MediaPeriodInfo info = queue.getNextMediaPeriodInfo(rendererPositionUs, playbackInfo);
+      @Nullable MediaPeriodInfo info =
+          queue.getNextMediaPeriodInfo(rendererPositionUs, playbackInfo);
       if (info != null) {
         MediaPeriodHolder mediaPeriodHolder = queue.enqueueNextMediaPeriodHolder(info);
         if (!mediaPeriodHolder.prepareCalled) {
@@ -4036,8 +4034,7 @@ import java.util.Objects;
     boolean setTargetLiveOffset = false;
     if (pendingInitialSeekPosition != null) {
       // Resolve initial seek position.
-      @Nullable
-      Pair<Object, Long> periodPosition =
+      @Nullable Pair<Object, Long> periodPosition =
           resolveSeekPositionUs(
               timeline,
               pendingInitialSeekPosition,
@@ -4332,8 +4329,7 @@ import java.util.Objects;
           pendingMessageInfo.message.getPositionMs() == C.TIME_END_OF_SOURCE
               ? C.TIME_UNSET
               : Util.msToUs(pendingMessageInfo.message.getPositionMs());
-      @Nullable
-      Pair<Object, Long> periodPosition =
+      @Nullable Pair<Object, Long> periodPosition =
           resolveSeekPositionUs(
               newTimeline,
               new SeekPosition(

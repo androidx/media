@@ -43,7 +43,6 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
@@ -102,6 +101,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages the internal logic for extracting frames from a {@link MediaItem}.
@@ -122,7 +122,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final SeekParameters seekParameters;
     private final MediaCodecSelector mediaCodecSelector;
     @Nullable private final GlObjectsProvider glObjectsProvider;
-    @Nullable private final MediaSource.Factory mediaSourceFactory;
+    private final MediaSource.@Nullable Factory mediaSourceFactory;
     private final boolean extractHdrFrames;
     private final boolean enableUltraHdr;
     private final long positionMs;
@@ -134,7 +134,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SeekParameters seekParameters,
         MediaCodecSelector mediaCodecSelector,
         @Nullable GlObjectsProvider glObjectsProvider,
-        @Nullable MediaSource.Factory mediaSourceFactory,
+        MediaSource.@Nullable Factory mediaSourceFactory,
         boolean extractHdrFrames,
         boolean enableUltraHdr,
         long positionMs) {
@@ -204,7 +204,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable private ExoPlayer player;
 
-  @Nullable private FrameExtractor.Frame lastSeekDedupeFrame;
+  private FrameExtractor.@Nullable Frame lastSeekDedupeFrame;
 
   private MediaCodecSelector currentMediaCodecSelector;
 
@@ -212,7 +212,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean enableUltraHdr;
 
   @Nullable private GlObjectsProvider currentGlObjectsProvider;
-  @Nullable private MediaSource.Factory currentMediaSourceFactory;
+  private MediaSource.@Nullable Factory currentMediaSourceFactory;
   private long thumbnailPresentationTimeMs;
 
   private FrameExtractorInternal() {
@@ -1060,8 +1060,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       for (Format format : formats) {
         if (MimeTypes.isVideo(format.sampleMimeType)) {
           if (format.metadata != null) {
-            @Nullable
-            ThumbnailMetadata thumbnailMetadata =
+            @Nullable ThumbnailMetadata thumbnailMetadata =
                 format.metadata.getFirstEntryOfType(ThumbnailMetadata.class);
             if (thumbnailMetadata != null && thumbnailMetadata.presentationTimeUs >= 0) {
               internal.thumbnailPresentationTimeMs =

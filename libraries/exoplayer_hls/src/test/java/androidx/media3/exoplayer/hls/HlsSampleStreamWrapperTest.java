@@ -28,7 +28,6 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -61,6 +60,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -672,7 +672,7 @@ public final class HlsSampleStreamWrapperTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,
@@ -746,7 +746,7 @@ public final class HlsSampleStreamWrapperTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,

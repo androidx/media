@@ -19,12 +19,12 @@ import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link Timeline} consisting of a single period and static window. */
 @UnstableApi
@@ -46,7 +46,7 @@ public final class SinglePeriodTimeline extends Timeline {
   private final boolean suppressPositionProjection;
   @Nullable private final Object manifest;
   @Nullable private final MediaItem mediaItem;
-  @Nullable private final MediaItem.LiveConfiguration liveConfiguration;
+  private final MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
   /**
    * @deprecated Use {@link #SinglePeriodTimeline(long, boolean, boolean, boolean, Object,
@@ -230,7 +230,7 @@ public final class SinglePeriodTimeline extends Timeline {
       boolean isDynamic,
       @Nullable Object manifest,
       MediaItem mediaItem,
-      @Nullable MediaItem.LiveConfiguration liveConfiguration) {
+      MediaItem.@Nullable LiveConfiguration liveConfiguration) {
     this(
         presentationStartTimeMs,
         windowStartTimeMs,
@@ -287,7 +287,7 @@ public final class SinglePeriodTimeline extends Timeline {
       boolean suppressPositionProjection,
       @Nullable Object manifest,
       MediaItem mediaItem,
-      @Nullable MediaItem.LiveConfiguration liveConfiguration) {
+      MediaItem.@Nullable LiveConfiguration liveConfiguration) {
     this.presentationStartTimeMs = presentationStartTimeMs;
     this.windowStartTimeMs = windowStartTimeMs;
     this.elapsedRealtimeEpochOffsetMs = elapsedRealtimeEpochOffsetMs;

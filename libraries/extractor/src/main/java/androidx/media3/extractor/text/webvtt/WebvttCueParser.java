@@ -38,7 +38,6 @@ import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.text.style.UnderlineSpan;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
@@ -65,6 +64,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parser for WebVTT cues. (https://w3c.github.io/webvtt/#cues) */
 @UnstableApi
@@ -881,8 +881,8 @@ public final class WebvttCueParser {
       }
     }
 
-    @Nullable
-    private static Layout.Alignment convertTextAlignment(@TextAlignment int textAlignment) {
+    private static Layout.@Nullable Alignment convertTextAlignment(
+        @TextAlignment int textAlignment) {
       switch (textAlignment) {
         case TEXT_ALIGNMENT_START:
         case TEXT_ALIGNMENT_LEFT:

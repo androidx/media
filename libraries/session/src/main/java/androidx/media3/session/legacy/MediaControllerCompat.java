@@ -42,7 +42,6 @@ import android.os.ResultReceiver;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
@@ -57,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Allows an app to interact with an ongoing media session. Media buttons and other commands can be
@@ -572,7 +572,7 @@ public final class MediaControllerCompat {
    * #registerCallback}
    */
   public abstract static class Callback implements IBinder.DeathRecipient {
-    @Nullable final MediaController.Callback callbackFwk;
+    final MediaController.@Nullable Callback callbackFwk;
     @Nullable private MessageHandler handler;
     @Nullable IMediaControllerCallback iControllerCallback;
 
@@ -777,7 +777,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onAudioInfoChanged(@Nullable MediaController.PlaybackInfo info) {
+      public void onAudioInfoChanged(MediaController.@Nullable PlaybackInfo info) {
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null && info != null) {
           int playbackType = info.getPlaybackType();
@@ -1195,14 +1195,11 @@ public final class MediaControllerCompat {
 
     TransportControls getTransportControls();
 
-    @Nullable
-    PlaybackStateCompat getPlaybackState();
+    @Nullable PlaybackStateCompat getPlaybackState();
 
-    @Nullable
-    MediaMetadataCompat getMetadata();
+    @Nullable MediaMetadataCompat getMetadata();
 
-    @Nullable
-    List<QueueItem> getQueue();
+    @Nullable List<QueueItem> getQueue();
 
     void addQueueItem(MediaDescriptionCompat description);
 
@@ -1210,11 +1207,9 @@ public final class MediaControllerCompat {
 
     void removeQueueItem(MediaDescriptionCompat description);
 
-    @Nullable
-    CharSequence getQueueTitle();
+    @Nullable CharSequence getQueueTitle();
 
-    @Nullable
-    Bundle getExtras();
+    @Nullable Bundle getExtras();
 
     int getRatingType();
 
@@ -1226,11 +1221,9 @@ public final class MediaControllerCompat {
 
     long getFlags();
 
-    @Nullable
-    PlaybackInfo getPlaybackInfo();
+    @Nullable PlaybackInfo getPlaybackInfo();
 
-    @Nullable
-    PendingIntent getSessionActivity();
+    @Nullable PendingIntent getSessionActivity();
 
     void setVolumeTo(int value, int flags);
 
@@ -1240,13 +1233,11 @@ public final class MediaControllerCompat {
 
     boolean isSessionReady();
 
-    @Nullable
-    String getPackageName();
+    @Nullable String getPackageName();
 
     Bundle getSessionInfo();
 
-    @Nullable
-    Object getMediaController();
+    @Nullable Object getMediaController();
   }
 
   static class MediaControllerImplBase implements MediaControllerImpl {

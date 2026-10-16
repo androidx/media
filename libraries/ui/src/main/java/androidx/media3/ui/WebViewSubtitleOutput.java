@@ -29,7 +29,6 @@ import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.util.Util;
@@ -39,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SubtitleView.Output} that uses a {@link WebView} to render subtitles.
@@ -267,8 +267,7 @@ import java.util.Map;
           SpannedToHtmlConverter.convert(
               cue.text, getContext().getResources().getDisplayMetrics().density);
       for (String cssSelector : cssRuleSets.keySet()) {
-        @Nullable
-        String previousCssDeclarationBlock =
+        @Nullable String previousCssDeclarationBlock =
             cssRuleSets.put(cssSelector, cssRuleSets.get(cssSelector));
         checkState(
             previousCssDeclarationBlock == null
@@ -400,7 +399,7 @@ import java.util.Map;
     }
   }
 
-  private static String convertAlignmentToCss(@Nullable Layout.Alignment alignment) {
+  private static String convertAlignmentToCss(Layout.@Nullable Alignment alignment) {
     if (alignment == null) {
       return "center";
     }

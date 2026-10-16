@@ -16,7 +16,6 @@
 package androidx.media3.transformer;
 
 import android.os.Build;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Log;
@@ -25,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for working with JSON */
 @UnstableApi
@@ -57,8 +57,8 @@ public final class JsonUtil {
     JSONArray jsonArray = new JSONArray();
     for (ExportResult.ProcessedInput processedInput : processedInputs) {
       JSONObject jsonObject = new JSONObject();
-      @Nullable
-      MediaItem.LocalConfiguration localConfiguration = processedInput.mediaItem.localConfiguration;
+      MediaItem.@Nullable LocalConfiguration localConfiguration =
+          processedInput.mediaItem.localConfiguration;
       if (localConfiguration != null) {
         jsonObject.put("mediaItemUri", localConfiguration.uri);
       }

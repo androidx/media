@@ -27,7 +27,6 @@ import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
@@ -66,6 +65,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link AdsLoader} using the IMA SDK. All methods must be called on the main thread.
@@ -115,7 +115,7 @@ public final class ImaAdsLoader implements AdsLoader {
     @Nullable private ImaSdkSettings imaSdkSettings;
     @Nullable private AdErrorListener adErrorListener;
     @Nullable private AdEventListener adEventListener;
-    @Nullable private VideoAdPlayer.VideoAdPlayerCallback videoAdPlayerCallback;
+    private VideoAdPlayer.@Nullable VideoAdPlayerCallback videoAdPlayerCallback;
     @Nullable private List<String> adMediaMimeTypes;
     @Nullable private Set<UiElement> adUiElements;
     @Nullable private Collection<CompanionAdSlot> companionAdSlots;
@@ -475,8 +475,7 @@ public final class ImaAdsLoader implements AdsLoader {
    * instance, or {@code null} if ads have not been requested yet.
    */
   @UnstableApi
-  @Nullable
-  public com.google.ads.interactivemedia.v3.api.AdsLoader getAdsLoader() {
+  public com.google.ads.interactivemedia.v3.api.@Nullable AdsLoader getAdsLoader() {
     return currentAdTagLoader != null ? currentAdTagLoader.getAdsLoader() : null;
   }
 

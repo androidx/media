@@ -22,7 +22,6 @@ import static androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FALLBAC
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
@@ -39,6 +38,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collections;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -58,8 +58,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_responseCode403() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -88,8 +87,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_responseCode404() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(404, "Not found");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -119,8 +117,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_responseCode410() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(410, "Gone");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -151,8 +148,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
     InvalidResponseCodeException exception =
         buildInvalidResponseCodeException(500, "Internal server error");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -183,8 +179,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
     InvalidResponseCodeException exception =
         buildInvalidResponseCodeException(503, "Service unavailable");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -214,8 +209,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_dontExcludeUnexpectedHttpCodes() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(418, "I'm a teapot");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -241,8 +235,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_dontExcludeUnexpectedExceptions() {
     IOException exception = new IOException();
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -268,8 +261,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_locationSteeringActive_prefersTrackFallback() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 2,
@@ -286,8 +278,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_locationSteeringActive_onlyLocationFallbackAvailable() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 2,
@@ -304,8 +295,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_locationSteeringActive_onlyTrackFallbackAvailable() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -322,8 +312,7 @@ public final class DefaultLoadErrorHandlingPolicyTest {
   public void getFallbackSelectionFor_locationSteeringActive_noFallbackAvailable() {
     InvalidResponseCodeException exception = buildInvalidResponseCodeException(403, "Forbidden");
 
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection defaultPolicyFallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection defaultPolicyFallbackSelection =
         getDefaultPolicyFallbackSelection(
             exception,
             /* numberOfLocations= */ 1,
@@ -427,14 +416,14 @@ public final class DefaultLoadErrorHandlingPolicyTest {
     assertThat(getDefaultPolicyRetryDelayOutputFor(new IOException(), 9)).isEqualTo(5000);
   }
 
-  @Nullable
-  private static LoadErrorHandlingPolicy.FallbackSelection getDefaultPolicyFallbackSelection(
-      IOException exception,
-      int numberOfLocations,
-      int numberOfExcludedLocations,
-      int numberOfTracks,
-      int numberOfExcludedTracks,
-      boolean locationSteeringActive) {
+  private static LoadErrorHandlingPolicy.@Nullable FallbackSelection
+      getDefaultPolicyFallbackSelection(
+          IOException exception,
+          int numberOfLocations,
+          int numberOfExcludedLocations,
+          int numberOfTracks,
+          int numberOfExcludedTracks,
+          boolean locationSteeringActive) {
     LoadErrorInfo loadErrorInfo =
         new LoadErrorInfo(
             PLACEHOLDER_LOAD_EVENT_INFO,

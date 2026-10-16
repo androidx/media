@@ -22,7 +22,6 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.E
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -46,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -80,7 +80,7 @@ public class ClippingMediaPeriodTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,
@@ -483,7 +483,7 @@ public class ClippingMediaPeriodTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,
@@ -536,7 +536,7 @@ public class ClippingMediaPeriodTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,
@@ -593,7 +593,7 @@ public class ClippingMediaPeriodTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,

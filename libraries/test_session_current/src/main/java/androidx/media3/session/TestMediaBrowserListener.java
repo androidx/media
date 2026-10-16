@@ -18,9 +18,9 @@ package androidx.media3.session;
 import android.app.PendingIntent;
 import android.os.Bundle;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A proxy class for {@link MediaBrowser.Listener}. */
 public final class TestMediaBrowserListener implements MediaBrowser.Listener {
@@ -31,7 +31,7 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
   @Nullable
   private Runnable onCustomCommandRunnable;
 
-  public TestMediaBrowserListener(@Nullable MediaController.Listener delegate) {
+  public TestMediaBrowserListener(MediaController.@Nullable Listener delegate) {
     this.delegate = delegate == null ? new MediaBrowser.Listener() {} : delegate;
   }
 
@@ -95,7 +95,7 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
       MediaBrowser browser,
       String parentId,
       int itemCount,
-      @Nullable MediaLibraryService.LibraryParams params) {
+      MediaLibraryService.@Nullable LibraryParams params) {
     ((MediaBrowser.Listener) delegate).onChildrenChanged(browser, parentId, itemCount, params);
   }
 
@@ -104,7 +104,7 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
       MediaBrowser browser,
       String query,
       int itemCount,
-      @Nullable MediaLibraryService.LibraryParams params) {
+      MediaLibraryService.@Nullable LibraryParams params) {
     ((MediaBrowser.Listener) delegate).onSearchResultChanged(browser, query, itemCount, params);
   }
 

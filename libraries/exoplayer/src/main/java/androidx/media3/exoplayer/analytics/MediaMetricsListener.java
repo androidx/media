@@ -37,7 +37,6 @@ import android.os.SystemClock;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -83,6 +82,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AnalyticsListener} that interacts with the Android {@link MediaMetricsManager}.
@@ -104,8 +104,7 @@ public final class MediaMetricsListener
    */
   @Nullable
   public static MediaMetricsListener create(Context context) {
-    @Nullable
-    MediaMetricsManager mediaMetricsManager =
+    @Nullable MediaMetricsManager mediaMetricsManager =
         (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
     return mediaMetricsManager == null
         ? null
@@ -123,7 +122,7 @@ public final class MediaMetricsListener
   private final HashMap<String, Long> bandwidthBytes;
 
   @Nullable private String activeSessionId;
-  @Nullable private PlaybackMetrics.Builder metricsBuilder;
+  private PlaybackMetrics.@Nullable Builder metricsBuilder;
   private @Player.DiscontinuityReason int discontinuityReason;
   private int currentPlaybackState;
   private int currentNetworkType;
@@ -596,7 +595,7 @@ public final class MediaMetricsListener
 
   @RequiresNonNull("metricsBuilder")
   private void maybeUpdateTimelineMetadata(
-      Timeline timeline, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
+      Timeline timeline, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
     PlaybackMetrics.Builder metricsBuilder = this.metricsBuilder;
     if (mediaPeriodId == null) {
       return;
@@ -828,8 +827,7 @@ public final class MediaMetricsListener
         && rendererFormatSupport == C.FORMAT_UNSUPPORTED_DRM) {
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DRM_SCHEME_UNSUPPORTED, /* subErrorCode= */ 0);
     } else if (cause instanceof MediaCodecRenderer.DecoderInitializationException) {
-      @Nullable
-      String diagnosticsInfo =
+      @Nullable String diagnosticsInfo =
           ((MediaCodecRenderer.DecoderInitializationException) cause).diagnosticInfo;
       int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODER_INIT_FAILED, subErrorCode);

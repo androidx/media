@@ -20,7 +20,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
@@ -43,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A bandwidth based adaptive {@link ExoTrackSelection}, whose selected track is updated to be the
@@ -850,7 +850,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     addCheckpoint(checkPointBuilders, currentTrackBitrates);
     ImmutableList.Builder<ImmutableList<AdaptationCheckpoint>> output = ImmutableList.builder();
     for (int i = 0; i < checkPointBuilders.size(); i++) {
-      @Nullable ImmutableList.Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
+      ImmutableList.@Nullable Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
       output.add(builder == null ? ImmutableList.of() : builder.build());
     }
     return output.build();
@@ -922,7 +922,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       totalBitrate += checkpointBitrates[i];
     }
     for (int i = 0; i < checkPointBuilders.size(); i++) {
-      @Nullable ImmutableList.Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
+      ImmutableList.@Nullable Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
       if (builder == null) {
         continue;
       }

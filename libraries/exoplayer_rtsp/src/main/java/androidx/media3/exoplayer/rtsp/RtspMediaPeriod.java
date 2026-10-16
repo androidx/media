@@ -23,7 +23,6 @@ import static java.lang.Math.min;
 
 import android.net.Uri;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
@@ -59,6 +58,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.net.SocketFactory;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} that loads an RTSP stream. */
 /* package */ final class RtspMediaPeriod implements MediaPeriod {
@@ -717,8 +717,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     rtspClient.retryWithRtpTcp();
 
-    @Nullable
-    RtpDataChannel.Factory fallbackRtpDataChannelFactory =
+    RtpDataChannel.@Nullable Factory fallbackRtpDataChannelFactory =
         rtpDataChannelFactory.createFallbackDataChannelFactory();
     if (fallbackRtpDataChannelFactory == null) {
       playbackException =
@@ -906,9 +905,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           (transport, rtpDataChannel) -> {
             RtpLoadInfo.this.transport = transport;
 
-            @Nullable
-            RtspMessageChannel.InterleavedBinaryDataListener interleavedBinaryDataListener =
-                rtpDataChannel.getInterleavedBinaryDataListener();
+            RtspMessageChannel.@Nullable InterleavedBinaryDataListener
+                interleavedBinaryDataListener = rtpDataChannel.getInterleavedBinaryDataListener();
             if (interleavedBinaryDataListener != null) {
               rtspClient.registerInterleavedDataChannel(
                   rtpDataChannel.getLocalPort(), interleavedBinaryDataListener);

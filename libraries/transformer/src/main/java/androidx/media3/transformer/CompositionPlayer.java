@@ -50,7 +50,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
@@ -142,6 +141,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Player} implementation that plays {@linkplain Composition compositions} of media assets.
@@ -187,7 +187,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
     @Nullable private AnalyticsListener sequencePlayerAnalyticsListener;
-    @Nullable private VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
+    private VideoFrameReleaseControl.@Nullable FrameTimingEvaluator frameTimingEvaluator;
 
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
@@ -656,7 +656,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private final AnalyticsCollector analyticsCollector;
   @Nullable private final AnalyticsListener sequencePlayerAnalyticsListener;
-  @Nullable private final VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
+  private final VideoFrameReleaseControl.@Nullable FrameTimingEvaluator frameTimingEvaluator;
 
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
@@ -733,7 +733,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
-    @Nullable FrameProcessor.Factory frameProcessorFactory = builder.frameProcessorFactory;
+    FrameProcessor.@Nullable Factory frameProcessorFactory = builder.frameProcessorFactory;
     playbackThread =
         new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     try {
@@ -2388,7 +2388,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private final ImageDecoder.Factory imageDecoderFactory;
     private @MonotonicNonNull Format format;
 
-    public GapHandlingDecoderFactory(@Nullable ImageDecoder.Factory imageDecoderFactory) {
+    public GapHandlingDecoderFactory(ImageDecoder.@Nullable Factory imageDecoderFactory) {
       this.imageDecoderFactory = checkNotNull(imageDecoderFactory);
     }
 

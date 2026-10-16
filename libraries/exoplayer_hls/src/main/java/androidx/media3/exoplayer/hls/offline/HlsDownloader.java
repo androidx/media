@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.hls.offline;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
@@ -36,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A downloader for HLS streams.
@@ -253,7 +253,7 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
         // Generating an incomplete segment list is allowed. Advance to the next media playlist.
         continue;
       }
-      @Nullable HlsMediaPlaylist.Segment lastInitSegment = null;
+      HlsMediaPlaylist.@Nullable Segment lastInitSegment = null;
       List<HlsMediaPlaylist.Segment> hlsSegments = mediaPlaylist.segments;
       long startPositionUs = removing ? 0 : this.startPositionUs;
       long durationUs = removing ? C.TIME_UNSET : this.durationUs;

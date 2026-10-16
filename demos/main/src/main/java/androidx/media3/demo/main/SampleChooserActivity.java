@@ -45,7 +45,6 @@ import android.widget.ExpandableListView.OnChildClickListener;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -77,6 +76,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.jspecify.annotations.Nullable;
 
 /** An activity for selecting from a list of media samples. */
 public class SampleChooserActivity extends AppCompatActivity
@@ -277,7 +277,7 @@ public class SampleChooserActivity extends AppCompatActivity
     if (localConfiguration.adsConfiguration != null) {
       return R.string.download_ads_unsupported;
     }
-    @Nullable MediaItem.DrmConfiguration drmConfiguration = localConfiguration.drmConfiguration;
+    MediaItem.@Nullable DrmConfiguration drmConfiguration = localConfiguration.drmConfiguration;
     if (drmConfiguration != null && !drmConfiguration.scheme.equals(C.WIDEVINE_UUID)) {
       return R.string.download_only_widevine_drm_supported;
     }

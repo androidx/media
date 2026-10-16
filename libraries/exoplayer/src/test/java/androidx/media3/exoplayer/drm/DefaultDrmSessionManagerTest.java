@@ -27,7 +27,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
@@ -45,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -536,7 +536,7 @@ public class DefaultDrmSessionManagerTest {
           @Override
           public void onDrmKeysLoaded(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               KeyRequestInfo keyRequestInfo) {
             keyLoadCount.incrementAndGet();
           }

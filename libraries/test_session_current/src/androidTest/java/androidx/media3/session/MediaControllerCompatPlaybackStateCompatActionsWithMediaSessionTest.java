@@ -35,7 +35,6 @@ import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
-import androidx.annotation.Nullable;
 import androidx.core.util.Predicate;
 import androidx.media3.common.C;
 import androidx.media3.common.ForwardingPlayer;
@@ -66,6 +65,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2379,7 +2379,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   }
 
   private static MediaSession createMediaSession(
-      Player player, @Nullable MediaSession.Callback callback) {
+      Player player, MediaSession.@Nullable Callback callback) {
     MediaSession.Builder session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player);
     if (callback != null) {
@@ -2437,8 +2437,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       Predicate<PlaybackStateCompat> predicate)
       throws InterruptedException {
     while (true) {
-      @Nullable
-      PlaybackStateCompat playbackStateCompat = playbackStateCompats.poll(TIMEOUT_MS, MILLISECONDS);
+      @Nullable PlaybackStateCompat playbackStateCompat =
+          playbackStateCompats.poll(TIMEOUT_MS, MILLISECONDS);
       if (playbackStateCompat == null) {
         return false;
       } else if (predicate.test(playbackStateCompat)) {

@@ -30,7 +30,6 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.mockito.Mockito.when;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
@@ -54,6 +53,7 @@ import com.google.common.primitives.Bytes;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -2701,7 +2701,7 @@ public final class SampleQueueTest {
     @Override
     @Nullable
     public DrmSession acquireSession(
-        @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+        DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
       return format.drmInitData != null ? mockDrmSession : mockPlaceholderDrmSession;
     }
 

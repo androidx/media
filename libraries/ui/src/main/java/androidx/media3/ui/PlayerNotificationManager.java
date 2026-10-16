@@ -53,7 +53,6 @@ import android.os.Message;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -73,6 +72,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Starts, updates and cancels a media style notification reflecting the player state. The actions
@@ -202,8 +202,7 @@ public class PlayerNotificationManager {
      * @param player The {@link Player} for which a notification is being built.
      * @return The content intent for the current media item, or null if no intent should be fired.
      */
-    @Nullable
-    PendingIntent createCurrentContentIntent(Player player);
+    @Nullable PendingIntent createCurrentContentIntent(Player player);
 
     /**
      * Gets the content text for the current media item.
@@ -214,8 +213,7 @@ public class PlayerNotificationManager {
      * @return The content text for the current media item, or null if no context text should be
      *     displayed.
      */
-    @Nullable
-    CharSequence getCurrentContentText(Player player);
+    @Nullable CharSequence getCurrentContentText(Player player);
 
     /**
      * Gets the content sub text for the current media item.
@@ -246,8 +244,7 @@ public class PlayerNotificationManager {
      * @return The large icon for the current media item, or null if the icon will be returned
      *     through the {@link BitmapCallback} or if no icon should be displayed.
      */
-    @Nullable
-    Bitmap getCurrentLargeIcon(Player player, BitmapCallback callback);
+    @Nullable Bitmap getCurrentLargeIcon(Player player, BitmapCallback callback);
   }
 
   /** Defines and handles custom actions. */
@@ -703,12 +700,12 @@ public class PlayerNotificationManager {
   private final PendingIntent dismissPendingIntent;
   private final int instanceId;
 
-  @Nullable private NotificationCompat.Builder builder;
+  private NotificationCompat.@Nullable Builder builder;
   @Nullable private List<NotificationCompat.Action> builderActions;
   @Nullable private Player player;
   private boolean isNotificationStarted;
   private int currentNotificationTag;
-  @Nullable private MediaSession.Token mediaSessionToken;
+  private MediaSession.@Nullable Token mediaSessionToken;
   private boolean usePreviousAction;
   private boolean useNextAction;
   private boolean usePreviousActionInCompactView;
@@ -1240,10 +1237,9 @@ public class PlayerNotificationManager {
    *     NotificationCompat.Builder#build()} to obtain the notification, or {@code null} if no
    *     notification should be displayed.
    */
-  @Nullable
-  protected NotificationCompat.Builder createNotification(
+  protected NotificationCompat.@Nullable Builder createNotification(
       Player player,
-      @Nullable NotificationCompat.Builder builder,
+      NotificationCompat.@Nullable Builder builder,
       boolean ongoing,
       @Nullable Bitmap largeIcon) {
     if (player.getPlaybackState() == Player.STATE_IDLE
@@ -1257,8 +1253,7 @@ public class PlayerNotificationManager {
     List<NotificationCompat.Action> actions = new ArrayList<>(actionNames.size());
     for (int i = 0; i < actionNames.size(); i++) {
       String actionName = actionNames.get(i);
-      @Nullable
-      NotificationCompat.Action action =
+      NotificationCompat.@Nullable Action action =
           playbackActions.containsKey(actionName)
               ? playbackActions.get(actionName)
               : customActions.get(actionName);
@@ -1597,9 +1592,9 @@ public class PlayerNotificationManager {
   private static final class MediaStyle extends androidx.core.app.NotificationCompat.Style {
 
     private final int[] actionsToShowInCompact;
-    @Nullable private final MediaSession.Token token;
+    private final MediaSession.@Nullable Token token;
 
-    public MediaStyle(@Nullable MediaSession.Token token, int[] actionsToShowInCompact) {
+    public MediaStyle(MediaSession.@Nullable Token token, int[] actionsToShowInCompact) {
       this.token = token;
       this.actionsToShowInCompact = actionsToShowInCompact;
     }

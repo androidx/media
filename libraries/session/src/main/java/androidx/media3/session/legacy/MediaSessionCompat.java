@@ -52,7 +52,6 @@ import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
@@ -70,6 +69,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Allows interaction with media controllers, volume keys, media buttons, and transport controls.
@@ -1453,8 +1453,7 @@ public class MediaSessionCompat {
       return inner;
     }
 
-    @Nullable
-    /* package */ IMediaSession getExtraBinder() {
+    @Nullable /* package */ IMediaSession getExtraBinder() {
       synchronized (lock) {
         return extraBinder;
       }
@@ -1547,7 +1546,7 @@ public class MediaSessionCompat {
     private final MediaDescriptionCompat description;
     private final long id;
 
-    @Nullable private MediaSession.QueueItem itemFwk;
+    private MediaSession.@Nullable QueueItem itemFwk;
 
     /**
      * Creates a new {@link MediaSessionCompat.QueueItem}.
@@ -1561,7 +1560,7 @@ public class MediaSessionCompat {
     }
 
     private QueueItem(
-        @Nullable MediaSession.QueueItem queueItem, MediaDescriptionCompat description, long id) {
+        MediaSession.@Nullable QueueItem queueItem, MediaDescriptionCompat description, long id) {
       if (id == UNKNOWN_ID) {
         throw new IllegalArgumentException("Id cannot be QueueItem.UNKNOWN_ID");
       }
@@ -1722,8 +1721,7 @@ public class MediaSessionCompat {
 
     void setPlaybackState(PlaybackStateCompat state);
 
-    @Nullable
-    PlaybackStateCompat getPlaybackState();
+    @Nullable PlaybackStateCompat getPlaybackState();
 
     void setMetadata(@Nullable MediaMetadataCompat metadata);
 
@@ -1743,19 +1741,15 @@ public class MediaSessionCompat {
 
     void setExtras(@Nullable Bundle extras);
 
-    @Nullable
-    Object getMediaSession();
+    @Nullable Object getMediaSession();
 
-    @Nullable
-    String getCallingPackage();
+    @Nullable String getCallingPackage();
 
-    @Nullable
-    RemoteUserInfo getCurrentControllerInfo();
+    @Nullable RemoteUserInfo getCurrentControllerInfo();
 
     void setCurrentControllerInfo(@Nullable RemoteUserInfo remoteUserInfo);
 
-    @Nullable
-    Callback getCallback();
+    @Nullable Callback getCallback();
   }
 
   static class MediaSessionImplBase implements MediaSessionImpl {

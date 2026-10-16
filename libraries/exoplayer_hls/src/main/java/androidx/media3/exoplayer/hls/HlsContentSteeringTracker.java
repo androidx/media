@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -40,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks the content steering states for an HLS stream. */
 @UnstableApi
@@ -112,7 +112,7 @@ public final class HlsContentSteeringTracker extends BaseContentSteeringTracker 
       HlsDataSourceFactory dataSourceFactory,
       @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier,
       HlsPlaylistTracker playlistTracker,
-      @Nullable HlsContentSteeringTracker.Callback callback,
+      HlsContentSteeringTracker.@Nullable Callback callback,
       BandwidthMeter bandwidthMeter,
       Clock clock) {
     super(

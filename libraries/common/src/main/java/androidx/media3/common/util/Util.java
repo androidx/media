@@ -91,7 +91,6 @@ import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -164,6 +163,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Miscellaneous utility methods. */
 public final class Util {
@@ -454,8 +454,7 @@ public final class Util {
       String filePath = new File(uriPath).getCanonicalPath();
       String internalAppDirectoryPath = activity.getFilesDir().getCanonicalPath();
       @Nullable File externalAppDirectory = activity.getExternalFilesDir(/* type= */ null);
-      @Nullable
-      String externalAppDirectoryPath =
+      @Nullable String externalAppDirectoryPath =
           externalAppDirectory == null ? null : externalAppDirectory.getCanonicalPath();
       return filePath.startsWith(internalAppDirectoryPath)
           || (externalAppDirectoryPath != null && filePath.startsWith(externalAppDirectoryPath));
@@ -796,7 +795,7 @@ public final class Util {
    */
   @UnstableApi
   public static Handler createHandlerForCurrentLooper(
-      @Nullable Handler.@UnknownInitialization Callback callback) {
+      Handler.@Nullable @UnknownInitialization Callback callback) {
     return createHandler(checkNotNull(Looper.myLooper()), callback);
   }
 
@@ -827,7 +826,7 @@ public final class Util {
    */
   @UnstableApi
   public static Handler createHandlerForCurrentOrMainLooper(
-      @Nullable Handler.@UnknownInitialization Callback callback) {
+      Handler.@Nullable @UnknownInitialization Callback callback) {
     return createHandler(getCurrentOrMainLooper(), callback);
   }
 
@@ -846,7 +845,7 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings({"nullness:argument", "nullness:return"})
   public static Handler createHandler(
-      Looper looper, @Nullable Handler.@UnknownInitialization Callback callback) {
+      Looper looper, Handler.@Nullable @UnknownInitialization Callback callback) {
     return new Handler(looper, callback);
   }
 
@@ -3541,8 +3540,7 @@ public final class Util {
   @UnstableApi
   public static String getCountryCode(@Nullable Context context) {
     if (context != null) {
-      @Nullable
-      TelephonyManager telephonyManager =
+      @Nullable TelephonyManager telephonyManager =
           (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
       if (telephonyManager != null) {
         String countryCode = telephonyManager.getNetworkCountryIso();
@@ -3658,8 +3656,7 @@ public final class Util {
   @UnstableApi
   public static boolean isTv(Context context) {
     // See https://developer.android.com/training/tv/start/hardware.html#runtime-check.
-    @Nullable
-    UiModeManager uiModeManager =
+    @Nullable UiModeManager uiModeManager =
         (UiModeManager) context.getApplicationContext().getSystemService(UI_MODE_SERVICE);
     return uiModeManager != null
         && uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
@@ -3702,8 +3699,7 @@ public final class Util {
   @UnstableApi
   public static Point getCurrentDisplayModeSize(Context context) {
     @Nullable Display defaultDisplay = null;
-    @Nullable
-    DisplayManager displayManager =
+    @Nullable DisplayManager displayManager =
         (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
     // We don't expect displayManager to ever be null, so this check is just precautionary.
     if (displayManager != null) {
@@ -3746,8 +3742,7 @@ public final class Util {
       //
       // From API level 28, Treble may prevent the system from writing sys.display-size, so we check
       // vendor.display-size instead.
-      @Nullable
-      String displaySize =
+      @Nullable String displaySize =
           Build.VERSION.SDK_INT < 28
               ? getSystemProperty("sys.display-size")
               : getSystemProperty("vendor.display-size");

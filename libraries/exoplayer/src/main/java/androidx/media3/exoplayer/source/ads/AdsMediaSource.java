@@ -24,7 +24,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AdViewProvider;
@@ -59,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} that inserts ads linearly into a provided content media source.
@@ -145,7 +145,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       new MediaPeriodId(/* periodUid= */ new Object());
 
   private final MaskingMediaSource contentMediaSource;
-  @Nullable final MediaItem.DrmConfiguration contentDrmConfiguration;
+  final MediaItem.@Nullable DrmConfiguration contentDrmConfiguration;
   private final MediaSource.Factory adMediaSourceFactory;
   private final AdsLoader adsLoader;
   private final AdViewProvider adViewProvider;
@@ -302,8 +302,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         adMediaSourceHolders[adGroupIndex] =
             Arrays.copyOf(adMediaSourceHolders[adGroupIndex], adCount);
       }
-      @Nullable
-      AdMediaSourceHolder adMediaSourceHolder =
+      @Nullable AdMediaSourceHolder adMediaSourceHolder =
           adMediaSourceHolders[adGroupIndex][adIndexInAdGroup];
       if (adMediaSourceHolder == null) {
         long endPositionUs = C.TIME_END_OF_SOURCE;
@@ -508,8 +507,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       for (int adIndexInAdGroup = 0;
           adIndexInAdGroup < this.adMediaSourceHolders[adGroupIndex].length;
           adIndexInAdGroup++) {
-        @Nullable
-        AdMediaSourceHolder adMediaSourceHolder =
+        @Nullable AdMediaSourceHolder adMediaSourceHolder =
             this.adMediaSourceHolders[adGroupIndex][adIndexInAdGroup];
         AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
         if (adMediaSourceHolder != null
@@ -586,8 +584,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     return adDurationsUs;
   }
 
-  @Nullable
-  private static MediaItem.AdsConfiguration getAdsConfiguration(MediaItem mediaItem) {
+  private static MediaItem.@Nullable AdsConfiguration getAdsConfiguration(MediaItem mediaItem) {
     return mediaItem.localConfiguration == null
         ? null
         : mediaItem.localConfiguration.adsConfiguration;

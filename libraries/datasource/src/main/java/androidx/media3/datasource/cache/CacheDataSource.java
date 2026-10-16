@@ -27,7 +27,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PriorityTaskManager;
@@ -53,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} that reads and writes a {@link Cache}. Requests are fulfilled from the cache
@@ -67,14 +67,14 @@ public final class CacheDataSource implements DataSource {
 
     private @MonotonicNonNull Cache cache;
     private DataSource.Factory cacheReadDataSourceFactory;
-    @Nullable private DataSink.Factory cacheWriteDataSinkFactory;
+    private DataSink.@Nullable Factory cacheWriteDataSinkFactory;
     private CacheKeyFactory cacheKeyFactory;
     private boolean cacheIsReadOnly;
-    @Nullable private DataSource.Factory upstreamDataSourceFactory;
+    private DataSource.@Nullable Factory upstreamDataSourceFactory;
     @Nullable private PriorityTaskManager upstreamPriorityTaskManager;
     private @C.Priority int upstreamPriority;
     private @CacheDataSource.Flags int flags;
-    @Nullable private CacheDataSource.EventListener eventListener;
+    private CacheDataSource.@Nullable EventListener eventListener;
 
     public Factory() {
       cacheReadDataSourceFactory = new FileDataSource.Factory();
@@ -131,7 +131,7 @@ public final class CacheDataSource implements DataSource {
      */
     @CanIgnoreReturnValue
     public Factory setCacheWriteDataSinkFactory(
-        @Nullable DataSink.Factory cacheWriteDataSinkFactory) {
+        DataSink.@Nullable Factory cacheWriteDataSinkFactory) {
       this.cacheWriteDataSinkFactory = cacheWriteDataSinkFactory;
       this.cacheIsReadOnly = cacheWriteDataSinkFactory == null;
       return this;
@@ -169,7 +169,7 @@ public final class CacheDataSource implements DataSource {
      */
     @CanIgnoreReturnValue
     public Factory setUpstreamDataSourceFactory(
-        @Nullable DataSource.Factory upstreamDataSourceFactory) {
+        DataSource.@Nullable Factory upstreamDataSourceFactory) {
       this.upstreamDataSourceFactory = upstreamDataSourceFactory;
       return this;
     }

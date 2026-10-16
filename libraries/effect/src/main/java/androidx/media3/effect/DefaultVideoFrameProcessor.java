@@ -41,7 +41,6 @@ import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -77,6 +76,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link VideoFrameProcessor} implementation that applies {@link GlEffect} instances using OpenGL
@@ -372,7 +372,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     private final boolean repeatLastRegisteredFrame;
     @Nullable private final GlObjectsProvider glObjectsProvider;
     @Nullable private final ExecutorService executorService;
-    @Nullable private final GlTextureProducer.Listener textureOutputListener;
+    private final GlTextureProducer.@Nullable Listener textureOutputListener;
     private final int textureOutputCapacity;
     private final boolean enableReplayableCache;
     private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
@@ -383,7 +383,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         boolean repeatLastRegisteredFrame,
         @Nullable GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
-        @Nullable GlTextureProducer.Listener textureOutputListener,
+        GlTextureProducer.@Nullable Listener textureOutputListener,
         int textureOutputCapacity,
         boolean enableReplayableCache,
         boolean experimentalAdjustSurfaceTextureTransformationMatrix,
@@ -945,7 +945,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       GlObjectsProvider glObjectsProvider,
       boolean shouldReleaseGlObjectsProvider,
       boolean enableReplayableCache,
-      @Nullable GlTextureProducer.Listener textureOutputListener,
+      GlTextureProducer.@Nullable Listener textureOutputListener,
       int textureOutputCapacity,
       boolean repeatLastRegisteredFrame,
       boolean experimentalAdjustSurfaceTextureTransformationMatrix,

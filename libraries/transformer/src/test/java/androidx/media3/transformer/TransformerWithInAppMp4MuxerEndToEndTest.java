@@ -24,7 +24,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -53,6 +52,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -385,14 +385,12 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
       Context context, @Nullable String filePath, Class<T> clazz, Predicate<T> predicate)
       throws ExecutionException, InterruptedException {
     Format videoTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO);
-    @Nullable
-    T metadataEntryFromVideoTrack =
+    @Nullable T metadataEntryFromVideoTrack =
         videoTrackFormat.metadata != null
             ? videoTrackFormat.metadata.getFirstMatchingEntry(clazz, predicate)
             : null;
     Format audioTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_AUDIO);
-    @Nullable
-    T metadataEntryFromAudioTrack =
+    @Nullable T metadataEntryFromAudioTrack =
         audioTrackFormat.metadata != null
             ? videoTrackFormat.metadata.getFirstMatchingEntry(clazz, predicate)
             : null;
@@ -405,7 +403,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
   }
 
   private static void ensureSameMetadataAcrossTracks(
-      @Nullable Metadata.Entry firstTrackMetadata, @Nullable Metadata.Entry secondTrackMetadata) {
+      Metadata.@Nullable Entry firstTrackMetadata, Metadata.@Nullable Entry secondTrackMetadata) {
     // If same metadata is present in both audio and video track, then they must be same.
     if (firstTrackMetadata != null && secondTrackMetadata != null) {
       checkState(firstTrackMetadata.equals(secondTrackMetadata));

@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -35,6 +34,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manager that holds {@link ControllerInfo} of connected {@link MediaController controllers}.
@@ -120,8 +120,7 @@ import java.util.concurrent.atomic.AtomicReference;
     }
   }
 
-  @Nullable
-  public Player.Commands getAvailablePlayerCommands(ControllerInfo controllerInfo) {
+  public Player.@Nullable Commands getAvailablePlayerCommands(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -202,8 +201,8 @@ import java.util.concurrent.atomic.AtomicReference;
     return null;
   }
 
-  @Nullable
-  public Player.Commands getPlayerCommandsBeforePlaybackException(ControllerInfo controllerInfo) {
+  public Player.@Nullable Commands getPlayerCommandsBeforePlaybackException(
+      ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -282,8 +281,7 @@ import java.util.concurrent.atomic.AtomicReference;
   public SequencedFutureManager getSequencedFutureManager(T controllerKey) {
     verifyApplicationThread();
     @Nullable ControllerInfo controllerInfo = getController(controllerKey);
-    @Nullable
-    ConnectedControllerRecord<T> info =
+    @Nullable ConnectedControllerRecord<T> info =
         controllerInfo != null ? controllerRecords.get(controllerInfo) : null;
     return info != null ? info.sequencedFutureManager : null;
   }
@@ -412,7 +410,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
     private SessionCommands sessionCommands;
     private Player.Commands playerCommands;
-    @Nullable private Player.Commands playerCommandsBeforePlaybackException;
+    private Player.@Nullable Commands playerCommandsBeforePlaybackException;
     private boolean commandQueueIsFlushing;
     private Player.Commands commandQueuePlayerCommands;
     @Nullable private PlaybackException playbackException;

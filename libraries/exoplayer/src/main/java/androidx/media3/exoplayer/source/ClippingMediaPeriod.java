@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
@@ -38,6 +37,7 @@ import androidx.media3.exoplayer.source.ClippingMediaSource.IllegalClippingExcep
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps a {@link MediaPeriod} and clips its {@link SampleStream}s to provide a subsequence of their
@@ -51,7 +51,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
 
   private final boolean enableClippingInMediaPeriod;
 
-  @Nullable private MediaPeriod.Callback callback;
+  private MediaPeriod.@Nullable Callback callback;
   private @NullableType ClippingSampleStream[] sampleStreams;
   private long pendingInitialDiscontinuityPositionUs;
   private boolean hasProcessedInitialDiscontinuity;

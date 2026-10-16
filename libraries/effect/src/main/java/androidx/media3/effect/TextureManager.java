@@ -21,13 +21,13 @@ import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.TimestampIterator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handles {@code DefaultVideoFrameProcessor}'s input.
@@ -43,8 +43,7 @@ import androidx.media3.common.util.TimestampIterator;
 
   // TODO(b/238302341) Remove the use of onFlushCompleteTask, block the calling thread instead.
   @GuardedBy("lock")
-  @Nullable
-  private VideoFrameProcessingTaskExecutor.Task onFlushCompleteTask;
+  private VideoFrameProcessingTaskExecutor.@Nullable Task onFlushCompleteTask;
 
   /**
    * Creates a new instance.
@@ -146,7 +145,7 @@ import androidx.media3.common.util.TimestampIterator;
 
   /** Sets the task to run on completing flushing, or {@code null} to clear any task. */
   public final void setOnFlushCompleteListener(
-      @Nullable VideoFrameProcessingTaskExecutor.Task task) {
+      VideoFrameProcessingTaskExecutor.@Nullable Task task) {
     synchronized (lock) {
       onFlushCompleteTask = task;
     }

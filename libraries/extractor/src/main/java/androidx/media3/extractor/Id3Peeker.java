@@ -18,7 +18,6 @@ package androidx.media3.extractor;
 
 import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_HEADER_LENGTH;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Log;
@@ -29,6 +28,7 @@ import androidx.media3.extractor.metadata.id3.Id3Decoder.FramePredicate;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.EOFException;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Peeks data from the beginning of an {@link ExtractorInput} to determine if there is any ID3 tag.
@@ -51,7 +51,7 @@ public final class Id3Peeker {
   @Deprecated
   @Nullable
   public Metadata peekId3Data(
-      ExtractorInput input, @Nullable Id3Decoder.FramePredicate id3FramePredicate)
+      ExtractorInput input, Id3Decoder.@Nullable FramePredicate id3FramePredicate)
       throws IOException {
     return peekId3Data(input, id3FramePredicate, /* maxTagPeekBytes= */ 0);
   }
@@ -71,7 +71,7 @@ public final class Id3Peeker {
   @Nullable
   public Metadata peekId3Data(
       ExtractorInput input,
-      @Nullable Id3Decoder.FramePredicate id3FramePredicate,
+      Id3Decoder.@Nullable FramePredicate id3FramePredicate,
       int maxTagPeekBytes)
       throws IOException {
     int peekedId3Bytes = 0;

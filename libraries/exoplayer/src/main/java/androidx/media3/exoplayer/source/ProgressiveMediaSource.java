@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.net.Uri;
 import android.os.Looper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -48,6 +47,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides one period that loads data from a {@link Uri} and extracted using an {@link Extractor}.
@@ -398,7 +398,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
     MediaItem.LocalConfiguration existingConfiguration = getLocalConfiguration();
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.imageDurationMs == existingConfiguration.imageDurationMs

@@ -22,7 +22,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -82,6 +81,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** A DASH {@link MediaPeriod}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -120,8 +120,8 @@ import java.util.regex.Pattern;
 
   @Nullable private Callback callback;
 
-  @Nullable
-  private DashContentSteeringTracker.SteeringQueryParamsProvider steeringQueryParamsProvider;
+  private DashContentSteeringTracker.@Nullable SteeringQueryParamsProvider
+      steeringQueryParamsProvider;
 
   private ChunkSampleStream<DashChunkSource>[] sampleStreams;
   private EventSampleStream[] eventSampleStreams;
@@ -678,16 +678,15 @@ import java.util.regex.Pattern;
       AdaptationSet adaptationSet = adaptationSets.get(i);
 
       // Trick-play adaptation sets are merged with their corresponding main adaptation sets.
-      @Nullable
-      Descriptor trickPlayProperty = findTrickPlayProperty(adaptationSet.essentialProperties);
+      @Nullable Descriptor trickPlayProperty =
+          findTrickPlayProperty(adaptationSet.essentialProperties);
       if (trickPlayProperty == null) {
         // Trick-play can also be specified using a supplemental property.
         trickPlayProperty = findTrickPlayProperty(adaptationSet.supplementalProperties);
       }
       if (trickPlayProperty != null) {
         String mainAdaptationSetId = Util.splitAtFirst(trickPlayProperty.value, "\\s+")[0];
-        @Nullable
-        Integer mainAdaptationSetIndex =
+        @Nullable Integer mainAdaptationSetIndex =
             adaptationSetIdToIndex.get(Long.parseLong(mainAdaptationSetId));
         if (mainAdaptationSetIndex != null
             && canMergeAdaptationSets(adaptationSet, adaptationSets.get(mainAdaptationSetIndex))) {
@@ -698,14 +697,12 @@ import java.util.regex.Pattern;
       // Adaptation sets that are safe for switching are merged, using the smallest index for the
       // merged group.
       if (mergedGroupIndex == i) {
-        @Nullable
-        Descriptor adaptationSetSwitchingProperty =
+        @Nullable Descriptor adaptationSetSwitchingProperty =
             findAdaptationSetSwitchingProperty(adaptationSet.supplementalProperties);
         if (adaptationSetSwitchingProperty != null) {
           String[] otherAdaptationSetIds = Util.split(adaptationSetSwitchingProperty.value, ",");
           for (String adaptationSetId : otherAdaptationSetIds) {
-            @Nullable
-            Integer otherAdaptationSetIndex =
+            @Nullable Integer otherAdaptationSetIndex =
                 adaptationSetIdToIndex.get(Long.parseLong(adaptationSetId));
             if (otherAdaptationSetIndex != null
                 && canMergeAdaptationSets(

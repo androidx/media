@@ -62,7 +62,6 @@ import android.view.ViewConfiguration;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.concurrent.futures.ResolvableFuture;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
@@ -105,6 +104,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.jspecify.annotations.Nullable;
 
 /* package */ class MediaSessionImpl {
 
@@ -152,7 +152,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private PlayerWrapper playerWrapper;
   @Nullable private PendingIntent sessionActivity;
   @Nullable private PlayerListener playerListener;
-  @Nullable private MediaSession.Listener mediaSessionListener;
+  private MediaSession.@Nullable Listener mediaSessionListener;
   @Nullable private ControllerInfo controllerForCurrentRequest;
 
   @GuardedBy("lock")
@@ -445,7 +445,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * @param controllerInfo The controller info.
    * @return Whether the controller info belongs to the System UI controller.
    */
-  protected boolean isSystemUiController(@Nullable MediaSession.ControllerInfo controllerInfo) {
+  protected boolean isSystemUiController(MediaSession.@Nullable ControllerInfo controllerInfo) {
     return controllerInfo != null
         && Objects.equals(controllerInfo.getPackageName(), SYSTEM_UI_PACKAGE_NAME);
   }
@@ -684,9 +684,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return playbackException;
   }
 
-  @Nullable
-  /* package */ static Player.Commands createPlayerCommandsForCustomErrorState(
-      @Nullable Player.Commands playerCommandsBeforeException) {
+  /* package */ static Player.@Nullable Commands createPlayerCommandsForCustomErrorState(
+      Player.@Nullable Commands playerCommandsBeforeException) {
     if (playerCommandsBeforeException == null) {
       // This may happen when the controller is already disconnected.
       return null;
@@ -1048,8 +1047,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               : instance.getSessionExtras();
       dispatchRemoteControllerTaskToLegacyStub(
           (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
-      @Nullable
-      PendingIntent sessionActivity =
+      @Nullable PendingIntent sessionActivity =
           connectionResult.sessionActivity != null
               ? connectionResult.sessionActivity
               : instance.getSessionActivity();
@@ -1104,7 +1102,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   public ListenableFuture<SessionResult> onCustomCommandOnHandler(
       ControllerInfo controller,
-      @Nullable MediaSession.ProgressReporter progressReporter,
+      MediaSession.@Nullable ProgressReporter progressReporter,
       SessionCommand command,
       Bundle extras) {
     return checkNotNull(
@@ -1386,8 +1384,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
       }
     } else {
-      @Nullable
-      ListenableFuture<MediaItemsWithStartPosition> future =
+      @Nullable ListenableFuture<MediaItemsWithStartPosition> future =
           checkNotNull(
               callback.onPlaybackResumption(
                   instance, controllerForRequest, /* isForPlayback= */ true),
@@ -1513,8 +1510,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, RemoteControllerTask task) {
     try {
       int seq;
-      @Nullable
-      SequencedFutureManager manager =
+      @Nullable SequencedFutureManager manager =
           sessionStub.getConnectedControllersManager().getSequencedFutureManager(controller);
       if (manager != null) {
         seq = manager.obtainNextSequenceNumber();
@@ -1564,8 +1560,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     try {
       ListenableFuture<SessionResult> future;
       int seq;
-      @Nullable
-      SequencedFutureManager manager =
+      @Nullable SequencedFutureManager manager =
           sessionStub.getConnectedControllersManager().getSequencedFutureManager(controller);
       if (manager != null) {
         future = manager.createSequencedFuture(RESULT_WHEN_CLOSED);

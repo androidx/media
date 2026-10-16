@@ -52,7 +52,6 @@ import static org.junit.Assert.assertThrows;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -75,6 +74,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -99,7 +99,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   private Context context;
   private RemoteMediaBrowserServiceCompat remoteService;
 
-  private MediaBrowser createBrowser(@Nullable MediaBrowser.Listener listener) throws Exception {
+  private MediaBrowser createBrowser(MediaBrowser.@Nullable Listener listener) throws Exception {
     return createBrowser(
         /* connectionHints= */ Bundle.EMPTY, /* maxCommandsForMediaItems= */ 0, listener);
   }
@@ -107,7 +107,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   private MediaBrowser createBrowser(
       Bundle connectionHints,
       int maxCommandsForMediaItems,
-      @Nullable MediaBrowser.Listener listener)
+      MediaBrowser.@Nullable Listener listener)
       throws Exception {
     SessionToken token = new SessionToken(context, MOCK_MEDIA_BROWSER_SERVICE_COMPAT);
     return (MediaBrowser)

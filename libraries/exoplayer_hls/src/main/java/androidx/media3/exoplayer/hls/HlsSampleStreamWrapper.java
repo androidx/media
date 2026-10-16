@@ -28,7 +28,6 @@ import static java.lang.Math.min;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.DrmInitData;
@@ -91,6 +90,7 @@ import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Loads {@link HlsMediaChunk}s obtained from a {@link HlsChunkSource}, and provides {@link
@@ -615,7 +615,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // Return early if the chunk source doesn't deliver chunks for the failing playlist.
       return false;
     }
-    @Nullable LoadErrorHandlingPolicy.FallbackSelection fallbackSelection = null;
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection = null;
     if (!forceRetry) {
       LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
           chunkSource.createFallbackOptions(playlistUrl);
@@ -1122,8 +1122,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadErrorAction loadErrorAction;
     LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
         chunkSource.createFallbackOptions(loadable);
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     boolean exclusionSucceeded = chunkSource.onChunkError(loadable, fallbackSelection);
 
@@ -1555,8 +1554,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int primaryExtractorTrackIndex = C.INDEX_UNSET;
     int extractorTrackCount = sampleQueues.length;
     for (int i = 0; i < extractorTrackCount; i++) {
-      @Nullable
-      String sampleMimeType = checkNotNull(sampleQueues[i].getUpstreamFormat()).sampleMimeType;
+      @Nullable String sampleMimeType =
+          checkNotNull(sampleQueues[i].getUpstreamFormat()).sampleMimeType;
       int trackType;
       if (MimeTypes.isVideo(sampleMimeType)) {
         trackType = C.TRACK_TYPE_VIDEO;
@@ -1610,8 +1609,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         trackGroups[i] = new TrackGroup(uid, formats);
         primaryTrackGroupIndex = i;
       } else {
-        @Nullable
-        Format playlistFormat =
+        @Nullable Format playlistFormat =
             primaryExtractorTrackType == C.TRACK_TYPE_VIDEO
                     && MimeTypes.isAudio(sampleFormat.sampleMimeType)
                 ? muxedAudioFormat
@@ -1886,11 +1884,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @SuppressWarnings("ReferenceEquality")
     @Override
     public Format getAdjustedUpstreamFormat(Format format) {
-      @Nullable
-      DrmInitData drmInitData = this.drmInitData != null ? this.drmInitData : format.drmInitData;
+      @Nullable DrmInitData drmInitData =
+          this.drmInitData != null ? this.drmInitData : format.drmInitData;
       if (drmInitData != null) {
-        @Nullable
-        DrmInitData overridingDrmInitData = this.overridingDrmInitData.get(drmInitData.schemeType);
+        @Nullable DrmInitData overridingDrmInitData =
+            this.overridingDrmInitData.get(drmInitData.schemeType);
         if (overridingDrmInitData != null) {
           drmInitData = overridingDrmInitData;
         }

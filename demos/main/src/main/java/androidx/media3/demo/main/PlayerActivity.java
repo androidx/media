@@ -28,7 +28,6 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.AudioAttributes;
@@ -62,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** An activity that plays media using {@link ExoPlayer}. */
 public class PlayerActivity extends AppCompatActivity
@@ -95,7 +95,7 @@ public class PlayerActivity extends AppCompatActivity
 
   @Nullable private AdsLoader clientSideAdsLoader;
 
-  @Nullable private ImaServerSideAdInsertionMediaSource.AdsLoader serverSideAdsLoader;
+  private ImaServerSideAdInsertionMediaSource.@Nullable AdsLoader serverSideAdsLoader;
 
   private ImaServerSideAdInsertionMediaSource.AdsLoader.@MonotonicNonNull State
       serverSideAdsLoaderState;
@@ -559,8 +559,8 @@ public class PlayerActivity extends AppCompatActivity
         .setCustomCacheKey(downloadRequest.customCacheKey)
         .setMimeType(downloadRequest.mimeType)
         .setStreamKeys(downloadRequest.streamKeys);
-    @Nullable
-    MediaItem.DrmConfiguration drmConfiguration = item.localConfiguration.drmConfiguration;
+    MediaItem.@Nullable DrmConfiguration drmConfiguration =
+        item.localConfiguration.drmConfiguration;
     if (drmConfiguration != null) {
       builder.setDrmConfiguration(
           drmConfiguration.buildUpon().setKeySetId(downloadRequest.keySetId).build());

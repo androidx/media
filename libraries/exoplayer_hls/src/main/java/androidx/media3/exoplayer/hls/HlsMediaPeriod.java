@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
@@ -67,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} that loads an HLS stream. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -94,7 +94,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final long timestampAdjusterInitializationTimeoutMs;
   @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
-  @Nullable private MediaPeriod.Callback mediaPeriodCallback;
+  private MediaPeriod.@Nullable Callback mediaPeriodCallback;
   private int pendingPrepareCount;
   private @MonotonicNonNull TrackGroupArray trackGroups;
   private HlsSampleStreamWrapper[] sampleStreamWrappers;

@@ -67,7 +67,6 @@ import android.os.RemoteException;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
@@ -80,6 +79,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Browses media content offered by a {@link MediaBrowserServiceCompat}.
@@ -394,7 +394,7 @@ public final class MediaBrowserCompat {
      */
     @SuppressLint("WrongConstant")
     @Nullable
-    public static MediaItem fromMediaItem(@Nullable MediaBrowser.MediaItem item) {
+    public static MediaItem fromMediaItem(MediaBrowser.@Nullable MediaItem item) {
       if (item == null) {
         return null;
       }
@@ -525,7 +525,7 @@ public final class MediaBrowserCompat {
 
   /** Callbacks for connection related events. */
   public static class ConnectionCallback {
-    @Nullable final MediaBrowser.ConnectionCallback connectionCallbackFwk;
+    final MediaBrowser.@Nullable ConnectionCallback connectionCallbackFwk;
     @Nullable ConnectionCallbackInternal connectionCallbackInternal;
 
     public ConnectionCallback() {
@@ -690,8 +690,7 @@ public final class MediaBrowserCompat {
         SubscriptionCallback.this.onError(parentId);
       }
 
-      @Nullable
-      List<MediaBrowserCompat.MediaItem> applyOptions(
+      @Nullable List<MediaBrowserCompat.MediaItem> applyOptions(
           List<MediaBrowserCompat.MediaItem> list, final Bundle options) {
         int page = options.getInt(MediaBrowserCompat.EXTRA_PAGE, -1);
         int pageSize = options.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1);
@@ -829,8 +828,7 @@ public final class MediaBrowserCompat {
 
     String getRoot();
 
-    @Nullable
-    Bundle getExtras();
+    @Nullable Bundle getExtras();
 
     MediaSessionCompat.Token getSessionToken();
 
@@ -845,8 +843,7 @@ public final class MediaBrowserCompat {
     void sendCustomAction(
         String action, @Nullable Bundle extras, @Nullable CustomActionCallback callback);
 
-    @Nullable
-    Bundle getNotifyChildrenChangedOptions();
+    @Nullable Bundle getNotifyChildrenChangedOptions();
   }
 
   interface MediaBrowserServiceCallbackImpl {
@@ -877,7 +874,7 @@ public final class MediaBrowserCompat {
     protected int serviceVersion;
     @Nullable protected ServiceBinderWrapper serviceBinderWrapper;
     @Nullable protected Messenger callbacksMessenger;
-    @Nullable private MediaSessionCompat.Token mediaSessionToken;
+    private MediaSessionCompat.@Nullable Token mediaSessionToken;
     @Nullable private Bundle notifyChildrenChangedOptions;
 
     @SuppressWarnings("argument.type.incompatible") // Using this before constructor finishes

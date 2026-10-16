@@ -39,7 +39,6 @@ import static org.mockito.Mockito.verify;
 import android.content.Context;
 import android.net.Uri;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
@@ -102,6 +101,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -2870,7 +2870,7 @@ public class ExoPlayerAdTest {
         @Override
         protected FakeSampleStream createSampleStream(
             Allocator allocator,
-            @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+            MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
             DrmSessionManager drmSessionManager,
             DrmSessionEventListener.EventDispatcher drmEventDispatcher,
             Format initialFormat,

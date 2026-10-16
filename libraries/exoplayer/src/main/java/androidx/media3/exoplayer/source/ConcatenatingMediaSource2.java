@@ -26,7 +26,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Pair;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -40,6 +39,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Concatenates multiple {@link MediaSource MediaSources}, combining everything in one single {@link
@@ -65,7 +65,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
 
     private int index;
     @Nullable private MediaItem mediaItem;
-    @Nullable private MediaSource.Factory mediaSourceFactory;
+    private MediaSource.@Nullable Factory mediaSourceFactory;
 
     /** Creates the builder. */
     public Builder() {
@@ -360,8 +360,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     if (mediaTimeMs == C.TIME_UNSET || mediaPeriodId == null || mediaPeriodId.isAd()) {
       return mediaTimeMs;
     }
-    @Nullable
-    Long timeOffsetUs =
+    @Nullable Long timeOffsetUs =
         mediaSourceHolders.get(childSourceId).periodTimeOffsetsByUid.get(mediaPeriodId.periodUid);
     if (timeOffsetUs == null) {
       return mediaTimeMs;

@@ -24,7 +24,6 @@ import android.graphics.ColorSpace;
 import android.media.MediaCodec;
 import android.view.SurfaceView;
 import android.widget.ImageView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -49,6 +48,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts decoded frames from {@link MediaItem}.
@@ -91,7 +91,7 @@ public final class FrameExtractor implements AutoCloseable {
     private boolean extractHdrFrames;
     private boolean enableUltraHdr;
     @Nullable private GlObjectsProvider glObjectsProvider;
-    @Nullable private MediaSource.Factory mediaSourceFactory;
+    private MediaSource.@Nullable Factory mediaSourceFactory;
 
     /**
      * Creates a new instance.
@@ -251,7 +251,7 @@ public final class FrameExtractor implements AutoCloseable {
   private final boolean extractHdrFrames;
   private final boolean enableUltraHdr;
   @Nullable private final GlObjectsProvider glObjectsProvider;
-  @Nullable private MediaSource.Factory mediaSourceFactory;
+  private MediaSource.@Nullable Factory mediaSourceFactory;
   private final AtomicBoolean released;
 
   private FrameExtractor(Builder builder) {

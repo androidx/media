@@ -24,7 +24,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -53,6 +52,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -165,7 +165,7 @@ public class ProgressiveMediaSourceTest {
                   @Override
                   public void onLoadCompleted(
                       int windowIndex,
-                      @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                      MediaSource.@Nullable MediaPeriodId mediaPeriodId,
                       LoadEventInfo loadEventInfo,
                       MediaLoadData mediaLoadData) {
                     loadCompleted.open();
@@ -242,7 +242,7 @@ public class ProgressiveMediaSourceTest {
                   @Override
                   public void onLoadError(
                       int windowIndex,
-                      @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                      MediaSource.@Nullable MediaPeriodId mediaPeriodId,
                       LoadEventInfo loadEventInfo,
                       MediaLoadData mediaLoadData,
                       IOException error,
@@ -302,7 +302,7 @@ public class ProgressiveMediaSourceTest {
                   @Override
                   public void onLoadCompleted(
                       int windowIndex,
-                      @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                      MediaSource.@Nullable MediaPeriodId mediaPeriodId,
                       LoadEventInfo loadEventInfo,
                       MediaLoadData mediaLoadData) {
                     loadCompleted.open();

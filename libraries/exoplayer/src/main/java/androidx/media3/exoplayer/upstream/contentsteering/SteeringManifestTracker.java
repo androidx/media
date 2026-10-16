@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
@@ -42,6 +41,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks the steering manifests. */
 @UnstableApi
@@ -87,7 +87,7 @@ public final class SteeringManifestTracker {
 
   @Nullable private Uri steeringManifestUrl;
   @Nullable private Callback callback;
-  @Nullable private MediaSourceEventListener.EventDispatcher eventDispatcher;
+  private MediaSourceEventListener.@Nullable EventDispatcher eventDispatcher;
   @Nullable private SteeringManifest steeringManifest;
   @Nullable private HandlerWrapper handler;
   @Nullable private Loader steeringManifestLoader;

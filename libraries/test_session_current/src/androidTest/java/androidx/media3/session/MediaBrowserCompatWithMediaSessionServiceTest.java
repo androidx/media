@@ -27,7 +27,6 @@ import android.os.Bundle;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
-import androidx.annotation.Nullable;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MediaSessionConstants;
@@ -41,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -202,7 +202,7 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
     public final CountDownLatch suspendedLatch = new CountDownLatch(1);
     public final CountDownLatch failedLatch = new CountDownLatch(1);
 
-    @Nullable MediaControllerCompat.Callback controllerCompatCallback;
+    MediaControllerCompat.@Nullable Callback controllerCompatCallback;
 
     TestConnectionCallback() {
       super();

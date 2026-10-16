@@ -15,13 +15,13 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.exoplayer.source.MediaSource;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /** Supplies a {@link MediaSource.Factory}. */
 @UnstableApi
@@ -42,5 +42,5 @@ public interface MediaSourceFactorySupplier extends Supplier<MediaSource.Factory
    * @return This supplier, for convenience.
    */
   @CanIgnoreReturnValue
-  MediaSourceFactorySupplier setDataSourceFactory(@Nullable DataSource.Factory dataSourceFactory);
+  MediaSourceFactorySupplier setDataSourceFactory(DataSource.@Nullable Factory dataSourceFactory);
 }

@@ -34,7 +34,6 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -71,6 +70,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link FrameProcessor} implementation that executes a chain of {@link GlTextureFrameConsumer}s.
@@ -90,7 +90,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
       @Nullable private GlObjectsProvider glObjectsProvider;
       @Nullable private ExecutorService executorService;
-      @Nullable private FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
+      private FrameToGlTextureConverter.@Nullable Factory frameToGlTextureConverterFactory;
       @Nullable private GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
       private GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
       private boolean assumeSurfacelessContextExtensionSupported;
@@ -704,8 +704,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       return;
     }
     try {
-      @Nullable
-      GlTextureFrameProcessorChain processingChain = preProcessingChains.get(sequenceIndex);
+      @Nullable GlTextureFrameProcessorChain processingChain =
+          preProcessingChains.get(sequenceIndex);
       if (processingChain == null) {
         processingChain =
             new GlTextureFrameProcessorChain(
@@ -745,8 +745,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       if (!waitAndCloseFence(asyncFrame)) {
         GLES20.glFinish();
       }
-      @Nullable
-      GlTextureFrame convertedFrame =
+      @Nullable GlTextureFrame convertedFrame =
           checkNotNull(frameToGlTextureConverter)
               .convert(frame, glExecutorService, listenerExecutor, listener);
       if (convertedFrame == null) {

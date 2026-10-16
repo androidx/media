@@ -23,7 +23,6 @@ import static java.lang.Math.max;
 
 import android.net.Uri;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.SystemClock;
@@ -60,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation for {@link HlsPlaylistTracker}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -329,8 +329,8 @@ public final class DefaultHlsPlaylistTracker
 
   @Override
   public boolean isExcluded(HlsRedundantGroup redundantGroup, long nowMs) {
-    @Nullable
-    RedundantGroupBundle bundle = redundantGroupBundles.get(redundantGroup.getCurrentPlaylistUrl());
+    @Nullable RedundantGroupBundle bundle =
+        redundantGroupBundles.get(redundantGroup.getCurrentPlaylistUrl());
     if (bundle != null) {
       return bundle.isExcluded(nowMs);
     }
@@ -568,8 +568,7 @@ public final class DefaultHlsPlaylistTracker
   private Uri getRequestUriForPrimaryChange(Uri newPrimaryPlaylistUri) {
     if (primaryMediaPlaylistSnapshot != null
         && primaryMediaPlaylistSnapshot.serverControl.canBlockReload) {
-      @Nullable
-      RenditionReport renditionReport =
+      @Nullable RenditionReport renditionReport =
           primaryMediaPlaylistSnapshot.renditionReports.get(newPrimaryPlaylistUri);
       if (renditionReport != null) {
         Uri.Builder uriBuilder = newPrimaryPlaylistUri.buildUpon();
@@ -1307,8 +1306,7 @@ public final class DefaultHlsPlaylistTracker
             contentSteeringTracker != null && contentSteeringTracker.isActive();
         LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
             createFallbackOptions(url, contentSteeringActive);
-        @Nullable
-        LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
+        LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection =
             loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
         if (fallbackSelection != null) {
           if (contentSteeringActive && fallbackSelection.type == FALLBACK_TYPE_LOCATION) {
@@ -1382,8 +1380,7 @@ public final class DefaultHlsPlaylistTracker
           (previousPathwayExcludeDurationMs == C.TIME_UNSET
               && primaryMediaPlaylistSnapshot == null);
       for (RedundantGroupBundle redundantGroupBundle : redundantGroupBundles.values()) {
-        @Nullable
-        Uri currentPlaylistUrlToExclude =
+        @Nullable Uri currentPlaylistUrlToExclude =
             previousPathwayExcludeDurationMs != C.TIME_UNSET
                 ? redundantGroupBundle.redundantGroup.getCurrentPlaylistUrl()
                 : null;

@@ -27,7 +27,6 @@ import static java.lang.Math.min;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -52,6 +51,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A queue of media samples. */
 @UnstableApi
@@ -84,7 +84,7 @@ public class SampleQueue implements TrackOutput {
   private final SampleExtrasHolder extrasHolder;
   private final SpannedData<SharedSampleMetadata> sharedSampleMetadata;
   @Nullable private final DrmSessionManager drmSessionManager;
-  @Nullable private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
+  private final DrmSessionEventListener.@Nullable EventDispatcher drmEventDispatcher;
   @Nullable private UpstreamFormatChangedListener upstreamFormatChangeListener;
 
   @Nullable private Format downstreamFormat;
@@ -194,7 +194,7 @@ public class SampleQueue implements TrackOutput {
   protected SampleQueue(
       Allocator allocator,
       @Nullable DrmSessionManager drmSessionManager,
-      @Nullable DrmSessionEventListener.EventDispatcher drmEventDispatcher) {
+      DrmSessionEventListener.@Nullable EventDispatcher drmEventDispatcher) {
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     sampleDataQueue = new SampleDataQueue(allocator);
@@ -1076,8 +1076,8 @@ public class SampleQueue implements TrackOutput {
    */
   private void onFormatResult(Format newFormat, FormatHolder outputFormatHolder) {
     boolean isFirstFormat = downstreamFormat == null;
-    @Nullable
-    DrmInitData oldDrmInitData = downstreamFormat == null ? null : downstreamFormat.drmInitData;
+    @Nullable DrmInitData oldDrmInitData =
+        downstreamFormat == null ? null : downstreamFormat.drmInitData;
     downstreamFormat = newFormat;
     @Nullable DrmInitData newDrmInitData = newFormat.drmInitData;
 
