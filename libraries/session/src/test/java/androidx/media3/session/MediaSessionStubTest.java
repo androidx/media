@@ -17,11 +17,16 @@ package androidx.media3.session;
 
 import static androidx.media3.test.utils.TestUtil.getThrowingBundle;
 import static com.google.common.truth.Truth.assertThat;
+import static org.robolectric.Shadows.shadowOf;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.Settings;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.HeartRating;
@@ -40,8 +45,11 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowBinder;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Unit test for {@link MediaSessionStub}. */
 @RunWith(AndroidJUnit4.class)
@@ -539,6 +547,73 @@ public class MediaSessionStubTest {
                 /* connectionHints= */ new Bundle(),
                 /* maxCommandsForMediaItems= */ 0)
             .toBundle());
+  }
+
+  @Test
+  public void
+      binderConnectRequest_withUnverifiedUidSpoofingNotificationListenerPackage_isNotTrusted()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = 10101;
+    int untrustedInvisibleUid = 10999;
+    ApplicationInfo applicationInfo = new ApplicationInfo();
+    applicationInfo.packageName = notificationListenerPackage;
+    applicationInfo.uid = notificationListenerUid;
+    PackageInfo packageInfo = new PackageInfo();
+    packageInfo.packageName = notificationListenerPackage;
+    packageInfo.applicationInfo = applicationInfo;
+    shadowOf(context.getPackageManager()).installPackage(packageInfo);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    AtomicReference<MediaSession.ControllerInfo> connectedControllerRef = new AtomicReference<>();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("spoofTest")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public MediaSession.ConnectionResult onConnect(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    connectedControllerRef.set(controller);
+                    return MediaSession.Callback.super.onConnect(session, controller);
+                  }
+                })
+            .build();
+    IMediaSession binder = (IMediaSession) session.getToken().getBinder();
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken()).buildAsync().get();
+    IMediaController caller = controller.getBinder();
+    connectedControllerRef.set(null);
+    ShadowBinder.setCallingUid(untrustedInvisibleUid);
+
+    try {
+      binder.connect(
+          caller,
+          /* seq= */ 0,
+          /* connectionRequest= */ new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ -1,
+                  /* connectionHints= */ new Bundle(),
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+      controller.release();
+      session.release();
+      player.release();
+    }
+
+    assertThat(connectedControllerRef.get()).isNotNull();
+    assertThat(connectedControllerRef.get().getPackageName())
+        .isEqualTo(notificationListenerPackage);
+    assertThat(connectedControllerRef.get().getUid()).isEqualTo(untrustedInvisibleUid);
+    assertThat(connectedControllerRef.get().isPackageNameVerified()).isFalse();
+    assertThat(connectedControllerRef.get().isTrusted()).isFalse();
   }
 
   @Test

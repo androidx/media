@@ -242,38 +242,43 @@ public final class MediaSessionManager {
       // In that case, this check will always fail.
       // Alternative way is to use Context#getOpPackageName() for sending the package name,
       // but it's hidden so we cannot use it.
-      int remoteUserUid = userInfo.getUid();
-      try {
-        ApplicationInfo applicationInfo =
-            context.getPackageManager().getApplicationInfo(userInfo.getPackageName(), 0);
-        if (applicationInfo == null) {
-          return false;
-        }
-        if (SDK_INT < 28) {
-          // The UID isn't propagated via the framework before API 28, so we need to look it up
-          // based on the package name.
-          remoteUserUid = applicationInfo.uid;
-        }
-      } catch (PackageManager.NameNotFoundException e) {
-        Log.d(TAG, "Package " + userInfo.getPackageName() + " doesn't exist");
+      String packageName = userInfo.getPackageName();
+      int pid = userInfo.getPid();
+      int uid = userInfo.getUid();
+      if (SDK_INT < 28 && uid == RemoteUserInfo.UNKNOWN_UID) {
+        // The UID isn't propagated via the framework before API 28, so we need to look it up
+        // based on the package name.
+        uid = getPackageUid(packageName);
+      }
+      if (uid == RemoteUserInfo.UNKNOWN_UID) {
         return false;
       }
-      return remoteUserUid == Process.SYSTEM_UID
-          || remoteUserUid == Process.myUid()
-          || isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
-          || isPermissionGranted(userInfo, PERMISSION_MEDIA_CONTENT_CONTROL)
-          || isEnabledNotificationListener(userInfo);
+      return uid == Process.SYSTEM_UID
+          || uid == Process.myUid()
+          || isPermissionGranted(PERMISSION_STATUS_BAR_SERVICE, packageName, pid, uid)
+          || isPermissionGranted(PERMISSION_MEDIA_CONTENT_CONTROL, packageName, pid, uid)
+          || isEnabledNotificationListener(packageName, uid);
     }
 
-    private boolean isPermissionGranted(
-        MediaSessionManager.RemoteUserInfoImpl userInfo, String permission) {
-      if (userInfo.getPid() < 0) {
-        // This may happen for the MediaBrowserServiceCompat#onGetRoot().
-        return context.getPackageManager().checkPermission(permission, userInfo.getPackageName())
-            == PackageManager.PERMISSION_GRANTED;
+    private int getPackageUid(String packageName) {
+      try {
+        ApplicationInfo applicationInfo =
+            context.getPackageManager().getApplicationInfo(packageName, /* flags= */ 0);
+        return applicationInfo != null ? applicationInfo.uid : RemoteUserInfo.UNKNOWN_UID;
+      } catch (PackageManager.NameNotFoundException e) {
+        Log.d(TAG, "Package " + packageName + " doesn't exist");
+        return RemoteUserInfo.UNKNOWN_UID;
       }
-      return context.checkPermission(permission, userInfo.getPid(), userInfo.getUid())
-          == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean isPermissionGranted(String permission, String packageName, int pid, int uid) {
+      if (pid < 0) {
+        // This may happen for the MediaBrowserServiceCompat#onGetRoot().
+        return context.getPackageManager().checkPermission(permission, packageName)
+                == PackageManager.PERMISSION_GRANTED
+            && uid == getPackageUid(packageName);
+      }
+      return context.checkPermission(permission, pid, uid) == PackageManager.PERMISSION_GRANTED;
     }
 
     /**
@@ -283,18 +288,17 @@ public final class MediaSessionManager {
      * @return True if the component is enabled, false otherwise
      */
     @SuppressWarnings("StringSplitter")
-    boolean isEnabledNotificationListener(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-      final String enabledNotifListeners =
+    private boolean isEnabledNotificationListener(String packageName, int uid) {
+      String enabledNotifListeners =
           Settings.Secure.getString(contentResolver, ENABLED_NOTIFICATION_LISTENERS);
-      if (enabledNotifListeners != null) {
-        final String[] components = enabledNotifListeners.split(":");
-        for (int i = 0; i < components.length; i++) {
-          final ComponentName component = ComponentName.unflattenFromString(components[i]);
-          if (component != null) {
-            if (component.getPackageName().equals(userInfo.getPackageName())) {
-              return true;
-            }
-          }
+      if (enabledNotifListeners == null) {
+        return false;
+      }
+      String[] components = enabledNotifListeners.split(":");
+      for (int i = 0; i < components.length; i++) {
+        ComponentName component = ComponentName.unflattenFromString(components[i]);
+        if (component != null && component.getPackageName().equals(packageName)) {
+          return uid == getPackageUid(packageName);
         }
       }
       return false;
