@@ -276,27 +276,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void releaseGlResources(Frame frame) throws VideoFrameProcessingException {
-    checkArgument(
-        frame instanceof HardwareBufferFrame, "Expected HardwareBufferFrame, got: %s", frame);
-    HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
-    Integer activeGainmapTexId = activeGainmapTextures.remove(hardwareBufferFrame);
-    EglImageTextureWrapper wrapper = activeEglImageTextureWrappers.remove(hardwareBufferFrame);
-
-    runAllAndAccumulateExceptions(
-        () -> {
-          if (activeGainmapTexId != null) {
-            GlUtil.deleteTexture(activeGainmapTexId);
-          }
-        },
-        () -> {
-          if (wrapper != null) {
-            releaseEglImageTexture(wrapper, hardwareBufferJniWrapper);
-          }
-        });
-  }
-
-  @Override
   public void close() throws VideoFrameProcessingException {
     List<ThrowingRunnable<?>> actions = new ArrayList<>();
     if (glTextureCopier != null) {

@@ -131,23 +131,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void releaseGlResources(Frame frame) throws VideoFrameProcessingException {
-    checkArgument(frame instanceof ImagePlanesFrame, "Expected ImagePlanesFrame, got: %s", frame);
-    @Nullable GlTextureInfo outputTexture = activeOutputTextures.remove(frame);
-    if (outputTexture != null) {
-      if (isClosed) {
-        try {
-          outputTexture.release();
-        } catch (GlException e) {
-          throw VideoFrameProcessingException.from(e);
-        }
-      } else {
-        availableOutputTextures.addLast(outputTexture);
-      }
-    }
-  }
-
-  @Override
   public void close() throws VideoFrameProcessingException {
     if (isClosed) {
       return;
@@ -265,9 +248,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* releaseTextureCallback= */ info -> {
               @Nullable GlTextureInfo activeTexture = activeOutputTextures.remove(inputFrame);
               if (activeTexture == null) {
-                // The frame's GL resources were already reclaimed, by releaseGlResources() after
-                // a downstream rejection or by close(). Notifying the listener here would
-                // falsely signal that processing succeeded.
+                // The frame's GL resources were already reclaimed by close(). Notifying the
+                // listener here would falsely signal that processing succeeded.
                 return;
               }
               if (isClosed) {

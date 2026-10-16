@@ -316,7 +316,6 @@ public final class GlFrameProcessorTestUtil {
   /** Fake {@link FrameToGlTextureConverter} for testing. */
   public static final class FakeFrameToGlTextureConverter implements FrameToGlTextureConverter {
     public int framesReceived;
-    public int framesWithGlResourceReleased;
     private final Runnable releaseListener;
 
     public FakeFrameToGlTextureConverter(Runnable releaseListener) {
@@ -353,11 +352,6 @@ public final class GlFrameProcessorTestUtil {
           .setFormat(frame.getFormat())
           .setMetadata(frame.getMetadata())
           .build();
-    }
-
-    @Override
-    public void releaseGlResources(Frame frame) {
-      framesWithGlResourceReleased++;
     }
 
     @Override

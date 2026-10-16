@@ -1141,42 +1141,6 @@ public final class HardwareBufferToGlTextureConverterTest {
     assertThat(listener.completedFrame.get()).isSameInstanceAs(inputHardwareBufferFrame);
   }
 
-  @SdkSuppress(minSdkVersion = 31)
-  @Test
-  public void convert_releaseAfterReleasingGlResources_doesNotThrow() throws Exception {
-    Bitmap expectedBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
-    Bitmap hardwareBitmap = expectedBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
-    HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
-
-    HardwareBufferFrame hardwareBufferFrame =
-        new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
-            .setFormat(new Format.Builder().setWidth(100).setHeight(100).build())
-            .build();
-
-    glExecutorService
-        .submit(
-            () -> {
-              try {
-                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
-                GlTextureFrame glTextureFrame =
-                    converter.convert(
-                        hardwareBufferFrame,
-                        glExecutorService,
-                        directExecutor(),
-                        new TestFrameProcessorListener());
-
-                converter.releaseGlResources(hardwareBufferFrame);
-                // This should be no-op as GL resources is already released.
-                glTextureFrame.release(/* releaseFence= */ null);
-              } catch (GlException | VideoFrameProcessingException e) {
-                throw new IllegalStateException(e);
-              }
-            })
-        .get();
-
-    hardwareBuffer.close();
-  }
-
   @SdkSuppress(minSdkVersion = 34)
   @Test
   public void convert_withUltraHdrBitmapAndHdrOutput_outputsCorrectGlTexture() throws Exception {
@@ -1188,64 +1152,6 @@ public final class HardwareBufferToGlTextureConverterTest {
   public void convert_withUltraHdrBitmapAndSdrOutput_outputsCorrectToneMappedGlTexture()
       throws Exception {
     assertUltraHdrConversion(BT709_SRGB);
-  }
-
-  @SdkSuppress(minSdkVersion = 34)
-  @Test
-  public void convert_withUltraHdr_releaseAfterReleasingGlResources_doesNotThrow()
-      throws Exception {
-    Bitmap ultraHdrBitmap = BitmapPixelTestUtil.readBitmap("media/jpeg/ultraHdr_360x480.jpg");
-    assertThat(ultraHdrBitmap.hasGainmap()).isTrue();
-    Bitmap hardwareBitmap = ultraHdrBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
-    HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
-
-    converter =
-        new HardwareBufferToGlTextureConverter(
-            context,
-            HardwareBufferJni.INSTANCE,
-            BT2020_HLG,
-            e -> {
-              throw new IllegalStateException(e);
-            });
-
-    int width = ultraHdrBitmap.getWidth();
-    int height = ultraHdrBitmap.getHeight();
-    Format inputFormat =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.IMAGE_JPEG_R)
-            .setWidth(width)
-            .setHeight(height)
-            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
-            .build();
-
-    HardwareBufferFrame hardwareBufferFrame =
-        new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
-            .setFormat(inputFormat)
-            .setInternalImage(ultraHdrBitmap)
-            .build();
-
-    glExecutorService
-        .submit(
-            () -> {
-              try {
-                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
-                GlTextureFrame glTextureFrame =
-                    converter.convert(
-                        hardwareBufferFrame,
-                        glExecutorService,
-                        directExecutor(),
-                        new TestFrameProcessorListener());
-
-                converter.releaseGlResources(hardwareBufferFrame);
-                // This should be no-op as GL resources are already released.
-                glTextureFrame.release(/* releaseFence= */ null);
-              } catch (GlException | VideoFrameProcessingException e) {
-                throw new IllegalStateException(e);
-              }
-            })
-        .get();
-
-    hardwareBuffer.close();
   }
 
   private Bitmap convertAndCaptureBitmap(

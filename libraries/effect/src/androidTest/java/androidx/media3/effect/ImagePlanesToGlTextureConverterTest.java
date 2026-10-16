@@ -631,33 +631,6 @@ public final class ImagePlanesToGlTextureConverterTest {
     assertThat(listener.onCompleteFence.get()).isNull();
   }
 
-  @Test
-  public void release_afterReleasingGlResources_doesNotNotifyListener() throws Exception {
-    ImagePlanesFrame frame = createRgbaFrame(DEFAULT_COLOR);
-    CapturingFrameProcessorListener listener = new CapturingFrameProcessorListener();
-
-    glExecutorService
-        .submit(
-            () -> {
-              GlTextureFrame glTextureFrame =
-                  converter.convert(
-                      frame,
-                      /* glExecutor= */ glExecutorService,
-                      /* listenerExecutor= */ directExecutor(),
-                      listener);
-              converter.releaseGlResources(frame);
-              glTextureFrame.release(/* releaseFence= */ null);
-              return null;
-            })
-        .get(TEST_TIMEOUT_MS, MILLISECONDS);
-
-    // The release callback runs on the GL executor and notifies the listener synchronously via
-    // directExecutor(), so once the GL executor is drained the listener would already have been
-    // notified if the converter were going to notify it at all.
-    glExecutorService.submit(() -> {}).get(TEST_TIMEOUT_MS, MILLISECONDS);
-    assertThat(listener.processedFrame.get()).isNull();
-  }
-
   private GlTextureFrame convert(ImagePlanesFrame frame) throws Exception {
     return convert(frame, new FakeFrameProcessor.Listener());
   }

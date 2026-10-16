@@ -47,20 +47,6 @@ import java.util.function.Consumer;
       Frame frame, Executor glExecutor, Executor listenerExecutor, Listener listener)
       throws VideoFrameProcessingException;
 
-  /**
-   * Releases the resources for a converted {@link Frame}.
-   *
-   * <p>Don't call this method if the {@linkplain #convert converted} {@link GlTextureFrame} is
-   * accepted by a downstream {@link GlTextureFrameConsumer}.
-   *
-   * <p>This releases associated resources without notifying the {@link Listener#onFrameProcessed}
-   * that was passed in via {@link #convert}.
-   *
-   * <p>This is used when a converted frame is rejected by downstream pipeline consumers, preserving
-   * the underlying frame for subsequent queue retries.
-   */
-  void releaseGlResources(Frame frame) throws VideoFrameProcessingException;
-
   @Override
   void close() throws VideoFrameProcessingException;
 }
