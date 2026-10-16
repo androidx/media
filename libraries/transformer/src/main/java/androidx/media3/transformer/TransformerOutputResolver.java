@@ -15,6 +15,8 @@
  */
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -25,15 +27,99 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.muxer.Muxer;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
-/** Internal helper for resolving {@link TransformerOutput} options to low-level handles. */
+/**
+ * Internal helper for resolving {@link TransformerOutput} options to low-level handles.
+ *
+ * <p>This class is not thread-safe. All instance methods must be called on the {@link Transformer}
+ * application thread.
+ */
 @UnstableApi
 /* package */ final class TransformerOutputResolver {
 
-  private TransformerOutputResolver() {}
+  private final Context context;
+  private final TransformerOutput transformerOutput;
+  @Nullable private Uri mediaStoreUri;
+
+  public TransformerOutputResolver(Context context, TransformerOutput transformerOutput) {
+    this.context = context;
+    this.transformerOutput = transformerOutput;
+  }
+
+  /**
+   * Creates a {@link MuxerWrapper} for the configured {@link TransformerOutput}.
+   *
+   * <p>For {@link TransformerOutput#TYPE_MEDIA_STORE}, inserts a new MediaStore entry on the first
+   * call and reuses that entry (truncating its underlying file via {@code "rwt"} mode) on
+   * subsequent calls within the same export operation. If opening the file descriptor fails, any
+   * inserted MediaStore entry is deleted before the exception is propagated.
+   */
+  public MuxerWrapper createMuxerWrapper(
+      Muxer.Factory muxerFactory,
+      MuxerWrapper.Listener listener,
+      @MuxerWrapper.MuxerMode int muxerMode,
+      boolean dropSamplesBeforeFirstVideoSample,
+      @Nullable Format appendVideoFormat)
+      throws IOException {
+    if (transformerOutput.outputType == TransformerOutput.TYPE_MEDIA_STORE) {
+      try {
+        if (mediaStoreUri == null) {
+          mediaStoreUri =
+              insertMediaStoreEntry(
+                  context,
+                  checkNotNull(transformerOutput.collectionUri),
+                  checkNotNull(transformerOutput.contentValues));
+        }
+        ParcelFileDescriptor pfd = openFileDescriptor(context, mediaStoreUri);
+        return new MuxerWrapper(
+            pfd,
+            muxerFactory,
+            listener,
+            muxerMode,
+            dropSamplesBeforeFirstVideoSample,
+            appendVideoFormat);
+      } catch (IOException e) {
+        // The entry may have been inserted before opening its file descriptor failed.
+        deleteIfPresent();
+        throw e;
+      }
+    }
+    return new MuxerWrapper(
+        checkNotNull(transformerOutput.path),
+        muxerFactory,
+        listener,
+        muxerMode,
+        dropSamplesBeforeFirstVideoSample,
+        appendVideoFormat);
+  }
+
+  /**
+   * Publishes the MediaStore entry created for this export, if any, by clearing its {@code
+   * IS_PENDING} flag on API 29+ or requesting a media scan on API &lt; 29.
+   */
+  public void clearPendingFlag() {
+    if (mediaStoreUri != null) {
+      clearMediaStorePendingFlag(context, mediaStoreUri);
+      // The entry is published, so it must not be deleted by a subsequent cancel().
+      mediaStoreUri = null;
+    }
+  }
+
+  /**
+   * Deletes the MediaStore entry created for this export, if any, so that an export that did not
+   * complete successfully does not leave an orphaned entry behind.
+   */
+  public void deleteIfPresent() {
+    if (mediaStoreUri != null) {
+      deleteMediaStoreEntry(context, mediaStoreUri);
+      mediaStoreUri = null;
+    }
+  }
 
   /**
    * Opens a {@link ParcelFileDescriptor} with {@code "rwt"} mode for the given {@link Uri}.
@@ -41,13 +127,18 @@ import java.io.IOException;
    * @param context The {@link Context}.
    * @param uri The {@link Uri} to open.
    * @return The opened {@link ParcelFileDescriptor}.
-   * @throws FileNotFoundException If the file descriptor could not be opened.
+   * @throws IOException If the file descriptor could not be opened.
    */
   @SuppressWarnings("ContentResolverUri") // Open source Media3 component consuming Uri
   public static ParcelFileDescriptor openFileDescriptor(Context context, Uri uri)
-      throws FileNotFoundException {
+      throws IOException {
     ContentResolver resolver = context.getContentResolver();
-    ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "rwt");
+    ParcelFileDescriptor pfd;
+    try {
+      pfd = resolver.openFileDescriptor(uri, "rwt");
+    } catch (RuntimeException e) {
+      throw new IOException("Could not open file descriptor for URI: " + uri, e);
+    }
     if (pfd == null) {
       throw new FileNotFoundException("Could not open file descriptor for URI: " + uri);
     }
@@ -71,7 +162,12 @@ import java.io.IOException;
       values.put(MediaStore.MediaColumns.IS_PENDING, 1);
     }
     ContentResolver resolver = context.getContentResolver();
-    Uri itemUri = resolver.insert(collectionUri, values);
+    Uri itemUri;
+    try {
+      itemUri = resolver.insert(collectionUri, values);
+    } catch (RuntimeException e) {
+      throw new IOException("Failed to insert MediaStore entry into " + collectionUri, e);
+    }
     if (itemUri == null) {
       throw new IOException("Failed to insert MediaStore entry into " + collectionUri);
     }
