@@ -100,7 +100,8 @@ import org.jspecify.annotations.Nullable;
   private boolean automaticReregistration;
 
   private @Nullable Future<?> forceSignalEndOfStreamFuture;
-  private @Nullable CountDownLatch releaseAllFramesLatch;
+  // Set and cleared by releaseAllRegisteredFrames() on the calling thread, read on the GL thread.
+  private volatile @Nullable CountDownLatch releaseAllFramesLatch;
 
   private volatile boolean shouldRejectIncomingFrames;
   private volatile @Nullable RuntimeException releaseAllFramesException;
@@ -154,6 +155,7 @@ import org.jspecify.annotations.Nullable;
                   if (shouldRejectIncomingFrames) {
                     surfaceTexture.updateTexImage();
                     pendingFrames.poll();
+                    @Nullable CountDownLatch releaseAllFramesLatch = this.releaseAllFramesLatch;
                     if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
                       releaseAllFramesLatch.countDown();
                     }
@@ -325,9 +327,7 @@ import org.jspecify.annotations.Nullable;
           } catch (RuntimeException e) {
             releaseAllFramesException = e;
             Log.e(TAG, "Failed to remove texture frames", e);
-            if (this.releaseAllFramesLatch != null) {
-              this.releaseAllFramesLatch.countDown();
-            }
+            releaseAllFramesLatch.countDown();
           }
         });
     try {
@@ -392,6 +392,7 @@ import org.jspecify.annotations.Nullable;
       surfaceTexture.updateTexImage();
       pendingFrames.remove();
     }
+    @Nullable CountDownLatch releaseAllFramesLatch = this.releaseAllFramesLatch;
     if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
       releaseAllFramesLatch.countDown();
     }
