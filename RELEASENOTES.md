@@ -431,6 +431,9 @@
         `RemoteCastPlayer` before loading media items (for example, during
         local-to-remote playback transfer in `CastPlayer`)
         ([#889](https://github.com/androidx/media/issues/889)).
+    *   Fix an issue where `RemoteCastPlayer` load requests were dropped by
+        Android TV receivers
+        ([#3462](https://github.com/androidx/media/issues/3462)).
 *   Test Utilities:
 *   Demo app:
     *   Add support for DRM-protected media items and an additional HLS sample

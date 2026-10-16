@@ -167,6 +167,7 @@ import java.util.Map;
     MediaLoadRequestData loadRequestData =
         new MediaLoadRequestData.Builder()
             .setAutoplay(playerTransferState.getPlayWhenReady())
+            .setMediaInfo(queueItems[startIndex].getMedia())
             .setQueueData(mediaQueueData)
             .setCurrentTime(startPositionMs)
             .setPlaybackRate(playerTransferState.getPlaybackParameters().speed)

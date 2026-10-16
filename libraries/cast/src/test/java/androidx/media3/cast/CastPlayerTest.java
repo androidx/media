@@ -191,6 +191,7 @@ public final class CastPlayerTest {
     assertThat(queueData.getStartTime()).isEqualTo(1234L);
     assertThat(queueData.getRepeatMode()).isEqualTo(MediaStatus.REPEAT_MODE_REPEAT_SINGLE);
     List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaLoadRequestData.getMediaInfo()).isEqualTo(mediaQueueItems.get(0).getMedia());
     assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(sampleUrl);
     assertThat(mediaQueueItems).hasSize(1);
   }

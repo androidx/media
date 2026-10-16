@@ -900,6 +900,7 @@ public class RemoteCastPlayerTest {
     assertThat(queueData.getStartIndex()).isEqualTo(1);
     assertThat(queueData.getStartTime()).isEqualTo(2000L);
     List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaLoadRequestData.getMediaInfo()).isEqualTo(mediaQueueItems.get(1).getMedia());
     assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
     assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
@@ -923,6 +924,7 @@ public class RemoteCastPlayerTest {
     assertThat(queueData.getStartIndex()).isEqualTo(0);
     assertThat(queueData.getStartTime()).isEqualTo(0);
     List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaLoadRequestData.getMediaInfo()).isEqualTo(mediaQueueItems.get(0).getMedia());
     assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
     assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
@@ -1078,6 +1080,7 @@ public class RemoteCastPlayerTest {
     assertThat(queueData.getStartTime()).isEqualTo(0L);
     List<MediaQueueItem> mediaQueueItems = queueData.getItems();
     assertThat(mediaQueueItems).hasSize(2);
+    assertThat(mediaLoadRequestData.getMediaInfo()).isEqualTo(mediaQueueItems.get(0).getMedia());
     assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
     assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
@@ -4369,6 +4372,8 @@ public class RemoteCastPlayerTest {
     assertThat(requestData.getAutoplay()).isTrue();
     assertThat(requestData.getQueueData().getStartIndex()).isEqualTo(0);
     assertThat(requestData.getQueueData().getItems()).hasSize(2);
+    assertThat(requestData.getMediaInfo())
+        .isEqualTo(requestData.getQueueData().getItems().get(0).getMedia());
   }
 
   @SuppressWarnings("deprecation") // Verifies deprecated Listener methods.
@@ -4430,8 +4435,11 @@ public class RemoteCastPlayerTest {
     verify(mockListener, never()).onTimelineChanged(any(), anyInt());
     verify(mockListener, never()).onAvailableCommandsChanged(any());
     verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
-    assertThat(loadArgumentCaptor.getValue().getQueueData().getStartIndex()).isEqualTo(1);
-    assertThat(loadArgumentCaptor.getValue().getCurrentTime()).isEqualTo(0L);
+    MediaLoadRequestData requestData = loadArgumentCaptor.getValue();
+    assertThat(requestData.getQueueData().getStartIndex()).isEqualTo(1);
+    assertThat(requestData.getMediaInfo())
+        .isEqualTo(requestData.getQueueData().getItems().get(1).getMedia());
+    assertThat(requestData.getCurrentTime()).isEqualTo(0L);
   }
 
   @Test
@@ -4709,6 +4717,8 @@ public class RemoteCastPlayerTest {
     MediaLoadRequestData requestData = loadArgumentCaptor.getValue();
     assertThat(requestData.getQueueData().getItems()).hasSize(3);
     assertThat(requestData.getQueueData().getStartIndex()).isEqualTo(2);
+    assertThat(requestData.getMediaInfo())
+        .isEqualTo(requestData.getQueueData().getItems().get(2).getMedia());
     assertThat(requestData.getQueueData().getItems().get(2).getMedia().getContentId())
         .isEqualTo(item3.localConfiguration.uri.toString());
   }
