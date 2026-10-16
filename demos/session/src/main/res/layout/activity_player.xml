@@ -60,10 +60,8 @@
     android:layout_height="1dp"
     android:layout_width="match_parent" />
 
-  <ListView
+  <androidx.recyclerview.widget.RecyclerView
     android:id="@+id/current_playing_list"
-    android:divider="@drawable/divider"
-    android:dividerHeight="1px"
     android:layout_width="match_parent"
     android:layout_height="wrap_content" />
 

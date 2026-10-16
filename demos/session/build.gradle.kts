@@ -38,6 +38,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime)
   implementation(libs.androidx.mediarouter)
   implementation(libs.androidx.appcompat)
+  implementation(libs.androidx.recyclerview)
   implementation(libs.material)
   implementation(libs.kotlinx.coroutines.guava)
   implementation(project(":lib-cast"))

@@ -440,6 +440,8 @@
         stream to the session demo app catalog.
     *   Configure `RemoteCastPlayer` with a `CastTrackSelector` in the session
         demo app to enable subtitle and audio track selection while casting.
+    *   Allow reordering playlist items with drag and drop in the session demo
+        app.
 *   Remove deprecated symbols:
     *   Remove `DashUtil.buildDataSpec(Representation, RangedUri, int)` and
         `DashUtil.buildDataSpec(Representation, String, RangedUri, int)`. Use

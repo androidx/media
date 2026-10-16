@@ -24,4 +24,6 @@
   <string name="notification_permission_denied">
     "Without notification access the app can't warn about failed background operations"</string>
   <string name="cast_menu_item_title">Cast</string>
+  <string name="move_up">Move up</string>
+  <string name="move_down">Move down</string>
 </resources>

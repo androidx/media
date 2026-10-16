@@ -26,5 +26,6 @@
   <color name="player_background">#1c1c1c</color>
   <color name="playlist_item_background">#363434</color>
   <color name="playlist_item_foreground">#635E5E</color>
+  <color name="playlist_item_dragged_background">#4A4646</color>
   <color name="divider">#646464</color>
 </resources>

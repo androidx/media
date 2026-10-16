@@ -15,35 +15,42 @@
  */
 package androidx.media3.demo.session
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.ListView
 import android.widget.TextView
 import androidx.annotation.OptIn
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.cast.MediaRouteButtonViewProvider
+import androidx.media3.common.C
 import androidx.media3.common.C.TRACK_TYPE_TEXT
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION
 import androidx.media3.common.Player.EVENT_MEDIA_METADATA_CHANGED
-import androidx.media3.common.Player.EVENT_TIMELINE_CHANGED
 import androidx.media3.common.Player.EVENT_TRACKS_CHANGED
+import androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.ui.PlayerView
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.guava.await
@@ -56,11 +63,12 @@ class PlayerActivity : AppCompatActivity() {
   private lateinit var controller: MediaController
 
   private lateinit var playerView: PlayerView
-  private lateinit var mediaItemListView: ListView
+  private lateinit var mediaItemListView: RecyclerView
   private lateinit var mediaItemListAdapter: MediaItemListAdapter
   private val mediaItemList: MutableList<MediaItem> = mutableListOf()
+  private val mediaItemDragCallback = MediaItemDragCallback()
+  private val itemTouchHelper = ItemTouchHelper(mediaItemDragCallback)
 
-  @OptIn(UnstableApi::class) // PlayerView.hideController
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     lifecycleScope.launch {
@@ -79,20 +87,25 @@ class PlayerActivity : AppCompatActivity() {
     playerView = findViewById(R.id.player_view)
 
     mediaItemListView = findViewById(R.id.current_playing_list)
-    mediaItemListAdapter = MediaItemListAdapter(this, R.layout.folder_items, mediaItemList)
+    mediaItemListAdapter = MediaItemListAdapter()
+    mediaItemListView.layoutManager = LinearLayoutManager(this)
     mediaItemListView.adapter = mediaItemListAdapter
-    mediaItemListView.setOnItemClickListener { _, _, position, _ ->
-      run {
-        if (controller.currentMediaItemIndex == position) {
-          controller.playWhenReady = !controller.playWhenReady
-          if (controller.playWhenReady) {
-            playerView.hideController()
-          }
-        } else {
-          controller.seekToDefaultPosition(/* mediaItemIndex= */ position)
-          mediaItemListAdapter.notifyDataSetChanged()
-        }
+    val divider = DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
+    divider.setDrawable(checkNotNull(ContextCompat.getDrawable(this, R.drawable.divider)))
+    mediaItemListView.addItemDecoration(divider)
+    itemTouchHelper.attachToRecyclerView(mediaItemListView)
+  }
+
+  @OptIn(UnstableApi::class) // PlayerView.hideController
+  private fun onMediaItemClicked(position: Int) {
+    if (controller.currentMediaItemIndex == position) {
+      controller.playWhenReady = !controller.playWhenReady
+      if (controller.playWhenReady) {
+        playerView.hideController()
       }
+    } else {
+      controller.seekToDefaultPosition(/* mediaItemIndex= */ position)
+      mediaItemListAdapter.notifyDataSetChanged()
     }
   }
 
@@ -128,17 +141,23 @@ class PlayerActivity : AppCompatActivity() {
 
     controller.addListener(
       object : Player.Listener {
+        override fun onTimelineChanged(
+          timeline: Timeline,
+          reason: @Player.TimelineChangeReason Int,
+        ) {
+          if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+            updateCurrentPlaylistUI()
+          }
+        }
+
         override fun onEvents(player: Player, events: Player.Events) {
           if (events.contains(EVENT_TRACKS_CHANGED)) {
             playerView.setShowSubtitleButton(player.currentTracks.isTypeSupported(TRACK_TYPE_TEXT))
           }
-          if (events.contains(EVENT_TIMELINE_CHANGED)) {
-            updateCurrentPlaylistUI()
-          }
           if (events.contains(EVENT_MEDIA_METADATA_CHANGED)) {
             updateMediaMetadataUI()
           }
-          if (events.contains(EVENT_MEDIA_ITEM_TRANSITION)) {
+          if (events.contains(EVENT_MEDIA_ITEM_TRANSITION) && !mediaItemDragCallback.isDragging) {
             // Trigger adapter update to change highlight of current item.
             mediaItemListAdapter.notifyDataSetChanged()
           }
@@ -172,44 +191,155 @@ class PlayerActivity : AppCompatActivity() {
     mediaItemListAdapter.notifyDataSetChanged()
   }
 
-  private inner class MediaItemListAdapter(
-    context: Context,
-    viewID: Int,
-    mediaItemList: List<MediaItem>,
-  ) : ArrayAdapter<MediaItem>(context, viewID, mediaItemList) {
-    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-      val mediaItem = getItem(position)!!
-      val returnConvertView =
-        convertView ?: LayoutInflater.from(context).inflate(R.layout.playlist_items, parent, false)
+  private inner class MediaItemListAdapter : RecyclerView.Adapter<MediaItemViewHolder>() {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MediaItemViewHolder {
+      val itemView =
+        LayoutInflater.from(parent.context).inflate(R.layout.playlist_items, parent, false)
+      return MediaItemViewHolder(itemView)
+    }
 
-      returnConvertView.findViewById<TextView>(R.id.media_item).text = mediaItem.mediaMetadata.title
+    override fun onBindViewHolder(holder: MediaItemViewHolder, position: Int) {
+      holder.bind(position)
+    }
 
-      val deleteButton = returnConvertView.findViewById<Button>(R.id.delete_button)
+    override fun getItemCount(): Int = mediaItemList.size
+  }
+
+  // The drag handle isn't accessible, but accessibility actions to reorder items are added in
+  // bind().
+  @SuppressLint("ClickableViewAccessibility")
+  private inner class MediaItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    private val titleView: TextView = itemView.findViewById(R.id.media_item)
+    private val deleteButton: Button = itemView.findViewById(R.id.delete_button)
+    private var moveUpActionId = View.NO_ID
+    private var moveDownActionId = View.NO_ID
+
+    init {
+      itemView.setOnClickListener {
+        val position = bindingAdapterPosition
+        if (position != RecyclerView.NO_POSITION) {
+          onMediaItemClicked(position)
+        }
+      }
+      deleteButton.setOnClickListener {
+        val position = bindingAdapterPosition
+        if (position != RecyclerView.NO_POSITION) {
+          controller.removeMediaItem(position)
+        }
+      }
+      // Touching the drag handle starts dragging immediately. Long pressing anywhere else on the
+      // item also starts dragging.
+      itemView.findViewById<View>(R.id.drag_handle).setOnTouchListener { _, event ->
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+          itemTouchHelper.startDrag(this)
+          true
+        } else {
+          false
+        }
+      }
+    }
+
+    fun bind(position: Int) {
+      titleView.text = mediaItemList[position].mediaMetadata.title
       if (::controller.isInitialized && position == controller.currentMediaItemIndex) {
         // Styles for the current media item list item.
-        returnConvertView.setBackgroundColor(
-          ContextCompat.getColor(context, R.color.playlist_item_background)
+        itemView.setBackgroundColor(
+          ContextCompat.getColor(this@PlayerActivity, R.color.playlist_item_background)
         )
-        returnConvertView
-          .findViewById<TextView>(R.id.media_item)
-          .setTextColor(ContextCompat.getColor(context, R.color.white))
         deleteButton.visibility = View.GONE
       } else {
         // Styles for any other media item list item.
-        returnConvertView.setBackgroundColor(
-          ContextCompat.getColor(context, R.color.player_background)
+        itemView.setBackgroundColor(
+          ContextCompat.getColor(this@PlayerActivity, R.color.player_background)
         )
-        returnConvertView
-          .findViewById<TextView>(R.id.media_item)
-          .setTextColor(ContextCompat.getColor(context, R.color.white))
         deleteButton.visibility = View.VISIBLE
-        deleteButton.setOnClickListener {
-          controller.removeMediaItem(position)
-          updateCurrentPlaylistUI()
-        }
       }
 
-      return returnConvertView
+      // Let accessibility services reorder items without dragging.
+      ViewCompat.removeAccessibilityAction(itemView, moveUpActionId)
+      ViewCompat.removeAccessibilityAction(itemView, moveDownActionId)
+      moveUpActionId =
+        if (position > 0) addMoveAccessibilityAction(R.string.move_up, offset = -1) else View.NO_ID
+      moveDownActionId =
+        if (position < mediaItemList.lastIndex) {
+          addMoveAccessibilityAction(R.string.move_down, offset = 1)
+        } else {
+          View.NO_ID
+        }
+    }
+
+    private fun addMoveAccessibilityAction(@StringRes labelResId: Int, offset: Int): Int =
+      ViewCompat.addAccessibilityAction(itemView, getString(labelResId)) { _, _ ->
+        val position = bindingAdapterPosition
+        val canMove =
+          position != RecyclerView.NO_POSITION && position + offset in mediaItemList.indices
+        if (canMove) {
+          controller.moveMediaItem(position, position + offset)
+        }
+        canMove
+      }
+  }
+
+  private inner class MediaItemDragCallback :
+    ItemTouchHelper.SimpleCallback(
+      /* dragDirs= */ ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+      /* swipeDirs= */ 0,
+    ) {
+
+    var isDragging = false
+      private set
+
+    private var draggingFromPosition = C.INDEX_UNSET
+    private var draggingToPosition = C.INDEX_UNSET
+
+    override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+      super.onSelectedChanged(viewHolder, actionState)
+      if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+        isDragging = true
+        // Lift the dragged item. Its style is restored when it's rebound after the drag.
+        viewHolder.itemView.setBackgroundColor(
+          ContextCompat.getColor(this@PlayerActivity, R.color.playlist_item_dragged_background)
+        )
+      }
+    }
+
+    override fun onMove(
+      recyclerView: RecyclerView,
+      viewHolder: RecyclerView.ViewHolder,
+      target: RecyclerView.ViewHolder,
+    ): Boolean {
+      val fromPosition = viewHolder.bindingAdapterPosition
+      val toPosition = target.bindingAdapterPosition
+      if (fromPosition == RecyclerView.NO_POSITION || toPosition == RecyclerView.NO_POSITION) {
+        return false
+      }
+      if (draggingFromPosition == C.INDEX_UNSET) {
+        draggingFromPosition = fromPosition
+      }
+      draggingToPosition = toPosition
+      mediaItemList.add(toPosition, mediaItemList.removeAt(fromPosition))
+      mediaItemListAdapter.notifyItemMoved(fromPosition, toPosition)
+      return true
+    }
+
+    override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+      // Swiping is disabled.
+    }
+
+    override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+      super.clearView(recyclerView, viewHolder)
+      isDragging = false
+      if (
+        draggingFromPosition != C.INDEX_UNSET &&
+          draggingToPosition != C.INDEX_UNSET &&
+          draggingFromPosition != draggingToPosition
+      ) {
+        controller.moveMediaItem(draggingFromPosition, draggingToPosition)
+      } else {
+        mediaItemListAdapter.notifyDataSetChanged()
+      }
+      draggingFromPosition = C.INDEX_UNSET
+      draggingToPosition = C.INDEX_UNSET
     }
   }
 }
