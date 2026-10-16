@@ -29,6 +29,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4LocationData;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.Chapter;
@@ -740,6 +741,75 @@ public final class BoxParserTest {
     byte[] extracted = new byte[sampleData.bytesLeft()];
     sampleData.readBytes(extracted, /* offset= */ 0, extracted.length);
     assertThat(extracted).isEqualTo(targetPayload);
+  }
+
+  @Test
+  public void parseTrak_withCdscAndRndrTrackReferences_populatesFormatMetadata()
+      throws ParserException {
+    byte[] dOpsBody =
+        ByteBuffer.allocate(11)
+            .order(ByteOrder.BIG_ENDIAN)
+            .put((byte) 0) // Version
+            .put((byte) 2) // OutputChannelCount
+            .putShort((short) 312) // PreSkip
+            .putInt(48_000) // InputSampleRate
+            .putShort((short) 258) // OutputGain
+            .put((byte) 0) // ChannelMappingFamily
+            .array();
+    Mp4Box.ContainerBox trak = createOpusTrakWithDopsBox(dOpsBody);
+    Mp4Box.ContainerBox tref = new Mp4Box.ContainerBox(Mp4Box.TYPE_tref, /* endPosition= */ 0);
+    byte[] cdscBytes =
+        ByteBuffer.allocate(Mp4Box.HEADER_SIZE + 4)
+            .putInt(Mp4Box.HEADER_SIZE + 4)
+            .putInt(Mp4Box.TYPE_cdsc)
+            .putInt(2)
+            .array();
+    byte[] rndrBytes =
+        ByteBuffer.allocate(Mp4Box.HEADER_SIZE + 8)
+            .putInt(Mp4Box.HEADER_SIZE + 8)
+            .putInt(Mp4Box.TYPE_rndr)
+            .putInt(1)
+            .putInt(3)
+            .array();
+    tref.add(new Mp4Box.LeafBox(Mp4Box.TYPE_cdsc, new ParsableByteArray(cdscBytes)));
+    tref.add(new Mp4Box.LeafBox(Mp4Box.TYPE_rndr, new ParsableByteArray(rndrBytes)));
+    trak.add(tref);
+    Mp4Box.LeafBox mvhd =
+        new Mp4Box.LeafBox(
+            Mp4Box.TYPE_mvhd,
+            new ParsableByteArray(ByteBuffer.allocate(24).putInt(/* index= */ 20, 1000).array()));
+
+    Track track =
+        BoxParser.parseTrak(
+            trak,
+            mvhd,
+            /* duration= */ C.TIME_UNSET,
+            /* drmInitData= */ null,
+            /* ignoreEditLists= */ false,
+            /* isQuickTime= */ false);
+
+    assertThat(track).isNotNull();
+    assertThat(track.format.metadata).isNotNull();
+    assertThat(track.format.metadata.getEntriesOfType(Mp4TrackReferenceData.class))
+        .containsExactly(
+            new Mp4TrackReferenceData(Mp4Box.TYPE_cdsc, ImmutableList.of(2)),
+            new Mp4TrackReferenceData(Mp4Box.TYPE_rndr, ImmutableList.of(1, 3)))
+        .inOrder();
+  }
+
+  @Test
+  public void parseTrackReference_withEmptyPayload_returnsNull() {
+    byte[] emptyRndrBytes =
+        ByteBuffer.allocate(Mp4Box.HEADER_SIZE)
+            .putInt(Mp4Box.HEADER_SIZE)
+            .putInt(Mp4Box.TYPE_rndr)
+            .array();
+    Mp4Box.LeafBox rndrBox =
+        new Mp4Box.LeafBox(Mp4Box.TYPE_rndr, new ParsableByteArray(emptyRndrBytes));
+
+    Mp4TrackReferenceData trackReference = BoxParser.parseTrackReference(rndrBox);
+
+    assertThat(trackReference).isNull();
   }
 
   private static byte[] createSetuPayload(byte[] identifier) {

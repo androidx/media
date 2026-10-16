@@ -431,6 +431,12 @@ public abstract class Mp4Box {
   @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
   public static final int TYPE_chap = 0x63686170;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_cdsc = 0x63647363;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_rndr = 0x726e6472;
+
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_saut = 0x73617574;
 

@@ -29,10 +29,14 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.container.Mp4Box;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -59,12 +63,14 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
+import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -916,6 +922,175 @@ public final class ProgressiveMediaPeriodTest {
             /* positionUs= */ 0);
 
     assertThat(streams[0]).isInstanceOf(MergingMetadataSampleStream.class);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_withHagcTrackWithoutTrackReference_doesNotCreateMergingSampleStream()
+      throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    byte[] hagcCsd = new byte[] {(byte) 0xB5, 0x00, (byte) 0x90, 0x00, 0x01};
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            output
+                .track(1, C.TRACK_TYPE_VIDEO)
+                .format(
+                    new Format.Builder().setId(1).setSampleMimeType(MimeTypes.VIDEO_H265).build());
+            output
+                .track(2, C.TRACK_TYPE_METADATA)
+                .format(
+                    new Format.Builder()
+                        .setId(2)
+                        .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+                        .setInitializationData(ImmutableList.of(hagcCsd))
+                        .build());
+            output.endTracks();
+            output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
+
+    assertThat(streams[0]).isNotInstanceOf(MergingMetadataSampleStream.class);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void selectTracks_withMultipleVideoAndHagcTracks_pairsMatchingTrackReference()
+      throws Exception {
+    assumeTrue("Skipping HAGC test on SDK < 37", SDK_INT >= 37);
+    byte[] hagcCsd = new byte[] {(byte) 0xB5, 0x00, (byte) 0x90, 0x00, 0x01};
+    byte[] video2Sample = new byte[] {0x01, 0x02};
+    byte[] hagcForVideo1Sample = new byte[] {0x11};
+    byte[] hagcForVideo2Sample = new byte[] {0x22};
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            output
+                .track(1, C.TRACK_TYPE_VIDEO)
+                .format(
+                    new Format.Builder().setId(1).setSampleMimeType(MimeTypes.VIDEO_H265).build());
+            TrackOutput video2Output = output.track(2, C.TRACK_TYPE_VIDEO);
+            video2Output.format(
+                new Format.Builder().setId(2).setSampleMimeType(MimeTypes.VIDEO_H265).build());
+            TrackOutput hagc1Output = output.track(3, C.TRACK_TYPE_METADATA);
+            hagc1Output.format(
+                new Format.Builder()
+                    .setId(3)
+                    .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+                    .setInitializationData(ImmutableList.of(hagcCsd))
+                    .setMetadata(
+                        new Metadata(
+                            new Mp4TrackReferenceData(Mp4Box.TYPE_rndr, ImmutableList.of(1))))
+                    .build());
+            TrackOutput hagc2Output = output.track(4, C.TRACK_TYPE_METADATA);
+            hagc2Output.format(
+                new Format.Builder()
+                    .setId(4)
+                    .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+                    .setInitializationData(ImmutableList.of(hagcCsd))
+                    .setMetadata(
+                        new Metadata(
+                            new Mp4TrackReferenceData(Mp4Box.TYPE_cdsc, ImmutableList.of(2))))
+                    .build());
+            output.endTracks();
+            output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
+
+            video2Output.sampleData(new ParsableByteArray(video2Sample), video2Sample.length);
+            video2Output.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                video2Sample.length,
+                /* offset= */ 0,
+                null);
+            hagc1Output.sampleData(
+                new ParsableByteArray(hagcForVideo1Sample), hagcForVideo1Sample.length);
+            hagc1Output.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                hagcForVideo1Sample.length,
+                /* offset= */ 0,
+                null);
+            hagc2Output.sampleData(
+                new ParsableByteArray(hagcForVideo2Sample), hagcForVideo2Sample.length);
+            hagc2Output.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                hagcForVideo2Sample.length,
+                /* offset= */ 0,
+                null);
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+    // Select the second video track (track index 1, MP4 track ID 2).
+    selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
+
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
+    boolean unusedResult =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+
+    assertThat(streams[1]).isInstanceOf(MergingMetadataSampleStream.class);
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    assertThat(streams[1].readData(formatHolder, buffer, /* readFlags= */ 0))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(streams[1].readData(formatHolder, buffer, /* readFlags= */ 0))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    buffer.flip();
+    assertThat(buffer.hasSupplementalData()).isTrue();
+    byte[] supplementalBytes = new byte[buffer.supplementalData.remaining()];
+    buffer.supplementalData.get(supplementalBytes);
+    assertThat(supplementalBytes)
+        .isEqualTo(new byte[] {(byte) 0xB5, 0x00, (byte) 0x90, 0x00, 0x01, 0x22});
     mediaPeriod.release();
   }
 

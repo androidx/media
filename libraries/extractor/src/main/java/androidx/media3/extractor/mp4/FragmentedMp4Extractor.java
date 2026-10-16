@@ -2040,7 +2040,9 @@ public class FragmentedMp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_emsg
         || atom == Mp4Box.TYPE_udta
         || atom == Mp4Box.TYPE_keys
-        || atom == Mp4Box.TYPE_ilst;
+        || atom == Mp4Box.TYPE_ilst
+        || atom == Mp4Box.TYPE_cdsc
+        || atom == Mp4Box.TYPE_rndr;
   }
 
   /** Returns whether the extractor should decode a container atom with type {@code atom}. */
@@ -2054,7 +2056,8 @@ public class FragmentedMp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_traf
         || atom == Mp4Box.TYPE_mvex
         || atom == Mp4Box.TYPE_edts
-        || atom == Mp4Box.TYPE_meta;
+        || atom == Mp4Box.TYPE_meta
+        || atom == Mp4Box.TYPE_tref;
   }
 
   /** Holds data corresponding to a metadata sample. */

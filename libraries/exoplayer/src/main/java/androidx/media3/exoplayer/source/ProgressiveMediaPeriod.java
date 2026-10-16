@@ -39,6 +39,8 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.Mp4Box;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
@@ -73,8 +75,10 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.lang.annotation.Documented;
@@ -394,12 +398,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (Build.VERSION.SDK_INT >= 37
             && !isT35TrackExplicitlySelected
             && MimeTypes.isVideo(selection.getSelectedFormat().sampleMimeType)) {
-          // TODO: b/388762778 - The MP4 container has extra information (e.g. cdsc box) specifying
-          // which HAGC track describes which video track. We should use this information to create
-          // the correct mergingSampleStreams when multiple video/HAGC tracks exist.
           for (int j = 0; j < tracks.length; j++) {
             Format format = tracks.get(j).getFormat(0);
-            if (CodecSpecificDataUtil.isHagcTrack(format)) {
+            if (isHagcTrackForVideoFormat(format, selection.getSelectedFormat())) {
               checkState(!trackEnabledStates[j]);
               enabledTrackCount++;
               trackEnabledStates[j] = true;
@@ -1260,6 +1261,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           (type != C.TRACK_TYPE_VIDEO && type != C.TRACK_TYPE_IMAGE) || trackEnabledStates[i];
     }
     return selectedForLoading;
+  }
+
+  private static boolean isHagcTrackForVideoFormat(Format candidateFormat, Format videoFormat) {
+    if (!CodecSpecificDataUtil.isHagcTrack(candidateFormat)
+        || candidateFormat.metadata == null
+        || videoFormat.id == null) {
+      return false;
+    }
+    @Nullable Integer videoTrackId = Ints.tryParse(videoFormat.id);
+    if (videoTrackId == null) {
+      return false;
+    }
+    ImmutableList<Mp4TrackReferenceData> trackReferences =
+        candidateFormat.metadata.getEntriesOfType(Mp4TrackReferenceData.class);
+    for (int i = 0; i < trackReferences.size(); i++) {
+      Mp4TrackReferenceData trackReference = trackReferences.get(i);
+      if ((trackReference.referenceType == Mp4Box.TYPE_rndr
+              || trackReference.referenceType == Mp4Box.TYPE_cdsc)
+          && trackReference.referencedTrackIds.contains(videoTrackId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean trackHasPreroll(int trackIndex, long positionUs) {

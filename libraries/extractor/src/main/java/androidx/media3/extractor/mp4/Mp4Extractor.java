@@ -1445,7 +1445,9 @@ public final class Mp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_udta
         || atom == Mp4Box.TYPE_keys
         || atom == Mp4Box.TYPE_ilst
-        || atom == Mp4Box.TYPE_chap;
+        || atom == Mp4Box.TYPE_chap
+        || atom == Mp4Box.TYPE_cdsc
+        || atom == Mp4Box.TYPE_rndr;
   }
 
   /** Returns whether the extractor should decode a container atom with type {@code atom}. */

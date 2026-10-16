@@ -47,6 +47,7 @@ import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.AacUtil;
@@ -401,6 +402,8 @@ public final class BoxParser {
     StsdData stsdData = parseStsd(stsd.data, tkhdData, mdhdData.language, drmInitData, isQuickTime);
 
     int chapterTrackId = C.INDEX_UNSET;
+    @Nullable Mp4TrackReferenceData cdscTrackReference = null;
+    @Nullable Mp4TrackReferenceData rndrTrackReference = null;
     @Nullable Mp4Box.ContainerBox tref = trak.getContainerBoxOfType(Mp4Box.TYPE_tref);
     if (tref != null) {
       @Nullable Mp4Box.LeafBox chap = tref.getLeafBoxOfType(Mp4Box.TYPE_chap);
@@ -410,6 +413,14 @@ public final class BoxParser {
         if (chapData.bytesLeft() >= 4) {
           chapterTrackId = chapData.readInt();
         }
+      }
+      @Nullable Mp4Box.LeafBox cdsc = tref.getLeafBoxOfType(Mp4Box.TYPE_cdsc);
+      if (cdsc != null) {
+        cdscTrackReference = parseTrackReference(cdsc);
+      }
+      @Nullable Mp4Box.LeafBox rndr = tref.getLeafBoxOfType(Mp4Box.TYPE_rndr);
+      if (rndr != null) {
+        rndrTrackReference = parseTrackReference(rndr);
       }
     }
 
@@ -428,21 +439,30 @@ public final class BoxParser {
     if (stsdData.format == null) {
       return null;
     }
-    Format format;
+    Format stsdFormat = stsdData.format;
+    List<Metadata.Entry> additionalMetadataEntries = new ArrayList<>();
     if (tkhdData.alternateGroup != 0) {
-      Mp4AlternateGroupData alternateGroupEntry =
-          new Mp4AlternateGroupData(tkhdData.alternateGroup);
+      additionalMetadataEntries.add(new Mp4AlternateGroupData(tkhdData.alternateGroup));
+    }
+    if (cdscTrackReference != null) {
+      additionalMetadataEntries.add(cdscTrackReference);
+    }
+    if (rndrTrackReference != null) {
+      additionalMetadataEntries.add(rndrTrackReference);
+    }
+    Format format;
+    if (!additionalMetadataEntries.isEmpty()) {
+      Metadata additionalMetadata = new Metadata(additionalMetadataEntries);
       format =
-          stsdData
-              .format
+          stsdFormat
               .buildUpon()
               .setMetadata(
-                  stsdData.format.metadata != null
-                      ? stsdData.format.metadata.copyWithAppendedEntries(alternateGroupEntry)
-                      : new Metadata(alternateGroupEntry))
+                  stsdFormat.metadata != null
+                      ? stsdFormat.metadata.copyWithAppendedEntriesFrom(additionalMetadata)
+                      : additionalMetadata)
               .build();
     } else {
-      format = stsdData.format;
+      format = stsdFormat;
     }
     boolean shouldBeExposed = !Objects.equals(format.sampleMimeType, MimeTypes.TEXT_UNKNOWN);
     return new Track.Builder()
@@ -1159,6 +1179,30 @@ public final class BoxParser {
 
     return new TkhdData(
         trackId, duration, alternateGroup, rotationDegrees, mirrorHorizontal, width, height);
+  }
+
+  /**
+   * Parses a {@code TrackReferenceTypeBox} child of a {@code tref} box (defined in ISO/IEC 14496-12
+   * section 8.3.3).
+   *
+   * @param trefTypeBox The leaf box containing the track reference type and referenced track IDs.
+   * @return The parsed {@link Mp4TrackReferenceData}, or {@code null} if the box contains no track
+   *     IDs.
+   */
+  @VisibleForTesting
+  @Nullable
+  /* package */ static Mp4TrackReferenceData parseTrackReference(LeafBox trefTypeBox) {
+    ParsableByteArray data = trefTypeBox.data;
+    data.setPosition(Mp4Box.HEADER_SIZE);
+    ImmutableList.Builder<Integer> trackIds = new ImmutableList.Builder<>();
+    while (data.bytesLeft() >= 4) {
+      trackIds.add(data.readInt());
+    }
+    ImmutableList<Integer> referencedTrackIds = trackIds.build();
+    if (referencedTrackIds.isEmpty()) {
+      return null;
+    }
+    return new Mp4TrackReferenceData(trefTypeBox.type, referencedTrackIds);
   }
 
   /**

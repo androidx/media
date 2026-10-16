@@ -161,7 +161,7 @@ track 1:
     containerMimeType = video/mp4
     sampleMimeType = application/x-itut-t35
     maxInputSize = 275
-    metadata = entries=[TSSE: description=null: values=[Lavf62.12.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    metadata = entries=[Mp4TrackReference: type=rndr, trackIds=[1], TSSE: description=null: values=[Lavf62.12.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
     initializationData:
       data = length 5, hash FD925165
   sample 0:
