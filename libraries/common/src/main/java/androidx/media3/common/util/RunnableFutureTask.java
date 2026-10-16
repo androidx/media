@@ -64,14 +64,12 @@ public abstract class RunnableFutureTask<R extends @Nullable Object, E extends E
   // Future implementation.
 
   @Override
-  @UnknownNull
   public final R get() throws ExecutionException, InterruptedException {
     finished.block();
     return getResult();
   }
 
   @Override
-  @UnknownNull
   public final R get(long timeout, TimeUnit unit)
       throws ExecutionException, InterruptedException, TimeoutException {
     long timeoutMs = MILLISECONDS.convert(timeout, unit);
@@ -147,7 +145,6 @@ public abstract class RunnableFutureTask<R extends @Nullable Object, E extends E
    * @return The computed result.
    * @throws E If an error occurred.
    */
-  @UnknownNull
   protected abstract R doWork() throws E;
 
   /**
@@ -164,7 +161,6 @@ public abstract class RunnableFutureTask<R extends @Nullable Object, E extends E
   // The return value is guaranteed to be non-null if and only if R is a non-null type, but there's
   // no way to assert this. Suppress the warning instead.
   @SuppressWarnings("nullness:return")
-  @UnknownNull
   private R getResult() throws ExecutionException {
     if (canceled) {
       throw new CancellationException();

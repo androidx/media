@@ -16,6 +16,10 @@
         `org.jspecify.annotations.NullMarked`.
     *   Replace `androidx.media3.common.util.NullableType` with JSpecify
         `org.jspecify.annotations.Nullable`.
+    *   Remove `androidx.media3.common.util.UnknownNull` in favor of JSpecify
+        nullness annotations. Kotlin subclasses of `RunnableFutureTask` with a
+        nullable result type (such as `Void?`) must specify a nullable type
+        argument (e.g., `RunnableFutureTask<Void?, Exception>`).
 *   ExoPlayer:
     *   Fix an issue where DASH multi-period playback gets stuck when the next
         period's first chunk fails to load
@@ -93,6 +97,9 @@
         skipped.
     *   Fix an issue where a renderer enabled early for an upcoming media period
         could start rendering before playback transitions to that period.
+    *   Kotlin subclasses of `CompositeMediaSource` that use nullable child
+        source IDs (such as `Void?`) must specify a nullable type argument
+        (e.g., `CompositeMediaSource<Void?>`).
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

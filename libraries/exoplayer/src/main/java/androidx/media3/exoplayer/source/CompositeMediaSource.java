@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.os.Handler;
 import androidx.annotation.CallSuper;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.UnknownNull;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
@@ -99,7 +98,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    * @param newTimeline The timeline of the child source.
    */
   protected abstract void onChildSourceInfoRefreshed(
-      @UnknownNull T childSourceId, MediaSource mediaSource, Timeline newTimeline);
+      T childSourceId, MediaSource mediaSource, Timeline newTimeline);
 
   /**
    * Prepares a child source.
@@ -113,7 +112,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    * @param id A unique id to identify the child source preparation. Null is allowed as an id.
    * @param mediaSource The child {@link MediaSource}.
    */
-  protected final void prepareChildSource(@UnknownNull T id, MediaSource mediaSource) {
+  protected final void prepareChildSource(T id, MediaSource mediaSource) {
     checkArgument(!childSources.containsKey(id));
     MediaSourceCaller caller =
         (source, timeline) -> onChildSourceInfoRefreshed(id, source, timeline);
@@ -132,7 +131,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    *
    * @param id The unique id used to prepare the child source.
    */
-  protected final void enableChildSource(@UnknownNull T id) {
+  protected final void enableChildSource(T id) {
     MediaSourceAndListener<T> enabledChild = checkNotNull(childSources.get(id));
     enabledChild.mediaSource.enable(enabledChild.caller);
   }
@@ -142,7 +141,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    *
    * @param id The unique id used to prepare the child source.
    */
-  protected final void disableChildSource(@UnknownNull T id) {
+  protected final void disableChildSource(T id) {
     MediaSourceAndListener<T> disabledChild = checkNotNull(childSources.get(id));
     disabledChild.mediaSource.disable(disabledChild.caller);
   }
@@ -152,7 +151,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    *
    * @param id The unique id used to prepare the child source.
    */
-  protected final void releaseChildSource(@UnknownNull T id) {
+  protected final void releaseChildSource(T id) {
     MediaSourceAndListener<T> removedChild = checkNotNull(childSources.remove(id));
     removedChild.mediaSource.releaseSource(removedChild.caller);
     removedChild.mediaSource.removeEventListener(removedChild.eventListener);
@@ -167,7 +166,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    * @param windowIndex A window index of the child source.
    * @return The corresponding window index in the composite source.
    */
-  protected int getWindowIndexForChildWindowIndex(@UnknownNull T childSourceId, int windowIndex) {
+  protected int getWindowIndexForChildWindowIndex(T childSourceId, int windowIndex) {
     return windowIndex;
   }
 
@@ -183,7 +182,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    */
   @Nullable
   protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
-      @UnknownNull T childSourceId, MediaPeriodId mediaPeriodId) {
+      T childSourceId, MediaPeriodId mediaPeriodId) {
     return mediaPeriodId;
   }
 
@@ -201,7 +200,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    *     milliseconds.
    */
   protected long getMediaTimeForChildMediaTime(
-      @UnknownNull T childSourceId, long mediaTimeMs, @Nullable MediaPeriodId mediaPeriodId) {
+      T childSourceId, long mediaTimeMs, @Nullable MediaPeriodId mediaPeriodId) {
     return mediaTimeMs;
   }
 
@@ -224,11 +223,11 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
   private final class ForwardingEventListener
       implements MediaSourceEventListener, DrmSessionEventListener {
 
-    @UnknownNull private final T id;
+    private final T id;
     private MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
     private DrmSessionEventListener.EventDispatcher drmEventDispatcher;
 
-    public ForwardingEventListener(@UnknownNull T id) {
+    public ForwardingEventListener(T id) {
       this.mediaSourceEventDispatcher = createEventDispatcher(/* mediaPeriodId= */ null);
       this.drmEventDispatcher = createDrmEventDispatcher(/* mediaPeriodId= */ null);
       this.id = id;
