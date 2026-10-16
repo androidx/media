@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
@@ -29,6 +28,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Encapsulates information describing an MP4 track. */
 @UnstableApi
@@ -45,7 +45,7 @@ public final class Track {
     private long mediaDurationUs;
     @Nullable private Format format;
     private @Transformation int sampleTransformation;
-    @Nullable private TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
+    private TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes;
     private int nalUnitLengthFieldLength;
     @Nullable private ImmutableLongArray editListDurations;
     @Nullable private ImmutableLongArray editListMediaTimes;
@@ -187,7 +187,7 @@ public final class Track {
      */
     @CanIgnoreReturnValue
     public Builder setSampleDescriptionEncryptionBoxes(
-        @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes) {
+        TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes) {
       this.sampleDescriptionEncryptionBoxes =
           sampleDescriptionEncryptionBoxes == null
               ? null
@@ -364,7 +364,7 @@ public final class Track {
    */
   /* package */ final int mebxKeyId;
 
-  @Nullable private final TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
+  private final TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes;
 
   private Track(Builder builder) {
     this.id = builder.id;
@@ -397,10 +397,10 @@ public final class Track {
       long mediaDurationUs,
       Format format,
       @Transformation int sampleTransformation,
-      @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes,
+      TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes,
       int nalUnitLengthFieldLength,
-      @Nullable long[] editListDurations,
-      @Nullable long[] editListMediaTimes,
+      long @Nullable [] editListDurations,
+      long @Nullable [] editListMediaTimes,
       boolean shouldBeExposed,
       int chapterTrackId) {
     this.id = id;

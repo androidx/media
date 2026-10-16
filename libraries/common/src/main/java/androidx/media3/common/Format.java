@@ -24,7 +24,6 @@ import android.hardware.HardwareBuffer;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a media format.
@@ -189,7 +189,7 @@ public final class Format {
     private int rotationDegrees;
     private boolean mirrorHorizontal;
     private float pixelWidthHeightRatio;
-    @Nullable private byte[] projectionData;
+    private byte @Nullable [] projectionData;
     private @C.StereoMode int stereoMode;
     @Nullable private ColorInfo colorInfo;
     private int maxSubLayers;
@@ -724,7 +724,7 @@ public final class Format {
      * @return The builder.
      */
     @CanIgnoreReturnValue
-    public Builder setProjectionData(@Nullable byte[] projectionData) {
+    public Builder setProjectionData(byte @Nullable [] projectionData) {
       this.projectionData = projectionData;
       return this;
     }
@@ -1171,7 +1171,7 @@ public final class Format {
   public final float pixelWidthHeightRatio;
 
   /** The projection data for 360/VR video, or null if not applicable. */
-  @UnstableApi @Nullable public final byte[] projectionData;
+  @UnstableApi public final byte @Nullable [] projectionData;
 
   /**
    * The stereo layout for 360/3D/VR video, or {@link #NO_VALUE} if not applicable. Valid stereo
@@ -1405,14 +1405,12 @@ public final class Format {
         codecs = codecsOfType;
       }
     }
-    @Nullable
-    String primaryTrackGroupId =
+    @Nullable String primaryTrackGroupId =
         this.primaryTrackGroupId != null
             ? this.primaryTrackGroupId
             : manifestFormat.primaryTrackGroupId;
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         this.metadata == null
             ? manifestFormat.metadata
             : this.metadata.copyWithAppendedEntriesFrom(manifestFormat.metadata);
@@ -1425,8 +1423,7 @@ public final class Format {
     // Merge manifest and sample format values.
     @C.SelectionFlags int selectionFlags = this.selectionFlags | manifestFormat.selectionFlags;
     @C.RoleFlags int roleFlags = this.roleFlags | manifestFormat.roleFlags;
-    @Nullable
-    DrmInitData drmInitData =
+    @Nullable DrmInitData drmInitData =
         DrmInitData.createSessionCreationData(manifestFormat.drmInitData, this.drmInitData);
 
     return buildUpon()
@@ -1903,7 +1900,7 @@ public final class Format {
 
     List<byte[]> initializationData = new ArrayList<>();
     for (int i = 0; ; i++) {
-      @Nullable byte[] data = bundle.getByteArray(keyForInitializationData(i));
+      byte @Nullable [] data = bundle.getByteArray(keyForInitializationData(i));
       if (data == null) {
         break;
       }

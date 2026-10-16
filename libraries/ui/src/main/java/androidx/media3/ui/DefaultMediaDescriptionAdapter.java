@@ -21,11 +21,11 @@ import android.app.PendingIntent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.ui.PlayerNotificationManager.BitmapCallback;
 import androidx.media3.ui.PlayerNotificationManager.MediaDescriptionAdapter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default implementation of {@link MediaDescriptionAdapter}.
@@ -88,7 +88,7 @@ public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAda
     if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
       return null;
     }
-    @Nullable byte[] data = player.getMediaMetadata().artworkData;
+    byte @Nullable [] data = player.getMediaMetadata().artworkData;
     if (data == null) {
       return null;
     }

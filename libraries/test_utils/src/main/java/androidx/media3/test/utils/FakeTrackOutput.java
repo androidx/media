@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link TrackOutput}. */
 @UnstableApi
@@ -52,7 +52,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   private final ArrayList<Dumpable> dumpables;
   private final ByteArrayOutputStream sampleData;
 
-  @Nullable private byte[] cachedSampleData;
+  private byte @Nullable [] cachedSampleData;
   private int formatCount;
   private boolean receivedSampleInFormat;
   private long durationUs;

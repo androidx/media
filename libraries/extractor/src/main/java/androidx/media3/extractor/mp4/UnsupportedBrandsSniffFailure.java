@@ -15,13 +15,13 @@
  */
 package androidx.media3.extractor.mp4;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SniffFailure;
 import com.google.common.primitives.ImmutableIntArray;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SniffFailure} indicating none of the brands declared in the {@code ftyp} box of the MP4
@@ -36,7 +36,7 @@ public final class UnsupportedBrandsSniffFailure implements SniffFailure {
   /** The {@code compatible_brands} list from the {@code ftyp} box. */
   public final ImmutableIntArray compatibleBrands;
 
-  public UnsupportedBrandsSniffFailure(int majorBrand, @Nullable int[] compatibleBrands) {
+  public UnsupportedBrandsSniffFailure(int majorBrand, int @Nullable [] compatibleBrands) {
     this.majorBrand = majorBrand;
     this.compatibleBrands =
         compatibleBrands != null

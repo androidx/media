@@ -24,7 +24,6 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -41,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for DVB subtitles. */
 @UnstableApi
@@ -325,8 +325,8 @@ public final class DvbParser implements SubtitleParser {
         if (pageId == service.subtitlePageId && pageComposition != null) {
           RegionComposition regionComposition = parseRegionComposition(data, dataFieldLength);
           if (pageComposition.state == PAGE_STATE_NORMAL) {
-            @Nullable
-            RegionComposition existingRegionComposition = service.regions.get(regionComposition.id);
+            @Nullable RegionComposition existingRegionComposition =
+                service.regions.get(regionComposition.id);
             if (existingRegionComposition != null) {
               regionComposition.mergeFrom(existingRegionComposition);
             }
@@ -712,15 +712,15 @@ public final class DvbParser implements SubtitleParser {
     ParsableBitArray data = new ParsableBitArray(pixelData);
     int column = horizontalAddress;
     int line = verticalAddress;
-    @Nullable byte[] clutMapTable2To4 = null;
-    @Nullable byte[] clutMapTable2To8 = null;
-    @Nullable byte[] clutMapTable4To8 = null;
+    byte @Nullable [] clutMapTable2To4 = null;
+    byte @Nullable [] clutMapTable2To8 = null;
+    byte @Nullable [] clutMapTable4To8 = null;
 
     while (data.bitsLeft() != 0) {
       int dataType = data.readBits(8);
       switch (dataType) {
         case DATA_TYPE_2BP_CODE_STRING:
-          @Nullable byte[] clutMapTable2ToX;
+          byte @Nullable [] clutMapTable2ToX;
           if (regionDepth == REGION_DEPTH_8_BIT) {
             clutMapTable2ToX = clutMapTable2To8 == null ? defaultMap2To8 : clutMapTable2To8;
           } else if (regionDepth == REGION_DEPTH_4_BIT) {
@@ -734,7 +734,7 @@ public final class DvbParser implements SubtitleParser {
           data.byteAlign();
           break;
         case DATA_TYPE_4BP_CODE_STRING:
-          @Nullable byte[] clutMapTable4ToX;
+          byte @Nullable [] clutMapTable4ToX;
           if (regionDepth == REGION_DEPTH_8_BIT) {
             clutMapTable4ToX = clutMapTable4To8 == null ? defaultMap4To8 : clutMapTable4To8;
           } else {
@@ -774,7 +774,7 @@ public final class DvbParser implements SubtitleParser {
   private static int paint2BitPixelCodeString(
       ParsableBitArray data,
       int[] clutEntries,
-      @Nullable byte[] clutMapTable,
+      byte @Nullable [] clutMapTable,
       int column,
       int line,
       @Nullable Paint paint,
@@ -826,7 +826,7 @@ public final class DvbParser implements SubtitleParser {
   private static int paint4BitPixelCodeString(
       ParsableBitArray data,
       int[] clutEntries,
-      @Nullable byte[] clutMapTable,
+      byte @Nullable [] clutMapTable,
       int column,
       int line,
       @Nullable Paint paint,
@@ -884,7 +884,7 @@ public final class DvbParser implements SubtitleParser {
   private static int paint8BitPixelCodeString(
       ParsableBitArray data,
       int[] clutEntries,
-      @Nullable byte[] clutMapTable,
+      byte @Nullable [] clutMapTable,
       int column,
       int line,
       @Nullable Paint paint,

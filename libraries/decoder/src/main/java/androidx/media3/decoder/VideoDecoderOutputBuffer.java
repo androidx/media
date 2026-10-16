@@ -15,11 +15,11 @@
  */
 package androidx.media3.decoder;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Video decoder output buffer containing video frame data. */
 @UnstableApi
@@ -52,9 +52,9 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
   @Nullable public Format format;
 
   /** YUV planes for YUV mode. */
-  @Nullable public ByteBuffer[] yuvPlanes;
+  public ByteBuffer @Nullable [] yuvPlanes;
 
-  @Nullable public int[] yuvStrides;
+  public int @Nullable [] yuvStrides;
   public int colorspace;
   public int yStride;
   public int uvStride;

@@ -15,13 +15,13 @@
  */
 package androidx.media3.extractor.mp4;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.Mp4Box;
 import java.nio.ByteBuffer;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for handling PSSH atoms. */
 @UnstableApi
@@ -38,7 +38,7 @@ public final class PsshAtomUtil {
    * @param data The scheme specific data.
    * @return The PSSH atom.
    */
-  public static byte[] buildPsshAtom(UUID systemId, @Nullable byte[] data) {
+  public static byte[] buildPsshAtom(UUID systemId, byte @Nullable [] data) {
     return buildPsshAtom(systemId, null, data);
   }
 
@@ -51,7 +51,7 @@ public final class PsshAtomUtil {
    * @return The PSSH atom.
    */
   public static byte[] buildPsshAtom(
-      UUID systemId, @Nullable UUID[] keyIds, @Nullable byte[] data) {
+      UUID systemId, UUID @Nullable [] keyIds, byte @Nullable [] data) {
     int dataLength = data != null ? data.length : 0;
     int psshBoxLength = Mp4Box.FULL_HEADER_SIZE + 16 /* SystemId */ + 4 /* DataSize */ + dataLength;
     if (keyIds != null) {
@@ -135,8 +135,7 @@ public final class PsshAtomUtil {
    * @return The parsed scheme specific data. Null if the input is not a valid PSSH atom, or if the
    *     PSSH atom has an unsupported version, or if the PSSH atom does not match the passed UUID.
    */
-  @Nullable
-  public static byte[] parseSchemeSpecificData(byte[] atom, UUID uuid) {
+  public static byte @Nullable [] parseSchemeSpecificData(byte[] atom, UUID uuid) {
     @Nullable PsshAtom parsedAtom = parsePsshAtom(atom);
     if (parsedAtom == null) {
       return null;
@@ -215,9 +214,9 @@ public final class PsshAtomUtil {
     public final byte[] schemeData;
 
     /** Array of key IDs. Always null for version 0 and non-null for version 1. */
-    @Nullable public final UUID[] keyIds;
+    public final UUID @Nullable [] keyIds;
 
-    /* package */ PsshAtom(UUID uuid, int version, byte[] schemeData, @Nullable UUID[] keyIds) {
+    /* package */ PsshAtom(UUID uuid, int version, byte[] schemeData, UUID @Nullable [] keyIds) {
       this.uuid = uuid;
       this.version = version;
       this.schemeData = schemeData;

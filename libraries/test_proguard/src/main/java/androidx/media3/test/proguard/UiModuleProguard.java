@@ -28,7 +28,6 @@ import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -60,6 +59,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class exercising reflection code in the UI module that relies on a correct proguard config.
@@ -418,7 +418,7 @@ public final class UiModuleProguard {
 
     @Override
     public void setAdGroupTimesMs(
-        @Nullable long[] adGroupTimesMs, @Nullable boolean[] playedAdGroups, int adGroupCount) {}
+        long @Nullable [] adGroupTimesMs, boolean @Nullable [] playedAdGroups, int adGroupCount) {}
 
     /**
      * Calls {@link OnScrubListener#onScrubStart(TimeBar, long)} on all {@linkplain

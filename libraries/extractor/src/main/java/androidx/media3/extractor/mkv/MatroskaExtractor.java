@@ -27,7 +27,6 @@ import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
@@ -89,6 +88,7 @@ import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the Matroska and WebM container formats. */
 @UnstableApi
@@ -2276,7 +2276,7 @@ public class MatroskaExtractor implements Extractor {
    * Returns an array that can store (at least) {@code length} elements, which will be either a new
    * array or {@code array} if it's not null and large enough.
    */
-  private static int[] ensureArrayCapacity(@Nullable int[] array, int length) {
+  private static int[] ensureArrayCapacity(int @Nullable [] array, int length) {
     if (array == null) {
       return new int[length];
     } else if (array.length >= length) {
@@ -2778,7 +2778,7 @@ public class MatroskaExtractor implements Extractor {
                 ? bitstreamChromaBitdepth
                 : (this.bitsPerChannel != Format.NO_VALUE ? this.bitsPerChannel : 8);
 
-        @Nullable byte[] hdrStaticInfo = getHdrStaticInfo();
+        byte @Nullable [] hdrStaticInfo = getHdrStaticInfo();
         ColorInfo colorInfo =
             new ColorInfo.Builder()
                 .setColorSpace(colorSpace)
@@ -2875,8 +2875,7 @@ public class MatroskaExtractor implements Extractor {
     }
 
     /** Returns the HDR Static Info as defined in CTA-861.3. */
-    @Nullable
-    private byte[] getHdrStaticInfo() {
+    private byte @Nullable [] getHdrStaticInfo() {
       // Are all fields present.
       if (primaryRChromaticityX == Format.NO_VALUE
           || primaryRChromaticityY == Format.NO_VALUE

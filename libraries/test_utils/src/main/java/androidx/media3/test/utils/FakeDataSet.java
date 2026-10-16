@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
@@ -28,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Collection of {@link FakeData} to be served by a {@link FakeDataSource}.
@@ -84,7 +84,7 @@ public class FakeDataSet {
     public static final class Segment {
 
       @Nullable public final IOException exception;
-      @Nullable public final byte[] data;
+      public final byte @Nullable [] data;
       public final int length;
       public final long byteOffset;
       @Nullable public final Runnable action;
@@ -110,7 +110,7 @@ public class FakeDataSet {
       }
 
       private Segment(
-          @Nullable byte[] data,
+          byte @Nullable [] data,
           int length,
           @Nullable IOException exception,
           @Nullable Runnable action,

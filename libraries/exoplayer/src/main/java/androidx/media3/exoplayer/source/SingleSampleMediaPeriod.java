@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.source;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -46,6 +45,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} with a single sample. */
 /* package */ final class SingleSampleMediaPeriod
@@ -430,7 +430,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private final StatsDataSource dataSource;
 
-    @Nullable private byte[] sampleData;
+    private byte @Nullable [] sampleData;
 
     public SourceLoadable(DataSpec dataSpec, DataSource dataSource) {
       this.loadTaskId = LoadEventInfo.getNewId();

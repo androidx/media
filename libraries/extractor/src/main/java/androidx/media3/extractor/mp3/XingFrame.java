@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor.mp3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
+import org.jspecify.annotations.Nullable;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
@@ -55,13 +55,13 @@ import androidx.media3.extractor.MpegAudioUtil;
    * Entries are in the range [0, 255], but are stored as long integers for convenience. Null if the
    * table of contents was missing from the header, in which case seeking is not be supported.
    */
-  @Nullable public final long[] tableOfContents;
+  public final long @Nullable [] tableOfContents;
 
   private XingFrame(
       MpegAudioUtil.Header header,
       long frameCount,
       long dataSize,
-      @Nullable long[] tableOfContents,
+      long @Nullable [] tableOfContents,
       @Nullable Mp3InfoReplayGain replayGain,
       int encoderDelay,
       int encoderPadding) {

@@ -26,7 +26,6 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -55,6 +54,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.SocketFactory;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -504,7 +504,7 @@ public final class RtspPlaybackTest {
         return 0;
       }
 
-      @Nullable byte[] data = packetQueue.poll();
+      byte @Nullable [] data = packetQueue.poll();
       if (data == null) {
         return 0;
       }

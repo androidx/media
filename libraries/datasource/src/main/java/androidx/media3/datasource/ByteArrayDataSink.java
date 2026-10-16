@@ -18,12 +18,12 @@ package androidx.media3.datasource;
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSink} for writing to a byte array. */
 @UnstableApi
@@ -55,8 +55,7 @@ public final class ByteArrayDataSink implements DataSink {
    * Returns the data written to the sink since the last call to {@link #open(DataSpec)}, or null if
    * {@link #open(DataSpec)} has never been called.
    */
-  @Nullable
-  public byte[] getData() {
+  public byte @Nullable [] getData() {
     return stream == null ? null : stream.toByteArray();
   }
 }

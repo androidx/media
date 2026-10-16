@@ -33,7 +33,6 @@ import static org.mockito.Mockito.verify;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -64,6 +63,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -940,7 +940,7 @@ public final class ConcatenatingMediaSource2Test {
 
   private static Function<Clock, MediaSource> buildMediaSource(
       int preparationDelayCount,
-      @Nullable Object[] manifests,
+      Object @Nullable [] manifests,
       FakeTimeline.TimelineWindowDefinition... windows) {
 
     return clock -> {

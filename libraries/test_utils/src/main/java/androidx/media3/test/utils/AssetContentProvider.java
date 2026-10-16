@@ -27,11 +27,11 @@ import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.system.ErrnoException;
 import android.system.OsConstants;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link ContentProvider} for reading asset data. */
 @UnstableApi
@@ -60,9 +60,9 @@ public final class AssetContentProvider extends ContentProvider
   @Override
   public Cursor query(
       Uri uri,
-      @Nullable String[] projection,
+      String @Nullable [] projection,
       @Nullable String selection,
-      @Nullable String[] selectionArgs,
+      String @Nullable [] selectionArgs,
       @Nullable String sortOrder) {
     throw new UnsupportedOperationException();
   }
@@ -107,7 +107,7 @@ public final class AssetContentProvider extends ContentProvider
   }
 
   @Override
-  public int delete(Uri uri, @Nullable String selection, @Nullable String[] selectionArgs) {
+  public int delete(Uri uri, @Nullable String selection, String @Nullable [] selectionArgs) {
     throw new UnsupportedOperationException();
   }
 
@@ -116,7 +116,7 @@ public final class AssetContentProvider extends ContentProvider
       Uri uri,
       @Nullable ContentValues values,
       @Nullable String selection,
-      @Nullable String[] selectionArgs) {
+      String @Nullable [] selectionArgs) {
     throw new UnsupportedOperationException();
   }
 

@@ -18,7 +18,6 @@ package androidx.media3.extractor.ogg;
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
@@ -34,6 +33,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** StreamReader abstract class. */
 @SuppressWarnings("UngroupedOverloads")
@@ -247,7 +247,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           // calculate time and send payload data to codec
           long timeUs = convertGranuleToTime(currentGranule);
           boolean isLastPacketInStream = (pageHeader.type & 0x04) != 0 && isLastPacketInPage;
-          @Nullable byte[] supplementalData = null;
+          byte @Nullable [] supplementalData = null;
           if (isLastPacketInStream && pageHeader.granulePosition >= 0) {
             long samplesToKeep = pageHeader.granulePosition - previousPageGranulePosition;
             long discardGranules = granulesOnCurrentPage + granulesInPacket - samplesToKeep;
@@ -305,8 +305,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param discardGranules The number of granules to discard from the end of the packet.
    * @return The supplemental data bytes, or {@code null}.
    */
-  @Nullable
-  protected byte[] createSupplementalData(long discardGranules) {
+  protected byte @Nullable [] createSupplementalData(long discardGranules) {
     return null;
   }
 

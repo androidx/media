@@ -26,7 +26,6 @@ import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -39,6 +38,7 @@ import androidx.media3.exoplayer.offline.Download.FailureReason;
 import androidx.media3.exoplayer.offline.Download.State;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DownloadIndex} that uses SQLite to persist {@link Download Downloads}. */
 @UnstableApi
@@ -389,7 +389,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
     }
   }
 
-  private Cursor getCursor(String selection, @Nullable String[] selectionArgs)
+  private Cursor getCursor(String selection, String @Nullable [] selectionArgs)
       throws DatabaseIOException {
     try {
       String sortOrder = COLUMN_START_TIME_MS + " ASC";

@@ -28,7 +28,6 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Metadata of a {@link MediaItem}, playlist, or a combination of multiple sources of {@link
@@ -61,7 +61,7 @@ public final class MediaMetadata {
     @Nullable private Long durationMs;
     @Nullable private Rating userRating;
     @Nullable private Rating overallRating;
-    @Nullable private byte[] artworkData;
+    private byte @Nullable [] artworkData;
     @Nullable private BundleableByteArray bundleableArtworkData;
     @Nullable private @PictureType Integer artworkDataType;
     @Nullable private Uri artworkUri;
@@ -235,7 +235,7 @@ public final class MediaMetadata {
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
-    public Builder setArtworkData(@Nullable byte[] artworkData) {
+    public Builder setArtworkData(byte @Nullable [] artworkData) {
       return setArtworkData(artworkData, /* artworkDataType= */ null);
     }
 
@@ -245,7 +245,7 @@ public final class MediaMetadata {
      */
     @CanIgnoreReturnValue
     public Builder setArtworkData(
-        @Nullable byte[] artworkData, @Nullable @PictureType Integer artworkDataType) {
+        byte @Nullable [] artworkData, @Nullable @PictureType Integer artworkDataType) {
       this.artworkData = artworkData == null ? null : artworkData.clone();
       this.bundleableArtworkData = null;
       this.artworkDataType = artworkDataType;
@@ -1099,7 +1099,7 @@ public final class MediaMetadata {
   @Nullable public final Rating overallRating;
 
   /** Optional artwork data as a compressed byte array. */
-  @Nullable public final byte[] artworkData;
+  public final byte @Nullable [] artworkData;
 
   /** Lazily initialized bundleable version of {@link #artworkData}. */
   @Nullable private BundleableByteArray bundleableArtworkData;
@@ -1617,8 +1617,7 @@ public final class MediaMetadata {
         .setExtras(convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS)));
 
     if (bundle.containsKey(FIELD_ARTWORK_DATA)) {
-      @Nullable
-      Integer artworkDataType =
+      @Nullable Integer artworkDataType =
           bundle.containsKey(FIELD_ARTWORK_DATA_TYPE)
               ? bundle.getInt(FIELD_ARTWORK_DATA_TYPE)
               : null;
@@ -1694,8 +1693,8 @@ public final class MediaMetadata {
     if (categories != null) {
       builder.setCategories(categories);
     }
-    @Nullable
-    ArrayList<String> supportedCommands = bundle.getStringArrayList(FIELD_SUPPORTED_COMMANDS);
+    @Nullable ArrayList<String> supportedCommands =
+        bundle.getStringArrayList(FIELD_SUPPORTED_COMMANDS);
     if (supportedCommands != null) {
       builder.setSupportedCommands(supportedCommands);
     }

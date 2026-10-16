@@ -15,15 +15,15 @@
  */
 package androidx.media3.effect;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.OverlaySettings;
+import org.jspecify.annotations.Nullable;
 
 /** Holds required information to composite an input texture. */
 /* package */ final class GlCompositionFrame {
   public final GlTextureInfo glTextureInfo;
   public final OverlaySettings overlaySettings;
-  @Nullable public final float[] transformationMatrix;
+  public final float @Nullable [] transformationMatrix;
 
   /** Creates a new instance. */
   public GlCompositionFrame(GlTextureInfo glTextureInfo, OverlaySettings overlaySettings) {
@@ -34,7 +34,7 @@ import androidx.media3.common.OverlaySettings;
   public GlCompositionFrame(
       GlTextureInfo glTextureInfo,
       OverlaySettings overlaySettings,
-      @Nullable float[] transformationMatrix) {
+      float @Nullable [] transformationMatrix) {
     this.glTextureInfo = glTextureInfo;
     this.overlaySettings = overlaySettings;
     this.transformationMatrix = transformationMatrix;

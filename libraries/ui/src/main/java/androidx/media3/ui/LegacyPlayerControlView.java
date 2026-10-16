@@ -49,7 +49,6 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
@@ -62,6 +61,7 @@ import java.util.Arrays;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A view for controlling {@link Player} instances.
@@ -593,7 +593,7 @@ public class LegacyPlayerControlView extends FrameLayout {
    *     extraAdGroupTimesMs}, or {@code null} if {@code extraAdGroupTimesMs} is {@code null}.
    */
   public void setExtraAdGroupMarkers(
-      @Nullable long[] extraAdGroupTimesMs, @Nullable boolean[] extraPlayedAdGroups) {
+      long @Nullable [] extraAdGroupTimesMs, boolean @Nullable [] extraPlayedAdGroups) {
     if (extraAdGroupTimesMs == null) {
       this.extraAdGroupTimesMs = new long[0];
       this.extraPlayedAdGroups = new boolean[0];

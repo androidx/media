@@ -19,11 +19,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation of {@link Allocator}. */
 @UnstableApi
@@ -33,7 +33,7 @@ public final class DefaultAllocator implements Allocator {
 
   private final boolean trimOnReset;
   private final int individualAllocationSize;
-  @Nullable private final byte[] initialAllocationBlock;
+  private final byte @Nullable [] initialAllocationBlock;
 
   private int targetBufferSize;
   private int allocatedCount;

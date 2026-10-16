@@ -19,7 +19,6 @@ import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -31,6 +30,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Vpx decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
@@ -221,8 +221,8 @@ public final class VpxDecoder
       byte[] key,
       byte[] iv,
       int numSubSamples,
-      @Nullable int[] numBytesOfClearData,
-      @Nullable int[] numBytesOfEncryptedData);
+      int @Nullable [] numBytesOfClearData,
+      int @Nullable [] numBytesOfEncryptedData);
 
   private native int vpxGetFrame(long context, VideoDecoderOutputBuffer outputBuffer);
 

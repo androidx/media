@@ -25,7 +25,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Representation of a media item. */
 public final class MediaItem {
@@ -379,7 +379,7 @@ public final class MediaItem {
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
-    public Builder setDrmKeySetId(@Nullable byte[] keySetId) {
+    public Builder setDrmKeySetId(byte @Nullable [] keySetId) {
       drmConfiguration.setKeySetId(keySetId);
       return this;
     }
@@ -647,7 +647,7 @@ public final class MediaItem {
       private boolean playClearContentWithoutKey;
       private boolean forceDefaultLicenseUri;
       private ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes;
-      @Nullable private byte[] keySetId;
+      private byte @Nullable [] keySetId;
 
       /**
        * Constructs an instance.
@@ -816,7 +816,7 @@ public final class MediaItem {
        * mode,byte[] offlineLicenseKeySetId)}).
        */
       @CanIgnoreReturnValue
-      public Builder setKeySetId(@Nullable byte[] keySetId) {
+      public Builder setKeySetId(byte @Nullable [] keySetId) {
         this.keySetId = keySetId != null ? Arrays.copyOf(keySetId, keySetId.length) : null;
         return this;
       }
@@ -873,7 +873,7 @@ public final class MediaItem {
      */
     public final ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes;
 
-    @Nullable private final byte[] keySetId;
+    private final byte @Nullable [] keySetId;
 
     @SuppressWarnings("deprecation") // Setting deprecated field
     private DrmConfiguration(Builder builder) {
@@ -895,8 +895,7 @@ public final class MediaItem {
     }
 
     /** Returns the key set ID of the offline license. */
-    @Nullable
-    public byte[] getKeySetId() {
+    public byte @Nullable [] getKeySetId() {
       return keySetId != null ? Arrays.copyOf(keySetId, keySetId.length) : null;
     }
 
@@ -969,7 +968,7 @@ public final class MediaItem {
               bundle, FIELD_FORCED_SESSION_TRACK_TYPES, new ArrayList<>());
       ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes =
           ImmutableList.copyOf(forcedSessionTrackTypesArray);
-      @Nullable byte[] keySetId = bundle.getByteArray(FIELD_KEY_SET_ID);
+      byte @Nullable [] keySetId = bundle.getByteArray(FIELD_KEY_SET_ID);
 
       Builder builder = new Builder(scheme);
       return builder
@@ -1296,8 +1295,8 @@ public final class MediaItem {
           streamKeysBundles == null
               ? ImmutableList.of()
               : BundleCollectionUtil.fromBundleList(StreamKey::fromBundle, streamKeysBundles);
-      @Nullable
-      List<Bundle> subtitleBundles = bundle.getParcelableArrayList(FIELD_SUBTITLE_CONFIGURATION);
+      @Nullable List<Bundle> subtitleBundles =
+          bundle.getParcelableArrayList(FIELD_SUBTITLE_CONFIGURATION);
       ImmutableList<SubtitleConfiguration> subtitleConfiguration =
           subtitleBundles == null
               ? ImmutableList.of()

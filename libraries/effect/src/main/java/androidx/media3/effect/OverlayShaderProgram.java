@@ -30,7 +30,6 @@ import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -39,6 +38,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** Applies zero or more {@link TextureOverlay}s onto each frame. */
 /* package */ final class OverlayShaderProgram extends BaseGlShaderProgram {
@@ -57,7 +57,7 @@ import java.io.IOException;
   private final SamplerOverlayMatrixProvider samplerOverlayMatrixProvider;
   private final ImmutableList<TextureOverlay> overlays;
 
-  @Nullable private final int[] hdrTypes;
+  private final int @Nullable [] hdrTypes;
   private final SparseArray<Gainmap> lastGainmaps;
   private final SparseIntArray gainmapTexIds;
 
@@ -261,7 +261,7 @@ import java.io.IOException;
   }
 
   private static String createFragmentShader(
-      Context context, int numOverlays, @Nullable int[] hdrTypes) throws IOException {
+      Context context, int numOverlays, int @Nullable [] hdrTypes) throws IOException {
     StringBuilder shader =
         new StringBuilder()
             .append("#version 100\n")

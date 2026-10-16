@@ -25,7 +25,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SharedMemory;
 import android.system.OsConstants;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A wrapper for byte arrays that allows them to be transferred over {@link Bundle} instances using
@@ -93,8 +93,7 @@ public final class BundleableByteArray {
    * @param bundle The {@link Bundle} to read from.
    * @return The bundleable byte array, or null if the key is not present or malformed.
    */
-  @Nullable
-  public static byte[] fromBundle(Bundle bundle) {
+  public static byte @Nullable [] fromBundle(Bundle bundle) {
     @Nullable IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
     if (inProcessBinder == null) {
       return null;
@@ -144,8 +143,7 @@ public final class BundleableByteArray {
       bundle.putParcelable(FIELD_SHARED_MEMORY, sharedMemory);
     }
 
-    @Nullable
-    private static byte[] readFromBundle(Bundle bundle) {
+    private static byte @Nullable [] readFromBundle(Bundle bundle) {
       @Nullable SharedMemory sharedMemory = bundle.getParcelable(FIELD_SHARED_MEMORY);
       if (sharedMemory == null) {
         return null;
@@ -192,8 +190,7 @@ public final class BundleableByteArray {
       bundle.putBinder(FIELD_SPLIT_ARRAY_RETRIEVER, bundleListRetriever);
     }
 
-    @Nullable
-    private static byte[] readFromBundle(Bundle bundle) {
+    private static byte @Nullable [] readFromBundle(Bundle bundle) {
       @Nullable IBinder binder = bundle.getBinder(FIELD_SPLIT_ARRAY_RETRIEVER);
       if (binder == null) {
         return null;

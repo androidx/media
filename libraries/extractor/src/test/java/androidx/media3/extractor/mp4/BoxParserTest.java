@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -38,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableLongArray;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -820,7 +820,7 @@ public final class BoxParserTest {
   }
 
   private static byte[] createMebxKeyEntry(
-      int localKeyId, int keyNamespace, int keyValue, @Nullable byte[] setuPayload) {
+      int localKeyId, int keyNamespace, int keyValue, byte @Nullable [] setuPayload) {
     int keydSize = Mp4Box.HEADER_SIZE + 8;
     int setuSize = setuPayload != null ? Mp4Box.HEADER_SIZE + setuPayload.length : 0;
     int keyBoxSize = Mp4Box.HEADER_SIZE + keydSize + setuSize;

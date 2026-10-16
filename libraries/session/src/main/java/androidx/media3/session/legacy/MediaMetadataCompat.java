@@ -25,7 +25,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.StringDef;
 import androidx.collection.ArrayMap;
@@ -35,6 +34,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import org.jspecify.annotations.Nullable;
 
 /** Contains metadata about an item, such as the title, artist, etc. */
 @RestrictTo(LIBRARY)
@@ -323,7 +323,7 @@ public final class MediaMetadataCompat implements Parcelable {
   private final Bundle bundle;
 
   @Nullable private MediaMetadata metadataFwk;
-  @Nullable private byte[] compressedArtworkData;
+  private byte @Nullable [] compressedArtworkData;
 
   MediaMetadataCompat(Bundle bundle) {
     this.bundle = new Bundle(bundle);
@@ -544,8 +544,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * Returns the compressed bytes for the most relevant artwork bitmap from the available artwork
    * metadata keys, or null if none can be found.
    */
-  @Nullable
-  public byte[] getMostRelevantArtworkBitmapData() {
+  public byte @Nullable [] getMostRelevantArtworkBitmapData() {
     @Nullable Bitmap bitmap = getMostRelevantArtworkBitmap();
     if (bitmap == null) {
       return null;

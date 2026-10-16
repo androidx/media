@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.mp4;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -23,6 +22,7 @@ import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SniffFailure;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides methods that peek data from an {@link ExtractorInput} and return whether the input
@@ -216,7 +216,7 @@ public final class Sniffer {
         // Skip the minorVersion.
         buffer.skipBytes(4);
         int compatibleBrandsCount = buffer.bytesLeft() / 4;
-        @Nullable int[] compatibleBrands = null;
+        int @Nullable [] compatibleBrands = null;
         if (!foundGoodFileType && compatibleBrandsCount > 0) {
           compatibleBrands = new int[compatibleBrandsCount];
           for (int i = 0; i < compatibleBrandsCount; i++) {

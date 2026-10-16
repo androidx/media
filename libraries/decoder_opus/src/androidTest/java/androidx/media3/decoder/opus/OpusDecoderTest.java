@@ -17,7 +17,6 @@ package androidx.media3.decoder.opus;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
@@ -25,6 +24,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -290,7 +290,7 @@ public final class OpusDecoderTest {
   }
 
   private static DecoderInputBuffer createInputBuffer(
-      OpusDecoder decoder, byte[] data, @Nullable byte[] supplementalData) {
+      OpusDecoder decoder, byte[] data, byte @Nullable [] supplementalData) {
     DecoderInputBuffer input = decoder.createInputBuffer();
     input.ensureSpaceForWrite(data.length);
     input.data.put(data);

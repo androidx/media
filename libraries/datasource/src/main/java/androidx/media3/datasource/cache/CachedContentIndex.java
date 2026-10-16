@@ -28,7 +28,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.util.AtomicFile;
@@ -64,6 +63,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Maintains the index of cached content. */
 /* package */ class CachedContentIndex {
@@ -158,7 +158,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public CachedContentIndex(
       @Nullable DatabaseProvider databaseProvider,
       @Nullable File legacyStorageDir,
-      @Nullable byte[] legacyStorageSecretKey,
+      byte @Nullable [] legacyStorageSecretKey,
       boolean legacyStorageEncrypt,
       boolean preferLegacyStorage) {
     checkState(databaseProvider != null || legacyStorageDir != null);
@@ -166,11 +166,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     idToKey = new SparseArray<>();
     removedIds = new SparseBooleanArray();
     newIds = new SparseBooleanArray();
-    @Nullable
-    Storage databaseStorage =
+    @Nullable Storage databaseStorage =
         databaseProvider != null ? new DatabaseStorage(databaseProvider) : null;
-    @Nullable
-    Storage legacyStorage =
+    @Nullable Storage legacyStorage =
         legacyStorageDir != null
             ? new LegacyStorage(
                 new File(legacyStorageDir, FILE_NAME_ATOMIC),
@@ -505,7 +503,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean changed;
     @Nullable private ReusableBufferedOutputStream bufferedOutputStream;
 
-    public LegacyStorage(File file, @Nullable byte[] secretKey, boolean encrypt) {
+    public LegacyStorage(File file, byte @Nullable [] secretKey, boolean encrypt) {
       checkState(secretKey != null || !encrypt);
       @Nullable Cipher cipher = null;
       @Nullable SecretKeySpec secretKeySpec = null;

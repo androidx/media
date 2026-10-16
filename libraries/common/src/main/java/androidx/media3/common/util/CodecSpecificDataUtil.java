@@ -26,7 +26,6 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.os.Build.VERSION;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Provides utilities for handling various types of codec-specific data. */
 @SuppressLint("InlinedApi")
@@ -335,8 +335,7 @@ public final class CodecSpecificDataUtil {
    * @param sample The first frame's data.
    * @return The CodecPrivate data for VP9 if parsing is successful, {@code null} otherwise.
    */
-  @Nullable
-  public static byte[] buildVp9CodecPrivateFromUncompressedHeader(ByteBuffer sample) {
+  public static byte @Nullable [] buildVp9CodecPrivateFromUncompressedHeader(ByteBuffer sample) {
     int headerSize = Math.min(sample.remaining(), VP9_MAX_UNCOMPRESSED_HEADER_SIZE_BYTES);
     byte[] data = new byte[headerSize];
     sample.get(data, /* offset= */ 0, headerSize);
@@ -1073,8 +1072,7 @@ public final class CodecSpecificDataUtil {
    * @return The individual NAL units, or null if the input did not consist of NAL start code
    *     delimited units.
    */
-  @Nullable
-  public static byte[][] splitNalUnits(byte[] data) {
+  public static byte @Nullable [][] splitNalUnits(byte[] data) {
     if (!isNalStartCode(data, 0)) {
       // data does not consist of NAL start code delimited units.
       return null;

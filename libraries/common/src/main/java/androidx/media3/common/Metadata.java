@@ -15,7 +15,6 @@
  */
 package androidx.media3.common;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Predicate;
@@ -23,6 +22,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A collection of metadata entries. */
 @UnstableApi
@@ -44,8 +44,7 @@ public final class Metadata {
      * Returns the bytes of the wrapped metadata in this Entry, or null if it doesn't contain
      * wrapped metadata.
      */
-    @Nullable
-    default byte[] getWrappedMetadataBytes() {
+    default byte @Nullable [] getWrappedMetadataBytes() {
       return null;
     }
 

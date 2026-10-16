@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -36,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Defines content to be downloaded. */
 @UnstableApi
@@ -50,9 +50,9 @@ public final class DownloadRequest implements Parcelable {
     private final Uri uri;
     @Nullable private String mimeType;
     @Nullable private List<StreamKey> streamKeys;
-    @Nullable private byte[] keySetId;
+    private byte @Nullable [] keySetId;
     @Nullable private String customCacheKey;
-    @Nullable private byte[] data;
+    private byte @Nullable [] data;
     @Nullable private ByteRange byteRange;
     @Nullable private TimeRange timeRange;
 
@@ -80,7 +80,7 @@ public final class DownloadRequest implements Parcelable {
 
     /** Sets the {@link DownloadRequest#keySetId}. */
     @CanIgnoreReturnValue
-    public Builder setKeySetId(@Nullable byte[] keySetId) {
+    public Builder setKeySetId(byte @Nullable [] keySetId) {
       this.keySetId = keySetId;
       return this;
     }
@@ -94,7 +94,7 @@ public final class DownloadRequest implements Parcelable {
 
     /** Sets the {@link DownloadRequest#data}. */
     @CanIgnoreReturnValue
-    public Builder setData(@Nullable byte[] data) {
+    public Builder setData(byte @Nullable [] data) {
       this.data = data;
       return this;
     }
@@ -161,7 +161,7 @@ public final class DownloadRequest implements Parcelable {
   public final List<StreamKey> streamKeys;
 
   /** The key set id of the offline licence if the content is protected with DRM. */
-  @Nullable public final byte[] keySetId;
+  public final byte @Nullable [] keySetId;
 
   /**
    * Custom key for cache indexing, or null. Must be null for DASH, HLS and SmoothStreaming
@@ -193,9 +193,9 @@ public final class DownloadRequest implements Parcelable {
       Uri uri,
       @Nullable String mimeType,
       List<StreamKey> streamKeys,
-      @Nullable byte[] keySetId,
+      byte @Nullable [] keySetId,
       @Nullable String customCacheKey,
-      @Nullable byte[] data,
+      byte @Nullable [] data,
       @Nullable ByteRange byteRange,
       @Nullable TimeRange timeRange) {
     @C.ContentType int contentType = Util.inferContentTypeForUriAndMimeType(uri, mimeType);
@@ -255,7 +255,7 @@ public final class DownloadRequest implements Parcelable {
    * @param keySetId The key set ID of the copy.
    * @return The copy with the specified key set ID.
    */
-  public DownloadRequest copyWithKeySetId(@Nullable byte[] keySetId) {
+  public DownloadRequest copyWithKeySetId(byte @Nullable [] keySetId) {
     return new DownloadRequest(
         id, uri, mimeType, streamKeys, keySetId, customCacheKey, data, byteRange, timeRange);
   }

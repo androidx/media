@@ -22,7 +22,6 @@ import android.companion.virtual.VirtualDevice;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -45,6 +44,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A sink that consumes audio data.
@@ -698,7 +698,7 @@ public interface AudioSink {
    */
   @Deprecated
   default void configure(
-      Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+      Format inputFormat, int specifiedBufferSize, int @Nullable [] outputChannels)
       throws ConfigurationException {
     configure(
         new AudioSinkConfig.Builder(inputFormat)
@@ -800,8 +800,7 @@ public interface AudioSink {
    * Returns the audio attributes used for audio playback, or {@code null} if the sink does not use
    * audio attributes.
    */
-  @Nullable
-  AudioAttributes getAudioAttributes();
+  @Nullable AudioAttributes getAudioAttributes();
 
   /** Returns the AudioCapabilities of the sink, if supported by the sink implementation. */
   @Nullable

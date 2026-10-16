@@ -16,8 +16,8 @@
 package androidx.media3.ui;
 
 import android.view.View;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for time bar views that can display a playback position, buffered position, duration
@@ -105,7 +105,7 @@ public interface TimeBar {
    * @param adGroupCount The number of ad groups.
    */
   void setAdGroupTimesMs(
-      @Nullable long[] adGroupTimesMs, @Nullable boolean[] playedAdGroups, int adGroupCount);
+      long @Nullable [] adGroupTimesMs, boolean @Nullable [] playedAdGroups, int adGroupCount);
 
   /** Listener for scrubbing events. */
   interface OnScrubListener {

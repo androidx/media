@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
@@ -39,6 +38,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for parsing DTS frames. */
 @UnstableApi
@@ -596,7 +596,7 @@ public final class DtsUtil {
       boolean embedded6ch,
       int channelCount,
       boolean enableMixMetadata,
-      @Nullable int[] mixerOutChannels) {
+      int @Nullable [] mixerOutChannels) {
     boolean hasDrcCoef = headerBits.readBit();
     if (hasDrcCoef) { // bDRCCoefPresent
       headerBits.skipBits(8); // nuDRCCode

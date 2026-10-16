@@ -19,7 +19,6 @@ import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import androidx.media3.decoder.SimpleDecoderOutputBuffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Opus decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
@@ -347,8 +347,8 @@ public final class OpusDecoder
       byte[] key,
       byte[] iv,
       int numSubSamples,
-      @Nullable int[] numBytesOfClearData,
-      @Nullable int[] numBytesOfEncryptedData);
+      int @Nullable [] numBytesOfClearData,
+      int @Nullable [] numBytesOfEncryptedData);
 
   private native void opusClose(long decoder);
 

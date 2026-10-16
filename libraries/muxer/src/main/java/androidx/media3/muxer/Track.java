@@ -17,7 +17,6 @@ package androidx.media3.muxer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -29,6 +28,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Represents a single track (audio, video, metadata etc.). */
 /* package */ final class Track {
@@ -44,7 +44,7 @@ import java.util.Map;
   // Map from the reference type (e.g. "cdsc") to the list of referenced track ids.
   public final Map<Integer, List<Integer>> trackReferences;
   public boolean hadKeyframe;
-  @Nullable public byte[] parsedCsd;
+  public byte @Nullable [] parsedCsd;
   public long endOfStreamTimestampUs;
 
   private final boolean sampleCopyEnabled;

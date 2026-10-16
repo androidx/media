@@ -29,7 +29,6 @@ import android.text.style.StrikethroughSpan;
 import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.text.style.UnderlineSpan;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
@@ -41,6 +40,7 @@ import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Package internal utility class to render styled <code>TtmlNode</code>s. */
 /* package */ final class TtmlRenderUtil {
@@ -49,7 +49,9 @@ import java.util.Map;
 
   @Nullable
   public static TtmlStyle resolveStyle(
-      @Nullable TtmlStyle style, @Nullable String[] styleIds, Map<String, TtmlStyle> globalStyles) {
+      @Nullable TtmlStyle style,
+      String @Nullable [] styleIds,
+      Map<String, TtmlStyle> globalStyles) {
     if (style == null) {
       if (styleIds == null) {
         // No styles at all.
@@ -180,8 +182,8 @@ import java.util.Map;
           break;
         }
 
-        @Nullable
-        TtmlStyle textStyle = resolveStyle(textNode.style, textNode.getStyleIds(), globalStyles);
+        @Nullable TtmlStyle textStyle =
+            resolveStyle(textNode.style, textNode.getStyleIds(), globalStyles);
 
         // Use position from ruby text node if defined.
         @TextAnnotation.Position
@@ -190,8 +192,7 @@ import java.util.Map;
 
         if (rubyPosition == TextAnnotation.POSITION_UNKNOWN) {
           // If ruby position is not defined, use position info from container node.
-          @Nullable
-          TtmlStyle containerStyle =
+          @Nullable TtmlStyle containerStyle =
               resolveStyle(containerNode.style, containerNode.getStyleIds(), globalStyles);
           rubyPosition = containerStyle != null ? containerStyle.getRubyPosition() : rubyPosition;
         }
@@ -257,8 +258,8 @@ import java.util.Map;
     childNodesStack.push(rubyContainerNode);
     while (!childNodesStack.isEmpty()) {
       TtmlNode childNode = childNodesStack.pop();
-      @Nullable
-      TtmlStyle style = resolveStyle(childNode.style, childNode.getStyleIds(), globalStyles);
+      @Nullable TtmlStyle style =
+          resolveStyle(childNode.style, childNode.getStyleIds(), globalStyles);
       if (style != null && style.getRubyType() == TtmlStyle.RUBY_TYPE_TEXT) {
         return childNode;
       }

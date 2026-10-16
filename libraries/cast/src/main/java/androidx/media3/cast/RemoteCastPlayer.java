@@ -40,7 +40,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.cast.CastTrackSelector.CastTrackSelectorRequest;
@@ -93,6 +92,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link Player} implementation that communicates with a Cast receiver app.
@@ -586,8 +586,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
     CastTimeline currentTimeline = currentQueueSnapshot.timeline;
     int clampedIndex = min(index, currentTimeline.getWindowCount());
-    @Nullable
-    Object insertBeforeUid =
+    @Nullable Object insertBeforeUid =
         clampedIndex < currentTimeline.getWindowCount()
             ? currentTimeline.getWindow(clampedIndex, window).uid
             : null;
@@ -620,8 +619,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
     int insertBeforeIndex =
         fromIndex < resolvedNewIndex ? resolvedNewIndex + moveCount : resolvedNewIndex;
-    @Nullable
-    Object insertBeforeUid =
+    @Nullable Object insertBeforeUid =
         insertBeforeIndex < playlistSize
             ? currentTimeline.getWindow(insertBeforeIndex, window).uid
             : null;
@@ -1423,8 +1421,7 @@ public final class RemoteCastPlayer extends BasePlayer {
       QueuedOperation.QueueSnapshot newSnapshot, @TimelineChangeReason int timelineChangeReason) {
     Timeline oldTimeline = currentQueueSnapshot.timeline;
     int oldWindowIndex = currentQueueSnapshot.currentWindowIndex;
-    @Nullable
-    Object oldPeriodUid =
+    @Nullable Object oldPeriodUid =
         !oldTimeline.isEmpty()
             ? oldTimeline.getPeriod(oldWindowIndex, period, /* setIds= */ true).uid
             : null;
@@ -1437,8 +1434,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     Timeline currentTimeline = newSnapshot.timeline;
     int currentWindowIndex = newSnapshot.currentWindowIndex;
-    @Nullable
-    Object currentPeriodUid =
+    @Nullable Object currentPeriodUid =
         !currentTimeline.isEmpty()
             ? currentTimeline.getPeriod(currentWindowIndex, period, /* setIds= */ true).uid
             : null;
@@ -1556,13 +1552,13 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
     @Nullable MediaStatus mediaStatus = getMediaStatus();
     @Nullable MediaInfo mediaInfo = mediaStatus != null ? mediaStatus.getMediaInfo() : null;
-    @Nullable
-    List<MediaTrack> castMediaTracks = mediaInfo != null ? mediaInfo.getMediaTracks() : null;
+    @Nullable List<MediaTrack> castMediaTracks =
+        mediaInfo != null ? mediaInfo.getMediaTracks() : null;
     if (castMediaTracks == null || castMediaTracks.isEmpty()) {
       setTracksAndNotifyIfChanged(Tracks.EMPTY);
       return;
     }
-    @Nullable long[] activeTrackIds = mediaStatus.getActiveTrackIds();
+    long @Nullable [] activeTrackIds = mediaStatus.getActiveTrackIds();
     if (activeTrackIds == null) {
       activeTrackIds = EMPTY_TRACK_ID_ARRAY;
     }

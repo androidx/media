@@ -21,7 +21,6 @@ import static java.lang.Math.min;
 
 import android.net.Uri;
 import android.util.Base64;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
@@ -30,6 +29,7 @@ import androidx.media3.common.util.Util;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSource} for reading data URLs, as defined by RFC 2397. */
 @UnstableApi
@@ -38,7 +38,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
   public static final String SCHEME_DATA = "data";
 
   @Nullable private DataSpec dataSpec;
-  @Nullable private byte[] data;
+  private byte @Nullable [] data;
   private int readPosition;
   private int bytesRemaining;
 

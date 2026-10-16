@@ -65,7 +65,6 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.media3.common.C;
@@ -98,6 +97,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A view for controlling {@link Player} instances.
@@ -934,7 +934,7 @@ public class PlayerControlView extends FrameLayout {
    *     extraAdGroupTimesMs}, or {@code null} if {@code extraAdGroupTimesMs} is {@code null}.
    */
   public void setExtraAdGroupMarkers(
-      @Nullable long[] extraAdGroupTimesMs, @Nullable boolean[] extraPlayedAdGroups) {
+      long @Nullable [] extraAdGroupTimesMs, boolean @Nullable [] extraPlayedAdGroups) {
     if (extraAdGroupTimesMs == null) {
       this.extraAdGroupTimesMs = new long[0];
       this.extraPlayedAdGroups = new boolean[0];

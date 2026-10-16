@@ -15,7 +15,6 @@
  */
 package androidx.media3.datasource.cache;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.C;
 import androidx.media3.common.PriorityTaskManager;
@@ -25,6 +24,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import org.jspecify.annotations.Nullable;
 
 /** Caching related utility methods. */
 @UnstableApi
@@ -71,7 +71,7 @@ public final class CacheWriter {
   public CacheWriter(
       CacheDataSource dataSource,
       DataSpec dataSpec,
-      @Nullable byte[] temporaryBuffer,
+      byte @Nullable [] temporaryBuffer,
       @Nullable ProgressListener progressListener) {
     this.dataSource = dataSource;
     this.cache = dataSource.getCache();

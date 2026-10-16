@@ -18,11 +18,11 @@ package androidx.media3.extractor.mp3;
 import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
+import org.jspecify.annotations.Nullable;
 
 /** MP3 seeker that uses metadata from a Xing header. */
 /* package */ final class XingSeeker implements Seeker {
@@ -80,14 +80,14 @@ import androidx.media3.extractor.SeekPoint;
    * Entries are in the range [0, 255], but are stored as long integers for convenience. Null if the
    * table of contents was missing from the header, in which case seeking is not be supported.
    */
-  @Nullable private final long[] tableOfContents;
+  private final long @Nullable [] tableOfContents;
 
   private XingSeeker(
       long dataStartPosition,
       int xingFrameSize,
       long durationUs,
       long dataSize,
-      @Nullable long[] tableOfContents) {
+      long @Nullable [] tableOfContents) {
     this.dataStartPosition = dataStartPosition;
     this.xingFrameSize = xingFrameSize;
     this.durationUs = durationUs;

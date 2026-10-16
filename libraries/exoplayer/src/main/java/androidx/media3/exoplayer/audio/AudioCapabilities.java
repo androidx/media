@@ -34,7 +34,6 @@ import android.os.Build;
 import android.provider.Settings.Global;
 import android.util.Pair;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
@@ -55,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Represents the set of audio formats that a device is capable of playing. */
 @UnstableApi
@@ -225,7 +225,7 @@ public final class AudioCapabilities {
     if (intent != null
         && !forceExternalSurroundSoundSetting
         && intent.getIntExtra(AudioManager.EXTRA_AUDIO_PLUG_STATE, 0) == 1) {
-      @Nullable int[] encodingsFromExtra = intent.getIntArrayExtra(AudioManager.EXTRA_ENCODINGS);
+      int @Nullable [] encodingsFromExtra = intent.getIntArrayExtra(AudioManager.EXTRA_ENCODINGS);
       if (encodingsFromExtra != null) {
         supportedEncodings.addAll(Ints.asList(encodingsFromExtra));
       }
@@ -267,7 +267,7 @@ public final class AudioCapabilities {
    * @deprecated Use {@link #getCapabilities(Context, AudioAttributes, AudioDeviceInfo)} instead.
    */
   @Deprecated
-  public AudioCapabilities(@Nullable int[] supportedEncodings, int maxChannelCount) {
+  public AudioCapabilities(int @Nullable [] supportedEncodings, int maxChannelCount) {
     this(
         getAudioProfiles(supportedEncodings, maxChannelCount),
         DEFAULT_SPEAKER_LAYOUT_CHANNEL_MASKS,
@@ -277,7 +277,7 @@ public final class AudioCapabilities {
   /** Simple constructor for assertions in tests. */
   @VisibleForTesting
   /* package */ AudioCapabilities(
-      @Nullable int[] supportedEncodings,
+      int @Nullable [] supportedEncodings,
       int maxChannelCount,
       List<Integer> speakerLayoutChannelMasks,
       List<Integer> spatializerChannelMasks) {
@@ -532,7 +532,7 @@ public final class AudioCapabilities {
   }
 
   private static ImmutableList<AudioProfile> getAudioProfiles(
-      @Nullable int[] supportedEncodings, int maxChannelCount) {
+      int @Nullable [] supportedEncodings, int maxChannelCount) {
     ImmutableList.Builder<AudioProfile> audioProfiles = ImmutableList.builder();
     if (supportedEncodings == null) {
       supportedEncodings = new int[0];

@@ -22,7 +22,6 @@ import android.graphics.SurfaceTexture;
 import android.media.MediaFormat;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.GlUtil;
@@ -32,6 +31,7 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Renders a GL Scene. */
 /* package */ final class SceneRenderer
@@ -55,7 +55,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // Used by other threads only
   private volatile @C.StereoMode int defaultStereoMode;
   private @C.StereoMode int lastStereoMode;
-  @Nullable private byte[] lastProjectionData;
+  private byte @Nullable [] lastProjectionData;
 
   // Methods called on any thread.
 
@@ -186,7 +186,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param timeNs When then new projection should be used.
    */
   private void setProjection(
-      @Nullable byte[] projectionData, @C.StereoMode int stereoMode, long timeNs) {
+      byte @Nullable [] projectionData, @C.StereoMode int stereoMode, long timeNs) {
     byte[] oldProjectionData = lastProjectionData;
     int oldStereoMode = lastStereoMode;
     lastProjectionData = projectionData;

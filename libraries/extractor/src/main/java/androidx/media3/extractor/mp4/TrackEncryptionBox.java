@@ -17,11 +17,11 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.TrackOutput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Encapsulates information parsed from a track encryption (tenc) box or sample group description
@@ -51,7 +51,7 @@ public final class TrackEncryptionBox {
    * If {@link #perSampleIvSize} is 0, holds the default initialization vector as defined in the
    * track encryption box or sample group description box. Null otherwise.
    */
-  @Nullable public final byte[] defaultInitializationVector;
+  public final byte @Nullable [] defaultInitializationVector;
 
   /**
    * @param isEncrypted See {@link #isEncrypted}.
@@ -69,7 +69,7 @@ public final class TrackEncryptionBox {
       byte[] keyId,
       int defaultEncryptedBlocks,
       int defaultClearBlocks,
-      @Nullable byte[] defaultInitializationVector) {
+      byte @Nullable [] defaultInitializationVector) {
     checkArgument(perSampleIvSize == 0 ^ defaultInitializationVector == null);
     this.isEncrypted = isEncrypted;
     this.schemeType = schemeType;

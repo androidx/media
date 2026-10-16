@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import java.lang.annotation.Target;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a region of data in a resource. */
 @UnstableApi
@@ -53,7 +53,7 @@ public final class DataSpec {
     private long uriPositionOffset;
     @Nullable private String location;
     private @HttpMethod int httpMethod;
-    @Nullable private byte[] httpBody;
+    private byte @Nullable [] httpBody;
     private Map<String, String> httpRequestHeaders;
     private long position;
     private long length;
@@ -154,7 +154,7 @@ public final class DataSpec {
      * @return The builder.
      */
     @CanIgnoreReturnValue
-    public Builder setHttpBody(@Nullable byte[] httpBody) {
+    public Builder setHttpBody(byte @Nullable [] httpBody) {
       this.httpBody = httpBody;
       return this;
     }
@@ -378,7 +378,7 @@ public final class DataSpec {
    * The HTTP request body, null otherwise. If the body is non-null, then {@code httpBody.length}
    * will be non-zero.
    */
-  @Nullable public final byte[] httpBody;
+  public final byte @Nullable [] httpBody;
 
   /**
    * Additional HTTP headers to use when requesting the data.
@@ -484,7 +484,7 @@ public final class DataSpec {
       long uriPositionOffset,
       @Nullable String location,
       @HttpMethod int httpMethod,
-      @Nullable byte[] httpBody,
+      byte @Nullable [] httpBody,
       Map<String, String> httpRequestHeaders,
       long position,
       long length,

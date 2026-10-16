@@ -21,7 +21,6 @@ import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
@@ -45,6 +44,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -765,7 +765,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
       ArrayList<byte[]> csd = new ArrayList<>();
       if (!TextUtils.isEmpty(codecSpecificDataString)) {
         byte[] codecPrivateData = Util.getBytesFromHexString(codecSpecificDataString);
-        @Nullable byte[][] split = CodecSpecificDataUtil.splitNalUnits(codecPrivateData);
+        byte @Nullable [][] split = CodecSpecificDataUtil.splitNalUnits(codecPrivateData);
         if (split == null) {
           csd.add(codecPrivateData);
         } else {

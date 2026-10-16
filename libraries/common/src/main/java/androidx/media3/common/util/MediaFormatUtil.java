@@ -24,7 +24,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
 import android.media.MediaFormat;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Helper class containing utility methods for managing {@link MediaFormat} instances. */
 @UnstableApi
@@ -260,7 +260,7 @@ public final class MediaFormatUtil {
    * @param key The key to set.
    * @param value The byte array that will be wrapped to obtain the value.
    */
-  public static void maybeSetByteBuffer(MediaFormat format, String key, @Nullable byte[] value) {
+  public static void maybeSetByteBuffer(MediaFormat format, String key, byte @Nullable [] value) {
     if (value != null) {
       format.setByteBuffer(key, ByteBuffer.wrap(value));
     }
@@ -295,10 +295,9 @@ public final class MediaFormatUtil {
     int colorTransfer =
         getInteger(
             mediaFormat, MediaFormat.KEY_COLOR_TRANSFER, /* defaultValue= */ Format.NO_VALUE);
-    @Nullable
-    ByteBuffer hdrStaticInfoByteBuffer = mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
-    @Nullable
-    byte[] hdrStaticInfo =
+    @Nullable ByteBuffer hdrStaticInfoByteBuffer =
+        mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
+    byte @Nullable [] hdrStaticInfo =
         hdrStaticInfoByteBuffer != null ? getArray(hdrStaticInfoByteBuffer) : null;
     // Some devices may produce invalid values from MediaFormat#getInteger.
     // See b/239435670 for more information.

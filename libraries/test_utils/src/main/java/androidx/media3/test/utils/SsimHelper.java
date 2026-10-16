@@ -23,10 +23,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.content.Context;
 import android.media.Image;
 import android.media.MediaCodec;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A helper for calculating SSIM score for transcoded videos.
@@ -76,8 +76,8 @@ public final class SsimHelper {
             distortedVideoPath,
             DEFAULT_COMPARISON_INTERVAL,
             MAX_IMAGE_READER_IMAGES_ALLOWED);
-    @Nullable byte[] referenceLumaBuffer = null;
-    @Nullable byte[] distortedLumaBuffer = null;
+    byte @Nullable [] referenceLumaBuffer = null;
+    byte @Nullable [] distortedLumaBuffer = null;
     double accumulatedSsim = 0.0;
     int comparedImagesCount = 0;
     try {

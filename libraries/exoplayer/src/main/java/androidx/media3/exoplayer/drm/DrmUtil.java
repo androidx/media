@@ -29,7 +29,6 @@ import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -46,6 +45,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** DRM-related utility methods. */
 @UnstableApi
@@ -88,8 +88,8 @@ public final class DrmUtil {
   public static @PlaybackException.ErrorCode int getErrorCodeForMediaDrmException(
       Throwable exception, @ErrorSource int errorSource) {
     if (exception instanceof MediaDrm.MediaDrmStateException) {
-      @Nullable
-      String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
+      @Nullable String diagnosticsInfo =
+          ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
       int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
     } else if (exception instanceof MediaDrmResetException) {
@@ -167,7 +167,7 @@ public final class DrmUtil {
   public static MediaDrmCallback.Response executePost(
       DataSource dataSource,
       String url,
-      @Nullable byte[] httpBody,
+      byte @Nullable [] httpBody,
       Map<String, String> requestProperties)
       throws MediaDrmCallbackException {
     StatsDataSource statsDataSource = new StatsDataSource(dataSource);

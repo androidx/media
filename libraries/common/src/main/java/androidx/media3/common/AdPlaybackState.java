@@ -30,7 +30,6 @@ import android.os.Bundle;
 import androidx.annotation.CheckResult;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -45,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents ad group times and information on the state and URIs of ads within each ad group.
@@ -842,18 +842,14 @@ public final class AdPlaybackState {
       int count = bundle.getInt(FIELD_COUNT);
       int originalCount = bundle.getInt(FIELD_ORIGINAL_COUNT);
       @Nullable ArrayList<@NullableType Uri> uriList = bundle.getParcelableArrayList(FIELD_URIS);
-      @Nullable
-      ArrayList<@NullableType Bundle> mediaItemBundleList =
+      @Nullable ArrayList<@NullableType Bundle> mediaItemBundleList =
           bundle.getParcelableArrayList(FIELD_MEDIA_ITEMS);
-      @Nullable
-      @AdState
-      int[] states = bundle.getIntArray(FIELD_STATES);
-      @Nullable long[] durationsUs = bundle.getLongArray(FIELD_DURATIONS_US);
+      @AdState int @Nullable [] states = bundle.getIntArray(FIELD_STATES);
+      long @Nullable [] durationsUs = bundle.getLongArray(FIELD_DURATIONS_US);
       long contentResumeOffsetUs = bundle.getLong(FIELD_CONTENT_RESUME_OFFSET_US);
       boolean isServerSideInserted = bundle.getBoolean(FIELD_IS_SERVER_SIDE_INSERTED);
       @Nullable ArrayList<String> ids = bundle.getStringArrayList(FIELD_IDS);
-      @Nullable
-      ArrayList<@NullableType Bundle> skipInfoBundleList =
+      @Nullable ArrayList<@NullableType Bundle> skipInfoBundleList =
           bundle.getParcelableArrayList(FIELD_SKIP_INFOS);
       boolean isPlaceholder = bundle.getBoolean(FIELD_IS_PLACEHOLDER);
       return new AdGroup(
@@ -1916,7 +1912,7 @@ public final class AdPlaybackState {
    */
   public static AdPlaybackState fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable ArrayList<Bundle> adGroupBundleList = bundle.getParcelableArrayList(FIELD_AD_GROUPS);
-    @Nullable AdGroup[] adGroups;
+    AdGroup @Nullable [] adGroups;
     if (adGroupBundleList == null) {
       adGroups = new AdGroup[0];
     } else {

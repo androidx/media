@@ -248,17 +248,17 @@ package androidx.media3.common {
   public final class Format {
     field public static final NO_VALUE: int = -1; // 0xffffffff
     field public final channelCount: int;
-    field @Nullable public final codecs: String;
-    field @Nullable public final containerMimeType: String;
+    field public final codecs: @Nullable String;
+    field public final containerMimeType: @Nullable String;
     field public final frameRate: float;
     field public final height: int;
-    field @Nullable public final id: String;
-    field @Nullable public final label: String;
-    field @Nullable public final language: String;
+    field public final id: @Nullable String;
+    field public final label: @Nullable String;
+    field public final language: @Nullable String;
     field public final pcmEncoding: @androidx.media3.common.C.PcmEncoding int;
     field public final pixelWidthHeightRatio: float;
     field @androidx.media3.common.C.RoleFlags public final roleFlags: @androidx.media3.common.C.RoleFlags int;
-    field @Nullable public final sampleMimeType: String;
+    field public final sampleMimeType: @Nullable String;
     field public final sampleRate: int;
     field @androidx.media3.common.C.SelectionFlags public final selectionFlags: @androidx.media3.common.C.SelectionFlags int;
     field public final width: int;
@@ -279,7 +279,7 @@ package androidx.media3.common {
     field public static final EMPTY: androidx.media3.common.MediaItem;
     field public final clippingConfiguration: androidx.media3.common.MediaItem.ClippingConfiguration;
     field public final liveConfiguration: androidx.media3.common.MediaItem.LiveConfiguration;
-    field @Nullable public final localConfiguration: androidx.media3.common.MediaItem.LocalConfiguration;
+    field public final localConfiguration: androidx.media3.common.MediaItem.@Nullable LocalConfiguration;
     field public final mediaId: String;
     field public final mediaMetadata: androidx.media3.common.MediaMetadata;
     field public final requestMetadata: androidx.media3.common.MediaItem.RequestMetadata;
@@ -288,31 +288,31 @@ package androidx.media3.common {
   public static final class MediaItem.AdsConfiguration {
     method public buildUpon(): androidx.media3.common.MediaItem.AdsConfiguration.Builder;
     field public final adTagUri: android.net.Uri;
-    field @Nullable public final adsId: Object;
+    field public final adsId: @Nullable Object;
   }
 
   public static final class MediaItem.AdsConfiguration.Builder {
     ctor public MediaItem.AdsConfiguration.Builder(_: android.net.Uri);
     method public build(): androidx.media3.common.MediaItem.AdsConfiguration;
     method public setAdTagUri(_: android.net.Uri): androidx.media3.common.MediaItem.AdsConfiguration.Builder;
-    method public setAdsId(@Nullable _: Object): androidx.media3.common.MediaItem.AdsConfiguration.Builder;
+    method public setAdsId(_: @Nullable Object): androidx.media3.common.MediaItem.AdsConfiguration.Builder;
   }
 
   public static final class MediaItem.Builder {
     ctor public MediaItem.Builder();
     method public build(): androidx.media3.common.MediaItem;
-    method public setAdsConfiguration(@Nullable _: androidx.media3.common.MediaItem.AdsConfiguration): androidx.media3.common.MediaItem.Builder;
+    method public setAdsConfiguration(_: androidx.media3.common.MediaItem.@Nullable AdsConfiguration): androidx.media3.common.MediaItem.Builder;
     method public setClippingConfiguration(_: androidx.media3.common.MediaItem.ClippingConfiguration): androidx.media3.common.MediaItem.Builder;
-    method public setDrmConfiguration(@Nullable _: androidx.media3.common.MediaItem.DrmConfiguration): androidx.media3.common.MediaItem.Builder;
+    method public setDrmConfiguration(_: androidx.media3.common.MediaItem.@Nullable DrmConfiguration): androidx.media3.common.MediaItem.Builder;
     method public setLiveConfiguration(_: androidx.media3.common.MediaItem.LiveConfiguration): androidx.media3.common.MediaItem.Builder;
     method public setMediaId(_: String): androidx.media3.common.MediaItem.Builder;
     method public setMediaMetadata(_: androidx.media3.common.MediaMetadata): androidx.media3.common.MediaItem.Builder;
-    method public setMimeType(@Nullable _: String): androidx.media3.common.MediaItem.Builder;
+    method public setMimeType(_: @Nullable String): androidx.media3.common.MediaItem.Builder;
     method public setRequestMetadata(_: androidx.media3.common.MediaItem.RequestMetadata): androidx.media3.common.MediaItem.Builder;
     method public setSubtitleConfigurations(_: java.util.List<androidx.media3.common.MediaItem.SubtitleConfiguration>): androidx.media3.common.MediaItem.Builder;
-    method public setTag(@Nullable _: Object): androidx.media3.common.MediaItem.Builder;
-    method public setUri(@Nullable _: android.net.Uri): androidx.media3.common.MediaItem.Builder;
-    method public setUri(@Nullable _: String): androidx.media3.common.MediaItem.Builder;
+    method public setTag(_: @Nullable Object): androidx.media3.common.MediaItem.Builder;
+    method public setUri(_: android.net.@Nullable Uri): androidx.media3.common.MediaItem.Builder;
+    method public setUri(_: @Nullable String): androidx.media3.common.MediaItem.Builder;
   }
 
   public static class MediaItem.ClippingConfiguration {
@@ -337,11 +337,11 @@ package androidx.media3.common {
 
   public static final class MediaItem.DrmConfiguration {
     method public buildUpon(): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
-    method @Nullable public getKeySetId(): byte[];
+    method public getKeySetId(): byte @Nullable [];
     field public final forceDefaultLicenseUri: boolean;
     field public final forcedSessionTrackTypes: com.google.common.collect.ImmutableList<java.lang.@androidx.media3.common.C.TrackType Integer>;
     field public final licenseRequestHeaders: com.google.common.collect.ImmutableMap<java.lang.String,java.lang.String>;
-    field @Nullable public final licenseUri: android.net.Uri;
+    field public final licenseUri: android.net.@Nullable Uri;
     field public final multiSession: boolean;
     field public final playClearContentWithoutKey: boolean;
     field public final scheme: java.util.UUID;
@@ -353,10 +353,10 @@ package androidx.media3.common {
     method public setForceDefaultLicenseUri(_: boolean): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setForceSessionsForAudioAndVideoTracks(_: boolean): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setForcedSessionTrackTypes(_: java.util.List<java.lang.@androidx.media3.common.C.TrackType Integer>): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
-    method public setKeySetId(@Nullable _: byte[]): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
+    method public setKeySetId(_: byte @Nullable []): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setLicenseRequestHeaders(_: java.util.Map<java.lang.String,java.lang.String>): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
-    method public setLicenseUri(@Nullable _: android.net.Uri): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
-    method public setLicenseUri(@Nullable _: String): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
+    method public setLicenseUri(_: android.net.@Nullable Uri): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
+    method public setLicenseUri(_: @Nullable String): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setMultiSession(_: boolean): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setPlayClearContentWithoutKey(_: boolean): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setScheme(_: java.util.UUID): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
@@ -383,36 +383,36 @@ package androidx.media3.common {
   }
 
   public static final class MediaItem.LocalConfiguration {
-    field @Nullable public final adsConfiguration: androidx.media3.common.MediaItem.AdsConfiguration;
-    field @Nullable public final drmConfiguration: androidx.media3.common.MediaItem.DrmConfiguration;
-    field @Nullable public final mimeType: String;
+    field public final adsConfiguration: androidx.media3.common.MediaItem.@Nullable AdsConfiguration;
+    field public final drmConfiguration: androidx.media3.common.MediaItem.@Nullable DrmConfiguration;
+    field public final mimeType: @Nullable String;
     field public final subtitleConfigurations: com.google.common.collect.ImmutableList<androidx.media3.common.MediaItem.SubtitleConfiguration>;
-    field @Nullable public final tag: Object;
+    field public final tag: @Nullable Object;
     field public final uri: android.net.Uri;
   }
 
   public static final class MediaItem.RequestMetadata {
     method public buildUpon(): androidx.media3.common.MediaItem.RequestMetadata.Builder;
     field public static final EMPTY: androidx.media3.common.MediaItem.RequestMetadata;
-    field @Nullable public final extras: android.os.Bundle;
-    field @Nullable public final mediaUri: android.net.Uri;
-    field @Nullable public final searchQuery: String;
+    field public final extras: android.os.@Nullable Bundle;
+    field public final mediaUri: android.net.@Nullable Uri;
+    field public final searchQuery: @Nullable String;
   }
 
   public static final class MediaItem.RequestMetadata.Builder {
     ctor public MediaItem.RequestMetadata.Builder();
     method public build(): androidx.media3.common.MediaItem.RequestMetadata;
-    method public setExtras(@Nullable _: android.os.Bundle): androidx.media3.common.MediaItem.RequestMetadata.Builder;
-    method public setMediaUri(@Nullable _: android.net.Uri): androidx.media3.common.MediaItem.RequestMetadata.Builder;
-    method public setSearchQuery(@Nullable _: String): androidx.media3.common.MediaItem.RequestMetadata.Builder;
+    method public setExtras(_: android.os.@Nullable Bundle): androidx.media3.common.MediaItem.RequestMetadata.Builder;
+    method public setMediaUri(_: android.net.@Nullable Uri): androidx.media3.common.MediaItem.RequestMetadata.Builder;
+    method public setSearchQuery(_: @Nullable String): androidx.media3.common.MediaItem.RequestMetadata.Builder;
   }
 
   public static class MediaItem.SubtitleConfiguration {
     method public buildUpon(): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
-    field @Nullable public final id: String;
-    field @Nullable public final label: String;
-    field @Nullable public final language: String;
-    field @Nullable public final mimeType: String;
+    field public final id: @Nullable String;
+    field public final label: @Nullable String;
+    field public final language: @Nullable String;
+    field public final mimeType: @Nullable String;
     field @androidx.media3.common.C.RoleFlags public final roleFlags: @androidx.media3.common.C.RoleFlags int;
     field @androidx.media3.common.C.SelectionFlags public final selectionFlags: @androidx.media3.common.C.SelectionFlags int;
     field public final uri: android.net.Uri;
@@ -421,10 +421,10 @@ package androidx.media3.common {
   public static final class MediaItem.SubtitleConfiguration.Builder {
     ctor public MediaItem.SubtitleConfiguration.Builder(_: android.net.Uri);
     method public build(): androidx.media3.common.MediaItem.SubtitleConfiguration;
-    method public setId(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
-    method public setLabel(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
-    method public setLanguage(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
-    method public setMimeType(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
+    method public setId(_: @Nullable String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
+    method public setLabel(_: @Nullable String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
+    method public setLanguage(_: @Nullable String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
+    method public setMimeType(_: @Nullable String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
     method public setRoleFlags(@androidx.media3.common.C.RoleFlags _: @androidx.media3.common.C.RoleFlags int): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
     method public setSelectionFlags(@androidx.media3.common.C.SelectionFlags _: @androidx.media3.common.C.SelectionFlags int): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
     method public setUri(_: android.net.Uri): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
@@ -498,79 +498,79 @@ package androidx.media3.common {
     field public static final PICTURE_TYPE_OTHER: int = 0; // 0x0
     field public static final PICTURE_TYPE_PUBLISHER_STUDIO_LOGO: int = 20; // 0x14
     field public static final PICTURE_TYPE_RECORDING_LOCATION: int = 13; // 0xd
-    field @Nullable public final albumArtist: CharSequence;
-    field @Nullable public final albumTitle: CharSequence;
-    field @Nullable public final artist: CharSequence;
-    field @Nullable public final artworkData: byte[];
-    field @Nullable @androidx.media3.common.MediaMetadata.PictureType public final artworkDataType: @androidx.media3.common.MediaMetadata.PictureType Integer;
-    field @Nullable public final artworkUri: android.net.Uri;
-    field @Nullable public final compilation: CharSequence;
-    field @Nullable public final composer: CharSequence;
-    field @Nullable public final conductor: CharSequence;
-    field @Nullable public final description: CharSequence;
-    field @Nullable public final discNumber: Integer;
-    field @Nullable public final displayTitle: CharSequence;
-    field @Nullable public final durationMs: Long;
-    field @Nullable public final extras: android.os.Bundle;
-    field @Deprecated @Nullable @androidx.media3.common.MediaMetadata.FolderType public final folderType: @androidx.media3.common.MediaMetadata.FolderType Integer;
-    field @Nullable public final genre: CharSequence;
-    field @Nullable public final isBrowsable: Boolean;
-    field @Nullable public final isPlayable: Boolean;
-    field @Nullable public final mediaType: @androidx.media3.common.MediaMetadata.MediaType Integer;
-    field @Nullable public final overallRating: androidx.media3.common.Rating;
-    field @Nullable public final recordingDay: Integer;
-    field @Nullable public final recordingMonth: Integer;
-    field @Nullable public final recordingYear: Integer;
-    field @Nullable public final releaseDay: Integer;
-    field @Nullable public final releaseMonth: Integer;
-    field @Nullable public final releaseYear: Integer;
-    field @Nullable public final station: CharSequence;
-    field @Nullable public final subtitle: CharSequence;
-    field @Nullable public final title: CharSequence;
-    field @Nullable public final totalDiscCount: Integer;
-    field @Nullable public final totalTrackCount: Integer;
-    field @Nullable public final trackNumber: Integer;
-    field @Nullable public final userRating: androidx.media3.common.Rating;
-    field @Nullable public final writer: CharSequence;
+    field public final albumArtist: @Nullable CharSequence;
+    field public final albumTitle: @Nullable CharSequence;
+    field public final artist: @Nullable CharSequence;
+    field public final artworkData: byte @Nullable [];
+    field @androidx.media3.common.MediaMetadata.PictureType public final artworkDataType: @Nullable @androidx.media3.common.MediaMetadata.PictureType Integer;
+    field public final artworkUri: android.net.@Nullable Uri;
+    field public final compilation: @Nullable CharSequence;
+    field public final composer: @Nullable CharSequence;
+    field public final conductor: @Nullable CharSequence;
+    field public final description: @Nullable CharSequence;
+    field public final discNumber: @Nullable Integer;
+    field public final displayTitle: @Nullable CharSequence;
+    field public final durationMs: @Nullable Long;
+    field public final extras: android.os.@Nullable Bundle;
+    field @Deprecated @androidx.media3.common.MediaMetadata.FolderType public final folderType: @Nullable @androidx.media3.common.MediaMetadata.FolderType Integer;
+    field public final genre: @Nullable CharSequence;
+    field public final isBrowsable: @Nullable Boolean;
+    field public final isPlayable: @Nullable Boolean;
+    field public final mediaType: @Nullable @androidx.media3.common.MediaMetadata.MediaType Integer;
+    field public final overallRating: androidx.media3.common.@Nullable Rating;
+    field public final recordingDay: @Nullable Integer;
+    field public final recordingMonth: @Nullable Integer;
+    field public final recordingYear: @Nullable Integer;
+    field public final releaseDay: @Nullable Integer;
+    field public final releaseMonth: @Nullable Integer;
+    field public final releaseYear: @Nullable Integer;
+    field public final station: @Nullable CharSequence;
+    field public final subtitle: @Nullable CharSequence;
+    field public final title: @Nullable CharSequence;
+    field public final totalDiscCount: @Nullable Integer;
+    field public final totalTrackCount: @Nullable Integer;
+    field public final trackNumber: @Nullable Integer;
+    field public final userRating: androidx.media3.common.@Nullable Rating;
+    field public final writer: @Nullable CharSequence;
   }
 
   public static final class MediaMetadata.Builder {
     ctor public MediaMetadata.Builder();
     method public build(): androidx.media3.common.MediaMetadata;
     method public maybeSetArtworkData(_: byte[], @androidx.media3.common.MediaMetadata.PictureType _: @androidx.media3.common.MediaMetadata.PictureType int): androidx.media3.common.MediaMetadata.Builder;
-    method public setAlbumArtist(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setAlbumTitle(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setArtist(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setArtworkData(@Nullable _: byte[], @Nullable @androidx.media3.common.MediaMetadata.PictureType _: @androidx.media3.common.MediaMetadata.PictureType Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setArtworkUri(@Nullable _: android.net.Uri): androidx.media3.common.MediaMetadata.Builder;
-    method public setCompilation(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setComposer(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setConductor(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setDescription(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setDiscNumber(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setDisplayTitle(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setDurationMs(@Nullable _: Long): androidx.media3.common.MediaMetadata.Builder;
-    method public setExtras(@Nullable _: android.os.Bundle): androidx.media3.common.MediaMetadata.Builder;
-    method @Deprecated public setFolderType(@Nullable @androidx.media3.common.MediaMetadata.FolderType _: @androidx.media3.common.MediaMetadata.FolderType Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setGenre(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setIsBrowsable(@Nullable _: Boolean): androidx.media3.common.MediaMetadata.Builder;
-    method public setIsPlayable(@Nullable _: Boolean): androidx.media3.common.MediaMetadata.Builder;
-    method public setMediaType(@Nullable _: @androidx.media3.common.MediaMetadata.MediaType Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setOverallRating(@Nullable _: androidx.media3.common.Rating): androidx.media3.common.MediaMetadata.Builder;
-    method public setRecordingDay(@IntRange(from=1, to=31) @Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setRecordingMonth(@IntRange(from=1, to=12) @Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setRecordingYear(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setReleaseDay(@IntRange(from=1, to=31) @Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setReleaseMonth(@IntRange(from=1, to=12) @Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setReleaseYear(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setStation(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setSubtitle(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setTitle(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setTotalDiscCount(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setTotalTrackCount(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setTrackNumber(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
-    method public setUserRating(@Nullable _: androidx.media3.common.Rating): androidx.media3.common.MediaMetadata.Builder;
-    method public setWriter(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setAlbumArtist(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setAlbumTitle(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setArtist(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setArtworkData(_: byte @Nullable [], @androidx.media3.common.MediaMetadata.PictureType _: @Nullable @androidx.media3.common.MediaMetadata.PictureType Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setArtworkUri(_: android.net.@Nullable Uri): androidx.media3.common.MediaMetadata.Builder;
+    method public setCompilation(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setComposer(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setConductor(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setDescription(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setDiscNumber(_: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setDisplayTitle(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setDurationMs(_: @Nullable Long): androidx.media3.common.MediaMetadata.Builder;
+    method public setExtras(_: android.os.@Nullable Bundle): androidx.media3.common.MediaMetadata.Builder;
+    method @Deprecated public setFolderType(@androidx.media3.common.MediaMetadata.FolderType _: @Nullable @androidx.media3.common.MediaMetadata.FolderType Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setGenre(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setIsBrowsable(_: @Nullable Boolean): androidx.media3.common.MediaMetadata.Builder;
+    method public setIsPlayable(_: @Nullable Boolean): androidx.media3.common.MediaMetadata.Builder;
+    method public setMediaType(_: @Nullable @androidx.media3.common.MediaMetadata.MediaType Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setOverallRating(_: androidx.media3.common.@Nullable Rating): androidx.media3.common.MediaMetadata.Builder;
+    method public setRecordingDay(@IntRange(from=1, to=31) _: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setRecordingMonth(@IntRange(from=1, to=12) _: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setRecordingYear(_: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setReleaseDay(@IntRange(from=1, to=31) _: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setReleaseMonth(@IntRange(from=1, to=12) _: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setReleaseYear(_: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setStation(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setSubtitle(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setTitle(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
+    method public setTotalDiscCount(_: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setTotalTrackCount(_: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setTrackNumber(_: @Nullable Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setUserRating(_: androidx.media3.common.@Nullable Rating): androidx.media3.common.MediaMetadata.Builder;
+    method public setWriter(_: @Nullable CharSequence): androidx.media3.common.MediaMetadata.Builder;
   }
 
   @Deprecated @IntDef({androidx.media3.common.MediaMetadata.FOLDER_TYPE_NONE, androidx.media3.common.MediaMetadata.FOLDER_TYPE_MIXED, androidx.media3.common.MediaMetadata.FOLDER_TYPE_TITLES, androidx.media3.common.MediaMetadata.FOLDER_TYPE_ALBUMS, androidx.media3.common.MediaMetadata.FOLDER_TYPE_ARTISTS, androidx.media3.common.MediaMetadata.FOLDER_TYPE_GENRES, androidx.media3.common.MediaMetadata.FOLDER_TYPE_PLAYLISTS, androidx.media3.common.MediaMetadata.FOLDER_TYPE_YEARS}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface MediaMetadata.FolderType {
@@ -1366,7 +1366,7 @@ package androidx.media3.datasource {
 
   public static final class DefaultHttpDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public DefaultHttpDataSource.Factory();
-    method public setUserAgent(@Nullable _: String): androidx.media3.datasource.DefaultHttpDataSource.Factory;
+    method public setUserAgent(_: @Nullable String): androidx.media3.datasource.DefaultHttpDataSource.Factory;
   }
 
   public interface HttpDataSource extends androidx.media3.datasource.DataSource {

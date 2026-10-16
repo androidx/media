@@ -22,7 +22,6 @@ import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static androidx.media3.common.util.Util.putInt24;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.MetricsProvider;
@@ -31,6 +30,7 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.primitives.ImmutableIntArray;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AudioProcessor} that applies a mapping from input channels onto specified output
@@ -47,7 +47,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor
    * @deprecated Use {@link #setChannelMap(ImmutableIntArray)} instead.
    */
   @Deprecated
-  public void setChannelMap(@Nullable int[] outputChannels) {
+  public void setChannelMap(int @Nullable [] outputChannels) {
     setChannelMap(outputChannels == null ? null : ImmutableIntArray.copyOf(outputChannels));
   }
 

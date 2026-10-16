@@ -18,10 +18,10 @@ package androidx.media3.datasource;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import javax.crypto.Cipher;
+import org.jspecify.annotations.Nullable;
 
 /** A wrapping {@link DataSink} that encrypts the data being consumed. */
 @UnstableApi
@@ -29,7 +29,7 @@ public final class AesCipherDataSink implements DataSink {
 
   private final DataSink wrappedDataSink;
   private final byte[] secretKey;
-  @Nullable private final byte[] scratch;
+  private final byte @Nullable [] scratch;
 
   @Nullable private AesFlushingCipher cipher;
 
@@ -57,7 +57,7 @@ public final class AesCipherDataSink implements DataSink {
    *     cipher calls will be required to complete the operation. If {@code null} then encryption
    *     will overwrite the input {@code data}.
    */
-  public AesCipherDataSink(byte[] secretKey, DataSink wrappedDataSink, @Nullable byte[] scratch) {
+  public AesCipherDataSink(byte[] secretKey, DataSink wrappedDataSink, byte @Nullable [] scratch) {
     this.wrappedDataSink = wrappedDataSink;
     this.secretKey = secretKey;
     this.scratch = scratch;

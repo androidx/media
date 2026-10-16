@@ -25,11 +25,11 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.Log;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A simple set of metadata for a media item suitable for display. This can be created using the
@@ -154,7 +154,7 @@ public final class MediaDescriptionCompat implements Parcelable {
   /** A bitmap icon suitable for display or null. */
   @Nullable private final Bitmap icon;
 
-  @Nullable private byte[] compressedIcon;
+  private byte @Nullable [] compressedIcon;
 
   /** A Uri for an icon suitable for display or null. */
   @Nullable private final Uri iconUri;
@@ -282,8 +282,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    * Returns the bytes for the compressed {@link #getIconBitmap()}, or null if there is no icon
    * bitmap or the compression fails.
    */
-  @Nullable
-  public byte[] getIconBitmapData() {
+  public byte @Nullable [] getIconBitmapData() {
     if (icon == null) {
       return null;
     }

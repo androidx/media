@@ -16,9 +16,9 @@
 package androidx.media3.datasource.cache;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Interface for an immutable snapshot of keyed metadata. */
 @UnstableApi
@@ -44,8 +44,7 @@ public interface ContentMetadata {
    * @param defaultValue Value to return if the metadata doesn't exist.
    * @return The metadata value.
    */
-  @Nullable
-  byte[] get(String key, @Nullable byte[] defaultValue);
+  byte @Nullable [] get(String key, byte @Nullable [] defaultValue);
 
   /**
    * Returns a metadata value.
@@ -54,8 +53,7 @@ public interface ContentMetadata {
    * @param defaultValue Value to return if the metadata doesn't exist.
    * @return The metadata value.
    */
-  @Nullable
-  String get(String key, @Nullable String defaultValue);
+  @Nullable String get(String key, @Nullable String defaultValue);
 
   /**
    * Returns a metadata value.

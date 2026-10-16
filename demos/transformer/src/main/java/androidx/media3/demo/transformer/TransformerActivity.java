@@ -54,7 +54,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
@@ -132,6 +131,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link Activity} that exports and plays media using {@link Transformer}. */
 public final class TransformerActivity extends AppCompatActivity {
@@ -533,8 +533,7 @@ public final class TransformerActivity extends AppCompatActivity {
   }
 
   private ImmutableList<AudioProcessor> createAudioProcessorsFromBundle(Bundle bundle) {
-    @Nullable
-    boolean[] selectedAudioEffects =
+    boolean @Nullable [] selectedAudioEffects =
         bundle.getBooleanArray(ConfigurationActivity.AUDIO_EFFECTS_SELECTIONS);
 
     if (selectedAudioEffects == null) {

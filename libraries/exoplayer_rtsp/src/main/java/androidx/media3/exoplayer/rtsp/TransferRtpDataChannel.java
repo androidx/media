@@ -20,7 +20,6 @@ import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BaseDataSource;
@@ -28,6 +27,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.rtsp.RtspMessageChannel.InterleavedBinaryDataListener;
 import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link RtpDataChannel} that transfers received data in-memory. */
 /* package */ final class TransferRtpDataChannel extends BaseDataSource
@@ -109,7 +109,7 @@ import java.util.concurrent.LinkedBlockingQueue;
       return bytesRead;
     }
 
-    @Nullable byte[] data;
+    byte @Nullable [] data;
     try {
       data = packetQueue.poll(pollTimeoutMs, MILLISECONDS);
       if (data == null) {

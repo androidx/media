@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.os.ConditionVariable;
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
@@ -39,6 +38,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Cache} implementation that maintains an in-memory representation.
@@ -192,7 +192,7 @@ public final class SimpleCache implements Cache {
       File cacheDir,
       CacheEvictor evictor,
       @Nullable DatabaseProvider databaseProvider,
-      @Nullable byte[] legacyIndexSecretKey,
+      byte @Nullable [] legacyIndexSecretKey,
       boolean legacyIndexEncrypt,
       boolean preferLegacyIndex) {
     this(
@@ -527,7 +527,7 @@ public final class SimpleCache implements Cache {
       }
     }
 
-    @Nullable File[] files = cacheDir.listFiles();
+    File @Nullable [] files = cacheDir.listFiles();
     if (files == null) {
       String message = "Failed to list cache directory files: " + cacheDir;
       Log.e(TAG, message);
@@ -585,7 +585,7 @@ public final class SimpleCache implements Cache {
   private void loadDirectory(
       File directory,
       boolean isRoot,
-      @Nullable File[] files,
+      File @Nullable [] files,
       @Nullable Map<String, CacheFileMetadata> fileMetadata) {
     if (files == null || files.length == 0) {
       // Either (a) directory isn't really a directory (b) it's empty, or (c) listing files failed.
@@ -608,14 +608,13 @@ public final class SimpleCache implements Cache {
         }
         long length = C.LENGTH_UNSET;
         long lastTouchTimestamp = C.TIME_UNSET;
-        @Nullable
-        CacheFileMetadata metadata = fileMetadata != null ? fileMetadata.remove(fileName) : null;
+        @Nullable CacheFileMetadata metadata =
+            fileMetadata != null ? fileMetadata.remove(fileName) : null;
         if (metadata != null) {
           length = metadata.length;
           lastTouchTimestamp = metadata.lastTouchTimestamp;
         }
-        @Nullable
-        SimpleCacheSpan span =
+        @Nullable SimpleCacheSpan span =
             SimpleCacheSpan.createCacheEntry(file, length, lastTouchTimestamp, contentIndex);
         if (span != null) {
           addSpan(span);

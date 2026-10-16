@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
@@ -50,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SampleStream} that loads media in {@link Chunk}s, obtained from a {@link ChunkSource}.
@@ -129,8 +129,8 @@ public class ChunkSampleStream<T extends ChunkSource>
    */
   public ChunkSampleStream(
       @C.TrackType int primaryTrackType,
-      @Nullable int[] embeddedTrackTypes,
-      @Nullable Format[] embeddedTrackFormats,
+      int @Nullable [] embeddedTrackTypes,
+      Format @Nullable [] embeddedTrackFormats,
       T chunkSource,
       Callback<ChunkSampleStream<T>> callback,
       Allocator allocator,

@@ -31,7 +31,6 @@ import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -48,6 +47,7 @@ import com.google.common.primitives.Ints;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for {@link MediaCodec} encoders. */
 @UnstableApi
@@ -460,7 +460,7 @@ public final class EncoderUtil {
       MediaCodecInfo encoderInfo, String mimeType, int requestedSampleRate) {
     MediaCodecInfo.AudioCapabilities audioCapabilities =
         checkNotNull(encoderInfo.getCapabilitiesForType(mimeType).getAudioCapabilities());
-    @Nullable int[] supportedSampleRates = audioCapabilities.getSupportedSampleRates();
+    int @Nullable [] supportedSampleRates = audioCapabilities.getSupportedSampleRates();
     int closestSampleRate = Integer.MAX_VALUE;
     if (supportedSampleRates != null) {
       // The codec supports only discrete values.

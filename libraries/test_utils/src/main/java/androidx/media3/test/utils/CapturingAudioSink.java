@@ -19,7 +19,6 @@ import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -38,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AudioSink} forwarding to {@link DefaultAudioSink} that captures configuration,
@@ -336,7 +336,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     @Nullable private final String dataDumpValue;
 
     /** Exactly one of this and {@link #dataDumpValue} is non-null. */
-    @Nullable private final int[] perChannelHashCodes;
+    private final int @Nullable [] perChannelHashCodes;
 
     public DumpableBuffer(
         int bufferCounter, Format format, ByteBuffer buffer, long presentationTimeUs) {

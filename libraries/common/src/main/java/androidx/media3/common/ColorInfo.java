@@ -16,13 +16,13 @@
 package androidx.media3.common;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores color info.
@@ -43,7 +43,7 @@ public final class ColorInfo {
     private @C.ColorSpace int colorSpace;
     private @C.ColorRange int colorRange;
     private @C.ColorTransfer int colorTransfer;
-    @Nullable private byte[] hdrStaticInfo;
+    private byte @Nullable [] hdrStaticInfo;
     private int lumaBitdepth;
     private int chromaBitdepth;
 
@@ -119,7 +119,7 @@ public final class ColorInfo {
      * @return This {@code Builder}.
      */
     @CanIgnoreReturnValue
-    public Builder setHdrStaticInfo(@Nullable byte[] hdrStaticInfo) {
+    public Builder setHdrStaticInfo(byte @Nullable [] hdrStaticInfo) {
       this.hdrStaticInfo = hdrStaticInfo;
       return this;
     }
@@ -348,7 +348,7 @@ public final class ColorInfo {
   public final @C.ColorTransfer int colorTransfer;
 
   /** HdrStaticInfo as defined in CTA-861.3, or null if none specified. */
-  @Nullable public final byte[] hdrStaticInfo;
+  public final byte @Nullable [] hdrStaticInfo;
 
   /** The bit depth of the luma samples of the video, or {@link Format#NO_VALUE} if not set. */
   public final int lumaBitdepth;
@@ -366,7 +366,7 @@ public final class ColorInfo {
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer,
-      @Nullable byte[] hdrStaticInfo,
+      byte @Nullable [] hdrStaticInfo,
       int lumaBitdepth,
       int chromaBitdepth) {
     this.colorSpace = colorSpace;
