@@ -27,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.FlagSet;
 import java.util.ArrayDeque;
 import java.util.concurrent.CopyOnWriteArraySet;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * A set of listeners.
@@ -43,7 +42,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * @param <T> The listener type.
  */
 @UnstableApi
-public final class ListenerSet<T extends @NonNull Object> {
+public final class ListenerSet<T> {
 
   /**
    * An event sent to a listener.
@@ -436,7 +435,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     checkState(isRunningOnCorrectThread());
   }
 
-  private static final class ListenerHolder<T extends @NonNull Object> {
+  private static final class ListenerHolder<T> {
 
     public final T listener;
 

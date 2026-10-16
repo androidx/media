@@ -35,7 +35,6 @@ import androidx.media3.session.PlayerInfo.BundlingExclusions;
 import com.google.common.collect.ImmutableList;
 import java.lang.ref.WeakReference;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /* package */ class MediaControllerStub extends IMediaController.Stub {
 
@@ -397,8 +396,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     controller.clear();
   }
 
-  private <T extends @NonNull Object> void setControllerFutureResult(
-      int sequenceNum, T futureResult) {
+  private <T> void setControllerFutureResult(int sequenceNum, T futureResult) {
     long token = Binder.clearCallingIdentity();
     try {
       @Nullable MediaControllerImplBase controller = this.controller.get();

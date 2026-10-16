@@ -106,7 +106,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 // TODO: b/138091975 - Don't ignore future return values if feasible.
 // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -2779,7 +2778,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     updateSessionPositionInfoIfNeeded(sessionPositionInfo);
   }
 
-  <T extends @NonNull Object> void setFutureResult(int seq, T futureResult) {
+  <T> void setFutureResult(int seq, T futureResult) {
     // Don't set the future result on the application looper so that the result can be obtained by a
     // blocking future.get() on the application looper. But post a message to remove the pending
     // masking operation on the application looper to ensure it's executed in order with other

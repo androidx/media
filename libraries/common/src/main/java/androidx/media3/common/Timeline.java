@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * A flexible representation of the structure of media. A timeline is able to represent the
@@ -1646,7 +1645,7 @@ public abstract class Timeline {
             : shuffledWindowIndices);
   }
 
-  private static <T extends @NonNull Object> ImmutableList<T> fromBundleListRetriever(
+  private static <T> ImmutableList<T> fromBundleListRetriever(
       Function<Bundle, T> fromBundleFunc, @Nullable IBinder binder) {
     if (binder == null) {
       return ImmutableList.of();

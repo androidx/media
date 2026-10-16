@@ -35,7 +35,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * Manager that holds {@link ControllerInfo} of connected {@link MediaController controllers}.
@@ -46,7 +45,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * <p>All methods must be called on the application thread associated with the player.
  */
-/* package */ final class ConnectedControllersManager<T extends @NonNull Object> {
+/* package */ final class ConnectedControllersManager<T> {
 
   /** An asynchronous controller command function. */
   public interface AsyncCommand {

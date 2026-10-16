@@ -162,7 +162,6 @@ import java.util.zip.Inflater;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -4006,8 +4005,7 @@ public final class Util {
    * @param newFromIndex The new from index.
    */
   @UnstableApi
-  public static <T extends @NonNull Object> void moveItems(
-      List<T> items, int fromIndex, int toIndex, int newFromIndex) {
+  public static <T> void moveItems(List<T> items, int fromIndex, int toIndex, int newFromIndex) {
     ArrayDeque<T> removedItems = new ArrayDeque<>();
     int removedItemsLength = toIndex - fromIndex;
     for (int i = removedItemsLength - 1; i >= 0; i--) {

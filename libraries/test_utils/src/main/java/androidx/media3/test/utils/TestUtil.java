@@ -103,7 +103,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.function.ThrowingRunnable;
 import org.mockito.Mockito;
 
@@ -839,10 +838,9 @@ public class TestUtil {
    * an instance of {@code forwardingType} results in the call being forwarded to the {@code
    * superType} delegate.
    */
-  public static <T extends @NonNull Object, F extends T>
-      void assertForwardingClassForwardsAllMethods(
-          Class<T> superType, Function<T, F> forwardingInstanceFactory)
-          throws InvocationTargetException, IllegalAccessException {
+  public static <T, F extends T> void assertForwardingClassForwardsAllMethods(
+      Class<T> superType, Function<T, F> forwardingInstanceFactory)
+      throws InvocationTargetException, IllegalAccessException {
     assertForwardingClassForwardsAllMethodsExcept(
         superType, forwardingInstanceFactory, /* excludedMethods= */ ImmutableSet.of());
   }
@@ -858,10 +856,9 @@ public class TestUtil {
   // non-null parameters. See also
   // https://github.com/typetools/checker-framework/blob/c26bb695ebc572fac1e9cd2e331fc5b9d3953ec0/checker/jdk/nullness/src/java/lang/reflect/Method.java#L109
   @SuppressWarnings("nullness:argument.type.incompatible")
-  public static <T extends @NonNull Object, F extends T>
-      void assertForwardingClassForwardsAllMethodsExcept(
-          Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
-          throws InvocationTargetException, IllegalAccessException {
+  public static <T, F extends T> void assertForwardingClassForwardsAllMethodsExcept(
+      Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
+      throws InvocationTargetException, IllegalAccessException {
     for (Method method : getPublicOverridableMethods(superType)) {
       if (excludedMethods.contains(method.getName())) {
         continue;
