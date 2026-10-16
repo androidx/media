@@ -89,6 +89,8 @@
         metadata tracks in MP4 files.
     *   Fix an issue where slow-preparing media periods in a playlist could be
         skipped.
+    *   Fix an issue where a renderer enabled early for an upcoming media period
+        could start rendering before playback transitions to that period.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback

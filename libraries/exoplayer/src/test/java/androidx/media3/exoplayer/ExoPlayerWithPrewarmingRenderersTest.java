@@ -2371,6 +2371,274 @@ public class ExoPlayerWithPrewarmingRenderersTest {
         .inOrder();
   }
 
+  @Test
+  public void
+      play_pauseAndResumeWithPrimaryRendererPrewarmingAfterDisabledPeriod_doesNotStartBeforePeriodTransition()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    Timeline timeline11s =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(11_000_000).build());
+    Timeline timeline1s =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(1_000_000).build());
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(timeline11s, ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(timeline1s, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                timeline1s, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)));
+
+    player.prepare();
+    player.play();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                player.getPlaybackState() == Player.STATE_READY
+                    && videoRenderer.getState() == Renderer.STATE_DISABLED);
+    advance(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int videoStateAfterPauseAndResume = videoRenderer.getState();
+    advance(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_STARTED);
+    @Renderer.State int videoStateInFinalPeriod = videoRenderer.getState();
+    player.release();
+
+    assertThat(videoStateAfterPauseAndResume).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoStateInFinalPeriod).isEqualTo(Renderer.STATE_STARTED);
+  }
+
+  @Test
+  public void
+      play_pauseAndResumeWithSecondaryRendererPrewarmingAfterDisabledPeriod_doesNotStartBeforePeriodTransition()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Timeline timeline11s =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(11_000_000).build());
+    Timeline timeline1s =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(1_000_000).build());
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(timeline1s, ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(timeline11s, ExoPlayerTestRunner.VIDEO_FORMAT),
+            new FakeMediaSource(timeline1s, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                timeline1s, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)));
+
+    player.prepare();
+    player.play();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                player.getCurrentMediaItemIndex() == 1
+                    && secondaryVideoRenderer.getState() == Renderer.STATE_DISABLED);
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int secondaryVideoStateAfterPauseAndResume = secondaryVideoRenderer.getState();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
+    @Renderer.State int secondaryVideoStateInFinalPeriod = secondaryVideoRenderer.getState();
+    player.release();
+
+    assertThat(secondaryVideoStateAfterPauseAndResume).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryVideoStateInFinalPeriod).isEqualTo(Renderer.STATE_STARTED);
+  }
+
+  @Test
+  public void
+      play_secondaryRendererReEnabledOnFourthPeriodWithPrimaryRendererPrewarmingFifthPeriod_startsRenderersInTargetPeriods()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicBoolean shouldPrimaryRendererThrow = new AtomicBoolean(true);
+    RenderersFactory renderersFactory =
+        new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock) {
+          @Override
+          public Renderer[] createRenderers(
+              Handler eventHandler,
+              VideoRendererEventListener videoRendererEventListener,
+              AudioRendererEventListener audioRendererEventListener,
+              TextOutput textRendererOutput,
+              MetadataOutput metadataRendererOutput) {
+            HandlerWrapper clockAwareHandler =
+                clock.createHandler(eventHandler.getLooper(), /* callback= */ null);
+            return new Renderer[] {
+              new FakeVideoRenderer(clockAwareHandler, videoRendererEventListener) {
+                @Override
+                public void render(long positionUs, long elapsedRealtimeUs)
+                    throws ExoPlaybackException {
+                  if (enabledCount == 2 && shouldPrimaryRendererThrow.compareAndSet(true, false)) {
+                    throw createRendererException(
+                        new MediaCodecRenderer.DecoderInitializationException(
+                            new Format.Builder().build(),
+                            new IllegalArgumentException(),
+                            /* secureDecoderRequired= */ false,
+                            /* errorCode= */ 0),
+                        getFormatHolder().format,
+                        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+                  }
+                  super.render(positionUs, elapsedRealtimeUs);
+                }
+              },
+              new FakeAudioRenderer(clockAwareHandler, audioRendererEventListener) {
+                @Override
+                protected void onStreamChanged(
+                    Format[] formats,
+                    long startPositionUs,
+                    long offsetUs,
+                    MediaPeriodId mediaPeriodId)
+                    throws ExoPlaybackException {
+                  super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+                  isEnded = false;
+                }
+              }
+            };
+          }
+
+          @Override
+          public Renderer createSecondaryRenderer(
+              Renderer renderer,
+              Handler eventHandler,
+              VideoRendererEventListener videoRendererEventListener,
+              AudioRendererEventListener audioRendererEventListener,
+              TextOutput textRendererOutput,
+              MetadataOutput metadataRendererOutput) {
+            if (renderer instanceof FakeVideoRenderer) {
+              return new FakeVideoRenderer(
+                  clock.createHandler(eventHandler.getLooper(), /* callback= */ null),
+                  videoRendererEventListener) {
+                @Override
+                protected void onPositionReset(
+                    long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+                    throws ExoPlaybackException {
+                  super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+                  setCurrentStreamFinal();
+                }
+              };
+            }
+            return null;
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(renderersFactory)
+            .build();
+    Renderer videoRenderer = player.getRenderer(/* index= */ 0);
+    FakeVideoRenderer secondaryVideoRenderer =
+        (FakeVideoRenderer) requireNonNull(player.getSecondaryRenderer(/* index= */ 0));
+    Timeline periodTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(1_000_000)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
+    FakeMediaPeriod.TrackDataFactory twoSampleTrackDataFactory =
+        (unusedFormat, unusedMediaPeriodId) ->
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM);
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource.Builder()
+                .setTimeline(periodTimeline)
+                .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
+                .setTrackDataFactory(twoSampleTrackDataFactory)
+                .build(),
+            new FakeMediaSource.Builder()
+                .setTimeline(periodTimeline)
+                .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
+                .setTrackDataFactory(twoSampleTrackDataFactory)
+                .build(),
+            new FakeMediaSource.Builder()
+                .setTimeline(periodTimeline)
+                .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
+                .setTrackDataFactory(
+                    (format, unusedMediaPeriodId) ->
+                        format.equals(ExoPlayerTestRunner.VIDEO_FORMAT)
+                            ? ImmutableList.of(END_OF_STREAM_ITEM)
+                            : ImmutableList.of(
+                                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                                END_OF_STREAM_ITEM))
+                .build(),
+            new FakeMediaSource.Builder()
+                .setTimeline(periodTimeline)
+                .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
+                .setTrackDataFactory(twoSampleTrackDataFactory)
+                .build(),
+            new FakeMediaSource.Builder()
+                .setTimeline(periodTimeline)
+                .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
+                .setTrackDataFactory(twoSampleTrackDataFactory)
+                .build()));
+
+    player.prepare();
+    player.play();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                player.getCurrentMediaItemIndex() == 1 && secondaryVideoRenderer.enabledCount == 3);
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State
+    int secondaryStateAfterPauseResumeInSecondPeriod = secondaryVideoRenderer.getState();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> player.getCurrentMediaItemIndex() == 2 && player.getCurrentPosition() >= 100);
+    @Renderer.State int secondaryStateInThirdPeriod = secondaryVideoRenderer.getState();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () ->
+                player.getCurrentMediaItemIndex() == 3
+                    && videoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int primaryStateInFourthPeriod = videoRenderer.getState();
+    @Renderer.State int secondaryStateInFourthPeriod = secondaryVideoRenderer.getState();
+    player.pause();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int primaryStateAfterPauseResumeInFourthPeriod = videoRenderer.getState();
+    @Renderer.State
+    int secondaryStateAfterPauseResumeInFourthPeriod = secondaryVideoRenderer.getState();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> player.getCurrentMediaItemIndex() == 4 && player.getCurrentPosition() >= 100);
+    @Renderer.State int primaryStateInFifthPeriod = videoRenderer.getState();
+    player.release();
+
+    assertThat(secondaryStateAfterPauseResumeInSecondPeriod).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryStateInThirdPeriod).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(primaryStateInFourthPeriod).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryStateInFourthPeriod).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(primaryStateAfterPauseResumeInFourthPeriod).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(secondaryStateAfterPauseResumeInFourthPeriod).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(primaryStateInFifthPeriod).isEqualTo(Renderer.STATE_STARTED);
+  }
+
   /** {@link FakeMediaSource} that prevents any reading of samples off the sample queue. */
   private static final class FakeBlockingMediaSource extends FakeMediaSource {
 

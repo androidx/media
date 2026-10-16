@@ -3404,10 +3404,10 @@ import org.jspecify.annotations.Nullable;
           renderers[i].maybeHandlePrewarmingTransition();
         }
       }
+      allowRenderersToRenderStartOfStreams();
       if (playbackInfo.playbackState == Player.STATE_READY) {
         startRenderers();
       }
-      allowRenderersToRenderStartOfStreams();
       advancedPlayingPeriod = true;
     }
   }
@@ -3450,12 +3450,13 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void allowRenderersToRenderStartOfStreams() {
-    TrackSelectorResult playingTracks = queue.getPlayingPeriod().getTrackSelectorResult();
+    MediaPeriodHolder playingPeriodHolder = checkNotNull(queue.getPlayingPeriod());
+    TrackSelectorResult playingTracks = playingPeriodHolder.getTrackSelectorResult();
     for (int i = 0; i < renderers.length; i++) {
       if (!playingTracks.isRendererEnabled(i)) {
         continue;
       }
-      renderers[i].enableMayRenderStartOfStream();
+      renderers[i].enableMayRenderStartOfStream(playingPeriodHolder);
     }
   }
 

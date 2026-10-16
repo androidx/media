@@ -60,6 +60,10 @@ import java.util.Objects;
   private @RendererPrewarmingState int prewarmingState;
   private boolean primaryRequiresReset;
   private boolean secondaryRequiresReset;
+  private boolean primaryMayRenderStartOfStream;
+  private boolean secondaryMayRenderStartOfStream;
+  @Nullable private SampleStream primaryEnabledSampleStream;
+  @Nullable private SampleStream secondaryEnabledSampleStream;
 
   public RendererHolder(Renderer renderer, @Nullable Renderer secondaryRenderer, int index) {
     this.primaryRenderer = renderer;
@@ -68,6 +72,8 @@ import java.util.Objects;
     prewarmingState = RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
     primaryRequiresReset = false;
     secondaryRequiresReset = false;
+    primaryMayRenderStartOfStream = false;
+    secondaryMayRenderStartOfStream = false;
   }
 
   public boolean hasSecondary() {
@@ -279,14 +285,52 @@ import java.util.Objects;
   /**
    * Calls {@link Renderer#enableMayRenderStartOfStream} on enabled {@link Renderer renderers}.
    *
+   * @param playingPeriodHolder The currently playing {@link MediaPeriodHolder}.
    * @see Renderer#enableMayRenderStartOfStream
    */
-  public void enableMayRenderStartOfStream() {
-    if (isRendererEnabled(primaryRenderer)) {
+  public void enableMayRenderStartOfStream(MediaPeriodHolder playingPeriodHolder) {
+    // Only allow rendering the start of the stream if the renderer was not enabled early for a
+    // period following the playing period.
+    if (isRendererEnabled(primaryRenderer)
+        && !isPrimaryRendererPrewarming()
+        && !isSampleStreamInFollowingPeriod(playingPeriodHolder, primaryEnabledSampleStream)) {
+      primaryMayRenderStartOfStream = true;
+      primaryEnabledSampleStream = null;
       primaryRenderer.enableMayRenderStartOfStream();
-    } else if (secondaryRenderer != null && isRendererEnabled(secondaryRenderer)) {
+    }
+    if (secondaryRenderer != null
+        && isRendererEnabled(secondaryRenderer)
+        && !isSecondaryRendererPrewarming()
+        && !isSampleStreamInFollowingPeriod(playingPeriodHolder, secondaryEnabledSampleStream)) {
+      secondaryMayRenderStartOfStream = true;
+      secondaryEnabledSampleStream = null;
       secondaryRenderer.enableMayRenderStartOfStream();
     }
+  }
+
+  /**
+   * Returns whether {@code sampleStream} belongs to a {@link MediaPeriodHolder} in the queue after
+   * {@code periodHolder}.
+   *
+   * @param periodHolder The {@link MediaPeriodHolder} to start searching after.
+   * @param sampleStream The {@link SampleStream} to check, or {@code null}.
+   * @return {@code true} if {@code sampleStream} belongs to a period following {@code
+   *     periodHolder}; {@code false} if {@code sampleStream} is {@code null}, belongs to {@code
+   *     periodHolder} itself, or is not in a following period.
+   */
+  private boolean isSampleStreamInFollowingPeriod(
+      MediaPeriodHolder periodHolder, @Nullable SampleStream sampleStream) {
+    if (sampleStream == null || Objects.equals(periodHolder.sampleStreams[index], sampleStream)) {
+      return false;
+    }
+    MediaPeriodHolder followingPeriod = periodHolder.getNext();
+    while (followingPeriod != null) {
+      if (Objects.equals(followingPeriod.sampleStreams[index], sampleStream)) {
+        return true;
+      }
+      followingPeriod = followingPeriod.getNext();
+    }
+    return false;
   }
 
   /**
@@ -382,17 +426,9 @@ import java.util.Objects;
             || (sampleStream != null
                 && !renderer.hasReadStreamToEnd()
                 && !hasReachedServerSideInsertedAdsTransition(renderer, readingPeriodHolder)))) {
-      // The current reading period is still being read by at least one renderer.
-      MediaPeriodHolder followingPeriod = readingPeriodHolder.getNext();
-      while (followingPeriod != null) {
-        // If renderer is reading ahead as it was enabled early, then it is not 'reading' the
-        // current reading period.
-        if (Objects.equals(followingPeriod.sampleStreams[index], renderer.getStream())) {
-          return true;
-        }
-        followingPeriod = followingPeriod.getNext();
-      }
-      return false;
+      // The current reading period is still being read by at least one renderer, unless the
+      // renderer is reading ahead from a following period because it was enabled early.
+      return isSampleStreamInFollowingPeriod(readingPeriodHolder, renderer.getStream());
     }
     return true;
   }
@@ -463,17 +499,21 @@ import java.util.Objects;
   }
 
   /**
-   * Calls {@link Renderer#start()} on all enabled {@link Renderer renderers}.
+   * Calls {@link Renderer#start()} on enabled {@link Renderer renderers} that are allowed to render
+   * the start of their stream and are not prewarming.
    *
    * @throws ExoPlaybackException If an error occurs.
    */
   public void start() throws ExoPlaybackException {
     if (primaryRenderer.getState() == STATE_ENABLED
-        && (prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY)) {
+        && primaryMayRenderStartOfStream
+        && !isPrimaryRendererPrewarming()) {
       primaryRenderer.start();
-    } else if (secondaryRenderer != null
+    }
+    if (secondaryRenderer != null
         && secondaryRenderer.getState() == STATE_ENABLED
-        && prewarmingState != RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY) {
+        && secondaryMayRenderStartOfStream
+        && !isSecondaryRendererPrewarming()) {
       secondaryRenderer.start();
     }
   }
@@ -533,6 +573,8 @@ import java.util.Objects;
             || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_PRIMARY;
     if (enablePrimary) {
       primaryRequiresReset = true;
+      primaryMayRenderStartOfStream = mayRenderStartOfStream;
+      primaryEnabledSampleStream = mayRenderStartOfStream ? null : stream;
       primaryRenderer.enable(
           configuration,
           formats,
@@ -546,6 +588,8 @@ import java.util.Objects;
       mediaClock.onRendererEnabled(primaryRenderer);
     } else {
       secondaryRequiresReset = true;
+      secondaryMayRenderStartOfStream = mayRenderStartOfStream;
+      secondaryEnabledSampleStream = mayRenderStartOfStream ? null : stream;
       checkNotNull(secondaryRenderer)
           .enable(
               configuration,
@@ -721,6 +765,13 @@ import java.util.Objects;
     }
     mediaClock.onRendererDisabled(renderer);
     ensureStopped(renderer);
+    if (renderer == primaryRenderer) {
+      primaryMayRenderStartOfStream = false;
+      primaryEnabledSampleStream = null;
+    } else {
+      secondaryMayRenderStartOfStream = false;
+      secondaryEnabledSampleStream = null;
+    }
     renderer.disable();
   }
 
