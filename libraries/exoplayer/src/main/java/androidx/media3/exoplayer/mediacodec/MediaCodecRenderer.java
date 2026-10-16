@@ -241,6 +241,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   private static final long MAX_CODEC_HOTSWAP_TIME_MS = 1000;
 
+  /**
+   * The reorder depth assumed when relabeling output timestamps for a format with an unknown
+   * {@link Format#maxNumReorderSamples}. Matches the maximum DPB size of H.264 and H.265.
+   */
+  private static final int DEFAULT_MAX_NUM_REORDER_SAMPLES = 16;
+
+  /** The maximum number of queued samples whose timestamps are retained for relabeling output. */
+  private static final int MAX_ARRIVAL_ORDER_PTS_QUEUE_SIZE = 64;
+
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -399,11 +408,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private CodecParameters activeCodecParameters;
   private CodecParameters lastDispatchedCodecParameters;
   private ImmutableSet<String> subscribedCodecParameterKeys;
-  // Used only when Format#hasReliablePresentationTimestamps is false: replays each sample's own
-  // queued presentationTimeUs in output-arrival order instead of trusting MediaCodec's echoed
-  // (possibly non-monotonic) timestamp. Preserves true per-sample duration, unlike deriving from
-  // a single assumed frame rate.
+  // The timestamps of queued samples whose format has unreliable presentation timestamps, in queue
+  // order. Output buffers are relabeled with these in output order, instead of the timestamp the
+  // codec echoes back, which is out of order for reordered frames.
   private final ArrayDeque<Long> arrivalOrderPtsQueue = new ArrayDeque<>();
+  // The timestamps passed to the codec for the samples in arrivalOrderPtsQueue, in queue order,
+  // removed as the codec echoes them back. Used to detect samples the codec discarded without
+  // producing output, so that arrivalOrderPtsQueue doesn't fall out of step.
+  private final ArrayDeque<Long> pendingCodecPtsQueue = new ArrayDeque<>();
 
   @VisibleForTesting
   /* package */ int getArrivalOrderPtsQueueSizeForTesting() {
@@ -1119,6 +1131,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     skippedFlushOffsetUs = 0;
     largestStaleModifiedPresentationTimeUs = C.TIME_UNSET;
     arrivalOrderPtsQueue.clear();
+    pendingCodecPtsQueue.clear();
   }
 
   /**
@@ -1667,22 +1680,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       handleInputBufferSupplementalData(buffer);
     }
 
+    onQueueInputBuffer(buffer);
+    int flags = getCodecBufferFlags(buffer);
     if (getTrackType() == C.TRACK_TYPE_VIDEO
         && codecInputFormat != null
         && !codecInputFormat.hasReliablePresentationTimestamps
-        && !getConfiguration().tunneling) {
-      // codecInputFormat, not inputFormat: this must describe the format actually governing the
-      // buffer being queued right now, which during a full codec reinit can briefly lag behind
-      // inputFormat (see drainOutputBuffer's matching check). Skipped entirely in tunneling mode,
-      // where drainOutputBuffer -- and so the corresponding pop -- never runs at all; queueing
-      // here without ever draining would just grow this unboundedly.
-      //
-      // Must run before the += skippedFlushOffsetUs below, to match the scale drainOutputBuffer
-      // converts dequeued timestamps back to.
-      arrivalOrderPtsQueue.addLast(presentationTimeUs);
+        && !getConfiguration().tunneling
+        && (flags & MediaCodec.BUFFER_FLAG_DECODE_ONLY) == 0) {
+      // codecInputFormat, not inputFormat: during a full codec reinit inputFormat already describes
+      // the next codec's samples. Skipped in tunneling mode, where output buffers are never
+      // dequeued, and for BUFFER_FLAG_DECODE_ONLY samples, which the codec doesn't output.
+      queueArrivalOrderPts(presentationTimeUs, presentationTimeUs + skippedFlushOffsetUs);
     }
-    onQueueInputBuffer(buffer);
-    int flags = getCodecBufferFlags(buffer);
     presentationTimeUs += skippedFlushOffsetUs;
     if (bufferEncrypted) {
       checkNotNull(codec)
@@ -1717,6 +1726,43 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     return getLastOutputStreamInfo().isDurationStrict()
         ? largestQueuedPresentationTimeWithinDurationUs
         : largestQueuedPresentationTimeUs;
+  }
+
+  private void queueArrivalOrderPts(long presentationTimeUs, long codecPresentationTimeUs) {
+    if (arrivalOrderPtsQueue.size() >= MAX_ARRIVAL_ORDER_PTS_QUEUE_SIZE) {
+      // Backstop against a codec that never echoes back the timestamps it was given.
+      arrivalOrderPtsQueue.removeFirst();
+      pendingCodecPtsQueue.removeFirst();
+    }
+    arrivalOrderPtsQueue.addLast(presentationTimeUs);
+    pendingCodecPtsQueue.addLast(codecPresentationTimeUs);
+  }
+
+  private long dequeueArrivalOrderPts(long codecPresentationTimeUs, long defaultPresentationTimeUs) {
+    int pendingIndex = 0;
+    for (long pendingCodecPts : pendingCodecPtsQueue) {
+      if (pendingCodecPts == codecPresentationTimeUs) {
+        break;
+      }
+      pendingIndex++;
+    }
+    if (pendingIndex == pendingCodecPtsQueue.size()) {
+      // Not a sample that was queued while relabeling was active.
+      return defaultPresentationTimeUs;
+    }
+    // At most maxNumReorderSamples samples queued before this one can still be awaiting output.
+    // Any older pending samples were discarded by the codec without being output (for example RASL
+    // pictures after a seek), so drop them to keep arrivalOrderPtsQueue in step.
+    int maxNumReorderSamples =
+        codecInputFormat != null && codecInputFormat.maxNumReorderSamples != Format.NO_VALUE
+            ? codecInputFormat.maxNumReorderSamples
+            : DEFAULT_MAX_NUM_REORDER_SAMPLES;
+    for (; pendingIndex > maxNumReorderSamples; pendingIndex--) {
+      pendingCodecPtsQueue.removeFirst();
+      arrivalOrderPtsQueue.removeFirst();
+    }
+    pendingCodecPtsQueue.removeFirstOccurrence(codecPresentationTimeUs);
+    return arrivalOrderPtsQueue.removeFirst();
   }
 
   /**
@@ -2286,15 +2332,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         return false;
       }
 
-      if (getTrackType() == C.TRACK_TYPE_VIDEO
-          && codecInputFormat != null
-          && !codecInputFormat.hasReliablePresentationTimestamps
-          && !arrivalOrderPtsQueue.isEmpty()) {
-        // codecInputFormat, not inputFormat -- see the matching check in feedInputBuffer. No
-        // tunneling check needed here: in tunneling mode this method isn't called at all (see
-        // updateOutputFormatForTime's javadoc), so the push side already prevents anything from
-        // reaching this queue to begin with.
-        outputBufferInfo.presentationTimeUs = arrivalOrderPtsQueue.removeFirst();
+      if (!arrivalOrderPtsQueue.isEmpty()) {
+        outputBufferInfo.presentationTimeUs =
+            dequeueArrivalOrderPts(
+                /* codecPresentationTimeUs= */ outputBufferInfo.presentationTimeUs
+                    + skippedFlushOffsetUs,
+                /* defaultPresentationTimeUs= */ outputBufferInfo.presentationTimeUs);
       }
 
       this.outputIndex = outputIndex;

@@ -131,8 +131,10 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -400,9 +402,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void render_withUnreliablePtsAndModeratelyLateBuffer_doesNotDrop() throws Exception {
-    // Point 3: unreliable timestamps must not disable drop detection outright (see
-    // shouldDropOutputBuffer), but do need much more slack than normal since earlyUs isn't ground
-    // truth here. 100ms late clears the normal 30ms threshold but not the widened 500ms one.
+    // 100ms late is past the normal late threshold, but not the one for unreliable timestamps.
     Format unreliablePts =
         VIDEO_H264.buildUpon().setHasReliablePresentationTimestamps(false).build();
     FakeSampleStream fakeSampleStream =
@@ -1583,13 +1583,9 @@ public class MediaCodecVideoRendererTest {
   public void
       render_withUnreliablePtsDuringIncompatibleFormatChange_stillFifoOrdersDrainingOldCodecOutput()
           throws Exception {
-    // codecInputFormat (not inputFormat) must gate arrivalOrderPtsQueue, since inputFormat can
-    // advance to the new format before the old codec has finished draining its buffered output
-    // under the old format. Reuses render_withIncompatibleFrameRateChangeUpToSdk29_discardsCodec's
-    // 24fps->30fps trigger for a full codec reinit (REUSE_RESULT_NO) on SDK<=29, but the first
-    // format also has hasReliablePresentationTimestamps=false and out-of-order sample timestamps,
-    // and the codec adapter reorders dequeued output by ascending timestamp (simulating an
-    // untrustworthy decoder echo) so a wrong field choice is actually observable.
+    // Same 24fps -> 30fps codec reinitialization as
+    // render_withIncompatibleFrameRateChangeUpToSdk29_discardsCodec, but the first format has
+    // unreliable timestamps and the codec outputs in ascending timestamp order.
     SystemClock.setCurrentTimeMillis(876_000_000);
     Format unreliablePts24Fps =
         VIDEO_H264_24FPS.buildUpon().setHasReliablePresentationTimestamps(false).build();
@@ -1604,8 +1600,6 @@ public class MediaCodecVideoRendererTest {
             new DrmSessionEventListener.EventDispatcher(),
             /* initialFormat= */ unreliablePts24Fps,
             ImmutableList.of(
-                // Deliberately out of order: with no ctts, these are decode-order values, not
-                // true presentation times, which is the whole point of hasReliablePresentationTimestamps.
                 oneByteSample(/* timeUs= */ 40_000, C.BUFFER_FLAG_KEY_FRAME),
                 oneByteSample(/* timeUs= */ 0)));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
@@ -1670,81 +1664,131 @@ public class MediaCodecVideoRendererTest {
 
     verify(eventListener).onVideoDecoderReleased(any());
     verify(eventListener, times(2)).onVideoDecoderInitialized(any(), anyLong(), anyLong());
-    // The reordering adapter would otherwise hand these back sorted ascending (0, 40_000). Seeing
-    // them in feed order proves codecInputFormat -- not the already-advanced inputFormat -- gated
-    // the FIFO replay while the old codec's format-A output was still draining.
     assertThat(processedTimestamps.subList(0, 2)).containsExactly(40_000L, 0L).inOrder();
   }
 
   @Test
-  public void render_withUnreliablePtsAndVariableFrameSpacing_preservesPerSampleDurations()
+  public void render_withUnreliablePtsAndReorderedOutput_relabelsOutputInArrivalOrder()
       throws Exception {
-    // Point 6: a VFR stream with real reordering and no ctts can't have its true per-frame
-    // presentation instants reconstructed exactly (there's no ctts to say what they are). What
-    // arrivalOrderPtsQueue can and must do is replay each sample's own queued timestamp exactly,
-    // not flatten irregular gaps to an assumed constant frame rate -- the bug this queue replaced.
-    Format unreliablePtsVfr =
-        VIDEO_H264.buildUpon().setHasReliablePresentationTimestamps(false).build();
-    List<Long> processedTimestamps = new ArrayList<>();
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ unreliablePtsVfr,
+    // Decode order I0 P3 B1 B2 P6 B4 B5, with each sample's timestamp being its decode time.
+    Format format =
+        VIDEO_H264
+            .buildUpon()
+            .setMaxNumReorderSamples(1)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new ForwardingSynchronousMediaCodecAdapterWithScriptedOutput.Factory(
+            /* outputTimestampsUs...= */ 0, 80_000, 120_000, 40_000, 200_000, 240_000, 160_000);
+
+    List<Long> processedTimestamps =
+        renderToEndAndGetProcessedTimestamps(
+            format,
+            codecAdapterFactory,
+            /* sampleTimesUs...= */ 0,
+            40_000,
+            80_000,
+            120_000,
+            160_000,
+            200_000,
+            240_000);
+
+    assertThat(processedTimestamps)
+        .containsExactly(0L, 40_000L, 80_000L, 120_000L, 160_000L, 200_000L, 240_000L)
+        .inOrder();
+  }
+
+  @Test
+  public void render_withUnreliablePtsAndSamplesDiscardedByCodec_resynchronizesRelabeling()
+      throws Exception {
+    // Decode order CRA, RASL, RASL, P3, B1, B2. The codec discards both RASL pictures without
+    // outputting them, as happens after seeking to a CRA picture.
+    Format format =
+        VIDEO_H264
+            .buildUpon()
+            .setMaxNumReorderSamples(1)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new ForwardingSynchronousMediaCodecAdapterWithScriptedOutput.Factory(
+            /* outputTimestampsUs...= */ 0, 160_000, 200_000, 120_000);
+
+    List<Long> processedTimestamps =
+        renderToEndAndGetProcessedTimestamps(
+            format,
+            codecAdapterFactory,
+            /* sampleTimesUs...= */ 0,
+            40_000,
+            80_000,
+            120_000,
+            160_000,
+            200_000);
+
+    // Without resynchronizing, B1, B2 and P3 would be relabeled 40_000, 80_000 and 120_000, two
+    // frames earlier than their decode-time slots.
+    assertThat(processedTimestamps).containsExactly(0L, 120_000L, 160_000L, 200_000L).inOrder();
+  }
+
+  @Test
+  public void render_withSeamlessChangeToReliablePts_onlyRelabelsSamplesOfUnreliableFormat()
+      throws Exception {
+    // The first format has decode order I0 P2 B1 with decode-time timestamps. The second format
+    // reuses the codec and has decode order I5 P7 B6 with correct presentation timestamps.
+    Format unreliablePts =
+        VIDEO_H264
+            .buildUpon()
+            .setId("unreliable")
+            .setMaxNumReorderSamples(1)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    Format reliablePts = VIDEO_H264.buildUpon().setId("reliable").setMaxNumReorderSamples(1).build();
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new ForwardingSynchronousMediaCodecAdapterWithScriptedOutput.Factory(
+            /* outputTimestampsUs...= */ 0, 80_000, 40_000, 200_000, 240_000, 280_000);
+
+    List<Long> processedTimestamps =
+        renderToEndAndGetProcessedTimestamps(
+            new Format[] {unreliablePts, reliablePts},
+            codecAdapterFactory,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
                 oneByteSample(/* timeUs= */ 40_000),
                 oneByteSample(/* timeUs= */ 80_000),
-                oneByteSample(/* timeUs= */ 280_000), // Large VFR jump, e.g. a scene cut.
-                oneByteSample(/* timeUs= */ 300_000), // Small gap right after.
+                format(reliablePts),
+                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 280_000),
+                oneByteSample(/* timeUs= */ 240_000),
                 END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    MediaCodecVideoRenderer renderer =
-        new MediaCodecVideoRenderer(
-            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
-                .setCodecAdapterFactory(codecAdapterFactory)
-                .setMediaCodecSelector(mediaCodecSelector)
-                .setAllowedJoiningTimeMs(0)
-                .setEnableDecoderFallback(false)
-                .setEventHandler(new Handler(testMainLooper))
-                .setEventListener(eventListener)
-                .setMaxDroppedFramesToNotify(1)) {
-          @Override
-          protected @Capabilities int supportsFormat(
-              MediaCodecSelector mediaCodecSelector, Format format) {
-            return RendererCapabilities.create(C.FORMAT_HANDLED);
-          }
 
-          @Override
-          protected void onProcessedOutputBuffer(long presentationTimeUs) {
-            super.onProcessedOutputBuffer(presentationTimeUs);
-            processedTimestamps.add(presentationTimeUs);
-          }
-        };
-    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
-    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
-    renderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {unreliablePtsVfr},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-    renderer.start();
-    renderer.setCurrentStreamFinal();
-    int positionUs = 0;
-    while (!renderer.isEnded()) {
-      ShadowSystemClock.advanceBy(Duration.ofMillis(40));
-      renderer.render(positionUs, msToUs(SystemClock.elapsedRealtime()));
-      codecAdapterFactory.idleQueueingAndCallbackThreads();
-      positionUs += 40_000;
-    }
-    shadowOf(testMainLooper).idle();
+    assertThat(processedTimestamps)
+        .containsExactly(0L, 40_000L, 80_000L, 200_000L, 240_000L, 280_000L)
+        .inOrder();
+  }
+
+  @Test
+  public void render_withUnreliablePtsAndVariableFrameSpacing_relabelsWithQueuedTimestamps()
+      throws Exception {
+    // Decode order I0 P2 B1 P4 B3 with irregular spacing. The true presentation times of reordered
+    // frames can't be recovered, so the queued timestamps are replayed in output order.
+    Format format =
+        VIDEO_H264
+            .buildUpon()
+            .setMaxNumReorderSamples(1)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new ForwardingSynchronousMediaCodecAdapterWithScriptedOutput.Factory(
+            /* outputTimestampsUs...= */ 0, 80_000, 40_000, 300_000, 280_000);
+
+    List<Long> processedTimestamps =
+        renderToEndAndGetProcessedTimestamps(
+            format,
+            codecAdapterFactory,
+            /* sampleTimesUs...= */ 0,
+            40_000,
+            80_000,
+            280_000,
+            300_000);
 
     assertThat(processedTimestamps)
         .containsExactly(0L, 40_000L, 80_000L, 280_000L, 300_000L)
@@ -7618,6 +7662,143 @@ public class MediaCodecVideoRendererTest {
     public void release() {
       timestamps.clear();
       super.release();
+    }
+  }
+
+  private List<Long> renderToEndAndGetProcessedTimestamps(
+      Format format, MediaCodecAdapter.Factory codecAdapterFactory, long... sampleTimesUs)
+      throws Exception {
+    ImmutableList.Builder<FakeSampleStream.FakeSampleStreamItem> items = ImmutableList.builder();
+    for (int i = 0; i < sampleTimesUs.length; i++) {
+      items.add(oneByteSample(sampleTimesUs[i], i == 0 ? C.BUFFER_FLAG_KEY_FRAME : 0));
+    }
+    items.add(END_OF_STREAM_ITEM);
+    return renderToEndAndGetProcessedTimestamps(
+        new Format[] {format}, codecAdapterFactory, items.build());
+  }
+
+  private List<Long> renderToEndAndGetProcessedTimestamps(
+      Format[] formats,
+      MediaCodecAdapter.Factory codecAdapterFactory,
+      ImmutableList<FakeSampleStream.FakeSampleStreamItem> items)
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ formats[0],
+            items);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    List<Long> processedTimestamps = new ArrayList<>();
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(codecAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+
+          @Override
+          protected void onProcessedOutputBuffer(long presentationTimeUs) {
+            super.onProcessedOutputBuffer(presentationTimeUs);
+            processedTimestamps.add(presentationTimeUs);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        formats,
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.setCurrentStreamFinal();
+    int positionUs = 0;
+    while (!renderer.isEnded()) {
+      ShadowSystemClock.advanceBy(Duration.ofMillis(40));
+      renderer.render(positionUs, msToUs(SystemClock.elapsedRealtime()));
+      positionUs += 40_000;
+    }
+    shadowOf(testMainLooper).idle();
+    return processedTimestamps;
+  }
+
+  /**
+   * A {@link MediaCodecAdapter} that outputs buffers with a scripted sequence of timestamps, each
+   * of which must have been queued, and discards any queued buffers beyond the script.
+   */
+  private static final class ForwardingSynchronousMediaCodecAdapterWithScriptedOutput
+      extends ForwardingMediaCodecAdapter {
+    /** A factory for {@link ForwardingSynchronousMediaCodecAdapterWithScriptedOutput} instances. */
+    public static final class Factory implements MediaCodecAdapter.Factory {
+      private final long[] outputTimestampsUs;
+
+      Factory(long... outputTimestampsUs) {
+        this.outputTimestampsUs = outputTimestampsUs;
+      }
+
+      @Override
+      public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
+        return new ForwardingSynchronousMediaCodecAdapterWithScriptedOutput(
+            outputTimestampsUs,
+            new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration));
+      }
+    }
+
+    private final long[] outputTimestampsUs;
+    private final Set<Long> queuedTimestampsUs;
+    private int outputCount;
+
+    ForwardingSynchronousMediaCodecAdapterWithScriptedOutput(
+        long[] outputTimestampsUs, MediaCodecAdapter adapter) {
+      super(adapter);
+      this.outputTimestampsUs = outputTimestampsUs;
+      queuedTimestampsUs = new HashSet<>();
+    }
+
+    @Override
+    public int dequeueOutputBufferIndex(MediaCodec.BufferInfo bufferInfo) {
+      while (true) {
+        if (outputCount < outputTimestampsUs.length
+            && !queuedTimestampsUs.contains(outputTimestampsUs[outputCount])) {
+          return INFO_TRY_AGAIN_LATER;
+        }
+        int outputBufferIndex = super.dequeueOutputBufferIndex(bufferInfo);
+        if (outputBufferIndex < 0
+            || (bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+          return outputBufferIndex;
+        }
+        if (outputCount == outputTimestampsUs.length) {
+          super.releaseOutputBuffer(outputBufferIndex, /* render= */ false);
+          continue;
+        }
+        bufferInfo.presentationTimeUs = outputTimestampsUs[outputCount++];
+        return outputBufferIndex;
+      }
+    }
+
+    @Override
+    public void queueInputBuffer(
+        int index, int offset, int size, long presentationTimeUs, int flags) {
+      if ((flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) == 0) {
+        queuedTimestampsUs.add(presentationTimeUs);
+      }
+      super.queueInputBuffer(index, offset, size, presentationTimeUs, flags);
     }
   }
 

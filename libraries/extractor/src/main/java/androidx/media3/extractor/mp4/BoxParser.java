@@ -498,20 +498,6 @@ public final class BoxParser {
       GaplessInfoHolder gaplessInfoHolder,
       boolean omitTrackSampleTable)
       throws ParserException {
-    // Computed and applied to track up front, before any of the return paths below (including
-    // the sampleCount==0 and omitTrackSampleTable ones), so all of them carry the correct flag --
-    // this doesn't depend on anything computed later in this method. See the field's javadoc for
-    // what NO_VALUE-vs-0 means here.
-    boolean hasReliablePresentationTimestamps =
-        !(track.type == C.TRACK_TYPE_VIDEO
-            && stblBox.getLeafBoxOfType(Mp4Box.TYPE_ctts) == null
-            && track.format.maxNumReorderSamples != 0);
-    if (!hasReliablePresentationTimestamps) {
-      track =
-          track.copyWithFormat(
-              track.format.buildUpon().setHasReliablePresentationTimestamps(false).build());
-    }
-
     SampleSizeBox sampleSizeBox;
     @Nullable LeafBox stszAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stsz);
     if (stszAtom != null) {
@@ -543,6 +529,17 @@ public final class BoxParser {
     if (track.type == C.TRACK_TYPE_VIDEO && track.mediaDurationUs > 0) {
       float frameRate = sampleCount / (track.mediaDurationUs / 1000000f);
       Format format = track.format.buildUpon().setFrameRate(frameRate).build();
+      track = track.buildUpon().setFormat(format).build();
+    }
+
+    // Without a ctts box every sample's presentation time is its decode time, which is wrong for
+    // any track whose frames are reordered. Treat an unknown reorder depth (NO_VALUE) as possibly
+    // reordered. Applied after the sampleCount == 0 return: fragmented MP4 has an empty sample
+    // table here and carries composition offsets in trun boxes instead.
+    if (track.type == C.TRACK_TYPE_VIDEO
+        && stblBox.getLeafBoxOfType(Mp4Box.TYPE_ctts) == null
+        && track.format.maxNumReorderSamples != 0) {
+      Format format = track.format.buildUpon().setHasReliablePresentationTimestamps(false).build();
       track = track.buildUpon().setFormat(format).build();
     }
 

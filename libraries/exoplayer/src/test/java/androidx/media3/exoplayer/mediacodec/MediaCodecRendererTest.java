@@ -1030,9 +1030,7 @@ public class MediaCodecRendererTest {
   @Test
   public void feedInputBuffer_withUnreliablePtsAndTunneling_doesNotGrowArrivalOrderPtsQueue()
       throws Exception {
-    // In tunneling mode drainOutputBuffer -- and so the queue's pop side -- never runs (see its
-    // javadoc), so feedInputBuffer must skip pushing altogether or the queue grows unboundedly for
-    // the life of the session. Track type must be video: the guard is a no-op for other types.
+    // Output buffers are never dequeued in tunneling mode, so nothing would drain the queue.
     Format unreliablePtsVideo =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
@@ -1059,6 +1057,73 @@ public class MediaCodecRendererTest {
       positionUs += 100;
     }
 
+    assertThat(renderer.getArrivalOrderPtsQueueSizeForTesting()).isEqualTo(0);
+  }
+
+  @Test
+  public void render_withUnreliablePtsUntilEnded_drainsArrivalOrderPtsQueue() throws Exception {
+    Format unreliablePtsVideo =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(unreliablePtsVideo, /* sampleTimesUs...= */ 0, 100, 200);
+    VideoTestRenderer renderer = new VideoTestRenderer();
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {unreliablePtsVideo},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.setCurrentStreamFinal();
+    long positionUs = 0;
+    while (!renderer.isEnded()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      positionUs += 100;
+    }
+
+    assertThat(renderer.getArrivalOrderPtsQueueSizeForTesting()).isEqualTo(0);
+  }
+
+  @Test
+  public void resetPosition_withUnreliablePts_clearsArrivalOrderPtsQueue() throws Exception {
+    Format unreliablePtsVideo =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setHasReliablePresentationTimestamps(false)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(unreliablePtsVideo, /* sampleTimesUs...= */ 0, 100, 200, 300);
+    VideoTestRenderer renderer = new VideoTestRenderer();
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {unreliablePtsVideo},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    // Hold the position so that queued samples remain pending output.
+    for (int i = 0; i < 1000 && renderer.getArrivalOrderPtsQueueSizeForTesting() == 0; i++) {
+      renderer.render(/* positionUs= */ -1, SystemClock.elapsedRealtime());
+    }
+    int queueSizeBeforeReset = renderer.getArrivalOrderPtsQueueSizeForTesting();
+
+    fakeSampleStream.seekToUs(/* positionUs= */ 0, /* allowTimeBeyondBuffer= */ true);
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    assertThat(queueSizeBeforeReset).isGreaterThan(0);
     assertThat(renderer.getArrivalOrderPtsQueueSizeForTesting()).isEqualTo(0);
   }
 
