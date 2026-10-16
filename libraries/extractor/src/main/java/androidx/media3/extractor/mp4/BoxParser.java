@@ -498,6 +498,20 @@ public final class BoxParser {
       GaplessInfoHolder gaplessInfoHolder,
       boolean omitTrackSampleTable)
       throws ParserException {
+    // Computed and applied to track up front, before any of the return paths below (including
+    // the sampleCount==0 and omitTrackSampleTable ones), so all of them carry the correct flag --
+    // this doesn't depend on anything computed later in this method. See the field's javadoc for
+    // what NO_VALUE-vs-0 means here.
+    boolean hasReliablePresentationTimestamps =
+        !(track.type == C.TRACK_TYPE_VIDEO
+            && stblBox.getLeafBoxOfType(Mp4Box.TYPE_ctts) == null
+            && track.format.maxNumReorderSamples != 0);
+    if (!hasReliablePresentationTimestamps) {
+      track =
+          track.copyWithFormat(
+              track.format.buildUpon().setHasReliablePresentationTimestamps(false).build());
+    }
+
     SampleSizeBox sampleSizeBox;
     @Nullable LeafBox stszAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stsz);
     if (stszAtom != null) {

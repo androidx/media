@@ -46,6 +46,7 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
@@ -398,6 +399,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private CodecParameters activeCodecParameters;
   private CodecParameters lastDispatchedCodecParameters;
   private ImmutableSet<String> subscribedCodecParameterKeys;
+  // Used only when Format#hasReliablePresentationTimestamps is false: replays each sample's own
+  // queued presentationTimeUs in output-arrival order instead of trusting MediaCodec's echoed
+  // (possibly non-monotonic) timestamp. Preserves true per-sample duration, unlike deriving from
+  // a single assumed frame rate.
+  private final ArrayDeque<Long> arrivalOrderPtsQueue = new ArrayDeque<>();
+
+  @VisibleForTesting
+  /* package */ int getArrivalOrderPtsQueueSizeForTesting() {
+    return arrivalOrderPtsQueue.size();
+  }
 
   /**
    * @param context A context.
@@ -1107,6 +1118,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     skippedFlushOffsetUs = 0;
     largestStaleModifiedPresentationTimeUs = C.TIME_UNSET;
+    arrivalOrderPtsQueue.clear();
   }
 
   /**
@@ -1655,6 +1667,20 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       handleInputBufferSupplementalData(buffer);
     }
 
+    if (getTrackType() == C.TRACK_TYPE_VIDEO
+        && codecInputFormat != null
+        && !codecInputFormat.hasReliablePresentationTimestamps
+        && !getConfiguration().tunneling) {
+      // codecInputFormat, not inputFormat: this must describe the format actually governing the
+      // buffer being queued right now, which during a full codec reinit can briefly lag behind
+      // inputFormat (see drainOutputBuffer's matching check). Skipped entirely in tunneling mode,
+      // where drainOutputBuffer -- and so the corresponding pop -- never runs at all; queueing
+      // here without ever draining would just grow this unboundedly.
+      //
+      // Must run before the += skippedFlushOffsetUs below, to match the scale drainOutputBuffer
+      // converts dequeued timestamps back to.
+      arrivalOrderPtsQueue.addLast(presentationTimeUs);
+    }
     onQueueInputBuffer(buffer);
     int flags = getCodecBufferFlags(buffer);
     presentationTimeUs += skippedFlushOffsetUs;
@@ -2258,6 +2284,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         // The dequeued buffer indicates the end of the stream. Process it immediately.
         processEndOfStream();
         return false;
+      }
+
+      if (getTrackType() == C.TRACK_TYPE_VIDEO
+          && codecInputFormat != null
+          && !codecInputFormat.hasReliablePresentationTimestamps
+          && !arrivalOrderPtsQueue.isEmpty()) {
+        // codecInputFormat, not inputFormat -- see the matching check in feedInputBuffer. No
+        // tunneling check needed here: in tunneling mode this method isn't called at all (see
+        // updateOutputFormatForTime's javadoc), so the push side already prevents anything from
+        // reaching this queue to begin with.
+        outputBufferInfo.presentationTimeUs = arrivalOrderPtsQueue.removeFirst();
       }
 
       this.outputIndex = outputIndex;
