@@ -333,6 +333,9 @@
         exposing `isLive` and `liveOffsetMs`. Add `LiveButton` Composable to
         `media3-ui-compose-material3`
         ([#2213](https://github.com/google/ExoPlayer/issues/2213)).
+    *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
+        default support in `media3-ui-compose-material3` for rendering bitmap
+        and horizontal text subtitle cues.
 *   Downloads:
 *   Ktor extension:
     *   Fix an issue where `KtorDataSource` could treat mid-stream connection

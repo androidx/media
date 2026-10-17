@@ -33,6 +33,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
+import androidx.media3.common.text.SubtitleStyle;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -57,20 +58,20 @@ public final class SubtitleView extends FrameLayout {
      * Updates the list of cues displayed.
      *
      * @param cues The cues to display.
-     * @param style A {@link CaptionStyleCompat} to use for styling unset properties of cues.
+     * @param style A {@link SubtitleStyle} to use for styling unset properties of cues.
      * @param defaultTextSize The default font size to apply when {@link Cue#textSize} is {@link
      *     Cue#DIMEN_UNSET}.
      * @param defaultTextSizeType The type of {@code defaultTextSize}.
      * @param bottomPaddingFraction The bottom padding to apply when {@link Cue#line} is {@link
      *     Cue#DIMEN_UNSET}, as a fraction of the view's remaining height after its top and bottom
      *     padding have been subtracted.
-     * @see #setStyle(CaptionStyleCompat)
+     * @see #setStyle(SubtitleStyle)
      * @see #setTextSize(int, float)
      * @see #setBottomPaddingFraction(float)
      */
     void update(
         List<Cue> cues,
-        CaptionStyleCompat style,
+        SubtitleStyle style,
         float defaultTextSize,
         @Cue.TextSizeType int defaultTextSizeType,
         float bottomPaddingFraction);
@@ -120,7 +121,7 @@ public final class SubtitleView extends FrameLayout {
   public @interface ViewType {}
 
   private List<Cue> cues;
-  private CaptionStyleCompat style;
+  private SubtitleStyle style;
   private @Cue.TextSizeType int defaultTextSizeType;
   private float defaultTextSize;
   private float bottomPaddingFraction;
@@ -138,7 +139,7 @@ public final class SubtitleView extends FrameLayout {
   public SubtitleView(Context context, @Nullable AttributeSet attrs) {
     super(context, attrs);
     cues = Collections.emptyList();
-    style = CaptionStyleCompat.DEFAULT;
+    style = SubtitleStyle.DEFAULT;
     defaultTextSizeType = Cue.TEXT_SIZE_TYPE_FRACTIONAL;
     defaultTextSize = DEFAULT_TEXT_SIZE_FRACTION;
     bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
@@ -296,13 +297,21 @@ public final class SubtitleView extends FrameLayout {
   }
 
   /**
-   * Sets the caption style.
+   * Sets the subtitle style.
    *
    * @param style A style for the view.
    */
-  public void setStyle(CaptionStyleCompat style) {
+  public void setStyle(SubtitleStyle style) {
     this.style = style;
     updateOutput();
+  }
+
+  /**
+   * @deprecated Use {@link #setStyle(SubtitleStyle)} instead.
+   */
+  @Deprecated
+  public void setStyle(CaptionStyleCompat style) {
+    setStyle(style.toSubtitleStyle());
   }
 
   /**
@@ -331,16 +340,16 @@ public final class SubtitleView extends FrameLayout {
         : 1f;
   }
 
-  private CaptionStyleCompat getUserCaptionStyle() {
+  private SubtitleStyle getUserCaptionStyle() {
     if (isInEditMode()) {
-      return CaptionStyleCompat.DEFAULT;
+      return SubtitleStyle.DEFAULT;
     }
     @Nullable
     CaptioningManager captioningManager =
         (CaptioningManager) getContext().getSystemService(Context.CAPTIONING_SERVICE);
     return captioningManager != null && captioningManager.isEnabled()
-        ? CaptionStyleCompat.createFromCaptionStyle(captioningManager.getUserStyle())
-        : CaptionStyleCompat.DEFAULT;
+        ? SubtitleStyle.fromCaptionStyle(captioningManager.getUserStyle())
+        : SubtitleStyle.DEFAULT;
   }
 
   private void updateOutput() {

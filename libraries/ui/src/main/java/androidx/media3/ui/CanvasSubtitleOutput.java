@@ -25,6 +25,7 @@ import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
+import androidx.media3.common.text.SubtitleStyle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +41,7 @@ import java.util.List;
   private List<Cue> cues;
   private @Cue.TextSizeType int textSizeType;
   private float textSize;
-  private CaptionStyleCompat style;
+  private SubtitleStyle style;
   private float bottomPaddingFraction;
 
   public CanvasSubtitleOutput(Context context) {
@@ -53,14 +54,14 @@ import java.util.List;
     cues = Collections.emptyList();
     textSizeType = Cue.TEXT_SIZE_TYPE_FRACTIONAL;
     textSize = DEFAULT_TEXT_SIZE_FRACTION;
-    style = CaptionStyleCompat.DEFAULT;
+    style = SubtitleStyle.DEFAULT;
     bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
   }
 
   @Override
   public void update(
       List<Cue> cues,
-      CaptionStyleCompat style,
+      SubtitleStyle style,
       float textSize,
       @Cue.TextSizeType int textSizeType,
       float bottomPaddingFraction) {

@@ -40,6 +40,7 @@ import android.util.DisplayMetrics;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
+import androidx.media3.common.text.SubtitleStyle;
 import androidx.media3.common.util.Log;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -79,7 +80,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private int backgroundColor;
   private int windowColor;
   private int edgeColor;
-  private @CaptionStyleCompat.EdgeType int edgeType;
+  private @SubtitleStyle.EdgeType int edgeType;
   private float defaultTextSizePx;
   private float cueTextSizePx;
   private float bottomPaddingFraction;
@@ -146,7 +147,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   public void draw(
       Cue cue,
-      CaptionStyleCompat style,
+      SubtitleStyle style,
       float defaultTextSizePx,
       float cueTextSizePx,
       float bottomPaddingFraction,
@@ -258,7 +259,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     // Remove embedded font color to not destroy edges, otherwise it overrides edge color.
     SpannableStringBuilder cueTextEdge = new SpannableStringBuilder(cueText);
-    if (edgeType == CaptionStyleCompat.EDGE_TYPE_OUTLINE) {
+    if (edgeType == SubtitleStyle.EDGE_TYPE_OUTLINE) {
       ForegroundColorSpan[] foregroundColorSpans =
           cueTextEdge.getSpans(0, cueTextEdge.length(), ForegroundColorSpan.class);
       for (ForegroundColorSpan foregroundColorSpan : foregroundColorSpans) {
@@ -271,8 +272,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // otherwise the background color gets drawn in front of the edge color
     // (https://github.com/google/ExoPlayer/pull/6724#issuecomment-564650572).
     if (Color.alpha(backgroundColor) > 0) {
-      if (edgeType == CaptionStyleCompat.EDGE_TYPE_NONE
-          || edgeType == CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW) {
+      if (edgeType == SubtitleStyle.EDGE_TYPE_NONE
+          || edgeType == SubtitleStyle.EDGE_TYPE_DROP_SHADOW) {
         cueText.setSpan(
             new BackgroundColorSpan(backgroundColor), 0, cueText.length(), Spanned.SPAN_PRIORITY);
       } else {
@@ -410,17 +411,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           windowPaint);
     }
 
-    if (edgeType == CaptionStyleCompat.EDGE_TYPE_OUTLINE) {
+    if (edgeType == SubtitleStyle.EDGE_TYPE_OUTLINE) {
       textPaint.setStrokeJoin(Join.ROUND);
       textPaint.setStrokeWidth(outlineWidth);
       textPaint.setColor(edgeColor);
       textPaint.setStyle(Style.FILL_AND_STROKE);
       edgeLayout.draw(canvas);
-    } else if (edgeType == CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW) {
+    } else if (edgeType == SubtitleStyle.EDGE_TYPE_DROP_SHADOW) {
       textPaint.setShadowLayer(shadowRadius, shadowOffset, shadowOffset, edgeColor);
-    } else if (edgeType == CaptionStyleCompat.EDGE_TYPE_RAISED
-        || edgeType == CaptionStyleCompat.EDGE_TYPE_DEPRESSED) {
-      boolean raised = edgeType == CaptionStyleCompat.EDGE_TYPE_RAISED;
+    } else if (edgeType == SubtitleStyle.EDGE_TYPE_RAISED
+        || edgeType == SubtitleStyle.EDGE_TYPE_DEPRESSED) {
+      boolean raised = edgeType == SubtitleStyle.EDGE_TYPE_RAISED;
       int colorUp = raised ? Color.WHITE : edgeColor;
       int colorDown = raised ? edgeColor : Color.WHITE;
       float offset = shadowRadius / 2f;

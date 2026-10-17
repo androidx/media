@@ -31,6 +31,7 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
+import androidx.media3.common.text.SubtitleStyle;
 import androidx.media3.common.util.Util;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -67,7 +68,7 @@ import org.jspecify.annotations.Nullable;
   private final WebView webView;
 
   private List<Cue> textCues;
-  private CaptionStyleCompat style;
+  private SubtitleStyle style;
   private float defaultTextSize;
   @Cue.TextSizeType private int defaultTextSizeType;
   private float bottomPaddingFraction;
@@ -80,7 +81,7 @@ import org.jspecify.annotations.Nullable;
     super(context, attrs);
 
     textCues = Collections.emptyList();
-    style = CaptionStyleCompat.DEFAULT;
+    style = SubtitleStyle.DEFAULT;
     defaultTextSize = DEFAULT_TEXT_SIZE_FRACTION;
     defaultTextSizeType = Cue.TEXT_SIZE_TYPE_FRACTIONAL;
     bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
@@ -112,7 +113,7 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void update(
       List<Cue> cues,
-      CaptionStyleCompat style,
+      SubtitleStyle style,
       float textSize,
       @Cue.TextSizeType int textSizeType,
       float bottomPaddingFraction) {
@@ -365,23 +366,23 @@ import org.jspecify.annotations.Nullable;
     return Util.formatInvariant("%.2fpx", sizeDp);
   }
 
-  private static String convertCaptionStyleToCssTextShadow(CaptionStyleCompat style) {
+  private static String convertCaptionStyleToCssTextShadow(SubtitleStyle style) {
     switch (style.edgeType) {
-      case CaptionStyleCompat.EDGE_TYPE_DEPRESSED:
+      case SubtitleStyle.EDGE_TYPE_DEPRESSED:
         return Util.formatInvariant(
             "-0.05em -0.05em 0.15em %s", HtmlUtils.toCssRgba(style.edgeColor));
-      case CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW:
+      case SubtitleStyle.EDGE_TYPE_DROP_SHADOW:
         return Util.formatInvariant("0.1em 0.12em 0.15em %s", HtmlUtils.toCssRgba(style.edgeColor));
-      case CaptionStyleCompat.EDGE_TYPE_OUTLINE:
+      case SubtitleStyle.EDGE_TYPE_OUTLINE:
         // -webkit-text-stroke makes the underlying text appear too narrow, so we 'fake' an edge
         // outline using 4 text-shadows each offset by 1px in different directions.
         return Util.formatInvariant(
             "1px 1px 0 %1$s, 1px -1px 0 %1$s, -1px 1px 0 %1$s, -1px -1px 0 %1$s",
             HtmlUtils.toCssRgba(style.edgeColor));
-      case CaptionStyleCompat.EDGE_TYPE_RAISED:
+      case SubtitleStyle.EDGE_TYPE_RAISED:
         return Util.formatInvariant(
             "0.06em 0.08em 0.15em %s", HtmlUtils.toCssRgba(style.edgeColor));
-      case CaptionStyleCompat.EDGE_TYPE_NONE:
+      case SubtitleStyle.EDGE_TYPE_NONE:
       default:
         return "unset";
     }
