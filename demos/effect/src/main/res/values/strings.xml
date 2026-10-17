@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <resources>
-  <string name="app_name">Effect Demo</string>
+  <string name="app_name">Media3 Effect Demo</string>
   <string name="choose_preset_input">Choose preset input</string>
   <string name="choose_local_file">Choose local file</string>
   <string name="apply_effects">Apply effects</string>
