@@ -100,7 +100,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean automaticReregistration;
 
   @Nullable private Future<?> forceSignalEndOfStreamFuture;
-  @Nullable private CountDownLatch releaseAllFramesLatch;
+  // Set and cleared by releaseAllRegisteredFrames() on the calling thread, read on the GL thread.
+  @Nullable private volatile CountDownLatch releaseAllFramesLatch;
 
   private volatile boolean shouldRejectIncomingFrames;
   @Nullable private volatile RuntimeException releaseAllFramesException;
@@ -154,6 +155,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   if (shouldRejectIncomingFrames) {
                     surfaceTexture.updateTexImage();
                     pendingFrames.poll();
+                    @Nullable CountDownLatch releaseAllFramesLatch = this.releaseAllFramesLatch;
                     if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
                       releaseAllFramesLatch.countDown();
                     }
@@ -325,9 +327,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           } catch (RuntimeException e) {
             releaseAllFramesException = e;
             Log.e(TAG, "Failed to remove texture frames", e);
-            if (this.releaseAllFramesLatch != null) {
-              this.releaseAllFramesLatch.countDown();
-            }
+            releaseAllFramesLatch.countDown();
           }
         });
     try {
@@ -392,6 +392,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       surfaceTexture.updateTexImage();
       pendingFrames.remove();
     }
+    @Nullable CountDownLatch releaseAllFramesLatch = this.releaseAllFramesLatch;
     if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
       releaseAllFramesLatch.countDown();
     }
