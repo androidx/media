@@ -408,8 +408,14 @@ public final class DtsUtil {
         fsize = (((data[5] & 0x03) << 12) | ((data[6] & 0xFF) << 4) | ((data[7] & 0xF0) >> 4)) + 1;
     }
 
-    // If the frame is stored in 14-bit mode, adjust the frame size to reflect the actual byte size.
-    return uses14BitPerWord ? fsize * 16 / 14 : fsize;
+    if (!uses14BitPerWord) {
+      return fsize;
+    }
+    // A 14-bit stream stores each 14-bit word in a 16-bit container. Convert the unpacked byte size
+    // to a whole number of 14-bit words before converting those words to physical bytes. For
+    // example, DTS-CD frames with FSIZE+1 equal to 3585 have their next sync word after 2048 stored
+    // words, or 4096 bytes.
+    return (fsize * C.BITS_PER_BYTE / 14) * 2;
   }
 
   /**
