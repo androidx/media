@@ -531,6 +531,17 @@ public final class BoxParser {
       track = track.buildUpon().setFormat(format).build();
     }
 
+    // Without a ctts box every sample's presentation time is its decode time, which is wrong for
+    // any track whose frames are reordered. Treat an unknown reorder depth (NO_VALUE) as possibly
+    // reordered. Applied after the sampleCount == 0 return: fragmented MP4 has an empty sample
+    // table here and carries composition offsets in trun boxes instead.
+    if (track.type == C.TRACK_TYPE_VIDEO
+        && stblBox.getLeafBoxOfType(Mp4Box.TYPE_ctts) == null
+        && track.format.maxNumReorderSamples != 0) {
+      Format format = track.format.buildUpon().setHasReliablePresentationTimestamps(false).build();
+      track = track.buildUpon().setFormat(format).build();
+    }
+
     // Entries are byte offsets of chunks.
     boolean chunkOffsetsAreLongs = false;
     @Nullable LeafBox chunkOffsetsAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stco);
