@@ -21,6 +21,11 @@
         nullable result type (such as `Void?`) must specify a nullable type
         argument (e.g., `RunnableFutureTask<Void?, Exception>`).
 *   ExoPlayer:
+    *   Fix an issue where clipping in the media period (as Transformer and
+        `CompositionPlayer` do) stopped reading at an open-GOP key frame at or
+        after the end position (such as an H.265 CRA), so its leading pictures
+        presented before the end position were not decoded and the previous
+        frame was repeated in their place.
     *   Fix an issue where DASH multi-period playback gets stuck when the next
         period's first chunk fails to load
         ([#3396](https://github.com/androidx/media/issues/3396)).
