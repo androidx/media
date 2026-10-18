@@ -17,7 +17,9 @@ package androidx.media3.session;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -170,6 +172,8 @@ import java.util.Objects;
   @VisibleForTesting
   static final String FIELD_CONTENT_BUFFERED_POSITION_MS = Util.intToStringMaxRadix(9);
 
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(10);
+
   /**
    * Returns a copy of this session position info, filtered by the specified available commands.
    *
@@ -243,6 +247,12 @@ import java.util.Objects;
     return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
+  public Bundle toBundleForLocalProcess() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
+    return bundle;
+  }
+
   /**
    * Restores a {@code SessionPositionInfo} from a {@link Bundle}.
    *
@@ -250,6 +260,10 @@ import java.util.Objects;
    * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
    */
   public static SessionPositionInfo fromBundle(Bundle bundle, int interfaceVersion) {
+    IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof InProcessBinder) {
+      return ((InProcessBinder) inProcessBinder).getSessionPositionInfo();
+    }
     @Nullable Bundle positionInfoBundle = bundle.getBundle(FIELD_POSITION_INFO);
     PositionInfo positionInfo =
         positionInfoBundle == null
@@ -280,5 +294,11 @@ import java.util.Objects;
         currentLiveOffsetMs,
         contentDurationMs,
         contentBufferedPositionMs);
+  }
+
+  private final class InProcessBinder extends Binder {
+    public SessionPositionInfo getSessionPositionInfo() {
+      return SessionPositionInfo.this;
+    }
   }
 }
