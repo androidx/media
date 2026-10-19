@@ -58,6 +58,7 @@ import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -127,6 +128,23 @@ public final class TransformerUtil {
       TransformationRequest transformationRequest,
       Codec.EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper) {
+    return shouldTranscodeAudio(
+        inputFormat,
+        composition,
+        sequenceIndex,
+        transformationRequest,
+        encoderFactory,
+        muxerWrapper.getMuxerFactory());
+  }
+
+  /** Returns whether the audio track should be transcoded. */
+  /* package */ static boolean shouldTranscodeAudio(
+      Format inputFormat,
+      Composition composition,
+      int sequenceIndex,
+      TransformationRequest transformationRequest,
+      Codec.EncoderFactory encoderFactory,
+      Muxer.Factory muxerFactory) {
     if (composition.sequences.size() > 1
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
       return !composition.transmuxAudio;
@@ -142,7 +160,7 @@ public final class TransformerUtil {
       return true;
     }
     if (transformationRequest.audioMimeType == null
-        && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)) {
+        && !supportsSampleMimeType(muxerFactory, inputFormat.sampleMimeType)) {
       return true;
     }
     EditedMediaItem firstEditedMediaItem =
@@ -179,6 +197,25 @@ public final class TransformerUtil {
       Codec.EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
       boolean hasFrameProcessorFactory) {
+    return shouldTranscodeVideo(
+        inputFormat,
+        composition,
+        sequenceIndex,
+        transformationRequest,
+        encoderFactory,
+        muxerWrapper.getMuxerFactory(),
+        hasFrameProcessorFactory);
+  }
+
+  /** Returns whether the video track should be transcoded. */
+  /* package */ static boolean shouldTranscodeVideo(
+      Format inputFormat,
+      Composition composition,
+      int sequenceIndex,
+      TransformationRequest transformationRequest,
+      Codec.EncoderFactory encoderFactory,
+      Muxer.Factory muxerFactory,
+      boolean hasFrameProcessorFactory) {
     if (composition.sequences.size() > 1
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
       return !composition.transmuxVideo;
@@ -203,8 +240,8 @@ public final class TransformerUtil {
       return true;
     }
     if (requestedMimeType == null
-        && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)
-        && !muxerWrapper.supportsSampleMimeType(getAlternativeCodecMimeType(inputFormat))) {
+        && !(supportsSampleMimeType(muxerFactory, inputFormat.sampleMimeType)
+            || supportsSampleMimeType(muxerFactory, getAlternativeCodecMimeType(inputFormat)))) {
       return true;
     }
     if (inputFormat.pixelWidthHeightRatio != 1f) {
@@ -226,6 +263,12 @@ public final class TransformerUtil {
     }
     return !combinedEffects.isEmpty()
         && maybeCalculateTotalRotationDegreesAppliedInEffects(combinedEffects, inputFormat) == -1;
+  }
+
+  private static boolean supportsSampleMimeType(
+      Muxer.Factory muxerFactory, @Nullable String mimeType) {
+    @C.TrackType int trackType = MimeTypes.getTrackType(mimeType);
+    return muxerFactory.getSupportedSampleMimeTypes(trackType).contains(mimeType);
   }
 
   /**

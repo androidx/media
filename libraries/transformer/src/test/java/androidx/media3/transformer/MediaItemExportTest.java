@@ -60,6 +60,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -67,6 +68,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -425,6 +427,47 @@ public final class MediaItemExportTest {
             /* modifications...= */ "clipped"));
     assertThat(result.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(result.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void start_trimOptimizationEnabledWithMediaStoreOutput_completesSuccessfully()
+      throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    // Clip starting at a keyframe so TrimOptimizedExportOperation completes via transmuxing
+    // without requiring OpenGL video transcoding (which is not supported in Robolectric).
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(12_500)
+                    .setEndPositionMs(14_000)
+                    .build())
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+    TransformerOutput mediaStoreOutput =
+        TransformerOutput.create(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, new ContentValues());
+
+    transformer.start(composition, mediaStoreOutput);
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(result.optimizationResult)
+        .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
+    DumpFileAsserts.assertOutput(
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getDumpFileName(
+            /* originalFileName= */ FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S,
+            /* modifications...= */ "clipped"));
   }
 
   @Test

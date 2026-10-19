@@ -388,6 +388,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.trackCount = trackCount;
   }
 
+  /** Returns the {@link Muxer.Factory} used to create the underlying {@link Muxer}. */
+  public Muxer.Factory getMuxerFactory() {
+    return muxerFactory;
+  }
+
   /** Returns whether the sample {@linkplain MimeTypes MIME type} is supported. */
   public boolean supportsSampleMimeType(@Nullable String mimeType) {
     @C.TrackType int trackType = MimeTypes.getTrackType(mimeType);
