@@ -64,9 +64,8 @@ import com.google.common.collect.ImmutableList;
     return type;
   }
 
-  @Nullable
   @SuppressWarnings("unchecked")
-  public <T extends AviChunk> T getChild(Class<T> c) {
+  public <T extends AviChunk> @Nullable T getChild(Class<T> c) {
     for (AviChunk aviChunk : children) {
       if (aviChunk.getClass() == c) {
         return (T) aviChunk;
