@@ -323,9 +323,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!fragmentsBetweenKeyFramesEnabled || videoSamplesOutOfOrder) {
       return false;
     }
-    BufferInfo lastPendingSample = checkNotNull(videoTrack).pendingSamplesBufferInfo.peekLast();
-    return lastPendingSample != null
-        && nextSampleBufferInfo.presentationTimeUs > lastPendingSample.presentationTimeUs;
+    BufferInfo lastPendingSample =
+        checkNotNull(checkNotNull(videoTrack).pendingSamplesBufferInfo.peekLast());
+    return nextSampleBufferInfo.presentationTimeUs > lastPendingSample.presentationTimeUs;
   }
 
   /**
