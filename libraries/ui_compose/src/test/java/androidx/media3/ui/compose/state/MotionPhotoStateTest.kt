@@ -41,7 +41,7 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 
 /**
- * Unit tests for [MotionPhotoState], [MotionPhotoState.VisualState], and
+ * Unit tests for [MotionPhotoState], [MotionPhotoConfig], [MotionPhotoState.VisualState], and
  * [rememberMotionPhotoState].
  */
 @OptIn(ExperimentalTestApi::class)
@@ -200,10 +200,13 @@ class MotionPhotoStateTest {
   fun showPhoto_toggledOffAndOn_restartsFromDefaultPositionAndUpdatesPlayWhenReady() =
     runComposeUiTest {
       val player = FakePlayer(bufferingDelayMs = 0)
+      player.repeatMode = Player.REPEAT_MODE_ALL
       lateinit var state: MotionPhotoState
       setContent { state = rememberMotionPhotoState(player = player, mediaItem = testMediaItem) }
       waitForIdle()
       assertThat(state.showPhoto).isTrue()
+      assertThat(state.config).isEqualTo(MotionPhotoConfig.DEFAULT)
+      assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_OFF)
       player.setPosition(400L)
 
       state.showPhoto = false
@@ -223,6 +226,18 @@ class MotionPhotoStateTest {
 
       assertThat(state.visualState.isPhotoVisible).isTrue()
       assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(player.playWhenReady).isFalse()
+
+      state.showPhoto = false
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+
+      player.setPlaybackState(Player.STATE_ENDED)
+      waitForIdle()
+
+      assertThat(state.showPhoto).isTrue()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
       assertThat(player.playWhenReady).isFalse()
     }
 
@@ -567,4 +582,139 @@ class MotionPhotoStateTest {
       waitForIdle()
       assertThat(state.visualState.isPhotoVisible).isFalse()
     }
+
+  @Test
+  fun rememberMotionPhotoState_withLoopConfig_setsRepeatModeOne() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+          initialConfig = MotionPhotoConfig.LOOP,
+        )
+    }
+    waitForIdle()
+
+    assertThat(state.config).isEqualTo(MotionPhotoConfig.LOOP)
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
+  }
+
+  @Test
+  fun rememberMotionPhotoState_withLoopConfigWithoutSetRepeatModeCommand_emulatesLoopOnEnded() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig = MotionPhotoConfig.LOOP,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      player.setPosition(300L)
+
+      player.setPlaybackState(Player.STATE_ENDED)
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(player.playWhenReady).isTrue()
+
+      // When seeking to default position is also unavailable, falls back to showing the photo.
+      player.removeCommands(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+      player.setPlaybackState(Player.STATE_ENDED)
+      waitForIdle()
+
+      assertThat(state.showPhoto).isTrue()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      // When COMMAND_SET_REPEAT_MODE becomes available later, repeatMode is synced.
+      player.addCommands(Player.COMMAND_SET_REPEAT_MODE)
+      waitForIdle()
+
+      assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerAttachedFromNullWithLoopConfig_setsRepeatModeOne() =
+    runComposeUiTest {
+      var currentPlayer by mutableStateOf<Player?>(null)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = currentPlayer,
+            mediaItem = testMediaItem,
+            initialConfig = MotionPhotoConfig.LOOP,
+          )
+      }
+      waitForIdle()
+      assertThat(state.config).isEqualTo(MotionPhotoConfig.LOOP)
+
+      val newPlayer = FakePlayer(bufferingDelayMs = 0)
+      currentPlayer = newPlayer
+      waitForIdle()
+
+      assertThat(newPlayer.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
+    }
+
+  @Test
+  fun config_toggledBetweenDefaultAndLoop_updatesConfigAndPlayerRepeatMode() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+        )
+    }
+    waitForIdle()
+    assertThat(state.config).isEqualTo(MotionPhotoConfig.DEFAULT)
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_OFF)
+
+    state.config = MotionPhotoConfig.LOOP
+    waitForIdle()
+
+    assertThat(state.config).isEqualTo(MotionPhotoConfig.LOOP)
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
+    assertThat(state.showPhoto).isFalse()
+
+    state.config = state.config.copy(isLooping = false)
+    waitForIdle()
+
+    assertThat(state.config).isEqualTo(MotionPhotoConfig.DEFAULT)
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_OFF)
+    assertThat(state.showPhoto).isFalse()
+
+    player.setPlaybackState(Player.STATE_ENDED)
+    waitForIdle()
+
+    assertThat(state.showPhoto).isTrue()
+  }
+
+  @Test
+  fun motionPhotoConfig_copyAndPresets_hasExpectedPropertiesAndEquality() {
+    val defaultConfig = MotionPhotoConfig.DEFAULT
+    assertThat(defaultConfig.isLooping).isFalse()
+    assertThat(defaultConfig).isEqualTo(MotionPhotoConfig(isLooping = false))
+    assertThat(defaultConfig.hashCode()).isEqualTo(MotionPhotoConfig(isLooping = false).hashCode())
+
+    val loopConfig = MotionPhotoConfig.LOOP
+    assertThat(loopConfig.isLooping).isTrue()
+    assertThat(loopConfig).isEqualTo(defaultConfig.copy(isLooping = true))
+    assertThat(loopConfig).isNotEqualTo(defaultConfig)
+    assertThat(loopConfig.copy(isLooping = false)).isEqualTo(defaultConfig)
+  }
 }
