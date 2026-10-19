@@ -3902,7 +3902,7 @@ public final class ExoPlayerTest {
     ActionSchedule actionSchedule =
         new ActionSchedule.Builder(TAG)
             .pause()
-            .waitForTimelineChanged(timeline, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
+            .waitForPlaybackState(Player.STATE_BUFFERING)
             .sendMessage(target, /* mediaItemIndex= */ 2, /* positionMs= */ 50)
             .play()
             .build();
