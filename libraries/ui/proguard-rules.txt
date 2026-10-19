@@ -48,7 +48,6 @@
   public android.support.v7.app.AlertDialog create();
 }
 
-# Don't warn about checkerframework and Kotlin annotations
+# Don't warn about checkerframework and jsr305 annotations
 -dontwarn org.checkerframework.**
--dontwarn kotlin.annotations.jvm.**
 -dontwarn javax.annotation.**

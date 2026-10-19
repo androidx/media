@@ -67,7 +67,6 @@ jsr305Version = "3.0.2"
 # Use the same JUnit version as the Android repo:
 # https://cs.android.com/android/platform/superproject/main/+/main:external/junit/METADATA
 junitVersion = "4.13.2"
-kotlinAnnotationsVersion = "1.9.0"
 # Not the same as kotlin version, https://github.com/Kotlin/kotlinx.coroutines/releases
 kotlinxCoroutinesVersion = "1.9.0"
 ktorVersion = "3.5.1"
@@ -152,7 +151,6 @@ j2objc-annotations = { group = "com.google.j2objc", name = "j2objc-annotations",
 jspecify = { group = "org.jspecify", name = "jspecify", version.ref = "jspecifyVersion" }
 jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "jsr305Version" }
 junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
-kotlin-annotations-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-annotations-jvm", version.ref = "kotlinAnnotationsVersion" }
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlinGradlePlugin" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test"}
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesVersion" }
