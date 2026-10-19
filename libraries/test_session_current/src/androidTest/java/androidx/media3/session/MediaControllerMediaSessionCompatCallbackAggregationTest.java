@@ -38,7 +38,6 @@ import android.support.v4.media.RatingCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
-import androidx.annotation.Nullable;
 import androidx.media3.common.FlagSet;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaItem;
@@ -60,6 +59,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -563,8 +563,8 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
     List<MediaSessionCompat.QueueItem> list = new ArrayList<>();
     for (int i = 0; i < mediaItems.size(); i++) {
       MediaItem item = mediaItems.get(i);
-      @Nullable
-      Bitmap bitmap = bitmapLoader.decodeBitmap(item.mediaMetadata.artworkData).get(10, SECONDS);
+      @Nullable Bitmap bitmap =
+          bitmapLoader.decodeBitmap(item.mediaMetadata.artworkData).get(10, SECONDS);
       Bundle extras = new Bundle();
       extras.putLong(MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT, item.mediaMetadata.mediaType);
       MediaDescriptionCompat description =

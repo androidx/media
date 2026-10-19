@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.source;
 
 import android.net.Uri;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +24,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 
 /** {@link MediaSource} load event information. */
 @UnstableApi

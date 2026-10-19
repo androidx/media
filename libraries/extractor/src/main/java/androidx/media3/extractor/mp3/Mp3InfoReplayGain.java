@@ -18,7 +18,6 @@ package androidx.media3.extractor.mp3;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
@@ -26,6 +25,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Representation of the ReplayGain data stored in a LAME Xing or Info frame. */
 @UnstableApi

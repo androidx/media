@@ -29,7 +29,6 @@ import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -43,6 +42,7 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.jspecify.annotations.Nullable;
 
 /** Represents a media track in an RTSP playback. */
 /* package */ final class RtspMediaTrack {

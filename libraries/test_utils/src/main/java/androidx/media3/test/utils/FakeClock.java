@@ -23,7 +23,6 @@ import android.os.Handler.Callback;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
@@ -38,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fake {@link Clock} implementation that allows to {@link #advanceTime(long) advance the time}

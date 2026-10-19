@@ -19,8 +19,8 @@ package androidx.media3.common.util;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import org.jspecify.annotations.Nullable;
 
 /** Immutable class for describing width and height dimensions in pixels. */
 @UnstableApi

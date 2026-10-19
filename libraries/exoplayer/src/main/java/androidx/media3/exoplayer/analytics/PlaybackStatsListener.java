@@ -21,7 +21,6 @@ import static java.lang.Math.max;
 
 import android.os.SystemClock;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -47,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link AnalyticsListener} to gather {@link PlaybackStats} from the player.
@@ -140,8 +140,7 @@ public final class PlaybackStatsListener
   @Nullable
   public PlaybackStats getPlaybackStats() {
     @Nullable String activeSessionId = sessionManager.getActiveSessionId();
-    @Nullable
-    PlaybackStatsTracker activeStatsTracker =
+    @Nullable PlaybackStatsTracker activeStatsTracker =
         activeSessionId == null ? null : playbackStatsTrackers.get(activeSessionId);
     return activeStatsTracker == null ? null : activeStatsTracker.build(/* isFinal= */ false);
   }

@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
@@ -24,6 +23,7 @@ import androidx.media3.exoplayer.source.chunk.Chunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExoTrackSelection} forwarding all calls to a wrapped instance. */
 @UnstableApi

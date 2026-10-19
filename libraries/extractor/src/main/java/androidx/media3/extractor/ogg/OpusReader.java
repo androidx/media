@@ -17,7 +17,6 @@ package androidx.media3.extractor.ogg;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -34,6 +33,7 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /** {@link StreamReader} to extract Opus data out of Ogg byte stream. */
 /* package */ final class OpusReader extends StreamReader {
@@ -120,8 +120,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       VorbisUtil.CommentHeader commentHeader =
           VorbisUtil.readVorbisCommentHeader(
               packet, /* hasMetadataHeader= */ false, /* hasFramingBit= */ false);
-      @Nullable
-      Metadata vorbisMetadata =
+      @Nullable Metadata vorbisMetadata =
           androidx.media3.extractor.VorbisUtil.parseVorbisComments(
               ImmutableList.copyOf(commentHeader.comments));
       if (vorbisMetadata == null) {

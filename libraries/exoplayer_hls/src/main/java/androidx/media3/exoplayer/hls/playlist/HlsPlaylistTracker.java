@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.hls.playlist;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Tracks playlists associated to an HLS stream and provides snapshots.
@@ -175,8 +175,7 @@ public interface HlsPlaylistTracker {
    *
    * @return The multivariant playlist. Null if the initial playlist has yet to be loaded.
    */
-  @Nullable
-  HlsMultivariantPlaylist getMultivariantPlaylist();
+  @Nullable HlsMultivariantPlaylist getMultivariantPlaylist();
 
   /**
    * Returns the {@link HlsContentSteeringTracker content steering tracker}.
@@ -184,8 +183,7 @@ public interface HlsPlaylistTracker {
    * @return The {@link HlsContentSteeringTracker}. Null if the initial playlist has yet to be
    *     loaded, or no information for content steering is declared in the initial playlist.
    */
-  @Nullable
-  HlsContentSteeringTracker getContentSteeringTracker();
+  @Nullable HlsContentSteeringTracker getContentSteeringTracker();
 
   /**
    * Returns the {@link HlsRedundantGroup} list corresponding to the {@code type}.
@@ -194,8 +192,7 @@ public interface HlsPlaylistTracker {
    * @return The list of requested {@link HlsRedundantGroup}. Null if the initial playlist has yet
    *     to be loaded.
    */
-  @Nullable
-  List<HlsRedundantGroup> getRedundantGroups(@HlsRedundantGroup.Type int type);
+  @Nullable List<HlsRedundantGroup> getRedundantGroups(@HlsRedundantGroup.Type int type);
 
   /**
    * Returns the most recent snapshot available of the playlist referenced by the provided {@link
@@ -207,8 +204,7 @@ public interface HlsPlaylistTracker {
    * @return The most recent snapshot of the playlist referenced by the provided {@link Uri}. May be
    *     null if no snapshot has been loaded yet.
    */
-  @Nullable
-  HlsMediaPlaylist getPlaylistSnapshot(Uri url, boolean isForPlayback);
+  @Nullable HlsMediaPlaylist getPlaylistSnapshot(Uri url, boolean isForPlayback);
 
   /**
    * Returns the start time of the first loaded primary playlist, or {@link C#TIME_UNSET} if no
@@ -300,6 +296,5 @@ public interface HlsPlaylistTracker {
    *
    * @param playlistUrl The URL of the media playlist.
    */
-  @Nullable
-  HlsRedundantGroup getRedundantGroup(Uri playlistUrl);
+  @Nullable HlsRedundantGroup getRedundantGroup(Uri playlistUrl);
 }

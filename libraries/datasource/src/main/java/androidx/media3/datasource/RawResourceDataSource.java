@@ -27,7 +27,6 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} for reading a raw resource.

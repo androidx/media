@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
@@ -27,6 +26,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes ICY stream information. */
 @UnstableApi

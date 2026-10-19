@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.Context;
 import android.graphics.Gainmap;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -31,6 +30,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Copies the contents of one OpenGL texture to another, applying shader-based transformations.

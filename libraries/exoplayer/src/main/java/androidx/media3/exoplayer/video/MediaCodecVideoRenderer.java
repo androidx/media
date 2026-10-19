@@ -52,7 +52,6 @@ import android.view.Display;
 import android.view.Display.HdrCapabilities;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
@@ -105,6 +104,7 @@ import java.util.PriorityQueue;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Decodes and renders video using {@link MediaCodec}.
@@ -1463,8 +1463,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // for H.264/AV1 only if the format contains sufficient information for us to determine
       // unambiguously that it's a H.264/AV1 based profile.
       sampleMimeType = MimeTypes.VIDEO_H265;
-      @Nullable
-      Pair<Integer, Integer> codecProfileAndLevel =
+      @Nullable Pair<Integer, Integer> codecProfileAndLevel =
           CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null) {
         int profile = codecProfileAndLevel.first;

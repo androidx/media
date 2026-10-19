@@ -15,10 +15,10 @@
  */
 package androidx.media3.extractor.metadata.mp4;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores metadata from the Samsung smta box.

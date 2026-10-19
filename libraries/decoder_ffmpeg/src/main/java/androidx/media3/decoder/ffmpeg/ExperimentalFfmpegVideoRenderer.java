@@ -21,7 +21,6 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_
 
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
@@ -35,6 +34,7 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 // TODO: Merge actual implementation in https://github.com/androidx/media/pull/1591.
 /**

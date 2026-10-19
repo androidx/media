@@ -37,7 +37,6 @@ import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.os.Build;
 import android.util.Half;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.GlUtil;
@@ -54,6 +53,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for pixel tests. */
 // TODO(b/263395272): After the bug is fixed and dependent tests are moved back to media3.effect,

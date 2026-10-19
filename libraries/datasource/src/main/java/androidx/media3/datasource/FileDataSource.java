@@ -23,7 +23,6 @@ import android.net.Uri;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -31,6 +30,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSource} for reading local files. */
 @UnstableApi

@@ -15,10 +15,10 @@
  */
 package androidx.media3.datasource;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** Used to specify reason of a DataSource error. */
 public class DataSourceException extends IOException {

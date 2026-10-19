@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.util.Base64;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.DiscontinuityReason;
@@ -34,6 +33,7 @@ import java.util.Iterator;
 import java.util.Random;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default {@link PlaybackSessionManager} which instantiates a new session for each window in the

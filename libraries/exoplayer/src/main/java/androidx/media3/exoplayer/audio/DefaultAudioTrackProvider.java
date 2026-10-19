@@ -20,12 +20,12 @@ import static android.os.Build.VERSION.SDK_INT;
 import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated Use {@link AudioTrackAudioOutputProvider} instead.

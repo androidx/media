@@ -29,7 +29,6 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -47,6 +46,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.LegacyPlayerControlView;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Activity that demonstrates use of {@link SurfaceControl} with ExoPlayer. */
 public final class MainActivity extends Activity {

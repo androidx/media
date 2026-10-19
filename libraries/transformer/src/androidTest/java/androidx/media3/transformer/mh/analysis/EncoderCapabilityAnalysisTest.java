@@ -27,7 +27,6 @@ import android.media.MediaCodecInfo;
 import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TestSummaryLogger;
@@ -43,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -204,8 +204,8 @@ public class EncoderCapabilityAnalysisTest {
     capabilities.put(
         Util.formatInvariant("supported_heights_for_%d", width), rangeToString(supportedHeights));
 
-    @Nullable
-    Size supportedResolution = EncoderUtil.getSupportedResolution(encoder, mimeType, width, height);
+    @Nullable Size supportedResolution =
+        EncoderUtil.getSupportedResolution(encoder, mimeType, width, height);
     if (supportedResolution == null) {
       supportedResolution = new Size(/* width= */ 0, /* height= */ 0);
     }

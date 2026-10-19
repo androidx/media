@@ -35,7 +35,6 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.core.app.NotificationCompat;
@@ -60,6 +59,7 @@ import java.util.Arrays;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The default {@link MediaNotification.Provider}.
@@ -348,8 +348,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
                     maxNotificationIconSize.get(),
                     /* makeShared= */ true));
       }
-      @Nullable
-      ListenableFuture<Bitmap> bitmapFuture =
+      @Nullable ListenableFuture<Bitmap> bitmapFuture =
           notificationIconBitmapLoader.loadBitmapFromMetadata(metadata);
       if (bitmapFuture != null) {
         if (pendingOnBitmapLoadedFutureCallback != null) {

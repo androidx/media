@@ -16,9 +16,9 @@
 package androidx.media3.datasource;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A DataSource which provides no data. {@link #open(DataSpec)} throws {@link IOException}. */
 @UnstableApi

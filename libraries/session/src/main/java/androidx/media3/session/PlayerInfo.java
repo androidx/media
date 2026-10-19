@@ -28,7 +28,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -51,6 +50,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Information about the player that {@link MediaSession} uses to send its state to {@link
@@ -1057,8 +1057,7 @@ import java.util.Objects;
       return ((InProcessBinder) inProcessBinder).getPlayerInfo();
     }
     @Nullable Bundle playerErrorBundle = bundle.getBundle(FIELD_PLAYBACK_ERROR);
-    @Nullable
-    PlaybackException playerError =
+    @Nullable PlaybackException playerError =
         playerErrorBundle == null ? null : PlaybackException.fromBundle(playerErrorBundle);
     int mediaItemTransitionReason =
         bundle.getInt(FIELD_MEDIA_ITEM_TRANSITION_REASON, MEDIA_ITEM_TRANSITION_REASON_DEFAULT);
@@ -1156,8 +1155,8 @@ import java.util.Objects;
     Bundle currentTracksBundle = bundle.getBundle(FIELD_CURRENT_TRACKS);
     Tracks currentTracks =
         currentTracksBundle == null ? Tracks.EMPTY : Tracks.fromBundle(currentTracksBundle);
-    @Nullable
-    Bundle trackSelectionParametersBundle = bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
+    @Nullable Bundle trackSelectionParametersBundle =
+        bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
     TrackSelectionParameters trackSelectionParameters =
         trackSelectionParametersBundle == null
             ? TrackSelectionParameters.DEFAULT

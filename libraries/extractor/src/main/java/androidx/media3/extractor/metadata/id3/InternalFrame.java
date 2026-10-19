@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Internal ID3 frame that is intended for use by the player. */
 @UnstableApi

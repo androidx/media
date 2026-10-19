@@ -18,10 +18,10 @@ package androidx.media3.common;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A label for a {@link Format}. */
 @UnstableApi

@@ -18,8 +18,8 @@ package androidx.media3.common;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Immutable value class for a {@link Surface} and supporting information. */
 @UnstableApi

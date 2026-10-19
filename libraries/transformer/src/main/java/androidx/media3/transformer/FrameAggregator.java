@@ -26,7 +26,6 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.util.Rational;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
@@ -45,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Combines multiple sequences of {@link AsyncFrame}s into one sequence of {@link

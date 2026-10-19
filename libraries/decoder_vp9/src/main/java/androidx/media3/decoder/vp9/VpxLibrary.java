@@ -15,11 +15,11 @@
  */
 package androidx.media3.decoder.vp9;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi

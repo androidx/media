@@ -21,13 +21,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.fail;
 
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.offline.Download;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import java.util.HashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Allows tests to block for, and assert properties of, calls from a {@link DownloadManager} to its

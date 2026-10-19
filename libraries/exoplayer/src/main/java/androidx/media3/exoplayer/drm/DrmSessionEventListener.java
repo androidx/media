@@ -20,11 +20,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** Listener of {@link DrmSessionManager} events. */
 @UnstableApi

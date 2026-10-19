@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.media.MediaFormat;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
@@ -33,6 +32,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a non-locally recoverable export failure occurs. */
 @UnstableApi

@@ -18,12 +18,12 @@ package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A media transformation request. */
 @UnstableApi

@@ -19,13 +19,13 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import org.jspecify.annotations.Nullable;
 
 /** Controls rendering of video frames. */
 /* package */ final class VideoFrameRenderControl {
@@ -273,8 +273,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   }
 
   private boolean maybeUpdateOutputStream(long presentationTimeUs) {
-    @Nullable
-    Long newOutputStreamStartPositionUs = streamStartPositionsUs.pollFloor(presentationTimeUs);
+    @Nullable Long newOutputStreamStartPositionUs =
+        streamStartPositionsUs.pollFloor(presentationTimeUs);
     if (newOutputStreamStartPositionUs != null
         && newOutputStreamStartPositionUs != outputStreamStartPositionUs) {
       outputStreamStartPositionUs = newOutputStreamStartPositionUs;

@@ -21,12 +21,12 @@ import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link BitmapLoader} that avoids producing bitmaps whose larger dimension equals the specific

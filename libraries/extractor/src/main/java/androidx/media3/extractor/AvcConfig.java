@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
@@ -26,6 +25,7 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.container.NalUnitUtil.SpsData;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** AVC configuration data. */
 @UnstableApi

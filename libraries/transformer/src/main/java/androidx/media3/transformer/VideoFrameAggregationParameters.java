@@ -18,13 +18,13 @@ package androidx.media3.transformer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.util.Rational;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Parameters for video frame aggregation.

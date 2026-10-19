@@ -19,7 +19,6 @@ import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Util.percentFloat;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -35,6 +34,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A downloader for progressive media streams. */
 @UnstableApi

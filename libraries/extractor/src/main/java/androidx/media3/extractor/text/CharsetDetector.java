@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.text;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.charset.Charset;
+import org.jspecify.annotations.Nullable;
 
 /** Detects the character encoding of subtitle byte data. */
 @UnstableApi
@@ -33,6 +33,5 @@ public interface CharsetDetector {
    * @param length The number of bytes to inspect.
    * @return The detected character encoding, or {@code null} if it could not be determined.
    */
-  @Nullable
-  Charset detect(byte[] data, int offset, int length);
+  @Nullable Charset detect(byte[] data, int offset, int length);
 }

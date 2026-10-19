@@ -21,11 +21,11 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.RemoteException;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Static utilities for the session module. */
 /* package */ class SessionUtil {

@@ -16,13 +16,13 @@
 package androidx.media3.exoplayer.hls;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Holds metadata associated to an HLS media track. */
 @UnstableApi

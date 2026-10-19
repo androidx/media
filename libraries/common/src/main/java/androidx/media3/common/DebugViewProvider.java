@@ -16,8 +16,8 @@
 package androidx.media3.common;
 
 import android.view.SurfaceView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provider for views to show diagnostic information during an export, for debugging.
@@ -36,6 +36,5 @@ public interface DebugViewProvider {
    *
    * <p>This method may be called on an arbitrary thread.
    */
-  @Nullable
-  SurfaceView getDebugPreviewSurfaceView(int width, int height);
+  @Nullable SurfaceView getDebugPreviewSurfaceView(int width, int height);
 }

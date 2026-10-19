@@ -18,12 +18,12 @@ package androidx.media3.session.artwork;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaSession;
 import java.io.ByteArrayOutputStream;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Utility class for processing bitmaps, such as downsizing and re-compression. */
 @UnstableApi

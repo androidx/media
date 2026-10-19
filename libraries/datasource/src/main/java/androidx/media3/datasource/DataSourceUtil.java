@@ -15,11 +15,11 @@
  */
 package androidx.media3.datasource;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for {@link DataSource}. */
 @UnstableApi

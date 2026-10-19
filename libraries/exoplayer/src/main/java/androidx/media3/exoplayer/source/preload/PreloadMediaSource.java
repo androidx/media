@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -52,6 +51,7 @@ import androidx.media3.exoplayer.upstream.PlayerIdAwareAllocator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Preloads a {@link MediaSource} and provides a {@link MediaPeriod} that has data loaded before

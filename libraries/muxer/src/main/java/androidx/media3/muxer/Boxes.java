@@ -30,7 +30,6 @@ import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -62,6 +61,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.PolyNull;
+import org.jspecify.annotations.Nullable;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
 /* package */ final class Boxes {

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -30,6 +29,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} that masks the {@link Timeline} with a placeholder until the actual media

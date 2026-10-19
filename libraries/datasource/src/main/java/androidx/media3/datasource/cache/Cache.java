@@ -15,7 +15,6 @@
  */
 package androidx.media3.datasource.cache;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -23,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.NavigableSet;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A cache that supports partial caching of resources.
@@ -201,8 +201,8 @@ public interface Cache {
    * @throws CacheException If an error is encountered.
    */
   @WorkerThread
-  @Nullable
-  CacheSpan startReadWriteNonBlocking(String key, long position, long length) throws CacheException;
+  @Nullable CacheSpan startReadWriteNonBlocking(String key, long position, long length)
+      throws CacheException;
 
   /**
    * Obtains a cache file into which data can be written. Must only be called when holding a

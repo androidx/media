@@ -17,7 +17,6 @@ package androidx.media3.common.text;
 
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -26,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Class to represent the state of active {@link Cue Cues} at a particular time. */
 public final class CueGroup {

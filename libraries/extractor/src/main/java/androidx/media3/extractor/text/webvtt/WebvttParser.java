@@ -16,7 +16,6 @@
 package androidx.media3.extractor.text.webvtt;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.ParserException;
@@ -28,6 +27,7 @@ import androidx.media3.extractor.text.SubtitleParser;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SubtitleParser} for WebVTT.
@@ -97,8 +97,8 @@ public final class WebvttParser implements SubtitleParser {
         parsableWebvttData.readLine(); // Consume the "STYLE" header.
         definedStyles.addAll(cssParser.parseBlock(parsableWebvttData));
       } else if (event == EVENT_CUE) {
-        @Nullable
-        WebvttCueInfo cueInfo = WebvttCueParser.parseCue(parsableWebvttData, definedStyles);
+        @Nullable WebvttCueInfo cueInfo =
+            WebvttCueParser.parseCue(parsableWebvttData, definedStyles);
         if (cueInfo != null) {
           cueInfos.add(cueInfo);
         }

@@ -25,7 +25,6 @@ import android.view.View;
 import android.widget.CheckedTextView;
 import android.widget.LinearLayout;
 import androidx.annotation.AttrRes;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
@@ -38,6 +37,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** A view for making track selections. */
 @UnstableApi
@@ -321,8 +321,8 @@ public class TrackSelectionView extends LinearLayout {
     disableView.setChecked(isDisabled);
     defaultView.setChecked(!isDisabled && overrides.isEmpty());
     for (int i = 0; i < trackViews.length; i++) {
-      @Nullable
-      TrackSelectionOverride override = overrides.get(trackGroups.get(i).getMediaTrackGroup());
+      @Nullable TrackSelectionOverride override =
+          overrides.get(trackGroups.get(i).getMediaTrackGroup());
       for (int j = 0; j < trackViews[i].length; j++) {
         if (override != null) {
           TrackInfo trackInfo = (TrackInfo) checkNotNull(trackViews[i][j].getTag());

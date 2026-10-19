@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.Player;
@@ -27,6 +26,7 @@ import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** A fake implementation of {@link AdsLoader}. */
 @UnstableApi

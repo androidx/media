@@ -15,10 +15,10 @@
  */
 package androidx.media3.exoplayer.source;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An overridable {@link Timeline} implementation forwarding methods to another timeline.

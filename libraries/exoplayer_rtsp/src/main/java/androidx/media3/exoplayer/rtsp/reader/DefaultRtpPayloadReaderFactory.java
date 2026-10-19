@@ -18,10 +18,10 @@ package androidx.media3.exoplayer.rtsp.reader;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
+import org.jspecify.annotations.Nullable;
 
 /** Default {@link RtpPayloadReader.Factory} implementation. */
 @UnstableApi

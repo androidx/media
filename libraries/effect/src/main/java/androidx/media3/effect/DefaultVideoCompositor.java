@@ -28,7 +28,6 @@ import android.opengl.EGLSurface;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -48,6 +47,7 @@ import java.util.Iterator;
 import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A basic {@link VideoCompositor} implementation that takes in frames from input sources' streams

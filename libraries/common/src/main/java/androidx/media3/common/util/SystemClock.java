@@ -18,8 +18,8 @@ package androidx.media3.common.util;
 import android.os.Handler;
 import android.os.Handler.Callback;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The standard implementation of {@link Clock}, an instance of which is available via {@link

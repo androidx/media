@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.net.Uri;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState.SkipInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -33,6 +32,7 @@ import java.io.InputStream;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** Parses a X-ASSET-LIST JSON object. */
 /* package */ final class AssetListParser

@@ -22,8 +22,8 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides a {@link Looper} for multiple {@link ExoPlayer} instances with reference counting in

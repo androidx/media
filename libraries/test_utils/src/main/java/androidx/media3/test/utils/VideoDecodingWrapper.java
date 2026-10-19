@@ -30,7 +30,6 @@ import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
@@ -44,6 +43,7 @@ import androidx.media3.inspector.MediaExtractorCompat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A wrapper for decoding a video using {@link MediaCodec}.

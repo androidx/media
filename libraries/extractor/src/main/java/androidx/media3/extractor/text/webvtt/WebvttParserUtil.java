@@ -15,13 +15,13 @@
  */
 package androidx.media3.extractor.text.webvtt;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for parsing WebVTT data. */
 @UnstableApi

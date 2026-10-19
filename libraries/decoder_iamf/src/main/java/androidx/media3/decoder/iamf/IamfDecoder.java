@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
@@ -32,6 +31,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** IAMF decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)

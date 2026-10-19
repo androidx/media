@@ -16,9 +16,9 @@
 package androidx.media3.transformer;
 
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import org.jspecify.annotations.Nullable;
 
 /** A listener for {@link MediaItem} changes in the {@linkplain SampleExporter sample exporters}. */
 /* package */ interface OnMediaItemChangedListener {

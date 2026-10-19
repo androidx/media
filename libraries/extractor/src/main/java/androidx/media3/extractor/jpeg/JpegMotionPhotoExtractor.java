@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -47,6 +46,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts JPEG motion photos following the <a
@@ -329,8 +329,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     // Motion photos have (at least) a primary image media item and a secondary video media item.
-    @Nullable
-    MotionPhotoDescription motionPhotoDescription =
+    @Nullable MotionPhotoDescription motionPhotoDescription =
         XmpMotionPhotoDescriptionParser.parse(xmpString);
     if (motionPhotoDescription == null) {
       return null;

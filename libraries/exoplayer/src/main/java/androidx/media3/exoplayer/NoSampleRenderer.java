@@ -17,7 +17,6 @@ package androidx.media3.exoplayer;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
@@ -28,6 +27,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Renderer} implementation whose track type is {@link C#TRACK_TYPE_NONE} and does not

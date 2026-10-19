@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
@@ -31,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@inheritDoc}

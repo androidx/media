@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
@@ -30,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link FrameWriter} implementation for testing. */
 @RequiresApi(26)

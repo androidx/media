@@ -16,7 +16,6 @@
 package androidx.media3.extractor;
 
 import android.util.Base64;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.Metadata.Entry;
 import androidx.media3.common.util.Log;
@@ -29,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for parsing Vorbis streams. */
 @UnstableApi

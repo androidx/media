@@ -18,11 +18,11 @@ package androidx.media3.session;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps the instance of currently running {@link MockMediaSessionService}. And also provides a way
@@ -173,8 +173,7 @@ public class TestServiceRegistry {
   /** Handles onGetSession */
   public interface OnGetSessionHandler {
 
-    @Nullable
-    MediaSession onGetSession(ControllerInfo controllerInfo);
+    @Nullable MediaSession onGetSession(ControllerInfo controllerInfo);
   }
 
   /** Handles onUpdateMediaNotificationAsync */

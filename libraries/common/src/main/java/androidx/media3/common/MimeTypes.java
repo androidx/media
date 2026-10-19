@@ -18,7 +18,6 @@ package androidx.media3.common;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -28,6 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Defines common MIME types and helper methods. */
 public final class MimeTypes {

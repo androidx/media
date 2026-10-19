@@ -15,11 +15,11 @@
  */
 package androidx.media3.extractor.mp4;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A helper class for resolving the MIME type of an MP4 container based on its tracks. */
 /* package */ final class MimeTypeResolver {

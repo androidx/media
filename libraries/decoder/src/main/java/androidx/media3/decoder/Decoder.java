@@ -15,9 +15,9 @@
  */
 package androidx.media3.decoder;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A media decoder.
@@ -55,8 +55,7 @@ public interface Decoder<I, O, E extends DecoderException> {
    * @return The input buffer, which will have been cleared, or null if a buffer isn't available.
    * @throws E If a decoder error has occurred.
    */
-  @Nullable
-  I dequeueInputBuffer() throws E;
+  @Nullable I dequeueInputBuffer() throws E;
 
   /**
    * Queues an input buffer to the decoder.
@@ -72,8 +71,7 @@ public interface Decoder<I, O, E extends DecoderException> {
    * @return The output buffer, or null if an output buffer isn't available.
    * @throws E If a decoder error has occurred.
    */
-  @Nullable
-  O dequeueOutputBuffer() throws E;
+  @Nullable O dequeueOutputBuffer() throws E;
 
   /**
    * Flushes the decoder. Ownership of dequeued input buffers is returned to the decoder. The caller

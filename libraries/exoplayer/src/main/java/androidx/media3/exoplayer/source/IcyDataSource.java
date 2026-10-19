@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.datasource.DataSource;
@@ -29,6 +28,7 @@ import androidx.media3.datasource.TransferListener;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Splits ICY stream metadata out from a stream.

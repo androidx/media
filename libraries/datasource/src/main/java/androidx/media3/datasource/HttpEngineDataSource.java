@@ -30,7 +30,6 @@ import android.net.http.UrlRequest.Status;
 import android.net.http.UrlResponseInfo;
 import android.os.Build;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresExtension;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -58,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * DataSource without intermediate buffer based on {@link HttpEngine} set using {@link UrlRequest}.
@@ -517,8 +517,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
         responseBody = Util.EMPTY_BYTE_ARRAY;
       }
 
-      @Nullable
-      IOException cause =
+      @Nullable IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;
@@ -710,8 +709,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   /** Returns current {@link UrlRequest.Callback}. May be null if the data source is not opened. */
   @UnstableApi
   @VisibleForTesting
-  @Nullable
-  UrlRequestCallback getCurrentUrlRequestCallback() {
+  @Nullable UrlRequestCallback getCurrentUrlRequestCallback() {
     return currentUrlRequestWrapper == null
         ? null
         : currentUrlRequestWrapper.getUrlRequestCallback();

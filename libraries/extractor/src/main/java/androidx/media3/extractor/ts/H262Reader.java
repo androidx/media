@@ -18,7 +18,6 @@ package androidx.media3.extractor.ts;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -32,6 +31,7 @@ import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.util.Arrays;
 import java.util.Collections;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parses a continuous H262 byte stream and extracts individual frames. */
 @UnstableApi

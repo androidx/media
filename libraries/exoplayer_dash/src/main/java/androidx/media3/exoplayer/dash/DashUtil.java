@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.dash;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -44,6 +43,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for DASH streams. */
 @UnstableApi
@@ -131,8 +131,8 @@ public final class DashUtil {
       }
     }
     Format manifestFormat = representation.format;
-    @Nullable
-    Format sampleFormat = DashUtil.loadSampleFormat(dataSource, primaryTrackType, representation);
+    @Nullable Format sampleFormat =
+        DashUtil.loadSampleFormat(dataSource, primaryTrackType, representation);
     return sampleFormat == null
         ? manifestFormat
         : sampleFormat.withManifestFormatInfo(manifestFormat);

@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.os.ParcelFileDescriptor;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -40,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Dumpable} {@link Muxer} implementation that supports dumping information about all

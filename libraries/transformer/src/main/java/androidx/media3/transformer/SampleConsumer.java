@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
@@ -29,6 +28,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Consumer of encoded media samples, raw audio or raw video frames. */
 @UnstableApi

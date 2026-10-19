@@ -20,13 +20,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.exoplayer.rtsp.RtspMessageUtil.RtspAuthUserInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -481,8 +481,7 @@ public final class RtspMessageUtilTest {
 
   @Test
   public void extractUserInfo_withoutPassword_returnsNull() {
-    @Nullable
-    RtspAuthUserInfo authUserInfo =
+    @Nullable RtspAuthUserInfo authUserInfo =
         RtspMessageUtil.parseUserInfo(Uri.parse("rtsp://username@mediaserver.com/stream1"));
 
     assertThat(authUserInfo).isNull();
@@ -490,16 +489,14 @@ public final class RtspMessageUtilTest {
 
   @Test
   public void extractUserInfo_withoutUserInfo_returnsNull() {
-    @Nullable
-    RtspAuthUserInfo authUserInfo =
+    @Nullable RtspAuthUserInfo authUserInfo =
         RtspMessageUtil.parseUserInfo(Uri.parse("rtsp://mediaserver.com/stream1"));
     assertThat(authUserInfo).isNull();
   }
 
   @Test
   public void extractUserInfo_withProperlyFormattedUri_succeeds() {
-    @Nullable
-    RtspAuthUserInfo authUserInfo =
+    @Nullable RtspAuthUserInfo authUserInfo =
         RtspMessageUtil.parseUserInfo(
             Uri.parse("rtsp://username:pass:word@mediaserver.com/stream1"));
 

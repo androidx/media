@@ -25,7 +25,6 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -37,6 +36,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.HardwareBufferNativeHelpers;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Creates and provides an output {@link Surface} and forwards frames rendered to it into a

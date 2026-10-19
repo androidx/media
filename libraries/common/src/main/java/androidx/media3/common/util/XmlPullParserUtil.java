@@ -15,7 +15,7 @@
  */
 package androidx.media3.common.util;
 
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 

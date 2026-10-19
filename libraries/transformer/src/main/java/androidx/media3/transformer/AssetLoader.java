@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.transformer.Composition.HdrMode;
@@ -30,6 +29,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides media data to a {@linkplain Transformer}.
@@ -126,8 +126,7 @@ public interface AssetLoader {
      *     it could not be retrieved yet.
      * @throws ExportException If an error occurs configuring the {@link SampleConsumer}.
      */
-    @Nullable
-    SampleConsumer onOutputFormat(Format format) throws ExportException;
+    @Nullable SampleConsumer onOutputFormat(Format format) throws ExportException;
 
     /**
      * Called if an error occurs in the asset loader. In this case, the asset loader will be

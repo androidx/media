@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
@@ -30,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link VideoSink} that delays most operations performed on it until it {@linkplain

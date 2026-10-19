@@ -17,9 +17,9 @@ package androidx.media3.common.util;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.jspecify.annotations.Nullable;
 
 /** Loads images. */
 @UnstableApi

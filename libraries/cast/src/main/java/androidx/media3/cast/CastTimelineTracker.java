@@ -19,7 +19,6 @@ import static androidx.media3.cast.CastTimeline.ItemData.UNKNOWN_CONTENT_ID;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Creates {@link CastTimeline CastTimelines} from cast receiver app status updates.

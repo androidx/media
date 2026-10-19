@@ -18,8 +18,8 @@ package androidx.media3.common.util;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper class to handle state updates on a background thread while maintaining a placeholder state

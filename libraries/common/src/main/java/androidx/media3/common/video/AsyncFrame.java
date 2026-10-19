@@ -15,8 +15,8 @@
  */
 package androidx.media3.common.video;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ExperimentalApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A data class storing a {@link Frame} and a {@link SyncFenceWrapper} that must be waited on before

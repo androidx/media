@@ -29,7 +29,6 @@ import android.media.Image;
 import android.os.Handler;
 import android.util.Rational;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -64,6 +63,7 @@ import java.util.StringJoiner;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi

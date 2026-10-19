@@ -25,7 +25,6 @@ import static androidx.media3.transformer.TransformerUtil.getValidColor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -34,6 +33,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.transformer.SampleConsumer.InputResult;
 import com.google.common.collect.ImmutableMap;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AssetLoader} implementation that loads videos from {@linkplain

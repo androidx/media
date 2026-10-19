@@ -33,7 +33,6 @@ import android.util.SparseArray;
 import android.view.Surface;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -70,6 +69,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Processes input from {@link VideoSink} instances, plumbing the data through a {@link VideoGraph}

@@ -15,9 +15,9 @@
  */
 package androidx.media3.container;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Stores MP4 {@code alternate_group} info parsed from a {@code tkhd} box. */
 @UnstableApi

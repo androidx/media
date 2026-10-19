@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} that supports multiple URI schemes. The supported schemes are:

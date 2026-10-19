@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.audio;
 
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.UnstableApi;
@@ -25,6 +24,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** An interface to wrap an object that can play audio, like an {@link AudioTrack}. */
 public interface AudioOutput {

@@ -22,7 +22,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -36,6 +35,7 @@ import androidx.media3.test.utils.FakeDataSet.FakeData.Segment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A fake {@link DataSource} capable of simulating various scenarios. It uses a {@link FakeDataSet}

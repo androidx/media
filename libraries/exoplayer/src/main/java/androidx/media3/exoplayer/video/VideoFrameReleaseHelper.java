@@ -27,7 +27,6 @@ import android.view.Choreographer.FrameCallback;
 import android.view.Display;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -35,6 +34,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A helper to release video frames to a {@link Surface}. This helper:

@@ -15,10 +15,10 @@
  */
 package androidx.media3.exoplayer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.DrmSession;
+import org.jspecify.annotations.Nullable;
 
 /** Holds a {@link Format}. */
 @UnstableApi

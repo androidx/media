@@ -33,7 +33,6 @@ import android.media.MediaParser;
 import android.media.MediaParser.OutputConsumer;
 import android.media.MediaParser.SeekPoint;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
@@ -48,6 +47,7 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** {@link HlsMediaChunkExtractor} implemented on top of the platform's {@link MediaParser}. */
 @RequiresApi(30)

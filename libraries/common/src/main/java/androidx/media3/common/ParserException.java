@@ -15,10 +15,10 @@
  */
 package androidx.media3.common;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when an error occurs parsing media data and metadata. */
 @UnstableApi

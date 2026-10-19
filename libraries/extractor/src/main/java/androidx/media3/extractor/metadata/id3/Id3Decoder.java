@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -35,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes ID3 tags. */
 @UnstableApi
@@ -159,8 +159,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     while (id3Data.bytesLeft() >= frameHeaderSize) {
-      @Nullable
-      Id3Frame frame =
+      @Nullable Id3Frame frame =
           decodeFrame(
               id3Header.majorVersion,
               id3Data,
@@ -750,8 +749,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     ArrayList<Id3Frame> subFrames = new ArrayList<>();
     int limit = framePosition + frameSize;
     while (id3Data.getPosition() < limit) {
-      @Nullable
-      Id3Frame frame =
+      @Nullable Id3Frame frame =
           decodeFrame(
               majorVersion, id3Data, unsignedIntFrameSizeHack, frameHeaderSize, framePredicate);
       if (frame != null) {

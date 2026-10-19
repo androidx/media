@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.Loader;
@@ -32,6 +31,7 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Static utility to retrieve the device time offset using SNTP.

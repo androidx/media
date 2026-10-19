@@ -30,7 +30,6 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import androidx.annotation.Dimension;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.text.SubtitleStyle;
@@ -41,6 +40,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A view for displaying subtitle {@link Cue}s. */
 @UnstableApi
@@ -332,8 +332,7 @@ public final class SubtitleView extends FrameLayout {
     if (isInEditMode()) {
       return 1f;
     }
-    @Nullable
-    CaptioningManager captioningManager =
+    @Nullable CaptioningManager captioningManager =
         (CaptioningManager) getContext().getSystemService(Context.CAPTIONING_SERVICE);
     return captioningManager != null && captioningManager.isEnabled()
         ? captioningManager.getFontScale()
@@ -344,8 +343,7 @@ public final class SubtitleView extends FrameLayout {
     if (isInEditMode()) {
       return SubtitleStyle.DEFAULT;
     }
-    @Nullable
-    CaptioningManager captioningManager =
+    @Nullable CaptioningManager captioningManager =
         (CaptioningManager) getContext().getSystemService(Context.CAPTIONING_SERVICE);
     return captioningManager != null && captioningManager.isEnabled()
         ? SubtitleStyle.fromCaptionStyle(captioningManager.getUserStyle())

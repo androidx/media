@@ -19,9 +19,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implementation of {@link ReferenceCounter} that tracks the release state of an individual handle
@@ -158,8 +158,7 @@ import java.util.concurrent.Executor;
   }
 
   /** Returns the {@link FrameSharedState}, or {@code null} if unmanaged. */
-  @Nullable
-  /* package */ FrameSharedState getSharedState() {
+  @Nullable /* package */ FrameSharedState getSharedState() {
     return sharedState;
   }
 

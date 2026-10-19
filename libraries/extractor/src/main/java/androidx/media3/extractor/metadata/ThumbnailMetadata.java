@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.metadata;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Stores the presentation timestamp of a thumbnail. */
 @UnstableApi

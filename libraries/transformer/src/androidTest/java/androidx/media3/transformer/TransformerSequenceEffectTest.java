@@ -52,7 +52,6 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -73,6 +72,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -195,8 +195,7 @@ public final class TransformerSequenceEffectTest {
       if (decoderProducesWashedOutColours(mediaCodecInfo)) {
         continue;
       }
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;
@@ -233,8 +232,7 @@ public final class TransformerSequenceEffectTest {
       if (decoderProducesWashedOutColours(mediaCodecInfo)) {
         continue;
       }
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;
@@ -271,8 +269,7 @@ public final class TransformerSequenceEffectTest {
       if (decoderProducesWashedOutColours(mediaCodecInfo)) {
         continue;
       }
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;
@@ -310,8 +307,7 @@ public final class TransformerSequenceEffectTest {
       if (decoderProducesWashedOutColours(mediaCodecInfo)) {
         continue;
       }
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;
@@ -351,8 +347,7 @@ public final class TransformerSequenceEffectTest {
       if (decoderProducesWashedOutColours(mediaCodecInfo)) {
         continue;
       }
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;

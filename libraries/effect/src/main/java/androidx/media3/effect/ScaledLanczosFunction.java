@@ -19,8 +19,8 @@ import static java.lang.Math.PI;
 import static java.lang.Math.abs;
 import static java.lang.Math.sin;
 
-import androidx.annotation.Nullable;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implementation of a scaled Lanczos window function.

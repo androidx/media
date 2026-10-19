@@ -18,7 +18,6 @@ package androidx.media3.common.audio;
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.util.UnstableApi;
@@ -27,6 +26,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handles passing buffers through multiple {@link AudioProcessor} instances.

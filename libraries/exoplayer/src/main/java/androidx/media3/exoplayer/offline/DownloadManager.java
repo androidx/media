@@ -37,7 +37,6 @@ import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.CheckResult;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -58,6 +57,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages downloads.

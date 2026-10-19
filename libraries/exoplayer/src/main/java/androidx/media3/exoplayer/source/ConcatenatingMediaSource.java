@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -46,6 +45,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Concatenates multiple {@link MediaSource} instances. The list of {@link MediaSource} instances
@@ -581,8 +581,8 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
     }
     mediaSourcesPublic.addAll(index, mediaSourceHolders);
     if (playbackThreadHandler != null && !mediaSources.isEmpty()) {
-      @Nullable
-      HandlerAndRunnable callbackAction = createOnCompletionAction(handler, onCompletionAction);
+      @Nullable HandlerAndRunnable callbackAction =
+          createOnCompletionAction(handler, onCompletionAction);
       playbackThreadHandler
           .obtainMessage(MSG_ADD, new MessageData<>(index, mediaSourceHolders, callbackAction))
           .sendToTarget();
@@ -601,8 +601,8 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
     @Nullable Handler playbackThreadHandler = this.playbackThreadHandler;
     Util.removeRange(mediaSourcesPublic, fromIndex, toIndex);
     if (playbackThreadHandler != null) {
-      @Nullable
-      HandlerAndRunnable callbackAction = createOnCompletionAction(handler, onCompletionAction);
+      @Nullable HandlerAndRunnable callbackAction =
+          createOnCompletionAction(handler, onCompletionAction);
       playbackThreadHandler
           .obtainMessage(MSG_REMOVE, new MessageData<>(fromIndex, toIndex, callbackAction))
           .sendToTarget();
@@ -621,8 +621,8 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
     @Nullable Handler playbackThreadHandler = this.playbackThreadHandler;
     mediaSourcesPublic.add(newIndex, mediaSourcesPublic.remove(currentIndex));
     if (playbackThreadHandler != null) {
-      @Nullable
-      HandlerAndRunnable callbackAction = createOnCompletionAction(handler, onCompletionAction);
+      @Nullable HandlerAndRunnable callbackAction =
+          createOnCompletionAction(handler, onCompletionAction);
       playbackThreadHandler
           .obtainMessage(MSG_MOVE, new MessageData<>(currentIndex, newIndex, callbackAction))
           .sendToTarget();
@@ -644,8 +644,8 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
                 .cloneAndClear()
                 .cloneAndInsert(/* insertionIndex= */ 0, /* insertionCount= */ size);
       }
-      @Nullable
-      HandlerAndRunnable callbackAction = createOnCompletionAction(handler, onCompletionAction);
+      @Nullable HandlerAndRunnable callbackAction =
+          createOnCompletionAction(handler, onCompletionAction);
       playbackThreadHandler
           .obtainMessage(
               MSG_SET_SHUFFLE_ORDER,

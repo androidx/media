@@ -19,13 +19,13 @@ package androidx.media3.exoplayer.rtsp;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Records all the information in a SDP message.

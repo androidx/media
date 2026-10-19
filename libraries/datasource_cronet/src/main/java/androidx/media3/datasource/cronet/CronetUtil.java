@@ -16,7 +16,6 @@
 package androidx.media3.datasource.cronet;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -27,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import org.chromium.net.CronetEngine;
 import org.chromium.net.CronetProvider;
+import org.jspecify.annotations.Nullable;
 
 /** Cronet utility methods. */
 public final class CronetUtil {

@@ -26,11 +26,11 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
+import org.jspecify.annotations.Nullable;
 
 /** The default {@link MediaNotification.ActionFactory}. */
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
@@ -150,8 +150,8 @@ import androidx.media3.common.util.Log;
    */
   public Bundle getCustomActionExtras(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
-    @Nullable
-    Object customExtras = extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS) : null;
+    @Nullable Object customExtras =
+        extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS) : null;
     return customExtras instanceof Bundle ? (Bundle) customExtras : Bundle.EMPTY;
   }
 }

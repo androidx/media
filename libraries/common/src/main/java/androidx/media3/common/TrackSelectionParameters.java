@@ -26,7 +26,6 @@ import android.os.Bundle;
 import android.view.accessibility.CaptioningManager;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -46,6 +45,7 @@ import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Parameters for controlling track selection.
@@ -253,8 +253,8 @@ public class TrackSelectionParameters {
       forceHighestSupportedBitrate =
           bundle.getBoolean(
               FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE, DEFAULT.forceHighestSupportedBitrate);
-      @Nullable
-      List<Bundle> overrideBundleList = bundle.getParcelableArrayList(FIELD_SELECTION_OVERRIDES);
+      @Nullable List<Bundle> overrideBundleList =
+          bundle.getParcelableArrayList(FIELD_SELECTION_OVERRIDES);
       List<TrackSelectionOverride> overrideList =
           overrideBundleList == null
               ? ImmutableList.of()

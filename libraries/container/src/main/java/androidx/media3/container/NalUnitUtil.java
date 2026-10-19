@@ -20,7 +20,6 @@ import static com.google.common.math.DoubleMath.log2;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -35,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for handling H.264/AVC and H.265/HEVC NAL units. */
 @UnstableApi

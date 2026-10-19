@@ -18,7 +18,6 @@ package androidx.media3.extractor.text.pgs;
 import static java.lang.Math.min;
 
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -32,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.zip.Inflater;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for PGS subtitles. */
 @UnstableApi

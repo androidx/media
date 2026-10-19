@@ -15,10 +15,10 @@
  */
 package androidx.media3.common.video;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /** Interface with lifecycle management and reference counting. */
 @RestrictTo(Scope.LIBRARY_GROUP)

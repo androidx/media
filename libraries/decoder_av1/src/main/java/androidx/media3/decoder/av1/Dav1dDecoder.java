@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.os.Process;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -31,6 +30,7 @@ import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** dAV1d decoder. */
 @UnstableApi

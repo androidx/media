@@ -23,7 +23,6 @@ import android.media.MediaCodec.CodecException;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
@@ -33,6 +32,7 @@ import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.Renderer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Listener of video {@link Renderer} events. All methods have no-op default implementations to

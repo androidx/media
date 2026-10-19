@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.ads;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
@@ -27,6 +26,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource.AdLoadException;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for loaders of ads, which can be used with {@link AdsMediaSource}.
@@ -64,8 +64,7 @@ public interface AdsLoader {
      * <p>This method is called each time a {@link MediaSource} is created from a {@link MediaItem}
      * that defines an {@link MediaItem.LocalConfiguration#adsConfiguration ads configuration}.
      */
-    @Nullable
-    AdsLoader getAdsLoader(MediaItem.AdsConfiguration adsConfiguration);
+    @Nullable AdsLoader getAdsLoader(MediaItem.AdsConfiguration adsConfiguration);
   }
 
   /** Listener for ads loader events. All methods are called on the main thread. */

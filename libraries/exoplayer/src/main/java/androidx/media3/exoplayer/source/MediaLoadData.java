@@ -15,13 +15,13 @@
  */
 package androidx.media3.exoplayer.source;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.C.SelectionReason;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Descriptor for data being loaded or selected by a {@link MediaSource}. */
 @UnstableApi

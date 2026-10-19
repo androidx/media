@@ -26,7 +26,6 @@ import android.media.ImageWriter;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -41,6 +40,7 @@ import androidx.media3.common.video.SyncFenceWrapper;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of {@link FrameWriter} that uses an {@link ImageWriter} to forward frames to a

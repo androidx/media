@@ -15,10 +15,10 @@
  */
 package androidx.media3.extractor.avi;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Represents an AVI LIST. */
 /* package */ final class ListChunk implements AviChunk {

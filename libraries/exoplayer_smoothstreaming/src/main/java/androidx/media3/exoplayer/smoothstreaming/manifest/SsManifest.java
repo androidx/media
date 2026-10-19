@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.smoothstreaming.manifest;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a SmoothStreaming manifest.

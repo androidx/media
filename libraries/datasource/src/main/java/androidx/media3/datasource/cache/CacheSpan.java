@@ -15,10 +15,10 @@
  */
 package androidx.media3.datasource.cache;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.File;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a span of data that may or may not be cached (as indicated by {@link #isCached}). */
 @UnstableApi

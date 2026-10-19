@@ -25,7 +25,6 @@ import android.media.MediaParser;
 import android.media.MediaParser.SeekPoint;
 import android.net.Uri;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -42,6 +41,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** {@link ProgressiveMediaExtractor} implemented on top of the platform's {@link MediaParser}. */
 @RequiresApi(30)

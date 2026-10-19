@@ -29,7 +29,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -44,6 +43,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Forwards externally produced frames that become available via a {@link SurfaceTexture} to an

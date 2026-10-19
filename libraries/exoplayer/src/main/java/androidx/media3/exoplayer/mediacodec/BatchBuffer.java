@@ -18,11 +18,11 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Buffer to which multiple sample buffers can be appended for batch processing */
 /* package */ final class BatchBuffer extends DecoderInputBuffer {

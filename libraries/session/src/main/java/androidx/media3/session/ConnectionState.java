@@ -23,7 +23,6 @@ import android.media.session.MediaSession.Token;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
-import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
@@ -31,6 +30,7 @@ import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Created by {@link MediaSession} to send its state to the {@link MediaController} when the
@@ -203,15 +203,14 @@ import java.util.List;
         bundle.getInt(FIELD_SESSION_INTERFACE_VERSION, /* defaultValue= */ 0);
     IBinder sessionBinder = checkNotNull(BundleCompat.getBinder(bundle, FIELD_SESSION_BINDER));
     @Nullable PendingIntent sessionActivity = bundle.getParcelable(FIELD_SESSION_ACTIVITY);
-    @Nullable
-    List<Bundle> customLayoutArrayList = bundle.getParcelableArrayList(FIELD_CUSTOM_LAYOUT);
+    @Nullable List<Bundle> customLayoutArrayList =
+        bundle.getParcelableArrayList(FIELD_CUSTOM_LAYOUT);
     ImmutableList<CommandButton> customLayout =
         customLayoutArrayList != null
             ? BundleCollectionUtil.fromBundleList(
                 b -> CommandButton.fromBundle(b, sessionInterfaceVersion), customLayoutArrayList)
             : ImmutableList.of();
-    @Nullable
-    List<Bundle> mediaButtonPreferencesArrayList =
+    @Nullable List<Bundle> mediaButtonPreferencesArrayList =
         bundle.getParcelableArrayList(FIELD_MEDIA_BUTTON_PREFERENCES);
     ImmutableList<CommandButton> mediaButtonPreferences =
         mediaButtonPreferencesArrayList != null
@@ -219,8 +218,7 @@ import java.util.List;
                 b -> CommandButton.fromBundle(b, sessionInterfaceVersion),
                 mediaButtonPreferencesArrayList)
             : ImmutableList.of();
-    @Nullable
-    List<Bundle> commandButtonsForMediaItemsArrayList =
+    @Nullable List<Bundle> commandButtonsForMediaItemsArrayList =
         bundle.getParcelableArrayList(FIELD_COMMAND_BUTTONS_FOR_MEDIA_ITEMS);
     ImmutableList<CommandButton> commandButtonsForMediaItems =
         commandButtonsForMediaItemsArrayList != null
@@ -233,14 +231,14 @@ import java.util.List;
         sessionCommandsBundle == null
             ? SessionCommands.EMPTY
             : SessionCommands.fromBundle(sessionCommandsBundle);
-    @Nullable
-    Bundle playerCommandsFromPlayerBundle = bundle.getBundle(FIELD_PLAYER_COMMANDS_FROM_PLAYER);
+    @Nullable Bundle playerCommandsFromPlayerBundle =
+        bundle.getBundle(FIELD_PLAYER_COMMANDS_FROM_PLAYER);
     Player.Commands playerCommandsFromPlayer =
         playerCommandsFromPlayerBundle == null
             ? Player.Commands.EMPTY
             : Player.Commands.fromBundle(playerCommandsFromPlayerBundle);
-    @Nullable
-    Bundle playerCommandsFromSessionBundle = bundle.getBundle(FIELD_PLAYER_COMMANDS_FROM_SESSION);
+    @Nullable Bundle playerCommandsFromSessionBundle =
+        bundle.getBundle(FIELD_PLAYER_COMMANDS_FROM_SESSION);
     Player.Commands playerCommandsFromSession =
         playerCommandsFromSessionBundle == null
             ? Player.Commands.EMPTY

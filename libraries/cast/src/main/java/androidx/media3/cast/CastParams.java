@@ -18,11 +18,11 @@ package androidx.media3.cast;
 
 import android.content.Context;
 import android.os.Build;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import com.google.android.gms.cast.framework.CastOptions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Contains Cast configuration options.

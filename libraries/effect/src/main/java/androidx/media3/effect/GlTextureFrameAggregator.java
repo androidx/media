@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ThrowingRunnable;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Encapsulates N-to-1 frame aggregation logic.

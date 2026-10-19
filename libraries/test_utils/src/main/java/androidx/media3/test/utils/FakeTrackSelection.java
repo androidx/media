@@ -17,7 +17,6 @@ package androidx.media3.test.utils;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
@@ -27,6 +26,7 @@ import androidx.media3.exoplayer.trackselection.BaseTrackSelection;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A fake {@link ExoTrackSelection} that supports selecting a subset of tracks within a {@link

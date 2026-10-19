@@ -15,11 +15,11 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** ICY in-stream information. */
 @UnstableApi

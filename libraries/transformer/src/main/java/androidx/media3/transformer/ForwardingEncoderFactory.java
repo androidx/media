@@ -16,9 +16,9 @@
 package androidx.media3.transformer;
 
 import android.media.metrics.LogSessionId;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.transformer.Codec.EncoderFactory;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link EncoderFactory} implementation that forwards all calls to another {@link

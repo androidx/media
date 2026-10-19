@@ -24,7 +24,6 @@ import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -36,6 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 // TODO: b/475511702 - Handle HDR bitmaps.
 /**

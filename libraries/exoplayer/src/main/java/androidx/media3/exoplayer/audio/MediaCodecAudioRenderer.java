@@ -34,7 +34,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -81,6 +80,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Decodes and renders audio using {@link MediaCodec} and an {@link AudioSink}.

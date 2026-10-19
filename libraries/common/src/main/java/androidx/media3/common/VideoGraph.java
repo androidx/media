@@ -20,12 +20,12 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessor.InputType;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** Represents a graph for processing raw video frames. */
 @UnstableApi

@@ -24,7 +24,6 @@ import android.hardware.HardwareBuffer;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -47,6 +46,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for FrameProcessor implementations. */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
@@ -273,8 +273,8 @@ public final class FrameProcessorUtils {
    */
   public static void runAllAndAccumulateExceptions(ThrowingRunnable<?>... actions)
       throws VideoFrameProcessingException {
-    @Nullable
-    VideoFrameProcessingException exception = runAllAndAccumulateExceptionInternal(actions);
+    @Nullable VideoFrameProcessingException exception =
+        runAllAndAccumulateExceptionInternal(actions);
     if (exception != null) {
       throw exception;
     }
@@ -292,8 +292,8 @@ public final class FrameProcessorUtils {
    */
   public static void runAllAndAccumulateExceptions(
       Consumer<VideoFrameProcessingException> errorConsumer, ThrowingRunnable<?>... actions) {
-    @Nullable
-    VideoFrameProcessingException exception = runAllAndAccumulateExceptionInternal(actions);
+    @Nullable VideoFrameProcessingException exception =
+        runAllAndAccumulateExceptionInternal(actions);
     if (exception != null) {
       errorConsumer.accept(exception);
     }

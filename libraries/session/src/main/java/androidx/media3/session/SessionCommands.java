@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** A set of {@link SessionCommand session commands}. */
 public final class SessionCommands {
@@ -279,8 +279,7 @@ public final class SessionCommands {
   /** Restores a {@code SessionCommands} from a {@link Bundle}. */
   @UnstableApi
   public static SessionCommands fromBundle(Bundle bundle) {
-    @Nullable
-    ArrayList<Bundle> sessionCommandBundleList =
+    @Nullable ArrayList<Bundle> sessionCommandBundleList =
         bundle.getParcelableArrayList(FIELD_SESSION_COMMANDS);
     if (sessionCommandBundleList == null) {
       Log.w(TAG, "Missing commands. Creating an empty SessionCommands");

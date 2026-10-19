@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.video.spherical;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
@@ -24,6 +23,7 @@ import androidx.media3.exoplayer.video.spherical.Projection.Mesh;
 import androidx.media3.exoplayer.video.spherical.Projection.SubMesh;
 import java.util.ArrayList;
 import java.util.zip.Inflater;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A decoder for the projection mesh.

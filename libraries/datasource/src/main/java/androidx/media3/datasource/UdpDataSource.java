@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /** A UDP {@link DataSource}. */
 @UnstableApi

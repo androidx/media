@@ -16,7 +16,6 @@
 package androidx.media3.common.video;
 
 import android.hardware.HardwareBuffer;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
@@ -26,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation of {@link HardwareBufferFrame}. */
 @RestrictTo(Scope.LIBRARY_GROUP)

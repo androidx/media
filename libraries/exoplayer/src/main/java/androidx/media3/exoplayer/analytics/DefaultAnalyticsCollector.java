@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Data collector that forwards analytics events to {@link AnalyticsListener AnalyticsListeners}.
@@ -953,8 +953,8 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
       eventPositionMs =
           timeline.isEmpty() ? 0 : timeline.getWindow(windowIndex, window).getDefaultPositionMs();
     }
-    @Nullable
-    MediaPeriodId currentMediaPeriodId = mediaPeriodQueueTracker.getCurrentPlayerMediaPeriod();
+    @Nullable MediaPeriodId currentMediaPeriodId =
+        mediaPeriodQueueTracker.getCurrentPlayerMediaPeriod();
     return new EventTime(
         realtimeMs,
         timeline,
@@ -979,8 +979,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
 
   private EventTime generateEventTime(@Nullable MediaPeriodId mediaPeriodId) {
     checkNotNull(player);
-    @Nullable
-    Timeline knownTimeline =
+    @Nullable Timeline knownTimeline =
         mediaPeriodId == null
             ? null
             : mediaPeriodQueueTracker.getMediaPeriodIdTimeline(mediaPeriodId);
@@ -1197,8 +1196,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         Period period) {
       Timeline playerTimeline = player.getCurrentTimeline();
       int playerPeriodIndex = player.getCurrentPeriodIndex();
-      @Nullable
-      Object playerPeriodUid =
+      @Nullable Object playerPeriodUid =
           playerTimeline.isEmpty() ? null : playerTimeline.getUidOfPeriod(playerPeriodIndex);
       int playerNextAdGroupIndex =
           player.isPlayingAd() || playerTimeline.isEmpty()

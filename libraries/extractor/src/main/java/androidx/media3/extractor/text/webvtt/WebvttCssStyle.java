@@ -21,7 +21,6 @@ import android.graphics.Typeface;
 import android.text.TextUtils;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Ascii;
@@ -34,6 +33,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Style object of a CSS style block in a WebVTT file.

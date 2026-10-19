@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import android.annotation.SuppressLint;
 import android.os.Looper;
 import android.widget.TextView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
@@ -31,6 +30,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A helper class for periodically updating a {@link TextView} with debug information obtained from

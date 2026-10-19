@@ -20,11 +20,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.SuitableOutputChecker;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /** Fake implementation for {@link SuitableOutputChecker}. */
 @RestrictTo(LIBRARY_GROUP)

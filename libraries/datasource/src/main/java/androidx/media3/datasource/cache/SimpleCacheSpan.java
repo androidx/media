@@ -18,12 +18,12 @@ package androidx.media3.datasource.cache;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import java.io.File;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link CacheSpan} that encodes metadata into the names of the underlying cache files. */
 /* package */ final class SimpleCacheSpan extends CacheSpan {

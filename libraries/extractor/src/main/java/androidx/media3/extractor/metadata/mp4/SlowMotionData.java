@@ -17,13 +17,13 @@ package androidx.media3.extractor.metadata.mp4;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Holds information about the segments of slow motion playback within a track. */
 @UnstableApi

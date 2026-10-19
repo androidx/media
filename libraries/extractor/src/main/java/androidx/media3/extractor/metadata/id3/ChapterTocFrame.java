@@ -15,10 +15,10 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Chapter table of contents ID3 frame. */
 @UnstableApi

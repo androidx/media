@@ -29,7 +29,6 @@ import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
@@ -48,6 +47,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleDecoder} for CEA-708 (also known as "EIA-708"). */
 @UnstableApi

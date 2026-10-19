@@ -27,11 +27,11 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.os.Handler;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Generates a {@link SurfaceTexture} using EGL/GLES functions. */
 @UnstableApi

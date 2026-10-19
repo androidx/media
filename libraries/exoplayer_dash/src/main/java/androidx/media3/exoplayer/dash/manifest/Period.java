@@ -15,12 +15,12 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Encapsulates media content components over a contiguous period of time. */
 @UnstableApi

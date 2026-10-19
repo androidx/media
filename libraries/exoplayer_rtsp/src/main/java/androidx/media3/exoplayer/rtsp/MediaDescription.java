@@ -22,7 +22,6 @@ import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_FMTP;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_RTPMAP;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,6 +34,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Represents one media description section in a SDP message. */
 /* package */ final class MediaDescription {

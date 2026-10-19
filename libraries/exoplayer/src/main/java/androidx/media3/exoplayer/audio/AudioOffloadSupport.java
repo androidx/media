@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /** Represents the support capabilities for audio offload playback. */
 @UnstableApi

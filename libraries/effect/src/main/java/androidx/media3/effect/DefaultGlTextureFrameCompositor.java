@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Composites a list of {@link GlTextureFrame GlTextureFrames}, and outputs to a downstream {@link

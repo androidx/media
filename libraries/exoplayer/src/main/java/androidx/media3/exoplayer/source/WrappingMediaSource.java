@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
@@ -23,6 +22,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract {@link MediaSource} wrapping a single child {@link MediaSource}.

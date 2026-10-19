@@ -16,8 +16,8 @@
 package androidx.media3.transformer;
 
 import android.media.metrics.LogSessionId;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
+import org.jspecify.annotations.Nullable;
 
 /** A forwarding {@link Codec.EncoderFactory} that captures details about the codecs created. */
 /* package */ final class CapturingEncoderFactory implements Codec.EncoderFactory {

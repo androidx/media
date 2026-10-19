@@ -15,11 +15,11 @@
  */
 package androidx.media3.extractor.mp4;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.ExtractorInput;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A holder for information corresponding to a single fragment of an mp4 file. */
 /* package */ final class TrackFragment {

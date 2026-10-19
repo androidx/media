@@ -23,13 +23,13 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.view.View;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Provides information about an overlay view shown on top of an ad view group. */
 public final class AdOverlayInfo {

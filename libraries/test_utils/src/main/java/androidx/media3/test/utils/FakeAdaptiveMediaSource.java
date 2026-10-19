@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.util.UnstableApi;
@@ -28,6 +27,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.Allocator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fake {@link MediaSource} that provides a given timeline. Creating the period returns a {@link

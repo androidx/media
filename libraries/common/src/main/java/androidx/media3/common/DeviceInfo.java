@@ -22,7 +22,6 @@ import android.media.MediaRouter2;
 import android.os.Bundle;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -31,6 +30,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Information about the playback device. */
 public final class DeviceInfo {

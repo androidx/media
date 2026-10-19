@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.source;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.BundleCollectionUtil;
@@ -26,6 +25,7 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An immutable array of {@link TrackGroup}s.

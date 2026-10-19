@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A parsed program information element. */
 @UnstableApi

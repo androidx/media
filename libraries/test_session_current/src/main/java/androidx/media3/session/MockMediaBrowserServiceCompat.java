@@ -55,7 +55,6 @@ import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat;
 import androidx.media3.test.session.common.IRemoteMediaBrowserServiceCompat;
 import androidx.media3.test.session.common.MediaBrowserConstants;
@@ -68,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Mock implementation of the media browser service. */
 @SuppressWarnings("deprecation") // Test utils for deprecated MediaBrowserServiceCompat

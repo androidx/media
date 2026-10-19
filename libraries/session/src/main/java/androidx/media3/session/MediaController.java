@@ -36,7 +36,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -76,6 +75,7 @@ import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.NotOnlyInitialized;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A controller that interacts with a {@link MediaSession}, a {@link MediaSessionService} hosting a
@@ -2457,8 +2457,7 @@ public class MediaController implements Player {
 
     void removeListener(Player.Listener listener);
 
-    @Nullable
-    SessionToken getConnectedToken();
+    @Nullable SessionToken getConnectedToken();
 
     boolean isConnected();
 
@@ -2490,11 +2489,9 @@ public class MediaController implements Player {
 
     void seekForward();
 
-    @Nullable
-    PendingIntent getSessionActivity();
+    @Nullable PendingIntent getSessionActivity();
 
-    @Nullable
-    PlaybackException getPlayerError();
+    @Nullable PlaybackException getPlayerError();
 
     long getDuration();
 
@@ -2701,10 +2698,8 @@ public class MediaController implements Player {
     // Internally used methods
     Context getContext();
 
-    @Nullable
-    MediaBrowserCompat getBrowserCompat();
+    @Nullable MediaBrowserCompat getBrowserCompat();
 
-    @Nullable
-    IMediaController getBinder();
+    @Nullable IMediaController getBinder();
   }
 }

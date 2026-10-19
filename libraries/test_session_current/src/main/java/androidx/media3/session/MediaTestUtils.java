@@ -36,7 +36,6 @@ import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.util.ArrayMap;
-import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat.BrowserRoot;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -58,6 +57,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for tests. */
 public final class MediaTestUtils {

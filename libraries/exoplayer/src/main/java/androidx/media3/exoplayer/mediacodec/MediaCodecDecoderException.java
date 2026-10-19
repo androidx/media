@@ -16,9 +16,9 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import android.media.MediaCodec;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a failure occurs in a {@link MediaCodec} decoder. */
 @UnstableApi

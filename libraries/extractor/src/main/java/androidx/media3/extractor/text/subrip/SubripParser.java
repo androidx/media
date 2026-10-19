@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.text.Html;
 import android.text.Spanned;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -42,6 +41,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for SubRip. */
 @UnstableApi
@@ -136,8 +136,7 @@ public final class SubripParser implements SubtitleParser {
       charset = StandardCharsets.UTF_8;
     }
 
-    @Nullable
-    List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
+    @Nullable List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
         outputOptions.startTimeUs != C.TIME_UNSET && outputOptions.outputAllCues
             ? new ArrayList<>()
             : null;
@@ -242,8 +241,7 @@ public final class SubripParser implements SubtitleParser {
     if (charsetDetector == null) {
       return StandardCharsets.UTF_8;
     }
-    @Nullable
-    Charset charset =
+    @Nullable Charset charset =
         charsetDetector.detect(
             parsableByteArray.getData(),
             parsableByteArray.getPosition(),

@@ -15,12 +15,12 @@
  */
 package androidx.media3.container;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Arrays;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Stores XMP data. */
 @UnstableApi

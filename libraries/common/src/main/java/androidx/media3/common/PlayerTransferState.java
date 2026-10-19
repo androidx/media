@@ -15,13 +15,13 @@
  */
 package androidx.media3.common;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Holds a snapshot of a {@link Player player's} transferable state.

@@ -25,7 +25,6 @@ import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -40,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Information about an {@link EditedMediaItem} and its associated {@link AssetInfo}. */
 @UnstableApi

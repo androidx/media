@@ -17,12 +17,12 @@ package androidx.media3.exoplayer.source.chunk;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
+import org.jspecify.annotations.Nullable;
 
 /** An abstract base class for {@link Chunk}s that contain media samples. */
 @UnstableApi

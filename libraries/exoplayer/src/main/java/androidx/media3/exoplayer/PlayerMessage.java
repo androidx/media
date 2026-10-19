@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.PlaybackException;
@@ -30,6 +29,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.Renderer.MessageType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Defines a player message which can be sent with a {@link Sender} and received by a {@link

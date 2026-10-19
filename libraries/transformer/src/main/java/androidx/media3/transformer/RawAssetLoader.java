@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -38,6 +37,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AssetLoader} implementation that loads raw audio and/or video data.
@@ -177,8 +177,7 @@ public final class RawAssetLoader implements AssetLoader {
         isVideoTrackAdded = true;
       }
       if (videoSampleConsumer == null) {
-        @Nullable
-        SampleConsumer videoSampleConsumer =
+        @Nullable SampleConsumer videoSampleConsumer =
             assetLoaderListener.onOutputFormat(checkNotNull(videoFormat));
         if (videoSampleConsumer == null) {
           return false;
@@ -243,8 +242,7 @@ public final class RawAssetLoader implements AssetLoader {
         isAudioTrackAdded = true;
       }
       if (audioSampleConsumer == null) {
-        @Nullable
-        SampleConsumer audioSampleConsumer =
+        @Nullable SampleConsumer audioSampleConsumer =
             assetLoaderListener.onOutputFormat(checkNotNull(audioFormat));
         if (audioSampleConsumer == null) {
           return false;

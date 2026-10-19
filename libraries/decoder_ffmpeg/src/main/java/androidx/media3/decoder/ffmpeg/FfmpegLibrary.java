@@ -15,7 +15,6 @@
  */
 package androidx.media3.decoder.ffmpeg;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -23,6 +22,7 @@ import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi

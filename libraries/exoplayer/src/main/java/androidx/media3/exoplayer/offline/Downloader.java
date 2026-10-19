@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
+import org.jspecify.annotations.Nullable;
 
 /** Downloads and removes a piece of content. */
 @UnstableApi

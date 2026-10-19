@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
@@ -28,6 +27,7 @@ import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated The only use for this class is subtitle playback, but it is only compatible with

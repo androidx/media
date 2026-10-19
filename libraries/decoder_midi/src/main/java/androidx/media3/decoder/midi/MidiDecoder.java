@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
@@ -36,6 +35,7 @@ import com.jsyn.util.MultiChannelSynthesizer;
 import java.nio.ByteBuffer;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes MIDI commands into PCM. */
 @UnstableApi

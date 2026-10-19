@@ -18,11 +18,11 @@ package androidx.media3.datasource;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** {@link DataSource} wrapper allowing just-in-time resolution of {@link DataSpec DataSpecs}. */
 @UnstableApi

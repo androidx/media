@@ -94,7 +94,6 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -137,6 +136,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Service that creates {@link MediaSession} and calls its methods according to the client app's
@@ -741,8 +741,8 @@ public class MediaSessionProviderService extends Service {
       if (currentTracksBundle != null) {
         player.currentTracks = Tracks.fromBundle(currentTracksBundle);
       }
-      @Nullable
-      Bundle trackSelectionParametersBundle = config.getBundle(KEY_TRACK_SELECTION_PARAMETERS);
+      @Nullable Bundle trackSelectionParametersBundle =
+          config.getBundle(KEY_TRACK_SELECTION_PARAMETERS);
       if (trackSelectionParametersBundle != null) {
         player.trackSelectionParameters =
             TrackSelectionParameters.fromBundle(trackSelectionParametersBundle);
@@ -929,8 +929,7 @@ public class MediaSessionProviderService extends Service {
       if (mediaSession == null) {
         return;
       }
-      @Nullable
-      PlaybackException playbackException =
+      @Nullable PlaybackException playbackException =
           playbackExceptionBundle != null
               ? PlaybackException.fromBundle(playbackExceptionBundle)
               : null;
@@ -953,8 +952,7 @@ public class MediaSessionProviderService extends Service {
             List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
             for (int i = 0; i < connectedControllers.size(); i++) {
               ControllerInfo controllerInfo = connectedControllers.get(i);
-              @Nullable
-              String connectedControllerKey =
+              @Nullable String connectedControllerKey =
                   controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
               if (Objects.equals(controllerKey, connectedControllerKey)) {
                 consumer.accept(controllerInfo);
@@ -974,8 +972,7 @@ public class MediaSessionProviderService extends Service {
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            @Nullable
-            PlaybackException playerError =
+            @Nullable PlaybackException playerError =
                 playerErrorBundle == null
                     ? player.playerError
                     : PlaybackException.fromBundle(playerErrorBundle);
@@ -1259,8 +1256,8 @@ public class MediaSessionProviderService extends Service {
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            @Nullable
-            MediaItem mediaItem = index == C.INDEX_UNSET ? null : player.getMediaItemAt(index);
+            @Nullable MediaItem mediaItem =
+                index == C.INDEX_UNSET ? null : player.getMediaItemAt(index);
             player.notifyMediaItemTransition(mediaItem, reason);
           });
     }

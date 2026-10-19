@@ -32,7 +32,6 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -65,6 +64,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for Transformer. */
 @UnstableApi

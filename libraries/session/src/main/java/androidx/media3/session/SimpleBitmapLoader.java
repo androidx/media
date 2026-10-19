@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Supplier;
@@ -38,6 +37,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated Use {@link androidx.media3.datasource.DataSourceBitmapLoader} instead.

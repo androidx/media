@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -47,6 +46,7 @@ import java.nio.ByteBuffer;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Facilitates the extraction of data from the FLAC container format. */
 @UnstableApi
@@ -230,8 +230,8 @@ public final class FlacExtractor implements Extractor {
               input.getLength(),
               extractorOutput,
               outputFrameHolder);
-      @Nullable
-      Metadata metadata = streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
+      @Nullable Metadata metadata =
+          streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
       outputFormat(streamMetadata, metadata, trackOutput);
       trackOutput.durationUs(streamMetadata.getDurationUs());
     }

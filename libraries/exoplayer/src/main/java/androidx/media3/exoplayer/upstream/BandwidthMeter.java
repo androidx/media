@@ -18,11 +18,11 @@ package androidx.media3.exoplayer.upstream;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** Provides estimates of the currently available bandwidth. */
 @UnstableApi
@@ -140,8 +140,7 @@ public interface BandwidthMeter {
    * Returns the {@link TransferListener} that this instance uses to gather bandwidth information
    * from data transfers. May be null if the implementation does not listen to data transfers.
    */
-  @Nullable
-  TransferListener getTransferListener();
+  @Nullable TransferListener getTransferListener();
 
   /**
    * Adds an {@link EventListener}.

@@ -19,12 +19,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.res.Resources;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** A default {@link TrackNameProvider}. */
 @UnstableApi

@@ -18,13 +18,13 @@ package androidx.media3.container;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility methods for parsing AV1 Open Bitstream Units or OBUs.

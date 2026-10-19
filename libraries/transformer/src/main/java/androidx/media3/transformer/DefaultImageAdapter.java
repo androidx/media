@@ -19,7 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link ImageAdapter} that wraps an {@link Image}. */
 /* package */ final class DefaultImageAdapter implements ImageAdapter {
