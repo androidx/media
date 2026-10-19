@@ -467,8 +467,14 @@ public class MetadataRetrieverTest {
             .setMediaSourceFactory(mediaSourceFactory)
             .build()) {
       ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+      ListenableFuture<Timeline> timelineFuture = retriever.retrieveTimeline();
+      ListenableFuture<Long> durationFuture = retriever.retrieveDurationUs();
       trackGroupsFuture.cancel(true);
+      timelineFuture.cancel(true);
+      durationFuture.cancel(true);
       assertThrows(CancellationException.class, trackGroupsFuture::get);
+      assertThrows(CancellationException.class, timelineFuture::get);
+      assertThrows(CancellationException.class, durationFuture::get);
     }
 
     // The MediaSource is released on a background thread. We sleep to give that thread a chance
@@ -512,14 +518,19 @@ public class MetadataRetrieverTest {
             .build()) {
       ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
       ListenableFuture<Timeline> timelineFuture = retriever.retrieveTimeline();
+      ListenableFuture<Long> durationFuture = retriever.retrieveDurationUs();
 
       assertThat(trackGroupsFuture.isDone()).isFalse();
       assertThat(timelineFuture.isDone()).isFalse();
-      assertThat(trackGroupsFuture.cancel(true)).isTrue();
-      assertThrows(CancellationException.class, trackGroupsFuture::get);
+      assertThat(durationFuture.isDone()).isFalse();
+      assertThat(durationFuture.cancel(true)).isTrue();
+      assertThrows(CancellationException.class, durationFuture::get);
       fakeMediaSource.setAllowPreparation(true);
-      // The other future should still complete successfully.
+      // The other futures should still complete successfully.
+      TrackGroupArray retrievedTrackGroups =
+          trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
       Timeline retrievedTimeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      assertThat(retrievedTrackGroups).isNotNull();
       assertThat(retrievedTimeline).isNotNull();
       assertThat(retrievedTimeline.getPeriodCount()).isEqualTo(1);
     }

@@ -167,33 +167,13 @@ import org.jspecify.annotations.Nullable;
    *     {@link C#TIME_UNSET} if unknown.
    */
   /* package */ ListenableFuture<Long> retrieveDurationUs() {
-    synchronized (lock) {
-      if (released) {
-        return immediateFailedFuture(new IllegalStateException("Retriever is released."));
-      }
-      ListenableFuture<Timeline> timelineFuture = retrieveTimeline();
-      SettableFuture<Long> externalFuture = SettableFuture.create();
-      allFutures.add(externalFuture);
-      Futures.addCallback(
-          timelineFuture,
-          new FutureCallback<Timeline>() {
-            @Override
-            public void onSuccess(Timeline timeline) {
-              if (timeline.isEmpty()) {
-                externalFuture.set(C.TIME_UNSET);
-              } else {
-                externalFuture.set(timeline.getWindow(0, new Timeline.Window()).getDurationUs());
-              }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              externalFuture.setException(t);
-            }
-          },
-          directExecutor());
-      return externalFuture;
-    }
+    return Futures.transform(
+        retrieveTimeline(),
+        timeline ->
+            timeline.isEmpty()
+                ? C.TIME_UNSET
+                : timeline.getWindow(0, new Timeline.Window()).getDurationUs(),
+        directExecutor());
   }
 
   @Override

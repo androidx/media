@@ -184,6 +184,10 @@
         `MetadataRetriever`.
     *   Support extracting `mebx` boxed timed metadata tracks in
         `MediaExtractorCompat` as `MimeTypes.APPLICATION_MEBX`.
+    *   Fix an issue where cancelling the future returned by
+        `MetadataRetriever.retrieveDurationUs()` prevented `close()` from
+        releasing the underlying `MediaSource`
+        ([#3468](https://github.com/androidx/media/issues/3468)).
 *   Inspector Frame:
     *   Fix clipping of wide-gamut BT.2020 colors in the SDR base image when
         extracting Ultra HDR frames with `FrameExtractor`. Out-of-gamut colors
