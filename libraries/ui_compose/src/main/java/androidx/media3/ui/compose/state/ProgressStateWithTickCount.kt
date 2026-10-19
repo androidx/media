@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.annotation.IntRange
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -115,6 +116,7 @@ fun rememberProgressStateWithTickCount(
  * @property[seekToDefaultPositionEnabled] Whether seeking to the default position is enabled, i.e.,
  *   [Player.COMMAND_SEEK_TO_DEFAULT_POSITION] is available.
  */
+@Stable
 @UnstableApi
 class ProgressStateWithTickCount(
   private val player: Player?,

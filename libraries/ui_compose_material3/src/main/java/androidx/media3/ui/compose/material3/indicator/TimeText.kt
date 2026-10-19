@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.material3.indicator
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -184,6 +185,7 @@ private fun TimeText(
  * Instances of this class can be created using the factory methods, such as [position], [duration],
  * [remaining], and [positionAndDuration].
  */
+@Immutable
 @UnstableApi
 class TimeFormat
 private constructor(

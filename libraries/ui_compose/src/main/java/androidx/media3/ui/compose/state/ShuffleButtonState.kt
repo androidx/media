@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,7 @@ fun rememberShuffleButtonState(player: Player?): ShuffleButtonState {
  * @property[shuffleOn] true if [player] is not `null` and
  *   [player's shuffle mode][Player.shuffleModeEnabled] is enabled.
  */
+@Stable
 @UnstableApi
 class ShuffleButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)

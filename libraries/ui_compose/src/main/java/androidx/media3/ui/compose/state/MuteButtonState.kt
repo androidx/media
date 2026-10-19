@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ fun rememberMuteButtonState(player: Player?): MuteButtonState {
  *   [Player.COMMAND_GET_VOLUME] are available.
  * @property[showMuted] true if [player] is not `null` and [player's volume][Player.volume] is 0.0f.
  */
+@Stable
 @UnstableApi
 class MuteButtonState(private val player: Player?) {
 

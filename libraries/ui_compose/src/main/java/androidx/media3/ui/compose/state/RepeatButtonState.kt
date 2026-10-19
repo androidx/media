@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +60,7 @@ fun rememberRepeatButtonState(
  *   state to be one from [toggleModeSequence]. A button click in such case will toggle the mode
  *   into the first one of [toggleModeSequence].
  */
+@Stable
 @UnstableApi
 class RepeatButtonState(
   private val player: Player?,

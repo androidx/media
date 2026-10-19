@@ -18,6 +18,8 @@ package androidx.media3.ui.compose.state
 
 import androidx.annotation.IntDef
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -94,6 +96,7 @@ annotation class TrackFilter
  * @property sampleMimeType The sample MIME type associated with this option, or `null`.
  * @property onOffState The [OnOffState] representing this option.
  */
+@Immutable
 @UnstableApi
 class TrackSelectionOption(
   val isSupported: Boolean,
@@ -206,6 +209,7 @@ fun rememberTrackSelectionState(
  * @property selectionOptions Available [TrackSelectionOption]s based on [trackFilters] and options.
  * @property selectedOption The selected option, or null if no option is selected.
  */
+@Stable
 @UnstableApi
 class TrackSelectionState(
   private val internalTrackSelectionParametersState: TrackSelectionParametersState,

@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,7 @@ fun rememberNextButtonState(player: Player?): NextButtonState {
  * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SEEK_TO_NEXT] is
  *   available.
  */
+@Stable
 @UnstableApi
 class NextButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)

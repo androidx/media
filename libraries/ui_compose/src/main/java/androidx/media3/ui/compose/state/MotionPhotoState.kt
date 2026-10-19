@@ -19,7 +19,9 @@ package androidx.media3.ui.compose.state
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +86,7 @@ fun rememberMotionPhotoState(
 // on `MotionPhotoState` via `var config: MotionPhotoConfig`) in follow-up CLs to configure playback
 // boundaries, looping, custom key photo frame anchor timestamp, resume behavior, crossfade
 // duration, presets...
+@Stable
 @RestrictTo(LIBRARY_GROUP)
 class MotionPhotoState
 internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true) {
@@ -100,6 +103,7 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
    * @property isPhotoVisible Whether the still photo overlay should currently cover the video
    *   surface.
    */
+  @Immutable
   class VisualState internal constructor(val isPhotoVisible: Boolean) {
     override fun equals(other: Any?): Boolean {
       if (this === other) return true
