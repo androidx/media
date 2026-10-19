@@ -183,6 +183,10 @@
         timestamps after seeking to a page that starts with a continued packet.
     *   Ogg: Fix decode errors and ~1s timestamp jumps in chained Ogg Opus
         streams by ignoring mid-stream Opus ID and comment header packets.
+    *   ADTS: Fix `AdtsExtractor` deriving the audio format from a false sync
+        word in the payload of a partial first frame, which could cause playback
+        of live AAC streams joined mid-frame to fail or stall
+        ([#3464](https://github.com/androidx/media/issues/3464)).
 *   Inspector:
     *   Support retrieving XMP metadata from MP4 files using
         `MetadataRetriever`.
