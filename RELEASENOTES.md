@@ -3,6 +3,10 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Reduce `C.DEFAULT_BUFFER_SEGMENT_SIZE` from `65536` to `65520` so each
+        buffer allocation (including its `byte[]` object header) fits in whole
+        OS pages in ART's large object space, reducing sample buffer memory
+        usage by ~6% on 4 KiB-page devices and ~20% on 16 KiB-page devices.
     *   Add `C.COLOR_SPACE_DISPLAY_P3` and support Display P3 color space in
         `MediaFormatUtil` and `ColorInfo` ISO color mappings.
     *   Add a central `Flags` registry to manage experimental feature flags and
