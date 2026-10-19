@@ -19,8 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import androidx.media3.common.MimeTypes;
+import androidx.media3.container.BoxUtils;
+import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
@@ -30,8 +33,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -104,6 +110,78 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
     assertThat(trackOutput.getSampleCount()).isEqualTo(9);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(-7_000L);
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(25_000L);
+  }
+
+  // https://github.com/androidx/media/issues/3471
+  @Test
+  public void read_withFragmentContainingEmptyTrun_outputsSamplesOfOtherFragments()
+      throws Exception {
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp4/sample_ac3_fragmented.mp4");
+    // Insert a fragment whose trun has sample_count=0, followed by an empty mdat, after the moov.
+    int moovStart = Bytes.indexOf(data, "moov".getBytes(US_ASCII)) - 4;
+    int moovEnd =
+        moovStart + Ints.fromByteArray(Arrays.copyOfRange(data, moovStart, moovStart + 4));
+    byte[] emptyFragment =
+        Bytes.concat(
+            BoxUtils.wrapIntoBox(
+                "moof",
+                BoxUtils.wrapIntoBox("mfhd", Ints.toByteArray(0), Ints.toByteArray(0)),
+                BoxUtils.wrapIntoBox(
+                    "traf",
+                    BoxUtils.wrapIntoBox("tfhd", Ints.toByteArray(0x020000), Ints.toByteArray(1)),
+                    BoxUtils.wrapIntoBox("tfdt", Ints.toByteArray(0), Ints.toByteArray(0)),
+                    BoxUtils.wrapIntoBox("trun", Ints.toByteArray(0), Ints.toByteArray(0)))),
+            BoxUtils.wrapIntoBox("mdat"));
+    byte[] input =
+        Bytes.concat(
+            Arrays.copyOf(data, moovEnd),
+            emptyFragment,
+            Arrays.copyOfRange(data, moovEnd, data.length));
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(extractor, input);
+
+    FakeTrackOutput trackOutput = output.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(9);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(0);
+  }
+
+  @Test
+  public void read_withEmptyTrunBeforeNonEmptyTrunInSameFragment_outputsSamplesUnchanged()
+      throws Exception {
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp4/sample_ac3_fragmented.mp4");
+    int moofStart = Bytes.indexOf(data, "moof".getBytes(US_ASCII)) - 4;
+    int trafStart = Bytes.indexOf(data, "traf".getBytes(US_ASCII)) - 4;
+    int trunStart = Bytes.indexOf(data, "trun".getBytes(US_ASCII)) - 4;
+    byte[] emptyTrun = BoxUtils.wrapIntoBox("trun", Ints.toByteArray(0), Ints.toByteArray(0));
+    // Insert the empty trun before the existing one, growing the enclosing boxes and moving the
+    // existing run's data_offset, which is relative to the moof, by the same amount.
+    byte[] input =
+        Bytes.concat(
+            Arrays.copyOf(data, trunStart),
+            emptyTrun,
+            Arrays.copyOfRange(data, trunStart, data.length));
+    ByteBuffer buffer = ByteBuffer.wrap(input);
+    buffer.putInt(moofStart, buffer.getInt(moofStart) + emptyTrun.length);
+    buffer.putInt(trafStart, buffer.getInt(trafStart) + emptyTrun.length);
+    // The data_offset follows the existing trun's full box header and sample_count.
+    int dataOffsetPosition = trunStart + emptyTrun.length + Mp4Box.FULL_HEADER_SIZE + 4;
+    buffer.putInt(dataOffsetPosition, buffer.getInt(dataOffsetPosition) + emptyTrun.length);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromByteArray(
+            new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED), input);
+
+    FakeExtractorOutput expectedOutput =
+        TestUtil.extractAllSamplesFromByteArray(
+            new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED), data);
+    assertThat(new Dumper().add(output).toString())
+        .isEqualTo(new Dumper().add(expectedOutput).toString());
   }
 
   @Test

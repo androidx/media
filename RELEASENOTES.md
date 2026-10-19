@@ -29,6 +29,9 @@
         word in the payload of a partial first frame, which could cause playback
         of live AAC streams joined mid-frame to fail or stall
         ([#3464](https://github.com/androidx/media/issues/3464)).
+    *   Fix `ArrayIndexOutOfBoundsException` in `FragmentedMp4Extractor` when a
+        fragment contains a `trun` box with no samples
+        ([#3471](https://github.com/androidx/media/issues/3471)).
 *   Inspector:
     *   Fix an issue where cancelling the future returned by
         `MetadataRetriever.retrieveDurationUs()` prevented `close()` from
