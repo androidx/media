@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -44,8 +45,12 @@ import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.common.util.BitmapLoader
 import androidx.media3.test.utils.FakePlayer
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import coil.size.Size
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -135,17 +140,32 @@ class ArtworkTest {
         playlist = listOf(MediaItemData.Builder(mediaItem.mediaId).setMediaItem(mediaItem).build())
       )
 
+    val imageLoader =
+      ImageLoader.Builder(ApplicationProvider.getApplicationContext())
+        .dispatcher(UnconfinedTestDispatcher())
+        .build()
+
     setContent {
       Artwork(
         player = player,
         contentDescription = "Test Artwork",
-        modifier = Modifier.testTag(TAG),
+        modifier = Modifier.wrapContentSize().testTag(TAG),
       ) {
-        rememberAsyncImagePainter(model = mediaMetadata.artworkUri ?: mediaMetadata.artworkData)
+        rememberAsyncImagePainter(
+          // Without an explicit size, Coil waits for the image to be drawn to resolve the size to
+          // load at, which doesn't happen in Robolectric.
+          model =
+            ImageRequest.Builder(LocalContext.current)
+              .data(mediaMetadata.artworkUri ?: mediaMetadata.artworkData)
+              .size(Size.ORIGINAL)
+              .build(),
+          imageLoader = imageLoader,
+        )
       }
     }
 
-    onNodeWithTag(TAG).assertIsDisplayed().assertContentDescriptionEquals("Test Artwork")
+    assertDisplayedSizePx(ARTWORK_SIZE_PX)
+    onNodeWithTag(TAG).assertContentDescriptionEquals("Test Artwork")
   }
 
   @Test
@@ -363,7 +383,7 @@ class ArtworkTest {
   }
 
   private fun createTestBitmapBytes(): ByteArray {
-    val bitmap = createBitmap(10, 10)
+    val bitmap = createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX)
     val canvas = Canvas(bitmap)
     canvas.drawColor(Color.RED)
     val stream = ByteArrayOutputStream()
