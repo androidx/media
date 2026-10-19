@@ -28,8 +28,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remember the value of [RepeatButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
- * compositions, produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance or
+ * [toggleModeSequence] changes between compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -38,8 +38,9 @@ fun rememberRepeatButtonState(
   toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
 ): RepeatButtonState {
-  val repeatButtonState = remember(player) { RepeatButtonState(player, toggleModeSequence) }
-  LaunchedEffect(player) { repeatButtonState.observe() }
+  val repeatButtonState =
+    remember(player, toggleModeSequence) { RepeatButtonState(player, toggleModeSequence) }
+  LaunchedEffect(player, toggleModeSequence) { repeatButtonState.observe() }
   return repeatButtonState
 }
 

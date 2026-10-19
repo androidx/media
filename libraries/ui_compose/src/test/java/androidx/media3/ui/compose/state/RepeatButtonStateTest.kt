@@ -216,4 +216,44 @@ class RepeatButtonStateTest {
     assertThat(state.isEnabled).isTrue()
     assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
   }
+
+  @Test
+  fun rememberRepeatButtonState_toggleModeSequenceChanged_updatesSequence() = runComposeUiTest {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: RepeatButtonState
+    val toggleModeSequence =
+      mutableStateOf(listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL))
+    setContent {
+      state =
+        rememberRepeatButtonState(player = player, toggleModeSequence = toggleModeSequence.value)
+    }
+
+    toggleModeSequence.value = listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL)
+    waitForIdle()
+    state.onClick()
+    waitForIdle()
+
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ALL)
+    assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_ALL)
+  }
+
+  @Test
+  fun rememberRepeatButtonState_toggleModeSequenceChangedToEmpty_disablesButton() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithTwoItems()
+      lateinit var state: RepeatButtonState
+      val toggleModeSequence =
+        mutableStateOf(
+          listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL)
+        )
+      setContent {
+        state =
+          rememberRepeatButtonState(player = player, toggleModeSequence = toggleModeSequence.value)
+      }
+
+      toggleModeSequence.value = emptyList()
+      waitForIdle()
+
+      assertThat(state.isEnabled).isFalse()
+    }
 }
