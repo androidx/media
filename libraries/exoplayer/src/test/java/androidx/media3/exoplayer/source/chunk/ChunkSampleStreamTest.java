@@ -80,8 +80,7 @@ public final class ChunkSampleStreamTest {
   public void setUp() {
     drmEventDispatcher = new DrmSessionEventListener.EventDispatcher();
     mediaSourceEventDispatcher = new MediaSourceEventListener.EventDispatcher();
-    allocator =
-        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 65536);
+    allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
     chunkSampleStream =
         new ChunkSampleStream<>(
             /* primaryTrackType= */ C.TRACK_TYPE_VIDEO,

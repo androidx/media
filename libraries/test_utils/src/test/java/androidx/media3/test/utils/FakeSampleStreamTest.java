@@ -17,6 +17,7 @@ package androidx.media3.test.utils;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -35,7 +36,7 @@ public final class FakeSampleStreamTest {
   public void defaultFlags_isZero() {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 65536),
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* mediaSourceEventDispatcher= */ null,
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
@@ -49,7 +50,7 @@ public final class FakeSampleStreamTest {
   public void setFlags_matchesConfiguredFlags() {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 65536),
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* mediaSourceEventDispatcher= */ null,
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
