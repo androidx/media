@@ -96,6 +96,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -211,6 +212,7 @@ import org.jspecify.annotations.Nullable;
 
   @Nullable private GlObjectsProvider currentGlObjectsProvider;
   private MediaSource.@Nullable Factory currentMediaSourceFactory;
+  private ImmutableList<Effect> currentVideoEffects;
   private long thumbnailPresentationTimeMs;
 
   private FrameExtractorInternal() {
@@ -222,6 +224,7 @@ import org.jspecify.annotations.Nullable;
     this.currentMediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
     this.extractHdrFrames = false;
     this.enableUltraHdr = false;
+    this.currentVideoEffects = ImmutableList.of();
     thumbnailPresentationTimeMs = C.TIME_UNSET;
   }
 
@@ -254,6 +257,7 @@ import org.jspecify.annotations.Nullable;
                 enableUltraHdr = false;
                 currentGlObjectsProvider = null;
                 currentMediaSourceFactory = null;
+                currentVideoEffects = ImmutableList.of();
                 lastSeekDedupeFrame = null;
                 thumbnailPresentationTimeMs = C.TIME_UNSET;
               }
@@ -279,7 +283,13 @@ import org.jspecify.annotations.Nullable;
                   || request.glObjectsProvider != currentGlObjectsProvider
                   || request.mediaSourceFactory != currentMediaSourceFactory;
 
-          boolean needsPrepare = needsNewPlayer || mediaItemChanged;
+          FrameReader frameReader =
+              new FrameReader(this, request.extractHdrFrames, request.enableUltraHdr);
+          ImmutableList<Effect> videoEffects = buildVideoEffects(request.effects, frameReader);
+          // Re-prepare when videoEffects change so same-position requests re-render through the
+          // updated effects pipeline instead of returning lastSeekDedupeFrame.
+          boolean needsPrepare =
+              needsNewPlayer || mediaItemChanged || !videoEffects.equals(currentVideoEffects);
 
           boolean isThumbnailRequest = request.positionMs == C.TIME_UNSET;
 
@@ -287,6 +297,7 @@ import org.jspecify.annotations.Nullable;
             ListenableFuture<FrameExtractor.Frame> prepareFuture =
                 processTask(
                     request.copyWithPositionMs(/* positionMs= */ 0),
+                    videoEffects,
                     needsNewPlayer,
                     /* needsPrepare= */ true);
 
@@ -300,6 +311,7 @@ import org.jspecify.annotations.Nullable;
                   } else {
                     return processTask(
                         request.copyWithPositionMs(timestampToExtractMs),
+                        videoEffects,
                         /* needsNewPlayer= */ false,
                         /* needsPrepare= */ false);
                   }
@@ -312,7 +324,10 @@ import org.jspecify.annotations.Nullable;
             long timestampToExtractMs =
                 isThumbnailRequest ? getThumbnailPresentationTimeMs() : request.positionMs;
             return processTask(
-                request.copyWithPositionMs(timestampToExtractMs), needsNewPlayer, needsPrepare);
+                request.copyWithPositionMs(timestampToExtractMs),
+                videoEffects,
+                needsNewPlayer,
+                needsPrepare);
           }
         },
         playerHandler::post);
@@ -367,7 +382,10 @@ import org.jspecify.annotations.Nullable;
   }
 
   private ListenableFuture<FrameExtractor.Frame> processTask(
-      FrameExtractionRequest request, boolean needsNewPlayer, boolean needsPrepare) {
+      FrameExtractionRequest request,
+      ImmutableList<Effect> videoEffects,
+      boolean needsNewPlayer,
+      boolean needsPrepare) {
     return CallbackToFutureAdapter.getFuture(
         completer -> {
           if (!activeTaskCompleter.compareAndSet(null, completer)) {
@@ -377,11 +395,9 @@ import org.jspecify.annotations.Nullable;
 
           ensurePlayerInitialized(request, needsNewPlayer);
 
-          FrameReader frameReader = new FrameReader(this);
-          ImmutableList<Effect> videoEffects = buildVideoEffects(request.effects, frameReader);
-
           ExoPlayer player = checkNotNull(this.player);
           if (needsPrepare) {
+            currentVideoEffects = videoEffects;
             lastSeekDedupeFrame = null;
             extractedFrameNeedsRendering.set(true);
             thumbnailPresentationTimeMs = C.TIME_UNSET;
@@ -547,15 +563,21 @@ import org.jspecify.annotations.Nullable;
 
   private static final class FrameReader implements GlEffect {
     private final FrameExtractorInternal internal;
+    private final boolean extractHdrFrames;
+    private final boolean enableUltraHdr;
 
-    private FrameReader(FrameExtractorInternal internal) {
+    private FrameReader(
+        FrameExtractorInternal internal, boolean extractHdrFrames, boolean enableUltraHdr) {
       this.internal = internal;
+      this.extractHdrFrames = extractHdrFrames;
+      this.enableUltraHdr = enableUltraHdr;
     }
 
     @Override
     public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
         throws VideoFrameProcessingException {
-      return new FrameReadingGlShaderProgram(context, useHdr, internal);
+      return new FrameReadingGlShaderProgram(
+          context, useHdr, extractHdrFrames, enableUltraHdr, internal);
     }
 
     @Override
@@ -567,18 +589,22 @@ import org.jspecify.annotations.Nullable;
         return false;
       }
       FrameReader that = (FrameReader) obj;
-      return internal.equals(that.internal);
+      return extractHdrFrames == that.extractHdrFrames
+          && enableUltraHdr == that.enableUltraHdr
+          && internal.equals(that.internal);
     }
 
     @Override
     public int hashCode() {
-      return internal.hashCode();
+      return Objects.hash(internal, extractHdrFrames, enableUltraHdr);
     }
   }
 
   private static final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
     private final int bytesPerPixel;
     private final boolean useHdr;
+    private final boolean extractHdrFrames;
+    private final boolean enableUltraHdr;
     private final boolean hdrUses16BitFloat;
     private final FrameExtractorInternal internal;
 
@@ -602,10 +628,16 @@ import org.jspecify.annotations.Nullable;
     private ByteBuffer gainmapByteBuffer;
 
     private FrameReadingGlShaderProgram(
-        Context context, boolean useHdr, FrameExtractorInternal internal)
+        Context context,
+        boolean useHdr,
+        boolean extractHdrFrames,
+        boolean enableUltraHdr,
+        FrameExtractorInternal internal)
         throws VideoFrameProcessingException {
       super();
       this.useHdr = useHdr;
+      this.extractHdrFrames = extractHdrFrames;
+      this.enableUltraHdr = enableUltraHdr;
       this.internal = internal;
       gainmapTextureId = C.INDEX_UNSET;
       downscaledGainmapTextureId = C.INDEX_UNSET;
@@ -985,7 +1017,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     private boolean shouldReadUltraHdrFrame() {
-      return SDK_INT >= 34 && useHdr && !internal.extractHdrFrames && internal.enableUltraHdr;
+      return SDK_INT >= 34 && useHdr && !extractHdrFrames && enableUltraHdr;
     }
   }
 
