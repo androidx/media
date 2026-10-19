@@ -1073,6 +1073,18 @@ public final class AdsMediaSourceTest {
   }
 
   @Test
+  public void onAdPlaybackState_decreasingRemovedAdGroupCount_throwsIllegalStateException() {
+    AdPlaybackState initialAdPlaybackState =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 10_000_000L)
+            .withRemovedAdGroupCount(1);
+    setAdPlaybackState(initialAdPlaybackState);
+    AdPlaybackState updatedAdPlaybackState =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 10_000_000L);
+
+    assertThrows(IllegalStateException.class, () -> setAdPlaybackState(updatedAdPlaybackState));
+  }
+
+  @Test
   public void
       onAdPlaybackState_withClippingAndRemovedActiveAdGroup_updatesTimelineWithoutException() {
     MediaSourceCaller mockMediaSourceCaller = mock(MediaSourceCaller.class);

@@ -462,6 +462,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
             == newAdPlaybackState.endsWithLivePostrollPlaceHolder());
     int insertionCount = newAdPlaybackState.adGroupCount - oldAdPlaybackState.adGroupCount;
     checkState(insertionCount >= 0);
+    checkState(newAdPlaybackState.removedAdGroupCount >= oldAdPlaybackState.removedAdGroupCount);
     for (int i = newAdPlaybackState.removedAdGroupCount; i < oldAdPlaybackState.adGroupCount; i++) {
       AdGroup oldAdGroup = oldAdPlaybackState.getAdGroup(i);
       if (oldAdGroup.isLivePostrollPlaceholder()) {

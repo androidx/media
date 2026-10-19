@@ -104,6 +104,8 @@
     *   Kotlin subclasses of `CompositeMediaSource` that use nullable child
         source IDs (such as `Void?`) must specify a nullable type argument
         (e.g., `CompositeMediaSource<Void?>`).
+    *   Verify in `AdsMediaSource` that `AdPlaybackState.removedAdGroupCount`
+        does not decrease across `AdPlaybackState` updates.
 *   CompositionPlayer:
     *   Support configuring the frame rate of video frame aggregation via
         `Composition.Builder.setVideoFrameAggregationParameters` for playback
