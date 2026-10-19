@@ -16,10 +16,13 @@
 
 package androidx.media3.demo.compose.buttons
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,7 +30,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -35,7 +42,15 @@ import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.state.observeState
 
 @Composable
-internal fun CcButton(player: Player?, modifier: Modifier = Modifier) {
+internal fun CcButton(
+  player: Player?,
+  modifier: Modifier = Modifier,
+  iconSize: Dp = 24.dp,
+  shape: Shape = IconButtonDefaults.standardShape,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
+  tint: Color = Color.Unspecified,
+  interactionSource: MutableInteractionSource? = null,
+) {
   var isCcEnabled by
     remember(player) {
       mutableStateOf(player?.currentTracks?.isTypeSelected(C.TRACK_TYPE_TEXT) ?: false)
@@ -69,16 +84,19 @@ internal fun CcButton(player: Player?, modifier: Modifier = Modifier) {
     },
     modifier = modifier,
     enabled = hasTextTrack,
-    colors = IconButtonDefaults.iconButtonColors(),
+    colors = colors,
+    interactionSource = interactionSource,
+    shape = shape,
   ) {
     Icon(
-      modifier = Modifier.size(24.dp),
+      modifier = Modifier.size(iconSize),
       painter =
         painterResource(
           if (isCcEnabled) R.drawable.media3_icon_subtitles
           else R.drawable.media3_icon_subtitles_off
         ),
       contentDescription = if (isCcEnabled) "Disable closed captions" else "Enable closed captions",
+      tint = tint.takeOrElse { LocalContentColor.current },
     )
   }
 }

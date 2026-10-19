@@ -16,7 +16,13 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.interaction.Interaction
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
@@ -110,5 +116,34 @@ class NextButtonTest {
     onNodeWithTag("nextButton").performClick()
 
     assertThat(onClickCalled).isTrue()
+  }
+
+  @Test
+  fun customizeShapeAndInteractionSource_emitsInteractions() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
+            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+          )
+      )
+    val interactions = mutableListOf<Interaction>()
+    setContent {
+      val interactionSource = remember { MutableInteractionSource() }
+      LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interactions.add(it) }
+      }
+      NextButton(
+        player,
+        Modifier.testTag("nextButton"),
+        shape = RectangleShape,
+        interactionSource = interactionSource,
+      )
+    }
+
+    onNodeWithTag("nextButton").performClick()
+
+    assertThat(interactions.filterIsInstance<PressInteraction.Release>()).isNotEmpty()
   }
 }
