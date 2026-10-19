@@ -440,10 +440,12 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         for (int i = 0; i < activeMediaSourceHolders.size(); i++) {
           AdMediaSourceHolder adMediaSourceHolder = activeMediaSourceHolders.get(i);
           MediaPeriodId id = adMediaSourceHolder.id;
-          long adDurationUs =
-              adPlaybackState.getAdGroup(id.adGroupIndex).durationsUs[id.adIndexInAdGroup];
-          if (adDurationUs != C.TIME_UNSET) {
-            adMediaSourceHolder.setEndPositionUs(adDurationUs);
+          long[] durationsUs = adPlaybackState.getAdGroup(id.adGroupIndex).durationsUs;
+          if (durationsUs.length > id.adIndexInAdGroup) {
+            long adDurationUs = durationsUs[id.adIndexInAdGroup];
+            if (adDurationUs != C.TIME_UNSET) {
+              adMediaSourceHolder.setEndPositionUs(adDurationUs);
+            }
           }
         }
       }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.ads;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -53,7 +54,9 @@ import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.ads.AdsLoader.EventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import androidx.media3.test.utils.FakeAdsLoader;
 import androidx.media3.test.utils.FakeMediaSource;
+import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -1067,6 +1070,66 @@ public final class AdsMediaSourceTest {
             .withUnavailableAdGroup(/* adGroupIndex= */ 0);
 
     assertThrows(IllegalStateException.class, () -> setAdPlaybackState(shrunkenAdPlaybackState));
+  }
+
+  @Test
+  public void
+      onAdPlaybackState_withClippingAndRemovedActiveAdGroup_updatesTimelineWithoutException() {
+    MediaSourceCaller mockMediaSourceCaller = mock(MediaSourceCaller.class);
+    FakeAdsLoader fakeAdsLoader = new FakeAdsLoader();
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            contentMediaSource,
+            TEST_ADS_DATA_SPEC,
+            TEST_ADS_ID,
+            new FakeMediaSourceFactory(),
+            fakeAdsLoader,
+            /* adViewProvider= */ () -> null,
+            /* useLazyContentSourcePreparation= */ false,
+            /* useAdMediaSourceClipping= */ true);
+    adsMediaSource.prepareSource(mockMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    shadowOf(Looper.getMainLooper()).idle();
+    // Setup initial AdPlaybackState with one ad in the first ad group.
+    AdPlaybackState initialAdPlaybackState =
+        new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 0L, 10_000_000L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs...= */ 10_000_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com"));
+    EventListener adsLoaderEventListener =
+        checkNotNull(fakeAdsLoader.eventListeners.get(TEST_ADS_ID));
+    adsLoaderEventListener.onAdPlaybackState(initialAdPlaybackState);
+    shadowOf(Looper.getMainLooper()).idle();
+    // Create the first ad media period.
+    adsMediaSource.createPeriod(
+        new MediaPeriodId(
+            new Object(),
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0),
+        mock(Allocator.class),
+        /* startPositionUs= */ 0L);
+    // Setup the ad playback state with the second ad group removed. This forces AdsMediaSource to
+    // handle the removed ad group that has a durations array with zero elements.
+    AdPlaybackState updatedAdPlaybackState =
+        initialAdPlaybackState
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withRemovedAdGroupCount(1);
+
+    adsLoaderEventListener.onAdPlaybackState(updatedAdPlaybackState);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<Timeline> timelineArgumentCaptor = ArgumentCaptor.forClass(Timeline.class);
+    verify(mockMediaSourceCaller, times(3))
+        .onSourceInfoRefreshed(any(), timelineArgumentCaptor.capture());
+    assertThat(
+            timelineArgumentCaptor
+                .getValue()
+                .getPeriod(/* periodIndex= */ 0, new Timeline.Period())
+                .adPlaybackState)
+        .isEqualTo(updatedAdPlaybackState);
   }
 
   private void assertUpdatingAdPlaybackStateWithDifferentMediaItem(
