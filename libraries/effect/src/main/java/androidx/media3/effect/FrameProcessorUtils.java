@@ -25,7 +25,6 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -109,7 +108,6 @@ public final class FrameProcessorUtils {
     return setupOpenGl(glObjectsProvider, GlUtil.isSurfacelessContextExtensionSupported());
   }
 
-  @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
   /* package */ static int setupOpenGl(
       GlObjectsProvider glObjectsProvider, boolean isSurfacelessContextExtensionSupported)
       throws GlException {
@@ -351,23 +349,54 @@ public final class FrameProcessorUtils {
   }
 
   /**
-   * Validates the row stride and remaining buffer capacity of a {@link Plane}.
+   * Validates the row stride and remaining buffer capacity of a non-interleaved {@link Plane}.
    *
-   * <p>Checks that {@code plane} can hold {@code width} by {@code height} pixels at its {@linkplain
-   * Plane#getPixelStride() pixel stride} and {@linkplain Plane#getRowStride() row stride}.
+   * <p>Checks that {@code plane} (where each sample occupies {@link Plane#getPixelStride()} bytes)
+   * can hold {@code width} by {@code height} pixels at its {@linkplain Plane#getPixelStride() pixel
+   * stride} and {@linkplain Plane#getRowStride() row stride}.
    */
   /* package */ static void validatePlaneDimensions(Plane plane, int width, int height) {
+    validatePlaneDimensions(plane, width, height, /* bytesPerSample= */ plane.getPixelStride());
+  }
+
+  /**
+   * Validates the row stride and remaining buffer capacity of a {@link Plane}.
+   *
+   * <p>Checks that {@code plane} (where each sample occupies {@code bytesPerSample} bytes and
+   * samples are spaced {@link Plane#getPixelStride()} bytes apart) can hold {@code width} by {@code
+   * height} samples at its {@linkplain Plane#getPixelStride() pixel stride} and {@linkplain
+   * Plane#getRowStride() row stride}.
+   */
+  /* package */ static void validatePlaneDimensions(
+      Plane plane, int width, int height, int bytesPerSample) {
     ByteBuffer buffer = plane.getBuffer();
     int rowStride = plane.getRowStride();
-    int rowBytes = width * plane.getPixelStride();
+    int pixelStride = plane.getPixelStride();
+    int rowBytes = width * pixelStride;
     checkArgument(
         rowStride >= rowBytes,
         "rowStride (%s) must be at least rowBytes (%s)",
         rowStride,
         rowBytes);
-    // Producers such as ImageReader end a plane's buffer at its last visible pixel, so the final
-    // row does not need to be padded to a full rowStride.
-    int minimumBufferSize = rowStride * (height - 1) + rowBytes;
+    // Producers such as ImageReader end each plane's buffer right after its own last sample,
+    // without trailing row-stride padding or interleaved bytes from another plane. For example,
+    // in a 3-sample-wide NV12 chroma row (width = 3, pixelStride = 2, bytesPerSample = 1):
+    //
+    //   Interleaved memory: [U0, V0, U1, V1, U2, V2]  (rowBytes = 3 * 2 = 6 bytes)
+    //   uPlane final row:   [U0, V0, U1, V1, U2]      (5 bytes: ends at U2, without V2)
+    //   vPlane final row:       [V0, U1, V1, U2, V2]  (5 bytes: starts at V0, ends at V2)
+    //
+    // In general, the first (width - 1) samples in the final row span (width - 1) * pixelStride
+    // bytes and the last sample occupies bytesPerSample bytes, so the minimum final row length
+    // (minimumFinalRowBytes) is (width - 1) * pixelStride + bytesPerSample:
+    // - For tightly packed planes (pixelStride == bytesPerSample, such as RGBA or planar YUV),
+    //   minimumFinalRowBytes equals width * pixelStride (rowBytes).
+    // - For semi-planar chroma (pixelStride == 2, bytesPerSample == 1), minimumFinalRowBytes
+    //   equals width * pixelStride - 1 (rowBytes - 1).
+    int fullStrideRowsBytes = rowStride * (height - 1);
+    int finalRowOffsetToLastSample = (width - 1) * pixelStride;
+    int minimumFinalRowBytes = finalRowOffsetToLastSample + bytesPerSample;
+    int minimumBufferSize = fullStrideRowsBytes + minimumFinalRowBytes;
     checkArgument(
         buffer.remaining() >= minimumBufferSize,
         "Plane buffer holds %s bytes, but rowStride (%s) and height (%s) require at least %s",

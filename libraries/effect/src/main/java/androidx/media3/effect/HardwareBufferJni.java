@@ -22,9 +22,12 @@ import android.hardware.HardwareBuffer;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.LibraryLoader;
+import java.nio.ByteBuffer;
 
-/** JNI methods for HardwareBuffer interaction. */
-@RequiresApi(26)
+/**
+ * JNI methods for {@link HardwareBuffer} interaction and native {@link ByteBuffer} queries in
+ * {@code libmedia3EffectJNI}.
+ */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public final class HardwareBufferJni implements HardwareBufferJniWrapper {
 
@@ -43,6 +46,7 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
   }
 
   /** Creates an EGLImage from a {@link HardwareBuffer}. */
+  @RequiresApi(26)
   @Override
   public native long nativeCreateEglImageFromHardwareBuffer(
       long displayHandle, HardwareBuffer hardwareBuffer);
@@ -50,10 +54,12 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
   /**
    * Binds an EGLImage to the specified texture target. Returns whether the binding is successful.
    */
+  @RequiresApi(26)
   @Override
   public native boolean nativeBindEGLImage(int target, long eglImageHandle);
 
   /** Destroys an EGLImage. Returns whether the deletion is successful. */
+  @RequiresApi(26)
   @Override
   public native boolean nativeDestroyEGLImage(long displayHandle, long imageHandle);
 
@@ -68,6 +74,7 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
    * HardwareBuffer#RGBA_8888} or {@link Bitmap.Config#RGBA_1010102} and {@link
    * HardwareBuffer#RGBA_1010102}.
    */
+  @RequiresApi(26)
   @Override
   public native boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb);
 
@@ -82,7 +89,20 @@ public final class HardwareBufferJni implements HardwareBufferJniWrapper {
    * <p>The formats of the source and destination buffers must match, and be either {@link
    * HardwareBuffer#RGBA_8888} or {@link HardwareBuffer#RGBA_1010102}.
    */
+  @RequiresApi(26)
   @Override
   public native boolean nativeCopyHardwareBufferToHardwareBuffer(
       HardwareBuffer srcHb, HardwareBuffer dstHb);
+
+  /**
+   * Returns whether a semi-planar YUV frame's chroma planes are in NV21 order.
+   *
+   * <p>{@code uBuffer} and {@code vBuffer} must be {@linkplain ByteBuffer#isDirect() direct} {@link
+   * ByteBuffer} views of the same interleaved chroma memory, starting 1 byte apart (with {@code
+   * uBuffer} first for NV12 and {@code vBuffer} first for NV21). If either buffer is not a direct
+   * {@link ByteBuffer} or the buffers are not views of the same interleaved chroma memory, the
+   * return value is undefined.
+   */
+  @Override
+  public native boolean nativeIsNv21(ByteBuffer uBuffer, ByteBuffer vBuffer);
 }
