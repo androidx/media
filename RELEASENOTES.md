@@ -366,6 +366,10 @@
     *   Fix an issue where resolving an `X-ASSET-LIST` interstitial overwrote
         the content resume offset contributions of other interstitials in the
         same ad group.
+    *   Fix issues where reloading a failed or canceled HLS media chunk could
+        retain partially buffered samples without discarding or splicing, or
+        reset the load position to an outdated seek position
+        ([#3362](https://github.com/androidx/media/issues/3362)).
 *   DASH extension:
     *   Support parsing Alternative MPD Insertion
         (`urn:mpeg:dash:event:alternativeMPD:insert:2025`) and Replacement

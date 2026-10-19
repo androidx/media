@@ -938,6 +938,53 @@ public class HlsChunkSourceTest {
   }
 
   @Test
+  public void getNextChunk_changedTrackSelectionAfterIncompleteChunkLoad_returnsShouldSpliceInTrue()
+      throws Exception {
+    HlsChunkSource chunkSource =
+        createHlsChunkSource(
+            ImmutableMap.of(
+                PLAYLIST_URI,
+                PLAYLIST_INDEPENDENT_SEGMENTS,
+                PLAYLIST_URI_2,
+                PLAYLIST_INDEPENDENT_SEGMENTS));
+    TrackGroup trackGroup = chunkSource.getTrackGroup();
+    FakeTrackSelection trackSelection1 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection1.enable();
+    FakeTrackSelection trackSelection2 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 1);
+    trackSelection2.enable();
+    chunkSource.setTrackSelection(trackSelection1);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Select first chunk, starting at 16 seconds, without completing its load.
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 16_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk firstChunk = (HlsMediaChunk) output.chunk;
+    // Switch track selection and request the chunk again from firstChunk.startTimeUs (16 seconds).
+    chunkSource.setTrackSelection(trackSelection2);
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 16_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(firstChunk),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk secondChunk = (HlsMediaChunk) output.chunk;
+
+    assertThat(firstChunk.isLoadCompleted()).isFalse();
+    assertThat(firstChunk.playlistUrl).isEqualTo(PLAYLIST_URI);
+    assertThat(firstChunk.shouldSpliceIn()).isFalse();
+    assertThat(firstChunk.startTimeUs).isEqualTo(16_000_000);
+    assertThat(secondChunk.playlistUrl).isEqualTo(PLAYLIST_URI_2);
+    assertThat(secondChunk.shouldSpliceIn()).isTrue();
+    assertThat(secondChunk.startTimeUs).isEqualTo(16_000_000);
+  }
+
+  @Test
   public void
       getNextChunk_changedTrackSelectionWithOverlappingSegmentsStartingBeforeReadPosition_forcesCurrentSelection()
           throws Exception {

@@ -622,7 +622,6 @@ import org.jspecify.annotations.Nullable;
     boolean shouldSpliceIn =
         HlsMediaChunk.shouldSpliceIn(
             previous,
-            loadPositionUs,
             selectedPlaylistUrl,
             isIndependent,
             segmentBaseHolder,
