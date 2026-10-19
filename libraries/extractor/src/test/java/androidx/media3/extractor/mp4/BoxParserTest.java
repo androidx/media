@@ -26,6 +26,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.BoxUtils;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TrackReferenceData;
@@ -34,7 +35,9 @@ import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.metadata.Chapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Bytes;
 import com.google.common.primitives.ImmutableLongArray;
+import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.jspecify.annotations.Nullable;
@@ -644,37 +647,31 @@ public final class BoxParserTest {
   public void maybeConvertMebxTrackToIt35_withMultipleKeys_selectsHagcIt35Key() {
     byte[] nonIt35Key =
         createMebxKeyEntry(
-            /* localKeyId= */ 0x6d657431,
+            /* localKeyId= */ "met1",
             /* keyNamespace= */ 0x6d647461, // 'mdta'
             /* keyValue= */ 0x74657374,
             /* setuPayload= */ null);
     byte[] shortIt35Prefix = new byte[] {(byte) 0xB5};
     byte[] shortIt35Key =
         createMebxKeyEntry(
-            /* localKeyId= */ 0x73687274, // 'shrt'
+            /* localKeyId= */ "shrt",
             /* keyNamespace= */ 0x6d653463, // 'me4c'
             /* keyValue= */ Mp4Box.TYPE_it35,
             createSetuPayload(shortIt35Prefix));
     byte[] nonHagcIt35Prefix = new byte[] {(byte) 0xB5, 0x00, 0x31, 0x00, 0x01};
     byte[] nonHagcIt35Key =
         createMebxKeyEntry(
-            /* localKeyId= */ 0x68313070, // 'h10p'
+            /* localKeyId= */ "h10p",
             /* keyNamespace= */ 0x6d653463, // 'me4c'
             /* keyValue= */ Mp4Box.TYPE_it35,
             createSetuPayload(nonHagcIt35Prefix));
     byte[] hagcPrefix = new byte[] {(byte) 0xB5, 0x00, (byte) 0x90, 0x00, 0x01};
     byte[] hrsdPayload = "SMPTE-ST2094-50\0".getBytes(UTF_8);
     byte[] hagcSetuPayloadWithHrsd =
-        ByteBuffer.allocate(1 + hagcPrefix.length + Mp4Box.HEADER_SIZE + hrsdPayload.length)
-            .put((byte) hagcPrefix.length)
-            .put(hagcPrefix)
-            .putInt(Mp4Box.HEADER_SIZE + hrsdPayload.length)
-            .putInt(0x68727364) // 'hrsd'
-            .put(hrsdPayload)
-            .array();
+        Bytes.concat(createSetuPayload(hagcPrefix), BoxUtils.wrapIntoBox("hrsd", hrsdPayload));
     byte[] hagcIt35Key =
         createMebxKeyEntry(
-            /* localKeyId= */ 0x68616763, // 'hagc'
+            /* localKeyId= */ "hagc",
             /* keyNamespace= */ 0x6d653463, // 'me4c'
             /* keyValue= */ Mp4Box.TYPE_it35,
             hagcSetuPayloadWithHrsd);
@@ -707,7 +704,7 @@ public final class BoxParserTest {
     assertThat(convertedTrack.format.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_ITUT_T35);
     assertThat(convertedTrack.format.initializationData.get(0)).isEqualTo(hagcPrefix);
     assertThat(convertedTrack.sampleTransformation).isEqualTo(Track.TRANSFORMATION_MEBX_UNBOX);
-    assertThat(convertedTrack.mebxKeyId).isEqualTo(0x68616763);
+    assertThat(convertedTrack.mebxKeyId).isEqualTo(0x68616763); // 'hagc'
   }
 
   @Test
@@ -716,23 +713,10 @@ public final class BoxParserTest {
     byte[] targetPayload = new byte[] {0x10, 0x20, 0x30};
     byte[] trailingPayload = new byte[] {0x7F};
     byte[] sampleBytes =
-        ByteBuffer.allocate(
-                Mp4Box.HEADER_SIZE
-                    + otherPayload.length
-                    + Mp4Box.HEADER_SIZE
-                    + targetPayload.length
-                    + Mp4Box.HEADER_SIZE
-                    + trailingPayload.length)
-            .putInt(Mp4Box.HEADER_SIZE + otherPayload.length)
-            .putInt(0x6d657431) // 'met1'
-            .put(otherPayload)
-            .putInt(Mp4Box.HEADER_SIZE + targetPayload.length)
-            .putInt(0x68616763) // 'hagc'
-            .put(targetPayload)
-            .putInt(Mp4Box.HEADER_SIZE + trailingPayload.length)
-            .putInt(0x6d657432) // 'met2'
-            .put(trailingPayload)
-            .array();
+        Bytes.concat(
+            BoxUtils.wrapIntoBox("met1", otherPayload),
+            BoxUtils.wrapIntoBox("hagc", targetPayload),
+            BoxUtils.wrapIntoBox("met2", trailingPayload));
     ParsableByteArray sampleData = new ParsableByteArray(sampleBytes);
 
     boolean found = BoxParser.positionAtMebxBoxPayload(sampleData, /* targetKeyId= */ 0x68616763);
@@ -758,19 +742,8 @@ public final class BoxParserTest {
             .array();
     Mp4Box.ContainerBox trak = createOpusTrakWithDopsBox(dOpsBody);
     Mp4Box.ContainerBox tref = new Mp4Box.ContainerBox(Mp4Box.TYPE_tref, /* endPosition= */ 0);
-    byte[] cdscBytes =
-        ByteBuffer.allocate(Mp4Box.HEADER_SIZE + 4)
-            .putInt(Mp4Box.HEADER_SIZE + 4)
-            .putInt(Mp4Box.TYPE_cdsc)
-            .putInt(2)
-            .array();
-    byte[] rndrBytes =
-        ByteBuffer.allocate(Mp4Box.HEADER_SIZE + 8)
-            .putInt(Mp4Box.HEADER_SIZE + 8)
-            .putInt(Mp4Box.TYPE_rndr)
-            .putInt(1)
-            .putInt(3)
-            .array();
+    byte[] cdscBytes = BoxUtils.wrapIntoBox("cdsc", Ints.toByteArray(2));
+    byte[] rndrBytes = BoxUtils.wrapIntoBox("rndr", Ints.toByteArray(1), Ints.toByteArray(3));
     tref.add(new Mp4Box.LeafBox(Mp4Box.TYPE_cdsc, new ParsableByteArray(cdscBytes)));
     tref.add(new Mp4Box.LeafBox(Mp4Box.TYPE_rndr, new ParsableByteArray(rndrBytes)));
     trak.add(tref);
@@ -799,11 +772,7 @@ public final class BoxParserTest {
 
   @Test
   public void parseTrackReference_withEmptyPayload_returnsNull() {
-    byte[] emptyRndrBytes =
-        ByteBuffer.allocate(Mp4Box.HEADER_SIZE)
-            .putInt(Mp4Box.HEADER_SIZE)
-            .putInt(Mp4Box.TYPE_rndr)
-            .array();
+    byte[] emptyRndrBytes = BoxUtils.wrapIntoBox("rndr");
     Mp4Box.LeafBox rndrBox =
         new Mp4Box.LeafBox(Mp4Box.TYPE_rndr, new ParsableByteArray(emptyRndrBytes));
 
@@ -820,21 +789,10 @@ public final class BoxParserTest {
   }
 
   private static byte[] createMebxKeyEntry(
-      int localKeyId, int keyNamespace, int keyValue, byte @Nullable [] setuPayload) {
-    int keydSize = Mp4Box.HEADER_SIZE + 8;
-    int setuSize = setuPayload != null ? Mp4Box.HEADER_SIZE + setuPayload.length : 0;
-    int keyBoxSize = Mp4Box.HEADER_SIZE + keydSize + setuSize;
-    ByteBuffer buffer =
-        ByteBuffer.allocate(keyBoxSize)
-            .putInt(keyBoxSize)
-            .putInt(localKeyId)
-            .putInt(keydSize)
-            .putInt(Mp4Box.TYPE_keyd)
-            .putInt(keyNamespace)
-            .putInt(keyValue);
-    if (setuPayload != null) {
-      buffer.putInt(setuSize).putInt(Mp4Box.TYPE_setu).put(setuPayload);
-    }
-    return buffer.array();
+      String localKeyId, int keyNamespace, int keyValue, byte @Nullable [] setuPayload) {
+    byte[] keydBox =
+        BoxUtils.wrapIntoBox("keyd", Ints.toByteArray(keyNamespace), Ints.toByteArray(keyValue));
+    byte[] setuBox = setuPayload != null ? BoxUtils.wrapIntoBox("setu", setuPayload) : new byte[0];
+    return BoxUtils.wrapIntoBox(localKeyId, keydBox, setuBox);
   }
 }

@@ -15,7 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.BoxUtils.concatenateBuffers;
+import static androidx.media3.container.BoxUtils.concatenateBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
