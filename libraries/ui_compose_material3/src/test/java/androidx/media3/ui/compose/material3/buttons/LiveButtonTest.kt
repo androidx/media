@@ -427,4 +427,73 @@ class LiveButtonTest {
     assertThat(player.currentPosition).isEqualTo(50_000)
     assertThat(interactions.filterIsInstance<PressInteraction.Release>()).isNotEmpty()
   }
+
+  @Test
+  fun liveButton_customOnClick_runsCustomLogicAndSeeksToDefaultPosition() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(0L)
+        .setWindowStartTimeMs(0L)
+        .setElapsedRealtimeEpochOffsetMs(50_000L - SystemClock.elapsedRealtime())
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(50_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(10_000)
+    var customOnClickCalled = false
+    setContent {
+      LiveButton(
+        player,
+        Modifier.testTag("liveButton"),
+        onClick = {
+          customOnClickCalled = true
+          seekToDefaultPosition()
+        },
+      )
+    }
+
+    onNodeWithTag("liveButton").performClick()
+
+    assertThat(customOnClickCalled).isTrue()
+    assertThat(player.currentPosition).isEqualTo(50_000)
+  }
+
+  @Test
+  fun liveButton_customOnClickOverridingDefault_doesNotSeekToDefaultPosition() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(0L)
+        .setWindowStartTimeMs(0L)
+        .setElapsedRealtimeEpochOffsetMs(50_000L - SystemClock.elapsedRealtime())
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(50_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(10_000)
+    var customOnClickCalled = false
+    setContent {
+      LiveButton(player, Modifier.testTag("liveButton"), onClick = { customOnClickCalled = true })
+    }
+
+    onNodeWithTag("liveButton").performClick()
+
+    assertThat(customOnClickCalled).isTrue()
+    assertThat(player.currentPosition).isEqualTo(10_000)
+  }
 }

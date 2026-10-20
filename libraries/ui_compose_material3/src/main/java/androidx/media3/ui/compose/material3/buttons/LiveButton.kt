@@ -88,6 +88,15 @@ object LiveButtonDefaults {
  *   You can use this to change the button's appearance or preview the button in different states.
  *   Note that if `null` is provided, interactions will still happen internally.
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
+ * @param onClick The action to be performed when the button is clicked. This lambda has
+ *   [ProgressStateWithTickInterval] as its receiver, providing access to the button's current
+ *   state. The default behavior is to call [ProgressStateWithTickInterval.seekToDefaultPosition].
+ *   Consumers can customize this behavior:
+ * * To add custom logic while still performing the default action, call
+ *   `this.seekToDefaultPosition()` within your lambda.
+ * * To completely override the default behavior, implement your custom logic without calling
+ *   `this.seekToDefaultPosition()`.
+ *
  * @param content A composable lambda with [ProgressStateWithTickInterval] as its receiver, allowing
  *   the content of the button to be customized.
  */
@@ -104,10 +113,13 @@ fun LiveButton(
   contentPadding: PaddingValues = PaddingValues(0.dp),
   interactionSource: MutableInteractionSource? = null,
   scope: CoroutineScope = rememberCoroutineScope(),
+  onClick: ProgressStateWithTickInterval.() -> Unit =
+    ProgressStateWithTickInterval::seekToDefaultPosition,
   content: @Composable ProgressStateWithTickInterval.() -> Unit = {
     Text(stringResource(R.string.live_button_text))
   },
 ) {
+  val customOnClick: ProgressStateWithTickInterval.() -> Unit = onClick
   val progressState =
     rememberProgressStateWithTickInterval(
       player = player,
@@ -129,7 +141,7 @@ fun LiveButton(
       }
 
     TextButton(
-      onClick = { progressState.seekToDefaultPosition() },
+      onClick = { progressState.customOnClick() },
       enabled = !atLiveEdge,
       modifier = modifier,
       shape = shape,

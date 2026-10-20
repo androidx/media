@@ -131,4 +131,49 @@ class PlaybackSpeedButtonTest {
       onNodeWithTag("toggle").assertTextEquals("Speed=1.25x")
       assertThat(interactions.filterIsInstance<PressInteraction.Release>()).isNotEmpty()
     }
+
+  @Test
+  fun playbackSpeedToggleButton_customOnClick_overridesAndCustomizesBehavior() = runComposeUiTest {
+    val player = FakePlayer()
+    var customOnClickCalled = false
+    setContent {
+      PlaybackSpeedToggleButton(
+        player,
+        Modifier.testTag("toggle"),
+        onClick = {
+          customOnClickCalled = true
+          updatePlaybackSpeed(1.75f)
+        },
+      )
+    }
+
+    onNodeWithTag("toggle").performClick()
+
+    assertThat(customOnClickCalled).isTrue()
+    assertThat(player.playbackParameters.speed).isEqualTo(1.75f)
+  }
+
+  @Test
+  fun playbackSpeedToggleButton_customOnClick_runsCustomLogicAndCyclesSpeed() = runComposeUiTest {
+    val player = FakePlayer()
+    val speeds = listOf(1.0f, 2.0f)
+    var customOnClickCalled = false
+    setContent {
+      PlaybackSpeedToggleButton(
+        player,
+        Modifier.testTag("toggle"),
+        speedSelection = speeds,
+        onClick = {
+          customOnClickCalled = true
+          val nextSpeed = speeds.firstOrNull { it > playbackSpeed } ?: speeds.first()
+          updatePlaybackSpeed(nextSpeed)
+        },
+      )
+    }
+
+    onNodeWithTag("toggle").performClick()
+
+    assertThat(customOnClickCalled).isTrue()
+    assertThat(player.playbackParameters.speed).isEqualTo(2.0f)
+  }
 }

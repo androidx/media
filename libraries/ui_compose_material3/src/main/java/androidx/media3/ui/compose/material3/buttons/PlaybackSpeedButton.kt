@@ -65,6 +65,15 @@ import androidx.media3.ui.compose.state.PlaybackSpeedState
  *   emitting [Interaction][androidx.compose.foundation.interaction.Interaction]s for this button.
  *   You can use this to change the button's appearance or preview the button in different states.
  *   Note that if `null` is provided, interactions will still happen internally.
+ * @param onClick The action to be performed when the button is clicked. This lambda has
+ *   [PlaybackSpeedState] as its receiver, providing access to the button's current state (e.g.,
+ *   [PlaybackSpeedState.playbackSpeed] and [PlaybackSpeedState.updatePlaybackSpeed]). The default
+ *   behavior selects the next speed from [speedSelection] as described above and applies it with
+ *   [PlaybackSpeedState.updatePlaybackSpeed]. Consumers can customize this behavior:
+ * * To apply a different speed, call `this.updatePlaybackSpeed(speed)` with the desired value.
+ * * To add custom logic, such as logging, run it in the lambda alongside the call to
+ *   `this.updatePlaybackSpeed(speed)`.
+ *
  * @param content A composable lambda with [PlaybackSpeedState] as its receiver, allowing the
  *   content of the button to be customized.
  */
@@ -80,16 +89,18 @@ fun PlaybackSpeedToggleButton(
   border: BorderStroke? = null,
   contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
   interactionSource: MutableInteractionSource? = null,
+  onClick: PlaybackSpeedState.() -> Unit = {
+    val nextSpeed = speedSelection.firstOrNull { it > playbackSpeed } ?: speedSelection.first()
+    updatePlaybackSpeed(nextSpeed)
+  },
   content: @Composable PlaybackSpeedState.() -> Unit = {
     Text(text = stringResource(R.string.playback_speed_format, playbackSpeed))
   },
 ) {
+  val customOnClick: PlaybackSpeedState.() -> Unit = onClick
   PlaybackSpeedControl(player) {
     TextButton(
-      onClick = {
-        val nextSpeed = speedSelection.firstOrNull { it > playbackSpeed } ?: speedSelection.first()
-        updatePlaybackSpeed(nextSpeed)
-      },
+      onClick = { customOnClick() },
       enabled = isEnabled,
       modifier = modifier,
       shape = shape,
