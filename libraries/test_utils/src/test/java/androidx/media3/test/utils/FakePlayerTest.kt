@@ -22,6 +22,7 @@ import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.TimeUnit
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.mock
@@ -82,6 +83,47 @@ class FakePlayerTest {
     player.setDuration(uid, durationMs = 10_000L)
 
     assertThat(player.duration).isEqualTo(10_000L)
+  }
+
+  @Test
+  fun play_withoutCommandPlayPauseAndThrowWhenCommandUnavailable_throwsIllegalStateException() {
+    val player = FakePlayer(throwWhenCommandUnavailable = true)
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+
+    assertThrows(IllegalStateException::class.java) { player.play() }
+  }
+
+  @Test
+  fun setMediaItem_withoutCommandSetMediaItemAndChangeMediaItemsAndThrowWhenCommandUnavailable_throwsIllegalStateException() {
+    val player = FakePlayer(throwWhenCommandUnavailable = true)
+    player.removeCommands(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_CHANGE_MEDIA_ITEMS)
+    val mediaItem = MediaItem.fromUri("https://example.com/video.mp4")
+
+    assertThrows(IllegalStateException::class.java) { player.setMediaItem(mediaItem) }
+  }
+
+  @Test
+  fun setMediaItem_withoutCommandChangeMediaItemsAndThrowWhenCommandUnavailable_setsMediaItem() {
+    val player = FakePlayer(throwWhenCommandUnavailable = true)
+    player.removeCommands(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+    val mediaItem = MediaItem.fromUri("https://example.com/video.mp4")
+
+    player.setMediaItem(mediaItem)
+
+    assertThat(player.currentMediaItem).isEqualTo(mediaItem)
+  }
+
+  @Test
+  fun setMediaItems_multiItemWithoutCommandChangeMediaItemsAndThrowWhenCommandUnavailable_throwsIllegalStateException() {
+    val player = FakePlayer(throwWhenCommandUnavailable = true)
+    player.removeCommands(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+    val mediaItems =
+      listOf(
+        MediaItem.Builder().setMediaId("1").setUri("https://example.com/video1.mp4").build(),
+        MediaItem.Builder().setMediaId("2").setUri("https://example.com/video2.mp4").build(),
+      )
+
+    assertThrows(IllegalStateException::class.java) { player.setMediaItems(mediaItems) }
   }
 
   @Test

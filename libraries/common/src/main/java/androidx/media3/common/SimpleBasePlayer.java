@@ -2241,6 +2241,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
   private @MonotonicNonNull State state;
   private boolean released;
+  private boolean throwWhenCommandUnavailable;
 
   /**
    * Creates the base class.
@@ -2345,8 +2346,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     checkArgument(startIndex == C.INDEX_UNSET || startIndex >= 0);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    if (!shouldHandleCommand(Player.COMMAND_CHANGE_MEDIA_ITEMS)
-        && (mediaItems.size() != 1 || !shouldHandleCommand(Player.COMMAND_SET_MEDIA_ITEM))) {
+    @Player.Command
+    int command =
+        mediaItems.size() == 1
+                && !state.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+            ? Player.COMMAND_SET_MEDIA_ITEM
+            : Player.COMMAND_CHANGE_MEDIA_ITEMS;
+    if (!shouldHandleCommand(command)) {
       return;
     }
     updateStateForPendingOperation(
@@ -3669,9 +3675,31 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
   }
 
+  /**
+   * Sets whether calling a state-modifying player method when its corresponding {@link
+   * Player.Command} is not present in {@link State#availableCommands} throws an {@link
+   * IllegalStateException} instead of being ignored.
+   *
+   * @param throwWhenCommandUnavailable Whether to throw an {@link IllegalStateException} when a
+   *     required command is unavailable.
+   */
+  protected final void setThrowWhenCommandUnavailable(boolean throwWhenCommandUnavailable) {
+    this.throwWhenCommandUnavailable = throwWhenCommandUnavailable;
+  }
+
   @RequiresNonNull("state")
   private boolean shouldHandleCommand(@Player.Command int commandCode) {
-    return !released && state.availableCommands.contains(commandCode);
+    if (released) {
+      return false;
+    }
+    if (!state.availableCommands.contains(commandCode)) {
+      if (throwWhenCommandUnavailable) {
+        throw new IllegalStateException(
+            "Command " + commandCode + " is not available in availableCommands");
+      }
+      return false;
+    }
+    return true;
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated listener methods.
