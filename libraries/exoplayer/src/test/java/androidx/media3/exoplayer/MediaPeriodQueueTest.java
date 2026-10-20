@@ -945,6 +945,94 @@ public final class MediaPeriodQueueTest {
 
   @Test
   public void
+      getNextMediaPeriodInfo_inMultiPeriodWindowWithRemovedAdGroups_returnsCorrectMediaPeriodInfo() {
+    Object windowUid = new Object();
+    AdPlaybackState firstPeriodAdPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), FIRST_AD_START_TIME_US)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, AD_MEDIA_ITEM)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, AD_DURATION_US);
+    AdPlaybackState secondPeriodAdPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), FIRST_AD_START_TIME_US)
+            .withRemovedAdGroupCount(1);
+    setupTimelines(
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(windowUid)
+                .setDurationUs(2 * CONTENT_DURATION_US)
+                .setAdPlaybackStates(
+                    ImmutableList.of(firstPeriodAdPlaybackState, secondPeriodAdPlaybackState))
+                .build()));
+    advance(); // Enqueue content before midroll in period 0.
+    advance(); // Enqueue midroll ad in period 0.
+    advance(); // Enqueue content after midroll in period 0 (requestedContentPositionUs != UNSET).
+    // Remove all ad groups in period 0 as well before transitioning to period 1.
+    AdPlaybackState removedFirstPeriodAdPlaybackState =
+        firstPeriodAdPlaybackState
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withRemovedAdGroupCount(1);
+    fakeMediaSources
+        .get(0)
+        .setNewSourceInfo(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setPeriodCount(2)
+                    .setUid(windowUid)
+                    .setDurationUs(2 * CONTENT_DURATION_US)
+                    .setAdPlaybackStates(
+                        ImmutableList.of(
+                            removedFirstPeriodAdPlaybackState, secondPeriodAdPlaybackState))
+                    .build()));
+    shadowOf(Looper.getMainLooper()).idle();
+    playbackInfo = playbackInfo.copyWithTimeline(mediaSourceList.createTimeline());
+
+    assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
+        /* periodUid= */ playbackInfo.timeline.getUidOfPeriod(/* periodIndex= */ 1),
+        /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
+        /* requestedContentPositionUs= */ 0,
+        /* durationUs= */ CONTENT_DURATION_US,
+        /* isFollowedByTransitionToSameStream= */ false,
+        /* isLastInPeriod= */ true,
+        /* isLastInWindow= */ true,
+        /* isFinal= */ true,
+        /* nextAdGroupIndex= */ C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAds_withRemovedAdGroupAndLivePostrollPlaceholder_doesNotSkipPeriod() {
+    Object windowUid = new Object();
+    AdPlaybackState firstPeriodAdPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 0)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+            .withRemovedAdGroupCount(1);
+    FakeTimeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(windowUid)
+                .setDurationUs(0)
+                .setWindowPositionInFirstPeriodUs(0)
+                .setAdPlaybackStates(
+                    ImmutableList.of(firstPeriodAdPlaybackState, AdPlaybackState.NONE))
+                .build());
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAds(
+            timeline, /* periodUid= */ new Pair<>(windowUid, 0), /* positionUs= */ 0);
+
+    assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowUid, 0));
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(C.INDEX_UNSET);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
       updateQueuedPeriods_withDurationChangeInPlayingContent_handlesChangeAndRemovesPeriodsAfterChangedPeriod() {
     setupAdTimeline(/* adGroupTimesUs...= */ FIRST_AD_START_TIME_US);
     setAdGroupLoaded(/* adGroupIndex= */ 0);

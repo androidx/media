@@ -866,8 +866,9 @@ import org.jspecify.annotations.Nullable;
 
   private static boolean isSkippableAdPeriod(Timeline.Period period) {
     int adGroupCount = period.getAdGroupCount();
-    if (adGroupCount == 0
-        || (adGroupCount == 1 && period.isLivePostrollPlaceholder(/* adGroupIndex= */ 0))
+    int effectiveAdGroupCount = adGroupCount - period.getRemovedAdGroupCount();
+    if (effectiveAdGroupCount == 0
+        || (effectiveAdGroupCount == 1 && period.isLivePostrollPlaceholder(adGroupCount - 1))
         || !period.isServerSideInsertedAdGroup(period.getRemovedAdGroupCount())
         || period.getAdGroupIndexForPositionUs(0L) != C.INDEX_UNSET) {
       return false;
@@ -1355,9 +1356,11 @@ import org.jspecify.annotations.Nullable;
   private boolean hasServerSideInsertedAds(Object periodUid, Timeline timeline) {
     int adGroupCount = timeline.getPeriodByUid(periodUid, period).getAdGroupCount();
     int firstAdGroupIndex = period.getRemovedAdGroupCount();
-    return adGroupCount > 0
+    int effectiveAdGroupCount = adGroupCount - firstAdGroupIndex;
+    return effectiveAdGroupCount > 0
         && period.isServerSideInsertedAdGroup(firstAdGroupIndex)
-        && (adGroupCount > 1 || period.getAdGroupTimeUs(firstAdGroupIndex) != C.TIME_END_OF_SOURCE);
+        && (effectiveAdGroupCount > 1
+            || period.getAdGroupTimeUs(firstAdGroupIndex) != C.TIME_END_OF_SOURCE);
   }
 
   private MediaPeriodInfo getMediaPeriodInfo(
