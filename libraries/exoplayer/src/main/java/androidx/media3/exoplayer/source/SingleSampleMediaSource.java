@@ -58,9 +58,9 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
 
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private boolean treatLoadErrorsAsEndOfStream;
-    @Nullable private Object tag;
-    @Nullable private String trackId;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Object tag;
+    private @Nullable String trackId;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a factory for {@link SingleSampleMediaSource}s.
@@ -178,9 +178,9 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
   private final boolean treatLoadErrorsAsEndOfStream;
   private final Timeline timeline;
   private final MediaItem mediaItem;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
-  @Nullable private TransferListener transferListener;
+  private @Nullable TransferListener transferListener;
 
   private SingleSampleMediaSource(
       @Nullable String trackId,

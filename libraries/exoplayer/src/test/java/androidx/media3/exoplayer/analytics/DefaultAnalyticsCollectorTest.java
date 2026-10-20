@@ -2252,7 +2252,7 @@ public final class DefaultAnalyticsCollectorTest {
   private static final class EventWindowAndPeriodId {
 
     private final int windowIndex;
-    @Nullable private final MediaPeriodId mediaPeriodId;
+    private final @Nullable MediaPeriodId mediaPeriodId;
 
     public EventWindowAndPeriodId(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
       this.windowIndex = windowIndex;

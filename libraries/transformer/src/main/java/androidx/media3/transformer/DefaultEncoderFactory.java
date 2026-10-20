@@ -506,8 +506,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * <p>Returns a {@link VideoEncoderConfiguration}, or {@code null} if no encoder is found.
    */
   @RequiresNonNull("#1.sampleMimeType")
-  @Nullable
-  private static VideoEncoderConfiguration resolveVideoEncoderConfiguration(
+  private static @Nullable VideoEncoderConfiguration resolveVideoEncoderConfiguration(
       Format requestedFormat,
       VideoEncoderSettings requestedVideoEncoderSettings,
       EncoderSelector encoderSelector,
@@ -724,8 +723,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * <p>Returns a {@link EncoderQueryResult}, or {@code null} if no encoder is found.
    */
   @RequiresNonNull("#1.sampleMimeType")
-  @Nullable
-  private static EncoderQueryResult findAudioEncoderWithClosestSupportedFormat(
+  private static @Nullable EncoderQueryResult findAudioEncoderWithClosestSupportedFormat(
       Format requestedFormat, ImmutableList<MediaCodecInfo> filteredEncoderInfos) {
     String mimeType = checkNotNull(requestedFormat.sampleMimeType);
     if (filteredEncoderInfos.isEmpty()) {

@@ -2053,8 +2053,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
      *     TrackSelectionParameters#overrides} instead.
      */
     @Deprecated
-    @Nullable
-    public SelectionOverride getSelectionOverride(int rendererIndex, TrackGroupArray groups) {
+    public @Nullable SelectionOverride getSelectionOverride(
+        int rendererIndex, TrackGroupArray groups) {
       @Nullable Map<TrackGroupArray, @Nullable SelectionOverride> overrides =
           selectionOverrides.get(rendererIndex);
       return overrides != null ? overrides.get(groups) : null;
@@ -2443,15 +2443,15 @@ public class DefaultTrackSelector extends MappingTrackSelector
               ? (second == Format.NO_VALUE ? 0 : -1)
               : (second == Format.NO_VALUE ? 1 : (first - second));
 
-  @Nullable public final Context context;
+  public final @Nullable Context context;
   private final ExoTrackSelection.Factory trackSelectionFactory;
 
   private Parameters applicationParameters;
   private Parameters playerParameters;
 
-  @Nullable private volatile Thread playbackThread;
+  private volatile @Nullable Thread playbackThread;
 
-  @Nullable private SpatializerWrapper spatializer;
+  private @Nullable SpatializerWrapper spatializer;
   private AudioAttributes audioAttributes;
   private @MonotonicNonNull Boolean deviceIsTV;
 
@@ -2853,8 +2853,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    *     renderer index, or null if no selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  @Nullable
-  protected Pair<ExoTrackSelection.Definition, Integer> selectVideoTrack(
+  protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectVideoTrack(
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @AdaptiveSupport int[] mixedMimeTypeSupports,
@@ -2901,8 +2900,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    *     renderer index, or null if no selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  @Nullable
-  protected Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
+  protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
@@ -2982,8 +2980,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    *     renderer index, or null if no selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  @Nullable
-  protected Pair<ExoTrackSelection.Definition, Integer> selectTextTrack(
+  protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectTextTrack(
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       Parameters params,
@@ -3026,8 +3023,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    *     renderer index, or null if no selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  @Nullable
-  protected Pair<ExoTrackSelection.Definition, Integer> selectImageTrack(
+  protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectImageTrack(
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       Parameters params)
@@ -3551,8 +3547,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    * @param language The string.
    * @return The string, optionally normalized to null if it does not define a language.
    */
-  @Nullable
-  protected static String normalizeUndeterminedLanguageToNull(@Nullable String language) {
+  protected static @Nullable String normalizeUndeterminedLanguageToNull(@Nullable String language) {
     return TextUtils.isEmpty(language) || TextUtils.equals(language, C.LANGUAGE_UNDETERMINED)
         ? null
         : language;
@@ -3692,8 +3687,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
   }
 
-  @Nullable
-  private static String getPreferredLanguageFromCaptioningManager(@Nullable Context context) {
+  private static @Nullable String getPreferredLanguageFromCaptioningManager(
+      @Nullable Context context) {
     if (context == null) {
       return null;
     }
@@ -3709,8 +3704,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     return preferredLocale.toLanguageTag();
   }
 
-  @Nullable
-  private static Pair<ExoTrackSelection.Definition, Integer> findDefinitionForType(
+  private static @Nullable Pair<ExoTrackSelection.Definition, Integer> findDefinitionForType(
       ExoTrackSelection.@Nullable Definition[] definitions, @C.TrackType int trackType) {
     for (int i = 0; i < definitions.length; i++) {
       if (definitions[i] != null && definitions[i].group.type == trackType) {
@@ -3818,7 +3812,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
     private final boolean usesHardwareAcceleration;
     private final int codecPreferenceScore;
     private final boolean isHdr;
-    @Nullable private final String resolvedMimeType;
+    private final @Nullable String resolvedMimeType;
 
     public VideoTrackInfo(
         int rendererIndex,
@@ -4071,7 +4065,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
     private final @SelectionEligibility int selectionEligibility;
     private final boolean isWithinConstraints;
-    @Nullable private final String language;
+    private final @Nullable String language;
     private final Parameters parameters;
     private final boolean isWithinRendererCapabilities;
     private final int preferredLanguageScore;

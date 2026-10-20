@@ -45,8 +45,7 @@ public final class ErrorStateDrmSession implements DrmSession {
   }
 
   @Override
-  @Nullable
-  public DrmSessionException getError() {
+  public @Nullable DrmSessionException getError() {
     return error;
   }
 
@@ -56,14 +55,12 @@ public final class ErrorStateDrmSession implements DrmSession {
   }
 
   @Override
-  @Nullable
-  public CryptoConfig getCryptoConfig() {
+  public @Nullable CryptoConfig getCryptoConfig() {
     return null;
   }
 
   @Override
-  @Nullable
-  public Map<String, String> queryKeyStatus() {
+  public @Nullable Map<String, String> queryKeyStatus() {
     return null;
   }
 

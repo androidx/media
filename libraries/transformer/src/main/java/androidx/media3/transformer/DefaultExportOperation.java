@@ -54,9 +54,9 @@ import org.jspecify.annotations.Nullable;
 
   private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
   private final boolean applyMp4EditListTrim;
   private final Muxer.Factory muxerFactory;
   private final TransformerOutputResolver outputResolver;
@@ -64,7 +64,7 @@ import org.jspecify.annotations.Nullable;
   private final ExportResult.Builder exportResultBuilder;
   private final ComponentListener componentListener;
 
-  @Nullable private TransformerInternal transformerInternal;
+  private @Nullable TransformerInternal transformerInternal;
 
   public DefaultExportOperation(
       Context context,

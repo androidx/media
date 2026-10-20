@@ -40,7 +40,7 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     private Format format;
     private ImmutableMap<String, Object> metadata;
     private long contentTimeUs;
-    @Nullable private Object internalImage;
+    private @Nullable Object internalImage;
 
     /**
      * Creates a builder for {@link HardwareBufferFrame} instances without lifecycle management.
@@ -127,7 +127,7 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
   private final Format format;
   private final ImmutableMap<String, Object> metadata;
   private final long contentTimeUs;
-  @Nullable private final Object internalImage;
+  private final @Nullable Object internalImage;
   private final SharedStateReferenceCounter delegateCounter;
 
   /** Private constructor used by the builder. */
@@ -173,8 +173,7 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     delegateCounter.release(releaseFence);
   }
 
-  @Nullable
-  public Object getInternalImage() {
+  public @Nullable Object getInternalImage() {
     return internalImage;
   }
 }

@@ -61,7 +61,7 @@ public final class SonicAudioProcessor implements AudioProcessor, MetricsProvide
   private AudioFormat outputAudioFormat;
 
   private boolean pendingSonicRecreation;
-  @Nullable private Sonic sonic;
+  private @Nullable Sonic sonic;
   private ByteBuffer buffer;
   private ByteBuffer outputBuffer;
   private long inputBytes;

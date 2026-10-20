@@ -92,9 +92,9 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
     private int singleTrackId;
-    @Nullable private Format singleTrackFormat;
+    private @Nullable Format singleTrackFormat;
     private boolean loadOnlySelectedTracks;
 
     /**
@@ -349,21 +349,21 @@ public final class ProgressiveMediaSource extends BaseMediaSource
    * The {@link Format} passed to {@link Factory#enableLazyLoadingWithSingleTrack(int, Format)}, or
    * {@code null} if not set.
    */
-  @Nullable private final Format singleTrackFormat;
+  private final @Nullable Format singleTrackFormat;
 
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private boolean timelineIsPlaceholder;
   private long timelineDurationUs;
   private boolean timelineIsSeekable;
   private boolean timelineIsLive;
   private boolean hasSeenNonEstimatedSeekMap;
-  @Nullable private TransferListener transferListener;
+  private @Nullable TransferListener transferListener;
 
   @GuardedBy("this")
   private MediaItem mediaItem;
 
-  @Nullable private Listener listener;
+  private @Nullable Listener listener;
 
   private ProgressiveMediaSource(
       MediaItem mediaItem,

@@ -121,7 +121,7 @@ import org.jspecify.annotations.Nullable;
     private final List<Effect> effects;
     private final SeekParameters seekParameters;
     private final MediaCodecSelector mediaCodecSelector;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
     private final MediaSource.@Nullable Factory mediaSourceFactory;
     private final boolean extractHdrFrames;
     private final boolean enableUltraHdr;
@@ -190,8 +190,7 @@ import org.jspecify.annotations.Nullable;
 
   @SuppressWarnings("NonFinalStaticField") // Required for lazy initialization.
   @GuardedBy("LOCK")
-  @Nullable
-  private static FrameExtractorInternal instance;
+  private static @Nullable FrameExtractorInternal instance;
 
   private final AtomicInteger referenceCount;
 
@@ -201,7 +200,7 @@ import org.jspecify.annotations.Nullable;
   private final AtomicReference<CallbackToFutureAdapter.@Nullable Completer<FrameExtractor.Frame>>
       activeTaskCompleter;
 
-  @Nullable private ExoPlayer player;
+  private @Nullable ExoPlayer player;
 
   private FrameExtractor.@Nullable Frame lastSeekDedupeFrame;
 
@@ -210,7 +209,7 @@ import org.jspecify.annotations.Nullable;
   private boolean extractHdrFrames;
   private boolean enableUltraHdr;
 
-  @Nullable private GlObjectsProvider currentGlObjectsProvider;
+  private @Nullable GlObjectsProvider currentGlObjectsProvider;
   private MediaSource.@Nullable Factory currentMediaSourceFactory;
   private ImmutableList<Effect> currentVideoEffects;
   private long thumbnailPresentationTimeMs;
@@ -1024,13 +1023,13 @@ import org.jspecify.annotations.Nullable;
   /** A custom MediaCodecVideoRenderer that renders only one frame per position reset. */
   private static final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
     private final boolean toneMapHdrToSdr;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
     private final AtomicBoolean extractedFrameNeedsRendering;
     private final FrameExtractorInternal internal;
 
     private boolean frameRenderedSinceLastPositionReset;
     private List<Effect> effectsFromPlayer;
-    @Nullable private Effect rotation;
+    private @Nullable Effect rotation;
 
     private FrameExtractorRenderer(
         Context context,
@@ -1119,8 +1118,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @Nullable
-    protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+    protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
         throws ExoPlaybackException {
       if (formatHolder.format != null) {
         Format format = formatHolder.format;

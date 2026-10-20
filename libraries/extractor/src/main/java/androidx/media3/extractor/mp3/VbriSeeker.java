@@ -44,8 +44,7 @@ import org.jspecify.annotations.Nullable;
    * @return A {@link VbriSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
-  @Nullable
-  public static VbriSeeker create(
+  public static @Nullable VbriSeeker create(
       long inputLength,
       long position,
       MpegAudioUtil.Header mpegAudioHeader,

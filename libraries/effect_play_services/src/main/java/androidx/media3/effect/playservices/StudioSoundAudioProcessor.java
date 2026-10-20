@@ -372,8 +372,7 @@ public final class StudioSoundAudioProcessor extends BaseAudioProcessor {
    *
    * <p>Any channels that do not map to a {@link SeparationResult} are empty and should be ignored.
    */
-  @Nullable
-  public ImmutableList<SeparationResult> getResults() {
+  public @Nullable ImmutableList<SeparationResult> getResults() {
     return reportedResults;
   }
 

@@ -193,8 +193,8 @@ public abstract class DownloadService extends Service {
   private static final HashMap<Class<? extends DownloadService>, DownloadManagerHelper>
       downloadManagerHelpers = new HashMap<>();
 
-  @Nullable private final ForegroundNotificationUpdater foregroundNotificationUpdater;
-  @Nullable private final String channelId;
+  private final @Nullable ForegroundNotificationUpdater foregroundNotificationUpdater;
+  private final @Nullable String channelId;
   @StringRes private final int channelNameResourceId;
   @StringRes private final int channelDescriptionResourceId;
 
@@ -717,8 +717,7 @@ public abstract class DownloadService extends Service {
    * Throws {@link UnsupportedOperationException} because this service is not designed to be bound.
    */
   @Override
-  @Nullable
-  public final IBinder onBind(Intent intent) {
+  public final @Nullable IBinder onBind(Intent intent) {
     throw new UnsupportedOperationException();
   }
 
@@ -762,8 +761,7 @@ public abstract class DownloadService extends Service {
    *   <li>
    * </ul>
    */
-  @Nullable
-  protected abstract Scheduler getScheduler();
+  protected abstract @Nullable Scheduler getScheduler();
 
   /**
    * Returns a notification to be displayed when this service running in the foreground.
@@ -949,10 +947,10 @@ public abstract class DownloadService extends Service {
     private final Context context;
     private final DownloadManager downloadManager;
     private final boolean foregroundAllowed;
-    @Nullable private final Scheduler scheduler;
+    private final @Nullable Scheduler scheduler;
     private final Class<? extends DownloadService> serviceClass;
 
-    @Nullable private DownloadService downloadService;
+    private @Nullable DownloadService downloadService;
     private @MonotonicNonNull Requirements scheduledRequirements;
 
     private DownloadManagerHelper(

@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
   private final Context context;
   private final List<VideoSinkOperation> pendingOperations;
 
-  @Nullable private VideoSink videoSink;
+  private @Nullable VideoSink videoSink;
   private boolean isInitialized;
   private @MonotonicNonNull PlaceholderSurface placeholderSurface;
 
@@ -70,8 +70,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the underlying {@link VideoSink} or {@code null} if there is none. */
-  @Nullable
-  public VideoSink getVideoSink() {
+  public @Nullable VideoSink getVideoSink() {
     return videoSink;
   }
 

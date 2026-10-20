@@ -86,8 +86,8 @@ import org.jspecify.annotations.Nullable;
    * @return The span, or null if the file name is not correctly formatted, or if the id is not
    *     present in the content index, or if the length is 0.
    */
-  @Nullable
-  public static SimpleCacheSpan createCacheEntry(File file, long length, CachedContentIndex index) {
+  public static @Nullable SimpleCacheSpan createCacheEntry(
+      File file, long length, CachedContentIndex index) {
     return createCacheEntry(file, length, /* lastTouchTimestamp= */ C.TIME_UNSET, index);
   }
 
@@ -104,8 +104,7 @@ import org.jspecify.annotations.Nullable;
    * @return The span, or null if the file name is not correctly formatted, or if the id is not
    *     present in the content index, or if the length is 0.
    */
-  @Nullable
-  public static SimpleCacheSpan createCacheEntry(
+  public static @Nullable SimpleCacheSpan createCacheEntry(
       File file, long length, long lastTouchTimestamp, CachedContentIndex index) {
     String name = file.getName();
     if (!name.endsWith(SUFFIX)) {
@@ -150,8 +149,7 @@ import org.jspecify.annotations.Nullable;
    * @return Upgraded cache file or {@code null} if the file name is not correctly formatted or the
    *     file can not be renamed.
    */
-  @Nullable
-  private static File upgradeFile(File file, CachedContentIndex index) {
+  private static @Nullable File upgradeFile(File file, CachedContentIndex index) {
     @Nullable String key = null;
     String filename = file.getName();
     Matcher matcher = CACHE_FILE_PATTERN_V2.matcher(filename);

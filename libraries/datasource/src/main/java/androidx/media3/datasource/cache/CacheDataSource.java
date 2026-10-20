@@ -71,7 +71,7 @@ public final class CacheDataSource implements DataSource {
     private CacheKeyFactory cacheKeyFactory;
     private boolean cacheIsReadOnly;
     private DataSource.@Nullable Factory upstreamDataSourceFactory;
-    @Nullable private PriorityTaskManager upstreamPriorityTaskManager;
+    private @Nullable PriorityTaskManager upstreamPriorityTaskManager;
     private @C.Priority int upstreamPriority;
     private @CacheDataSource.Flags int flags;
     private CacheDataSource.@Nullable EventListener eventListener;
@@ -99,8 +99,7 @@ public final class CacheDataSource implements DataSource {
      * Returns the cache that will be used, or {@code null} if {@link #setCache} has yet to be
      * called.
      */
-    @Nullable
-    public Cache getCache() {
+    public @Nullable Cache getCache() {
       return cache;
     }
 
@@ -203,8 +202,7 @@ public final class CacheDataSource implements DataSource {
      * Returns the {@link PriorityTaskManager} that will bs used when requesting data from upstream,
      * or {@code null} if there is none.
      */
-    @Nullable
-    public PriorityTaskManager getUpstreamPriorityTaskManager() {
+    public @Nullable PriorityTaskManager getUpstreamPriorityTaskManager() {
       return upstreamPriorityTaskManager;
     }
 
@@ -404,23 +402,23 @@ public final class CacheDataSource implements DataSource {
 
   private final Cache cache;
   private final DataSource cacheReadDataSource;
-  @Nullable private final DataSource cacheWriteDataSource;
+  private final @Nullable DataSource cacheWriteDataSource;
   private final DataSource upstreamDataSource;
   private final CacheKeyFactory cacheKeyFactory;
-  @Nullable private final EventListener eventListener;
+  private final @Nullable EventListener eventListener;
 
   private final boolean blockOnCache;
   private final boolean ignoreCacheOnError;
   private final boolean ignoreCacheForUnsetLengthRequests;
 
-  @Nullable private Uri actualUri;
-  @Nullable private DataSpec requestDataSpec;
-  @Nullable private DataSpec currentDataSpec;
-  @Nullable private DataSource currentDataSource;
+  private @Nullable Uri actualUri;
+  private @Nullable DataSpec requestDataSpec;
+  private @Nullable DataSpec currentDataSpec;
+  private @Nullable DataSource currentDataSource;
   private long currentDataSourceBytesRead;
   private long readPosition;
   private long bytesRemaining;
-  @Nullable private CacheSpan currentHoleSpan;
+  private @Nullable CacheSpan currentHoleSpan;
   private boolean seenCacheError;
   private boolean currentRequestIgnoresCache;
   private long totalCachedBytesRead;
@@ -665,8 +663,7 @@ public final class CacheDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return actualUri;
   }
 

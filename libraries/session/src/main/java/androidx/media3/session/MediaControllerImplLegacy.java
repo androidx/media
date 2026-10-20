@@ -106,8 +106,8 @@ import org.jspecify.annotations.Nullable;
   private final Bundle connectionHints;
   private final long platformSessionCallbackAggregationTimeoutMs;
 
-  @Nullable private MediaControllerCompat controllerCompat;
-  @Nullable private MediaBrowserCompat browserCompat;
+  private @Nullable MediaControllerCompat controllerCompat;
+  private @Nullable MediaBrowserCompat browserCompat;
   private boolean released;
   private boolean connected;
   private LegacyPlayerInfo legacyPlayerInfo;
@@ -244,8 +244,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public SessionToken getConnectedToken() {
+  public @Nullable SessionToken getConnectedToken() {
     return connected ? token : null;
   }
 
@@ -319,9 +318,8 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     int newMediaItemIndex = currentMediaItemIndex;
-    @Nullable
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason = null;
+    @Nullable Integer mediaItemTransitionReason = null;
     if (mediaItemIndex != currentMediaItemIndex) {
       QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
       long queueId = queueTimeline.getQueueId(mediaItemIndex);
@@ -340,9 +338,8 @@ import org.jspecify.annotations.Nullable;
                 + mediaItemIndex);
       }
     }
-    @Nullable
     @Player.DiscontinuityReason
-    Integer discontinuityReason;
+    @Nullable Integer discontinuityReason;
     long currentPositionMs = getCurrentPosition();
     long newPositionMs;
     if (positionMs == C.TIME_UNSET) {
@@ -440,8 +437,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public PendingIntent getSessionActivity() {
+  public @Nullable PendingIntent getSessionActivity() {
     return controllerCompat.getSessionActivity();
   }
 
@@ -461,8 +457,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return controllerInfo.playerInfo.playerError;
   }
 
@@ -1383,14 +1378,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public MediaBrowserCompat getBrowserCompat() {
+  public @Nullable MediaBrowserCompat getBrowserCompat() {
     return browserCompat;
   }
 
-  @Nullable
   @Override
-  public IMediaController getBinder() {
+  public @Nullable IMediaController getBinder() {
     return null;
   }
 
@@ -1549,8 +1542,8 @@ import org.jspecify.annotations.Nullable;
 
   private void updateStateMaskedControllerInfo(
       ControllerInfo newControllerInfo,
-      @Nullable @Player.DiscontinuityReason Integer discontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.DiscontinuityReason @Nullable Integer discontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
     // Safe to pass legacyPlayerInfo without updating.
     // updateControllerInfo() takes LegacyPlayerInfo just to easily detect some changes in the
     // controller info, and LegacyPlayerInfo isn't used for values that state-masking may be
@@ -1571,8 +1564,8 @@ import org.jspecify.annotations.Nullable;
       LegacyPlayerInfo newLegacyPlayerInfo,
       boolean hasNewLegacyPlayerInfo,
       ControllerInfo newControllerInfo,
-      @Nullable @Player.DiscontinuityReason Integer discontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.DiscontinuityReason @Nullable Integer discontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
     LegacyPlayerInfo oldLegacyPlayerInfo = legacyPlayerInfo;
     ControllerInfo oldControllerInfo = controllerInfo;
     if (hasNewLegacyPlayerInfo) {
@@ -2392,12 +2385,10 @@ import org.jspecify.annotations.Nullable;
           LegacyPlayerInfo newLegacyPlayerInfo,
           ControllerInfo newControllerInfo,
           long timeDiffMs) {
-    @Nullable
     @Player.DiscontinuityReason
-    Integer discontinuityReason;
-    @Nullable
+    @Nullable Integer discontinuityReason;
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason;
+    @Nullable Integer mediaItemTransitionReason;
     boolean isOldTimelineEmpty = oldControllerInfo.playerInfo.timeline.isEmpty();
     boolean isNewTimelineEmpty = newControllerInfo.playerInfo.timeline.isEmpty();
     if (isOldTimelineEmpty && isNewTimelineEmpty) {
@@ -2458,8 +2449,7 @@ import org.jspecify.annotations.Nullable;
     return queue == null ? Collections.emptyList() : MediaUtils.removeNullElements(queue);
   }
 
-  @Nullable
-  private static PlaybackStateCompat convertToSafePlaybackStateCompat(
+  private static @Nullable PlaybackStateCompat convertToSafePlaybackStateCompat(
       @Nullable PlaybackStateCompat state) {
     if (state == null) {
       return null;
@@ -2675,10 +2665,10 @@ import org.jspecify.annotations.Nullable;
   private static final class LegacyPlayerInfo {
 
     public final MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat;
-    @Nullable public final PlaybackStateCompat playbackStateCompat;
-    @Nullable public final MediaMetadataCompat mediaMetadataCompat;
+    public final @Nullable PlaybackStateCompat playbackStateCompat;
+    public final @Nullable MediaMetadataCompat mediaMetadataCompat;
     public final List<QueueItem> queue;
-    @Nullable public final CharSequence queueTitle;
+    public final @Nullable CharSequence queueTitle;
     @PlaybackStateCompat.RepeatMode public final int repeatMode;
     @PlaybackStateCompat.ShuffleMode public final int shuffleMode;
     public final Bundle sessionExtras;
@@ -2844,7 +2834,7 @@ import org.jspecify.annotations.Nullable;
     public final Commands availablePlayerCommands;
     public final ImmutableList<CommandButton> mediaButtonPreferences;
     public final Bundle sessionExtras;
-    @Nullable public final SessionError sessionError;
+    public final @Nullable SessionError sessionError;
 
     public ControllerInfo() {
       playerInfo = PlayerInfo.DEFAULT.copyWithTimeline(QueueTimeline.DEFAULT);

@@ -36,8 +36,7 @@ import org.jspecify.annotations.Nullable;
     RtpDataChannel createAndOpenDataChannel(int trackId) throws IOException;
 
     /** Returns a fallback {@code Factory}, {@code null} when there is no fallback available. */
-    @Nullable
-    default Factory createFallbackDataChannelFactory() {
+    default @Nullable Factory createFallbackDataChannelFactory() {
       return null;
     }
   }

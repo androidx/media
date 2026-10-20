@@ -59,7 +59,7 @@ public abstract class ExoHostedTest implements HostedTest {
   private final DecoderCounters audioDecoderCounters;
   private final ConditionVariable testFinished;
 
-  @Nullable private ActionSchedule pendingSchedule;
+  private @Nullable ActionSchedule pendingSchedule;
   private @MonotonicNonNull ExoPlayer player;
   private @MonotonicNonNull HandlerWrapper actionHandler;
   private @MonotonicNonNull DefaultTrackSelector trackSelector;

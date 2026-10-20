@@ -80,13 +80,13 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
 
   private final CopyOnWriteArrayList<VideoSurfaceListener> videoSurfaceListeners;
   private final SensorManager sensorManager;
-  @Nullable private final Sensor orientationSensor;
+  private final @Nullable Sensor orientationSensor;
   private final OrientationListener orientationListener;
   private final Handler mainHandler;
   private final TouchTracker touchTracker;
   private final SceneRenderer scene;
-  @Nullable private SurfaceTexture surfaceTexture;
-  @Nullable private Surface surface;
+  private @Nullable SurfaceTexture surfaceTexture;
+  private @Nullable Surface surface;
   private boolean useSensorRotation;
   private boolean isStarted;
   private boolean isOrientationListenerRegistered;
@@ -149,8 +149,7 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
    * Returns the {@link Surface} to which video frames should be rendered, or {@code null} if it has
    * not been created.
    */
-  @Nullable
-  public Surface getVideoSurface() {
+  public @Nullable Surface getVideoSurface() {
     return surface;
   }
 

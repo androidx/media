@@ -50,7 +50,7 @@ public final class HardwareBufferPool {
      * The fence that must be waited on before writing to the {@link #hardwareBuffer}. If {@code
      * null} the buffer can be accessed immediately.
      */
-    @Nullable public final SyncFenceWrapper acquireFence;
+    public final @Nullable SyncFenceWrapper acquireFence;
 
     /** Creates a new instance. */
     public HardwareBufferWithFence(
@@ -73,8 +73,7 @@ public final class HardwareBufferPool {
   private boolean isReleased;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable wakeupListener;
+  private @Nullable Runnable wakeupListener;
 
   /**
    * Creates a new instance.
@@ -102,8 +101,7 @@ public final class HardwareBufferPool {
    * @param wakeupListener A callback to notify the caller when a buffer becomes available.
    * @return A {@link HardwareBufferWithFence}, or {@code null} if the pool is currently full.
    */
-  @Nullable
-  public HardwareBufferWithFence get(
+  public @Nullable HardwareBufferWithFence get(
       Format format, @Frame.Usage long usageFlags, Runnable wakeupListener) {
     synchronized (lock) {
       if (isReleased) {

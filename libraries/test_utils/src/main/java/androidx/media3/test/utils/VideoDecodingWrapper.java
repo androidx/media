@@ -155,8 +155,7 @@ public final class VideoDecodingWrapper implements AutoCloseable {
    * takes ownership of any returned image and is responsible for closing it before calling this
    * method again.
    */
-  @Nullable
-  public Image runUntilComparisonFrameOrEnded() throws InterruptedException {
+  public @Nullable Image runUntilComparisonFrameOrEnded() throws InterruptedException {
     if (!isCodecStarted) {
       mediaCodec.configure(
           mediaFormat, imageReader.getSurface(), /* crypto= */ null, /* flags= */ 0);

@@ -72,8 +72,7 @@ public abstract class SimpleSubtitleDecoder
 
   @SuppressWarnings("ByteBufferBackingArray")
   @Override
-  @Nullable
-  protected final SubtitleDecoderException decode(
+  protected final @Nullable SubtitleDecoderException decode(
       SubtitleInputBuffer inputBuffer, SubtitleOutputBuffer outputBuffer, boolean reset) {
     try {
       ByteBuffer inputData = checkNotNull(inputBuffer.data);

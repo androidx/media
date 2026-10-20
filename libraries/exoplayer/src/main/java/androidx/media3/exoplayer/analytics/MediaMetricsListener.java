@@ -101,8 +101,7 @@ public final class MediaMetricsListener
    * @return The {@link MediaMetricsListener}, or null if the {@link Context#MEDIA_METRICS_SERVICE
    *     media metrics service} isn't available.
    */
-  @Nullable
-  public static MediaMetricsListener create(Context context) {
+  public static @Nullable MediaMetricsListener create(Context context) {
     @Nullable MediaMetricsManager mediaMetricsManager =
         (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
     return mediaMetricsManager == null
@@ -120,18 +119,18 @@ public final class MediaMetricsListener
   private final HashMap<String, Long> bandwidthTimeMs;
   private final HashMap<String, Long> bandwidthBytes;
 
-  @Nullable private String activeSessionId;
+  private @Nullable String activeSessionId;
   private PlaybackMetrics.@Nullable Builder metricsBuilder;
   private @Player.DiscontinuityReason int discontinuityReason;
   private int currentPlaybackState;
   private int currentNetworkType;
-  @Nullable private PlaybackException pendingPlayerError;
-  @Nullable private PendingFormatUpdate pendingVideoFormat;
-  @Nullable private PendingFormatUpdate pendingAudioFormat;
-  @Nullable private PendingFormatUpdate pendingTextFormat;
-  @Nullable private Format currentVideoFormat;
-  @Nullable private Format currentAudioFormat;
-  @Nullable private Format currentTextFormat;
+  private @Nullable PlaybackException pendingPlayerError;
+  private @Nullable PendingFormatUpdate pendingVideoFormat;
+  private @Nullable PendingFormatUpdate pendingAudioFormat;
+  private @Nullable PendingFormatUpdate pendingTextFormat;
+  private @Nullable Format currentVideoFormat;
+  private @Nullable Format currentAudioFormat;
+  private @Nullable Format currentTextFormat;
   private boolean isSeeking;
   private int ioErrorType;
   private boolean hasFatalError;
@@ -849,8 +848,7 @@ public final class MediaMetricsListener
     }
   }
 
-  @Nullable
-  private static DrmInitData getDrmInitData(ImmutableList<Tracks.Group> trackGroups) {
+  private static @Nullable DrmInitData getDrmInitData(ImmutableList<Tracks.Group> trackGroups) {
     for (Tracks.Group trackGroup : trackGroups) {
       for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
         if (trackGroup.isTrackSelected(trackIndex)) {

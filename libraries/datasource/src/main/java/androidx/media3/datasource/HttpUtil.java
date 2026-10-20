@@ -53,8 +53,7 @@ public final class HttpUtil {
    * @return The corresponding range header, or {@code null} if a header is unnecessary because the
    *     whole resource is being requested.
    */
-  @Nullable
-  public static String buildRangeRequestHeader(long position, long length) {
+  public static @Nullable String buildRangeRequestHeader(long position, long length) {
     if (position == 0 && length == C.LENGTH_UNSET) {
       return null;
     }

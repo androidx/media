@@ -51,7 +51,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
   public static final class Factory {
 
     private long durationUs;
-    @Nullable private Object tag;
+    private @Nullable Object tag;
 
     /**
      * Sets the duration of the silent audio. The value needs to be a positive value.

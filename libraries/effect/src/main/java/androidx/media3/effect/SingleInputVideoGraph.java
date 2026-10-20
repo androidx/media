@@ -54,8 +54,8 @@ public class SingleInputVideoGraph implements VideoGraph {
   private final Executor listenerExecutor;
   private final boolean renderFramesAutomatically;
 
-  @Nullable private VideoFrameProcessor videoFrameProcessor;
-  @Nullable private SurfaceInfo outputSurfaceInfo;
+  private @Nullable VideoFrameProcessor videoFrameProcessor;
+  private @Nullable SurfaceInfo outputSurfaceInfo;
   private ImmutableList<Effect> compositionEffects;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;

@@ -197,8 +197,8 @@ public final class WebvttCueParser {
    * @param styles List of styles defined by the CSS style blocks preceding the cues.
    * @return The parsed cue info, or null if no valid cue was found.
    */
-  @Nullable
-  public static WebvttCueInfo parseCue(ParsableByteArray webvttData, List<WebvttCssStyle> styles) {
+  public static @Nullable WebvttCueInfo parseCue(
+      ParsableByteArray webvttData, List<WebvttCssStyle> styles) {
     @Nullable String firstLine = webvttData.readLine();
     if (firstLine == null) {
       return null;
@@ -335,8 +335,7 @@ public final class WebvttCueParser {
 
   // Internal methods
 
-  @Nullable
-  private static WebvttCueInfo parseCue(
+  private static @Nullable WebvttCueInfo parseCue(
       @Nullable String id,
       Matcher cueHeaderMatcher,
       ParsableByteArray webvttData,

@@ -146,18 +146,17 @@ import org.jspecify.annotations.Nullable;
   private final boolean isPeriodicPositionUpdateEnabled;
   private final boolean useLegacySurfaceHandling;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
-  @Nullable private final String packageNameOverride;
+  private final @Nullable String packageNameOverride;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
-  @Nullable private PendingIntent sessionActivity;
-  @Nullable private PlayerListener playerListener;
+  private @Nullable PendingIntent sessionActivity;
+  private @Nullable PlayerListener playerListener;
   private MediaSession.@Nullable Listener mediaSessionListener;
-  @Nullable private ControllerInfo controllerForCurrentRequest;
+  private @Nullable ControllerInfo controllerForCurrentRequest;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaSessionServiceLegacyStub browserServiceLegacyStub;
+  private @Nullable MediaSessionServiceLegacyStub browserServiceLegacyStub;
 
   @GuardedBy("lock")
   private boolean closed;
@@ -168,7 +167,7 @@ import org.jspecify.annotations.Nullable;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private Bundle sessionExtras;
-  @Nullable private PlaybackException playbackException;
+  private @Nullable PlaybackException playbackException;
 
   @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   public MediaSessionImpl(
@@ -426,8 +425,7 @@ import org.jspecify.annotations.Nullable;
     return controllers.build();
   }
 
-  @Nullable
-  public ControllerInfo getControllerForCurrentRequest() {
+  public @Nullable ControllerInfo getControllerForCurrentRequest() {
     verifyApplicationThread();
     return controllerForCurrentRequest != null
         ? resolveControllerInfoForCallback(controllerForCurrentRequest)
@@ -491,8 +489,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the {@link ControllerInfo} of the system UI notification controller, or {@code null} if
    * the System UI controller is not connected.
    */
-  @Nullable
-  protected ControllerInfo getSystemUiControllerInfo() {
+  protected @Nullable ControllerInfo getSystemUiControllerInfo() {
     ImmutableList<ControllerInfo> connectedControllers =
         sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
@@ -515,8 +512,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the {@link ControllerInfo} of the media notification controller, or {@code null} if the
    * media notification controller is not connected.
    */
-  @Nullable
-  public ControllerInfo getMediaNotificationControllerInfo() {
+  public @Nullable ControllerInfo getMediaNotificationControllerInfo() {
     verifyApplicationThread();
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
@@ -534,8 +530,7 @@ import org.jspecify.annotations.Nullable;
     return isMediaNotificationControllerConnected;
   }
 
-  @Nullable
-  public String getPackageNameOverride() {
+  public @Nullable String getPackageNameOverride() {
     return packageNameOverride;
   }
 
@@ -678,8 +673,7 @@ import org.jspecify.annotations.Nullable;
         });
   }
 
-  @Nullable
-  public PlaybackException getPlaybackException() {
+  public @Nullable PlaybackException getPlaybackException() {
     verifyApplicationThread();
     return playbackException;
   }
@@ -1172,8 +1166,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  protected PendingIntent getSessionActivity() {
+  protected @Nullable PendingIntent getSessionActivity() {
     verifyApplicationThread();
     return sessionActivity;
   }
@@ -1232,8 +1225,7 @@ import org.jspecify.annotations.Nullable;
    * Gets the service binder from the MediaBrowserServiceCompat. Should be only called by the thread
    * with a Looper.
    */
-  @Nullable
-  protected IBinder getLegacyBrowserServiceBinder() {
+  protected @Nullable IBinder getLegacyBrowserServiceBinder() {
     MediaSessionServiceLegacyStub legacyStub;
     synchronized (lock) {
       if (browserServiceLegacyStub == null) {
@@ -1259,8 +1251,7 @@ import org.jspecify.annotations.Nullable;
     schedulePeriodicSessionPositionInfoChanges();
   }
 
-  @Nullable
-  protected MediaSessionServiceLegacyStub getLegacyBrowserService() {
+  protected @Nullable MediaSessionServiceLegacyStub getLegacyBrowserService() {
     synchronized (lock) {
       return browserServiceLegacyStub;
     }
@@ -2363,8 +2354,7 @@ import org.jspecify.annotations.Nullable;
           /* excludeTimeline= */ true, /* excludeTracks= */ true);
     }
 
-    @Nullable
-    private MediaSessionImpl getSession() {
+    private @Nullable MediaSessionImpl getSession() {
       return this.session.get();
     }
   }
@@ -2376,7 +2366,7 @@ import org.jspecify.annotations.Nullable;
    */
   private class MediaPlayPauseKeyHandler extends Handler {
 
-    @Nullable private Runnable playPauseTask;
+    private @Nullable Runnable playPauseTask;
 
     public MediaPlayPauseKeyHandler(Looper applicationLooper) {
       super(applicationLooper);
@@ -2399,8 +2389,7 @@ import org.jspecify.annotations.Nullable;
       postDelayed(playPauseTask, ViewConfiguration.getDoubleTapTimeout());
     }
 
-    @Nullable
-    public Runnable clearPendingPlayPauseTask() {
+    public @Nullable Runnable clearPendingPlayPauseTask() {
       if (playPauseTask != null) {
         removeCallbacks(playPauseTask);
         Runnable task = playPauseTask;

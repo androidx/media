@@ -95,9 +95,9 @@ public final class CastParams {
     }
   }
 
-  @Nullable private final String receiverApplicationId;
-  @Nullable private final Boolean remoteToLocalEnabled;
-  @Nullable private final Boolean showSystemOutputSwitcherOnCastButtonClick;
+  private final @Nullable String receiverApplicationId;
+  private final @Nullable Boolean remoteToLocalEnabled;
+  private final @Nullable Boolean showSystemOutputSwitcherOnCastButtonClick;
 
   private CastParams(Builder builder) {
     receiverApplicationId = builder.receiverApplicationId;
@@ -113,8 +113,7 @@ public final class CastParams {
    *
    * @see Builder#setReceiverApplicationId(String)
    */
-  @Nullable
-  public String getReceiverApplicationId() {
+  public @Nullable String getReceiverApplicationId() {
     return receiverApplicationId;
   }
 
@@ -127,8 +126,7 @@ public final class CastParams {
    *
    * @see Builder#setRemoteToLocalEnabled(boolean)
    */
-  @Nullable
-  public Boolean getRemoteToLocalEnabled() {
+  public @Nullable Boolean getRemoteToLocalEnabled() {
     return remoteToLocalEnabled;
   }
 
@@ -153,8 +151,7 @@ public final class CastParams {
    *
    * @see Builder#setShowSystemOutputSwitcherOnCastButtonClick(boolean)
    */
-  @Nullable
-  public Boolean getShowSystemOutputSwitcherOnCastButtonClick() {
+  public @Nullable Boolean getShowSystemOutputSwitcherOnCastButtonClick() {
     return showSystemOutputSwitcherOnCastButtonClick;
   }
 

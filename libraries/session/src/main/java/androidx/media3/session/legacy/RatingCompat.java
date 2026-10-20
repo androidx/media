@@ -91,7 +91,7 @@ public final class RatingCompat implements Parcelable {
   private final int ratingStyle;
   private final float ratingValue;
 
-  @Nullable private Object ratingObj; // framework Rating object
+  private @Nullable Object ratingObj; // framework Rating object
 
   RatingCompat(@Style int ratingStyle, float rating) {
     this.ratingStyle = ratingStyle;
@@ -145,8 +145,7 @@ public final class RatingCompat implements Parcelable {
    *     #RATING_PERCENTAGE}.
    * @return null if an invalid rating style is passed, a new Rating instance otherwise.
    */
-  @Nullable
-  public static RatingCompat newUnratedRating(@Style int ratingStyle) {
+  public static @Nullable RatingCompat newUnratedRating(@Style int ratingStyle) {
     switch (ratingStyle) {
       case RATING_HEART:
       case RATING_THUMB_UP_DOWN:
@@ -195,8 +194,8 @@ public final class RatingCompat implements Parcelable {
    * @return null if the rating style is invalid, or the rating is out of range, a new Rating
    *     instance otherwise.
    */
-  @Nullable
-  public static RatingCompat newStarRating(@StarStyle int starRatingStyle, float starRating) {
+  public static @Nullable RatingCompat newStarRating(
+      @StarStyle int starRatingStyle, float starRating) {
     float maxRating = -1.0f;
     switch (starRatingStyle) {
       case RATING_3_STARS:
@@ -226,8 +225,7 @@ public final class RatingCompat implements Parcelable {
    * @param percent the value of the rating
    * @return null if the rating is out of range, a new Rating instance otherwise.
    */
-  @Nullable
-  public static RatingCompat newPercentageRating(float percent) {
+  public static @Nullable RatingCompat newPercentageRating(float percent) {
     if ((percent < 0.0f) || (percent > 100.0f)) {
       Log.e(TAG, "Invalid percentage-based rating value");
       return null;
@@ -326,9 +324,8 @@ public final class RatingCompat implements Parcelable {
    * @param ratingObj A {@link android.media.Rating} object, or null if none.
    * @return An equivalent {@link RatingCompat} object, or null if none.
    */
-  @Nullable
   @SuppressLint("WrongConstant")
-  public static RatingCompat fromRating(@Nullable Object ratingObj) {
+  public static @Nullable RatingCompat fromRating(@Nullable Object ratingObj) {
     if (ratingObj != null) {
       final int ratingStyle = ((Rating) ratingObj).getRatingStyle();
       final RatingCompat rating;
@@ -368,8 +365,7 @@ public final class RatingCompat implements Parcelable {
    *
    * @return An equivalent {@link android.media.Rating} object, or null if none.
    */
-  @Nullable
-  public Object getRating() {
+  public @Nullable Object getRating() {
     if (ratingObj == null) {
       if (isRated()) {
         switch (ratingStyle) {

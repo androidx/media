@@ -86,12 +86,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
       private final Context context;
-      @Nullable private ColorInfo workingColorSpace;
-      @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
-      @Nullable private GlObjectsProvider glObjectsProvider;
-      @Nullable private ExecutorService executorService;
+      private @Nullable ColorInfo workingColorSpace;
+      private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
+      private @Nullable GlObjectsProvider glObjectsProvider;
+      private @Nullable ExecutorService executorService;
       private FrameToGlTextureConverter.@Nullable Factory frameToGlTextureConverterFactory;
-      @Nullable private GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+      private @Nullable GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
       private GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
       private boolean assumeSurfacelessContextExtensionSupported;
 
@@ -265,12 +265,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
     private final Context context;
     // The working color space set by the app, or null if it's resolved from the first input frame.
-    @Nullable private final ColorInfo workingColorSpace;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
-    @Nullable private final ExecutorService glExecutorService;
+    private final @Nullable ColorInfo workingColorSpace;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
+    private final @Nullable ExecutorService glExecutorService;
     private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
     private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-    @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+    private final @Nullable GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
     private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
     // Whether to assume the surfaceless context extension is supported instead of detecting support
     // at runtime. Only set to true in tests.
@@ -469,8 +469,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private @MonotonicNonNull FrameToGlTextureConverter frameToGlTextureConverter;
 
   @GuardedBy("lock")
-  @Nullable
-  private List<AsyncFrame> pendingFrames;
+  private @Nullable List<AsyncFrame> pendingFrames;
 
   @GuardedBy("lock")
   private boolean shouldTriggerWakeupListener;
@@ -483,7 +482,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   // Accessed on the GL thread.
   // A null color space means it's unset; and it's inferred from the input color.
-  @Nullable private ColorInfo workingColorSpace;
+  private @Nullable ColorInfo workingColorSpace;
   private boolean isPipelineInitialized;
   private boolean isGlSetup;
   private boolean isHdrSupported;

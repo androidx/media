@@ -50,7 +50,7 @@ public final class ReorderingBufferQueue {
   private final PriorityQueue<BuffersWithTimestamp> pendingBuffers;
 
   private int reorderingQueueSize;
-  @Nullable private BuffersWithTimestamp lastQueuedBuffer;
+  private @Nullable BuffersWithTimestamp lastQueuedBuffer;
 
   /**
    * Creates an instance, initially with no max size.

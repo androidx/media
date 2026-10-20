@@ -398,10 +398,10 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
   private final boolean skipSettingMediaSources;
   private final int initialMediaItemIndex;
   private final long initialPositionMs;
-  @Nullable private final Surface surface;
-  @Nullable private final ActionSchedule actionSchedule;
+  private final @Nullable Surface surface;
+  private final @Nullable ActionSchedule actionSchedule;
   private final Player.@Nullable Listener playerListener;
-  @Nullable private final AnalyticsListener analyticsListener;
+  private final @Nullable AnalyticsListener analyticsListener;
 
   private final Clock clock;
   private final HandlerThread playerThread;

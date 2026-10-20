@@ -150,8 +150,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
-  @Nullable
-  public static PlaybackException convertToPlaybackException(
+  public static @Nullable PlaybackException convertToPlaybackException(
       @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
     if (playbackStateCompat == null
         || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
@@ -178,8 +177,7 @@ import org.jspecify.annotations.Nullable;
    * @param context The context to read string resources to be used as fallback error messages.
    * @return The {@link SessionError}.
    */
-  @Nullable
-  public static SessionError convertToSessionError(
+  public static @Nullable SessionError convertToSessionError(
       @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
     if (playbackStateCompat == null) {
       return null;
@@ -193,8 +191,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @VisibleForTesting
-  @Nullable
-  /* package */ static SessionError convertToSessionError(
+  /* package */ static @Nullable SessionError convertToSessionError(
       @PlaybackStateCompat.State int state,
       @PlaybackStateCompat.ErrorCode int errorCode,
       @Nullable CharSequence errorMessage,
@@ -985,8 +982,7 @@ import org.jspecify.annotations.Nullable;
         .build();
   }
 
-  @Nullable
-  private static CharSequence getText(String key, MediaMetadata metadata) {
+  private static @Nullable CharSequence getText(String key, MediaMetadata metadata) {
     switch (key) {
       case MediaMetadataCompat.METADATA_KEY_TITLE:
         return metadata.title;
@@ -1062,8 +1058,7 @@ import org.jspecify.annotations.Nullable;
    * @param ratingCompat A {@link RatingCompat} object.
    * @return The newly created {@link Rating} object.
    */
-  @Nullable
-  public static Rating convertToRating(@Nullable RatingCompat ratingCompat) {
+  public static @Nullable Rating convertToRating(@Nullable RatingCompat ratingCompat) {
     if (ratingCompat == null) {
       return null;
     }
@@ -1105,8 +1100,7 @@ import org.jspecify.annotations.Nullable;
    * @return The newly created {@link RatingCompat} object.
    */
   @SuppressLint("WrongConstant") // for @StarStyle
-  @Nullable
-  public static RatingCompat convertToRatingCompat(@Nullable Rating rating) {
+  public static @Nullable RatingCompat convertToRatingCompat(@Nullable Rating rating) {
     if (rating == null) {
       return null;
     }
@@ -1401,8 +1395,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Converts the rootHints, option, and extra to the {@link LibraryParams}. */
-  @Nullable
-  public static LibraryParams convertToLibraryParams(
+  public static @Nullable LibraryParams convertToLibraryParams(
       Context context, @Nullable Bundle legacyBundle) {
     if (legacyBundle == null) {
       return null;
@@ -1431,8 +1424,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Converts {@link LibraryParams} to the root hints. */
-  @Nullable
-  public static Bundle convertToRootHints(@Nullable LibraryParams params) {
+  public static @Nullable Bundle convertToRootHints(@Nullable LibraryParams params) {
     if (params == null) {
       return null;
     }
@@ -1716,8 +1708,8 @@ import org.jspecify.annotations.Nullable;
    * @param browseActionBundle The bundle containing the information of a browse action.
    * @return The resulting {@link CommandButton} or null.
    */
-  @Nullable
-  public static CommandButton convertCustomBrowseActionToCommandButton(Bundle browseActionBundle) {
+  public static @Nullable CommandButton convertCustomBrowseActionToCommandButton(
+      Bundle browseActionBundle) {
     String commandAction =
         browseActionBundle.getString(
             androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID);

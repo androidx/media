@@ -44,8 +44,7 @@ public class CustomizeCastOptions {
     }
 
     @Override
-    @Nullable
-    public List<SessionProvider> getAdditionalSessionProviders(Context context) {
+    public @Nullable List<SessionProvider> getAdditionalSessionProviders(Context context) {
       return null;
     }
   }

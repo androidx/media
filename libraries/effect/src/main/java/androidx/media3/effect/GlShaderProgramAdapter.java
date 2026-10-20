@@ -64,12 +64,12 @@ import org.jspecify.annotations.Nullable;
   private final ColorInfo outputColorInfo;
 
   private @MonotonicNonNull GlTextureFrameConsumer downstreamConsumer;
-  @Nullable private ImmutableMap<String, Object> lastQueuedMetadata;
-  @Nullable private Runnable pendingWakeupListener;
-  @Nullable private Executor pendingWakeupExecutor;
+  private @Nullable ImmutableMap<String, Object> lastQueuedMetadata;
+  private @Nullable Runnable pendingWakeupListener;
+  private @Nullable Executor pendingWakeupExecutor;
   private int shaderInputCapacity;
   private int currentStreamDiscontinuityNumber;
-  @Nullable private Format currentFormat;
+  private @Nullable Format currentFormat;
   private boolean inputStreamEnded;
   private boolean hasSignaledEosToWrappedShader;
   private boolean receivedEosSignalFromWrappedShader;

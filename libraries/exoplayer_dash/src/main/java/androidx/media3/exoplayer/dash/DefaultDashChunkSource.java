@@ -190,18 +190,18 @@ public class DefaultDashChunkSource implements DashChunkSource {
   private final DataSource dataSource;
   private final long elapsedRealtimeOffsetMs;
   private final int maxSegmentsPerLoad;
-  @Nullable private final PlayerTrackEmsgHandler playerTrackEmsgHandler;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
-  @Nullable private final DashContentSteeringTracker contentSteeringTracker;
+  private final @Nullable PlayerTrackEmsgHandler playerTrackEmsgHandler;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
+  private final @Nullable DashContentSteeringTracker contentSteeringTracker;
 
   protected final RepresentationHolder[] representationHolders;
 
   private ExoTrackSelection trackSelection;
   private DashManifest manifest;
   private int periodIndex;
-  @Nullable private IOException fatalError;
+  private @Nullable IOException fatalError;
   private boolean missingLastSegment;
-  @Nullable private BaseUrl selectedBaseUrl;
+  private @Nullable BaseUrl selectedBaseUrl;
 
   /**
    * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, ChunkHolder)} method
@@ -341,8 +341,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
   }
 
   @Override
-  @Nullable
-  public BaseUrl getSelectedBaseUrl() {
+  public @Nullable BaseUrl getSelectedBaseUrl() {
     return selectedBaseUrl;
   }
 
@@ -936,8 +935,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     }
   }
 
-  @Nullable
-  private Pair<String, String> getNextObjectAndRangeRequest(
+  private @Nullable Pair<String, String> getNextObjectAndRangeRequest(
       long segmentNum, RangedUri segmentUri, RepresentationHolder representationHolder) {
     if (segmentNum + 1 >= representationHolder.getSegmentCount()) {
       return null;
@@ -975,7 +973,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
     private final RepresentationHolder representationHolder;
     private final long nowPeriodTimeUs;
-    @Nullable private final DashContentSteeringTracker contentSteeringTracker;
+    private final @Nullable DashContentSteeringTracker contentSteeringTracker;
 
     /**
      * Creates iterator.
@@ -1046,11 +1044,11 @@ public class DefaultDashChunkSource implements DashChunkSource {
   /** Holds information about a snapshot of a single {@link Representation}. */
   protected static final class RepresentationHolder {
 
-    @Nullable /* package */ final ChunkExtractor chunkExtractor;
+    /* package */ final @Nullable ChunkExtractor chunkExtractor;
 
     public final Representation representation;
     public final BaseUrl selectedBaseUrl;
-    @Nullable public final DashSegmentIndex segmentIndex;
+    public final @Nullable DashSegmentIndex segmentIndex;
 
     private final long periodDurationUs;
     private final long segmentNumShift;

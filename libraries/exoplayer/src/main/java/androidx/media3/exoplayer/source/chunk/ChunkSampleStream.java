@@ -89,13 +89,13 @@ public class ChunkSampleStream<T extends ChunkSource>
   private final SampleQueue[] embeddedSampleQueues;
   private final BaseMediaChunkOutput chunkOutput;
 
-  @Nullable private Chunk loadingChunk;
+  private @Nullable Chunk loadingChunk;
   private @MonotonicNonNull Format primaryDownstreamTrackFormat;
-  @Nullable private ReleaseCallback<T> releaseCallback;
+  private @Nullable ReleaseCallback<T> releaseCallback;
   private long pendingResetPositionUs;
   private long lastSeekPositionUs;
   private int nextNotifyPrimaryFormatMediaChunkIndex;
-  @Nullable private BaseMediaChunk canceledMediaChunk;
+  private @Nullable BaseMediaChunk canceledMediaChunk;
   private boolean needToEvaluateInitialDiscontinuity;
   private boolean hasInitialDiscontinuity;
   // TODO: b/510217604 - Remove this field.

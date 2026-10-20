@@ -219,8 +219,7 @@ public final class DrmUtil {
     }
   }
 
-  @Nullable
-  private static String getRedirectUrl(
+  private static @Nullable String getRedirectUrl(
       HttpDataSource.InvalidResponseCodeException exception, int manualRedirectCount) {
     // For POST requests, the underlying network stack will not normally follow 307 or 308
     // redirects automatically. Do so manually here.

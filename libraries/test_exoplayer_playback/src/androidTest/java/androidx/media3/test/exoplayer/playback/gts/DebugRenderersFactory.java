@@ -126,8 +126,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @Nullable
-    protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+    protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
         throws ExoPlaybackException {
       @Nullable DecoderReuseEvaluation evaluation = super.onInputFormatChanged(formatHolder);
       // Ensure timestamps of buffers queued after this format change are never inserted into the

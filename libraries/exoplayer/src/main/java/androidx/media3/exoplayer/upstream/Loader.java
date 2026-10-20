@@ -224,8 +224,8 @@ public final class Loader implements LoaderErrorThrower {
 
   private final ReleasableExecutor downloadExecutor;
 
-  @Nullable private LoadTask<? extends Loadable> currentTask;
-  @Nullable private IOException fatalError;
+  private @Nullable LoadTask<? extends Loadable> currentTask;
+  private @Nullable IOException fatalError;
 
   /**
    * Constructs an instance.
@@ -370,10 +370,10 @@ public final class Loader implements LoaderErrorThrower {
     private final long startTimeMs;
 
     private Loader.@Nullable Callback<T> callback;
-    @Nullable private IOException currentError;
+    private @Nullable IOException currentError;
     private int errorCount;
 
-    @Nullable private Thread executorThread;
+    private @Nullable Thread executorThread;
     private boolean canceled;
     private volatile boolean released;
 

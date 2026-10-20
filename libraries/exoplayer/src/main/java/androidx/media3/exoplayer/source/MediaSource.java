@@ -429,8 +429,7 @@ public interface MediaSource {
    * <p>This method must be called on the application thread.
    */
   @UnstableApi
-  @Nullable
-  default Timeline getInitialTimeline() {
+  default @Nullable Timeline getInitialTimeline() {
     return null;
   }
 

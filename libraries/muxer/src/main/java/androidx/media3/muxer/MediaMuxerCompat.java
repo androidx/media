@@ -110,7 +110,7 @@ public final class MediaMuxerCompat {
   /** The WebM file format. */
   public static final int OUTPUT_FORMAT_WEBM = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
 
-  @Nullable private final FileDescriptor fileDescriptor;
+  private final @Nullable FileDescriptor fileDescriptor;
   private final Muxer muxer;
   private final CompatMetadataDelegate compatMetadataDelegate;
 

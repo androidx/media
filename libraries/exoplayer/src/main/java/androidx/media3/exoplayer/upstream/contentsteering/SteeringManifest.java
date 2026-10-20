@@ -83,7 +83,7 @@ public final class SteeringManifest {
   public static final class UriReplacement {
 
     /** The hostname for cloned URIs. Null if not present. */
-    @Nullable public final String host;
+    public final @Nullable String host;
 
     /**
      * The query parameters for cloned URIs. The keys represent query parameter names, and the
@@ -160,7 +160,7 @@ public final class SteeringManifest {
    * The optional {@link Uri} that the client must use for future steering manifest requests. It may
    * be relative to the current Steering Manifest URI. Null if not present.
    */
-  @Nullable public final Uri reloadUri;
+  public final @Nullable Uri reloadUri;
 
   /**
    * The priority list of pathway IDs. The pathway IDs are ordered by pathway preference, with the

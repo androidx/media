@@ -146,7 +146,7 @@ import org.jspecify.annotations.Nullable;
   private long smoothedPlayheadOffsetUs;
   private long lastPlayheadSampleTimeUs;
 
-  @Nullable private Method getLatencyMethod;
+  private @Nullable Method getLatencyMethod;
   private long latencyUs;
 
   private long lastLatencySampleTimeUs;

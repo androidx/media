@@ -29,10 +29,10 @@ public final class IcyInfo implements Metadata.Entry {
   public final byte[] rawMetadata;
 
   /** The stream title if present and decodable, or {@code null}. */
-  @Nullable public final String title;
+  public final @Nullable String title;
 
   /** The stream URL if present and decodable, or {@code null}. */
-  @Nullable public final String url;
+  public final @Nullable String url;
 
   /**
    * Construct a new IcyInfo from the source metadata, and optionally a StreamTitle and StreamUrl

@@ -36,9 +36,8 @@ public interface BandwidthMeter {
           return 0;
         }
 
-        @Nullable
         @Override
-        public TransferListener getTransferListener() {
+        public @Nullable TransferListener getTransferListener() {
           return null;
         }
 

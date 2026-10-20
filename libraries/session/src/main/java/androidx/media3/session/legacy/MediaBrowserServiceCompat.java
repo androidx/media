@@ -241,8 +241,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
       notifyChildrenChangedForCompat(remoteUserInfo, parentId, options);
     }
 
-    @Nullable
-    public BrowserRoot onGetRoot(
+    public @Nullable BrowserRoot onGetRoot(
         String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
       Bundle rootExtras = null;
       int clientPid = UNKNOWN_PID;
@@ -367,9 +366,8 @@ public abstract class MediaBrowserServiceCompat extends Service {
       }
     }
 
-    @Nullable
     @Override
-    public Bundle getBrowserRootHints() {
+    public @Nullable Bundle getBrowserRootHints() {
       if (messenger == null) {
         // TODO: Handle getBrowserRootHints when connected with framework MediaBrowser.
         return null;
@@ -494,9 +492,8 @@ public abstract class MediaBrowserServiceCompat extends Service {
       curConnection = null;
     }
 
-    @Nullable
     @Override
-    public Bundle getBrowserRootHints() {
+    public @Nullable Bundle getBrowserRootHints() {
       if (curConnection == null) {
         throw new IllegalStateException(
             "This should be called inside of onGetRoot,"
@@ -553,7 +550,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
   private static final class ServiceHandler extends Handler {
 
     // Must only be accessed on the main thread.
-    @Nullable private MediaBrowserServiceCompat service;
+    private @Nullable MediaBrowserServiceCompat service;
 
     @MainThread
     ServiceHandler(MediaBrowserServiceCompat service) {
@@ -598,12 +595,12 @@ public abstract class MediaBrowserServiceCompat extends Service {
 
   /** All the info about a connection. */
   private class ConnectionRecord implements IBinder.DeathRecipient {
-    @Nullable public final String pkg;
+    public final @Nullable String pkg;
     public final int pid;
     public final int uid;
     public final RemoteUserInfo browserInfo;
-    @Nullable public final Bundle rootHints;
-    @Nullable public final ServiceCallbacks callbacks;
+    public final @Nullable Bundle rootHints;
+    public final @Nullable ServiceCallbacks callbacks;
     public final HashMap<@Nullable String, List<Pair<@Nullable IBinder, @Nullable Bundle>>>
         subscriptions = new HashMap<>();
 
@@ -649,7 +646,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
    * @see MediaBrowserServiceCompat#onCustomAction
    */
   public static class Result<T> {
-    @Nullable private final Object debug;
+    private final @Nullable Object debug;
     private boolean detachCalled;
     private boolean sendResultCalled;
     private boolean sendErrorCalled;
@@ -1098,9 +1095,8 @@ public abstract class MediaBrowserServiceCompat extends Service {
     handler.release();
   }
 
-  @Nullable
   @Override
-  public IBinder onBind(Intent intent) {
+  public @Nullable IBinder onBind(Intent intent) {
     return checkNotNull(impl).onBind(intent);
   }
 
@@ -1300,8 +1296,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
    * @see MediaBrowserServiceCompat.BrowserRoot#EXTRA_OFFLINE
    * @see MediaBrowserServiceCompat.BrowserRoot#EXTRA_SUGGESTED
    */
-  @Nullable
-  public final Bundle getBrowserRootHints() {
+  public final @Nullable Bundle getBrowserRootHints() {
     return checkNotNull(impl).getBrowserRootHints();
   }
 
@@ -1776,7 +1771,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
         "android.service.media.extra.SUGGESTION_KEYWORDS";
 
     private final String rootId;
-    @Nullable private final Bundle extras;
+    private final @Nullable Bundle extras;
 
     /**
      * Constructs a browser root.
@@ -1799,8 +1794,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
     }
 
     /** Gets any extras about the browser service. */
-    @Nullable
-    public Bundle getExtras() {
+    public @Nullable Bundle getExtras() {
       return extras;
     }
   }

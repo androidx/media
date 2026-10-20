@@ -37,7 +37,7 @@ import org.jspecify.annotations.Nullable;
   private final UdpDataSource dataSource;
 
   /** The associated RTCP channel; {@code null} if the current channel is an RTCP channel. */
-  @Nullable private UdpDataSourceRtpDataChannel rtcpChannel;
+  private @Nullable UdpDataSourceRtpDataChannel rtcpChannel;
 
   /**
    * Creates a new instance.
@@ -83,9 +83,8 @@ import org.jspecify.annotations.Nullable;
     return dataSource.open(dataSpec);
   }
 
-  @Nullable
   @Override
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return dataSource.getUri();
   }
 

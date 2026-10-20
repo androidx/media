@@ -101,7 +101,7 @@ public final class AspectRatioFrameLayout extends FrameLayout {
 
   private final AspectRatioUpdateDispatcher aspectRatioUpdateDispatcher;
 
-  @Nullable private AspectRatioListener aspectRatioListener;
+  private @Nullable AspectRatioListener aspectRatioListener;
 
   private float videoAspectRatio;
   private @ResizeMode int resizeMode;

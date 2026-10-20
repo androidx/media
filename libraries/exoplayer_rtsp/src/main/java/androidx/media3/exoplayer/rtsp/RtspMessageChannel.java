@@ -419,8 +419,8 @@ import org.jspecify.annotations.Nullable;
      * Returns a list of completed RTSP message lines, without the CRLF line terminators; or {@code
      * null} if the message is not yet complete.
      */
-    @Nullable
-    private ImmutableList<String> addMessageLine(byte[] lineBytes) throws ParserException {
+    private @Nullable ImmutableList<String> addMessageLine(byte[] lineBytes)
+        throws ParserException {
       // Trim CRLF. RTSP lists are terminated by a CRLF.
       checkArgument(
           lineBytes.length >= 2

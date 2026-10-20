@@ -62,8 +62,7 @@ public final class VpxLibrary {
   }
 
   /** Returns the version of the underlying library if available, or null otherwise. */
-  @Nullable
-  public static String getVersion() {
+  public static @Nullable String getVersion() {
     return isAvailable() ? vpxGetVersion() : null;
   }
 
@@ -71,8 +70,7 @@ public final class VpxLibrary {
    * Returns the configuration string with which the underlying library was built if available, or
    * null otherwise.
    */
-  @Nullable
-  public static String getBuildConfig() {
+  public static @Nullable String getBuildConfig() {
     return isAvailable() ? vpxGetBuildConfig() : null;
   }
 

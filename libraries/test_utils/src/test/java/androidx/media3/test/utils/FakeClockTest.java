@@ -972,7 +972,7 @@ public final class FakeClockTest {
     public final int what;
     public final int arg1;
     public final int arg2;
-    @Nullable public final Object obj;
+    public final @Nullable Object obj;
 
     public MessageData(int what, int arg1, int arg2, @Nullable Object obj) {
       this.what = what;

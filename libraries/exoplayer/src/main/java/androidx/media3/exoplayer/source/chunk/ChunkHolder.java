@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
 public final class ChunkHolder {
 
   /** The chunk. */
-  @Nullable public Chunk chunk;
+  public @Nullable Chunk chunk;
 
   /** Indicates that the end of the stream has been reached. */
   public boolean endOfStream;

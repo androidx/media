@@ -88,7 +88,7 @@ public class MuxerWrapperTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public final TestName testName = new TestName();
 
-  @Nullable private MuxerWrapper muxerWrapper;
+  private @Nullable MuxerWrapper muxerWrapper;
 
   @After
   public void tearDown() throws MuxerException {

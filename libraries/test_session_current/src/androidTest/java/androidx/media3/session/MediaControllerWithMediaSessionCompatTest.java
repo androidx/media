@@ -2509,8 +2509,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 
-  @Nullable
-  private Bitmap getBitmapFromMetadata(MediaMetadata metadata) throws Exception {
+  private @Nullable Bitmap getBitmapFromMetadata(MediaMetadata metadata) throws Exception {
     @Nullable Bitmap bitmap = null;
     @Nullable ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.loadBitmapFromMetadata(metadata);
     if (bitmapFuture != null) {

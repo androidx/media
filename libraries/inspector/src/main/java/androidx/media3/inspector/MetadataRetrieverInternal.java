@@ -444,7 +444,7 @@ import org.jspecify.annotations.Nullable;
         new AtomicInteger(MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
 
     private final Deque<RetrievalTask> pendingRetrievals;
-    @Nullable private HandlerThread mediaSourceThread;
+    private @Nullable HandlerThread mediaSourceThread;
     private int referenceCount;
 
     private SharedWorkerThread() {

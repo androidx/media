@@ -78,8 +78,7 @@ public final class Av1Config {
    *     isn't supported.
    * @throws ParserException If an error occurred parsing the data.
    */
-  @Nullable
-  public static Av1Config parse(byte[] initializationData) throws ParserException {
+  public static @Nullable Av1Config parse(byte[] initializationData) throws ParserException {
     try {
       ParsableBitArray bitArray = new ParsableBitArray(initializationData);
       bitArray.skipBit(); // marker

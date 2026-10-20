@@ -2765,8 +2765,7 @@ public final class MediaPeriodQueueTest {
             /* staticMetadata= */ ImmutableList.of());
   }
 
-  @Nullable
-  private MediaPeriodInfo getNextMediaPeriodInfo() {
+  private @Nullable MediaPeriodInfo getNextMediaPeriodInfo() {
     return mediaPeriodQueue.getNextMediaPeriodInfo(/* rendererPositionUs= */ 0, playbackInfo);
   }
 

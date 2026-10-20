@@ -83,44 +83,38 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   private final Executor surfaceHolderExecutor;
 
   @GuardedBy("lock")
-  @Nullable
-  private SurfaceHolder surfaceHolder;
+  private @Nullable SurfaceHolder surfaceHolder;
 
   @GuardedBy("lock")
-  @Nullable
-  private Format currentFormat;
+  private @Nullable Format currentFormat;
 
   @GuardedBy("lock")
   private long currentUsageFlags;
 
   @GuardedBy("lock")
-  @Nullable
-  private ImageWriter imageWriter;
+  private @Nullable ImageWriter imageWriter;
 
   @GuardedBy("lock")
-  @Nullable
-  private Surface surface;
+  private @Nullable Surface surface;
 
   @GuardedBy("lock")
   private boolean isSurfaceChangeRequested;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable wakeupListener;
+  private @Nullable Runnable wakeupListener;
 
   // The last displayed HardwareBuffer. Retained across surface changes to allow showing the last
   // as soon as surfaceChanged is called.
   // Retaining this buffer incurs extra memory cost.
   @GuardedBy("lock")
-  @Nullable
-  private HardwareBuffer lastQueuedHardwareBuffer;
+  private @Nullable HardwareBuffer lastQueuedHardwareBuffer;
 
   private final Listener listener;
 
   private final Executor listenerExecutor;
 
-  @Nullable private final HardwareBufferPool hardwareBufferPool;
-  @Nullable private final HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
+  private final @Nullable HardwareBufferPool hardwareBufferPool;
+  private final @Nullable HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
 
   /**
    * Creates a new instance that returns {@link HardwareBufferFrame}s that are directly dequeued
@@ -301,9 +295,8 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   }
 
   @Override
-  @Nullable
   // TODO: b/507446982 - Handle ImageWriter blocking.
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     synchronized (lock) {
       Format currentFormat = this.currentFormat;
       long currentUsageFlags = this.currentUsageFlags;
@@ -330,8 +323,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
 
   @RequiresApi(28)
   @GuardedBy("lock")
-  @Nullable
-  private AsyncFrame dequeueHardwareBufferFrame(
+  private @Nullable AsyncFrame dequeueHardwareBufferFrame(
       Format currentFormat,
       long currentUsageFlags,
       Executor wakeupExecutor,

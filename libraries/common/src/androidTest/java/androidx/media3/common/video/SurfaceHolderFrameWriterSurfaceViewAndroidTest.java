@@ -143,7 +143,7 @@ public final class SurfaceHolderFrameWriterSurfaceViewAndroidTest {
   }
 
   private static final class FakeListener implements SurfaceHolderFrameWriter.Listener {
-    @Nullable volatile VideoFrameProcessingException lastException;
+    volatile @Nullable VideoFrameProcessingException lastException;
 
     @Override
     public void onFrameAboutToBeRendered(

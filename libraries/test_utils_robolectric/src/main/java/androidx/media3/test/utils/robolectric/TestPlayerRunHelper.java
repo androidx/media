@@ -1449,7 +1449,7 @@ public final class TestPlayerRunHelper {
    */
   private static final class ErrorListener implements AnalyticsListener, Player.Listener {
 
-    @Nullable private final List<Exception> nonFatalErrors;
+    private final @Nullable List<Exception> nonFatalErrors;
     private @MonotonicNonNull PlaybackException fatalError;
 
     public ErrorListener(boolean throwNonFatalErrors) {

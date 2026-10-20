@@ -73,9 +73,9 @@ import org.jspecify.annotations.Nullable;
   private final Listener listener;
   private final LongArrayQueue inputPresentationTimestampsUs;
 
-  @Nullable private ImageReader imageReader;
-  @Nullable private Surface surface;
-  @Nullable private Image pendingImage;
+  private @Nullable ImageReader imageReader;
+  private @Nullable Surface surface;
+  private @Nullable Image pendingImage;
 
   // All state counters and flags below are accessed exclusively on the Handler thread.
   private int totalInputFramesCount;

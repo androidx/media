@@ -162,11 +162,11 @@ import org.jspecify.annotations.Nullable;
   private Uri uri;
 
   private RtspMessageChannel messageChannel;
-  @Nullable private RtspAuthUserInfo rtspAuthUserInfo;
-  @Nullable private String sessionId;
+  private @Nullable RtspAuthUserInfo rtspAuthUserInfo;
+  private @Nullable String sessionId;
   private long sessionTimeoutMs;
-  @Nullable private KeepAliveMonitor keepAliveMonitor;
-  @Nullable private RtspAuthenticationInfo rtspAuthenticationInfo;
+  private @Nullable KeepAliveMonitor keepAliveMonitor;
+  private @Nullable RtspAuthenticationInfo rtspAuthenticationInfo;
   private @RtspState int rtspState;
   private boolean hasUpdatedTimelineAndTracks;
   private boolean receivedAuthorizationRequest;

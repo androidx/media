@@ -44,8 +44,8 @@ import org.jspecify.annotations.Nullable;
   private final StandaloneMediaClock standaloneClock;
   private final PlaybackParametersListener listener;
 
-  @Nullable private Renderer rendererClockSource;
-  @Nullable private MediaClock rendererClock;
+  private @Nullable Renderer rendererClockSource;
+  private @Nullable MediaClock rendererClock;
   private boolean isUsingStandaloneClock;
   private boolean standaloneClockIsStarted;
 

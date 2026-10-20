@@ -123,9 +123,8 @@ import org.jspecify.annotations.Nullable;
       this.listener = listener;
     }
 
-    @Nullable
     @Override
-    protected Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
+    protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
         MappedTrackInfo mappedTrackInfo,
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         @RendererCapabilities.AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
@@ -187,9 +186,8 @@ import org.jspecify.annotations.Nullable;
           mappedTrackInfo, rendererFormatSupports, rendererMixedMimeTypeAdaptationSupports, params);
     }
 
-    @Nullable
     @Override
-    protected Pair<ExoTrackSelection.Definition, Integer> selectVideoTrack(
+    protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectVideoTrack(
         MappedTrackInfo mappedTrackInfo,
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         @RendererCapabilities.AdaptiveSupport int[] mixedMimeTypeSupports,
@@ -208,9 +206,8 @@ import org.jspecify.annotations.Nullable;
       return trackSelection;
     }
 
-    @Nullable
     @Override
-    protected Pair<ExoTrackSelection.Definition, Integer> selectImageTrack(
+    protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectImageTrack(
         MappedTrackInfo mappedTrackInfo,
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         Parameters params)

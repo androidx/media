@@ -151,9 +151,9 @@ import org.jspecify.annotations.Nullable;
   private ImmutableBiMap<Object, String> windowUidMap;
   private ImmutableBiMap<Object, String> periodUidMap;
   private int nextUniqueTimelineUidPrefix;
-  @Nullable private Timeline lastOriginalTimeline;
-  @Nullable private Timeline lastUidMappingTimeline;
-  @Nullable private SurfaceHolderWithSize surfaceHolderWithSize;
+  private @Nullable Timeline lastOriginalTimeline;
+  private @Nullable Timeline lastUidMappingTimeline;
+  private @Nullable SurfaceHolderWithSize surfaceHolderWithSize;
 
   public MediaSessionStub(MediaSessionImpl sessionImpl) {
     // Initialize members with params.
@@ -2856,7 +2856,7 @@ import org.jspecify.annotations.Nullable;
     private final int customCommandFutureSequence;
     private final SessionCommand command;
     private final Bundle extras;
-    @Nullable private ListenableFuture<SessionResult> future;
+    private @Nullable ListenableFuture<SessionResult> future;
 
     public ProgressReporter(
         MediaSessionImpl session,

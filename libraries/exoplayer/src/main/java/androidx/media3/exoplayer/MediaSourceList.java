@@ -746,8 +746,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     /** Updates the event parameters and returns whether the event should be dispatched. */
-    @Nullable
-    private Pair<Integer, MediaSource.@Nullable MediaPeriodId> getEventParameters(
+    private @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> getEventParameters(
         int childWindowIndex, MediaSource.@Nullable MediaPeriodId childMediaPeriodId) {
       MediaSource.@Nullable MediaPeriodId mediaPeriodId = null;
       if (childMediaPeriodId != null) {

@@ -48,8 +48,8 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
 
   private final ExtractorsFactory extractorsFactory;
 
-  @Nullable private Extractor extractor;
-  @Nullable private ExtractorInput extractorInput;
+  private @Nullable Extractor extractor;
+  private @Nullable ExtractorInput extractorInput;
 
   /**
    * Creates a holder that will select an extractor and initialize it using the specified output.
@@ -149,8 +149,7 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
   }
 
   @Override
-  @Nullable
-  public String getUnderlyingImplementationName() {
+  public @Nullable String getUnderlyingImplementationName() {
     return extractor != null
         ? extractor.getUnderlyingImplementation().getClass().getSimpleName()
         : null;

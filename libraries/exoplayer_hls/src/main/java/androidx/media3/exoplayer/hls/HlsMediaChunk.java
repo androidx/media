@@ -278,16 +278,16 @@ import org.jspecify.annotations.Nullable;
   /** The part index or {@link C#INDEX_UNSET} if the chunk is a full segment */
   public final int partIndex;
 
-  @Nullable private final DataSource initDataSource;
-  @Nullable private final DataSpec initDataSpec;
-  @Nullable private final HlsMediaChunkExtractor previousExtractor;
+  private final @Nullable DataSource initDataSource;
+  private final @Nullable DataSpec initDataSpec;
+  private final @Nullable HlsMediaChunkExtractor previousExtractor;
 
   private final boolean isPrimaryTimestampSource;
   private final boolean hasGapTag;
   private final TimestampAdjuster timestampAdjuster;
   private final HlsExtractorFactory extractorFactory;
-  @Nullable private final List<Format> muxedCaptionFormats;
-  @Nullable private final DrmInitData drmInitData;
+  private final @Nullable List<Format> muxedCaptionFormats;
+  private final @Nullable DrmInitData drmInitData;
   private final Id3Decoder id3Decoder;
   private final ParsableByteArray scratchId3Data;
   private final boolean mediaSegmentEncrypted;

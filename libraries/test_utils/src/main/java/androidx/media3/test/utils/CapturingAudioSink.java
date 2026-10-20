@@ -52,7 +52,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
 
   private int bufferCount;
   private long lastPresentationTimeUs;
-  @Nullable private ByteBuffer currentBuffer;
+  private @Nullable ByteBuffer currentBuffer;
   private @MonotonicNonNull Format format;
   private boolean isPlaying;
   private boolean audioTrackFull;
@@ -262,7 +262,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   private static final class DumpableConfiguration implements Dumper.Dumpable {
 
     private final Format inputFormat;
-    @Nullable private final ImmutableIntArray outputChannels;
+    private final @Nullable ImmutableIntArray outputChannels;
 
     public DumpableConfiguration(Format inputFormat, @Nullable ImmutableIntArray outputChannels) {
       this.inputFormat = inputFormat;
@@ -333,7 +333,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     private final long presentationTimeUs;
 
     /** Exactly one of this and {@link #perChannelHashCodes} is non-null. */
-    @Nullable private final String dataDumpValue;
+    private final @Nullable String dataDumpValue;
 
     /** Exactly one of this and {@link #dataDumpValue} is non-null. */
     private final int @Nullable [] perChannelHashCodes;

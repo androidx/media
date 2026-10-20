@@ -231,8 +231,7 @@ public final class Id3Util {
    * href="https://en.wikipedia.org/wiki/List_of_ID3v1_genres">list of official and unofficial ID3v1
    * genres</a>.
    */
-  @Nullable
-  public static String resolveV1Genre(int id3v1GenreCode) {
+  public static @Nullable String resolveV1Genre(int id3v1GenreCode) {
     return id3v1GenreCode >= 0 && id3v1GenreCode < STANDARD_GENRES.size()
         ? STANDARD_GENRES.get(id3v1GenreCode)
         : null;

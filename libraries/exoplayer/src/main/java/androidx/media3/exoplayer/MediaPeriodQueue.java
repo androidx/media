@@ -99,13 +99,13 @@ import org.jspecify.annotations.Nullable;
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
   private PreloadConfiguration preloadConfiguration;
-  @Nullable private MediaPeriodHolder playing;
+  private @Nullable MediaPeriodHolder playing;
   private final @Nullable MediaPeriodHolder[] readingPeriods;
   private final @Nullable MediaPeriodHolder[] prewarmingPeriods;
-  @Nullable private MediaPeriodHolder loading;
-  @Nullable private MediaPeriodHolder preloading;
+  private @Nullable MediaPeriodHolder loading;
+  private @Nullable MediaPeriodHolder preloading;
   private int length;
-  @Nullable private Object oldFrontPeriodUid;
+  private @Nullable Object oldFrontPeriodUid;
   private long oldFrontPeriodWindowSequenceNumber;
   private List<MediaPeriodHolder> preloadPriorityList;
 
@@ -221,8 +221,7 @@ import org.jspecify.annotations.Nullable;
    * @return The {@link MediaPeriodInfo} for the next media period to load, or {@code null} if not
    *     yet known.
    */
-  @Nullable
-  public MediaPeriodInfo getNextMediaPeriodInfo(
+  public @Nullable MediaPeriodInfo getNextMediaPeriodInfo(
       long rendererPositionUs, PlaybackInfo playbackInfo) {
     return loading == null
         ? getFirstMediaPeriodInfo(playbackInfo)
@@ -308,8 +307,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private MediaPeriodHolder removePreloadedMediaPeriodHolder(MediaPeriodInfo info) {
+  private @Nullable MediaPeriodHolder removePreloadedMediaPeriodHolder(MediaPeriodInfo info) {
     for (int i = 0; i < preloadPriorityList.size(); i++) {
       MediaPeriodHolder mediaPeriodHolder = preloadPriorityList.get(i);
       if (mediaPeriodHolder.canBeUsedForMediaPeriodInfo(info)) {
@@ -350,8 +348,7 @@ import org.jspecify.annotations.Nullable;
             mediaPeriodId.windowSequenceNumber);
   }
 
-  @Nullable
-  private Pair<Object, Long> getDefaultPeriodPositionOfNextWindow(
+  private @Nullable Pair<Object, Long> getDefaultPeriodPositionOfNextWindow(
       Timeline timeline, Object periodUid) {
     int nextWindowIndex =
         timeline.getNextWindowIndex(
@@ -366,14 +363,12 @@ import org.jspecify.annotations.Nullable;
    * Returns the loading period holder which is at the end of the queue, or null if the queue is
    * empty.
    */
-  @Nullable
-  public MediaPeriodHolder getLoadingPeriod() {
+  public @Nullable MediaPeriodHolder getLoadingPeriod() {
     return loading;
   }
 
   /** Returns the preloading period holder, or null if there is no preloading period. */
-  @Nullable
-  public MediaPeriodHolder getPreloadingPeriod() {
+  public @Nullable MediaPeriodHolder getPreloadingPeriod() {
     return preloading;
   }
 
@@ -381,20 +376,17 @@ import org.jspecify.annotations.Nullable;
    * Returns the playing period holder which is at the front of the queue, or null if the queue is
    * empty.
    */
-  @Nullable
-  public MediaPeriodHolder getPlayingPeriod() {
+  public @Nullable MediaPeriodHolder getPlayingPeriod() {
     return playing;
   }
 
   /** Returns the reading period holder, or null if the queue is empty. */
-  @Nullable
-  public MediaPeriodHolder getReadingPeriod(int index) {
+  public @Nullable MediaPeriodHolder getReadingPeriod(int index) {
     return readingPeriods[index];
   }
 
   /** Returns the earliest reading period holder in the queue, or null if the queue is empty. */
-  @Nullable
-  public MediaPeriodHolder getEarliestReadingPeriod() {
+  public @Nullable MediaPeriodHolder getEarliestReadingPeriod() {
     MediaPeriodHolder periodHolder = playing;
     while (periodHolder != null) {
       for (MediaPeriodHolder readingPeriod : readingPeriods) {
@@ -408,8 +400,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the latest reading period holder in the queue, or null if the queue is empty. */
-  @Nullable
-  public MediaPeriodHolder getLatestReadingPeriod() {
+  public @Nullable MediaPeriodHolder getLatestReadingPeriod() {
     if (readingPeriods.length == 0) {
       return null;
     }
@@ -428,14 +419,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the prewarming period holder, or null if the queue is empty. */
-  @Nullable
-  public MediaPeriodHolder getPrewarmingPeriod(int index) {
+  public @Nullable MediaPeriodHolder getPrewarmingPeriod(int index) {
     return prewarmingPeriods[index];
   }
 
   /** Returns the earliest prewarming period holder in the queue, or null if the queue is empty. */
-  @Nullable
-  public MediaPeriodHolder getEarliestPrewarmingPeriod() {
+  public @Nullable MediaPeriodHolder getEarliestPrewarmingPeriod() {
     MediaPeriodHolder periodHolder = playing;
     while (periodHolder != null) {
       for (MediaPeriodHolder prewarmingPeriod : prewarmingPeriods) {
@@ -493,8 +482,7 @@ import org.jspecify.annotations.Nullable;
    *
    * @return The updated playing period holder, or null if the queue is or becomes empty.
    */
-  @Nullable
-  public MediaPeriodHolder advancePlayingPeriod() {
+  public @Nullable MediaPeriodHolder advancePlayingPeriod() {
     if (playing == null) {
       return null;
     }
@@ -597,8 +585,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  public MediaPeriodHolder getPreloadHolderByMediaPeriod(MediaPeriod mediaPeriod) {
+  public @Nullable MediaPeriodHolder getPreloadHolderByMediaPeriod(MediaPeriod mediaPeriod) {
     for (int i = 0; i < preloadPriorityList.size(); i++) {
       MediaPeriodHolder mediaPeriodHolder = preloadPriorityList.get(i);
       if (mediaPeriodHolder.mediaPeriod == mediaPeriod) {
@@ -1143,8 +1130,7 @@ import org.jspecify.annotations.Nullable;
    * @return The following media period's info, or {@code null} if it is not yet possible to get the
    *     next media period info.
    */
-  @Nullable
-  private MediaPeriodInfo getFollowingMediaPeriodInfo(
+  private @Nullable MediaPeriodInfo getFollowingMediaPeriodInfo(
       Timeline timeline, MediaPeriodHolder mediaPeriodHolder, long rendererPositionUs) {
     // TODO: This method is called repeatedly from ExoPlayerImplInternal.maybeUpdateLoadingPeriod
     // but if the timeline is not ready to provide the next period it can't return a non-null value
@@ -1173,8 +1159,7 @@ import org.jspecify.annotations.Nullable;
    * @param bufferedDurationUs The buffered duration, in microseconds.
    * @return The first media period info of the next period in the timeline, or null.
    */
-  @Nullable
-  private MediaPeriodInfo getFirstMediaPeriodInfoOfNextPeriod(
+  private @Nullable MediaPeriodInfo getFirstMediaPeriodInfoOfNextPeriod(
       Timeline timeline, MediaPeriodHolder mediaPeriodHolder, long bufferedDurationUs) {
     MediaPeriodInfo mediaPeriodInfo = mediaPeriodHolder.info;
     int currentPeriodIndex = timeline.getIndexOfPeriod(mediaPeriodInfo.id.periodUid);
@@ -1260,8 +1245,7 @@ import org.jspecify.annotations.Nullable;
    * @param bufferedDurationUs The buffered duration, in microseconds.
    * @return The following {@link MediaPeriodInfo} in the current period.
    */
-  @Nullable
-  private MediaPeriodInfo getFollowingMediaPeriodInfoOfCurrentPeriod(
+  private @Nullable MediaPeriodInfo getFollowingMediaPeriodInfoOfCurrentPeriod(
       Timeline timeline, MediaPeriodHolder mediaPeriodHolder, long bufferedDurationUs) {
     MediaPeriodInfo mediaPeriodInfo = mediaPeriodHolder.info;
     MediaPeriodId currentPeriodId = mediaPeriodInfo.id;

@@ -116,8 +116,7 @@ public final class ResolvingDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     @Nullable Uri reportedUri = upstreamDataSource.getUri();
     return reportedUri == null ? null : resolver.resolveReportedUri(reportedUri);
   }

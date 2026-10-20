@@ -708,8 +708,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     DefaultTrackSelector trackSelector =
         new DefaultTrackSelector(context, trackSelectionParameters) {
           @Override
-          @Nullable
-          protected Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
+          protected @Nullable Pair<ExoTrackSelection.Definition, Integer> selectAudioTrack(
               MappedTrackInfo mappedTrackInfo,
               @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
               @RendererCapabilities.AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
@@ -2026,9 +2025,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             return new Renderer[] {videoRenderer, audioRenderer};
           }
 
-          @Nullable
           @Override
-          public Renderer createSecondaryRenderer(
+          public @Nullable Renderer createSecondaryRenderer(
               Renderer renderer,
               Handler eventHandler,
               VideoRendererEventListener videoRendererEventListener,
@@ -2163,9 +2161,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             return new Renderer[] {videoRenderer, audioRenderer};
           }
 
-          @Nullable
           @Override
-          public Renderer createSecondaryRenderer(
+          public @Nullable Renderer createSecondaryRenderer(
               Renderer renderer,
               Handler eventHandler,
               VideoRendererEventListener videoRendererEventListener,
@@ -2309,9 +2306,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             return new Renderer[] {videoRenderer, audioRenderer};
           }
 
-          @Nullable
           @Override
-          public Renderer createSecondaryRenderer(
+          public @Nullable Renderer createSecondaryRenderer(
               Renderer renderer,
               Handler eventHandler,
               VideoRendererEventListener videoRendererEventListener,

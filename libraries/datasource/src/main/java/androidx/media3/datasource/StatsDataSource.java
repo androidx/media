@@ -109,8 +109,7 @@ public final class StatsDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return dataSource.getUri();
   }
 

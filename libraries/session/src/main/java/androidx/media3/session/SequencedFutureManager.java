@@ -43,12 +43,10 @@ import org.jspecify.annotations.Nullable;
   private final ArrayMap<Integer, SequencedFuture<?>> seqToFutureMap;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable pendingLazyReleaseCallback;
+  private @Nullable Runnable pendingLazyReleaseCallback;
 
   @GuardedBy("lock")
-  @Nullable
-  private Handler releaseCallbackHandler;
+  private @Nullable Handler releaseCallbackHandler;
 
   @GuardedBy("lock")
   private boolean isReleased;

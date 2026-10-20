@@ -96,8 +96,7 @@ public final class MediaProjectionActivity extends Activity {
     private static final int NOTIFICATION_ID = 1;
 
     @Override
-    @Nullable
-    public IBinder onBind(Intent intent) {
+    public @Nullable IBinder onBind(Intent intent) {
       return null;
     }
 

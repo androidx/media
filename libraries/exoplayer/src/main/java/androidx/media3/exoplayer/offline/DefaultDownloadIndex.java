@@ -181,8 +181,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
   }
 
   @Override
-  @Nullable
-  public Download getDownload(String id) throws DatabaseIOException {
+  public @Nullable Download getDownload(String id) throws DatabaseIOException {
     ensureInitialized();
     try (Cursor cursor = getCursor(WHERE_ID_EQUALS, new String[] {id})) {
       if (cursor.getCount() == 0) {

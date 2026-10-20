@@ -98,14 +98,14 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   private final DataReaderAdapter scratchDataReaderAdapter;
   private final boolean expectDummySeekMap;
   private final @C.TrackType int primaryTrackType;
-  @Nullable private final Format primaryTrackManifestFormat;
+  private final @Nullable Format primaryTrackManifestFormat;
 
   private ExtractorOutput extractorOutput;
   private MediaParser.@Nullable SeekMap dummySeekMap;
   private MediaParser.@Nullable SeekMap lastSeekMap;
-  @Nullable private String containerMimeType;
-  @Nullable private ChunkIndex lastChunkIndex;
-  @Nullable private TimestampAdjuster timestampAdjuster;
+  private @Nullable String containerMimeType;
+  private @Nullable ChunkIndex lastChunkIndex;
+  private @Nullable TimestampAdjuster timestampAdjuster;
   private List<Format> muxedCaptionFormats;
   private int primaryTrackIndex;
   private long sampleTimestampUpperLimitFilterUs;
@@ -199,8 +199,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   }
 
   /** Returns the most recently output {@link ChunkIndex}, or null if none has been output. */
-  @Nullable
-  public ChunkIndex getChunkIndex() {
+  public @Nullable ChunkIndex getChunkIndex() {
     return lastChunkIndex;
   }
 
@@ -377,8 +376,8 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     }
   }
 
-  @Nullable
-  private CryptoData toExoPlayerCryptoData(int trackIndex, @Nullable CryptoInfo cryptoInfo) {
+  private @Nullable CryptoData toExoPlayerCryptoData(
+      int trackIndex, @Nullable CryptoInfo cryptoInfo) {
     if (cryptoInfo == null) {
       return null;
     }
@@ -525,8 +524,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     return formatBuilder.build();
   }
 
-  @Nullable
-  private static DrmInitData toExoPlayerDrmInitData(
+  private static @Nullable DrmInitData toExoPlayerDrmInitData(
       @Nullable String schemeType, android.media.@Nullable DrmInitData drmInitData) {
     if (drmInitData == null) {
       return null;

@@ -193,8 +193,7 @@ public final class RtpPacket {
    * @param packetBuffer The buffer that contains the RTP packet data.
    * @return The built {@link RtpPacket}.
    */
-  @Nullable
-  public static RtpPacket parse(ParsableByteArray packetBuffer) {
+  public static @Nullable RtpPacket parse(ParsableByteArray packetBuffer) {
     if (packetBuffer.bytesLeft() < MIN_HEADER_SIZE) {
       return null;
     }
@@ -267,8 +266,7 @@ public final class RtpPacket {
    * @param length The length of the RTP packet.
    * @return The built {@link RtpPacket}.
    */
-  @Nullable
-  public static RtpPacket parse(byte[] buffer, int length) {
+  public static @Nullable RtpPacket parse(byte[] buffer, int length) {
     return parse(new ParsableByteArray(buffer, length));
   }
 

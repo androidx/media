@@ -1244,9 +1244,8 @@ public final class ExoPlayerScrubbingTest {
       inputBufferQueuedCount.incrementAndGet();
     }
 
-    @Nullable
     @Override
-    public ByteBuffer getOutputBuffer(int index) {
+    public @Nullable ByteBuffer getOutputBuffer(int index) {
       ByteBuffer result = super.getOutputBuffer(index);
       outputBufferDequeuedCount.incrementAndGet();
       return result;

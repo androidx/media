@@ -220,7 +220,7 @@ public final class Util {
   private static final int ZLIB_INFLATE_HEADER = 0x78;
 
   // Replacement map of ISO language codes used for normalization.
-  @Nullable private static HashMap<String, String> languageTagReplacementMap;
+  private static @Nullable HashMap<String, String> languageTagReplacementMap;
 
   private Util() {}
 
@@ -280,8 +280,7 @@ public final class Util {
    * @return The first sticky intent found that matches {@code filter}, or null if there are none.
    */
   @UnstableApi
-  @Nullable
-  public static Intent registerReceiverNotExported(
+  public static @Nullable Intent registerReceiverNotExported(
       Context context, @Nullable BroadcastReceiver receiver, IntentFilter filter) {
     if (Build.VERSION.SDK_INT < 33) {
       return context.registerReceiver(receiver, filter);
@@ -299,8 +298,7 @@ public final class Util {
    * @return The result of the called method.
    */
   @UnstableApi
-  @Nullable
-  public static ComponentName startForegroundService(Context context, Intent intent) {
+  public static @Nullable ComponentName startForegroundService(Context context, Intent intent) {
     if (Build.VERSION.SDK_INT >= 26) {
       return context.startForegroundService(intent);
     } else {
@@ -2304,8 +2302,8 @@ public final class Util {
    *     trackType}. If this ends up empty, or {@code codecs} is null, returns null.
    */
   @UnstableApi
-  @Nullable
-  public static String getCodecsOfType(@Nullable String codecs, @C.TrackType int trackType) {
+  public static @Nullable String getCodecsOfType(
+      @Nullable String codecs, @C.TrackType int trackType) {
     String[] codecArray = splitCodecs(codecs);
     if (codecArray.length == 0) {
       return null;
@@ -2339,8 +2337,7 @@ public final class Util {
    * @return The {@link ColorInfo} for specific Dolby Vision codecs and profiles and otherwise null.
    */
   @UnstableApi
-  @Nullable
-  public static ColorInfo getColorInfoForDolbyVision(
+  public static @Nullable ColorInfo getColorInfoForDolbyVision(
       @Nullable String codecs,
       @Nullable String supplementalCodecs,
       @Nullable String supplementalProfiles) {
@@ -2395,8 +2392,8 @@ public final class Util {
    *     If this ends up empty, or {@code codecs} is null, returns null.
    */
   @UnstableApi
-  @Nullable
-  public static String getCodecsWithoutType(@Nullable String codecs, @C.TrackType int trackType) {
+  public static @Nullable String getCodecsWithoutType(
+      @Nullable String codecs, @C.TrackType int trackType) {
     String[] codecArray = splitCodecs(codecs);
     if (codecArray.length == 0) {
       return null;
@@ -3008,8 +3005,7 @@ public final class Util {
    *     "clearkey"}.
    * @return The derived {@link UUID}, or {@code null} if one could not be derived.
    */
-  @Nullable
-  public static UUID getDrmUuid(String drmScheme) {
+  public static @Nullable UUID getDrmUuid(String drmScheme) {
     switch (Ascii.toLowerCase(drmScheme)) {
       case "widevine":
         return C.WIDEVINE_UUID;
@@ -3181,8 +3177,7 @@ public final class Util {
    * Returns the MIME type corresponding to the given adaptive {@link ContentType}, or {@code null}
    * if the content type is not adaptive.
    */
-  @Nullable
-  public static String getAdaptiveMimeTypeForContentType(@ContentType int contentType) {
+  public static @Nullable String getAdaptiveMimeTypeForContentType(@ContentType int contentType) {
     switch (contentType) {
       case C.CONTENT_TYPE_DASH:
         return MimeTypes.APPLICATION_MPD;
@@ -3327,8 +3322,7 @@ public final class Util {
    *     fileName seems invalid.
    */
   @UnstableApi
-  @Nullable
-  public static String unescapeFileName(String fileName) {
+  public static @Nullable String unescapeFileName(String fileName) {
     int length = fileName.length();
     int percentCharacterCount = 0;
     for (int i = 0; i < length; i++) {
@@ -4363,10 +4357,9 @@ public final class Util {
    * @param bundle The {@link Bundle} to verify, or null.
    * @return The same {@link Bundle}, or null if the verification failed or the parameter is null.
    */
-  @Nullable
   @CheckReturnValue
   @UnstableApi
-  public static Bundle convertToNullIfInvalid(@Nullable Bundle bundle) {
+  public static @Nullable Bundle convertToNullIfInvalid(@Nullable Bundle bundle) {
     if (bundle == null) {
       return null;
     }
@@ -4388,9 +4381,8 @@ public final class Util {
    *
    * @param name The name of the system property.
    */
-  @Nullable
   @UnstableApi
-  public static String getSystemProperty(String name) {
+  public static @Nullable String getSystemProperty(String name) {
     try {
       @SuppressLint("PrivateApi")
       Class<?> systemProperties = Class.forName("android.os.SystemProperties");

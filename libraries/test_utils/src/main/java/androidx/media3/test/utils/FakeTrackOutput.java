@@ -57,7 +57,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   private boolean receivedSampleInFormat;
   private long durationUs;
 
-  @Nullable public Format lastFormat;
+  public @Nullable Format lastFormat;
 
   public FakeTrackOutput(@C.TrackType int type, boolean deduplicateConsecutiveFormats) {
     this.type = type;
@@ -191,8 +191,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     return sampleInfos.get(index).flags;
   }
 
-  @Nullable
-  public CryptoData getSampleCryptoData(int index) {
+  public @Nullable CryptoData getSampleCryptoData(int index) {
     return sampleInfos.get(index).cryptoData;
   }
 
@@ -252,7 +251,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     public final int flags;
     public final int startOffset;
     public final int endOffset;
-    @Nullable public final CryptoData cryptoData;
+    public final @Nullable CryptoData cryptoData;
     public final int index;
 
     public DumpableSampleInfo(

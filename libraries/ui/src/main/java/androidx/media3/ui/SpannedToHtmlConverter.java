@@ -145,8 +145,7 @@ import org.jspecify.annotations.Nullable;
     return spanTransitions;
   }
 
-  @Nullable
-  private static String getOpeningTag(Object span, float displayDensity) {
+  private static @Nullable String getOpeningTag(Object span, float displayDensity) {
     if (span instanceof StrikethroughSpan) {
       return "<span style='text-decoration:line-through;'>";
     } else if (span instanceof ForegroundColorSpan) {
@@ -212,8 +211,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private static String getClosingTag(Object span) {
+  private static @Nullable String getClosingTag(Object span) {
     if (span instanceof StrikethroughSpan
         || span instanceof ForegroundColorSpan
         || span instanceof BackgroundColorSpan

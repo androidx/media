@@ -85,7 +85,7 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   private final MediaCodec codec;
-  @Nullable private final LoudnessCodecController loudnessCodecController;
+  private final @Nullable LoudnessCodecController loudnessCodecController;
 
   private SynchronousMediaCodecAdapter(
       MediaCodec mediaCodec, @Nullable LoudnessCodecController loudnessCodecController) {
@@ -122,14 +122,12 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getInputBuffer(int index) {
+  public @Nullable ByteBuffer getInputBuffer(int index) {
     return codec.getInputBuffer(index);
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer(int index) {
+  public @Nullable ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);
   }
 

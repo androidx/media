@@ -473,13 +473,13 @@ import org.jspecify.annotations.Nullable;
     /**
      * The {@link Allocation}, or {@code null} if the node is not {@link #initialize initialized}.
      */
-    @Nullable public Allocation allocation;
+    public @Nullable Allocation allocation;
 
     /**
      * The next {@link AllocationNode} in the list, or {@code null} if the node is not {@link
      * #initialize initialized}.
      */
-    @Nullable public AllocationNode next;
+    public @Nullable AllocationNode next;
 
     /**
      * @param startPosition See {@link #startPosition}.

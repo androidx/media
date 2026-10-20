@@ -59,8 +59,7 @@ import org.jspecify.annotations.Nullable;
    *
    * @return the parsed info, or null if {@code formatLine} doesn't contain both 'start' and 'end'.
    */
-  @Nullable
-  public static SsaDialogueFormat fromFormatLine(String formatLine) {
+  public static @Nullable SsaDialogueFormat fromFormatLine(String formatLine) {
     int layerIndex = C.INDEX_UNSET;
     int startTimeIndex = C.INDEX_UNSET;
     int endTimeIndex = C.INDEX_UNSET;

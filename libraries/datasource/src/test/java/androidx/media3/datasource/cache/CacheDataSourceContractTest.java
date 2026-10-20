@@ -89,8 +89,7 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  @Nullable
-  protected DataSource getTransferListenerDataSource() {
+  protected @Nullable DataSource getTransferListenerDataSource() {
     return upstreamDataSource;
   }
 }

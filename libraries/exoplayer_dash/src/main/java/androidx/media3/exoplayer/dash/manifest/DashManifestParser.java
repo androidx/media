@@ -384,8 +384,7 @@ public class DashManifestParser extends DefaultHandler
     return new ContentSteering(serverUri, defaultServiceLocation, queryBeforeStart);
   }
 
-  @Nullable
-  protected UtcTimingElement parseUtcTiming(XmlPullParser xpp) {
+  protected @Nullable UtcTimingElement parseUtcTiming(XmlPullParser xpp) {
     @Nullable String schemeIdUri = XmlPullParserUtil.getAttributeValue(xpp, "schemeIdUri");
     @Nullable String value = XmlPullParserUtil.getAttributeValue(xpp, "value");
     return schemeIdUri != null && value != null ? buildUtcTimingElement(schemeIdUri, value) : null;
@@ -1843,8 +1842,7 @@ public class DashManifestParser extends DefaultHandler
     return new SegmentTimelineElement(startTime, duration);
   }
 
-  @Nullable
-  protected UrlTemplate parseUrlTemplate(
+  protected @Nullable UrlTemplate parseUrlTemplate(
       XmlPullParser xpp, String name, @Nullable UrlTemplate defaultValue) {
     @Nullable String valueString = XmlPullParserUtil.getAttributeValue(xpp, name);
     if (valueString != null) {
@@ -2158,8 +2156,7 @@ public class DashManifestParser extends DefaultHandler
    * @return A pair of Integer values, where the first is the count of horizontal tiles and the
    *     second is the count of vertical tiles, or null if no thumbnail tile information is found.
    */
-  @Nullable
-  protected Pair<Integer, Integer> parseTileCountFromProperties(
+  protected @Nullable Pair<Integer, Integer> parseTileCountFromProperties(
       List<Descriptor> essentialProperties) {
     for (int i = 0; i < essentialProperties.size(); i++) {
       Descriptor descriptor = essentialProperties.get(i);
@@ -2191,8 +2188,7 @@ public class DashManifestParser extends DefaultHandler
    * @param supplementalProperties List of supplemental property descriptors.
    * @return The parsed {@link ColorInfo}, or {@code null} if no CICP color information is found.
    */
-  @Nullable
-  protected ColorInfo parseColorInfoFromProperties(
+  protected @Nullable ColorInfo parseColorInfoFromProperties(
       List<Descriptor> essentialProperties, List<Descriptor> supplementalProperties) {
     @C.ColorSpace int colorSpace = Format.NO_VALUE;
     @C.ColorSpace int matrixColorSpace = Format.NO_VALUE;
@@ -2354,8 +2350,7 @@ public class DashManifestParser extends DefaultHandler
    * @param codecs The codecs attribute.
    * @return The derived sample mimeType, or null if it could not be derived.
    */
-  @Nullable
-  private static String getSampleMimeType(
+  private static @Nullable String getSampleMimeType(
       @Nullable String containerMimeType, @Nullable String codecs) {
     if (MimeTypes.isAudio(containerMimeType)) {
       return MimeTypes.getAudioMediaMimeType(codecs);
@@ -2384,8 +2379,7 @@ public class DashManifestParser extends DefaultHandler
    * @param secondLanguage The second language.
    * @return The consistent language.
    */
-  @Nullable
-  private static String checkLanguageConsistency(
+  private static @Nullable String checkLanguageConsistency(
       @Nullable String firstLanguage, @Nullable String secondLanguage) {
     if (firstLanguage == null) {
       return secondLanguage;
@@ -2762,7 +2756,7 @@ public class DashManifestParser extends DefaultHandler
     public final Format format;
     public final ImmutableList<BaseUrl> baseUrls;
     public final SegmentBase segmentBase;
-    @Nullable public final String drmSchemeType;
+    public final @Nullable String drmSchemeType;
     public final ArrayList<SchemeData> drmSchemeDatas;
     public final ArrayList<Descriptor> inbandEventStreams;
     public final long revisionId;

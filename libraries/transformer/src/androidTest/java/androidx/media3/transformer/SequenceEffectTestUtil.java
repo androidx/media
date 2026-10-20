@@ -209,8 +209,7 @@ public final class SequenceEffectTestUtil {
    * @return The {@link ExportTestResult} when successful, or {@code null} if decoding fails.
    * @throws Exception The cause of the export not completing.
    */
-  @Nullable
-  public static ExportTestResult tryToExportCompositionWithDecoder(
+  public static @Nullable ExportTestResult tryToExportCompositionWithDecoder(
       String testId, Context context, MediaCodecInfo decoderMediaCodecInfo, Composition composition)
       throws Exception {
     try {

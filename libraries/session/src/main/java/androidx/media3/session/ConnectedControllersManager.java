@@ -129,8 +129,7 @@ import org.jspecify.annotations.Nullable;
     return null;
   }
 
-  @Nullable
-  public SessionCommands getAvailableSessionCommands(ControllerInfo controllerInfo) {
+  public @Nullable SessionCommands getAvailableSessionCommands(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -181,8 +180,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  public PlaybackException getPlaybackException(ControllerInfo controllerInfo) {
+  public @Nullable PlaybackException getPlaybackException(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -191,8 +189,7 @@ import org.jspecify.annotations.Nullable;
     return null;
   }
 
-  @Nullable
-  public PlayerInfo getPlayerInfoForPlaybackException(ControllerInfo controllerInfo) {
+  public @Nullable PlayerInfo getPlayerInfoForPlaybackException(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -263,8 +260,7 @@ import org.jspecify.annotations.Nullable;
    * @return sequenced future manager. Can be {@code null} if the controller was null or
    *     disconnected.
    */
-  @Nullable
-  public SequencedFutureManager getSequencedFutureManager(ControllerInfo controllerInfo) {
+  public @Nullable SequencedFutureManager getSequencedFutureManager(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
     return info != null ? info.sequencedFutureManager : null;
@@ -277,8 +273,7 @@ import org.jspecify.annotations.Nullable;
    * @return sequenced future manager. Can be {@code null} if the controller was null or
    *     disconnected.
    */
-  @Nullable
-  public SequencedFutureManager getSequencedFutureManager(T controllerKey) {
+  public @Nullable SequencedFutureManager getSequencedFutureManager(T controllerKey) {
     verifyApplicationThread();
     @Nullable ControllerInfo controllerInfo = getController(controllerKey);
     @Nullable ConnectedControllerRecord<T> info =
@@ -312,8 +307,7 @@ import org.jspecify.annotations.Nullable;
         && sessionImpl.getPlayerWrapper().getAvailableCommands().contains(commandCode);
   }
 
-  @Nullable
-  public ControllerInfo getController(T controllerKey) {
+  public @Nullable ControllerInfo getController(T controllerKey) {
     verifyApplicationThread();
     return controllerInfoMap.get(controllerKey);
   }
@@ -413,8 +407,8 @@ import org.jspecify.annotations.Nullable;
     private Player.@Nullable Commands playerCommandsBeforePlaybackException;
     private boolean commandQueueIsFlushing;
     private Player.Commands commandQueuePlayerCommands;
-    @Nullable private PlaybackException playbackException;
-    @Nullable private PlayerInfo playerInfoForPlaybackException;
+    private @Nullable PlaybackException playbackException;
+    private @Nullable PlayerInfo playerInfoForPlaybackException;
     private Timeline lastSentTimeline;
     private Tracks lastSentTracks;
 

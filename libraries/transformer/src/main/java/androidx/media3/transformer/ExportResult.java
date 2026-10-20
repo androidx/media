@@ -47,17 +47,17 @@ public final class ExportResult {
     private int averageAudioBitrate;
     private int channelCount;
     private int sampleRate;
-    @Nullable private String audioEncoderName;
-    @Nullable private String audioMimeType;
+    private @Nullable String audioEncoderName;
+    private @Nullable String audioMimeType;
     private int averageVideoBitrate;
-    @Nullable private ColorInfo colorInfo;
+    private @Nullable ColorInfo colorInfo;
     private int height;
     private int width;
     private int videoFrameCount;
-    @Nullable private String videoEncoderName;
-    @Nullable private String videoMimeType;
+    private @Nullable String videoEncoderName;
+    private @Nullable String videoMimeType;
     private @OptimizationResult int optimizationResult;
-    @Nullable private ExportException exportException;
+    private @Nullable ExportException exportException;
 
     /** Creates a builder. */
     @SuppressWarnings({"initialization.fields.uninitialized", "nullness:method.invocation"})
@@ -301,22 +301,22 @@ public final class ExportResult {
     public final long durationUs;
 
     /** The audio {@link Format} of the {@link MediaItem}. */
-    @Nullable public final Format audioFormat;
+    public final @Nullable Format audioFormat;
 
     /** The video {@link Format} of the {@link MediaItem}. */
-    @Nullable public final Format videoFormat;
+    public final @Nullable Format videoFormat;
 
     /**
      * The name of the audio decoder used to process {@code mediaItem}. This field is {@code null}
      * if no audio decoder was used.
      */
-    @Nullable public final String audioDecoderName;
+    public final @Nullable String audioDecoderName;
 
     /**
      * The name of the video decoder used to process {@code mediaItem}. This field is {@code null}
      * if no video decoder was used.
      */
-    @Nullable public final String videoDecoderName;
+    public final @Nullable String videoDecoderName;
 
     /** Creates an instance. */
     public ProcessedInput(
@@ -469,10 +469,10 @@ public final class ExportResult {
   public final int sampleRate;
 
   /** The name of the audio encoder used, or {@code null} if none were used. */
-  @Nullable public final String audioEncoderName;
+  public final @Nullable String audioEncoderName;
 
   /** The output audio {@linkplain MimeTypes mime type}, or {@code null} if unset or unknown. */
-  @Nullable public final String audioMimeType;
+  public final @Nullable String audioMimeType;
 
   /**
    * The average bitrate of the video track data, or {@link C#RATE_UNSET_INT} if unset or unknown.
@@ -480,7 +480,7 @@ public final class ExportResult {
   public final int averageVideoBitrate;
 
   /** The {@link ColorInfo} of the video, or {@code null} if unset or unknown. */
-  @Nullable public final ColorInfo colorInfo;
+  public final @Nullable ColorInfo colorInfo;
 
   /** The height of the video, or {@link C#LENGTH_UNSET} if unset or unknown. */
   public final int height;
@@ -492,10 +492,10 @@ public final class ExportResult {
   public final int videoFrameCount;
 
   /** The name of the video encoder used, or {@code null} if none were used. */
-  @Nullable public final String videoEncoderName;
+  public final @Nullable String videoEncoderName;
 
   /** The output video {@linkplain MimeTypes mime type}, or {@code null} if unset or unknown. */
-  @Nullable public final String videoMimeType;
+  public final @Nullable String videoMimeType;
 
   /** The result of any requested optimizations. */
   public final @OptimizationResult int optimizationResult;
@@ -504,7 +504,7 @@ public final class ExportResult {
    * The {@link ExportException} that caused the export to fail, or {@code null} if the export was a
    * success.
    */
-  @Nullable public final ExportException exportException;
+  public final @Nullable ExportException exportException;
 
   /** Returns the {@link ConversionProcess} taken to create the video track in the output file. */
   public final @ConversionProcess int videoConversionProcess;

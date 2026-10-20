@@ -92,7 +92,7 @@ import org.jspecify.annotations.Nullable;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
-  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+  private final @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   private int droppedFrames;
   private long droppedFrameAccumulationStartTimeMs;

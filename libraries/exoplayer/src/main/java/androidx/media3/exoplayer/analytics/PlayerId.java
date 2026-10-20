@@ -46,7 +46,7 @@ public final class PlayerId {
    */
   public final String name;
 
-  @Nullable private final LogSessionIdApi31 logSessionIdApi31;
+  private final @Nullable LogSessionIdApi31 logSessionIdApi31;
 
   /**
    * Creates an instance.

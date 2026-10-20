@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class RtmpDataSourceFactory implements DataSource.Factory {
 
-  @Nullable private final TransferListener listener;
+  private final @Nullable TransferListener listener;
 
   public RtmpDataSourceFactory() {
     this(null);

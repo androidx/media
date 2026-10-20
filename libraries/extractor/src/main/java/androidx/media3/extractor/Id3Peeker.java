@@ -49,8 +49,7 @@ public final class Id3Peeker {
    */
   @InlineMe(replacement = "this.peekId3Data(input, id3FramePredicate, /* maxTagPeekBytes= */ 0)")
   @Deprecated
-  @Nullable
-  public Metadata peekId3Data(
+  public @Nullable Metadata peekId3Data(
       ExtractorInput input, Id3Decoder.@Nullable FramePredicate id3FramePredicate)
       throws IOException {
     return peekId3Data(input, id3FramePredicate, /* maxTagPeekBytes= */ 0);
@@ -68,8 +67,7 @@ public final class Id3Peeker {
    *     present in the input.
    * @throws IOException If an error occurred peeking from the input.
    */
-  @Nullable
-  public Metadata peekId3Data(
+  public @Nullable Metadata peekId3Data(
       ExtractorInput input,
       Id3Decoder.@Nullable FramePredicate id3FramePredicate,
       int maxTagPeekBytes)

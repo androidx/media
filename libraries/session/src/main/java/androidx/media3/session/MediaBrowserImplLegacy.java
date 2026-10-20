@@ -227,8 +227,7 @@ import org.jspecify.annotations.Nullable;
     return future;
   }
 
-  @Nullable
-  private List<MediaBrowserCompat.MediaItem> getChildrenFromSubscription(
+  private @Nullable List<MediaBrowserCompat.MediaItem> getChildrenFromSubscription(
       String parentId, int page) {
     List<SubscribeCallback> callbacks = subscribeCallbacks.get(parentId);
     if (callbacks == null) {
@@ -439,8 +438,7 @@ import org.jspecify.annotations.Nullable;
     return options;
   }
 
-  @Nullable
-  private static Bundle getExtras(@Nullable LibraryParams params) {
+  private static @Nullable Bundle getExtras(@Nullable LibraryParams params) {
     return params != null ? params.extras : null;
   }
 
@@ -536,7 +534,7 @@ import org.jspecify.annotations.Nullable;
     private final Bundle subscriptionOptions;
     private final SettableFuture<LibraryResult<Void>> future;
 
-    @Nullable private List<MediaBrowserCompat.MediaItem> receivedChildren;
+    private @Nullable List<MediaBrowserCompat.MediaItem> receivedChildren;
 
     public SubscribeCallback(
         String subscriptionParentId,

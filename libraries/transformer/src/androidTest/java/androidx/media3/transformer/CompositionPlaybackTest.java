@@ -750,9 +750,8 @@ public class CompositionPlaybackTest {
   /**
    * Runs the composition and returns the video {@link DecoderCounters} (if any) from the player.
    */
-  @Nullable
   @CanIgnoreReturnValue
-  private DecoderCounters runCompositionPlayer(Composition composition)
+  private @Nullable DecoderCounters runCompositionPlayer(Composition composition)
       throws InterruptedException, ExecutionException {
     return runCompositionPlayer(
         composition,
@@ -763,9 +762,8 @@ public class CompositionPlaybackTest {
   /**
    * Runs the composition and returns the video {@link DecoderCounters} (if any) from the player.
    */
-  @Nullable
   @CanIgnoreReturnValue
-  private DecoderCounters runCompositionPlayer(
+  private @Nullable DecoderCounters runCompositionPlayer(
       Composition composition,
       boolean videoPrewarmingEnabled,
       boolean perStreamMediaProgressionEnabled)

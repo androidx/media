@@ -105,9 +105,9 @@ import org.jspecify.annotations.Nullable;
   /** Test parameters for an {@link EditedMediaItem}. */
   public abstract static class ItemConfig {
     public final int frameCount;
-    @Nullable public final Format format;
+    public final @Nullable Format format;
     // TODO: b/345483531 - Modify output format to account for effects (such as presentation).
-    @Nullable public final Format outputFormat;
+    public final @Nullable Format outputFormat;
 
     protected final Effects effects;
 

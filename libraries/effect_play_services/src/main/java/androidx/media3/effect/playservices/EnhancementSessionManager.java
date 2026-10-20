@@ -67,8 +67,7 @@ import org.jspecify.annotations.Nullable;
   private final Client client;
 
   @GuardedBy("lock")
-  @Nullable
-  private EnhancementSession session;
+  private @Nullable EnhancementSession session;
 
   @GuardedBy("lock")
   private boolean isInitialized;

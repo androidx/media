@@ -75,10 +75,10 @@ public class FakeDataSource extends BaseDataSource {
   private final FakeDataSet fakeDataSet;
   private final ArrayList<DataSpec> openedDataSpecs;
 
-  @Nullable private Uri uri;
+  private @Nullable Uri uri;
   private boolean openCalled;
   private boolean sourceOpened;
-  @Nullable private FakeData fakeData;
+  private @Nullable FakeData fakeData;
   private int currentSegmentIndex;
   private long bytesRemaining;
 
@@ -199,8 +199,7 @@ public class FakeDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public final Uri getUri() {
+  public final @Nullable Uri getUri() {
     return uri;
   }
 

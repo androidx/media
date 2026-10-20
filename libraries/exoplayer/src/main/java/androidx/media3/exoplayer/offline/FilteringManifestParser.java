@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 public final class FilteringManifestParser<T extends FilterableManifest<T>> implements Parser<T> {
 
   private final Parser<? extends T> parser;
-  @Nullable private final List<StreamKey> streamKeys;
+  private final @Nullable List<StreamKey> streamKeys;
 
   /**
    * @param parser A parser for the manifest that will be filtered.

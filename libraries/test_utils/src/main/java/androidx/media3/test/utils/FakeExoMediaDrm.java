@@ -213,7 +213,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
 
   private int provisionsReceived;
   private int referenceCount;
-  @Nullable private OnEventListener onEventListener;
+  private @Nullable OnEventListener onEventListener;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -407,9 +407,8 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public PersistableBundle getMetrics() {
+  public @Nullable PersistableBundle getMetrics() {
     checkState(referenceCount > 0);
 
     return null;

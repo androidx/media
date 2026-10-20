@@ -84,7 +84,7 @@ import org.jspecify.annotations.Nullable;
   private final TrackSelector trackSelector;
   private final MediaSourceList mediaSourceList;
 
-  @Nullable private MediaPeriodHolder next;
+  private @Nullable MediaPeriodHolder next;
   private TrackGroupArray trackGroups;
   private TrackSelectorResult trackSelectorResult;
   private long rendererPositionOffsetUs;
@@ -384,8 +384,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the next media period holder in the queue, or null if this is the last media period
    * (and thus the loading media period).
    */
-  @Nullable
-  public MediaPeriodHolder getNext() {
+  public @Nullable MediaPeriodHolder getNext() {
     return next;
   }
 

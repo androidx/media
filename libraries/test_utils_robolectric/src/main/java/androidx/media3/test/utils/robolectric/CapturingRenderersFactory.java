@@ -338,9 +338,8 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       return index;
     }
 
-    @Nullable
     @Override
-    public ByteBuffer getInputBuffer(int index) {
+    public @Nullable ByteBuffer getInputBuffer(int index) {
       @Nullable ByteBuffer inputBuffer = super.getInputBuffer(index);
       if (inputBuffer != null) {
         dequeuedInputBuffers.put(index, inputBuffer);

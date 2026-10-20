@@ -113,7 +113,7 @@ public final class PreloadMediaSourceTest {
   private RenderersFactory renderersFactory;
   private MediaItem mediaItem;
   @Mock private PreloadMediaSource.PreloadControl mockPreloadControl;
-  @Nullable private PreloadMediaSource preloadMediaSource;
+  private @Nullable PreloadMediaSource preloadMediaSource;
 
   @Before
   public void setUp() {

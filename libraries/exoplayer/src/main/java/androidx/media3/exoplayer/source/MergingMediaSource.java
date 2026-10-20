@@ -95,7 +95,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   private int periodCount;
   private long[][] periodTimeOffsetsUs;
 
-  @Nullable private IllegalMergeException mergeError;
+  private @Nullable IllegalMergeException mergeError;
 
   /**
    * Creates a merging media source.
@@ -297,8 +297,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Integer childSourceId, MediaPeriodId mediaPeriodId) {
     List<MediaPeriodAndId> childMediaPeriodIds = mediaPeriods.get(childSourceId);
     for (int i = 0; i < childMediaPeriodIds.size(); i++) {

@@ -64,18 +64,18 @@ public final class ImaServerSideAdInsertionUriBuilder {
   private static final String CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT =
       "customUiOptionsAboutThisAdSupport";
 
-  @Nullable private String adsId;
-  @Nullable private String assetKey;
-  @Nullable private String apiKey;
-  @Nullable private String contentSourceId;
-  @Nullable private String videoId;
-  @Nullable private String networkCode;
-  @Nullable private String manifestSuffix;
-  @Nullable private String contentUrl;
-  @Nullable private String authToken;
-  @Nullable private String streamActivityMonitorId;
+  private @Nullable String adsId;
+  private @Nullable String assetKey;
+  private @Nullable String apiKey;
+  private @Nullable String contentSourceId;
+  private @Nullable String videoId;
+  private @Nullable String networkCode;
+  private @Nullable String manifestSuffix;
+  private @Nullable String contentUrl;
+  private @Nullable String authToken;
+  private @Nullable String streamActivityMonitorId;
   private ImmutableMap<String, String> adTagParameters;
-  @Nullable private CustomUiOptions customUiOptions;
+  private @Nullable CustomUiOptions customUiOptions;
   public @ContentType int format;
   private int loadVideoTimeoutMs;
 

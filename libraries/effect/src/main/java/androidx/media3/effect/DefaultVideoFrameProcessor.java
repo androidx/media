@@ -155,7 +155,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     /** A builder for {@link DefaultVideoFrameProcessor.Factory} instances. */
     public static final class Builder {
       private @WorkingColorSpace int sdrWorkingColorSpace;
-      @Nullable private ExecutorService executorService;
+      private @Nullable ExecutorService executorService;
       private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
       private GlTextureProducer.@MonotonicNonNull Listener textureOutputListener;
       private int textureOutputCapacity;
@@ -370,8 +370,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     private final @WorkingColorSpace int sdrWorkingColorSpace;
     private final boolean repeatLastRegisteredFrame;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
-    @Nullable private final ExecutorService executorService;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
+    private final @Nullable ExecutorService executorService;
     private final GlTextureProducer.@Nullable Listener textureOutputListener;
     private final int textureOutputCapacity;
     private final boolean enableReplayableCache;
@@ -506,21 +506,19 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    * adapted to processing it.
    */
   @GuardedBy("lock")
-  @Nullable
-  private InputStreamInfo pendingInputStreamInfo;
+  private @Nullable InputStreamInfo pendingInputStreamInfo;
 
   @GuardedBy("lock")
   private boolean registeredFirstInputStream;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable onInputSurfaceReadyListener;
+  private @Nullable Runnable onInputSurfaceReadyListener;
 
   private final List<Effect> activeEffects;
   private final Object lock;
   private final ColorInfo outputColorInfo;
   private final DebugViewProvider debugViewProvider;
-  @Nullable private final ReplayableFrameCacheGlShaderProgram frameCache;
+  private final @Nullable ReplayableFrameCacheGlShaderProgram frameCache;
 
   private volatile @MonotonicNonNull FrameInfo nextInputFrameInfo;
   private volatile boolean inputStreamEnded;

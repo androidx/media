@@ -70,9 +70,9 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
     private final RequestProperties defaultRequestProperties;
 
-    @Nullable private TransferListener transferListener;
-    @Nullable private Predicate<String> contentTypePredicate;
-    @Nullable private String userAgent;
+    private @Nullable TransferListener transferListener;
+    private @Nullable Predicate<String> contentTypePredicate;
+    private @Nullable String userAgent;
     private int connectTimeoutMs;
     private int readTimeoutMs;
     private boolean allowCrossProtocolRedirects;
@@ -253,15 +253,15 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private final boolean crossProtocolRedirectsForceOriginal;
   private final int connectTimeoutMillis;
   private final int readTimeoutMillis;
-  @Nullable private final String userAgent;
-  @Nullable private final RequestProperties defaultRequestProperties;
+  private final @Nullable String userAgent;
+  private final @Nullable RequestProperties defaultRequestProperties;
   private final RequestProperties requestProperties;
-  @Nullable private final Predicate<String> contentTypePredicate;
+  private final @Nullable Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
 
-  @Nullable private DataSpec dataSpec;
-  @Nullable private HttpURLConnection connection;
-  @Nullable private InputStream inputStream;
+  private @Nullable DataSpec dataSpec;
+  private @Nullable HttpURLConnection connection;
+  private @Nullable InputStream inputStream;
   private boolean transferStarted;
   private int responseCode;
   private long bytesToRead;
@@ -295,8 +295,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     if (connection != null) {
       return Uri.parse(connection.getURL().toString());
     } else if (dataSpec != null) {
@@ -829,9 +828,8 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       return key != null && super.containsKey(key);
     }
 
-    @Nullable
     @Override
-    public List<String> get(@Nullable Object key) {
+    public @Nullable List<String> get(@Nullable Object key) {
       return key == null ? null : super.get(key);
     }
 

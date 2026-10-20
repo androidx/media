@@ -356,8 +356,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  @Nullable
-  public TrackSelector getTrackSelector() {
+  public @Nullable TrackSelector getTrackSelector() {
     throw new UnsupportedOperationException();
   }
 
@@ -399,27 +398,23 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public Format getAudioFormat() {
+  public @Nullable Format getAudioFormat() {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public Format getVideoFormat() {
+  public @Nullable Format getVideoFormat() {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     throw new UnsupportedOperationException();
   }
 

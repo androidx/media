@@ -28,8 +28,7 @@ import org.jspecify.annotations.Nullable;
 public final class DefaultRtpPayloadReaderFactory implements RtpPayloadReader.Factory {
 
   @Override
-  @Nullable
-  public RtpPayloadReader createPayloadReader(RtpPayloadFormat payloadFormat) {
+  public @Nullable RtpPayloadReader createPayloadReader(RtpPayloadFormat payloadFormat) {
     switch (checkNotNull(payloadFormat.format.sampleMimeType)) {
       case MimeTypes.AUDIO_AC3:
         return new RtpAc3Reader(payloadFormat);

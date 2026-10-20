@@ -62,13 +62,13 @@ public final class JpegExtractor implements Extractor {
   private static final int JPEG_FILE_SIGNATURE_LENGTH = 2;
 
   private final Extractor imageExtractor;
-  @Nullable private final Extractor videoExtractor;
+  private final @Nullable Extractor videoExtractor;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
   private @MonotonicNonNull Extractor activeExtractor;
 
   /** Holds a seek that arrives before {@link #activeExtractor} is assigned. */
-  @Nullable private Pair<Long, Long> pendingSeek;
+  private @Nullable Pair<Long, Long> pendingSeek;
 
   /** Creates an instance reading the video and metadata track. */
   public JpegExtractor() {

@@ -47,9 +47,9 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public class SpatializerWrapper {
 
-  @Nullable private final Spatializer spatializer;
+  private final @Nullable Spatializer spatializer;
   private final boolean spatializationSupported;
-  @Nullable private final Handler handler;
+  private final @Nullable Handler handler;
   private final Spatializer.@Nullable OnSpatializerStateChangedListener listener;
 
   /**

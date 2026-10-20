@@ -159,14 +159,14 @@ public final class TransformerActivity extends AppCompatActivity {
   private Stopwatch exportStopwatch;
   private AspectRatioFrameLayout debugFrame;
 
-  @Nullable private DebugTextViewHelper debugTextViewHelper;
-  @Nullable private Intent screenCaptureToken;
-  @Nullable private MediaProjection mediaProjection;
-  @Nullable private ExoPlayer inputPlayer;
-  @Nullable private ExoPlayer outputPlayer;
-  @Nullable private Transformer transformer;
-  @Nullable private File outputFile;
-  @Nullable private File oldOutputFile;
+  private @Nullable DebugTextViewHelper debugTextViewHelper;
+  private @Nullable Intent screenCaptureToken;
+  private @Nullable MediaProjection mediaProjection;
+  private @Nullable ExoPlayer inputPlayer;
+  private @Nullable ExoPlayer outputPlayer;
+  private @Nullable Transformer transformer;
+  private @Nullable File outputFile;
+  private @Nullable File oldOutputFile;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -705,8 +705,8 @@ public final class TransformerActivity extends AppCompatActivity {
     return effects.build();
   }
 
-  @Nullable
-  private OverlayEffect createOverlayEffectFromBundle(Bundle bundle, boolean[] selectedEffects) {
+  private @Nullable OverlayEffect createOverlayEffectFromBundle(
+      Bundle bundle, boolean[] selectedEffects) {
     ImmutableList.Builder<TextureOverlay> overlaysBuilder = new ImmutableList.Builder<>();
     if (selectedEffects[ConfigurationActivity.OVERLAY_LOGO_AND_TIMER_INDEX]) {
       StaticOverlaySettings logoSettings =
@@ -974,8 +974,7 @@ public final class TransformerActivity extends AppCompatActivity {
     private static final String ACTION_STOP = "stop";
 
     @Override
-    @Nullable
-    public IBinder onBind(Intent intent) {
+    public @Nullable IBinder onBind(Intent intent) {
       return null;
     }
 
@@ -1011,7 +1010,7 @@ public final class TransformerActivity extends AppCompatActivity {
 
   private final class DemoDebugViewProvider implements DebugViewProvider {
 
-    @Nullable private SurfaceView surfaceView;
+    private @Nullable SurfaceView surfaceView;
     private int width;
     private int height;
 
@@ -1020,9 +1019,8 @@ public final class TransformerActivity extends AppCompatActivity {
       height = C.LENGTH_UNSET;
     }
 
-    @Nullable
     @Override
-    public SurfaceView getDebugPreviewSurfaceView(int width, int height) {
+    public @Nullable SurfaceView getDebugPreviewSurfaceView(int width, int height) {
       checkState(
           surfaceView == null || (this.width == width && this.height == height),
           "Transformer should not change the output size mid-export.");

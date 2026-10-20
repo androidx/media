@@ -41,8 +41,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the {@link KeyEvent} that was included in the media action, or {@code null} if no
    * {@link KeyEvent} is found in the {@code intent}.
    */
-  @Nullable
-  public static KeyEvent getKeyEvent(Intent intent) {
+  public static @Nullable KeyEvent getKeyEvent(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
     if (extras != null) {
       try {
@@ -137,8 +136,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the custom action that was included in the {@link #createCustomAction custom action},
    * or {@code null} if no custom action is found in the {@code intent}.
    */
-  @Nullable
-  public String getCustomAction(Intent intent) {
+  public @Nullable String getCustomAction(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
     @Nullable Object customAction = extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM) : null;
     return customAction instanceof String ? (String) customAction : null;

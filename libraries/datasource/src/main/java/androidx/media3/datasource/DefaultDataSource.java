@@ -66,7 +66,7 @@ public final class DefaultDataSource implements DataSource {
 
     private final Context context;
     private final DataSource.Factory baseDataSourceFactory;
-    @Nullable private TransferListener transferListener;
+    private @Nullable TransferListener transferListener;
 
     /**
      * Creates an instance.
@@ -139,15 +139,15 @@ public final class DefaultDataSource implements DataSource {
   private final DataSource baseDataSource;
 
   // Lazily initialized.
-  @Nullable private DataSource fileDataSource;
-  @Nullable private DataSource assetDataSource;
-  @Nullable private DataSource contentDataSource;
-  @Nullable private DataSource rtmpDataSource;
-  @Nullable private DataSource udpDataSource;
-  @Nullable private DataSource dataSchemeDataSource;
-  @Nullable private DataSource rawResourceDataSource;
+  private @Nullable DataSource fileDataSource;
+  private @Nullable DataSource assetDataSource;
+  private @Nullable DataSource contentDataSource;
+  private @Nullable DataSource rtmpDataSource;
+  private @Nullable DataSource udpDataSource;
+  private @Nullable DataSource dataSchemeDataSource;
+  private @Nullable DataSource rawResourceDataSource;
 
-  @Nullable private DataSource dataSource;
+  private @Nullable DataSource dataSource;
 
   /**
    * Constructs a new instance, optionally configured to follow cross-protocol redirects.
@@ -285,8 +285,7 @@ public final class DefaultDataSource implements DataSource {
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return dataSource == null ? null : dataSource.getUri();
   }
 

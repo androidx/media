@@ -48,7 +48,7 @@ import org.jspecify.annotations.Nullable;
      *     or if the timeline doesn't change.
      */
     void onQueueSnapshotChanged(
-        QueueSnapshot snapshot, @Nullable @TimelineChangeReason Integer timelineChangeReason);
+        QueueSnapshot snapshot, @TimelineChangeReason @Nullable Integer timelineChangeReason);
   }
 
   private static final String TAG = "CastQueueOrchestrator";
@@ -61,7 +61,7 @@ import org.jspecify.annotations.Nullable;
   private final CastTimelineTracker timelineTracker;
   private final StateChangeListener onStateChangedListener;
   private final ArrayDeque<QueuedOperation> queuedOperations;
-  @Nullable private QueuedOperation activeOperation;
+  private @Nullable QueuedOperation activeOperation;
   private boolean wasQueueEnded;
   private boolean isReloadingFromQueueEnd;
 
@@ -87,8 +87,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the {@link ItemUid} for the given receiver item ID. */
-  @Nullable
-  public ItemUid getItemUid(int receiverItemId) {
+  public @Nullable ItemUid getItemUid(int receiverItemId) {
     return timelineTracker.getItemUid(receiverItemId);
   }
 

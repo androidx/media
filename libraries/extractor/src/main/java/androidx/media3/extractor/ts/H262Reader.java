@@ -50,12 +50,12 @@ public final class H262Reader implements ElementaryStreamReader {
   private static final double[] FRAME_RATE_VALUES =
       new double[] {24000d / 1001, 24, 25, 30000d / 1001, 30, 50, 60000d / 1001, 60};
 
-  @Nullable private final UserDataReader userDataReader;
+  private final @Nullable UserDataReader userDataReader;
   private final String containerMimeType;
-  @Nullable private final ParsableByteArray userDataParsable;
+  private final @Nullable ParsableByteArray userDataParsable;
 
   // State that should be reset on seek.
-  @Nullable private final NalUnitTargetBuffer userData;
+  private final @Nullable NalUnitTargetBuffer userData;
   private final boolean[] prefixFlags;
   private final CsdBuffer csdBuffer;
   private long totalBytesWritten;

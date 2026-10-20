@@ -58,7 +58,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   private long lastReportedDiscontinuityUs;
   /* package */ long startUs;
   /* package */ long endUs;
-  @Nullable private IllegalClippingException clippingError;
+  private @Nullable IllegalClippingException clippingError;
   private boolean isPeriodClippingEndPosition;
 
   /**

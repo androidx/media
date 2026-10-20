@@ -103,7 +103,7 @@ public final class MediaCodecInfo {
    * The capabilities of the decoder, like the profiles/levels it supports, or {@code null} if not
    * known.
    */
-  @Nullable public final CodecCapabilities capabilities;
+  public final @Nullable CodecCapabilities capabilities;
 
   /**
    * Whether the decoder supports seamless resolution switches.
@@ -733,8 +733,7 @@ public final class MediaCodecInfo {
    *     the {@link MediaCodec}'s width and height alignment requirements, or null if not a video
    *     codec.
    */
-  @Nullable
-  public Point alignVideoSize(int width, int height) {
+  public @Nullable Point alignVideoSize(int width, int height) {
     if (capabilities == null) {
       return null;
     }
@@ -758,8 +757,7 @@ public final class MediaCodecInfo {
    */
   @Deprecated
   @InlineMe(replacement = "this.alignVideoSize(width, height)")
-  @Nullable
-  public final Point alignVideoSizeV21(int width, int height) {
+  public final @Nullable Point alignVideoSizeV21(int width, int height) {
     return alignVideoSize(width, height);
   }
 

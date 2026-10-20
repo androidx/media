@@ -109,9 +109,9 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
     private boolean isTonemappingEnabled;
     private boolean isDeblurAndDenoiseVideoEnabled;
     private boolean isUpscaleVideoEnabled;
-    @Nullable private Looper looper;
+    private @Nullable Looper looper;
     private EnhancementSessionManager.@Nullable Client sessionManagerClient;
-    @Nullable private HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
+    private @Nullable HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
 
     /** Creates a builder with the specified context and base {@link FrameProcessor.Factory}. */
     public Builder(Context context, FrameProcessor.Factory baseFrameProcessorFactory) {
@@ -189,7 +189,7 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
     private final boolean isTonemappingEnabled;
     private final boolean isDeblurAndDenoiseVideoEnabled;
     private final boolean isUpscaleVideoEnabled;
-    @Nullable private final Looper looper;
+    private final @Nullable Looper looper;
     private final EnhancementSessionManager.Client sessionManagerClient;
     private final HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
 
@@ -241,7 +241,7 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
   private final Listener listener;
 
   private final Looper looper;
-  @Nullable private final HandlerThread handlerThread;
+  private final @Nullable HandlerThread handlerThread;
   private final Handler handler;
   private final Executor handlerExecutor;
 

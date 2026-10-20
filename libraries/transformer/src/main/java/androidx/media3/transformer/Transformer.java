@@ -128,7 +128,7 @@ public final class Transformer {
     private EditingMetricsCollector.MetricsReporter.@MonotonicNonNull Factory
         metricsReporterFactory;
 
-    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
     private FrameProcessor.@Nullable Factory frameProcessorFactory;
 
     /**
@@ -833,17 +833,17 @@ public final class Transformer {
   private final ExportOperationListener exportOperationListener;
   private final EditingMetricsCollector.MetricsReporter.@Nullable Factory metricsReporterFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
   private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private ExportOperation currentExportOperation;
+  private @Nullable ExportOperation currentExportOperation;
   private boolean exportResumed;
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Composition originalComposition;
   private @MonotonicNonNull TransformerOutput transformerOutput;
   private @MonotonicNonNull String oldFilePath;
   private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
-  @Nullable private WatchdogTimer exportWatchdogTimer;
+  private @Nullable WatchdogTimer exportWatchdogTimer;
 
   private Transformer(
       Context context,
@@ -1430,8 +1430,7 @@ public final class Transformer {
     currentExportOperation.start();
   }
 
-  @Nullable
-  private LogSessionId setUpMetricsCollection() {
+  private @Nullable LogSessionId setUpMetricsCollection() {
     LogSessionId logSessionId = null;
     if (canCollectEditingMetrics()) {
       EditingMetricsCollector.MetricsReporter metricsReporter =

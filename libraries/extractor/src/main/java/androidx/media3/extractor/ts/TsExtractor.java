@@ -179,7 +179,7 @@ public final class TsExtractor implements Extractor {
   private boolean tracksEnded;
   private boolean hasOutputSeekMap;
   private boolean pendingSeekToStart;
-  @Nullable private TsPayloadReader id3Reader;
+  private @Nullable TsPayloadReader id3Reader;
   private int bytesSinceLastSync;
   private int pcrPid;
 

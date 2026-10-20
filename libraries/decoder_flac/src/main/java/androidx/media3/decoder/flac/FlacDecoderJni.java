@@ -46,8 +46,8 @@ import org.jspecify.annotations.Nullable;
 
   private final long nativeDecoderContext;
 
-  @Nullable private ByteBuffer byteBufferData;
-  @Nullable private ExtractorInput extractorInput;
+  private @Nullable ByteBuffer byteBufferData;
+  private @Nullable ExtractorInput extractorInput;
   private byte @Nullable [] tempBuffer;
   private boolean endOfExtractorInput;
 

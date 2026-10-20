@@ -100,7 +100,7 @@ public final class ImageAssetLoader implements AssetLoader {
   private final boolean retainHdrFromUltraHdrImage;
   private final ScheduledExecutorService scheduledExecutorService;
 
-  @Nullable private SampleConsumer sampleConsumer;
+  private @Nullable SampleConsumer sampleConsumer;
   private @Transformer.ProgressState int progressState;
 
   private volatile int progress;

@@ -67,7 +67,7 @@ public class FakeFrameProcessor implements FrameProcessor {
   /** A factory for {@link FakeFrameProcessor} implementations. */
   public static class Factory implements FrameProcessor.Factory {
 
-    @Nullable public FakeFrameProcessor createdProcessor;
+    public @Nullable FakeFrameProcessor createdProcessor;
 
     private final boolean shouldCompleteIncomingFrames;
 

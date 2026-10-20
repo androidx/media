@@ -41,8 +41,8 @@ import org.jspecify.annotations.Nullable;
 
   private static final int FRAME_HEADER_SAMPLE_NUMBER_OFFSET = 4;
 
-  @Nullable private FlacStreamMetadata streamMetadata;
-  @Nullable private FlacOggSeeker flacOggSeeker;
+  private @Nullable FlacStreamMetadata streamMetadata;
+  private @Nullable FlacOggSeeker flacOggSeeker;
 
   public static boolean verifyBitstreamType(ParsableByteArray data) {
     return data.bytesLeft() >= 5

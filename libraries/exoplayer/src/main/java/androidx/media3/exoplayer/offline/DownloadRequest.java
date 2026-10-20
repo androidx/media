@@ -48,13 +48,13 @@ public final class DownloadRequest implements Parcelable {
   public static class Builder {
     private final String id;
     private final Uri uri;
-    @Nullable private String mimeType;
-    @Nullable private List<StreamKey> streamKeys;
+    private @Nullable String mimeType;
+    private @Nullable List<StreamKey> streamKeys;
     private byte @Nullable [] keySetId;
-    @Nullable private String customCacheKey;
+    private @Nullable String customCacheKey;
     private byte @Nullable [] data;
-    @Nullable private ByteRange byteRange;
-    @Nullable private TimeRange timeRange;
+    private @Nullable ByteRange byteRange;
+    private @Nullable TimeRange timeRange;
 
     /** Creates a new instance with the specified id and uri. */
     public Builder(String id, Uri uri) {
@@ -155,7 +155,7 @@ public final class DownloadRequest implements Parcelable {
    * SmoothStreaming). If null, a {@code DownloadService} will infer the content type from the
    * {@link #uri}.
    */
-  @Nullable public final String mimeType;
+  public final @Nullable String mimeType;
 
   /** Stream keys to be downloaded. If empty, all streams will be downloaded. */
   public final List<StreamKey> streamKeys;
@@ -167,16 +167,16 @@ public final class DownloadRequest implements Parcelable {
    * Custom key for cache indexing, or null. Must be null for DASH, HLS and SmoothStreaming
    * downloads.
    */
-  @Nullable public final String customCacheKey;
+  public final @Nullable String customCacheKey;
 
   /** Application defined data associated with the download. May be empty. */
   public final byte[] data;
 
   /** The byte range to be downloaded. Must be null for DASH, HLS and SmoothStreaming downloads. */
-  @Nullable public final ByteRange byteRange;
+  public final @Nullable ByteRange byteRange;
 
   /** The time range to be downloaded. Must be null progressive downloads. */
-  @Nullable public final TimeRange timeRange;
+  public final @Nullable TimeRange timeRange;
 
   /**
    * @param id See {@link #id}.

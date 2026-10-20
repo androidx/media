@@ -75,10 +75,10 @@ public final class ListenerSet<T> {
 
   private static final int MSG_ITERATION_FINISHED = 1;
 
-  @Nullable private final Clock clock;
+  private final @Nullable Clock clock;
   private final Thread thread;
-  @Nullable private final HandlerWrapper iterationFinishedHandler;
-  @Nullable private final IterationFinishedEvent<T> iterationFinishedEvent;
+  private final @Nullable HandlerWrapper iterationFinishedHandler;
+  private final @Nullable IterationFinishedEvent<T> iterationFinishedEvent;
   private final CopyOnWriteArraySet<ListenerHolder<T>> listeners;
   private final ArrayDeque<Runnable> flushingEvents;
   private final ArrayDeque<Runnable> queuedEvents;

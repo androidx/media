@@ -56,7 +56,7 @@ import org.jspecify.annotations.Nullable;
   private final BackgroundThreadStateHandler<StreamVolumeState> stateHandler;
 
   private @MonotonicNonNull AudioManager audioManager;
-  @Nullable private VolumeChangeReceiver receiver;
+  private @Nullable VolumeChangeReceiver receiver;
   private int volumeBeforeMute;
 
   /**

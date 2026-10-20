@@ -63,7 +63,7 @@ import org.jspecify.annotations.Nullable;
   private boolean isLastMediaItem;
   private boolean hasReachedAllocationTarget;
   private long totalBufferSizeBytes;
-  @Nullable private DecoderInputBuffer nextInputBuffer;
+  private @Nullable DecoderInputBuffer nextInputBuffer;
   private boolean shouldSkipInputBuffers;
 
   public EncodedSampleExporter(
@@ -95,8 +95,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public DecoderInputBuffer getInputBuffer() {
+  public @Nullable DecoderInputBuffer getInputBuffer() {
     if (nextInputBuffer == null) {
       nextInputBuffer = availableInputBuffers.poll();
       if (!hasReachedAllocationTarget) {
@@ -161,8 +160,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() {
     return pendingInputBuffers.peek();
   }
 

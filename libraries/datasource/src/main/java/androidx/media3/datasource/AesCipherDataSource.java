@@ -34,7 +34,7 @@ public final class AesCipherDataSource implements DataSource {
   private final DataSource upstream;
   private final byte[] secretKey;
 
-  @Nullable private AesFlushingCipher cipher;
+  private @Nullable AesFlushingCipher cipher;
 
   public AesCipherDataSource(byte[] secretKey, DataSource upstream) {
     this.upstream = upstream;
@@ -73,8 +73,7 @@ public final class AesCipherDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return upstream.getUri();
   }
 

@@ -47,7 +47,7 @@ public final class ByteArrayDataSource extends BaseDataSource {
 
   private final UriResolver uriResolver;
 
-  @Nullable private Uri uri;
+  private @Nullable Uri uri;
   private byte @Nullable [] data;
   private int readPosition;
   private int bytesRemaining;
@@ -109,8 +109,7 @@ public final class ByteArrayDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

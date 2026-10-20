@@ -168,19 +168,19 @@ public final class Cue {
    * The cue text, or null if this is an image cue. Note the {@link CharSequence} may be decorated
    * with styling spans.
    */
-  @Nullable public final CharSequence text;
+  public final @Nullable CharSequence text;
 
   /** The alignment of the cue text within the cue box, or null if the alignment is undefined. */
-  @Nullable public final Alignment textAlignment;
+  public final @Nullable Alignment textAlignment;
 
   /**
    * The alignment of multiple lines of text relative to the longest line, or null if the alignment
    * is undefined.
    */
-  @Nullable public final Alignment multiRowAlignment;
+  public final @Nullable Alignment multiRowAlignment;
 
   /** The cue image, or null if this is a text cue. */
-  @Nullable public final Bitmap bitmap;
+  public final @Nullable Bitmap bitmap;
 
   /**
    * The position of the cue box within the viewport in the direction orthogonal to the writing
@@ -427,10 +427,10 @@ public final class Cue {
   /** A builder for {@link Cue} objects. */
   @UnstableApi
   public static final class Builder {
-    @Nullable private CharSequence text;
-    @Nullable private Bitmap bitmap;
-    @Nullable private Alignment textAlignment;
-    @Nullable private Alignment multiRowAlignment;
+    private @Nullable CharSequence text;
+    private @Nullable Bitmap bitmap;
+    private @Nullable Alignment textAlignment;
+    private @Nullable Alignment multiRowAlignment;
     private float line;
     private @LineType int lineType;
     private @AnchorType int lineAnchor;
@@ -508,8 +508,7 @@ public final class Cue {
      * @see Cue#text
      */
     @Pure
-    @Nullable
-    public CharSequence getText() {
+    public @Nullable CharSequence getText() {
       return text;
     }
 
@@ -533,8 +532,7 @@ public final class Cue {
      * @see Cue#bitmap
      */
     @Pure
-    @Nullable
-    public Bitmap getBitmap() {
+    public @Nullable Bitmap getBitmap() {
       return bitmap;
     }
 
@@ -557,8 +555,7 @@ public final class Cue {
      * @see Cue#textAlignment
      */
     @Pure
-    @Nullable
-    public Alignment getTextAlignment() {
+    public @Nullable Alignment getTextAlignment() {
       return textAlignment;
     }
 

@@ -266,9 +266,8 @@ public class ForceEndOfStreamTest {
         return wrappedDecoder.getInputFormat();
       }
 
-      @Nullable
       @Override
-      public Format getOutputFormat() throws ExportException {
+      public @Nullable Format getOutputFormat() throws ExportException {
         return wrappedDecoder.getOutputFormat();
       }
 

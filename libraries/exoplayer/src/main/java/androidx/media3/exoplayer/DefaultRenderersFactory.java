@@ -848,8 +848,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     no audio renderers are required. If {@code null} is returned then {@link
    *     #buildAudioRenderers} will not be called.
    */
-  @Nullable
-  protected AudioSink buildAudioSink(
+  protected @Nullable AudioSink buildAudioSink(
       Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
     return new DefaultAudioSink.Builder(context)
         .setEnableFloatOutput(enableFloatOutput)
@@ -858,8 +857,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   @Override
-  @Nullable
-  public Renderer createSecondaryRenderer(
+  public @Nullable Renderer createSecondaryRenderer(
       Renderer renderer,
       Handler eventHandler,
       VideoRendererEventListener videoRendererEventListener,
@@ -902,8 +900,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     seamlessly join an ongoing playback, in milliseconds.
    * @return The created secondary {@link Renderer renderer instance}.
    */
-  @Nullable
-  protected Renderer buildSecondaryVideoRenderer(
+  protected @Nullable Renderer buildSecondaryVideoRenderer(
       Renderer renderer,
       Context context,
       @ExtensionRendererMode int extensionRendererMode,

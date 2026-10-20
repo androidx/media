@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class TextInformationFrame extends Id3Frame {
 
-  @Nullable public final String description;
+  public final @Nullable String description;
 
   /**
    * @deprecated Use the first element of {@link #values} instead.

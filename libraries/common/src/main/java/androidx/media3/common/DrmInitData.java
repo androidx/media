@@ -56,8 +56,7 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
    * @param mediaData DRM session acquisition data obtained from the media.
    * @return A {@link DrmInitData} obtained from merging a media manifest and a media stream.
    */
-  @Nullable
-  public static DrmInitData createSessionCreationData(
+  public static @Nullable DrmInitData createSessionCreationData(
       @Nullable DrmInitData manifestData, @Nullable DrmInitData mediaData) {
     ArrayList<SchemeData> result = new ArrayList<>();
     String schemeType = null;
@@ -91,7 +90,7 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
   private int hashCode;
 
   /** The protection scheme type, or null if not applicable or unknown. */
-  @Nullable public final String schemeType;
+  public final @Nullable String schemeType;
 
   /** Number of {@link SchemeData}s. */
   public final int schemeDataCount;
@@ -270,7 +269,7 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
     public final UUID uuid;
 
     /** The URL of the server to which license requests should be made. May be null if unknown. */
-    @Nullable public final String licenseServerUrl;
+    public final @Nullable String licenseServerUrl;
 
     /** The mimeType of {@link #data}. */
     public final String mimeType;

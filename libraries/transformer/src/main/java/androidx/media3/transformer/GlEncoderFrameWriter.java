@@ -101,15 +101,15 @@ import org.jspecify.annotations.Nullable;
   private final GlObjectsProvider glObjectsProvider;
   private final AtomicBoolean isClosed;
   private final FrameRenderer frameRenderer;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private EGLDisplay eglDisplay;
   private EGLContext eglContext;
   private EGLSurface placeholderSurface;
   private EGLSurface outputEglSurface;
   private @MonotonicNonNull Format configurationFormat;
-  @Nullable private DefaultShaderProgram defaultShaderProgram;
-  @Nullable private Codec encoder;
+  private @Nullable DefaultShaderProgram defaultShaderProgram;
+  private @Nullable Codec encoder;
   private boolean isRgba8888Shader;
 
   /**
@@ -181,9 +181,8 @@ import org.jspecify.annotations.Nullable;
         /* onSuccessListener= */ null);
   }
 
-  @Nullable
   @Override
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     checkState(configurationFormat != null);
     if (isClosed.get()) {
       return null;
@@ -436,9 +435,8 @@ import org.jspecify.annotations.Nullable;
       this.usage = usage;
     }
 
-    @Nullable
     @Override
-    public AsyncFrame dequeueInputFrame(Runnable wakeupListener) {
+    public @Nullable AsyncFrame dequeueInputFrame(Runnable wakeupListener) {
       Format format = checkNotNull(configurationFormat);
       HardwareBufferPool.@Nullable HardwareBufferWithFence bufferWithFence =
           hardwareBufferPool.get(format, usage, wakeupListener);

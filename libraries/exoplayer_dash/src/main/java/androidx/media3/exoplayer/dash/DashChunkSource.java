@@ -159,8 +159,7 @@ public interface DashChunkSource extends ChunkSource {
    * @return The selected {@link BaseUrl} of this {@link DashChunkSource}. Can be {@code null} if
    *     unknown or if no {@link BaseUrl} has been selected.
    */
-  @Nullable
-  default BaseUrl getSelectedBaseUrl() {
+  default @Nullable BaseUrl getSelectedBaseUrl() {
     return null;
   }
 }

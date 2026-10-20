@@ -44,7 +44,7 @@ public final class BaseUrlExclusionList {
   private final Map<List<Pair<String, Integer>>, BaseUrl> selectionsTaken = new HashMap<>();
   private final Random random;
 
-  @Nullable private ImmutableList<String> serviceLocationSteeringPriority;
+  private @Nullable ImmutableList<String> serviceLocationSteeringPriority;
 
   /** Creates an instance. */
   public BaseUrlExclusionList() {
@@ -84,8 +84,7 @@ public final class BaseUrlExclusionList {
    * @param baseUrls The list of {@link BaseUrl base URLs} to select from.
    * @return The selected base URL after exclusion or null if all elements have been excluded.
    */
-  @Nullable
-  public BaseUrl selectBaseUrl(List<BaseUrl> baseUrls) {
+  public @Nullable BaseUrl selectBaseUrl(List<BaseUrl> baseUrls) {
     List<BaseUrl> includedBaseUrls = applyExclusions(baseUrls);
     if (includedBaseUrls.size() < 2) {
       return Iterables.getFirst(includedBaseUrls, /* defaultValue= */ null);

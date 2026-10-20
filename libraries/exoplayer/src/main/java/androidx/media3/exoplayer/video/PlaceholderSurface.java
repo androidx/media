@@ -143,9 +143,9 @@ public final class PlaceholderSurface extends Surface {
 
     private @MonotonicNonNull EGLSurfaceTexture eglSurfaceTexture;
     private @MonotonicNonNull Handler handler;
-    @Nullable private Error initError;
-    @Nullable private RuntimeException initException;
-    @Nullable private PlaceholderSurface surface;
+    private @Nullable Error initError;
+    private @Nullable RuntimeException initException;
+    private @Nullable PlaceholderSurface surface;
 
     public PlaceholderSurfaceThread() {
       super("ExoPlayer:PlaceholderSurface");

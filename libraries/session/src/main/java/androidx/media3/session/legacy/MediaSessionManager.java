@@ -44,7 +44,7 @@ public final class MediaSessionManager {
   static final String TAG = "MediaSessionManager";
 
   private static final Object lock = new Object();
-  @Nullable private static volatile MediaSessionManager sessionManager;
+  private static volatile @Nullable MediaSessionManager sessionManager;
 
   MediaSessionManagerImpl impl;
 

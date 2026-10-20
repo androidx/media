@@ -59,7 +59,7 @@ public final class Ac3Reader implements ElementaryStreamReader {
 
   private final ParsableBitArray headerScratchBits;
   private final ParsableByteArray headerScratchBytes;
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
 

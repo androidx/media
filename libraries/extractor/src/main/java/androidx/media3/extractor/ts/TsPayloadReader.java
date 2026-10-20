@@ -106,7 +106,7 @@ public interface TsPayloadReader {
     }
 
     public final int streamType;
-    @Nullable public final String language;
+    public final @Nullable String language;
     public final @AudioType int audioType;
     public final List<DvbSubtitleInfo> dvbSubtitleInfos;
     public final byte[] descriptorBytes;

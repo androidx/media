@@ -133,7 +133,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     public final ImmutableList<Asset> assets;
 
     /** The skip control information, or {@code null} if not specified. */
-    @Nullable public final SkipInfo skipInfo;
+    public final @Nullable SkipInfo skipInfo;
 
     /** Creates an instance. */
     /* package */ AssetList(ImmutableList<Asset> assets, @Nullable SkipInfo skipInfo) {
@@ -561,10 +561,10 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   private final List<Listener> listeners;
   private final Handler handler;
 
-  @Nullable private ExoPlayer player;
-  @Nullable private Loader loader;
+  private @Nullable ExoPlayer player;
+  private @Nullable Loader loader;
   private boolean isReleased;
-  @Nullable private PlayerMessage pendingAssetListResolutionMessage;
+  private @Nullable PlayerMessage pendingAssetListResolutionMessage;
 
   /**
    * Creates an instance with a {@link DefaultDataSource.Factory} to read HLS X-ASSET-LIST JSON
@@ -1119,8 +1119,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
   }
 
-  @Nullable
-  private AdPlaybackState getAdPlaybackState() {
+  private @Nullable AdPlaybackState getAdPlaybackState() {
     if (player == null) {
       return null;
     }
@@ -1444,8 +1443,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
   }
 
-  @Nullable
-  private RunnableAtPosition getNextAssetResolution(Object adsId, long periodPositionUs) {
+  private @Nullable RunnableAtPosition getNextAssetResolution(Object adsId, long periodPositionUs) {
     HlsAdSession session = adsMediaSourceSessionManager.getSession(adsId);
     if (session == null) {
       return null;
@@ -1954,7 +1952,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   }
 
   @VisibleForTesting
-  @Nullable /* package */ Interstitial getAssetListInterstitial(Object adsId, String id) {
+  /* package */ @Nullable Interstitial getAssetListInterstitial(Object adsId, String id) {
     HlsAdSession session = adsMediaSourceSessionManager.getSession(adsId);
     HlsMediaPlaylist lastProcessedPlaylist = session != null ? session.lastProcessedPlaylist : null;
     if (lastProcessedPlaylist == null) {
@@ -1964,8 +1962,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     return interstitial != null && interstitial.assetListUri != null ? interstitial : null;
   }
 
-  @Nullable
-  private static Interstitial getInterstitialById(
+  private static @Nullable Interstitial getInterstitialById(
       HlsMediaPlaylist mediaPlaylist, String interstitialId) {
     for (int i = 0; i < mediaPlaylist.interstitials.size(); i++) {
       Interstitial interstitial = mediaPlaylist.interstitials.get(i);
@@ -2204,11 +2201,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     private final Object adsId;
     private final Set<String> insertedInterstitialIds;
     private final MediaItem contentMediaItem;
-    @Nullable private final EventListener eventListener;
+    private final @Nullable EventListener eventListener;
     private final Map<String, long[]> assetListDurations = new HashMap<>();
 
     private AdPlaybackState adPlaybackState;
-    @Nullable private HlsMediaPlaylist lastProcessedPlaylist;
+    private @Nullable HlsMediaPlaylist lastProcessedPlaylist;
     private boolean awaitingFirstAdToStart;
 
     /* package */ HlsAdSession(
@@ -2223,7 +2220,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       awaitingFirstAdToStart = true;
     }
 
-    @Nullable /* package */ AssetListData getNextUnresolvedAssetListData(long periodPositionUs) {
+    /* package */ @Nullable AssetListData getNextUnresolvedAssetListData(long periodPositionUs) {
       Map.Entry<Long, AssetListData> entry = unresolvedAssetLists.ceilingEntry(periodPositionUs);
       return entry != null ? entry.getValue() : null;
     }
@@ -2249,7 +2246,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
 
     @CanIgnoreReturnValue
-    @Nullable /* package */ AssetListData removeUnresolvedAssetList(long adGroupTimeUs) {
+    /* package */ @Nullable AssetListData removeUnresolvedAssetList(long adGroupTimeUs) {
       long adGroupInsertionTimeUs =
           adGroupTimeUs == C.TIME_END_OF_SOURCE ? Long.MAX_VALUE : adGroupTimeUs;
       return unresolvedAssetLists.remove(adGroupInsertionTimeUs);
@@ -2353,8 +2350,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       unsupportedAdsIds = new HashSet<>();
     }
 
-    @Nullable
-    public HlsAdSession getSession(Object adsId) {
+    public @Nullable HlsAdSession getSession(Object adsId) {
       return activeSessions.get(adsId);
     }
 
@@ -2400,8 +2396,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * @return The {@link AdPlaybackState} for the given ads ID.
      */
     @CanIgnoreReturnValue
-    @Nullable
-    public AdPlaybackState stopContentSource(Object adsId) {
+    public @Nullable AdPlaybackState stopContentSource(Object adsId) {
       HlsAdSession session = activeSessions.remove(adsId);
       unsupportedAdsIds.remove(adsId);
       return session != null ? session.adPlaybackState : null;

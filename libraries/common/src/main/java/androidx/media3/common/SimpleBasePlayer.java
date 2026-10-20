@@ -108,7 +108,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
       private @Player.State int playbackState;
       private @PlaybackSuppressionReason int playbackSuppressionReason;
-      @Nullable private PlaybackException playerError;
+      private @Nullable PlaybackException playerError;
       private @RepeatMode int repeatMode;
       private boolean shuffleModeEnabled;
       private boolean isLoading;
@@ -129,17 +129,17 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private Size surfaceSize;
       private boolean newlyRenderedFirstFrame;
       private Metadata timedMetadata;
-      @Nullable private ImmutableList<MediaItemData> playlist;
+      private @Nullable ImmutableList<MediaItemData> playlist;
       private Timeline timeline;
-      @Nullable private Tracks currentTracks;
-      @Nullable private MediaMetadata currentMetadata;
+      private @Nullable Tracks currentTracks;
+      private @Nullable MediaMetadata currentMetadata;
       private MediaMetadata playlistMetadata;
       private int currentMediaItemIndex;
       private int currentAdGroupIndex;
       private int currentAdIndexInAdGroup;
-      @Nullable private Long contentPositionMs;
+      private @Nullable Long contentPositionMs;
       private PositionSupplier contentPositionMsSupplier;
-      @Nullable private Long adPositionMs;
+      private @Nullable Long adPositionMs;
       private PositionSupplier adPositionMsSupplier;
       private PositionSupplier contentBufferedPositionMsSupplier;
       private PositionSupplier adBufferedPositionMsSupplier;
@@ -861,7 +861,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     public final @PlaybackSuppressionReason int playbackSuppressionReason;
 
     /** The last error that caused playback to fail, or null if there was no error. */
-    @Nullable public final PlaybackException playerError;
+    public final @Nullable PlaybackException playerError;
 
     /** The {@link RepeatMode} used for playback. */
     public final @RepeatMode int repeatMode;
@@ -1382,8 +1382,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private Object uid;
       private Tracks tracks;
       private MediaItem mediaItem;
-      @Nullable private MediaMetadata mediaMetadata;
-      @Nullable private Object manifest;
+      private @Nullable MediaMetadata mediaMetadata;
+      private @Nullable Object manifest;
       private MediaItem.@Nullable LiveConfiguration liveConfiguration;
       private long presentationStartTimeMs;
       private long windowStartTimeMs;
@@ -1709,10 +1709,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      * of the {@link MediaItem#mediaMetadata MediaItem} metadata and the metadata of the selected
      * {@link Format#metadata Formats}.
      */
-    @Nullable public final MediaMetadata mediaMetadata;
+    public final @Nullable MediaMetadata mediaMetadata;
 
     /** The manifest of the media item, or null if not applicable. */
-    @Nullable public final Object manifest;
+    public final @Nullable Object manifest;
 
     /** The active {@link MediaItem.LiveConfiguration}, or null if the media item is not live. */
     public final MediaItem.@Nullable LiveConfiguration liveConfiguration;
@@ -2521,9 +2521,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     return state.playbackSuppressionReason;
   }
 
-  @Nullable
   @Override
-  public final PlaybackException getPlayerError() {
+  public final @Nullable PlaybackException getPlayerError() {
     verifyApplicationThreadAndInitState();
     return state.playerError;
   }

@@ -61,8 +61,8 @@ public final class FakeTimeline extends Timeline {
       private long defaultPositionUs;
       private long windowStartTimeUs;
       private long windowPositionInFirstPeriodUs;
-      @Nullable private List<AdPlaybackState> adPlaybackStates;
-      @Nullable private MediaItem mediaItem;
+      private @Nullable List<AdPlaybackState> adPlaybackStates;
+      private @Nullable MediaItem mediaItem;
 
       /** Create a new instance. */
       public Builder() {

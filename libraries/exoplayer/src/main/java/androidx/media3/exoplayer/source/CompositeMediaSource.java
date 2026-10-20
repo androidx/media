@@ -42,7 +42,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
 
   private final HashMap<T, MediaSourceAndListener<T>> childSources;
 
-  @Nullable private Handler eventHandler;
+  private @Nullable Handler eventHandler;
 
   /** Creates composite media source without child sources. */
   protected CompositeMediaSource() {
@@ -180,8 +180,7 @@ public abstract class CompositeMediaSource<T extends @Nullable Object> extends B
    * @return The corresponding {@link MediaPeriodId} in the composite source. Null if no
    *     corresponding media period id can be determined.
    */
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       T childSourceId, MediaPeriodId mediaPeriodId) {
     return mediaPeriodId;
   }

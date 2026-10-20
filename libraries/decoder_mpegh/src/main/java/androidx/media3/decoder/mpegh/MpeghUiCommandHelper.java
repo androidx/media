@@ -69,9 +69,9 @@ public final class MpeghUiCommandHelper {
   private final List<String> commands;
   private final Map<Integer, String> systemCommands;
 
-  @Nullable private Set<String> subscribedCodecParameterKeys;
+  private @Nullable Set<String> subscribedCodecParameterKeys;
   private AudioRendererEventListener.@Nullable EventDispatcher eventDispatcher;
-  @Nullable private ByteBuffer persistenceStorage;
+  private @Nullable ByteBuffer persistenceStorage;
   private boolean forceUiUpdate;
 
   /** Creates a new instance. */
@@ -160,8 +160,7 @@ public final class MpeghUiCommandHelper {
    *
    * @return The {@link Set} of subscribed codec parameter keys, or {@code null} if not set.
    */
-  @Nullable
-  public Set<String> getSubscribedCodecParameterKeys() {
+  public @Nullable Set<String> getSubscribedCodecParameterKeys() {
     synchronized (lock) {
       return subscribedCodecParameterKeys == null
           ? null
@@ -213,8 +212,7 @@ public final class MpeghUiCommandHelper {
    *
    * @return The {@link ByteBuffer} containing the persistence data, or {@code null} if not set.
    */
-  @Nullable
-  public ByteBuffer getPersistenceStorage() {
+  public @Nullable ByteBuffer getPersistenceStorage() {
     synchronized (lock) {
       return persistenceStorage;
     }

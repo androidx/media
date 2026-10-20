@@ -295,8 +295,7 @@ public class DefaultDashChunkSourceTest {
     DefaultLoadErrorHandlingPolicy loadErrorHandlingPolicy =
         new DefaultLoadErrorHandlingPolicy() {
           @Override
-          @Nullable
-          public FallbackSelection getFallbackSelectionFor(
+          public @Nullable FallbackSelection getFallbackSelectionFor(
               FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo) {
             // Never exclude, neither tracks nor locations.
             return null;

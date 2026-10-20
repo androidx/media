@@ -45,8 +45,8 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   /** Builds {@link IamfAudioRenderer} instances. */
   public static final class Builder {
     private final AudioSink audioSink;
-    @Nullable private Handler eventHandler;
-    @Nullable private AudioRendererEventListener eventListener;
+    private @Nullable Handler eventHandler;
+    private @Nullable AudioRendererEventListener eventListener;
     private @IamfUtil.OutputLayout int requestedOutputLayout;
     private Long requestedMixPresentationId;
     private @IamfDecoder.OutputSampleType int outputSampleType;

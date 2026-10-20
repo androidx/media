@@ -35,7 +35,7 @@ import org.jspecify.annotations.Nullable;
 public abstract class CanvasOverlay extends BitmapOverlay {
   private final boolean useInputFrameSize;
 
-  @Nullable private Bitmap lastBitmap;
+  private @Nullable Bitmap lastBitmap;
   private @MonotonicNonNull Canvas lastCanvas;
   private volatile int width;
   private volatile int height;

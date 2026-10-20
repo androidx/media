@@ -699,29 +699,25 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
-  @Nullable
-  public Format getVideoFormat() {
+  public @Nullable Format getVideoFormat() {
     blockUntilConstructorFinished();
     return player.getVideoFormat();
   }
 
   @Override
-  @Nullable
-  public Format getAudioFormat() {
+  public @Nullable Format getAudioFormat() {
     blockUntilConstructorFinished();
     return player.getAudioFormat();
   }
 
   @Override
-  @Nullable
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     blockUntilConstructorFinished();
     return player.getVideoDecoderCounters();
   }
 
   @Override
-  @Nullable
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     blockUntilConstructorFinished();
     return player.getAudioDecoderCounters();
   }
@@ -815,8 +811,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
-  @Nullable
-  public ExoPlaybackException getPlayerError() {
+  public @Nullable ExoPlaybackException getPlayerError() {
     blockUntilConstructorFinished();
     return player.getPlayerError();
   }
@@ -1149,8 +1144,7 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
-  @Nullable
-  public Renderer getSecondaryRenderer(int index) {
+  public @Nullable Renderer getSecondaryRenderer(int index) {
     blockUntilConstructorFinished();
     return player.getSecondaryRenderer(index);
   }

@@ -51,12 +51,10 @@ import org.jspecify.annotations.Nullable;
   private final ArrayDeque<MediaFormat> formats;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaFormat currentFormat;
+  private @Nullable MediaFormat currentFormat;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaFormat pendingOutputFormat;
+  private @Nullable MediaFormat pendingOutputFormat;
 
   @GuardedBy("lock")
   private MediaCodec.@Nullable CodecException mediaCodecException;
@@ -71,8 +69,7 @@ import org.jspecify.annotations.Nullable;
   private boolean shutDown;
 
   @GuardedBy("lock")
-  @Nullable
-  private IllegalStateException internalException;
+  private @Nullable IllegalStateException internalException;
 
   @GuardedBy("lock")
   private MediaCodecAdapter.@Nullable OnBufferAvailableListener onBufferAvailableListener;

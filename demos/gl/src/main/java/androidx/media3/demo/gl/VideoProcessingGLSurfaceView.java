@@ -77,9 +77,9 @@ public final class VideoProcessingGLSurfaceView extends GLSurfaceView {
   private final VideoRenderer renderer;
   private final Handler mainHandler;
 
-  @Nullable private SurfaceTexture surfaceTexture;
-  @Nullable private Surface surface;
-  @Nullable private ExoPlayer player;
+  private @Nullable SurfaceTexture surfaceTexture;
+  private @Nullable Surface surface;
+  private @Nullable ExoPlayer player;
 
   /**
    * Creates a new instance. Pass {@code true} for {@code requireSecureContext} if the {@link
@@ -222,7 +222,7 @@ public final class VideoProcessingGLSurfaceView extends GLSurfaceView {
     private final float[] transformMatrix;
 
     private int texture;
-    @Nullable private SurfaceTexture surfaceTexture;
+    private @Nullable SurfaceTexture surfaceTexture;
 
     private boolean initialized;
     private int width;

@@ -246,8 +246,7 @@ import org.jspecify.annotations.Nullable;
     return date;
   }
 
-  @Nullable
-  private static Object readAmfData(ParsableByteArray data, int type) {
+  private static @Nullable Object readAmfData(ParsableByteArray data, int type) {
     switch (type) {
       case AMF_TYPE_NUMBER:
         return readAmfDouble(data);

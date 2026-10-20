@@ -43,8 +43,7 @@ public interface BitmapLoader {
    * MediaMetadata#artworkUri} if it is present. The method will return null if neither {@link
    * MediaMetadata#artworkData} nor {@link MediaMetadata#artworkUri} is present.
    */
-  @Nullable
-  default ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+  default @Nullable ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
     @Nullable ListenableFuture<Bitmap> future;
     if (metadata.artworkData != null) {
       future = decodeBitmap(metadata.artworkData);

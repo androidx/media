@@ -159,7 +159,7 @@ public final class SessionResult {
   public final long completionTimeMs;
 
   /** The optional session error. */
-  @UnstableApi @Nullable public final SessionError sessionError;
+  @UnstableApi public final @Nullable SessionError sessionError;
 
   /**
    * Creates an instance with a result code.

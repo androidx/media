@@ -82,8 +82,7 @@ public final class RangedUri {
    * @param baseUri The base Uri.
    * @return The merged {@link RangedUri} if the merge was successful. Null otherwise.
    */
-  @Nullable
-  public RangedUri attemptMerge(@Nullable RangedUri other, String baseUri) {
+  public @Nullable RangedUri attemptMerge(@Nullable RangedUri other, String baseUri) {
     final String resolvedUri = resolveUriString(baseUri);
     if (other == null || !resolvedUri.equals(other.resolveUriString(baseUri))) {
       return null;

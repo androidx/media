@@ -174,14 +174,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected Format getMuxerInputFormat() throws ExportException {
+  protected @Nullable Format getMuxerInputFormat() throws ExportException {
     return encoderWrapper.getOutputFormat();
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
     encoderOutputBuffer.data = encoderWrapper.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;

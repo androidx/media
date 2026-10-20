@@ -67,7 +67,6 @@ public interface ImageDecoder
    * @return The output buffer, or {@code null} if an output buffer isn't available.
    * @throws ImageDecoderException If a decoder error has occurred.
    */
-  @Nullable
   @Override
-  ImageOutputBuffer dequeueOutputBuffer() throws ImageDecoderException;
+  @Nullable ImageOutputBuffer dequeueOutputBuffer() throws ImageDecoderException;
 }

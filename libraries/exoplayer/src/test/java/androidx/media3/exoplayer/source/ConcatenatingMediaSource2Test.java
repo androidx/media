@@ -1069,7 +1069,7 @@ public final class ConcatenatingMediaSource2Test {
     public final boolean[] periodIsPlaceholder;
     public final long windowDurationMs;
     public final AdPlaybackState[] adPlaybackState;
-    @Nullable public final Object manifest;
+    public final @Nullable Object manifest;
 
     public ExpectedTimelineData(
         boolean isSeekable,

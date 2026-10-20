@@ -132,11 +132,11 @@ import org.jspecify.annotations.Nullable;
   private final Handler fallbackPlaybackInfoUpdateHandler;
   private final boolean allowDeviceVolumeCommandsForLocalPlayback;
 
-  @Nullable private SessionToken connectedToken;
-  @Nullable private SessionServiceConnection serviceConnection;
+  private @Nullable SessionToken connectedToken;
+  private @Nullable SessionServiceConnection serviceConnection;
   private boolean released;
   private PlayerInfo playerInfo;
-  @Nullable private PendingIntent sessionActivity;
+  private @Nullable PendingIntent sessionActivity;
   private ImmutableList<CommandButton> customLayoutOriginal;
   private ImmutableList<CommandButton> mediaButtonPreferencesOriginal;
   private ImmutableList<CommandButton> resolvedMediaButtonPreferences;
@@ -146,15 +146,15 @@ import org.jspecify.annotations.Nullable;
   private Commands playerCommandsFromSession;
   private Commands playerCommandsFromPlayer;
   private Commands intersectedPlayerCommands;
-  @Nullable private Surface videoSurface;
-  @Nullable private SurfaceHolder videoSurfaceHolder;
-  @Nullable private TextureView videoTextureView;
+  private @Nullable Surface videoSurface;
+  private @Nullable SurfaceHolder videoSurfaceHolder;
+  private @Nullable TextureView videoTextureView;
   private Size surfaceSize;
-  @Nullable private IMediaSession iSession;
+  private @Nullable IMediaSession iSession;
   private android.media.session.@Nullable MediaController platformController;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
-  @Nullable private PlayerInfo pendingPlayerInfo;
+  private @Nullable PlayerInfo pendingPlayerInfo;
   private Bundle sessionExtras;
 
   public MediaControllerImplBase(
@@ -323,8 +323,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public SessionToken getConnectedToken() {
+  public @Nullable SessionToken getConnectedToken() {
     return connectedToken;
   }
 
@@ -596,8 +595,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return playerInfo.playerError;
   }
 
@@ -1089,9 +1087,8 @@ import org.jspecify.annotations.Nullable;
     PlayerInfo newPlayerInfo =
         maskPlayerInfoForAddedItems(
             playerInfo, index, mediaItems, getCurrentPosition(), getContentPosition());
-    @Nullable
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason =
+    @Nullable Integer mediaItemTransitionReason =
         playerInfo.timeline.isEmpty() ? Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED : null;
     updatePlayerInfo(
         newPlayerInfo,
@@ -2179,8 +2176,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public MediaBrowserCompat getBrowserCompat() {
+  public @Nullable MediaBrowserCompat getBrowserCompat() {
     return null;
   }
 
@@ -2488,10 +2484,10 @@ import org.jspecify.annotations.Nullable;
 
   private void updatePlayerInfo(
       PlayerInfo newPlayerInfo,
-      @Nullable @Player.TimelineChangeReason Integer timelineChangeReason,
-      @Nullable @Player.PlayWhenReadyChangeReason Integer playWhenReadyChangeReason,
-      @Nullable @Player.DiscontinuityReason Integer positionDiscontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.TimelineChangeReason @Nullable Integer timelineChangeReason,
+      @Player.PlayWhenReadyChangeReason @Nullable Integer playWhenReadyChangeReason,
+      @Player.DiscontinuityReason @Nullable Integer positionDiscontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
     // Assign player info immediately such that all getters return the right values, but keep
     // snapshot of previous and new states so that listener invocations are triggered correctly.
     PlayerInfo oldPlayerInfo = this.playerInfo;
@@ -2510,10 +2506,10 @@ import org.jspecify.annotations.Nullable;
   private void notifyPlayerInfoListenersWithReasons(
       PlayerInfo oldPlayerInfo,
       PlayerInfo newPlayerInfo,
-      @Nullable @Player.TimelineChangeReason Integer timelineChangeReason,
-      @Nullable @Player.PlayWhenReadyChangeReason Integer playWhenReadyChangeReason,
-      @Nullable @Player.DiscontinuityReason Integer positionDiscontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.TimelineChangeReason @Nullable Integer timelineChangeReason,
+      @Player.PlayWhenReadyChangeReason @Nullable Integer playWhenReadyChangeReason,
+      @Player.DiscontinuityReason @Nullable Integer positionDiscontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
 
     if (timelineChangeReason != null) {
       listeners.queueEvent(
@@ -2975,9 +2971,8 @@ import org.jspecify.annotations.Nullable;
     boolean seekOrNonEmptyTimeline =
         finalPlayerInfo.discontinuityReason == DISCONTINUITY_REASON_SEEK
             || (!oldPlayerInfo.timeline.isEmpty() && !finalPlayerInfo.timeline.isEmpty());
-    @Nullable
     @Player.DiscontinuityReason
-    Integer positionDiscontinuityReason =
+    @Nullable Integer positionDiscontinuityReason =
         (seekOrNonEmptyTimeline
                 && (!oldPlayerInfo.oldPositionInfo.equals(finalPlayerInfo.oldPositionInfo)
                     || !oldPlayerInfo.newPositionInfo.equals(finalPlayerInfo.newPositionInfo)))
@@ -2986,9 +2981,8 @@ import org.jspecify.annotations.Nullable;
 
     boolean areMediaItemsEqual =
         Objects.equals(oldPlayerInfo.getCurrentMediaItem(), finalPlayerInfo.getCurrentMediaItem());
-    @Nullable
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason =
+    @Nullable Integer mediaItemTransitionReason =
         !areMediaItemsEqual ? finalPlayerInfo.mediaItemTransitionReason : null;
     if (areMediaItemsEqual
         && positionDiscontinuityReason != null
@@ -3008,16 +3002,14 @@ import org.jspecify.annotations.Nullable;
       }
     }
 
-    @Nullable
     @Player.TimelineChangeReason
-    Integer timelineChangeReason =
+    @Nullable Integer timelineChangeReason =
         !oldPlayerInfo.timeline.equals(finalPlayerInfo.timeline)
             ? finalPlayerInfo.timelineChangeReason
             : null;
 
-    @Nullable
     @Player.PlayWhenReadyChangeReason
-    Integer playWhenReadyChangeReason =
+    @Nullable Integer playWhenReadyChangeReason =
         oldPlayerInfo.playWhenReadyChangeReason != finalPlayerInfo.playWhenReadyChangeReason
                 || oldPlayerInfo.playWhenReady != finalPlayerInfo.playWhenReady
             ? finalPlayerInfo.playWhenReadyChangeReason
@@ -3440,8 +3432,8 @@ import org.jspecify.annotations.Nullable;
     return playerInfo;
   }
 
-  @Nullable
-  private PeriodInfo getPeriodInfo(Timeline timeline, int windowIndex, long windowPositionMs) {
+  private @Nullable PeriodInfo getPeriodInfo(
+      Timeline timeline, int windowIndex, long windowPositionMs) {
     if (timeline.isEmpty()) {
       return null;
     }
@@ -3456,8 +3448,7 @@ import org.jspecify.annotations.Nullable;
     return getPeriodInfo(timeline, window, period, windowIndex, Util.msToUs(windowPositionMs));
   }
 
-  @Nullable
-  private static PeriodInfo getPeriodInfo(
+  private static @Nullable PeriodInfo getPeriodInfo(
       Timeline timeline, Window window, Period period, int windowIndex, long windowPositionUs) {
     checkElementIndex(windowIndex, timeline.getWindowCount());
     timeline.getWindow(windowIndex, window);

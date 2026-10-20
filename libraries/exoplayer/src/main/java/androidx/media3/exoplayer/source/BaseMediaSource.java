@@ -45,10 +45,10 @@ public abstract class BaseMediaSource implements MediaSource {
   private final MediaSourceEventListener.EventDispatcher eventDispatcher;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
 
-  @Nullable private Looper looper;
-  @Nullable private Timeline timeline;
-  @Nullable private PlayerId playerId;
-  @Nullable private BandwidthMeter bandwidthMeter;
+  private @Nullable Looper looper;
+  private @Nullable Timeline timeline;
+  private @Nullable PlayerId playerId;
+  private @Nullable BandwidthMeter bandwidthMeter;
 
   public BaseMediaSource() {
     mediaSourceCallers = new ArrayList<>(/* initialCapacity= */ 1);

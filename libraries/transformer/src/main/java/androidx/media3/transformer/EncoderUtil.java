@@ -275,8 +275,7 @@ public final class EncoderUtil {
    * @param height The original height.
    * @return A {@linkplain Size supported resolution}, or {@code null} if unable to find a fallback.
    */
-  @Nullable
-  public static Size getSupportedResolution(
+  public static @Nullable Size getSupportedResolution(
       MediaCodecInfo encoderInfo, String mimeType, int width, int height) {
     MediaCodecInfo.VideoCapabilities videoCapabilities =
         checkNotNull(encoderInfo.getCapabilitiesForType(mimeType).getVideoCapabilities());

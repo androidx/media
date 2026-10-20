@@ -39,7 +39,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   private @MonotonicNonNull RendererConfiguration configuration;
   private int index;
   private int state;
-  @Nullable private SampleStream stream;
+  private @Nullable SampleStream stream;
   private boolean streamIsFinal;
 
   @Override
@@ -58,8 +58,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   }
 
   @Override
-  @Nullable
-  public MediaClock getMediaClock() {
+  public @Nullable MediaClock getMediaClock() {
     return null;
   }
 
@@ -109,8 +108,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   }
 
   @Override
-  @Nullable
-  public final SampleStream getStream() {
+  public final @Nullable SampleStream getStream() {
     return stream;
   }
 
@@ -290,8 +288,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
    * Returns the configuration set when the renderer was most recently enabled, or {@code null} if
    * the renderer has never been enabled.
    */
-  @Nullable
-  protected final RendererConfiguration getConfiguration() {
+  protected final @Nullable RendererConfiguration getConfiguration() {
     return configuration;
   }
 

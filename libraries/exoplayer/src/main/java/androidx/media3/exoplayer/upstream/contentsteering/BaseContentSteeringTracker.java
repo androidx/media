@@ -41,7 +41,7 @@ import org.jspecify.annotations.Nullable;
 public abstract class BaseContentSteeringTracker {
 
   private final SteeringManifestTracker steeringManifestTracker;
-  @Nullable private ImmutableList<String> currentPathwayPriority;
+  private @Nullable ImmutableList<String> currentPathwayPriority;
   private boolean isActive;
 
   /**
@@ -152,8 +152,7 @@ public abstract class BaseContentSteeringTracker {
    *
    * @return The current pathway priority, or {@code null} if the tracker is not active.
    */
-  @Nullable
-  protected final ImmutableList<String> getCurrentPathwayPriority() {
+  protected final @Nullable ImmutableList<String> getCurrentPathwayPriority() {
     return currentPathwayPriority;
   }
 

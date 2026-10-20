@@ -205,8 +205,8 @@ public class RawAssetLoaderTest {
   }
 
   private static class FakeAssetLoaderListener implements AssetLoader.Listener {
-    @Nullable private final SampleConsumer audioSampleConsumer;
-    @Nullable private final SampleConsumer videoSampleConsumer;
+    private final @Nullable SampleConsumer audioSampleConsumer;
+    private final @Nullable SampleConsumer videoSampleConsumer;
 
     public FakeAssetLoaderListener(
         @Nullable SampleConsumer audioSampleConsumer,
@@ -227,9 +227,8 @@ public class RawAssetLoaderTest {
       return true;
     }
 
-    @Nullable
     @Override
-    public SampleConsumer onOutputFormat(Format format) {
+    public @Nullable SampleConsumer onOutputFormat(Format format) {
       return MimeTypes.isVideo(format.sampleMimeType) ? videoSampleConsumer : audioSampleConsumer;
     }
 

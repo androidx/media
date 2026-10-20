@@ -202,8 +202,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the most recent header value mapped to the argument, {@code null} if the header name is
    * not recorded.
    */
-  @Nullable
-  public String get(String headerName) {
+  public @Nullable String get(String headerName) {
     ImmutableList<String> headerValues = values(headerName);
     if (headerValues.isEmpty()) {
       return null;

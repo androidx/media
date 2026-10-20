@@ -97,8 +97,8 @@ import org.jspecify.annotations.Nullable;
 
   /* package */ final int id;
   private final DashChunkSource.Factory chunkSourceFactory;
-  @Nullable private final TransferListener transferListener;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable TransferListener transferListener;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final BaseUrlExclusionList baseUrlExclusionList;
@@ -114,10 +114,10 @@ import org.jspecify.annotations.Nullable;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final PlayerId playerId;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
-  @Nullable private final DashContentSteeringTracker contentSteeringTracker;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable DashContentSteeringTracker contentSteeringTracker;
 
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
 
   private DashContentSteeringTracker.@Nullable SteeringQueryParamsProvider
       steeringQueryParamsProvider;
@@ -1027,18 +1027,17 @@ import org.jspecify.annotations.Nullable;
     return true;
   }
 
-  @Nullable
-  private static Descriptor findAdaptationSetSwitchingProperty(List<Descriptor> descriptors) {
+  private static @Nullable Descriptor findAdaptationSetSwitchingProperty(
+      List<Descriptor> descriptors) {
     return findDescriptor(descriptors, "urn:mpeg:dash:adaptation-set-switching:2016");
   }
 
-  @Nullable
-  private static Descriptor findTrickPlayProperty(List<Descriptor> descriptors) {
+  private static @Nullable Descriptor findTrickPlayProperty(List<Descriptor> descriptors) {
     return findDescriptor(descriptors, "http://dashif.org/guidelines/trickmode");
   }
 
-  @Nullable
-  private static Descriptor findDescriptor(List<Descriptor> descriptors, String schemeIdUri) {
+  private static @Nullable Descriptor findDescriptor(
+      List<Descriptor> descriptors, String schemeIdUri) {
     for (int i = 0; i < descriptors.size(); i++) {
       Descriptor descriptor = descriptors.get(i);
       if (schemeIdUri.equals(descriptor.schemeIdUri)) {
@@ -1192,7 +1191,7 @@ import org.jspecify.annotations.Nullable;
     private final int embeddedClosedCaptionTrackGroupLength;
 
     /** Only non-null for track groups representing embedded caption tracks. */
-    @Nullable private final Format embeddedClosedCaptionTrackOriginalFormat;
+    private final @Nullable Format embeddedClosedCaptionTrackOriginalFormat;
 
     public static TrackGroupInfo primaryTrack(
         int trackType,

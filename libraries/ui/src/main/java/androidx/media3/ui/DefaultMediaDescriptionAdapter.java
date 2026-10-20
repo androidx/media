@@ -36,7 +36,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAdapter {
 
-  @Nullable private final PendingIntent pendingIntent;
+  private final @Nullable PendingIntent pendingIntent;
 
   /**
    * Creates a default {@link MediaDescriptionAdapter}.
@@ -62,15 +62,13 @@ public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAda
     return title != null ? title : "";
   }
 
-  @Nullable
   @Override
-  public PendingIntent createCurrentContentIntent(Player player) {
+  public @Nullable PendingIntent createCurrentContentIntent(Player player) {
     return pendingIntent;
   }
 
-  @Nullable
   @Override
-  public CharSequence getCurrentContentText(Player player) {
+  public @Nullable CharSequence getCurrentContentText(Player player) {
     if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
       return null;
     }
@@ -82,9 +80,8 @@ public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAda
     return player.getMediaMetadata().albumArtist;
   }
 
-  @Nullable
   @Override
-  public Bitmap getCurrentLargeIcon(Player player, BitmapCallback callback) {
+  public @Nullable Bitmap getCurrentLargeIcon(Player player, BitmapCallback callback) {
     if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
       return null;
     }

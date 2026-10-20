@@ -147,7 +147,7 @@ public final class ExtractorAsserts {
      *   <li>Dumps: {@code extractordumps/$mediapath}
      * </ul>
      */
-    @Nullable public final String dumpFilesPrefix;
+    public final @Nullable String dumpFilesPrefix;
 
     /**
      * Controls how consecutive formats with no intervening samples are handled. If true, only the
@@ -164,7 +164,7 @@ public final class ExtractorAsserts {
 
     /** Builder for {@link AssertionConfig} instances. */
     public static class Builder {
-      @Nullable private String dumpFilesPrefix;
+      private @Nullable String dumpFilesPrefix;
       private boolean deduplicateConsecutiveFormats;
 
       @CanIgnoreReturnValue

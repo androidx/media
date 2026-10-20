@@ -74,7 +74,7 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
 
   private final int threadPriority;
 
-  @Nullable private Dav1dDecoder decoder;
+  private @Nullable Dav1dDecoder decoder;
 
   /**
    * Creates a new instance.

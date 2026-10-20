@@ -157,8 +157,7 @@ public class FormatSupportAssumptions {
     return findDecoderForFormat(context, format) != null && !deviceNeedsDisable8kWorkaround(format);
   }
 
-  @Nullable
-  private static String findDecoderForFormat(Context context, Format format)
+  private static @Nullable String findDecoderForFormat(Context context, Format format)
       throws MediaCodecUtil.DecoderQueryException {
     checkNotNull(format.sampleMimeType);
     List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =

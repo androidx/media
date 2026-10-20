@@ -83,9 +83,9 @@ public class FakeMediaSource extends BaseMediaSource {
 
   /** A builder for {@link FakeMediaSource} instances. */
   public static class Builder {
-    @Nullable private Timeline timeline;
+    private @Nullable Timeline timeline;
     private DrmSessionManager drmSessionManager;
-    @Nullable private TrackDataFactory trackDataFactory;
+    private @Nullable TrackDataFactory trackDataFactory;
     private long @Nullable [] syncSampleTimesUs;
     private TrackGroupArray trackGroupArray;
 
@@ -196,8 +196,8 @@ public class FakeMediaSource extends BaseMediaSource {
   private @MonotonicNonNull Timeline timeline;
   private boolean preparedSource;
   private boolean releasedSource;
-  @Nullable private Handler sourceInfoRefreshHandler;
-  @Nullable private TransferListener transferListener;
+  private @Nullable Handler sourceInfoRefreshHandler;
+  private @Nullable TransferListener transferListener;
   private boolean periodDefersOnPreparedCallback;
 
   /**
@@ -315,8 +315,7 @@ public class FakeMediaSource extends BaseMediaSource {
     this.canUpdateMediaItems = canUpdateMediaItems;
   }
 
-  @Nullable
-  protected Timeline getTimeline() {
+  protected @Nullable Timeline getTimeline() {
     return timeline;
   }
 
@@ -345,8 +344,7 @@ public class FakeMediaSource extends BaseMediaSource {
   }
 
   @Override
-  @Nullable
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     return timeline == null || timeline.isEmpty() || timeline.getWindowCount() == 1
         ? null
         : new InitialTimeline(timeline);

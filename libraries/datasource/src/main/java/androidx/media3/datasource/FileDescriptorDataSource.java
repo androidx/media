@@ -57,8 +57,8 @@ public class FileDescriptorDataSource extends BaseDataSource {
   private final long offset;
   private final long length;
 
-  @Nullable private Uri uri;
-  @Nullable private FileInputStream inputStream;
+  private @Nullable Uri uri;
+  private @Nullable FileInputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -161,9 +161,8 @@ public class FileDescriptorDataSource extends BaseDataSource {
     return bytesRead;
   }
 
-  @Nullable
   @Override
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

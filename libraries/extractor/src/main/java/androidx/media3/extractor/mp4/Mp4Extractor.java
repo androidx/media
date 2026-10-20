@@ -254,8 +254,8 @@ public final class Mp4Extractor implements Extractor {
   private int atomType;
   private long atomSize;
   private int atomHeaderBytesRead;
-  @Nullable private ParsableByteArray atomData;
-  @Nullable private XmpData xmpData;
+  private @Nullable ParsableByteArray atomData;
+  private @Nullable XmpData xmpData;
 
   private int sampleTrackIndex;
   private int sampleBytesRead;
@@ -1466,7 +1466,7 @@ public final class Mp4Extractor implements Extractor {
     public final Track track;
     public final TrackSampleTable sampleTable;
     public final TrackOutput trackOutput;
-    @Nullable public final TrueHdSampleRechunker trueHdSampleRechunker;
+    public final @Nullable TrueHdSampleRechunker trueHdSampleRechunker;
     private final boolean isVideo;
     private final boolean isItutT35;
 
@@ -1476,7 +1476,7 @@ public final class Mp4Extractor implements Extractor {
      * A {@link Format} that needs to be passed to {@link #trackOutput}, after being possibly
      * modified based on sample data, before {@link TrackOutput#sampleMetadata} is called.
      */
-    @Nullable private Format pendingFormat;
+    private @Nullable Format pendingFormat;
 
     public Mp4Track(Track track, TrackSampleTable sampleTable, TrackOutput trackOutput) {
       this.track = track;

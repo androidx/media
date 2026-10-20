@@ -105,8 +105,7 @@ public final class FfmpegAudioDecoder
   }
 
   @Override
-  @Nullable
-  protected FfmpegDecoderException decode(
+  protected @Nullable FfmpegDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       nativeContext = ffmpegReset(nativeContext, extraData);

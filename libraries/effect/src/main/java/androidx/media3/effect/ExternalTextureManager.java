@@ -95,15 +95,15 @@ import org.jspecify.annotations.Nullable;
   private boolean currentInputStreamEnded;
 
   // The frame that is sent downstream and is not done processing yet.
-  @Nullable private FrameInfo currentFrame;
-  @Nullable private FrameInfo lastRegisteredFrame;
+  private @Nullable FrameInfo currentFrame;
+  private @Nullable FrameInfo lastRegisteredFrame;
   private boolean automaticReregistration;
 
-  @Nullable private Future<?> forceSignalEndOfStreamFuture;
-  @Nullable private CountDownLatch releaseAllFramesLatch;
+  private @Nullable Future<?> forceSignalEndOfStreamFuture;
+  private @Nullable CountDownLatch releaseAllFramesLatch;
 
   private volatile boolean shouldRejectIncomingFrames;
-  @Nullable private volatile RuntimeException releaseAllFramesException;
+  private volatile @Nullable RuntimeException releaseAllFramesException;
 
   /**
    * Creates a new instance. The caller's thread must have a current GL context.

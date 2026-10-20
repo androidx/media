@@ -155,7 +155,7 @@ public final class LibraryResult<V extends @Nullable Object> {
    * The value of this result. Will be {@code null} if {@link #resultCode} is not {@link
    * #RESULT_SUCCESS}.
    */
-  @Nullable public final V value;
+  public final @Nullable V value;
 
   private final @ValueType int valueType;
 
@@ -163,7 +163,7 @@ public final class LibraryResult<V extends @Nullable Object> {
   public final MediaLibraryService.@Nullable LibraryParams params;
 
   /** The optional session error. */
-  @UnstableApi @Nullable public final SessionError sessionError;
+  @UnstableApi public final @Nullable SessionError sessionError;
 
   /** Creates an instance with {@link #resultCode}{@code ==}{@link #RESULT_SUCCESS}. */
   public static LibraryResult<Void> ofVoid() {

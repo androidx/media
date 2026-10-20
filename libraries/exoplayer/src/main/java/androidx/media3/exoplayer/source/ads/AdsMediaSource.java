@@ -158,10 +158,10 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   private final Map<ClippingMediaPeriod, MediaPeriodId> activeContentClippingMediaPeriods;
 
   // Accessed on the player thread.
-  @Nullable private ComponentListener componentListener;
-  @Nullable private Timeline contentTimeline;
-  @Nullable private Timeline activeTimeline;
-  @Nullable private AdPlaybackState adPlaybackState;
+  private @Nullable ComponentListener componentListener;
+  private @Nullable Timeline contentTimeline;
+  private @Nullable Timeline activeTimeline;
+  private @Nullable AdPlaybackState adPlaybackState;
   private @Nullable AdMediaSourceHolder[][] adMediaSourceHolders;
 
   /**

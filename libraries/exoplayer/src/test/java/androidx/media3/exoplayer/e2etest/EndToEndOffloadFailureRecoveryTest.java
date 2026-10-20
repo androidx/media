@@ -202,7 +202,7 @@ public class EndToEndOffloadFailureRecoveryTest {
     protected boolean isOffloadMode;
 
     /** The {@link Format input format} for the audio sink. */
-    @Nullable protected Format inputFormat;
+    protected @Nullable Format inputFormat;
 
     public DumpingAudioSink(AudioSink sink) {
       super(sink);

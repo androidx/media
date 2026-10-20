@@ -30,7 +30,7 @@ public class Label {
    * The language of this label, as an IETF BCP 47 conformant tag, or null if unknown or not
    * applicable.
    */
-  @Nullable public final String language;
+  public final @Nullable String language;
 
   /** The value for this label. */
   public final String value;

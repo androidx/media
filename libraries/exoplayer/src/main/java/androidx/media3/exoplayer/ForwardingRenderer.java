@@ -63,9 +63,8 @@ public class ForwardingRenderer implements Renderer {
     renderer.init(index, playerId, clock);
   }
 
-  @Nullable
   @Override
-  public MediaClock getMediaClock() {
+  public @Nullable MediaClock getMediaClock() {
     return renderer.getMediaClock();
   }
 
@@ -114,9 +113,8 @@ public class ForwardingRenderer implements Renderer {
     renderer.replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
   }
 
-  @Nullable
   @Override
-  public SampleStream getStream() {
+  public @Nullable SampleStream getStream() {
     return renderer.getStream();
   }
 

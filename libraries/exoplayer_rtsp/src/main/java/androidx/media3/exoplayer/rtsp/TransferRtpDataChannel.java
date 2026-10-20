@@ -87,9 +87,8 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void close() {}
 
-  @Nullable
   @Override
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return null;
   }
 

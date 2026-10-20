@@ -64,16 +64,15 @@ public class Cast {
 
   // Intentionally mutable static field. Listeners should only be temporary and not cause leaks.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
-  @Nullable
-  private static Cast singletonInstance;
+  private static @Nullable Cast singletonInstance;
 
   private final List<SessionManagerListener<CastSession>> pendingListeners;
 
   private final Set<MediaRouteSelectorListener> pendingMediaRouteSelectorListeners;
-  @Nullable private CastParams pendingCastParams;
+  private @Nullable CastParams pendingCastParams;
 
-  @Nullable private final Context context;
-  @Nullable private CastContext castContext;
+  private final @Nullable Context context;
+  private @Nullable CastContext castContext;
   private @MonotonicNonNull Throwable castContextLoadFailure;
   private boolean isInitOngoing;
 
@@ -277,8 +276,7 @@ public class Cast {
    */
   // TODO: b/459879564 - Use this method to show an appropriate error message in Cast UI
   // affordances.
-  @Nullable
-  public Throwable getCastContextLoadFailure() {
+  public @Nullable Throwable getCastContextLoadFailure() {
     return castContextLoadFailure;
   }
 
@@ -309,7 +307,7 @@ public class Cast {
     }
   }
 
-  @Nullable /* package */ MediaRouteSelector registerListenerAndGetCurrentSelector(
+  /* package */ @Nullable MediaRouteSelector registerListenerAndGetCurrentSelector(
       MediaRouteSelectorListener listener) {
     checkNotNull(listener);
     if (castContext != null) {
@@ -336,8 +334,7 @@ public class Cast {
    * Returns the ongoing Cast session, or null if there's no ongoing Cast session, or there's no
    * Cast context available.
    */
-  @Nullable
-  public CastSession getCurrentCastSession() {
+  public @Nullable CastSession getCurrentCastSession() {
     verifyMainThread();
     return castContext != null ? castContext.getSessionManager().getCurrentCastSession() : null;
   }

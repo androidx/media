@@ -36,8 +36,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public HardwareBuffer getHardwareBuffer() {
+  public @Nullable HardwareBuffer getHardwareBuffer() {
     if (SDK_INT >= 28) {
       return image.getHardwareBuffer();
     }
@@ -45,8 +44,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public Image getInternalImage() {
+  public @Nullable Image getInternalImage() {
     return image;
   }
 

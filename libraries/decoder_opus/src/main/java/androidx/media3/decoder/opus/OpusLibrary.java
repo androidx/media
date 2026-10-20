@@ -62,8 +62,7 @@ public final class OpusLibrary {
   }
 
   /** Returns the version of the underlying library if available, or null otherwise. */
-  @Nullable
-  public static String getVersion() {
+  public static @Nullable String getVersion() {
     return isAvailable() ? opusGetVersion() : null;
   }
 

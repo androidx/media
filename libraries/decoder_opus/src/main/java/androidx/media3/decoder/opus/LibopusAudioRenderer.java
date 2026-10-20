@@ -131,9 +131,8 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
     return Util.getPcmFormat(pcmEncoding, decoder.channelCount, OpusDecoder.SAMPLE_RATE);
   }
 
-  @Nullable
   @Override
-  protected ImmutableIntArray getChannelMapping(OpusDecoder decoder) {
+  protected @Nullable ImmutableIntArray getChannelMapping(OpusDecoder decoder) {
     return VorbisUtil.getVorbisToAndroidChannelLayoutMapping(decoder.channelCount);
   }
 }

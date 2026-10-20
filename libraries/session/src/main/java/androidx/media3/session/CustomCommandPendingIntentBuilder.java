@@ -50,7 +50,7 @@ public final class CustomCommandPendingIntentBuilder {
   private final Context context;
   private final Class<? extends MediaSessionService> serviceClass;
   private final SessionCommand customSessionCommand;
-  @Nullable private String sessionId;
+  private @Nullable String sessionId;
 
   /**
    * Creates an instance.

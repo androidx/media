@@ -93,8 +93,7 @@ public final class AudioManagerCompat {
       AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
 
   @SuppressWarnings("NonFinalStaticField") // Lazily initialized under class lock
-  @Nullable
-  private static AudioManager audioManager;
+  private static @Nullable AudioManager audioManager;
 
   @SuppressWarnings("NonFinalStaticField") // Lazily initialized under class lock
   private static @MonotonicNonNull Context applicationContext;

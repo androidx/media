@@ -79,7 +79,7 @@ public final class KeyRequestInfo {
    * The DRM {@link SchemeData} that identifies the loaded key, or null if this session uses offline
    * keys.
    */
-  @Nullable public final ImmutableList<SchemeData> schemeDatas;
+  public final @Nullable ImmutableList<SchemeData> schemeDatas;
 
   private KeyRequestInfo(Builder builder) {
     loadInfos = builder.loadEventInfos.build();

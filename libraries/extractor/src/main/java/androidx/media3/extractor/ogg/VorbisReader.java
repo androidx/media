@@ -35,7 +35,7 @@ import org.jspecify.annotations.Nullable;
 /** {@link StreamReader} to extract Vorbis data out of Ogg byte stream. */
 /* package */ final class VorbisReader extends StreamReader {
 
-  @Nullable private VorbisSetup vorbisSetup;
+  private @Nullable VorbisSetup vorbisSetup;
   private int previousPacketBlockSize;
   private boolean seenFirstAudioPacket;
 
@@ -132,7 +132,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @VisibleForTesting
-  @Nullable /* package */ VorbisSetup readSetupHeaders(ParsableByteArray scratch)
+  /* package */ @Nullable VorbisSetup readSetupHeaders(ParsableByteArray scratch)
       throws IOException {
 
     if (vorbisIdHeader == null) {

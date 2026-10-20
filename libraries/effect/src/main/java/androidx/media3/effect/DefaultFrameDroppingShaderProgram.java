@@ -51,7 +51,7 @@ import org.jspecify.annotations.Nullable;
   private long lastQueuedPresentationTimeUs;
   private int framesReceived;
   // A temporary texture owned by this class, separate from the outputTexturePool.
-  @Nullable private GlTextureInfo previousTexture;
+  private @Nullable GlTextureInfo previousTexture;
 
   /**
    * Creates a new instance.

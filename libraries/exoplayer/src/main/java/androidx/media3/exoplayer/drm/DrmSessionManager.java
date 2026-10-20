@@ -52,8 +52,7 @@ public interface DrmSessionManager {
         public void setPlayer(Looper playbackLooper, PlayerId playerId) {}
 
         @Override
-        @Nullable
-        public DrmSession acquireSession(
+        public @Nullable DrmSession acquireSession(
             DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
           if (format.drmInitData == null) {
             return null;

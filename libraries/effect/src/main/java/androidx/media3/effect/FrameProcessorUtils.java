@@ -297,8 +297,7 @@ public final class FrameProcessorUtils {
     }
   }
 
-  @Nullable
-  private static VideoFrameProcessingException runAllAndAccumulateExceptionInternal(
+  private static @Nullable VideoFrameProcessingException runAllAndAccumulateExceptionInternal(
       ThrowingRunnable<?>... actions) {
     @Nullable VideoFrameProcessingException firstException = null;
     for (ThrowingRunnable<?> action : actions) {

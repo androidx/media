@@ -27,10 +27,10 @@ public final class Descriptor {
   public final String schemeIdUri;
 
   /** The value, or null. */
-  @Nullable public final String value;
+  public final @Nullable String value;
 
   /** The identifier, or null. */
-  @Nullable public final String id;
+  public final @Nullable String id;
 
   /**
    * @param schemeIdUri The scheme URI.

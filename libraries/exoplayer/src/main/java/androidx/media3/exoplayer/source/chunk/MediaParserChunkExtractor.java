@@ -112,9 +112,8 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
       }
     }
 
-    @Nullable
     @Override
-    public ChunkExtractor createProgressiveMediaExtractor(
+    public @Nullable ChunkExtractor createProgressiveMediaExtractor(
         @C.TrackType int primaryTrackType,
         Format representationFormat,
         boolean enableEventMessageTrack,
@@ -152,7 +151,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
   private final TrackOutputProviderAdapter trackOutputProviderAdapter;
   private final DiscardingTrackOutput discardingTrackOutput;
   private long pendingSeekUs;
-  @Nullable private TrackOutputProvider trackOutputProvider;
+  private @Nullable TrackOutputProvider trackOutputProvider;
   private Format @Nullable [] sampleFormats;
 
   /**
@@ -227,9 +226,8 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
     return mediaParser.advance(inputReaderAdapter);
   }
 
-  @Nullable
   @Override
-  public ChunkIndex getChunkIndex() {
+  public @Nullable ChunkIndex getChunkIndex() {
     return outputConsumerAdapter.getChunkIndex();
   }
 

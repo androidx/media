@@ -57,7 +57,7 @@ import org.jspecify.annotations.Nullable;
 
   private final DataSpec dataSpec;
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final TransferListener transferListener;
+  private final @Nullable TransferListener transferListener;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final EventDispatcher eventDispatcher;
   private final TrackGroupArray tracks;

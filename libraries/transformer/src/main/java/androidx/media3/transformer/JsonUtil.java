@@ -79,8 +79,7 @@ public final class JsonUtil {
    *     exception was {@code null}.
    * @throws JSONException if this method attempts to create a JSON with null key.
    */
-  @Nullable
-  public static JSONObject exceptionAsJsonObject(@Nullable Exception exception)
+  public static @Nullable JSONObject exceptionAsJsonObject(@Nullable Exception exception)
       throws JSONException {
     if (exception == null) {
       return null;

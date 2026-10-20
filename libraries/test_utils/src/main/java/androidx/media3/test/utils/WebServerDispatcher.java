@@ -642,8 +642,8 @@ public final class WebServerDispatcher extends Dispatcher {
    *
    * <p>Missing qvalues are stored in the map as -1.
    */
-  @Nullable
-  private static ImmutableMap<String, Float> getAcceptEncodingHeader(RecordedRequest request) {
+  private static @Nullable ImmutableMap<String, Float> getAcceptEncodingHeader(
+      RecordedRequest request) {
     @Nullable List<String> headers =
         request.getHeaders().toMultimap().get(HttpHeaders.ACCEPT_ENCODING);
     if (headers == null) {
@@ -675,8 +675,7 @@ public final class WebServerDispatcher extends Dispatcher {
    * @param supportedContentCodings A list of content-codings supported by the server in order of
    *     preference.
    */
-  @Nullable
-  private static String getPreferredContentCoding(
+  private static @Nullable String getPreferredContentCoding(
       @Nullable ImmutableMap<String, Float> acceptEncodingHeader,
       List<String> supportedContentCodings) {
     if (acceptEncodingHeader == null) {
@@ -711,8 +710,8 @@ public final class WebServerDispatcher extends Dispatcher {
   /**
    * Parses an RFC 7233 Range header to its component parts. Returns null if the Range is invalid.
    */
-  @Nullable
-  private static Pair<@Nullable Integer, @Nullable Integer> getRangeHeader(String rangeHeader) {
+  private static @Nullable Pair<@Nullable Integer, @Nullable Integer> getRangeHeader(
+      String rangeHeader) {
     Pattern rangePattern = Pattern.compile("bytes=(\\d*)-(\\d*)");
     Matcher rangeMatcher = rangePattern.matcher(rangeHeader);
     if (!rangeMatcher.matches() || rangeHeader.contains(",")) {

@@ -59,10 +59,10 @@ public final class RequirementsWatcher {
   private final Requirements requirements;
   private final Handler handler;
 
-  @Nullable private DeviceStatusChangeReceiver receiver;
+  private @Nullable DeviceStatusChangeReceiver receiver;
 
   private @Requirements.RequirementFlags int notMetRequirements;
-  @Nullable private NetworkCallback networkCallback;
+  private @Nullable NetworkCallback networkCallback;
 
   /**
    * @param context Any context.

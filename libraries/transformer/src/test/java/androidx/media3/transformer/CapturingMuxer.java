@@ -55,7 +55,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   public static final class Factory implements Muxer.Factory {
     private final Muxer.Factory wrappedFactory;
     private final boolean handleAudioAsPcm;
-    @Nullable private CapturingMuxer muxer;
+    private @Nullable CapturingMuxer muxer;
 
     /**
      * Creates an instance.

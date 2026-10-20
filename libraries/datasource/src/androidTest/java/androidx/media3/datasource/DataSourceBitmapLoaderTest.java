@@ -63,7 +63,7 @@ public class DataSourceBitmapLoaderTest {
 
   private DataSource.Factory dataSourceFactory;
   private Context context;
-  @Nullable private MockWebServer mockWebServer;
+  private @Nullable MockWebServer mockWebServer;
 
   @Before
   public void setUp() {

@@ -121,8 +121,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
 
   // Intentionally mutable static field and using application context to prevent leakage.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
-  @Nullable
-  private static DefaultBandwidthMeter singletonInstance;
+  private static @Nullable DefaultBandwidthMeter singletonInstance;
 
   /**
    * Supplies an initial bitrate estimate to the {@link DefaultBandwidthMeter}.
@@ -149,13 +148,13 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   /** Builder for a bandwidth meter. */
   public static final class Builder {
 
-    @Nullable private final Context context;
+    private final @Nullable Context context;
     private final Map<Integer, Long> initialBitrateEstimates;
 
     private int slidingWindowMaxWeight;
     private Clock clock;
     private boolean resetOnNetworkTypeChange;
-    @Nullable private InitialBitrateSupplier initialBitrateSupplier;
+    private @Nullable InitialBitrateSupplier initialBitrateSupplier;
 
     /**
      * Creates a builder with default parameters and without listener.
@@ -311,12 +310,12 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   private static final int ELAPSED_MILLIS_FOR_ESTIMATE = 2000;
   private static final int BYTES_TRANSFERRED_FOR_ESTIMATE = 512 * 1024;
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
   private final ImmutableMap<Integer, Long> initialBitrateEstimates;
   private final EventDispatcher eventDispatcher;
   private final Clock clock;
   private final boolean resetOnNetworkTypeChange;
-  @Nullable private final InitialBitrateSupplier initialBitrateSupplier;
+  private final @Nullable InitialBitrateSupplier initialBitrateSupplier;
 
   @GuardedBy("this") // Used in TransferListener methods that are called on a background thread.
   private final SlidingPercentile slidingPercentile;

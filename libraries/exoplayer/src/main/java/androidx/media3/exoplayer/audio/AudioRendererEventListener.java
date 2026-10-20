@@ -178,8 +178,8 @@ public interface AudioRendererEventListener {
   /** Dispatches events to an {@link AudioRendererEventListener}. */
   final class EventDispatcher {
 
-    @Nullable private final Handler handler;
-    @Nullable private final AudioRendererEventListener listener;
+    private final @Nullable Handler handler;
+    private final @Nullable AudioRendererEventListener listener;
 
     /**
      * @param handler A handler for dispatching events, or null if events should not be dispatched.

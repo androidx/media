@@ -53,7 +53,7 @@ public final class ExportException extends Exception {
     public final boolean isDecoder;
 
     /** The {@link Codec} name, or {@code null} if the {@link Codec} is not yet initialized. */
-    @Nullable public final String name;
+    public final @Nullable String name;
 
     /** Creates an instance. */
     public CodecInfo(
@@ -362,7 +362,7 @@ public final class ExportException extends Exception {
    * The {@linkplain CodecInfo} for codec related exceptions, or {@code null} if the exception is
    * not codec related.
    */
-  @Nullable public final CodecInfo codecInfo;
+  public final @Nullable CodecInfo codecInfo;
 
   /**
    * Creates an instance with {@code codecInfo} set to {@code null}.

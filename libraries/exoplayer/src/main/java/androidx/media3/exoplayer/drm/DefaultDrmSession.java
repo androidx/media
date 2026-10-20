@@ -120,7 +120,7 @@ import org.jspecify.annotations.Nullable;
   private static final int MAX_LICENSE_DURATION_TO_RENEW_SECONDS = 60;
 
   /** The DRM scheme datas, or null if this session uses offline keys. */
-  @Nullable public final List<SchemeData> schemeDatas;
+  public final @Nullable List<SchemeData> schemeDatas;
 
   private final ExoMediaDrm mediaDrm;
   private final ProvisioningManager provisioningManager;
@@ -141,19 +141,19 @@ import org.jspecify.annotations.Nullable;
 
   private @DrmSession.State int state;
   private int referenceCount;
-  @Nullable private HandlerThread requestHandlerThread;
-  @Nullable private RequestHandler requestHandler;
-  @Nullable private CryptoConfig cryptoConfig;
-  @Nullable private DrmSessionException lastException;
+  private @Nullable HandlerThread requestHandlerThread;
+  private @Nullable RequestHandler requestHandler;
+  private @Nullable CryptoConfig cryptoConfig;
+  private @Nullable DrmSessionException lastException;
   private byte @Nullable [] sessionId;
   private byte @MonotonicNonNull [] offlineLicenseKeySetId;
 
-  @Nullable private KeyRequest currentKeyRequest;
+  private @Nullable KeyRequest currentKeyRequest;
 
   @GuardedBy("keyRequestInfoLock")
   private KeyRequestInfo.@Nullable Builder currentKeyRequestInfo;
 
-  @Nullable private ProvisionRequest currentProvisionRequest;
+  private @Nullable ProvisionRequest currentProvisionRequest;
 
   /**
    * Instantiates a new DRM session.
@@ -269,8 +269,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public final DrmSessionException getError() {
+  public final @Nullable DrmSessionException getError() {
     verifyPlaybackThread();
     return state == STATE_ERROR ? lastException : null;
   }
@@ -282,15 +281,13 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public final CryptoConfig getCryptoConfig() {
+  public final @Nullable CryptoConfig getCryptoConfig() {
     verifyPlaybackThread();
     return cryptoConfig;
   }
 
   @Override
-  @Nullable
-  public Map<String, String> queryKeyStatus() {
+  public @Nullable Map<String, String> queryKeyStatus() {
     verifyPlaybackThread();
     return sessionId == null ? null : mediaDrm.queryKeyStatus(sessionId);
   }

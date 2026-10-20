@@ -5302,8 +5302,7 @@ public final class ExoPlayerTest {
           }
 
           @Override
-          @Nullable
-          public Timeline getInitialTimeline() {
+          public @Nullable Timeline getInitialTimeline() {
             return Timeline.EMPTY;
           }
         };
@@ -8111,8 +8110,7 @@ public final class ExoPlayerTest {
     FakeMediaSource fakeMediaSource =
         new FakeMediaSource(Timeline.EMPTY) {
           @Override
-          @Nullable
-          public Timeline getInitialTimeline() {
+          public @Nullable Timeline getInitialTimeline() {
             return getTimeline();
           }
         };
@@ -15818,9 +15816,8 @@ public final class ExoPlayerTest {
                     };
                   }
 
-                  @Nullable
                   @Override
-                  public Renderer createSecondaryRenderer(
+                  public @Nullable Renderer createSecondaryRenderer(
                       Renderer renderer,
                       Handler eventHandler,
                       VideoRendererEventListener videoRendererEventListener,
@@ -16928,7 +16925,7 @@ public final class ExoPlayerTest {
   }
 
   private static class TestAudioSink extends ForwardingAudioSink {
-    @Nullable private Listener listener = null;
+    private @Nullable Listener listener = null;
 
     public TestAudioSink(AudioSink sink) {
       super(sink);

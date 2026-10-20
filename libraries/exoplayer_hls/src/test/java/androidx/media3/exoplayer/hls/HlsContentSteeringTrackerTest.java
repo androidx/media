@@ -73,7 +73,7 @@ public final class HlsContentSteeringTrackerTest {
   @Mock private HlsPlaylistTracker mockPlaylistTracker;
   @Mock private HlsContentSteeringTracker.Callback mockContentSteeringTrackerCallback;
   private AtomicInteger currentPathwayUpdateCount;
-  @Nullable private HlsContentSteeringTracker contentSteeringTracker;
+  private @Nullable HlsContentSteeringTracker contentSteeringTracker;
 
   @Before
   public void setUp() {

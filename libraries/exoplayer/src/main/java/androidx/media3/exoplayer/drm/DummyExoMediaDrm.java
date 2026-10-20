@@ -118,8 +118,7 @@ public final class DummyExoMediaDrm implements ExoMediaDrm {
   }
 
   @Override
-  @Nullable
-  public PersistableBundle getMetrics() {
+  public @Nullable PersistableBundle getMetrics() {
     return null;
   }
 

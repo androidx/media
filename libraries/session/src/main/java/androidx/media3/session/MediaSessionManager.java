@@ -335,9 +335,8 @@ public final class MediaSessionManager {
   private static final class Api37 {
     private Api37() {}
 
-    @Nullable
     @SuppressWarnings("nullness")
-    private static ListenableFuture<List<SessionToken>> getActiveSessionsForPackage(
+    private static @Nullable ListenableFuture<List<SessionToken>> getActiveSessionsForPackage(
         Context context,
         android.media.session.MediaSessionManager platformManager,
         String packageName,

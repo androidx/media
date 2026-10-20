@@ -166,20 +166,17 @@ public final class ExperimentalAnalyzerModeFactory {
     }
 
     @Override
-    @Nullable
-    public Format getOutputFormat() {
+    public @Nullable Format getOutputFormat() {
       return configurationFormat;
     }
 
     @Override
-    @Nullable
-    public ByteBuffer getOutputBuffer() {
+    public @Nullable ByteBuffer getOutputBuffer() {
       return null;
     }
 
     @Override
-    @Nullable
-    public BufferInfo getOutputBufferInfo() {
+    public @Nullable BufferInfo getOutputBufferInfo() {
       return null;
     }
 

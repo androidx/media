@@ -32,11 +32,11 @@ import org.jspecify.annotations.Nullable;
   public final int originalOutputHeight;
   public final int fallbackOutputHeight;
 
-  @Nullable public final String originalAudioMimeType;
-  @Nullable public final String fallbackAudioMimeType;
+  public final @Nullable String originalAudioMimeType;
+  public final @Nullable String fallbackAudioMimeType;
 
-  @Nullable public final String originalVideoMimeType;
-  @Nullable public final String fallbackVideoMimeType;
+  public final @Nullable String originalVideoMimeType;
+  public final @Nullable String fallbackVideoMimeType;
 
   public final @HdrMode int originalHdrMode;
   public final @HdrMode int fallbackHdrMode;

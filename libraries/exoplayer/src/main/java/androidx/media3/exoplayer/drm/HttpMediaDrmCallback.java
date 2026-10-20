@@ -41,7 +41,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class HttpMediaDrmCallback implements MediaDrmCallback {
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final String defaultLicenseUrl;
+  private final @Nullable String defaultLicenseUrl;
   private final boolean forceDefaultLicenseUrl;
   private final Map<String, String> keyRequestProperties;
 

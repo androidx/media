@@ -130,8 +130,7 @@ import org.jspecify.annotations.Nullable;
    *   <li>Quoted string {@code emphasis-style}
    * </ul>
    */
-  @Nullable
-  public static TextEmphasis parse(@Nullable String value) {
+  public static @Nullable TextEmphasis parse(@Nullable String value) {
     if (value == null) {
       return null;
     }

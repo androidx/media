@@ -101,7 +101,7 @@ public final class SsMediaSource extends BaseMediaSource
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private long livePresentationDelayMs;
     private ParsingLoadable.@Nullable Parser<? extends SsManifest> manifestParser;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a new factory for {@link SsMediaSource}s.
@@ -372,19 +372,19 @@ public final class SsMediaSource extends BaseMediaSource
   private final DataSource.Factory manifestDataSourceFactory;
   private final SsChunkSource.Factory chunkSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final long livePresentationDelayMs;
   private final EventDispatcher manifestEventDispatcher;
   private final ParsingLoadable.Parser<? extends SsManifest> manifestParser;
   private final ArrayList<SsMediaPeriod> mediaPeriods;
-  @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private DataSource manifestDataSource;
   private Loader manifestLoader;
   private LoaderErrorThrower manifestLoaderErrorThrower;
-  @Nullable private TransferListener mediaTransferListener;
+  private @Nullable TransferListener mediaTransferListener;
   private long manifestLoadStartTimestamp;
   private SsManifest manifest;
   private Handler manifestRefreshHandler;

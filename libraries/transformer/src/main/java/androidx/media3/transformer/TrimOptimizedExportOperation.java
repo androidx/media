@@ -93,9 +93,9 @@ import org.jspecify.annotations.Nullable;
 
   private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
   private final Muxer.Factory muxerFactory;
   private final TransformerOutputResolver outputResolver;
   private final boolean applyMp4EditListTrim;
@@ -105,9 +105,9 @@ import org.jspecify.annotations.Nullable;
   private Composition composition;
   private @ExportState int state;
   private @MonotonicNonNull ListenableFuture<Mp4Info> getMp4InfoFuture;
-  @Nullable private TransformerInternal transformerInternal;
-  @Nullable private MuxerWrapper remuxingMuxerWrapper;
-  @Nullable private Mp4Info mediaItemInfo;
+  private @Nullable TransformerInternal transformerInternal;
+  private @Nullable MuxerWrapper remuxingMuxerWrapper;
+  private @Nullable Mp4Info mediaItemInfo;
   // Only accessed on the application thread.
   private boolean isCancelled;
 

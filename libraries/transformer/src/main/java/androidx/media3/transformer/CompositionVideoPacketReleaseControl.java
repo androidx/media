@@ -60,7 +60,7 @@ import org.jspecify.annotations.Nullable;
   // Accessed on the playback thread only.
   private int currentStreamDiscontinuityNumber;
 
-  @Nullable private ImmutableList<AsyncFrame> lastQueuedPacket;
+  private @Nullable ImmutableList<AsyncFrame> lastQueuedPacket;
 
   /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
   public interface Listener {

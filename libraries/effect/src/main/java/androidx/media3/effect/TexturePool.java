@@ -114,8 +114,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the {@link GlTextureInfo} that is most recently {@linkplain #useTexture used}. */
-  @Nullable
-  public GlTextureInfo getMostRecentlyUsedTexture() {
+  public @Nullable GlTextureInfo getMostRecentlyUsedTexture() {
     if (inUseTextures.isEmpty()) {
       return null;
     }

@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class CronetEngineWrapper {
 
-  @Nullable private final CronetEngine cronetEngine;
+  private final @Nullable CronetEngine cronetEngine;
 
   /**
    * Creates a wrapper for a {@link CronetEngine} built using the most suitable {@link
@@ -77,7 +77,7 @@ public final class CronetEngineWrapper {
    *
    * @return The CronetEngine, or null if no CronetEngine is available.
    */
-  @Nullable /* package */ CronetEngine getCronetEngine() {
+  /* package */ @Nullable CronetEngine getCronetEngine() {
     return cronetEngine;
   }
 }

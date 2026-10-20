@@ -67,7 +67,7 @@ import org.jspecify.annotations.Nullable;
   public boolean[] sampleHasSubsampleEncryptionTable;
 
   /** Fragment specific track encryption. May be null. */
-  @Nullable public TrackEncryptionBox trackEncryptionBox;
+  public @Nullable TrackEncryptionBox trackEncryptionBox;
 
   /**
    * If {@link #definesEncryptionData} is true, contains binary sample encryption data. Undefined

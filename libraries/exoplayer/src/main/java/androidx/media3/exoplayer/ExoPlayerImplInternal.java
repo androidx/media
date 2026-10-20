@@ -247,10 +247,10 @@ import org.jspecify.annotations.Nullable;
   private boolean enforceAdPlaybackOnTimelineRefresh;
   private SeekParameters seekParameters;
   private ScrubbingModeParameters scrubbingModeParameters;
-  @Nullable private SeekParameters scrubbingModeSeekParameters;
+  private @Nullable SeekParameters scrubbingModeSeekParameters;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
-  @Nullable private SeekPosition queuedSeekWhileScrubbing;
+  private @Nullable SeekPosition queuedSeekWhileScrubbing;
   private int droppedSeeksWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
@@ -266,12 +266,12 @@ import org.jspecify.annotations.Nullable;
   private boolean requestForRendererSleep;
   private boolean offloadSchedulingEnabled;
   private int enabledRendererCount;
-  @Nullable private SeekPosition pendingInitialSeekPosition;
+  private @Nullable SeekPosition pendingInitialSeekPosition;
   private long rendererPositionUs;
   private long rendererPositionElapsedRealtimeUs;
   private int nextPendingMessageIndexHint;
   private boolean deliverPendingMessageAtStartPositionRequired;
-  @Nullable private ExoPlaybackException pendingRecoverableRendererError;
+  private @Nullable ExoPlaybackException pendingRecoverableRendererError;
   private long setForegroundModeTimeoutMs;
   private long playbackMaybeBecameStuckAtMs;
   private PreloadConfiguration preloadConfiguration;
@@ -4409,8 +4409,7 @@ import org.jspecify.annotations.Nullable;
    * @throws IllegalSeekPositionException If the window index of the seek position is outside the
    *     bounds of the timeline.
    */
-  @Nullable
-  private static Pair<Object, Long> resolveSeekPositionUs(
+  private static @Nullable Pair<Object, Long> resolveSeekPositionUs(
       Timeline timeline,
       SeekPosition seekPosition,
       boolean trySubsequentPeriods,
@@ -4609,7 +4608,7 @@ import org.jspecify.annotations.Nullable;
 
     public int resolvedPeriodIndex;
     public long resolvedPeriodTimeUs;
-    @Nullable public Object resolvedPeriodUid;
+    public @Nullable Object resolvedPeriodUid;
 
     public PendingMessageInfo(PlayerMessage message) {
       this.message = message;

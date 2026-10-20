@@ -65,14 +65,14 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
 
   private static final String PATHWAY_PARAM = "_DASH_pathway";
   private static final String THROUGHPUT_PARAM = "_DASH_throughput";
-  @Nullable private final Callback callback;
+  private final @Nullable Callback callback;
   private final ServiceLocationFilteringThroughputEstimator throughputEstimator;
   private final Set<SteeringQueryParamsProvider> steeringQueryParamsProviders;
 
-  @Nullable private DashManifest manifest;
+  private @Nullable DashManifest manifest;
   private Map<String, Set<Location>> availableManifestLocations;
   private Map<String, Set<BaseUrl>> availableBaseUrls;
-  @Nullable private ImmutableList<String> initialPathwayIds;
+  private @Nullable ImmutableList<String> initialPathwayIds;
 
   /**
    * Creates a {@link DashContentSteeringTracker}.
@@ -133,8 +133,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
    * Returns the current service location priority, or {@code null} if the tracker is inactive or no
    * priority has been established.
    */
-  @Nullable
-  public ImmutableList<String> getCurrentServiceLocationPriority() {
+  public @Nullable ImmutableList<String> getCurrentServiceLocationPriority() {
     if (!isActive()) {
       return null;
     }

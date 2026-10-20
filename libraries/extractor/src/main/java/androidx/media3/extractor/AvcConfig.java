@@ -156,7 +156,7 @@ public final class AvcConfig {
    *
    * <p>See {@link Format#codecs}.
    */
-  @Nullable public final String codecs;
+  public final @Nullable String codecs;
 
   private AvcConfig(
       List<byte[]> initializationData,

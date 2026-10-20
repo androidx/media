@@ -77,16 +77,16 @@ public final class CmcdData {
 
     private final CmcdConfiguration cmcdConfiguration;
     private final @StreamingFormat String streamingFormat;
-    @Nullable private ExoTrackSelection trackSelection;
+    private @Nullable ExoTrackSelection trackSelection;
     private long bufferedDurationUs;
     private float playbackRate;
-    @Nullable private Boolean isLive;
+    private @Nullable Boolean isLive;
     private boolean didRebuffer;
     private boolean isBufferEmpty;
     private long chunkDurationUs;
-    @Nullable private @ObjectType String objectType;
-    @Nullable private String nextObjectRequest;
-    @Nullable private String nextRangeRequest;
+    private @Nullable @ObjectType String objectType;
+    private @Nullable String nextObjectRequest;
+    private @Nullable String nextRangeRequest;
 
     /**
      * Creates an instance.
@@ -374,8 +374,7 @@ public final class CmcdData {
           cmcdConfiguration.dataTransmissionMode);
     }
 
-    @Nullable
-    private static @ObjectType String getObjectTypeFromFormat(Format format) {
+    private static @Nullable @ObjectType String getObjectTypeFromFormat(Format format) {
       String audioMimeType = MimeTypes.getAudioMediaMimeType(format.codecs);
       String videoMimeType = MimeTypes.getVideoMediaMimeType(format.codecs);
 
@@ -578,7 +577,7 @@ public final class CmcdData {
       private int bitrateKbps;
       private int topBitrateKbps;
       private long objectDurationMs;
-      @Nullable private @ObjectType String objectType;
+      private @Nullable @ObjectType String objectType;
       private ImmutableList<String> customDataList;
 
       /** Creates a new instance with default values. */
@@ -676,7 +675,7 @@ public final class CmcdData {
      * The media type of the current object being requested. Must be one of the allowed object types
      * specified by the {@link ObjectType} annotation.
      */
-    @Nullable public final @ObjectType String objectType;
+    public final @Nullable @ObjectType String objectType;
 
     /** Custom data that vary based on the specific object being requested. */
     public final ImmutableList<String> customDataList;
@@ -729,8 +728,8 @@ public final class CmcdData {
       private long measuredThroughputInKbps;
       private long deadlineMs;
       private boolean startup;
-      @Nullable private String nextObjectRequest;
-      @Nullable private String nextRangeRequest;
+      private @Nullable String nextObjectRequest;
+      private @Nullable String nextRangeRequest;
       private ImmutableList<String> customDataList;
 
       /** Creates a new instance with default values. */
@@ -885,7 +884,7 @@ public final class CmcdData {
      * <p><b>Note:</b> The client SHOULD NOT depend upon any pre-fetch action being taken - it is
      * merely a request for such a pre-fetch to take place.
      */
-    @Nullable public final String nextObjectRequest;
+    public final @Nullable String nextObjectRequest;
 
     /**
      * The byte range representing the partial object request, or {@code null} if unset. If the
@@ -895,7 +894,7 @@ public final class CmcdData {
      * <p><b>Note:</b> The client SHOULD NOT depend upon any pre-fetch action being taken - it is
      * merely a request for such a pre-fetch to take place.
      */
-    @Nullable public final String nextRangeRequest;
+    public final @Nullable String nextRangeRequest;
 
     /** Custom data that vary with each request. */
     public final ImmutableList<String> customDataList;
@@ -957,10 +956,10 @@ public final class CmcdData {
 
     /** Builder for {@link CmcdSession} instances. */
     public static final class Builder {
-      @Nullable private String contentId;
-      @Nullable private String sessionId;
-      @Nullable private @StreamingFormat String streamingFormat;
-      @Nullable private @StreamType String streamType;
+      private @Nullable String contentId;
+      private @Nullable String sessionId;
+      private @Nullable @StreamingFormat String streamingFormat;
+      private @Nullable @StreamType String streamType;
       private float playbackRate;
       private ImmutableList<String> customDataList;
 
@@ -1050,7 +1049,7 @@ public final class CmcdData {
      * <p>This value is consistent across multiple different sessions and devices and is defined and
      * updated at the discretion of the service provider. Maximum length is 64 characters.
      */
-    @Nullable public final String contentId;
+    public final @Nullable String contentId;
 
     /**
      * A GUID identifying the current playback session, or {@code null} if unset.
@@ -1058,20 +1057,20 @@ public final class CmcdData {
      * <p>A playback session typically ties together segments belonging to a single media asset.
      * Maximum length is 64 characters.
      */
-    @Nullable public final String sessionId;
+    public final @Nullable String sessionId;
 
     /**
      * The streaming format that defines the current request, or{@code null} if unset. Must be one
      * of the allowed stream formats specified by the {@link StreamingFormat} annotation. If the
      * streaming format being requested is unknown, then this key MUST NOT be used.
      */
-    @Nullable public final @StreamingFormat String streamingFormat;
+    public final @Nullable @StreamingFormat String streamingFormat;
 
     /**
      * Type of stream, or {@code null} if unset. Must be one of the allowed stream types specified
      * by the {@link StreamType} annotation.
      */
-    @Nullable public final @StreamType String streamType;
+    public final @Nullable @StreamType String streamType;
 
     /**
      * The playback rate indicating the current rate of playback, or {@link C#RATE_UNSET} if unset.

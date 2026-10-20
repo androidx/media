@@ -2689,7 +2689,7 @@ public final class SampleQueueTest {
   private static final class MockDrmSessionManager implements DrmSessionManager {
 
     private final DrmSession mockDrmSession;
-    @Nullable private DrmSession mockPlaceholderDrmSession;
+    private @Nullable DrmSession mockPlaceholderDrmSession;
 
     private MockDrmSessionManager(DrmSession mockDrmSession) {
       this.mockDrmSession = mockDrmSession;
@@ -2699,8 +2699,7 @@ public final class SampleQueueTest {
     public void setPlayer(Looper playbackLooper, PlayerId playerId) {}
 
     @Override
-    @Nullable
-    public DrmSession acquireSession(
+    public @Nullable DrmSession acquireSession(
         DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
       return format.drmInitData != null ? mockDrmSession : mockPlaceholderDrmSession;
     }

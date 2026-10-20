@@ -641,8 +641,7 @@ public class PlaybackException extends Exception {
     return extras != null ? extras : Bundle.EMPTY;
   }
 
-  @Nullable
-  private static Throwable getCauseFromBundle(Bundle bundle) {
+  private static @Nullable Throwable getCauseFromBundle(Bundle bundle) {
     @Nullable String causeClassName = bundle.getString(FIELD_STRING_CAUSE_CLASS_NAME);
     @Nullable String causeMessage = bundle.getString(FIELD_STRING_CAUSE_MESSAGE);
     @Nullable Throwable cause = null;

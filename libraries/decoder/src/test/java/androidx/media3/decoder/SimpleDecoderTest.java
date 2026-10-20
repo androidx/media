@@ -132,9 +132,8 @@ public final class SimpleDecoderTest {
       return new DecoderException("Unexpected error", error);
     }
 
-    @Nullable
     @Override
-    protected DecoderException decode(
+    protected @Nullable DecoderException decode(
         DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
       if (inputBuffer.isEndOfStream()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);

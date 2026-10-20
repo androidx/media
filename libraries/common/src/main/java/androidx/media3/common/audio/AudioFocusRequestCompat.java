@@ -44,7 +44,7 @@ public final class AudioFocusRequestCompat {
   private final boolean pauseOnDuck;
   private final boolean acceptsDelayedFocusGain;
 
-  @Nullable private final Object frameworkAudioFocusRequest;
+  private final @Nullable Object frameworkAudioFocusRequest;
 
   /* package */ AudioFocusRequestCompat(
       int focusGain,
@@ -183,7 +183,7 @@ public final class AudioFocusRequestCompat {
   public static final class Builder {
     private @AudioManagerCompat.AudioFocusGain int focusGain;
     private AudioManager.@Nullable OnAudioFocusChangeListener onAudioFocusChangeListener;
-    @Nullable private Handler focusChangeHandler;
+    private @Nullable Handler focusChangeHandler;
     private AudioAttributes audioAttributes;
     private boolean pauseOnDuck;
     private boolean acceptsDelayedFocusGain;

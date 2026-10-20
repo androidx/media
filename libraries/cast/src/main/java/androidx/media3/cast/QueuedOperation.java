@@ -334,7 +334,7 @@ import org.jspecify.annotations.Nullable;
 
   /** Command for {@code addMediaItems(...)}. */
   public static final class AddMediaItemsOperation extends MediaItemsInsertionOperation {
-    @Nullable private final Object insertBeforePeriodUid;
+    private final @Nullable Object insertBeforePeriodUid;
 
     public AddMediaItemsOperation(
         @Nullable Object insertBeforePeriodUid, ImmutableList<MediaItem> mediaItems) {
@@ -428,7 +428,7 @@ import org.jspecify.annotations.Nullable;
   /** Command for {@code moveMediaItems(...)}. */
   public static final class MoveMediaItemsOperation extends QueuedOperation {
     private final ImmutableList<Object> uidsToMove;
-    @Nullable private final Object insertBeforePeriodUid;
+    private final @Nullable Object insertBeforePeriodUid;
 
     public MoveMediaItemsOperation(
         List<Object> uidsToMove, @Nullable Object insertBeforePeriodUid) {

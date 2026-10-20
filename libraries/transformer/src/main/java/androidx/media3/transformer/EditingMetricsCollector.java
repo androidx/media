@@ -99,9 +99,9 @@ import org.jspecify.annotations.Nullable;
     }
 
     /** The {@link EditingSession} to report collected metrics to. */
-    @Nullable private EditingSession editingSession;
+    private @Nullable EditingSession editingSession;
 
-    @Nullable private final MediaMetricsManager mediaMetricsManager;
+    private final @Nullable MediaMetricsManager mediaMetricsManager;
 
     private boolean metricsReported;
     private boolean effectMetricsReported;
@@ -147,8 +147,7 @@ import org.jspecify.annotations.Nullable;
      * Returns the {@link LogSessionId} associated with the current editing session, or {@code null}
      * if no {@link EditingSession} is active.
      */
-    @Nullable
-    public LogSessionId getLogSessionId() {
+    public @Nullable LogSessionId getLogSessionId() {
       if (editingSession != null) {
         return editingSession.getSessionId();
       }
@@ -294,7 +293,7 @@ import org.jspecify.annotations.Nullable;
   private final boolean compositionHasAudioProcessors;
   private final boolean compositionHasVideoEffects;
   private final String exporterName;
-  @Nullable private final String muxerName;
+  private final @Nullable String muxerName;
   private final MetricsReporter metricsReporter;
 
   /**

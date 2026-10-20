@@ -85,8 +85,8 @@ public class FilteringMediaSource extends WrappingMediaSource {
 
     private final ImmutableSet<@C.TrackType Integer> trackTypes;
 
-    @Nullable private Callback callback;
-    @Nullable private TrackGroupArray filteredTrackGroups;
+    private @Nullable Callback callback;
+    private @Nullable TrackGroupArray filteredTrackGroups;
 
     public FilteringMediaPeriod(
         MediaPeriod mediaPeriod, ImmutableSet<@C.TrackType Integer> trackTypes) {

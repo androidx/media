@@ -61,12 +61,12 @@ import org.jspecify.annotations.Nullable;
       implements EnhancementSessionManager.Client {
 
     /* package */ final AtomicBoolean createSessionCalled;
-    @Nullable /* package */ Task<EnhancementSession> createSessionTask;
+    /* package */ @Nullable Task<EnhancementSession> createSessionTask;
     /* package */ boolean autoTriggerSessionCallback;
-    @Nullable /* package */ EnhancementSessionCallback savedSessionCallback;
-    @Nullable /* package */ EnhancementOptions lastOptions;
+    /* package */ @Nullable EnhancementSessionCallback savedSessionCallback;
+    /* package */ @Nullable EnhancementOptions lastOptions;
 
-    @Nullable private final EnhancementSession sessionToReturn;
+    private final @Nullable EnhancementSession sessionToReturn;
 
     /* package */ FakeClient(@Nullable EnhancementSession sessionToReturn) {
       this.createSessionCalled = new AtomicBoolean(false);

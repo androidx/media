@@ -56,7 +56,7 @@ public class FakeRenderer extends BaseRenderer {
 
   private final DecoderInputBuffer buffer;
 
-  @Nullable private DrmSession currentDrmSession;
+  private @Nullable DrmSession currentDrmSession;
 
   private long playbackPositionUs;
   private long lastSamplePositionUs;

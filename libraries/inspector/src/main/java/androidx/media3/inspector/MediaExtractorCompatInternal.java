@@ -114,15 +114,15 @@ import org.jspecify.annotations.Nullable;
 
   private boolean hasBeenPrepared;
   private long offsetInCurrentFile;
-  @Nullable private DataSource currentDataSource;
-  @Nullable private FileDescriptor duplicatedFileDescriptor;
-  @Nullable private SeekPoint pendingSeek;
+  private @Nullable DataSource currentDataSource;
+  private @Nullable FileDescriptor duplicatedFileDescriptor;
+  private @Nullable SeekPoint pendingSeek;
 
-  @Nullable private SeekMap seekMap;
+  private @Nullable SeekMap seekMap;
   private boolean tracksEnded;
   private int upstreamFormatsCount;
-  @Nullable private Map<String, String> httpRequestHeaders;
-  @Nullable private LogSessionId logSessionId;
+  private @Nullable Map<String, String> httpRequestHeaders;
+  private @Nullable LogSessionId logSessionId;
 
   /**
    * Creates a new instance using the given {@link ProgressiveMediaExtractor} to obtain media
@@ -927,7 +927,7 @@ import org.jspecify.annotations.Nullable;
 
     private final MediaExtractorSampleQueue sampleQueue;
     private final boolean isCompatibilityTrack;
-    @Nullable private final String compatibilityTrackMimeType;
+    private final @Nullable String compatibilityTrackMimeType;
 
     private MediaExtractorTrack(
         MediaExtractorSampleQueue sampleQueue,
@@ -1113,8 +1113,7 @@ import org.jspecify.annotations.Nullable;
      *
      * @return The first {@link SampleMetadata} in the queue, or {@code null} if empty.
      */
-    @Nullable
-    private SampleMetadata peekFirst() {
+    private @Nullable SampleMetadata peekFirst() {
       return sampleMetadataQueue.peekFirst();
     }
 

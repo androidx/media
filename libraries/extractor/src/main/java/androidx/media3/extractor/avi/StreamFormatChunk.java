@@ -28,8 +28,7 @@ import org.jspecify.annotations.Nullable;
 /* package */ final class StreamFormatChunk implements AviChunk {
   private static final String TAG = "StreamFormatChunk";
 
-  @Nullable
-  public static AviChunk parseFrom(int trackType, ParsableByteArray body) {
+  public static @Nullable AviChunk parseFrom(int trackType, ParsableByteArray body) {
     if (trackType == C.TRACK_TYPE_VIDEO) {
       return parseBitmapInfoHeader(body);
     } else if (trackType == C.TRACK_TYPE_AUDIO) {
@@ -53,8 +52,7 @@ import org.jspecify.annotations.Nullable;
     return AviExtractor.FOURCC_strf;
   }
 
-  @Nullable
-  private static AviChunk parseBitmapInfoHeader(ParsableByteArray body) {
+  private static @Nullable AviChunk parseBitmapInfoHeader(ParsableByteArray body) {
     body.skipBytes(4); // biSize.
     int width = body.readLittleEndianInt();
     int height = body.readLittleEndianInt();
@@ -72,8 +70,7 @@ import org.jspecify.annotations.Nullable;
 
   // Syntax defined by the WAVEFORMATEX structure. See
   // https://docs.microsoft.com/en-us/previous-versions/dd757713(v=vs.85).
-  @Nullable
-  private static AviChunk parseWaveFormatEx(ParsableByteArray body) {
+  private static @Nullable AviChunk parseWaveFormatEx(ParsableByteArray body) {
     int formatTag = body.readLittleEndianUnsignedShort();
     @Nullable String mimeType = getMimeTypeFromTag(formatTag);
     if (mimeType == null) {
@@ -102,8 +99,7 @@ import org.jspecify.annotations.Nullable;
     return new StreamFormatChunk(formatBuilder.build());
   }
 
-  @Nullable
-  private static String getMimeTypeFromTag(int tag) {
+  private static @Nullable String getMimeTypeFromTag(int tag) {
     switch (tag) {
       case 0x1: // WAVE_FORMAT_PCM
         return MimeTypes.AUDIO_RAW;
@@ -120,8 +116,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private static String getMimeTypeFromCompression(int compression) {
+  private static @Nullable String getMimeTypeFromCompression(int compression) {
     switch (compression) {
       case 0x3234504d: // MP42
         return MimeTypes.VIDEO_MP42;

@@ -37,7 +37,7 @@ import org.jspecify.annotations.Nullable;
   public final long dataSize;
 
   /** ReplayGain data. Only present if this frame is an Info or the LAME variant of a Xing frame. */
-  @Nullable public final Mp3InfoReplayGain replayGain;
+  public final @Nullable Mp3InfoReplayGain replayGain;
 
   /**
    * The number of samples to skip at the start of the stream, or {@link C#LENGTH_UNSET} if not
@@ -162,8 +162,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
-  @Nullable
-  public Metadata getMetadata() {
+  public @Nullable Metadata getMetadata() {
     if (replayGain != null) {
       return new Metadata(replayGain);
     }

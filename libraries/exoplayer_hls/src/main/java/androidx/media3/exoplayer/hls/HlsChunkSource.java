@@ -83,13 +83,13 @@ import org.jspecify.annotations.Nullable;
     }
 
     /** The chunk to be loaded next. */
-    @Nullable public Chunk chunk;
+    public @Nullable Chunk chunk;
 
     /** Indicates that the end of the stream has been reached. */
     public boolean endOfStream;
 
     /** Indicates that the chunk source is waiting for the referred playlist to be refreshed. */
-    @Nullable public Uri playlistUrl;
+    public @Nullable Uri playlistUrl;
 
     /** Clears the holder. */
     public void clear() {
@@ -139,19 +139,19 @@ import org.jspecify.annotations.Nullable;
   private final HlsRedundantGroup[] redundantGroups;
   private final Format[] redundantGroupFormats;
   private final HlsPlaylistTracker playlistTracker;
-  @Nullable private final HlsContentSteeringTracker contentSteeringTracker;
+  private final @Nullable HlsContentSteeringTracker contentSteeringTracker;
   private final TrackGroup trackGroup;
-  @Nullable private final List<Format> muxedCaptionFormats;
+  private final @Nullable List<Format> muxedCaptionFormats;
   private final FullSegmentEncryptionKeyCache keyCache;
   private final PlayerId playerId;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final long timestampAdjusterInitializationTimeoutMs;
 
   private boolean isPrimaryTimestampSource;
   private byte[] scratchSpace;
-  @Nullable private IOException fatalError;
-  @Nullable private Uri lastPlaylistErrorUrl;
-  @Nullable private Uri nextChunkStuckOnPlaylistUrl;
+  private @Nullable IOException fatalError;
+  private @Nullable Uri lastPlaylistErrorUrl;
+  private @Nullable Uri nextChunkStuckOnPlaylistUrl;
   private boolean independentSegments;
 
   // Note: The track group in the selection is typically *not* equal to trackGroup. This is due to
@@ -668,8 +668,7 @@ import org.jspecify.annotations.Nullable;
     return mediaPlaylist.hasIndependentSegments;
   }
 
-  @Nullable
-  private static SegmentBaseHolder getNextSegmentHolder(
+  private static @Nullable SegmentBaseHolder getNextSegmentHolder(
       HlsMediaPlaylist mediaPlaylist, long nextMediaSequence, int nextPartIndex) {
     int segmentIndexInPlaylist = (int) (nextMediaSequence - mediaPlaylist.mediaSequence);
     if (segmentIndexInPlaylist == mediaPlaylist.segments.size()) {
@@ -1189,8 +1188,7 @@ import org.jspecify.annotations.Nullable;
             : (mediaPlaylist.getEndTimeUs() - playlistTracker.getInitialStartTimeUs());
   }
 
-  @Nullable
-  private Chunk maybeCreateEncryptionChunkFor(
+  private @Nullable Chunk maybeCreateEncryptionChunkFor(
       @Nullable Uri keyUri,
       int selectedTrackIndex,
       boolean isInitSegment,
@@ -1227,8 +1225,7 @@ import org.jspecify.annotations.Nullable;
         scratchSpace);
   }
 
-  @Nullable
-  private static Uri getFullEncryptionKeyUri(
+  private static @Nullable Uri getFullEncryptionKeyUri(
       HlsMediaPlaylist playlist, HlsMediaPlaylist.@Nullable SegmentBase segmentBase) {
     if (segmentBase == null || segmentBase.fullSegmentEncryptionKeyUri == null) {
       return null;
@@ -1310,8 +1307,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @Nullable
-    public Object getSelectionData() {
+    public @Nullable Object getSelectionData() {
       return null;
     }
   }

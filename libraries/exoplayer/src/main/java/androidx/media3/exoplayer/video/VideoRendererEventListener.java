@@ -160,8 +160,8 @@ public interface VideoRendererEventListener {
   /** Dispatches events to a {@link VideoRendererEventListener}. */
   final class EventDispatcher {
 
-    @Nullable private final Handler handler;
-    @Nullable private final VideoRendererEventListener listener;
+    private final @Nullable Handler handler;
+    private final @Nullable VideoRendererEventListener listener;
 
     /**
      * @param handler A handler for dispatching events, or null if events should not be dispatched.

@@ -43,7 +43,7 @@ public final class DefaultAudioOffloadSupportProvider
   /** AudioManager parameters key for retrieving support of variable speeds during offload. */
   private static final String OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY = "offloadVariableRateSupported";
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
 
   /**
    * Whether variable speeds are supported during offload. If {@code null} then it has not been

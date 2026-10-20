@@ -95,8 +95,7 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
    * </ul>
    */
   @Override
-  @Nullable
-  public FallbackSelection getFallbackSelectionFor(
+  public @Nullable FallbackSelection getFallbackSelectionFor(
       FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo) {
     if (!isEligibleForFallback(loadErrorInfo.exception)) {
       return null;

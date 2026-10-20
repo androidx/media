@@ -135,7 +135,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private final Context context;
   private final EventDispatcher eventDispatcher;
   private final AudioSink audioSink;
-  @Nullable private final LoudnessCodecController loudnessCodecController;
+  private final @Nullable LoudnessCodecController loudnessCodecController;
   private final AtomicBoolean processOutputBufferResultHolder;
 
   // Values (Integer) are only retrieved by key and never compared by reference identity.
@@ -145,10 +145,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   private int codecMaxInputSize;
   private boolean codecNeedsVorbisToAndroidChannelMappingWorkaround;
-  @Nullable private Format inputFormat;
+  private @Nullable Format inputFormat;
 
   /** Codec used for DRM decryption only in passthrough and offload. */
-  @Nullable private Format decryptOnlyCodecFormat;
+  private @Nullable Format decryptOnlyCodecFormat;
 
   private long currentPositionUs;
   private boolean allowPositionDiscontinuity;
@@ -160,7 +160,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private long nextBufferToWritePresentationTimeUs;
   private long firstNotReadyTimeMs;
   private boolean hasBeenReady;
-  @Nullable private Format currentOutputFormat;
+  private @Nullable Format currentOutputFormat;
   private int currentOutputEncoderPadding;
 
   /**
@@ -555,8 +555,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
-  @Nullable
-  public MediaClock getMediaClock() {
+  public @Nullable MediaClock getMediaClock() {
     return this;
   }
 
@@ -637,8 +636,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
-  @Nullable
-  protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+  protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
     // Create a fresh Format instance and write it back to formatHolder so that super queues it in
     // formatQueue and attaches it to DecoderInputBuffer.format. This ensures

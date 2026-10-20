@@ -104,7 +104,7 @@ import org.jspecify.annotations.Nullable;
 
   private volatile @MonotonicNonNull ImageWriter imageWriter;
 
-  @Nullable private volatile Format configuredFormat;
+  private volatile @Nullable Format configuredFormat;
 
   public FrameToSurfaceFrameWriter(Executor listenerExecutor, Listener listener) {
     this.listenerExecutor = listenerExecutor;
@@ -142,9 +142,8 @@ import org.jspecify.annotations.Nullable;
     listenerExecutor.execute(() -> listener.onFormatConfigured(format));
   }
 
-  @Nullable
   @Override
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     // Atomically register the wakeup listener before checking capacity to avoid missed wakeups.
     pendingWakeup.set(new WakeupListenerHolder(wakeupExecutor, wakeupListener));
 

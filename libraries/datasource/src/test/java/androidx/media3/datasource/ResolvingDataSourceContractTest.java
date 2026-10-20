@@ -106,8 +106,7 @@ public class ResolvingDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  @Nullable
-  protected DataSource getTransferListenerDataSource() {
+  protected @Nullable DataSource getTransferListenerDataSource() {
     return fakeDataSource;
   }
 }

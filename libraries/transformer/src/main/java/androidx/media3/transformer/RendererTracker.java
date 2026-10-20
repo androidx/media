@@ -77,8 +77,7 @@ import org.jspecify.annotations.Nullable;
    * <p>The active renderer is the one associated with the earliest period in its current {@link
    * Timeline}.
    */
-  @Nullable
-  public Renderer getActiveRenderer() {
+  public @Nullable Renderer getActiveRenderer() {
     if (renderers.isEmpty()) {
       return null;
     }

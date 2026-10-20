@@ -77,7 +77,7 @@ import org.jspecify.annotations.Nullable;
   public static final int RUBY_TYPE_TEXT = 3;
   public static final int RUBY_TYPE_DELIMITER = 4;
 
-  @Nullable private String fontFamily;
+  private @Nullable String fontFamily;
   private int fontColor;
   private boolean hasFontColor;
   private int backgroundColor;
@@ -88,17 +88,17 @@ import org.jspecify.annotations.Nullable;
   private @OptionalBoolean int italic;
   private @FontSizeUnit int fontSizeUnit;
   private float fontSize;
-  @Nullable private String id;
+  private @Nullable String id;
   private @RubyType int rubyType;
   private @TextAnnotation.Position int rubyPosition;
   private Layout.@Nullable Alignment textAlign;
   private Layout.@Nullable Alignment multiRowAlign;
   private @OptionalBoolean int textCombine;
-  @Nullable private TextEmphasis textEmphasis;
+  private @Nullable TextEmphasis textEmphasis;
   private float shearPercentage;
-  @Nullable private String origin;
-  @Nullable private String extent;
-  @Nullable private String displayAlign;
+  private @Nullable String origin;
+  private @Nullable String extent;
+  private @Nullable String displayAlign;
 
   public TtmlStyle() {
     linethrough = UNSPECIFIED;
@@ -157,8 +157,7 @@ import org.jspecify.annotations.Nullable;
     return this;
   }
 
-  @Nullable
-  public String getFontFamily() {
+  public @Nullable String getFontFamily() {
     return fontFamily;
   }
 
@@ -306,8 +305,7 @@ import org.jspecify.annotations.Nullable;
     return this;
   }
 
-  @Nullable
-  public String getId() {
+  public @Nullable String getId() {
     return id;
   }
 
@@ -362,8 +360,7 @@ import org.jspecify.annotations.Nullable;
     return this;
   }
 
-  @Nullable
-  public TextEmphasis getTextEmphasis() {
+  public @Nullable TextEmphasis getTextEmphasis() {
     return textEmphasis;
   }
 
@@ -399,8 +396,7 @@ import org.jspecify.annotations.Nullable;
     return this;
   }
 
-  @Nullable
-  public String getOrigin() {
+  public @Nullable String getOrigin() {
     return origin;
   }
 
@@ -410,8 +406,7 @@ import org.jspecify.annotations.Nullable;
     return this;
   }
 
-  @Nullable
-  public String getExtent() {
+  public @Nullable String getExtent() {
     return extent;
   }
 
@@ -421,8 +416,7 @@ import org.jspecify.annotations.Nullable;
     return this;
   }
 
-  @Nullable
-  public String getDisplayAlign() {
+  public @Nullable String getDisplayAlign() {
     return displayAlign;
   }
 }

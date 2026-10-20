@@ -95,7 +95,7 @@ public abstract class BinarySearchSeeker {
 
   protected final BinarySearchSeekMap seekMap;
   protected final TimestampSeeker timestampSeeker;
-  @Nullable protected SeekOperationParams seekOperationParams;
+  protected @Nullable SeekOperationParams seekOperationParams;
 
   private final int minimumSearchRange;
 

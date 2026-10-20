@@ -47,7 +47,7 @@ public interface Chapter extends Metadata.Entry {
     private long startTimeMs;
     private long endTimeMs;
     private boolean isHidden;
-    @Nullable private Label title;
+    private @Nullable Label title;
 
     /** Constructs an instance. */
     public Builder() {

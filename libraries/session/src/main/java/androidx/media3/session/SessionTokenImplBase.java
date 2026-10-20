@@ -41,13 +41,13 @@ import org.jspecify.annotations.Nullable;
 
   private final String packageName;
 
-  @Nullable private final String packageNameOverride;
+  private final @Nullable String packageNameOverride;
 
   private final String serviceName;
 
-  @Nullable private final ComponentName componentName;
+  private final @Nullable ComponentName componentName;
 
-  @Nullable private final IBinder iSession;
+  private final @Nullable IBinder iSession;
 
   private final Bundle extras;
 
@@ -195,8 +195,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ComponentName getComponentName() {
+  public @Nullable ComponentName getComponentName() {
     return componentName;
   }
 
@@ -222,8 +221,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public Object getBinder() {
+  public @Nullable Object getBinder() {
     return iSession;
   }
 

@@ -42,7 +42,7 @@ public final class LottieOverlayTest {
 
   private static final float TOLERANCE = 0.01f;
   private TestLottieProvider testLottieProvider;
-  @Nullable private LottieOverlay lottieOverlay;
+  private @Nullable LottieOverlay lottieOverlay;
 
   @Before
   public void setUp() {

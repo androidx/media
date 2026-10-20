@@ -69,7 +69,7 @@ public final class DtsReader implements ElementaryStreamReader {
   /** The chunk ID is read in synchronized frames and re-used in non-synchronized frames. */
   private final AtomicInteger uhdAudioChunkId;
 
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
 

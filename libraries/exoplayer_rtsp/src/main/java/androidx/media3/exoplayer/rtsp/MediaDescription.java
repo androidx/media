@@ -125,9 +125,9 @@ import org.jspecify.annotations.Nullable;
     private final HashMap<String, String> attributes;
 
     private int bitrate;
-    @Nullable private String mediaTitle;
-    @Nullable private String connection;
-    @Nullable private String key;
+    private @Nullable String mediaTitle;
+    private @Nullable String connection;
+    private @Nullable String key;
 
     /**
      * Creates a new instance.
@@ -299,13 +299,13 @@ import org.jspecify.annotations.Nullable;
   public final int bitrate;
 
   /** The assigned media title. */
-  @Nullable public final String mediaTitle;
+  public final @Nullable String mediaTitle;
 
   /** The connection parameters. */
-  @Nullable public final String connection;
+  public final @Nullable String connection;
 
   /** The encryption parameter. */
-  @Nullable public final String key;
+  public final @Nullable String key;
 
   /** The media-specific attributes. */
   public final ImmutableMap<String, String> attributes;

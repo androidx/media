@@ -43,7 +43,7 @@ public final class MpegAudioReader implements ElementaryStreamReader {
 
   private final ParsableByteArray headerScratch;
   private final MpegAudioUtil.Header header;
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
 

@@ -1329,8 +1329,7 @@ public final class AssetInfo {
   /** Video {@link Format}, or {@code null}. */
   // Format object is not deeply immutable but it is meant to be immutable.
   @SuppressWarnings("Immutable")
-  @Nullable
-  public final Format videoFormat;
+  public final @Nullable Format videoFormat;
 
   /** Video duration in microseconds, or {@link C#TIME_UNSET}. */
   public final long videoDurationUs;
@@ -1345,7 +1344,7 @@ public final class AssetInfo {
   public final int audioSampleCount;
 
   /** Video frame timestamps in microseconds, or {@code null}. */
-  @Nullable public final ImmutableList<Long> videoTimestampsUs;
+  public final @Nullable ImmutableList<Long> videoTimestampsUs;
 
   private AssetInfo(
       String uri,

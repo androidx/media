@@ -122,7 +122,7 @@ import org.jspecify.annotations.Nullable;
 
   public static class Builder {
 
-    @Nullable private PlaybackException playerError;
+    private @Nullable PlaybackException playerError;
     private @Player.MediaItemTransitionReason int mediaItemTransitionReason;
     private SessionPositionInfo sessionPositionInfo;
     private PositionInfo oldPositionInfo;
@@ -485,7 +485,7 @@ import org.jspecify.annotations.Nullable;
           /* currentTracks= */ Tracks.EMPTY,
           TrackSelectionParameters.DEFAULT);
 
-  @Nullable public final PlaybackException playerError;
+  public final @Nullable PlaybackException playerError;
 
   public final @Player.MediaItemTransitionReason int mediaItemTransitionReason;
 
@@ -813,8 +813,7 @@ import org.jspecify.annotations.Nullable;
     this.trackSelectionParameters = parameters;
   }
 
-  @Nullable
-  public MediaItem getCurrentMediaItem() {
+  public @Nullable MediaItem getCurrentMediaItem() {
     return timeline.isEmpty()
         ? null
         : timeline.getWindow(sessionPositionInfo.positionInfo.mediaItemIndex, new Window())

@@ -60,8 +60,7 @@ public final class LottieOverlay extends CanvasOverlay {
      *
      * <p>The default implementation returns {@code null}.
      */
-    @Nullable
-    default ImageAssetDelegate getImageAssetDelegate() {
+    default @Nullable ImageAssetDelegate getImageAssetDelegate() {
       return null;
     }
 
@@ -79,8 +78,8 @@ public final class LottieOverlay extends CanvasOverlay {
   public static final class Builder {
     private final LottieProvider lottieProvider;
     private float speed;
-    @Nullable private StaticOverlaySettings overlaySettings;
-    @Nullable private LottieDrawable lottieDrawable;
+    private @Nullable StaticOverlaySettings overlaySettings;
+    private @Nullable LottieDrawable lottieDrawable;
 
     public Builder(LottieProvider lottieProvider) {
       this.lottieProvider = lottieProvider;

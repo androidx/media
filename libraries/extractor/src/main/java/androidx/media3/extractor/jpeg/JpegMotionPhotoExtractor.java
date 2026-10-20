@@ -93,10 +93,10 @@ import org.jspecify.annotations.Nullable;
   private int segmentLength;
   private long mp4StartPosition;
 
-  @Nullable private MotionPhotoMetadata motionPhotoMetadata;
+  private @Nullable MotionPhotoMetadata motionPhotoMetadata;
   private @MonotonicNonNull ExtractorInput lastExtractorInput;
   private @MonotonicNonNull StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
-  @Nullable private Mp4Extractor mp4Extractor;
+  private @Nullable Mp4Extractor mp4Extractor;
 
   public JpegMotionPhotoExtractor() {
     scratch = new ParsableByteArray(/* limit= */ MARKER_SIZE);
@@ -319,9 +319,8 @@ import org.jspecify.annotations.Nullable;
    *     photo metadata.
    * @throws IOException If an error occurs parsing the XMP string.
    */
-  @Nullable
-  private static MotionPhotoMetadata getMotionPhotoMetadata(String xmpString, long inputLength)
-      throws IOException {
+  private static @Nullable MotionPhotoMetadata getMotionPhotoMetadata(
+      String xmpString, long inputLength) throws IOException {
     // Metadata defines offsets from the end of the stream, so we need the stream length to
     // determine start offsets.
     if (inputLength == C.LENGTH_UNSET) {

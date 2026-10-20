@@ -339,7 +339,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private int selectedIndex;
   private @C.SelectionReason int reason;
   private long lastBufferEvaluationMs;
-  @Nullable private MediaChunk lastBufferEvaluationMediaChunk;
+  private @Nullable MediaChunk lastBufferEvaluationMediaChunk;
   private long latestBitrateEstimate;
   private final int[] latestLocationSteeringPriority;
 
@@ -592,8 +592,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   }
 
   @Override
-  @Nullable
-  public Object getSelectionData() {
+  public @Nullable Object getSelectionData() {
     return null;
   }
 

@@ -376,8 +376,8 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
     return json;
   }
 
-  @Nullable
-  private static JSONObject getPlayerConfigJson(MediaItem mediaItem) throws JSONException {
+  private static @Nullable JSONObject getPlayerConfigJson(MediaItem mediaItem)
+      throws JSONException {
     if (mediaItem.localConfiguration == null
         || mediaItem.localConfiguration.drmConfiguration == null) {
       return null;

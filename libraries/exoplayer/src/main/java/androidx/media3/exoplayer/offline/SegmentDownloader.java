@@ -139,7 +139,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private final CacheDataSource.Factory cacheDataSourceFactory;
   private final Cache cache;
   private final CacheKeyFactory cacheKeyFactory;
-  @Nullable private final PriorityTaskManager priorityTaskManager;
+  private final @Nullable PriorityTaskManager priorityTaskManager;
   private final Executor executor;
   private final long maxMergedSegmentStartTimeDiffUs;
 
@@ -571,7 +571,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     public final Segment segment;
     public final CacheDataSource dataSource;
-    @Nullable private final ProgressNotifier progressNotifier;
+    private final @Nullable ProgressNotifier progressNotifier;
     public final byte[] temporaryBuffer;
     private final CacheWriter cacheWriter;
 

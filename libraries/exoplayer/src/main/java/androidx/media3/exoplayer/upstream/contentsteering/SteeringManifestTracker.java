@@ -81,16 +81,16 @@ public final class SteeringManifestTracker {
   private static final String RETRY_AFTER_HEADER = "Retry-After";
 
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
   private final Clock clock;
   private final SteeringManifestLoaderCallback steeringManifestLoaderCallback;
 
-  @Nullable private Uri steeringManifestUrl;
-  @Nullable private Callback callback;
+  private @Nullable Uri steeringManifestUrl;
+  private @Nullable Callback callback;
   private MediaSourceEventListener.@Nullable EventDispatcher eventDispatcher;
-  @Nullable private SteeringManifest steeringManifest;
-  @Nullable private HandlerWrapper handler;
-  @Nullable private Loader steeringManifestLoader;
+  private @Nullable SteeringManifest steeringManifest;
+  private @Nullable HandlerWrapper handler;
+  private @Nullable Loader steeringManifestLoader;
   private boolean hasStarted;
 
   /**

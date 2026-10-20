@@ -133,10 +133,9 @@ public final class MidiDecoder
   }
 
   @Override
-  @Nullable
   @SuppressWarnings(
       "ByteBufferBackingArray") // ByteBuffers are created using allocate. See createInputBuffer().
-  protected MidiDecoderException decode(
+  protected @Nullable MidiDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     ByteBuffer inputBufferData = checkNotNull(inputBuffer.data);
     if (reset) {

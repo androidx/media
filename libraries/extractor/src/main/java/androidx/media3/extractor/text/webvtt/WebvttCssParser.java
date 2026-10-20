@@ -122,8 +122,8 @@ import org.jspecify.annotations.Nullable;
    * @return A string containing the target, empty string if the selector is universal (targets all
    *     cues) or null if an error was encountered.
    */
-  @Nullable
-  private static String parseSelector(ParsableByteArray input, StringBuilder stringBuilder) {
+  private static @Nullable String parseSelector(
+      ParsableByteArray input, StringBuilder stringBuilder) {
     skipWhitespaceAndComments(input);
     if (input.bytesLeft() < 5) {
       return null;
@@ -234,8 +234,8 @@ import org.jspecify.annotations.Nullable;
   }
 
   // Visible for testing.
-  @Nullable
-  /* package */ static String parseNextToken(ParsableByteArray input, StringBuilder stringBuilder) {
+  /* package */ static @Nullable String parseNextToken(
+      ParsableByteArray input, StringBuilder stringBuilder) {
     skipWhitespaceAndComments(input);
     if (input.bytesLeft() == 0) {
       return null;
@@ -276,8 +276,8 @@ import org.jspecify.annotations.Nullable;
     return (char) input.getData()[position];
   }
 
-  @Nullable
-  private static String parsePropertyValue(ParsableByteArray input, StringBuilder stringBuilder) {
+  private static @Nullable String parsePropertyValue(
+      ParsableByteArray input, StringBuilder stringBuilder) {
     StringBuilder expressionBuilder = new StringBuilder();
     String token;
     int position;

@@ -127,14 +127,14 @@ import org.jspecify.annotations.Nullable;
     public final boolean playAdBeforeStartPosition;
     public final boolean enableCustomTabs;
     public final int mediaBitrate;
-    @Nullable public final Boolean enableContinuousPlayback;
-    @Nullable public final List<String> adMediaMimeTypes;
-    @Nullable public final Set<UiElement> adUiElements;
-    @Nullable public final Collection<CompanionAdSlot> companionAdSlots;
+    public final @Nullable Boolean enableContinuousPlayback;
+    public final @Nullable List<String> adMediaMimeTypes;
+    public final @Nullable Set<UiElement> adUiElements;
+    public final @Nullable Collection<CompanionAdSlot> companionAdSlots;
     public final AdErrorEvent.@Nullable AdErrorListener applicationAdErrorListener;
     public final AdEvent.@Nullable AdEventListener applicationAdEventListener;
     public final VideoAdPlayer.@Nullable VideoAdPlayerCallback applicationVideoAdPlayerCallback;
-    @Nullable public final ImaSdkSettings imaSdkSettings;
+    public final @Nullable ImaSdkSettings imaSdkSettings;
     public final boolean debugModeEnabled;
 
     public Configuration(
@@ -182,7 +182,7 @@ import org.jspecify.annotations.Nullable;
     public final AdEvent.@Nullable AdEventListener applicationAdEventListener;
     public final AdErrorEvent.@Nullable AdErrorListener applicationAdErrorListener;
     public final ImmutableList<CompanionAdSlot> companionAdSlots;
-    @Nullable public final AdSlot pauseAdSlot;
+    public final @Nullable AdSlot pauseAdSlot;
     public final boolean focusSkipButtonWhenAvailable;
     public final boolean enableCustomTabs;
     public final boolean debugModeEnabled;

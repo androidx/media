@@ -48,8 +48,7 @@ public final class DecoderCountersListener implements AnalyticsListener {
    *
    * <p>Can be called on any thread.
    */
-  @Nullable
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     return audioDecoderCounters.get();
   }
 
@@ -58,8 +57,7 @@ public final class DecoderCountersListener implements AnalyticsListener {
    *
    * <p>Can be called on any thread.
    */
-  @Nullable
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     return videoDecoderCounters.get();
   }
 }

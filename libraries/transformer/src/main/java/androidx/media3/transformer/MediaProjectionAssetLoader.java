@@ -82,8 +82,8 @@ public final class MediaProjectionAssetLoader implements AssetLoader {
   private final Handler handler;
   private final SurfaceAssetLoader surfaceAssetLoader;
 
-  @Nullable private Format videoFormat;
-  @Nullable private VirtualDisplay virtualDisplay;
+  private @Nullable Format videoFormat;
+  private @Nullable VirtualDisplay virtualDisplay;
 
   /**
    * Creates a new asset that provides video from {@link MediaProjection}.
@@ -210,9 +210,8 @@ public final class MediaProjectionAssetLoader implements AssetLoader {
       return true;
     }
 
-    @Nullable
     @Override
-    public SampleConsumer onOutputFormat(Format format) throws ExportException {
+    public @Nullable SampleConsumer onOutputFormat(Format format) throws ExportException {
       if (videoFormat == null) {
         return null;
       }

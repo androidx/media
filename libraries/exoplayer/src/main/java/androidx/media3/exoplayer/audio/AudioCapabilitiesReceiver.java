@@ -62,11 +62,11 @@ public final class AudioCapabilitiesReceiver {
   private final Handler handler;
   @VisibleForTesting final android.media.AudioDeviceCallback audioDeviceCallback;
   private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
-  @Nullable private final ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
-  @Nullable private SpatializerWrapper spatializer;
+  private final @Nullable ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
+  private @Nullable SpatializerWrapper spatializer;
 
-  @Nullable private AudioCapabilities audioCapabilities;
-  @Nullable private AudioDeviceInfo routedDevice;
+  private @Nullable AudioCapabilities audioCapabilities;
+  private @Nullable AudioDeviceInfo routedDevice;
   private AudioAttributes audioAttributes;
   private boolean registered;
 

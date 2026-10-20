@@ -198,7 +198,7 @@ public interface AudioSink {
      * output channel {@code i} when preprocessing input buffers. After the map is applied the audio
      * data will have {@code outputChannels.length} channels.
      */
-    @Nullable public final ImmutableIntArray outputChannelMapping;
+    public final @Nullable ImmutableIntArray outputChannelMapping;
 
     /**
      * The {@link Timeline} of the playback this audio sink is configured for, or {@link
@@ -216,7 +216,7 @@ public interface AudioSink {
      * <p>Can be used together with the {@link Timeline} to identify the concrete item in the
      * playlist.
      */
-    @Nullable public final MediaPeriodId mediaPeriodId;
+    public final @Nullable MediaPeriodId mediaPeriodId;
 
     private AudioSinkConfig(Builder builder) {
       format = builder.format;
@@ -261,9 +261,9 @@ public interface AudioSink {
     public static final class Builder {
       private final Format format;
       private int preferredBufferSizeOverride;
-      @Nullable private ImmutableIntArray outputChannelMapping;
+      private @Nullable ImmutableIntArray outputChannelMapping;
       private Timeline timeline;
-      @Nullable private MediaPeriodId mediaPeriodId;
+      private @Nullable MediaPeriodId mediaPeriodId;
 
       /**
        * Creates a new builder.
@@ -803,8 +803,7 @@ public interface AudioSink {
   @Nullable AudioAttributes getAudioAttributes();
 
   /** Returns the AudioCapabilities of the sink, if supported by the sink implementation. */
-  @Nullable
-  default AudioCapabilities getAudioCapabilities() {
+  default @Nullable AudioCapabilities getAudioCapabilities() {
     return null;
   }
 

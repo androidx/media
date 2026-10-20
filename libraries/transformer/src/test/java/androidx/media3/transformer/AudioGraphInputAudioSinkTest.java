@@ -346,11 +346,11 @@ public class AudioGraphInputAudioSinkTest {
   }
 
   private static class MockController implements Controller {
-    @Nullable private AudioGraphInput input;
+    private @Nullable AudioGraphInput input;
 
-    @Nullable
     @Override
-    public AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format) {
+    public @Nullable AudioGraphInput getAudioGraphInput(
+        EditedMediaItem editedMediaItem, Format format) {
       try {
         input =
             new AudioGraphInput(

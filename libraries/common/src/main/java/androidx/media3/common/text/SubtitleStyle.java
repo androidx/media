@@ -85,7 +85,7 @@ public final class SubtitleStyle {
     @ColorInt private int windowColor;
     private @EdgeType int edgeType;
     @ColorInt private int edgeColor;
-    @Nullable private Typeface typeface;
+    private @Nullable Typeface typeface;
 
     /** Creates an instance with default initial values. */
     public Builder() {
@@ -222,7 +222,7 @@ public final class SubtitleStyle {
   @ColorInt public final int edgeColor;
 
   /** The preferred typeface, or {@code null} if unspecified. */
-  @Nullable public final Typeface typeface;
+  public final @Nullable Typeface typeface;
 
   /**
    * Creates a {@link SubtitleStyle} from a provided {@link CaptionStyle}.

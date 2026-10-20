@@ -1232,15 +1232,13 @@ public class MediaCodecRendererTest {
       throw exceptionSupplier.get();
     }
 
-    @Nullable
     @Override
-    public ByteBuffer getInputBuffer(int index) {
+    public @Nullable ByteBuffer getInputBuffer(int index) {
       throw exceptionSupplier.get();
     }
 
-    @Nullable
     @Override
-    public ByteBuffer getOutputBuffer(int index) {
+    public @Nullable ByteBuffer getOutputBuffer(int index) {
       throw exceptionSupplier.get();
     }
 

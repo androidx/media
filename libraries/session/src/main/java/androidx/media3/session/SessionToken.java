@@ -263,7 +263,7 @@ public final class SessionToken {
    * Returns the component name of the session. It will be {@code null} if the {@link #getType()
    * type} is {@link #TYPE_SESSION}.
    */
-  @Nullable /* package */ ComponentName getComponentName() {
+  /* package */ @Nullable ComponentName getComponentName() {
     return impl.getComponentName();
   }
 
@@ -318,11 +318,12 @@ public final class SessionToken {
     return impl.isLegacySession();
   }
 
-  @Nullable /* package */ Object getBinder() {
+  /* package */ @Nullable Object getBinder() {
     return impl.getBinder();
   }
 
-  @Nullable /* package */ Token getPlatformToken() {
+  /* package */
+  @Nullable Token getPlatformToken() {
     return impl.getPlatformToken();
   }
 

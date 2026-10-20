@@ -58,7 +58,7 @@ import org.jspecify.annotations.Nullable;
   /* package */ static final String FAKE_ITEM_UID = "fake";
 
   private final ImmutableList<QueuedMediaItem> queuedMediaItems;
-  @Nullable private final QueuedMediaItem fakeQueuedMediaItem;
+  private final @Nullable QueuedMediaItem fakeQueuedMediaItem;
 
   private QueueTimeline(
       ImmutableList<QueuedMediaItem> queuedMediaItems,
@@ -222,8 +222,7 @@ import org.jspecify.annotations.Nullable;
     return false;
   }
 
-  @Nullable
-  public MediaItem getMediaItemAt(int mediaItemIndex) {
+  public @Nullable MediaItem getMediaItemAt(int mediaItemIndex) {
     return mediaItemIndex >= getWindowCount() ? null : getQueuedMediaItem(mediaItemIndex).mediaItem;
   }
 

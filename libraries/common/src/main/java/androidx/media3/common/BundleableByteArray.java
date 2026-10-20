@@ -114,8 +114,7 @@ public final class BundleableByteArray {
   @RequiresApi(27)
   private static final class SharedMemoryApi27 {
 
-    @Nullable
-    private static SharedMemoryApi27 create(byte[] byteArray) {
+    private static @Nullable SharedMemoryApi27 create(byte[] byteArray) {
       SharedMemory sharedMemory = null;
       try {
         sharedMemory = SharedMemory.create(TAG, byteArray.length);

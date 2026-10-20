@@ -123,8 +123,8 @@ public class FakeMediaPeriod implements MediaPeriod {
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final long fakePreparationLoadTaskId;
 
-  @Nullable private Handler playerHandler;
-  @Nullable private Callback prepareCallback;
+  private @Nullable Handler playerHandler;
+  private @Nullable Callback prepareCallback;
 
   private boolean deferOnPrepared;
   private boolean prepared;

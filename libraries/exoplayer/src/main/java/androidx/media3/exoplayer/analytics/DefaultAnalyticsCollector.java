@@ -1041,7 +1041,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
 
     private ImmutableList<MediaPeriodId> mediaPeriodQueue;
     private ImmutableMap<MediaPeriodId, Timeline> mediaPeriodTimelines;
-    @Nullable private MediaPeriodId currentPlayerMediaPeriod;
+    private @Nullable MediaPeriodId currentPlayerMediaPeriod;
     private @MonotonicNonNull MediaPeriodId playingMediaPeriod;
     private @MonotonicNonNull MediaPeriodId readingMediaPeriod;
 
@@ -1057,8 +1057,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null if no matching media period has been created yet.
      */
-    @Nullable
-    public MediaPeriodId getCurrentPlayerMediaPeriod() {
+    public @Nullable MediaPeriodId getCurrentPlayerMediaPeriod() {
       return currentPlayerMediaPeriod;
     }
 
@@ -1068,8 +1067,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null, if no media period has been created yet.
      */
-    @Nullable
-    public MediaPeriodId getPlayingMediaPeriod() {
+    public @Nullable MediaPeriodId getPlayingMediaPeriod() {
       return playingMediaPeriod;
     }
 
@@ -1079,8 +1077,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null, if no media period has been created yet.
      */
-    @Nullable
-    public MediaPeriodId getReadingMediaPeriod() {
+    public @Nullable MediaPeriodId getReadingMediaPeriod() {
       return readingMediaPeriod;
     }
 
@@ -1090,8 +1087,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null, if no media period is active yet.
      */
-    @Nullable
-    public MediaPeriodId getLoadingMediaPeriod() {
+    public @Nullable MediaPeriodId getLoadingMediaPeriod() {
       return mediaPeriodQueue.isEmpty() ? null : Iterables.getLast(mediaPeriodQueue);
     }
 
@@ -1099,8 +1095,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      * Returns the most recent {@link Timeline} for the given {@link MediaPeriodId}, or null if no
      * timeline is available.
      */
-    @Nullable
-    public Timeline getMediaPeriodIdTimeline(MediaPeriodId mediaPeriodId) {
+    public @Nullable Timeline getMediaPeriodIdTimeline(MediaPeriodId mediaPeriodId) {
       return mediaPeriodTimelines.get(mediaPeriodId);
     }
 
@@ -1188,8 +1183,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
           || mediaPeriodId.nextAdGroupIndex < period.getAdGroupCount();
     }
 
-    @Nullable
-    private static MediaPeriodId findCurrentPlayerMediaPeriodInQueue(
+    private static @Nullable MediaPeriodId findCurrentPlayerMediaPeriodInQueue(
         Player player,
         ImmutableList<MediaPeriodId> mediaPeriodQueue,
         @Nullable MediaPeriodId playingMediaPeriod,

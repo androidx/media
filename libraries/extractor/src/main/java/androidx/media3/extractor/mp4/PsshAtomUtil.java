@@ -98,8 +98,7 @@ public final class PsshAtomUtil {
    * @return The parsed UUID. Null if the input is not a valid PSSH atom, or if the PSSH atom has an
    *     unsupported version.
    */
-  @Nullable
-  public static UUID parseUuid(byte[] atom) {
+  public static @Nullable UUID parseUuid(byte[] atom) {
     @Nullable PsshAtom parsedAtom = parsePsshAtom(atom);
     if (parsedAtom == null) {
       return null;
@@ -154,8 +153,7 @@ public final class PsshAtomUtil {
    * @return The parsed PSSH atom. Null if the input is not a valid PSSH atom, or if the PSSH atom
    *     has an unsupported version.
    */
-  @Nullable
-  public static PsshAtom parsePsshAtom(byte[] atom) {
+  public static @Nullable PsshAtom parsePsshAtom(byte[] atom) {
     ParsableByteArray atomData = new ParsableByteArray(atom);
     if (atomData.limit() < Mp4Box.FULL_HEADER_SIZE + 16 /* UUID */ + 4 /* DataSize */) {
       // Data too short.

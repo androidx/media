@@ -151,14 +151,12 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
-  @Nullable
-  public AudioAttributes getAudioAttributes() {
+  public @Nullable AudioAttributes getAudioAttributes() {
     return sink.getAudioAttributes();
   }
 
   @Override
-  @Nullable
-  public AudioCapabilities getAudioCapabilities() {
+  public @Nullable AudioCapabilities getAudioCapabilities() {
     return sink.getAudioCapabilities();
   }
 

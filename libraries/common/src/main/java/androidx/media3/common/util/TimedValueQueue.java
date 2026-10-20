@@ -65,8 +65,7 @@ public final class TimedValueQueue<V> {
   }
 
   /** Removes and returns the first value in the queue, or null if the queue is empty. */
-  @Nullable
-  public synchronized V pollFirst() {
+  public synchronized @Nullable V pollFirst() {
     return size == 0 ? null : popFirst();
   }
 
@@ -79,8 +78,7 @@ public final class TimedValueQueue<V> {
    *     timestamp or null if there is no such value.
    * @see #poll(long)
    */
-  @Nullable
-  public synchronized V pollFloor(long timestamp) {
+  public synchronized @Nullable V pollFloor(long timestamp) {
     return poll(timestamp, /* onlyOlder= */ true);
   }
 
@@ -92,8 +90,7 @@ public final class TimedValueQueue<V> {
    * @return The value with the closest timestamp or null if the buffer is empty.
    * @see #pollFloor(long)
    */
-  @Nullable
-  public synchronized V poll(long timestamp) {
+  public synchronized @Nullable V poll(long timestamp) {
     return poll(timestamp, /* onlyOlder= */ false);
   }
 
@@ -107,8 +104,7 @@ public final class TimedValueQueue<V> {
    * @return The value with the closest timestamp or null if the buffer is empty or there is no
    *     older value and {@code onlyOlder} is true.
    */
-  @Nullable
-  private V poll(long timestamp, boolean onlyOlder) {
+  private @Nullable V poll(long timestamp, boolean onlyOlder) {
     @Nullable V value = null;
     long previousTimeDiff = Long.MAX_VALUE;
     while (size > 0) {
@@ -122,8 +118,7 @@ public final class TimedValueQueue<V> {
     return value;
   }
 
-  @Nullable
-  private V popFirst() {
+  private @Nullable V popFirst() {
     checkState(size > 0);
     @Nullable V value = values[first];
     values[first] = null;

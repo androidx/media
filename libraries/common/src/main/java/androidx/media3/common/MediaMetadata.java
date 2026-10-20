@@ -51,49 +51,48 @@ public final class MediaMetadata {
   /** A builder for {@link MediaMetadata} instances. */
   public static final class Builder {
 
-    @Nullable private CharSequence title;
-    @Nullable private CharSequence artist;
-    @Nullable private CharSequence albumTitle;
-    @Nullable private CharSequence albumArtist;
-    @Nullable private CharSequence displayTitle;
-    @Nullable private CharSequence subtitle;
-    @Nullable private CharSequence description;
-    @Nullable private Long durationMs;
-    @Nullable private Rating userRating;
-    @Nullable private Rating overallRating;
+    private @Nullable CharSequence title;
+    private @Nullable CharSequence artist;
+    private @Nullable CharSequence albumTitle;
+    private @Nullable CharSequence albumArtist;
+    private @Nullable CharSequence displayTitle;
+    private @Nullable CharSequence subtitle;
+    private @Nullable CharSequence description;
+    private @Nullable Long durationMs;
+    private @Nullable Rating userRating;
+    private @Nullable Rating overallRating;
     private byte @Nullable [] artworkData;
-    @Nullable private BundleableByteArray bundleableArtworkData;
-    @Nullable private @PictureType Integer artworkDataType;
-    @Nullable private Uri artworkUri;
-    @Nullable private Integer trackNumber;
-    @Nullable private Integer totalTrackCount;
+    private @Nullable BundleableByteArray bundleableArtworkData;
+    private @PictureType @Nullable Integer artworkDataType;
+    private @Nullable Uri artworkUri;
+    private @Nullable Integer trackNumber;
+    private @Nullable Integer totalTrackCount;
 
     @SuppressWarnings("deprecation") // Builder for deprecated field.
-    @Nullable
-    private @FolderType Integer folderType;
+    private @FolderType @Nullable Integer folderType;
 
-    @Nullable private Boolean isBrowsable;
-    @Nullable private Boolean isPlayable;
-    @Nullable private Integer recordingYear;
-    @Nullable private Integer recordingMonth;
-    @Nullable private Integer recordingDay;
-    @Nullable private Integer releaseYear;
-    @Nullable private Integer releaseMonth;
-    @Nullable private Integer releaseDay;
-    @Nullable private CharSequence writer;
-    @Nullable private CharSequence author;
-    @Nullable private CharSequence composer;
-    @Nullable private CharSequence conductor;
-    @Nullable private CharSequence discSubtitle;
-    @Nullable private Integer discNumber;
-    @Nullable private Integer totalDiscCount;
-    @Nullable private CharSequence genre;
-    @Nullable private CharSequence compilation;
-    @Nullable private CharSequence station;
-    @Nullable private @MediaType Integer mediaType;
-    @Nullable private String playlistId;
+    private @Nullable Boolean isBrowsable;
+    private @Nullable Boolean isPlayable;
+    private @Nullable Integer recordingYear;
+    private @Nullable Integer recordingMonth;
+    private @Nullable Integer recordingDay;
+    private @Nullable Integer releaseYear;
+    private @Nullable Integer releaseMonth;
+    private @Nullable Integer releaseDay;
+    private @Nullable CharSequence writer;
+    private @Nullable CharSequence author;
+    private @Nullable CharSequence composer;
+    private @Nullable CharSequence conductor;
+    private @Nullable CharSequence discSubtitle;
+    private @Nullable Integer discNumber;
+    private @Nullable Integer totalDiscCount;
+    private @Nullable CharSequence genre;
+    private @Nullable CharSequence compilation;
+    private @Nullable CharSequence station;
+    private @MediaType @Nullable Integer mediaType;
+    private @Nullable String playlistId;
     private ImmutableList<String> categories;
-    @Nullable private Bundle extras;
+    private @Nullable Bundle extras;
     private ImmutableList<String> supportedCommands;
 
     public Builder() {
@@ -245,7 +244,7 @@ public final class MediaMetadata {
      */
     @CanIgnoreReturnValue
     public Builder setArtworkData(
-        byte @Nullable [] artworkData, @Nullable @PictureType Integer artworkDataType) {
+        byte @Nullable [] artworkData, @PictureType @Nullable Integer artworkDataType) {
       this.artworkData = artworkData == null ? null : artworkData.clone();
       this.bundleableArtworkData = null;
       this.artworkDataType = artworkDataType;
@@ -302,7 +301,7 @@ public final class MediaMetadata {
     @SuppressWarnings("deprecation") // Using deprecated type.
     @Deprecated
     @CanIgnoreReturnValue
-    public Builder setFolderType(@Nullable @FolderType Integer folderType) {
+    public Builder setFolderType(@FolderType @Nullable Integer folderType) {
       this.folderType = folderType;
       return this;
     }
@@ -345,7 +344,7 @@ public final class MediaMetadata {
      */
     @CanIgnoreReturnValue
     public Builder setRecordingMonth(
-        @Nullable @IntRange(from = 1, to = 12) Integer recordingMonth) {
+        @IntRange(from = 1, to = 12) @Nullable Integer recordingMonth) {
       this.recordingMonth = recordingMonth;
       return this;
     }
@@ -356,7 +355,7 @@ public final class MediaMetadata {
      * <p>Value should be between 1 and 31.
      */
     @CanIgnoreReturnValue
-    public Builder setRecordingDay(@Nullable @IntRange(from = 1, to = 31) Integer recordingDay) {
+    public Builder setRecordingDay(@IntRange(from = 1, to = 31) @Nullable Integer recordingDay) {
       this.recordingDay = recordingDay;
       return this;
     }
@@ -374,7 +373,7 @@ public final class MediaMetadata {
      * <p>Value should be between 1 and 12.
      */
     @CanIgnoreReturnValue
-    public Builder setReleaseMonth(@Nullable @IntRange(from = 1, to = 12) Integer releaseMonth) {
+    public Builder setReleaseMonth(@IntRange(from = 1, to = 12) @Nullable Integer releaseMonth) {
       this.releaseMonth = releaseMonth;
       return this;
     }
@@ -385,7 +384,7 @@ public final class MediaMetadata {
      * <p>Value should be between 1 and 31.
      */
     @CanIgnoreReturnValue
-    public Builder setReleaseDay(@Nullable @IntRange(from = 1, to = 31) Integer releaseDay) {
+    public Builder setReleaseDay(@IntRange(from = 1, to = 31) @Nullable Integer releaseDay) {
       this.releaseDay = releaseDay;
       return this;
     }
@@ -464,7 +463,7 @@ public final class MediaMetadata {
 
     /** Sets the {@link MediaType}. */
     @CanIgnoreReturnValue
-    public Builder setMediaType(@Nullable @MediaType Integer mediaType) {
+    public Builder setMediaType(@MediaType @Nullable Integer mediaType) {
       this.mediaType = mediaType;
       return this;
     }
@@ -1059,29 +1058,29 @@ public final class MediaMetadata {
   public static final MediaMetadata EMPTY = new MediaMetadata.Builder().build();
 
   /** Optional title. */
-  @Nullable public final CharSequence title;
+  public final @Nullable CharSequence title;
 
   /** Optional artist. */
-  @Nullable public final CharSequence artist;
+  public final @Nullable CharSequence artist;
 
   /** Optional album title. */
-  @Nullable public final CharSequence albumTitle;
+  public final @Nullable CharSequence albumTitle;
 
   /** Optional album artist. */
-  @Nullable public final CharSequence albumArtist;
+  public final @Nullable CharSequence albumArtist;
 
   /** Optional display title. */
-  @Nullable public final CharSequence displayTitle;
+  public final @Nullable CharSequence displayTitle;
 
   /**
    * Optional subtitle.
    *
    * <p>This is the secondary title of the media, unrelated to closed captions.
    */
-  @Nullable public final CharSequence subtitle;
+  public final @Nullable CharSequence subtitle;
 
   /** Optional description. */
-  @Nullable public final CharSequence description;
+  public final @Nullable CharSequence description;
 
   /**
    * Optional duration, non-negative and in milliseconds.
@@ -1090,31 +1089,31 @@ public final class MediaMetadata {
    * informational purpose only. For retrieving the duration of the media item currently being
    * played, use {@link Player#getDuration()} instead.
    */
-  @Nullable public final Long durationMs;
+  public final @Nullable Long durationMs;
 
   /** Optional user {@link Rating}. */
-  @Nullable public final Rating userRating;
+  public final @Nullable Rating userRating;
 
   /** Optional overall {@link Rating}. */
-  @Nullable public final Rating overallRating;
+  public final @Nullable Rating overallRating;
 
   /** Optional artwork data as a compressed byte array. */
   public final byte @Nullable [] artworkData;
 
   /** Lazily initialized bundleable version of {@link #artworkData}. */
-  @Nullable private BundleableByteArray bundleableArtworkData;
+  private @Nullable BundleableByteArray bundleableArtworkData;
 
   /** Optional {@link PictureType} of the artwork data. */
-  @Nullable public final @PictureType Integer artworkDataType;
+  public final @PictureType @Nullable Integer artworkDataType;
 
   /** Optional artwork {@link Uri}. */
-  @Nullable public final Uri artworkUri;
+  public final @Nullable Uri artworkUri;
 
   /** Optional track number. */
-  @Nullable public final Integer trackNumber;
+  public final @Nullable Integer trackNumber;
 
   /** Optional total number of tracks. */
-  @Nullable public final Integer totalTrackCount;
+  public final @Nullable Integer totalTrackCount;
 
   /**
    * Optional {@link FolderType}.
@@ -1124,89 +1123,88 @@ public final class MediaMetadata {
    */
   @SuppressWarnings("deprecation") // Defining field of deprecated type.
   @Deprecated
-  @Nullable
-  public final @FolderType Integer folderType;
+  public final @FolderType @Nullable Integer folderType;
 
   /** Optional boolean to indicate that the media is a browsable folder. */
-  @Nullable public final Boolean isBrowsable;
+  public final @Nullable Boolean isBrowsable;
 
   /** Optional boolean to indicate that the media is playable. */
-  @Nullable public final Boolean isPlayable;
+  public final @Nullable Boolean isPlayable;
 
   /**
    * @deprecated Use {@link #recordingYear} instead.
    */
-  @UnstableApi @Deprecated @Nullable public final Integer year;
+  @UnstableApi @Deprecated public final @Nullable Integer year;
 
   /** Optional year of the recording date. */
-  @Nullable public final Integer recordingYear;
+  public final @Nullable Integer recordingYear;
 
   /**
    * Optional month of the recording date.
    *
    * <p>Note that there is no guarantee that the month and day are a valid combination.
    */
-  @Nullable public final Integer recordingMonth;
+  public final @Nullable Integer recordingMonth;
 
   /**
    * Optional day of the recording date.
    *
    * <p>Note that there is no guarantee that the month and day are a valid combination.
    */
-  @Nullable public final Integer recordingDay;
+  public final @Nullable Integer recordingDay;
 
   /** Optional year of the release date. */
-  @Nullable public final Integer releaseYear;
+  public final @Nullable Integer releaseYear;
 
   /**
    * Optional month of the release date.
    *
    * <p>Note that there is no guarantee that the month and day are a valid combination.
    */
-  @Nullable public final Integer releaseMonth;
+  public final @Nullable Integer releaseMonth;
 
   /**
    * Optional day of the release date.
    *
    * <p>Note that there is no guarantee that the month and day are a valid combination.
    */
-  @Nullable public final Integer releaseDay;
+  public final @Nullable Integer releaseDay;
 
   /** Optional writer. */
-  @Nullable public final CharSequence writer;
+  public final @Nullable CharSequence writer;
 
   /** Optional author. */
-  @UnstableApi @Nullable public final CharSequence author;
+  @UnstableApi public final @Nullable CharSequence author;
 
   /** Optional composer. */
-  @Nullable public final CharSequence composer;
+  public final @Nullable CharSequence composer;
 
   /** Optional conductor. */
-  @Nullable public final CharSequence conductor;
+  public final @Nullable CharSequence conductor;
 
   /** Optional disc subtitle. */
-  @UnstableApi @Nullable public final CharSequence discSubtitle;
+  @UnstableApi public final @Nullable CharSequence discSubtitle;
 
   /** Optional disc number. */
-  @Nullable public final Integer discNumber;
+  public final @Nullable Integer discNumber;
 
   /** Optional total number of discs. */
-  @Nullable public final Integer totalDiscCount;
+  public final @Nullable Integer totalDiscCount;
 
   /** Optional genre. */
-  @Nullable public final CharSequence genre;
+  public final @Nullable CharSequence genre;
 
   /** Optional compilation. */
-  @Nullable public final CharSequence compilation;
+  public final @Nullable CharSequence compilation;
 
   /** Optional name of the station streaming the media. */
-  @Nullable public final CharSequence station;
+  public final @Nullable CharSequence station;
 
   /** Optional {@link MediaType}. */
-  @Nullable public final @MediaType Integer mediaType;
+  public final @MediaType @Nullable Integer mediaType;
 
   /** Optional playlist ID. */
-  @UnstableApi @Nullable public final String playlistId;
+  @UnstableApi public final @Nullable String playlistId;
 
   /** The list of categories or category tokens of the media. */
   @UnstableApi public final ImmutableList<String> categories;
@@ -1218,7 +1216,7 @@ public final class MediaMetadata {
    * contents of these extras are not considered in the {@link #equals(Object)} and {@link
    * #hashCode()} implementation.
    */
-  @Nullable public final Bundle extras;
+  public final @Nullable Bundle extras;
 
   /**
    * The IDs of the supported commands of this media item (see for instance {@code

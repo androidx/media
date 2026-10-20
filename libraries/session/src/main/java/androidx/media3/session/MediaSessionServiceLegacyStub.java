@@ -66,8 +66,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public BrowserRoot onGetRoot(
+  public @Nullable BrowserRoot onGetRoot(
       @Nullable String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
     RemoteUserInfo info = getCurrentBrowserInfo();
     MediaSession.ControllerInfo controller =

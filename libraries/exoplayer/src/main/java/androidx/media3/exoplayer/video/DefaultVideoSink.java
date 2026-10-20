@@ -60,7 +60,7 @@ import org.jspecify.annotations.Nullable;
   private final Queue<VideoFrameHandler> videoFrameHandlers;
   private final FixedFrameRateEstimator frameRateEstimator;
 
-  @Nullable private Surface outputSurface;
+  private @Nullable Surface outputSurface;
   private Format inputFormat;
   private long streamStartPositionUs;
   private Listener listener;

@@ -47,7 +47,7 @@ public final class DtsUtil {
   /** Information parsed from a DTS frame header. */
   public static final class DtsHeader {
     /** The mime type of the DTS bitstream. */
-    @Nullable public final @DtsAudioMimeType String mimeType;
+    public final @Nullable @DtsAudioMimeType String mimeType;
 
     /** The audio sampling rate in Hertz, or {@link C#RATE_UNSET_INT} if unknown. */
     public final int sampleRate;

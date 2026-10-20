@@ -49,7 +49,7 @@ public class SizeAvoidingBitmapLoaderTest {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private Context context;
-  @Nullable private MockWebServer mockWebServer;
+  private @Nullable MockWebServer mockWebServer;
 
   @Before
   public void setUp() {

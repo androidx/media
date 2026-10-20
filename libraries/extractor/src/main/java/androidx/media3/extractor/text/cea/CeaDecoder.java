@@ -39,7 +39,7 @@ import org.jspecify.annotations.Nullable;
   private final ArrayDeque<SubtitleOutputBuffer> availableOutputBuffers;
   private final ArrayDeque<CeaInputBuffer> queuedInputBuffers;
 
-  @Nullable private CeaInputBuffer dequeuedInputBuffer;
+  private @Nullable CeaInputBuffer dequeuedInputBuffer;
   private long playbackPositionUs;
   private long queuedInputBufferCount;
   private long outputStartTimeUs;
@@ -72,8 +72,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public SubtitleInputBuffer dequeueInputBuffer() throws SubtitleDecoderException {
+  public @Nullable SubtitleInputBuffer dequeueInputBuffer() throws SubtitleDecoderException {
     checkState(dequeuedInputBuffer == null);
     if (availableInputBuffers.isEmpty()) {
       return null;
@@ -100,8 +99,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
+  public @Nullable SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
     if (availableOutputBuffers.isEmpty()) {
       return null;
     }
@@ -175,8 +173,7 @@ import org.jspecify.annotations.Nullable;
    */
   protected abstract void decode(SubtitleInputBuffer inputBuffer);
 
-  @Nullable
-  protected final SubtitleOutputBuffer getAvailableOutputBuffer() {
+  protected final @Nullable SubtitleOutputBuffer getAvailableOutputBuffer() {
     return availableOutputBuffers.pollFirst();
   }
 

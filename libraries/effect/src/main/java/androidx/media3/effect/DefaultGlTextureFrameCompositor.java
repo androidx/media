@@ -113,15 +113,13 @@ import org.jspecify.annotations.Nullable;
   private final GlTextureFrameConsumer downstreamConsumer;
   private final Object lock;
 
-  @Nullable private GlTextureFrame pendingOutputFrame;
+  private @Nullable GlTextureFrame pendingOutputFrame;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable pendingWakeupListener;
+  private @Nullable Runnable pendingWakeupListener;
 
   @GuardedBy("lock")
-  @Nullable
-  private Executor pendingWakeupExecutor;
+  private @Nullable Executor pendingWakeupExecutor;
 
   // This is reset when a new batch of frames is queued.
   private boolean inputStreamEnded;

@@ -384,7 +384,7 @@ public final class GlProgram {
     /** The index or location of the attribute, from glGetAttribLocation. */
     private final int location;
 
-    @Nullable private Buffer buffer;
+    private @Nullable Buffer buffer;
     private int size;
 
     private Attribute(String name, int location) {

@@ -43,13 +43,13 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
   public @C.VideoOutputMode int mode;
 
   /** RGB buffer for RGB mode. */
-  @Nullable public ByteBuffer data;
+  public @Nullable ByteBuffer data;
 
   public int width;
   public int height;
 
   /** The format of the input from which this output buffer was decoded. */
-  @Nullable public Format format;
+  public @Nullable Format format;
 
   /** YUV planes for YUV mode. */
   public ByteBuffer @Nullable [] yuvPlanes;
@@ -63,7 +63,7 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
    * Supplemental data related to the output frame, if {@link #hasSupplementalData()} returns true.
    * If present, the buffer is populated with supplemental data from position 0 to its limit.
    */
-  @Nullable public ByteBuffer supplementalData;
+  public @Nullable ByteBuffer supplementalData;
 
   private final Owner<VideoDecoderOutputBuffer> owner;
 

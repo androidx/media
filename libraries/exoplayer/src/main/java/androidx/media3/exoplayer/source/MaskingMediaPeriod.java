@@ -63,8 +63,8 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   private @MonotonicNonNull MediaSource mediaSource;
 
   private @MonotonicNonNull MediaPeriod mediaPeriod;
-  @Nullable private Callback callback;
-  @Nullable private PrepareListener listener;
+  private @Nullable Callback callback;
+  private @Nullable PrepareListener listener;
   private boolean notifiedPrepareError;
   private long preparePositionOverrideUs;
   private boolean usesStreamPrerollFlags;

@@ -125,7 +125,7 @@ public final class FlacExtractor implements Extractor {
   private @MonotonicNonNull TrackOutput trackOutput;
 
   private @State int state;
-  @Nullable private Metadata id3Metadata;
+  private @Nullable Metadata id3Metadata;
   private @MonotonicNonNull FlacStreamMetadata flacStreamMetadata;
   private int minFrameSize;
   private int frameStartMarker;

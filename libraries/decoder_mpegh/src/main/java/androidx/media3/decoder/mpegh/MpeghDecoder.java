@@ -120,8 +120,7 @@ public final class MpeghDecoder
   }
 
   @Override
-  @Nullable
-  protected MpeghDecoderException decode(
+  protected @Nullable MpeghDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       try {

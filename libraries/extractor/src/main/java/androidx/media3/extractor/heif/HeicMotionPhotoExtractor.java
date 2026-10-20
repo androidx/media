@@ -83,7 +83,7 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull MotionPhotoMetadata motionPhotoMetadata;
   private @MonotonicNonNull ExtractorInput lastExtractorInput;
   private @MonotonicNonNull StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
-  @Nullable private Mp4Extractor mp4Extractor;
+  private @Nullable Mp4Extractor mp4Extractor;
 
   private @State int state;
   private int atomType;
@@ -94,8 +94,8 @@ import org.jspecify.annotations.Nullable;
 
   private long xmpOffset;
   private int xmpLength;
-  @Nullable private ParsableByteArray iinfPayload;
-  @Nullable private ParsableByteArray ilocPayload;
+  private @Nullable ParsableByteArray iinfPayload;
+  private @Nullable ParsableByteArray ilocPayload;
 
   /** Creates an instance. */
   public HeicMotionPhotoExtractor() {

@@ -133,10 +133,10 @@ public final class CacheDataSink implements DataSink {
   private final long fragmentSize;
   private final int bufferSize;
 
-  @Nullable private DataSpec dataSpec;
+  private @Nullable DataSpec dataSpec;
   private long dataSpecFragmentSize;
-  @Nullable private File file;
-  @Nullable private OutputStream outputStream;
+  private @Nullable File file;
+  private @Nullable OutputStream outputStream;
   private long outputStreamBytesWritten;
   private long dataSpecBytesWritten;
   private @MonotonicNonNull ReusableBufferedOutputStream bufferedOutputStream;

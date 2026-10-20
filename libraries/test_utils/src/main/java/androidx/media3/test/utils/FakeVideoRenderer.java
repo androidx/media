@@ -44,8 +44,8 @@ public class FakeVideoRenderer extends FakeRenderer {
   private final DecoderCounters decoderCounters;
   private final AtomicReference<VideoSize> videoSizeRef = new AtomicReference<>();
   private @MonotonicNonNull Format format;
-  @Nullable private Object output;
-  @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
+  private @Nullable Object output;
+  private @Nullable VideoFrameMetadataListener videoFrameMetadataListener;
   private boolean renderedFirstFrameAfterReset;
   private boolean mayRenderFirstFrameAfterEnableIfNotStarted;
   private boolean renderedFirstFrameAfterEnable;

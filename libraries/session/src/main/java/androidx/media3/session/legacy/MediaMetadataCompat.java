@@ -322,7 +322,7 @@ public final class MediaMetadataCompat implements Parcelable {
 
   private final Bundle bundle;
 
-  @Nullable private MediaMetadata metadataFwk;
+  private @Nullable MediaMetadata metadataFwk;
   private byte @Nullable [] compressedArtworkData;
 
   MediaMetadataCompat(Bundle bundle) {
@@ -357,8 +357,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @param key The key the value is stored under
    * @return a CharSequence value, or null
    */
-  @Nullable
-  public CharSequence getText(@TextKey String key) {
+  public @Nullable CharSequence getText(@TextKey String key) {
     try {
       return bundle.getCharSequence(key);
     } catch (RuntimeException e) {
@@ -375,8 +374,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @param key The key the value is stored under
    * @return a String value, or null
    */
-  @Nullable
-  public String getString(@TextKey String key) {
+  public @Nullable String getString(@TextKey String key) {
     CharSequence text = getText(key);
     if (text != null) {
       return text.toString();
@@ -406,8 +404,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @param key The key the value is stored under
    * @return A {@link RatingCompat} or null
    */
-  @Nullable
-  public RatingCompat getRating(@RatingKey String key) {
+  public @Nullable RatingCompat getRating(@RatingKey String key) {
     RatingCompat rating = null;
     try {
       // On platform version 19 or higher, bundle stores a Rating object. Convert it to
@@ -464,8 +461,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * @param metadataObj A {@link android.media.MediaMetadata} object, or null if none.
    * @return An equivalent {@link MediaMetadataCompat} object, or null if none.
    */
-  @Nullable
-  public static MediaMetadataCompat fromMediaMetadata(@Nullable Object metadataObj) {
+  public static @Nullable MediaMetadataCompat fromMediaMetadata(@Nullable Object metadataObj) {
     if (metadataObj != null) {
       Parcel p = Parcel.obtain();
       ((MediaMetadata) metadataObj).writeToParcel(p, 0);
@@ -532,8 +528,7 @@ public final class MediaMetadataCompat implements Parcelable {
    * Returns the most relevant artwork URI from the available artwork metadata keys, or null if none
    * can be found.
    */
-  @Nullable
-  public Uri getMostRelevantArtworkUri() {
+  public @Nullable Uri getMostRelevantArtworkUri() {
     String uriString =
         getFirstString(
             METADATA_KEY_DISPLAY_ICON_URI, METADATA_KEY_ALBUM_ART_URI, METADATA_KEY_ART_URI);
@@ -597,13 +592,11 @@ public final class MediaMetadataCompat implements Parcelable {
         }
       };
 
-  @Nullable
-  private Bitmap getMostRelevantArtworkBitmap() {
+  private @Nullable Bitmap getMostRelevantArtworkBitmap() {
     return getFirstBitmap(METADATA_KEY_DISPLAY_ICON, METADATA_KEY_ALBUM_ART, METADATA_KEY_ART);
   }
 
-  @Nullable
-  private Bitmap getBitmap(@BitmapKey String key) {
+  private @Nullable Bitmap getBitmap(@BitmapKey String key) {
     Bitmap bmp = null;
     try {
       bmp = bundle.getParcelable(key);
@@ -615,8 +608,7 @@ public final class MediaMetadataCompat implements Parcelable {
     return bmp;
   }
 
-  @Nullable
-  private Bitmap getFirstBitmap(String... keys) {
+  private @Nullable Bitmap getFirstBitmap(String... keys) {
     for (String key : keys) {
       if (containsKey(key)) {
         return getBitmap(key);
@@ -625,8 +617,7 @@ public final class MediaMetadataCompat implements Parcelable {
     return null;
   }
 
-  @Nullable
-  private String getFirstString(String... keys) {
+  private @Nullable String getFirstString(String... keys) {
     for (String key : keys) {
       if (containsKey(key)) {
         return getString(key);

@@ -48,7 +48,7 @@ public final class LatmReader implements ElementaryStreamReader {
   private static final int SYNC_BYTE_FIRST = 0x56;
   private static final int SYNC_BYTE_SECOND = 0xE0;
 
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
   private final ParsableByteArray sampleDataBuffer;
@@ -76,7 +76,7 @@ public final class LatmReader implements ElementaryStreamReader {
   private int sampleRateHz;
   private long sampleDurationUs;
   private int channelCount;
-  @Nullable private String codecs;
+  private @Nullable String codecs;
 
   /**
    * @param language Track language.

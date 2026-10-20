@@ -28,7 +28,7 @@ public final class ApicFrame extends Id3Frame {
   public static final String ID = "APIC";
 
   public final String mimeType;
-  @Nullable public final String description;
+  public final @Nullable String description;
   public final int pictureType;
   public final byte[] pictureData;
 

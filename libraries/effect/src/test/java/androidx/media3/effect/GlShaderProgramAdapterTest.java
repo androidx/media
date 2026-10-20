@@ -1024,10 +1024,10 @@ public class GlShaderProgramAdapterTest {
 
     final List<GlTextureFrame> queuedFrames;
 
-    @Nullable private Runnable pendingWakeupListener;
+    private @Nullable Runnable pendingWakeupListener;
     private int capacity = 1;
     int eosSignalsReceived;
-    @Nullable private VideoFrameProcessingException exceptionToThrowOnQueue;
+    private @Nullable VideoFrameProcessingException exceptionToThrowOnQueue;
 
     FakeGlTextureFrameConsumer() {
       queuedFrames = new ArrayList<>();
@@ -1083,10 +1083,10 @@ public class GlShaderProgramAdapterTest {
     final List<GlTextureInfo> releasedFrames;
     private InputListener inputListener;
     private OutputListener outputListener;
-    @Nullable private ErrorListener errorListener;
+    private @Nullable ErrorListener errorListener;
     int eosSignalsReceived;
     boolean flushed;
-    @Nullable private CountDownLatch eosReceivedLatch;
+    private @Nullable CountDownLatch eosReceivedLatch;
 
     FakeGlShaderProgram() {
       queuedFrames = new ArrayList<>();

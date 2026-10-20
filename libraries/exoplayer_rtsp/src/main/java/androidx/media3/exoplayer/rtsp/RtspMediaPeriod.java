@@ -86,8 +86,8 @@ import org.jspecify.annotations.Nullable;
 
   private @MonotonicNonNull Callback callback;
   private @MonotonicNonNull ImmutableList<TrackGroup> trackGroups;
-  @Nullable private IOException preparationError;
-  @Nullable private RtspPlaybackException playbackException;
+  private @Nullable IOException preparationError;
+  private @Nullable RtspPlaybackException playbackException;
 
   private long requestedSeekPositionUs;
   private long pendingSeekPositionUs;
@@ -423,8 +423,7 @@ import org.jspecify.annotations.Nullable;
 
   // Internal methods.
 
-  @Nullable
-  private RtpDataLoadable getLoadableByTrackUri(Uri trackUri) {
+  private @Nullable RtpDataLoadable getLoadableByTrackUri(Uri trackUri) {
     for (int i = 0; i < rtspLoaderWrappers.size(); i++) {
       if (!rtspLoaderWrappers.get(i).canceled) {
         RtpLoadInfo loadInfo = rtspLoaderWrappers.get(i).loadInfo;
@@ -889,7 +888,7 @@ import org.jspecify.annotations.Nullable;
 
     private final RtpDataLoadable loadable;
 
-    @Nullable private String transport;
+    private @Nullable String transport;
 
     /** Creates a new instance. */
     public RtpLoadInfo(

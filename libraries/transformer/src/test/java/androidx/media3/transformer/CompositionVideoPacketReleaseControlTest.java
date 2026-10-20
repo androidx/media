@@ -1181,8 +1181,8 @@ public class CompositionVideoPacketReleaseControlTest {
     public void configure(Format format, @Frame.Usage long usage) {}
 
     @Override
-    @Nullable
-    public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+    public @Nullable AsyncFrame dequeueInputFrame(
+        Executor wakeupExecutor, Runnable wakeupListener) {
       return null;
     }
 

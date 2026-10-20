@@ -51,8 +51,8 @@ public final class VorbisUtil {
    * <p>See https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-810004.3.9 and
    * https://developer.android.com/reference/android/media/AudioFormat#channelMask.
    */
-  @Nullable
-  public static ImmutableIntArray getVorbisToAndroidChannelLayoutMapping(int channelCount) {
+  public static @Nullable ImmutableIntArray getVorbisToAndroidChannelLayoutMapping(
+      int channelCount) {
     switch (channelCount) {
       case 3:
         return VORBIS_MAPPING_3;
@@ -128,8 +128,7 @@ public final class VorbisUtil {
    * @param vorbisComments The raw input of comments, as a key-value pair KEY=VAL.
    * @return The fully parsed Metadata instance. Null if no vorbis comments could be parsed.
    */
-  @Nullable
-  public static Metadata parseVorbisComments(List<String> vorbisComments) {
+  public static @Nullable Metadata parseVorbisComments(List<String> vorbisComments) {
     List<Entry> metadataEntries = new ArrayList<>();
     for (int i = 0; i < vorbisComments.size(); i++) {
       String vorbisComment = vorbisComments.get(i);

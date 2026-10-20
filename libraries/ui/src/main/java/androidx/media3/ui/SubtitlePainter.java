@@ -67,9 +67,9 @@ import org.jspecify.annotations.Nullable;
   private final Paint bitmapPaint;
 
   // Previous input variables.
-  @Nullable private CharSequence cueText;
-  @Nullable private Alignment cueTextAlignment;
-  @Nullable private Bitmap cueBitmap;
+  private @Nullable CharSequence cueText;
+  private @Nullable Alignment cueTextAlignment;
+  private @Nullable Bitmap cueBitmap;
   private float cueLine;
   private @Cue.LineType int cueLineType;
   private @Cue.AnchorType int cueLineAnchor;

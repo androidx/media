@@ -83,7 +83,7 @@ public final class HdrEditingTest {
   @Rule public final TestName testName = new TestName();
 
   private String testId;
-  @Nullable private Surface placeholderSurface;
+  private @Nullable Surface placeholderSurface;
 
   @Before
   public void setUpTestId() {

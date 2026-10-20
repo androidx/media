@@ -50,7 +50,7 @@ public final class EditedMediaItemAssetInfo {
     private @MonotonicNonNull AssetInfo originalAssetInfo;
     private @MonotonicNonNull Supplier<EditedMediaItem> editedMediaItemSupplier;
     private @MonotonicNonNull String name;
-    @Nullable private ImmutableList<Long> videoTimestampsUs;
+    private @Nullable ImmutableList<Long> videoTimestampsUs;
 
     public Builder() {}
 
@@ -336,7 +336,7 @@ public final class EditedMediaItemAssetInfo {
   public final ImmutableList<Long> videoTimestampsUs;
 
   /** The {@link Format} of the video, or {@code null} if not applicable. */
-  @Nullable public final Format videoFormat;
+  public final @Nullable Format videoFormat;
 
   /** Descriptive name of the asset configuration. */
   public final String name;

@@ -55,11 +55,11 @@ public abstract class VolumeProviderCompat {
 
   private final int controlType;
   private final int maxVolume;
-  @Nullable private final String controlId;
+  private final @Nullable String controlId;
   private int currentVolume;
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
 
-  @Nullable private VolumeProvider volumeProviderFwk;
+  private @Nullable VolumeProvider volumeProviderFwk;
 
   /**
    * Create a new volume provider for handling volume events. You must specify the type of volume

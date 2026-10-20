@@ -49,8 +49,7 @@ public final class CronetUtil {
    * @param context A context.
    * @return The {@link CronetEngine}, or {@code null} if no suitable engine could be built.
    */
-  @Nullable
-  public static CronetEngine buildCronetEngine(Context context) {
+  public static @Nullable CronetEngine buildCronetEngine(Context context) {
     return buildCronetEngine(context, /* userAgent= */ null, /* preferGooglePlayServices= */ false);
   }
 
@@ -75,8 +74,7 @@ public final class CronetUtil {
    * @return The {@link CronetEngine}, or {@code null} if no suitable engine could be built.
    */
   @UnstableApi
-  @Nullable
-  public static CronetEngine buildCronetEngine(
+  public static @Nullable CronetEngine buildCronetEngine(
       Context context, @Nullable String userAgent, boolean preferGooglePlayServices) {
     List<CronetProvider> cronetProviders = new ArrayList<>(CronetProvider.getAllProviders(context));
     // Remove disabled and fallback Cronet providers from list.

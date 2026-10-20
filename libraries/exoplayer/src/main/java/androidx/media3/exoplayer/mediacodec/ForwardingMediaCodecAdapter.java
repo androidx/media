@@ -59,9 +59,8 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     return delegate.getOutputFormat();
   }
 
-  @Nullable
   @Override
-  public ByteBuffer getInputBuffer(int index) {
+  public @Nullable ByteBuffer getInputBuffer(int index) {
     return delegate.getInputBuffer(index);
   }
 
@@ -70,9 +69,8 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     delegate.useBuffer(runnable);
   }
 
-  @Nullable
   @Override
-  public ByteBuffer getOutputBuffer(int index) {
+  public @Nullable ByteBuffer getOutputBuffer(int index) {
     return delegate.getOutputBuffer(index);
   }
 

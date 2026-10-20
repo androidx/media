@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
 public final class DefaultDataSourceFactory implements Factory {
 
   private final Context context;
-  @Nullable private final TransferListener listener;
+  private final @Nullable TransferListener listener;
   private final DataSource.Factory baseDataSourceFactory;
 
   /**

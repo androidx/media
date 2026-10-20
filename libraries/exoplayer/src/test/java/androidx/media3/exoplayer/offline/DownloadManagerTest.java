@@ -900,8 +900,7 @@ public class DownloadManagerTest {
 
   // Internal methods.
 
-  @Nullable
-  private FakeDownloader getDownloaderInternal(int index, long timeoutMs)
+  private @Nullable FakeDownloader getDownloaderInternal(int index, long timeoutMs)
       throws InterruptedException {
     long nowMs = System.currentTimeMillis();
     long endMs = nowMs + timeoutMs;

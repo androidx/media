@@ -83,7 +83,7 @@ import org.jspecify.annotations.Nullable;
      * Returns the last captured {@linkplain Bitmap bitmap}, or {@code null} if no frame was
      * captured.
      */
-    @Nullable /* package */ Bitmap getLastBitmap() {
+    /* package */ @Nullable Bitmap getLastBitmap() {
       @Nullable SingleFrameCapturingEncoder encoder = lastVideoEncoder.get();
       return encoder != null ? encoder.getLastBitmap() : null;
     }
@@ -94,7 +94,7 @@ import org.jspecify.annotations.Nullable;
   private final Format configurationFormat;
   private final ImageReader imageReader;
 
-  @Nullable private volatile Bitmap lastBitmap;
+  private volatile @Nullable Bitmap lastBitmap;
   private volatile boolean inputStreamEnded;
 
   /* package */ SingleFrameCapturingEncoder(Format configurationFormat) {
@@ -169,20 +169,17 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public Format getOutputFormat() {
+  public @Nullable Format getOutputFormat() {
     return configurationFormat;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer() {
+  public @Nullable ByteBuffer getOutputBuffer() {
     return null;
   }
 
   @Override
-  @Nullable
-  public BufferInfo getOutputBufferInfo() {
+  public @Nullable BufferInfo getOutputBufferInfo() {
     return null;
   }
 
@@ -205,7 +202,7 @@ import org.jspecify.annotations.Nullable;
   /**
    * Returns the last captured {@linkplain Bitmap bitmap}, or {@code null} if no frame was captured.
    */
-  @Nullable /* package */ Bitmap getLastBitmap() {
+  /* package */ @Nullable Bitmap getLastBitmap() {
     return lastBitmap;
   }
 

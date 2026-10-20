@@ -148,13 +148,13 @@ import org.jspecify.annotations.Nullable;
    */
   private static final long MAX_TRACK_WRITE_AHEAD_US = Util.msToUs(500);
 
-  @Nullable private final String outputPath;
-  @Nullable private final ParcelFileDescriptor parcelFileDescriptor;
+  private final @Nullable String outputPath;
+  private final @Nullable ParcelFileDescriptor parcelFileDescriptor;
   private final Muxer.Factory muxerFactory;
   private final Listener listener;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
-  @Nullable private final Format appendVideoFormat;
+  private final @Nullable Format appendVideoFormat;
 
   private boolean isReady;
   private boolean isEnded;
@@ -277,9 +277,8 @@ import org.jspecify.annotations.Nullable;
    * @return The initialization data that captures both input formats, or {@code null} if both
    *     formats cannot be represented by the same initialization data.
    */
-  @Nullable
   @VisibleForTesting(otherwise = PRIVATE)
-  public static List<byte[]> getMostCompatibleInitializationData(
+  public static @Nullable List<byte[]> getMostCompatibleInitializationData(
       Format existingVideoTrackFormat, Format newVideoTrackFormat) {
     if (existingVideoTrackFormat.initializationDataEquals(newVideoTrackFormat)) {
       return existingVideoTrackFormat.initializationData;
@@ -831,8 +830,8 @@ import org.jspecify.annotations.Nullable;
     return C.LENGTH_UNSET;
   }
 
-  @Nullable
-  private static TrackInfo getTrackInfoWithMinTimeUs(SparseArray<TrackInfo> trackTypeToInfo) {
+  private static @Nullable TrackInfo getTrackInfoWithMinTimeUs(
+      SparseArray<TrackInfo> trackTypeToInfo) {
     if (trackTypeToInfo.size() == 0) {
       return null;
     }

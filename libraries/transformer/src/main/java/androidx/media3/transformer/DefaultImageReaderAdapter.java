@@ -48,8 +48,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ImageAdapter acquireNextImage() {
+  public @Nullable ImageAdapter acquireNextImage() {
     Image image = imageReader.acquireNextImage();
     return image == null ? null : new DefaultImageAdapter(image);
   }

@@ -103,7 +103,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
     private final String baseUri;
     private final String tag;
 
-    @Nullable private final ElementParser parent;
+    private final @Nullable ElementParser parent;
     private final List<Pair<String, @Nullable Object>> normalizedAttributes;
 
     public ElementParser(@Nullable ElementParser parent, String baseUri, String tag) {
@@ -201,8 +201,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
      * @param key The name of the attribute.
      * @return The stashed value, or null if the attribute was not found.
      */
-    @Nullable
-    protected final Object getNormalizedAttribute(String key) {
+    protected final @Nullable Object getNormalizedAttribute(String key) {
       for (int i = 0; i < normalizedAttributes.size(); i++) {
         Pair<String, Object> pair = normalizedAttributes.get(i);
         if (pair.first.equals(key)) {
@@ -349,7 +348,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
     private long dvrWindowLength;
     private int lookAheadCount;
     private boolean isLive;
-    @Nullable private ProtectionElement protectionElement;
+    private @Nullable ProtectionElement protectionElement;
 
     public SmoothStreamingMediaParser(ElementParser parent, String baseUri) {
       super(parent, baseUri, TAG);
@@ -774,8 +773,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
       return csd;
     }
 
-    @Nullable
-    private static String fourCCToMimeType(String fourCC) {
+    private static @Nullable String fourCCToMimeType(String fourCC) {
       if (fourCC.equalsIgnoreCase("H264")
           || fourCC.equalsIgnoreCase("X264")
           || fourCC.equalsIgnoreCase("AVC1")

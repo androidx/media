@@ -35,7 +35,7 @@ import org.jspecify.annotations.Nullable;
   private static final String TAG = "ExoAssetLoaderAudioRenderer";
 
   private final Codec.DecoderFactory decoderFactory;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private boolean hasPendingConsumerInput;
 

@@ -54,7 +54,7 @@ public class SimpleBitmapLoaderTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  @Nullable private MockWebServer mockWebServer;
+  private @Nullable MockWebServer mockWebServer;
 
   @After
   public void tearDown() throws Exception {

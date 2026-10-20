@@ -129,8 +129,7 @@ import org.jspecify.annotations.Nullable;
    *     {@link #offer received} timestamp is before {@code cutoffTimestampMs}. Otherwise {@code
    *     null}.
    */
-  @Nullable
-  public synchronized RtpPacket poll(long cutoffTimestampMs) {
+  public synchronized @Nullable RtpPacket poll(long cutoffTimestampMs) {
     if (packetQueue.isEmpty()) {
       return null;
     }

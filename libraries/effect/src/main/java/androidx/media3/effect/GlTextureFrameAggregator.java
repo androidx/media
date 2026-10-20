@@ -48,7 +48,7 @@ import org.jspecify.annotations.Nullable;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final SparseArray<InputFrameConsumer> sequenceConsumers;
 
-  @Nullable private ImmutableSet<Integer> pendingSequenceIndices;
+  private @Nullable ImmutableSet<Integer> pendingSequenceIndices;
   private boolean isClosed;
   // This is reset when a new batch of frames is queued.
   private boolean allInputStreamsEnded;
@@ -297,9 +297,9 @@ import org.jspecify.annotations.Nullable;
 
   private final class InputFrameConsumer implements GlTextureFrameConsumer {
     private final int sequenceIndex;
-    @Nullable private Runnable pendingWakeupListener;
-    @Nullable private Executor pendingWakeupExecutor;
-    @Nullable private GlTextureFrame pendingFrame;
+    private @Nullable Runnable pendingWakeupListener;
+    private @Nullable Executor pendingWakeupExecutor;
+    private @Nullable GlTextureFrame pendingFrame;
     // This is reset when a new batch of frames is queued.
     private boolean isEnded;
     private boolean isActive;

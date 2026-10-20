@@ -165,7 +165,7 @@ import org.jspecify.annotations.Nullable;
   private final MediaCodec codec;
   private final AsynchronousMediaCodecCallback asynchronousMediaCodecCallback;
   private final MediaCodecBufferEnqueuer bufferEnqueuer;
-  @Nullable private final LoudnessCodecController loudnessCodecController;
+  private final @Nullable LoudnessCodecController loudnessCodecController;
 
   private boolean codecReleased;
   private @State int state;
@@ -246,8 +246,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getInputBuffer(int index) {
+  public @Nullable ByteBuffer getInputBuffer(int index) {
     return codec.getInputBuffer(index);
   }
 
@@ -261,8 +260,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer(int index) {
+  public @Nullable ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);
   }
 

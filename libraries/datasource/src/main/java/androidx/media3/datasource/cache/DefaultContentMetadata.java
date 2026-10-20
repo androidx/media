@@ -78,8 +78,7 @@ public final class DefaultContentMetadata implements ContentMetadata {
   }
 
   @Override
-  @Nullable
-  public final String get(String key, @Nullable String defaultValue) {
+  public final @Nullable String get(String key, @Nullable String defaultValue) {
     byte @Nullable [] bytes = metadata.get(key);
     if (bytes != null) {
       return new String(bytes, StandardCharsets.UTF_8);

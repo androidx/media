@@ -653,9 +653,8 @@ public final class ProgressiveMediaPeriodTest {
             return assetDataSource.read(buffer, offset, length);
           }
 
-          @Nullable
           @Override
-          public Uri getUri() {
+          public @Nullable Uri getUri() {
             return assetDataSource.getUri();
           }
 
@@ -2995,8 +2994,7 @@ public final class ProgressiveMediaPeriodTest {
     }
 
     @Override
-    @Nullable
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return delegate.getUri();
     }
 

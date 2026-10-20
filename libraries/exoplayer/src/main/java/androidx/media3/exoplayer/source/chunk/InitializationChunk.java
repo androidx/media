@@ -39,7 +39,7 @@ public final class InitializationChunk extends Chunk {
   private final ChunkExtractor chunkExtractor;
 
   private @MonotonicNonNull TrackOutputProvider trackOutputProvider;
-  @Nullable private ChunkIndex chunkIndex;
+  private @Nullable ChunkIndex chunkIndex;
   private long nextLoadPosition;
   private volatile boolean loadCanceled;
 
@@ -118,8 +118,7 @@ public final class InitializationChunk extends Chunk {
    * Returns the {@link ChunkIndex} obtained from the initialization chunk, or null if a {@link
    * ChunkIndex} has not been obtained.
    */
-  @Nullable
-  public ChunkIndex getChunkIndex() {
+  public @Nullable ChunkIndex getChunkIndex() {
     return chunkIndex;
   }
 }

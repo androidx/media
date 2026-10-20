@@ -74,9 +74,8 @@ public class ForwardingTrackSelection implements ExoTrackSelection {
     return trackSelection.getSelectionReason();
   }
 
-  @Nullable
   @Override
-  public Object getSelectionData() {
+  public @Nullable Object getSelectionData() {
     return trackSelection.getSelectionData();
   }
 

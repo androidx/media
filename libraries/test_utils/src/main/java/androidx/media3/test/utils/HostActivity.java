@@ -86,12 +86,12 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   private static final String LOCK_TAG = "ExoPlayerTestUtil:" + TAG;
   private static final long START_TIMEOUT_MS = 5000;
 
-  @Nullable private WakeLock wakeLock;
-  @Nullable private WifiLock wifiLock;
+  private @Nullable WakeLock wakeLock;
+  private @Nullable WifiLock wifiLock;
   private @MonotonicNonNull SurfaceView surfaceView;
   private @MonotonicNonNull FrameLayout overlayFrameLayout;
 
-  @Nullable private HostedTest hostedTest;
+  private @Nullable HostedTest hostedTest;
   private boolean hostedTestStarted;
   private @MonotonicNonNull ConditionVariable hostedTestStartedCondition;
   private boolean forcedStopped;

@@ -93,7 +93,7 @@ public final class WebvttCssStyle {
   private String targetVoice;
 
   // Style properties.
-  @Nullable private String fontFamily;
+  private @Nullable String fontFamily;
   @ColorInt private int fontColor;
   private boolean hasFontColor;
   private int backgroundColor;
@@ -227,8 +227,7 @@ public final class WebvttCssStyle {
     return this;
   }
 
-  @Nullable
-  public String getFontFamily() {
+  public @Nullable String getFontFamily() {
     return fontFamily;
   }
 

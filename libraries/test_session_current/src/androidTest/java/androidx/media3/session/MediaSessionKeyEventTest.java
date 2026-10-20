@@ -473,7 +473,7 @@ public class MediaSessionKeyEventTest {
   private static class TestSessionCallback implements MediaSession.Callback {
 
     private final List<KeyEvent> mediaButtonKeyEvents;
-    @Nullable private CountDownLatch latch;
+    private @Nullable CountDownLatch latch;
 
     private TestSessionCallback() {
       mediaButtonKeyEvents = new ArrayList<>();

@@ -964,8 +964,7 @@ public class TestUtil {
   /**
    * Returns an inner class of {@code clazz} called {@code className} if it exists, otherwise null.
    */
-  @Nullable
-  public static Class<?> getInnerClass(Class<?> clazz, String className) {
+  public static @Nullable Class<?> getInnerClass(Class<?> clazz, String className) {
     for (Class<?> innerClass : clazz.getDeclaredClasses()) {
       if (innerClass.getSimpleName().equals(className)) {
         return innerClass;

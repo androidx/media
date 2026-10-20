@@ -59,9 +59,9 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
 
   private static final String TAG = "DMCodecAdapterFactory";
 
-  @Nullable private final Context context;
-  @Nullable private final Supplier<HandlerThread> callbackThreadSupplier;
-  @Nullable private final Supplier<HandlerThread> queueingThreadSupplier;
+  private final @Nullable Context context;
+  private final @Nullable Supplier<HandlerThread> callbackThreadSupplier;
+  private final @Nullable Supplier<HandlerThread> queueingThreadSupplier;
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;

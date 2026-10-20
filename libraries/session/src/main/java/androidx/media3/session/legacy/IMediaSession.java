@@ -202,9 +202,8 @@ public interface IMediaSession extends android.os.IInterface {
         }
       }
 
-      @Nullable
       @Override
-      public PlaybackStateCompat getPlaybackState() throws android.os.RemoteException {
+      public @Nullable PlaybackStateCompat getPlaybackState() throws android.os.RemoteException {
         android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
         PlaybackStateCompat result;
@@ -311,7 +310,7 @@ public interface IMediaSession extends android.os.IInterface {
         return result;
       }
 
-      @Nullable public static IMediaSession defaultImpl;
+      public static @Nullable IMediaSession defaultImpl;
     }
 
     static final int TRANSACTION_registerCallbackListener =
@@ -340,8 +339,7 @@ public interface IMediaSession extends android.os.IInterface {
       return false;
     }
 
-    @Nullable
-    public static IMediaSession getDefaultImpl() {
+    public static @Nullable IMediaSession getDefaultImpl() {
       return Proxy.defaultImpl;
     }
   }
@@ -352,8 +350,7 @@ public interface IMediaSession extends android.os.IInterface {
   public void unregisterCallbackListener(@Nullable IMediaControllerCallback cb)
       throws android.os.RemoteException;
 
-  @Nullable
-  public PlaybackStateCompat getPlaybackState() throws android.os.RemoteException;
+  public @Nullable PlaybackStateCompat getPlaybackState() throws android.os.RemoteException;
 
   public boolean isCaptioningEnabled() throws android.os.RemoteException;
 

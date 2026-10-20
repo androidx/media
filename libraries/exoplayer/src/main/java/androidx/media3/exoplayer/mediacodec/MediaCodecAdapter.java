@@ -99,13 +99,13 @@ public interface MediaCodecAdapter {
      * null if the codec is not a video decoder, or if it is configured for {@link ByteBuffer}
      * output.
      */
-    @Nullable public final Surface surface;
+    public final @Nullable Surface surface;
 
     /** For DRM protected playbacks, a {@link MediaCrypto} to use for decryption. */
-    @Nullable public final MediaCrypto crypto;
+    public final @Nullable MediaCrypto crypto;
 
     /** The {@link LoudnessCodecController} for audio codecs. */
-    @Nullable public final LoudnessCodecController loudnessCodecController;
+    public final @Nullable LoudnessCodecController loudnessCodecController;
 
     private Configuration(
         MediaCodecInfo codecInfo,

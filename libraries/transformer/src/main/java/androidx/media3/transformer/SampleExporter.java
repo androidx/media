@@ -46,7 +46,7 @@ import org.jspecify.annotations.Nullable;
 
   private final MuxerWrapper muxerWrapper;
   private final @C.TrackType int outputTrackType;
-  @Nullable private final Metadata metadata;
+  private final @Nullable Metadata metadata;
 
   private boolean muxerWrapperTrackAdded;
 
@@ -88,11 +88,9 @@ import org.jspecify.annotations.Nullable;
     return false;
   }
 
-  @Nullable
-  protected abstract Format getMuxerInputFormat() throws ExportException;
+  protected abstract @Nullable Format getMuxerInputFormat() throws ExportException;
 
-  @Nullable
-  protected abstract DecoderInputBuffer getMuxerInputBuffer() throws ExportException;
+  protected abstract @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException;
 
   protected abstract void releaseMuxerInputBuffer() throws ExportException;
 
@@ -160,8 +158,7 @@ import org.jspecify.annotations.Nullable;
    * <p>This is identical to calling {@code
    * #findSupportedMimeTypeForEncoderAndMuxer(requestedFormat, muxerSupportedMimeTypes, null)}.
    */
-  @Nullable
-  protected static String findSupportedMimeTypeForEncoderAndMuxer(
+  protected static @Nullable String findSupportedMimeTypeForEncoderAndMuxer(
       Format requestedFormat, List<String> muxerSupportedMimeTypes) {
     return findSupportedMimeTypeForEncoderAndMuxer(
         requestedFormat, muxerSupportedMimeTypes, /* encoderFactory= */ null);
@@ -187,8 +184,7 @@ import org.jspecify.annotations.Nullable;
    * @param encoderFactory The provided {@link EncoderFactory}.
    * @return A supported {@linkplain MimeTypes MIME type}, or {@code null} if none are supported.
    */
-  @Nullable
-  protected static String findSupportedMimeTypeForEncoderAndMuxer(
+  protected static @Nullable String findSupportedMimeTypeForEncoderAndMuxer(
       Format requestedFormat,
       List<String> muxerSupportedMimeTypes,
       @Nullable EncoderFactory encoderFactory) {

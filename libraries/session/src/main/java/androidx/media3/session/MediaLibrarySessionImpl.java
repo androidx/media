@@ -374,8 +374,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected MediaLibraryServiceLegacyStub getLegacyBrowserService() {
+  protected @Nullable MediaLibraryServiceLegacyStub getLegacyBrowserService() {
     return (MediaLibraryServiceLegacyStub) super.getLegacyBrowserService();
   }
 

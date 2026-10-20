@@ -25,10 +25,10 @@ import org.jspecify.annotations.Nullable;
 public class MediaCodecDecoderException extends DecoderException {
 
   /** The {@link MediaCodecInfo} of the decoder that failed. Null if unknown. */
-  @Nullable public final MediaCodecInfo codecInfo;
+  public final @Nullable MediaCodecInfo codecInfo;
 
   /** An optional developer-readable diagnostic information string. May be null. */
-  @Nullable public final String diagnosticInfo;
+  public final @Nullable String diagnosticInfo;
 
   /** An optional error code reported by the codec. May be 0 if no error code could be obtained. */
   public final int errorCode;

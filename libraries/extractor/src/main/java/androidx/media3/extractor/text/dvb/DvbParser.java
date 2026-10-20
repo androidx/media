@@ -944,8 +944,8 @@ public final class DvbParser implements SubtitleParser {
     public final SparseArray<ClutDefinition> ancillaryCluts;
     public final SparseArray<ObjectData> ancillaryObjects;
 
-    @Nullable public DisplayDefinition displayDefinition;
-    @Nullable public PageComposition pageComposition;
+    public @Nullable DisplayDefinition displayDefinition;
+    public @Nullable PageComposition pageComposition;
 
     public SubtitleService(int subtitlePageId, int ancillaryPageId) {
       this.subtitlePageId = subtitlePageId;

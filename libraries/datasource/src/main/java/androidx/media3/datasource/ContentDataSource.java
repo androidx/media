@@ -58,9 +58,9 @@ public final class ContentDataSource extends BaseDataSource {
 
   private final ContentResolver resolver;
 
-  @Nullable private Uri uri;
-  @Nullable private AssetFileDescriptor assetFileDescriptor;
-  @Nullable private FileInputStream inputStream;
+  private @Nullable Uri uri;
+  private @Nullable AssetFileDescriptor assetFileDescriptor;
+  private @Nullable FileInputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -195,8 +195,7 @@ public final class ContentDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

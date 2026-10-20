@@ -636,8 +636,8 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     CountDownLatch renderedLatch;
     private long lastPresentationTimeUs;
     private long lastReleaseTimeNs;
-    @Nullable private Format lastFormat;
-    @Nullable private VideoFrameProcessingException lastException;
+    private @Nullable Format lastFormat;
+    private @Nullable VideoFrameProcessingException lastException;
 
     private FakeListener() {
       renderedLatch = new CountDownLatch(1);

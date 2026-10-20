@@ -43,8 +43,7 @@ public interface IMediaControllerCallback extends android.os.IInterface {
      * Cast an IBinder object into an androidx.media3.session.legacy.IMediaControllerCallback
      * interface, generating a proxy if needed.
      */
-    @Nullable
-    public static IMediaControllerCallback asInterface(android.os.@Nullable IBinder obj) {
+    public static @Nullable IMediaControllerCallback asInterface(android.os.@Nullable IBinder obj) {
       if ((obj == null)) {
         return null;
       }
@@ -242,7 +241,7 @@ public interface IMediaControllerCallback extends android.os.IInterface {
         }
       }
 
-      @Nullable public static IMediaControllerCallback defaultImpl;
+      public static @Nullable IMediaControllerCallback defaultImpl;
     }
 
     static final int TRANSACTION_onPlaybackStateChanged =
@@ -269,8 +268,7 @@ public interface IMediaControllerCallback extends android.os.IInterface {
       return false;
     }
 
-    @Nullable
-    public static IMediaControllerCallback getDefaultImpl() {
+    public static @Nullable IMediaControllerCallback getDefaultImpl() {
       return Proxy.defaultImpl;
     }
   }

@@ -114,11 +114,11 @@ import org.jspecify.annotations.Nullable;
 
   private final Context context;
   private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
-  @Nullable private final VideoSink videoSink;
+  private final @Nullable VideoSink videoSink;
   private final ImageDecoder.@Nullable Factory imageDecoderFactory;
   private final int inputIndex;
   private final boolean videoPrewarmingEnabled;
-  @Nullable private final CompositionRendererListener compositionRendererListener;
+  private final @Nullable CompositionRendererListener compositionRendererListener;
   private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
   private final RendererTracker rendererTracker;
@@ -252,9 +252,8 @@ import org.jspecify.annotations.Nullable;
     return renderers.toArray(new Renderer[0]);
   }
 
-  @Nullable
   @Override
-  public Renderer createSecondaryRenderer(
+  public @Nullable Renderer createSecondaryRenderer(
       Renderer renderer,
       Handler eventHandler,
       VideoRendererEventListener videoRendererEventListener,
@@ -572,14 +571,14 @@ import org.jspecify.annotations.Nullable;
 
     private ImmutableList<Effect> videoEffects;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
-    @Nullable private ExoPlaybackException pendingExoPlaybackException;
+    private @Nullable ExoPlaybackException pendingExoPlaybackException;
     private boolean inputStreamPending;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private boolean mayRenderStartOfStream;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private @MonotonicNonNull WakeupListener wakeupListener;
-    @Nullable private ImageMetadataListener imageMetadataListener;
+    private @Nullable ImageMetadataListener imageMetadataListener;
     private @MonotonicNonNull Format outputFormat;
     private long streamOffsetUs;
     private boolean listenerSet;
@@ -802,9 +801,9 @@ import org.jspecify.annotations.Nullable;
     private final TargetFrameRateHelper targetFrameRateHelper;
     private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
 
-    @Nullable private InputSurface inputSurface;
+    private @Nullable InputSurface inputSurface;
     private @MonotonicNonNull Format nextFormat;
-    @Nullable private VideoFrameMetadataListener frameMetadataListener;
+    private @Nullable VideoFrameMetadataListener frameMetadataListener;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
 
@@ -838,14 +837,12 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @Nullable
-    public MediaPeriodId getTrackedMediaPeriodId() {
+    public @Nullable MediaPeriodId getTrackedMediaPeriodId() {
       return getMediaPeriodId();
     }
 
     @Override
-    @Nullable
-    public Timeline getTrackedTimeline() {
+    public @Nullable Timeline getTrackedTimeline() {
       return getTimeline();
     }
 
@@ -1108,8 +1105,8 @@ import org.jspecify.annotations.Nullable;
     private long offsetToCompositionTimeUs;
     private long streamOffsetUs;
 
-    @Nullable private ImageMetadataListener imageMetadataListener;
-    @Nullable private WakeupListener wakeupListener;
+    private @Nullable ImageMetadataListener imageMetadataListener;
+    private @Nullable WakeupListener wakeupListener;
 
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
@@ -1124,14 +1121,12 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @Nullable
-    public MediaPeriodId getTrackedMediaPeriodId() {
+    public @Nullable MediaPeriodId getTrackedMediaPeriodId() {
       return getMediaPeriodId();
     }
 
     @Override
-    @Nullable
-    public Timeline getTrackedTimeline() {
+    public @Nullable Timeline getTrackedTimeline() {
       return getTimeline();
     }
 

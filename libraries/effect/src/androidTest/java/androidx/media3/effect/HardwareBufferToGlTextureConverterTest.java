@@ -1276,11 +1276,11 @@ public final class HardwareBufferToGlTextureConverterTest {
     final String name;
     final int inputSrgbColor;
     final int gainmapAlpha;
-    @Nullable final Color inputPqColor;
-    @Nullable final Color inputHlgColor;
-    @Nullable final Color expectedHlgRgb;
+    final @Nullable Color inputPqColor;
+    final @Nullable Color inputHlgColor;
+    final @Nullable Color expectedHlgRgb;
     final Color expectedBt2020LinearRgb;
-    @Nullable final Color expectedSdrLinearRgb;
+    final @Nullable Color expectedSdrLinearRgb;
 
     SolidColorTestCase(
         String name, int inputSrgbColor, Color expectedHlgRgb, Color expectedBt2020LinearRgb) {
