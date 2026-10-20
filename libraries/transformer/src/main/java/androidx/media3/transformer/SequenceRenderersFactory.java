@@ -121,6 +121,7 @@ import org.jspecify.annotations.Nullable;
   @Nullable private final CompositionRendererListener compositionRendererListener;
   private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
+  private final Supplier<Integer> pendingInputFrameCountSupplier;
   private final RendererTracker rendererTracker;
 
   private @MonotonicNonNull SequenceAudioRenderer audioRenderer;
@@ -128,7 +129,18 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull SequenceVideoRenderer secondaryVideoRenderer;
   private @MonotonicNonNull SequenceImageRenderer imageRenderer;
 
-  /** Creates an instance for rendering to a {@link VideoSink}. */
+  /**
+   * The period whose video renderer the player disabled at its end while it was still connected to
+   * the frame processing {@link VideoSink}, or {@code null}.
+   */
+  @Nullable private Object endedPeriodUid;
+
+  /**
+   * Creates an instance for rendering to a {@link VideoSink}.
+   *
+   * @param pendingInputFrameCountSupplier Supplies the number of frames queued on the input surface
+   *     of the {@code videoSink} that the frame processor hasn't consumed yet.
+   */
   public static SequenceRenderersFactory createForVideoSink(
       Context context,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
@@ -136,7 +148,8 @@ import org.jspecify.annotations.Nullable;
       ImageDecoder.@Nullable Factory imageDecoderFactory,
       int inputIndex,
       boolean videoPrewarmingEnabled,
-      long lateThresholdToDropInputUs) {
+      long lateThresholdToDropInputUs,
+      Supplier<Integer> pendingInputFrameCountSupplier) {
     return new SequenceRenderersFactory(
         context,
         playbackAudioGraphWrapper,
@@ -146,7 +159,8 @@ import org.jspecify.annotations.Nullable;
         videoPrewarmingEnabled,
         /* compositionRendererListener= */ null,
         /* hardwareBufferFrameReaderSupplier= */ () -> null,
-        lateThresholdToDropInputUs);
+        lateThresholdToDropInputUs,
+        pendingInputFrameCountSupplier);
   }
 
   /** Creates an instance for rendering to a {@link HardwareBufferFrameReader}. */
@@ -168,7 +182,8 @@ import org.jspecify.annotations.Nullable;
         videoPrewarmingEnabled,
         compositionRendererListener,
         hardwareBufferFrameReaderSupplier,
-        lateThresholdToDropInputUs);
+        lateThresholdToDropInputUs,
+        /* pendingInputFrameCountSupplier= */ () -> 0);
   }
 
   private SequenceRenderersFactory(
@@ -180,7 +195,8 @@ import org.jspecify.annotations.Nullable;
       boolean videoPrewarmingEnabled,
       @Nullable CompositionRendererListener compositionRendererListener,
       Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
-      long lateThresholdToDropInputUs) {
+      long lateThresholdToDropInputUs,
+      Supplier<Integer> pendingInputFrameCountSupplier) {
     this.context = context;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.videoSink = videoSink;
@@ -190,6 +206,7 @@ import org.jspecify.annotations.Nullable;
     this.compositionRendererListener = compositionRendererListener;
     this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
     this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
+    this.pendingInputFrameCountSupplier = pendingInputFrameCountSupplier;
     rendererTracker = new RendererTracker();
   }
 
@@ -335,6 +352,11 @@ import org.jspecify.annotations.Nullable;
     private ImmutableList<Effect> pendingEffects;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
+    // Whether the codec has released all the output frames of the current stream.
+    private boolean renderedToEndOfStream;
+    // Whether the codec output was moved to a placeholder surface to hand the input surface of the
+    // frame processing VideoSink over to the prewarmed renderer.
+    private boolean outputSurfaceHandedOver;
 
     public SequenceVideoRenderer(
         Context context,
@@ -364,6 +386,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
+      renderedToEndOfStream = false;
       if (mayRenderStartOfStream) {
         // Activate the BufferingVideoSink before calling super.onEnabled(), so that it points to a
         // VideoSink when executing the super method.
@@ -382,8 +405,30 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     protected void onDisabled() {
+      MediaSource.@Nullable MediaPeriodId mediaPeriodId = getMediaPeriodId();
+      if (renderedToEndOfStream
+          && !outputSurfaceHandedOver
+          && bufferingVideoSink.getVideoSink() != null
+          && mediaPeriodId != null) {
+        endedPeriodUid = mediaPeriodId.periodUid;
+      }
       super.onDisabled();
       deactivateBufferingVideoSink();
+      renderedToEndOfStream = false;
+      outputSurfaceHandedOver = false;
+    }
+
+    @Override
+    public boolean isEnded() {
+      // After a handover, the next item's stream change resets the end of the shared VideoSink, so
+      // this renderer is ended once it released its last frame.
+      return outputSurfaceHandedOver ? renderedToEndOfStream : super.isEnded();
+    }
+
+    @Override
+    public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+      maybeActivateBufferingVideoSinkBeforeStarted();
+      super.render(positionUs, elapsedRealtimeUs);
     }
 
     @Override
@@ -396,6 +441,9 @@ import org.jspecify.annotations.Nullable;
     protected void onPositionReset(
         long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
         throws ExoPlaybackException {
+      maybeRestoreOutputSurface();
+      renderedToEndOfStream = false;
+      endedPeriodUid = null;
       super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
       targetFrameRateHelper.onPositionReset();
     }
@@ -408,6 +456,8 @@ import org.jspecify.annotations.Nullable;
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
+      maybeRestoreOutputSurface();
+      renderedToEndOfStream = false;
       // The media item might have been repeated in the sequence.
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
@@ -510,6 +560,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     protected void renderToEndOfStream() {
       super.renderToEndOfStream();
+      renderedToEndOfStream = true;
       if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
         bufferingVideoSink.signalEndOfInput();
       }
@@ -563,6 +614,92 @@ import org.jspecify.annotations.Nullable;
       } else {
         releaseCodec();
       }
+    }
+
+    /**
+     * Connects a prewarmed renderer to the frame processing {@link VideoSink} before it's started,
+     * so that its first frame is processed before playback reaches its media item.
+     *
+     * <p>This happens once the renderer of the previous media item released its last frame, or was
+     * disabled at its end, and the frame processor consumed all the frames queued on its input
+     * surface, as switching the surface producer drops the queued frames.
+     */
+    private void maybeActivateBufferingVideoSinkBeforeStarted() {
+      if (!videoPrewarmingEnabled
+          || getState() != STATE_ENABLED
+          || bufferingVideoSink.getVideoSink() != null) {
+        return;
+      }
+      @Nullable SequenceVideoRenderer previousRenderer =
+          this == primaryVideoRenderer ? secondaryVideoRenderer : primaryVideoRenderer;
+      boolean previousRendererConnected =
+          previousRenderer != null && previousRenderer.bufferingVideoSink.getVideoSink() != null;
+      MediaSource.@Nullable MediaPeriodId previousMediaPeriodId =
+          previousRenderer == null ? null : previousRenderer.getMediaPeriodId();
+      boolean previousRendererEnded =
+          previousRendererConnected
+              && previousRenderer.renderedToEndOfStream
+              && !previousRenderer.outputSurfaceHandedOver
+              && previousMediaPeriodId != null
+              && isNextPeriodOf(previousMediaPeriodId.periodUid);
+      boolean previousRendererDisabled =
+          !previousRendererConnected && endedPeriodUid != null && isNextPeriodOf(endedPeriodUid);
+      @Nullable MediaCodecAdapter codec = getCodec();
+      if (!(previousRendererEnded || previousRendererDisabled)
+          || codec == null
+          || !checkNotNull(SequenceRenderersFactory.this.videoSink).isInitialized()
+          || codecNeedsSetOutputSurfaceWorkaround(checkNotNull(getCodecInfo()).name)
+          || pendingInputFrameCountSupplier.get() > 0) {
+        return;
+      }
+      if (previousRendererEnded) {
+        @Nullable MediaCodecAdapter previousCodec = previousRenderer.getCodec();
+        if (previousCodec != null) {
+          if (codecNeedsSetOutputSurfaceWorkaround(
+              checkNotNull(previousRenderer.getCodecInfo()).name)) {
+            return;
+          }
+          previousRenderer.setOutputSurfaceV23(
+              previousCodec, previousRenderer.bufferingVideoSink.getPlaceholderSurface());
+        }
+        previousRenderer.outputSurfaceHandedOver = true;
+      }
+      endedPeriodUid = null;
+      activateBufferingVideoSink();
+    }
+
+    /** Returns whether the media item of this renderer directly follows the given period. */
+    private boolean isNextPeriodOf(Object previousPeriodUid) {
+      MediaSource.@Nullable MediaPeriodId mediaPeriodId = getMediaPeriodId();
+      if (mediaPeriodId == null) {
+        return false;
+      }
+      Timeline timeline = getTimeline();
+      int previousPeriodIndex = timeline.getIndexOfPeriod(previousPeriodUid);
+      return previousPeriodIndex != C.INDEX_UNSET
+          && timeline.getIndexOfPeriod(mediaPeriodId.periodUid) == previousPeriodIndex + 1;
+    }
+
+    /**
+     * Sets the codec output back to the frame processing {@link VideoSink} input surface if it was
+     * {@linkplain #maybeActivateBufferingVideoSinkBeforeStarted() handed over}.
+     */
+    private void maybeRestoreOutputSurface() {
+      if (!outputSurfaceHandedOver) {
+        return;
+      }
+      outputSurfaceHandedOver = false;
+      @Nullable MediaCodecAdapter codec = getCodec();
+      @Nullable VideoSink frameProcessingVideoSink = bufferingVideoSink.getVideoSink();
+      if (codec == null || frameProcessingVideoSink == null) {
+        return;
+      }
+      @Nullable SequenceVideoRenderer nextRenderer =
+          this == primaryVideoRenderer ? secondaryVideoRenderer : primaryVideoRenderer;
+      checkState(
+          nextRenderer == null || nextRenderer.bufferingVideoSink.getVideoSink() == null,
+          "The input surface is used by the prewarmed renderer");
+      setOutputSurfaceV23(codec, frameProcessingVideoSink.getInputSurface());
     }
   }
 

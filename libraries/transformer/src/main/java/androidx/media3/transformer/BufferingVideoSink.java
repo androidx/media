@@ -287,7 +287,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  private PlaceholderSurface getPlaceholderSurface() {
+  /* package */ PlaceholderSurface getPlaceholderSurface() {
     if (placeholderSurface == null) {
       placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
     }

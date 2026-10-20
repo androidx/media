@@ -17,10 +17,12 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AVC;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,9 +32,11 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.view.Surface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -57,6 +61,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.exoplayer.video.VideoSink;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -67,15 +72,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Unit test for {@link SequenceRenderersFactory}. */
 @RunWith(AndroidJUnit4.class)
 public final class SequenceRenderersFactoryTest {
+
+  private static final long VIDEO_ITEM_DURATION_US = 1_000_000;
+  private static final Format H264_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H264)
+          .setWidth(640)
+          .setHeight(360)
+          .build();
 
   @Rule
   public final ShadowMediaCodecConfig shadowMediaCodecConfig =
@@ -282,6 +297,74 @@ public final class SequenceRenderersFactoryTest {
     assertThat(metadata.itemIndex).isEqualTo(0);
   }
 
+  @Test
+  public void prewarmedVideoRenderer_afterPreviousRendererEnded_queuesFirstFrameBeforeStarted()
+      throws Exception {
+    FakeFrameProcessingVideoSink videoSink = new FakeFrameProcessingVideoSink();
+    SequenceRenderersFactory factory =
+        createFactoryForVideoSink(videoSink, /* pendingInputFrameCountSupplier= */ () -> 0);
+    Renderer primaryRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
+    Renderer secondaryRenderer = createSecondaryRenderer(factory, primaryRenderer);
+    Timeline timeline = createVideoTimeline(/* itemCount= */ 2);
+
+    playToEndOfStream(primaryRenderer, timeline);
+    prewarmRenderer(secondaryRenderer, timeline, /* periodIndex= */ 1);
+    renderUntil(secondaryRenderer, () -> videoSink.inputFramePresentationTimesUs.size() == 2);
+
+    assertThat(secondaryRenderer.getState()).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoSink.inputFramePresentationTimesUs)
+        .containsExactly(0L, VIDEO_ITEM_DURATION_US)
+        .inOrder();
+  }
+
+  @Test
+  public void prewarmedVideoRenderer_withPendingInputFrames_waitsUntilFramesProcessed()
+      throws Exception {
+    FakeFrameProcessingVideoSink videoSink = new FakeFrameProcessingVideoSink();
+    AtomicInteger pendingInputFrameCount = new AtomicInteger(1);
+    SequenceRenderersFactory factory =
+        createFactoryForVideoSink(videoSink, pendingInputFrameCount::get);
+    Renderer primaryRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
+    Renderer secondaryRenderer = createSecondaryRenderer(factory, primaryRenderer);
+    Timeline timeline = createVideoTimeline(/* itemCount= */ 2);
+
+    playToEndOfStream(primaryRenderer, timeline);
+    prewarmRenderer(secondaryRenderer, timeline, /* periodIndex= */ 1);
+
+    assertThat(videoSink.inputFramePresentationTimesUs).containsExactly(0L);
+
+    pendingInputFrameCount.set(0);
+    renderUntil(secondaryRenderer, () -> videoSink.inputFramePresentationTimesUs.size() == 2);
+
+    assertThat(secondaryRenderer.getState()).isEqualTo(Renderer.STATE_ENABLED);
+    assertThat(videoSink.inputFramePresentationTimesUs)
+        .containsExactly(0L, VIDEO_ITEM_DURATION_US)
+        .inOrder();
+  }
+
+  @Test
+  public void prewarmedVideoRenderer_notDirectlyAfterPreviousItem_waitsUntilStarted()
+      throws Exception {
+    FakeFrameProcessingVideoSink videoSink = new FakeFrameProcessingVideoSink();
+    SequenceRenderersFactory factory =
+        createFactoryForVideoSink(videoSink, /* pendingInputFrameCountSupplier= */ () -> 0);
+    Renderer primaryRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
+    Renderer secondaryRenderer = createSecondaryRenderer(factory, primaryRenderer);
+    Timeline timeline = createVideoTimeline(/* itemCount= */ 3);
+
+    playToEndOfStream(primaryRenderer, timeline);
+    prewarmRenderer(secondaryRenderer, timeline, /* periodIndex= */ 2);
+
+    assertThat(videoSink.inputFramePresentationTimesUs).containsExactly(0L);
+
+    secondaryRenderer.start();
+    renderUntil(secondaryRenderer, () -> videoSink.inputFramePresentationTimesUs.size() == 2);
+
+    assertThat(videoSink.inputFramePresentationTimesUs)
+        .containsExactly(0L, 2 * VIDEO_ITEM_DURATION_US)
+        .inOrder();
+  }
+
   private static SequenceRenderersFactory createFactoryForHardwareBuffer(
       Supplier<HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier) {
     return SequenceRenderersFactory.createForHardwareBuffer(
@@ -299,6 +382,99 @@ public final class SequenceRenderersFactoryTest {
             SequenceRenderersFactory.CompositionRendererListener.class),
         hardwareBufferFrameReaderSupplier,
         /* lateThresholdToDropInputUs= */ 0);
+  }
+
+  private static SequenceRenderersFactory createFactoryForVideoSink(
+      VideoSink videoSink, Supplier<Integer> pendingInputFrameCountSupplier) {
+    return SequenceRenderersFactory.createForVideoSink(
+        getApplicationContext(),
+        new PlaybackAudioGraphWrapper(
+            new DefaultAudioMixer.Factory(),
+            new DefaultAudioSink.Builder(getApplicationContext()).build()),
+        videoSink,
+        new ExternallyLoadedImageDecoder.Factory(
+            request ->
+                immediateFuture(
+                    Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888))),
+        /* inputIndex= */ 0,
+        /* videoPrewarmingEnabled= */ true,
+        /* lateThresholdToDropInputUs= */ C.TIME_UNSET,
+        pendingInputFrameCountSupplier);
+  }
+
+  private static Renderer createSecondaryRenderer(
+      SequenceRenderersFactory factory, Renderer primaryRenderer) {
+    return checkNotNull(
+        factory.createSecondaryRenderer(
+            primaryRenderer,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            /* videoRendererEventListener= */ mock(VideoRendererEventListener.class),
+            /* audioRendererEventListener= */ mock(AudioRendererEventListener.class),
+            /* textRendererOutput= */ mock(TextOutput.class),
+            /* metadataRendererOutput= */ mock(MetadataOutput.class)));
+  }
+
+  private static Timeline createVideoTimeline(int itemCount) {
+    EditedMediaItemSequence.Builder sequenceBuilder =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO));
+    for (int i = 0; i < itemCount; i++) {
+      sequenceBuilder.addItem(
+          new EditedMediaItem.Builder(MediaItem.fromUri("https://example.com/" + i))
+              .setDurationUs(VIDEO_ITEM_DURATION_US)
+              .build());
+    }
+    return new CompositionPlayer.CompositionForwardingTimeline(
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(/* periodCount= */ itemCount, /* id= */ 0)),
+        sequenceBuilder.build());
+  }
+
+  /** Plays the first item to its end, keeping its renderer enabled as the player does. */
+  private static void playToEndOfStream(Renderer renderer, Timeline timeline) throws Exception {
+    enableRenderer(
+        renderer,
+        timeline,
+        /* periodIndex= */ 0,
+        H264_FORMAT,
+        /* mayRenderStartOfStream= */ true,
+        /* offsetUs= */ 0);
+    // The next item is played by the other renderer.
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+    renderUntil(renderer, renderer::isEnded);
+  }
+
+  /** Enables the renderer for a later item and renders it before it's started. */
+  private static void prewarmRenderer(Renderer renderer, Timeline timeline, int periodIndex)
+      throws Exception {
+    enableRenderer(
+        renderer,
+        timeline,
+        periodIndex,
+        H264_FORMAT,
+        /* mayRenderStartOfStream= */ false,
+        /* offsetUs= */ periodIndex * VIDEO_ITEM_DURATION_US);
+    for (int i = 0; i < 100; i++) {
+      renderer.render(
+          /* positionUs= */ VIDEO_ITEM_DURATION_US / 2,
+          /* elapsedRealtimeUs= */ SystemClock.DEFAULT.elapsedRealtime() * 1000);
+      ShadowLooper.idleMainLooper();
+      Thread.sleep(1);
+    }
+  }
+
+  private static void renderUntil(Renderer renderer, Supplier<Boolean> condition) throws Exception {
+    runMainLooperUntil(
+        () -> {
+          try {
+            renderer.render(
+                /* positionUs= */ VIDEO_ITEM_DURATION_US / 2,
+                /* elapsedRealtimeUs= */ SystemClock.DEFAULT.elapsedRealtime() * 1000);
+          } catch (ExoPlaybackException e) {
+            throw new IllegalStateException(e);
+          }
+          return condition.get();
+        });
   }
 
   private static Renderer createRenderer(
@@ -371,6 +547,23 @@ public final class SequenceRenderersFactoryTest {
   private static void enableRenderer(
       Renderer renderer, Timeline timeline, int periodIndex, Format format)
       throws ExoPlaybackException {
+    enableRenderer(
+        renderer,
+        timeline,
+        periodIndex,
+        format,
+        /* mayRenderStartOfStream= */ true,
+        /* offsetUs= */ 0L);
+  }
+
+  private static void enableRenderer(
+      Renderer renderer,
+      Timeline timeline,
+      int periodIndex,
+      Format format,
+      boolean mayRenderStartOfStream,
+      long offsetUs)
+      throws ExoPlaybackException {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -387,12 +580,59 @@ public final class SequenceRenderersFactoryTest {
         RendererConfiguration.DEFAULT,
         new Format[] {format},
         fakeSampleStream,
-        /* positionUs= */ 0L,
+        /* positionUs= */ offsetUs,
         /* joining= */ false,
-        /* mayRenderStartOfStream= */ true,
-        /* startPositionUs= */ 0L,
-        /* offsetUs= */ 0L,
+        mayRenderStartOfStream,
+        /* startPositionUs= */ offsetUs,
+        offsetUs,
         new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(periodIndex)));
+  }
+
+  /** A frame processing {@link VideoSink} that records the frames queued to it. */
+  private static final class FakeFrameProcessingVideoSink extends ForwardingVideoSink {
+
+    private final List<Long> inputFramePresentationTimesUs;
+    private final Surface inputSurface;
+
+    private FakeFrameProcessingVideoSink() {
+      super(mock(VideoSink.class));
+      inputFramePresentationTimesUs = new ArrayList<>();
+      inputSurface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    }
+
+    @Override
+    public boolean initialize(Format sourceFormat) {
+      return true;
+    }
+
+    @Override
+    public boolean isInitialized() {
+      return true;
+    }
+
+    @Override
+    public boolean isReady(boolean otherwiseReady) {
+      return true;
+    }
+
+    @Override
+    public Surface getInputSurface() {
+      return inputSurface;
+    }
+
+    @Override
+    public boolean isEnded() {
+      // Frames are processed as soon as they are queued.
+      return true;
+    }
+
+    @Override
+    public boolean handleInputFrame(
+        long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler) {
+      inputFramePresentationTimesUs.add(bufferPresentationTimeUs);
+      videoFrameHandler.render(/* renderTimestampNs= */ bufferPresentationTimeUs * 1000);
+      return true;
+    }
   }
 
   private static final class FakeWakeupListener implements Renderer.WakeupListener {
