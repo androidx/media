@@ -57,7 +57,7 @@ dexmakerVersion = "2.28.3"
 # Keep in sync with gms.strict-version-matcher-plugin
 errorProneVersion = "2.15.0"
 glideVersion = "4.14.2"
-gmsPlayServicesCastFrameworkVersion = "22.3.1"
+gmsPlayServicesCastFrameworkVersion = "23.0.0"
 # Use the same Guava version as the Android repo:
 # https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
 guavaVersion = "33.3.1-android"

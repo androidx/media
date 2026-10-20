@@ -77,6 +77,8 @@
     *   Fix an issue where `RemoteCastPlayer` load requests were dropped by
         Android TV receivers
         ([#3462](https://github.com/androidx/media/issues/3462)).
+    *   Update `com.google.android.gms:play-services-cast-framework` dependency
+        to `23.0.0`.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo
