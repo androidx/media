@@ -325,6 +325,7 @@ import org.jspecify.annotations.Nullable;
         mediaInfo == null
             ? previousData.isLive
             : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE;
+    boolean isSeekable = durationUs != C.TIME_UNSET;
     if (defaultPositionUs == C.TIME_UNSET) {
       defaultPositionUs = previousData.defaultPositionUs;
     }
@@ -336,7 +337,7 @@ import org.jspecify.annotations.Nullable;
     itemIdToData.put(
         uid,
         previousData.copyWithNewValues(
-            durationUs, defaultPositionUs, isLive, mediaItem, contentId));
+            durationUs, defaultPositionUs, isLive, isSeekable, mediaItem, contentId));
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {

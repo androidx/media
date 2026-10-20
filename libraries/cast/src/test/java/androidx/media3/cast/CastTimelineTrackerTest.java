@@ -21,6 +21,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -34,6 +35,7 @@ import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -532,6 +534,120 @@ public class CastTimelineTrackerTest {
 
     assertThat(placeholderTimeline.equals(resolvedTimeline)).isFalse();
     assertThat(placeholderTimeline.hashCode()).isNotEqualTo(resolvedTimeline.hashCode());
+  }
+
+  @Test
+  public void getWindow_withSeekableAndDynamicItems_populatesWindowFlags() {
+    ItemUid uid0 = ItemUid.of("uid-0");
+    ItemUid uid1 = ItemUid.of("uid-1");
+    ItemData itemData0 =
+        new ItemData(
+            /* durationUs= */ 10_000_000L,
+            /* defaultPositionUs= */ 0L,
+            /* isLive= */ true,
+            /* isSeekable= */ true,
+            createMediaItem(0),
+            "content-0");
+    ItemData itemData1 =
+        new ItemData(
+            /* durationUs= */ C.TIME_UNSET,
+            /* defaultPositionUs= */ 0L,
+            /* isLive= */ false,
+            /* isSeekable= */ true,
+            createMediaItem(1),
+            "content-1");
+    CastTimeline timeline =
+        new CastTimeline(
+            ImmutableList.of(uid0, uid1), ImmutableMap.of(uid0, itemData0, uid1, itemData1));
+
+    Window window0 = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    Window window1 = timeline.getWindow(/* windowIndex= */ 1, new Window());
+
+    assertThat(window0.durationUs).isEqualTo(10_000_000L);
+    assertThat(window0.isSeekable).isTrue();
+    assertThat(window0.isDynamic).isTrue();
+    assertThat(window1.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window1.isSeekable).isTrue();
+    assertThat(window1.isDynamic).isTrue();
+  }
+
+  @Test
+  public void equalsAndHashCode_withDifferentSeekableOrDynamic_differs() {
+    ItemUid uid = ItemUid.of("uid-0");
+    MediaItem mediaItem = createMediaItem(0);
+    ItemData baseItemData =
+        new ItemData(
+            /* durationUs= */ 10_000_000L,
+            /* defaultPositionUs= */ 0L,
+            /* isLive= */ true,
+            /* isSeekable= */ true,
+            mediaItem,
+            "content-0");
+    CastTimeline baseTimeline =
+        new CastTimeline(ImmutableList.of(uid), ImmutableMap.of(uid, baseItemData));
+    CastTimeline differentSeekableTimeline =
+        new CastTimeline(
+            ImmutableList.of(uid),
+            ImmutableMap.of(
+                uid,
+                baseItemData.copyWithNewValues(
+                    /* durationUs= */ 10_000_000L,
+                    /* defaultPositionUs= */ 0L,
+                    /* isLive= */ true,
+                    /* isSeekable= */ false,
+                    mediaItem,
+                    "content-0")));
+    CastTimeline differentDynamicTimeline =
+        new CastTimeline(
+            ImmutableList.of(uid),
+            ImmutableMap.of(
+                uid,
+                baseItemData.copyWithNewValues(
+                    /* durationUs= */ 10_000_000L,
+                    /* defaultPositionUs= */ 0L,
+                    /* isLive= */ false,
+                    /* isSeekable= */ true,
+                    mediaItem,
+                    "content-0")));
+    CastTimeline equalTimeline =
+        new CastTimeline(
+            ImmutableList.of(uid),
+            ImmutableMap.of(
+                uid,
+                baseItemData.copyWithNewValues(
+                    /* durationUs= */ 10_000_000L,
+                    /* defaultPositionUs= */ 0L,
+                    /* isLive= */ true,
+                    /* isSeekable= */ true,
+                    mediaItem,
+                    "content-0")));
+
+    assertThat(baseTimeline).isEqualTo(equalTimeline);
+    assertThat(baseTimeline.hashCode()).isEqualTo(equalTimeline.hashCode());
+    assertThat(baseTimeline).isNotEqualTo(differentSeekableTimeline);
+    assertThat(baseTimeline.hashCode()).isNotEqualTo(differentSeekableTimeline.hashCode());
+    assertThat(baseTimeline).isNotEqualTo(differentDynamicTimeline);
+    assertThat(baseTimeline.hashCode()).isNotEqualTo(differentDynamicTimeline.hashCode());
+  }
+
+  @Test
+  public void getCastTimeline_withKnownAndUnknownDuration_populatesIsSeekableAndIsDynamic() {
+    RemoteMediaClient remoteMediaClient =
+        mockRemoteMediaClient(
+            /* itemIds= */ new int[] {1, 2},
+            /* currentItemId= */ 1,
+            /* currentDurationMs= */ DURATION_2_MS);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(remoteMediaClient);
+
+    Window windowWithDuration = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    Window windowWithoutDuration = timeline.getWindow(/* windowIndex= */ 1, new Window());
+    assertThat(windowWithDuration.durationUs).isEqualTo(Util.msToUs(DURATION_2_MS));
+    assertThat(windowWithDuration.isSeekable).isTrue();
+    assertThat(windowWithDuration.isDynamic).isFalse();
+    assertThat(windowWithoutDuration.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(windowWithoutDuration.isSeekable).isFalse();
+    assertThat(windowWithoutDuration.isDynamic).isTrue();
   }
 
   @Test

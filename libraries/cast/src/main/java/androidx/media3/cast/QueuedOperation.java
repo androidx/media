@@ -240,6 +240,7 @@ import org.jspecify.annotations.Nullable;
                 window.durationUs,
                 window.defaultPositionUs,
                 window.isLive(),
+                window.isSeekable,
                 window.mediaItem,
                 UNKNOWN_CONTENT_ID));
       }
@@ -264,6 +265,7 @@ import org.jspecify.annotations.Nullable;
                 /* durationUs= */ C.TIME_UNSET,
                 /* defaultPositionUs= */ mediaItem.clippingConfiguration.startPositionUs,
                 /* isLive= */ false,
+                /* isSeekable= */ false,
                 mediaItem,
                 UNKNOWN_CONTENT_ID));
       }
@@ -471,6 +473,7 @@ import org.jspecify.annotations.Nullable;
                 window.durationUs,
                 window.defaultPositionUs,
                 window.isLive(),
+                window.isSeekable,
                 window.mediaItem,
                 UNKNOWN_CONTENT_ID));
       }
@@ -590,6 +593,7 @@ import org.jspecify.annotations.Nullable;
                 window.durationUs,
                 window.defaultPositionUs,
                 window.isLive(),
+                window.isSeekable,
                 window.mediaItem,
                 UNKNOWN_CONTENT_ID));
       }

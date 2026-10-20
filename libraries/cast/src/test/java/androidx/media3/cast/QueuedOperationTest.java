@@ -67,9 +67,11 @@ public final class QueuedOperationTest {
     Window window1 = timeline.getWindow(/* windowIndex= */ 1, new Window());
     assertThat(window0.mediaItem).isEqualTo(item1);
     assertThat(window0.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window0.isSeekable).isFalse();
     assertThat(window0.isDynamic).isTrue();
     assertThat(window1.mediaItem).isEqualTo(item2);
     assertThat(window1.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window1.isSeekable).isFalse();
     assertThat(window1.isDynamic).isTrue();
     assertThat(window0.uid).isNotEqualTo(window1.uid);
   }
@@ -350,6 +352,7 @@ public final class QueuedOperationTest {
             /* durationUs= */ 100_000_000L,
             /* defaultPositionUs= */ 5_000_000L,
             /* isLive= */ false,
+            /* isSeekable= */ true,
             itemA,
             "A"));
     itemDataMap.put(
@@ -358,6 +361,7 @@ public final class QueuedOperationTest {
             /* durationUs= */ 200_000_000L,
             /* defaultPositionUs= */ 10_000_000L,
             /* isLive= */ true,
+            /* isSeekable= */ true,
             itemB,
             "B"));
     CastTimeline initialTimeline = new CastTimeline(ImmutableList.of(uidA, uidB), itemDataMap);
@@ -376,11 +380,15 @@ public final class QueuedOperationTest {
     assertThat(window0.durationUs).isEqualTo(200_000_000L);
     assertThat(window0.defaultPositionUs).isEqualTo(10_000_000L);
     assertThat(window0.isLive()).isTrue();
+    assertThat(window0.isSeekable).isTrue();
+    assertThat(window0.isDynamic).isTrue();
 
     assertThat(window1.uid).isEqualTo(uidA);
     assertThat(window1.durationUs).isEqualTo(100_000_000L);
     assertThat(window1.defaultPositionUs).isEqualTo(5_000_000L);
     assertThat(window1.isLive()).isFalse();
+    assertThat(window1.isSeekable).isTrue();
+    assertThat(window1.isDynamic).isFalse();
   }
 
   @Test
