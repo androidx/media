@@ -187,6 +187,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       /**
        * Sets the {@link FrameToGlTextureConverter.Factory}.
        *
+       * <p>The default value creates a {@link DefaultFrameToGlTextureConverter} instance.
+       *
        * @param frameToGlTextureConverterFactory The {@link FrameToGlTextureConverter.Factory}.
        * @return This builder.
        */
@@ -254,7 +256,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         if (frameToGlTextureConverterFactory == null) {
           frameToGlTextureConverterFactory =
               (outputColorInfo, errorConsumer) ->
-                  new HardwareBufferToGlTextureConverter(
+                  new DefaultFrameToGlTextureConverter(
                       context, hardwareBufferJniWrapper, outputColorInfo, errorConsumer);
         }
         return new Factory(this);

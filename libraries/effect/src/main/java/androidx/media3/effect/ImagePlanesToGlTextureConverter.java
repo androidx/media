@@ -88,7 +88,7 @@ import org.jspecify.annotations.Nullable;
       HardwareBufferJniWrapper hardwareBufferJniWrapper,
       ColorInfo outputColorInfo,
       Consumer<VideoFrameProcessingException> errorConsumer) {
-    this.context = context.getApplicationContext();
+    this.context = context;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.outputColorInfo = outputColorInfo;
     this.errorConsumer = errorConsumer;
