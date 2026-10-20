@@ -1308,7 +1308,8 @@ import org.jspecify.annotations.Nullable;
     return MediaUtils.calculateBufferedPercentage(bufferedPositionMs, durationMs);
   }
 
-  public static @RatingCompat.Style int getRatingCompatStyle(@Nullable Rating rating) {
+  @RatingCompat.Style
+  public static int getRatingCompatStyle(@Nullable Rating rating) {
     if (rating instanceof HeartRating) {
       return RatingCompat.RATING_HEART;
     } else if (rating instanceof ThumbRating) {

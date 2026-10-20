@@ -349,8 +349,7 @@ import org.jspecify.annotations.Nullable;
     startInternal(checkNotNull(composition), muxerWrapper, /* initialTimestampOffsetUs= */ 0);
   }
 
-  @Nullable
-  private MuxerWrapper createMuxerWrapper(
+  private @Nullable MuxerWrapper createMuxerWrapper(
       @MuxerWrapper.MuxerMode int muxerMode, @Nullable Format appendVideoFormat) {
     try {
       return outputResolver.createMuxerWrapper(

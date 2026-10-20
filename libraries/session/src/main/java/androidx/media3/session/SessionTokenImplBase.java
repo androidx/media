@@ -200,8 +200,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @SessionToken.TokenType
-  public int getType() {
+  public @SessionToken.TokenType int getType() {
     return type;
   }
 

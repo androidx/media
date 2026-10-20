@@ -147,8 +147,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @SessionToken.TokenType
-  public int getType() {
+  public @SessionToken.TokenType int getType() {
     switch (type) {
       case TYPE_SESSION_LEGACY:
         return TYPE_SESSION;

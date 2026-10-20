@@ -85,7 +85,7 @@ import org.jspecify.annotations.Nullable;
   private float defaultTextSizePx;
   private float cueTextSizePx;
   private float bottomPaddingFraction;
-  @Nullable private TextDirectionHeuristic textDirectionHeuristic;
+  private @Nullable TextDirectionHeuristic textDirectionHeuristic;
   private int parentLeft;
   private int parentTop;
   private int parentRight;

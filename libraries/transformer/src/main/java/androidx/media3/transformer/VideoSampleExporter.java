@@ -226,8 +226,12 @@ import org.jspecify.annotations.Nullable;
     private final boolean renderFramesAutomatically;
     private final long initialTimestampOffsetUs;
     private final int maxFramesInEncoder;
-    private @GuardedBy("lock") int framesInEncoder;
-    private @GuardedBy("lock") int framesAvailableToRender;
+
+    @GuardedBy("lock")
+    private int framesInEncoder;
+
+    @GuardedBy("lock")
+    private int framesAvailableToRender;
 
     public VideoGraphWrapper(
         Context context,
