@@ -16,18 +16,23 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.PlaybackSpeedControl
 import androidx.media3.ui.compose.material3.R
+import androidx.media3.ui.compose.state.PlaybackSpeedState
 
 /**
  * A Material3 [TextButton] that toggles the playback speed of the player.
@@ -42,23 +47,42 @@ import androidx.media3.ui.compose.material3.R
  * list.
  *
  * The button's state (e.g., whether it's enabled and the current playback speed) is managed by a
- * [PlaybackSpeedState][androidx.media3.ui.compose.state.PlaybackSpeedState] instance derived from
- * the provided [player].
+ * [PlaybackSpeedState] instance derived from the provided [player].
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param colors [ButtonColors] to be used for the button.
- * @param interactionSource The [MutableInteractionSource] for the button.
  * @param speedSelection The sequence of speeds to cycle through when the button is clicked.
+ * @param shape Defines the shape of this button's container, border (when [border] is not null),
+ *   and shadow (when using [elevation]). See [ButtonDefaults.textShape].
+ * @param colors [ButtonColors] that will be used to resolve the colors for this button in different
+ *   states. See [ButtonDefaults.textButtonColors].
+ * @param elevation [ButtonElevation] used to resolve the elevation for this button in different
+ *   states. A `TextButton` typically has no elevation. See [ButtonDefaults.buttonElevation].
+ * @param border The border to draw around the container of this button.
+ * @param contentPadding The spacing values to apply internally between the container and the
+ *   content. See [ButtonDefaults.TextButtonContentPadding].
+ * @param interactionSource An optional hoisted [MutableInteractionSource] for observing and
+ *   emitting [Interaction][androidx.compose.foundation.interaction.Interaction]s for this button.
+ *   You can use this to change the button's appearance or preview the button in different states.
+ *   Note that if `null` is provided, interactions will still happen internally.
+ * @param content A composable lambda with [PlaybackSpeedState] as its receiver, allowing the
+ *   content of the button to be customized.
  */
 @UnstableApi
 @Composable
 fun PlaybackSpeedToggleButton(
   player: Player?,
   modifier: Modifier = Modifier,
-  colors: ButtonColors = ButtonDefaults.textButtonColors(),
-  interactionSource: MutableInteractionSource? = null,
   speedSelection: List<Float> = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f),
+  shape: Shape = ButtonDefaults.textShape,
+  colors: ButtonColors = ButtonDefaults.textButtonColors(),
+  elevation: ButtonElevation? = null,
+  border: BorderStroke? = null,
+  contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
+  interactionSource: MutableInteractionSource? = null,
+  content: @Composable PlaybackSpeedState.() -> Unit = {
+    Text(text = stringResource(R.string.playback_speed_format, playbackSpeed))
+  },
 ) {
   PlaybackSpeedControl(player) {
     TextButton(
@@ -68,10 +92,14 @@ fun PlaybackSpeedToggleButton(
       },
       enabled = isEnabled,
       modifier = modifier,
+      shape = shape,
       colors = colors,
+      elevation = elevation,
+      border = border,
+      contentPadding = contentPadding,
       interactionSource = interactionSource,
     ) {
-      Text(text = stringResource(R.string.playback_speed_format, playbackSpeed))
+      content()
     }
   }
 }

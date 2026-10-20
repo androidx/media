@@ -16,15 +16,18 @@
 
 package androidx.media3.demo.compose.buttons
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -77,7 +81,14 @@ import kotlin.math.round
  * @param modifier The [Modifier] to be applied to the button.
  * @param sheetModifier The [Modifier] to be applied to the sheet.
  * @param sheetContentModifier The [Modifier] to be applied to the content of the sheet.
+ * @param shape Defines the shape of this button's container, border (when [border] is not null),
+ *   and shadow (when using [elevation]). See [ButtonDefaults.textShape].
  * @param colors [ButtonColors] to be used for the button.
+ * @param elevation [ButtonElevation] used to resolve the elevation for this button in different
+ *   states. A `TextButton` typically has no elevation. See [ButtonDefaults.buttonElevation].
+ * @param border The border to draw around the container of this button.
+ * @param contentPadding The spacing values to apply internally between the container and the
+ *   content. See [ButtonDefaults.TextButtonContentPadding].
  * @param interactionSource The [MutableInteractionSource] for the button.
  * @param content The composable content to be displayed inside the [ModalBottomSheet]. The content
  *   receives a [PlaybackSpeedState] as a receiver and a lambda to dismiss the sheet. The default
@@ -90,7 +101,11 @@ fun PlaybackSpeedBottomSheetButton(
   modifier: Modifier = Modifier,
   sheetModifier: Modifier = Modifier,
   sheetContentModifier: Modifier = Modifier,
+  shape: Shape = ButtonDefaults.textShape,
   colors: ButtonColors = ButtonDefaults.textButtonColors(),
+  elevation: ButtonElevation? = null,
+  border: BorderStroke? = null,
+  contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
   interactionSource: MutableInteractionSource? = null,
   content:
     @Composable
@@ -105,7 +120,11 @@ fun PlaybackSpeedBottomSheetButton(
       onClick = { showBottomSheet = true },
       enabled = isEnabled,
       modifier = modifier,
+      shape = shape,
       colors = colors,
+      elevation = elevation,
+      border = border,
+      contentPadding = contentPadding,
       interactionSource = interactionSource,
     ) {
       Text(text = stringResource(R.string.playback_speed_format, playbackSpeed))
