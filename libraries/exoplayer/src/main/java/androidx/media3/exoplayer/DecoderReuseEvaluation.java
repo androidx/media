@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
@@ -29,6 +28,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The result of an evaluation to determine whether a decoder can be reused for a new input format.

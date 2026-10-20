@@ -18,7 +18,6 @@ package androidx.media3.datasource.cache;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -29,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Defines multiple mutations on metadata value which are applied atomically. This class isn't

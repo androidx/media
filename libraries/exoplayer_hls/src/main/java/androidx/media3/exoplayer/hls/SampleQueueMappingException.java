@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.SampleQueue;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when it is not possible to map a {@link TrackGroup} to a {@link SampleQueue}. */
 @UnstableApi

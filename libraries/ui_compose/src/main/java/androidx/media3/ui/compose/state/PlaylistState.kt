@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,11 +64,9 @@ fun rememberPlaylistState(player: Player?): PlaylistState {
  * @property playlistMetadata The [MediaMetadata] of the entire playlist. [MediaMetadata.EMPTY] if
  *   not set or command is not available.
  */
+@Stable
 @UnstableApi
 class PlaylistState(private val player: Player?) {
-  private var canGetTimeline: Boolean = false
-  private var canGetMetadata: Boolean = false
-
   var timeline: Timeline by mutableStateOf(Timeline.EMPTY)
     private set
 
@@ -75,7 +74,7 @@ class PlaylistState(private val player: Player?) {
     private set
 
   val mediaItemCount: Int
-    get() = if (canGetTimeline) timeline.windowCount else 0
+    get() = timeline.windowCount
 
   var playlistMetadata: MediaMetadata by mutableStateOf(MediaMetadata.EMPTY)
     private set
@@ -87,8 +86,8 @@ class PlaylistState(private val player: Player?) {
       Player.EVENT_PLAYLIST_METADATA_CHANGED,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
     ) { player ->
-      canGetTimeline = player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)
-      canGetMetadata = player.isCommandAvailable(Player.COMMAND_GET_METADATA)
+      val canGetTimeline = player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)
+      val canGetMetadata = player.isCommandAvailable(Player.COMMAND_GET_METADATA)
 
       playlistMetadata = if (canGetMetadata) player.playlistMetadata else MediaMetadata.EMPTY
       timeline = if (canGetTimeline) player.currentTimeline else Timeline.EMPTY
@@ -101,8 +100,7 @@ class PlaylistState(private val player: Player?) {
    * @throws IndexOutOfBoundsException if the index is out of bounds.
    */
   fun getMediaItemAt(index: Int): MediaItem {
-    if (!canGetTimeline || index < 0 || index >= timeline.windowCount)
-      throw IndexOutOfBoundsException()
+    if (index < 0 || index >= timeline.windowCount) throw IndexOutOfBoundsException()
     val window = Timeline.Window()
     return timeline.getWindow(index, window).mediaItem
   }

@@ -17,11 +17,11 @@ package androidx.media3.transformer;
 
 import static androidx.media3.transformer.JsonUtil.exceptionAsJsonObject;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** A test only class for holding the details of a test export. */
 public final class ExportTestResult {

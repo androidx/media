@@ -46,6 +46,18 @@ public final class AdtsExtractorTest {
         AdtsExtractor::new, "media/ts/sample_with_id3.adts", simulationConfig);
   }
 
+  // https://github.com/androidx/media/issues/3464
+  @Test
+  public void sample_midFrameStart() throws Exception {
+    // sample_mid_frame_start.adts is sample.adts with its first 31485 bytes moved to the end, so
+    // that the stream starts 100 bytes into frame 142, as when joining a live stream part way
+    // through a frame. The payload of that partial frame contains a false sync word (at offset 62)
+    // whose frame length points beyond the first 2 KiB packet, so it must not be mistaken for the
+    // first frame.
+    ExtractorAsserts.assertBehavior(
+        AdtsExtractor::new, "media/ts/sample_mid_frame_start.adts", simulationConfig);
+  }
+
   @Test
   public void sample_withSeeking() throws Exception {
     ExtractorAsserts.assertBehavior(

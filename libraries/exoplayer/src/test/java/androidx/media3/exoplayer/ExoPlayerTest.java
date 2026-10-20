@@ -3902,7 +3902,7 @@ public final class ExoPlayerTest {
     ActionSchedule actionSchedule =
         new ActionSchedule.Builder(TAG)
             .pause()
-            .waitForTimelineChanged(timeline, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
+            .waitForPlaybackState(Player.STATE_BUFFERING)
             .sendMessage(target, /* mediaItemIndex= */ 2, /* positionMs= */ 50)
             .play()
             .build();
@@ -6849,7 +6849,8 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void prepare_preloadingEnabled_nextWindowPeriodPreloaded() throws Exception {
+  public void prepare_withMultiWindowPlaylist_preloadsNextWindowPeriodWhenPreloadingEnabled()
+      throws Exception {
     List<MediaPeriodId> createdMediaPeriodIds = new ArrayList<>();
     FakeMediaSource mediaSource1 =
         new FakeMediaSource(
@@ -6928,142 +6929,42 @@ public final class ExoPlayerTest {
     MediaPeriodId secondMediaPeriodId =
         new MediaPeriodId(/* periodUid= */ new Pair<>(0, 0), /* windowSequenceNumber= */ 1);
     ExoPlayer player =
-        // Intentionally not using `parameterizeTestExoPlayerBuilder()` for preload specific test.
-        new TestExoPlayerBuilder(context)
-            .setLoadControl(
-                new DefaultLoadControl() {
-                  @Override
-                  public boolean shouldContinuePreloading(
-                      PlayerId playerId,
-                      Timeline timeline,
-                      MediaPeriodId mediaPeriodId,
-                      long bufferedDurationUs) {
-                    return true;
-                  }
-                })
-            .setPreloadConfiguration(
-                new ExoPlayer.PreloadConfiguration(/* targetPreloadDurationUs= */ 5_000_000L))
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setLoadControl(
+                        new DefaultLoadControl() {
+                          @Override
+                          public boolean shouldContinuePreloading(
+                              PlayerId playerId,
+                              Timeline timeline,
+                              MediaPeriodId mediaPeriodId,
+                              long bufferedDurationUs) {
+                            return true;
+                          }
+                        }))
             .build();
     player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
 
     player.prepare();
     advance(player).untilPendingCommandsAreFullyHandled();
 
-    // Assert both media periods are created, prepared and loaded when paused after preparation.
-    assertThat(createdMediaPeriodIds)
-        .containsExactly(firstMediaPeriodId, secondMediaPeriodId)
-        .inOrder();
-    assertThat(preloadPreparationPositionUs).containsExactly(123_000_000L);
-    assertThat(preloadLoadingInfos).hasSize(1);
+    if (isPreloadEnabled) {
+      // Assert both media periods are created, prepared and loaded when paused after preparation.
+      assertThat(createdMediaPeriodIds)
+          .containsExactly(firstMediaPeriodId, secondMediaPeriodId)
+          .inOrder();
+      assertThat(preloadPreparationPositionUs).containsExactly(123_000_000L);
+      assertThat(preloadLoadingInfos).hasSize(1);
+    } else {
+      // Assert the media period of the second source isn't created yet.
+      assertThat(createdMediaPeriodIds).containsExactly(firstMediaPeriodId);
+      assertThat(preloadPreparationPositionUs).isEmpty();
+      assertThat(preloadLoadingInfos).isEmpty();
+    }
 
     play(player).untilState(Player.STATE_ENDED);
 
-    assertThat(createdMediaPeriodIds)
-        .containsExactly(firstMediaPeriodId, secondMediaPeriodId)
-        .inOrder();
-    // Verify that the preloaded period from the pool was used for enqueuing.
-    assertThat(preloadPreparationPositionUs).containsExactly(123_000_000L);
-    assertThat(preloadLoadingInfos).hasSize(1);
-    player.release();
-  }
-
-  @Test
-  public void prepare_preloadingDisabled_nextWindowPeriodNotPreloaded() throws Exception {
-    List<MediaPeriodId> createdMediaPeriodIds = new ArrayList<>();
-    FakeMediaSource mediaSource1 =
-        new FakeMediaSource(
-            new FakeTimeline(
-                new TimelineWindowDefinition.Builder()
-                    .setDurationUs(DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * 2)
-                    .build()),
-            ExoPlayerTestRunner.AUDIO_FORMAT,
-            ExoPlayerTestRunner.VIDEO_FORMAT) {
-          @Override
-          protected MediaPeriod createMediaPeriod(
-              MediaPeriodId id,
-              TrackGroupArray trackGroupArray,
-              Allocator allocator,
-              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-              DrmSessionManager drmSessionManager,
-              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-              @Nullable TransferListener transferListener) {
-            createdMediaPeriodIds.add(id);
-            return super.createMediaPeriod(
-                id,
-                trackGroupArray,
-                allocator,
-                mediaSourceEventDispatcher,
-                drmSessionManager,
-                drmEventDispatcher,
-                transferListener);
-          }
-        };
-    List<Long> preloadPreparationPositionUs = new ArrayList<>();
-    List<LoadingInfo> preloadLoadingInfos = new ArrayList<>();
-    FakeMediaSource mediaSource2 =
-        new FakeMediaSource(
-            new FakeTimeline(),
-            ExoPlayerTestRunner.AUDIO_FORMAT,
-            ExoPlayerTestRunner.VIDEO_FORMAT) {
-          @Override
-          protected MediaPeriod createMediaPeriod(
-              MediaPeriodId id,
-              TrackGroupArray trackGroupArray,
-              Allocator allocator,
-              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-              DrmSessionManager drmSessionManager,
-              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-              @Nullable TransferListener transferListener) {
-            createdMediaPeriodIds.add(id);
-            long positionInWindowUs =
-                getTimeline()
-                    .getPeriodByUid(id.periodUid, new Timeline.Period())
-                    .getPositionInWindowUs();
-            long defaultFirstSampleTimeUs = positionInWindowUs >= 0 ? 0 : -positionInWindowUs;
-            return new FakeMediaPeriod(
-                trackGroupArray,
-                allocator,
-                FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(defaultFirstSampleTimeUs),
-                mediaSourceEventDispatcher,
-                drmSessionManager,
-                drmEventDispatcher,
-                /* deferOnPrepared= */ false) {
-              @Override
-              public synchronized void prepare(Callback callback, long positionUs) {
-                preloadPreparationPositionUs.add(positionUs);
-                super.prepare(callback, positionUs);
-              }
-
-              @Override
-              public boolean continueLoading(LoadingInfo loadingInfo) {
-                preloadLoadingInfos.add(loadingInfo);
-                return super.continueLoading(loadingInfo);
-              }
-            };
-          }
-        };
-    MediaPeriodId firstMediaPeriodId =
-        new MediaPeriodId(/* periodUid= */ new Pair<>(0, 0), /* windowSequenceNumber= */ 0);
-    MediaPeriodId secondMediaPeriodId =
-        new MediaPeriodId(/* periodUid= */ new Pair<>(0, 0), /* windowSequenceNumber= */ 1);
-    ExoPlayer player =
-        // Intentionally not using `parameterizeTestExoPlayerBuilder()` for preload specific test.
-        new TestExoPlayerBuilder(context)
-            .setPreloadConfiguration(ExoPlayer.PreloadConfiguration.DEFAULT)
-            .build();
-    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
-
-    player.prepare();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    // Assert the media period of the second source isn't created yet.
-    assertThat(createdMediaPeriodIds).containsExactly(firstMediaPeriodId);
-    assertThat(preloadPreparationPositionUs).isEmpty();
-    assertThat(preloadLoadingInfos).isEmpty();
-
-    play(player).untilState(Player.STATE_ENDED);
-
-    // Assert the second second period is created for playback only.
+    // Verify that the second period is used for playback (reusing the preloaded period if enabled).
     assertThat(createdMediaPeriodIds)
         .containsExactly(firstMediaPeriodId, secondMediaPeriodId)
         .inOrder();

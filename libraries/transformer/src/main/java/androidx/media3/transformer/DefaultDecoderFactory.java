@@ -30,7 +30,6 @@ import android.os.Build;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -48,6 +47,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default implementation of {@link Codec.DecoderFactory} that uses {@link MediaCodec} for decoding.
@@ -252,8 +252,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       throw createExportException(
           format, /* reason= */ "Decoding 8k is not supported on this device.");
     }
-    @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel =
+    @Nullable Pair<Integer, Integer> codecProfileAndLevel =
         CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     if (codecProfileAndLevel == null
         && Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {

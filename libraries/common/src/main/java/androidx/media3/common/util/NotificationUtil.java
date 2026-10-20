@@ -26,12 +26,12 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for displaying {@link Notification Notifications}. */
 @UnstableApi

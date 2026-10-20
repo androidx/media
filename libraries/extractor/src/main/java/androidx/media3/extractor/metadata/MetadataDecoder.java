@@ -15,10 +15,10 @@
  */
 package androidx.media3.extractor.metadata;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes metadata from binary data. */
 @UnstableApi
@@ -34,6 +34,5 @@ public interface MetadataDecoder {
    * @param inputBuffer The input buffer to decode.
    * @return The decoded metadata object, or {@code null} if the metadata could not be decoded.
    */
-  @Nullable
-  Metadata decode(MetadataInputBuffer inputBuffer);
+  @Nullable Metadata decode(MetadataInputBuffer inputBuffer);
 }

@@ -23,7 +23,6 @@ import android.graphics.SurfaceTexture;
 import android.opengl.EGLExt;
 import android.view.Surface;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
@@ -34,6 +33,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for a video frame processor that applies changes to individual video frames.

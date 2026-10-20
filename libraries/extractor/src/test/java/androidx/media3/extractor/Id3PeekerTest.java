@@ -21,7 +21,6 @@ import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.getByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
@@ -31,6 +30,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -72,8 +72,7 @@ public final class Id3PeekerTest {
                         ApplicationProvider.getApplicationContext(), "media/id3/apic.id3")))
             .build();
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, /* maxTagPeekBytes= */ 1);
 
     assertThat(metadata.length()).isEqualTo(1);
@@ -93,8 +92,7 @@ public final class Id3PeekerTest {
                         ApplicationProvider.getApplicationContext(), "media/id3/apic.id3")))
             .build();
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, /* maxTagPeekBytes= */ 15);
 
     assertThat(metadata.length()).isEqualTo(1);
@@ -114,8 +112,7 @@ public final class Id3PeekerTest {
                         ApplicationProvider.getApplicationContext(), "media/id3/apic.id3")))
             .build();
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, /* maxTagPeekBytes= */ 14);
 
     assertThat(metadata).isNull();
@@ -148,8 +145,7 @@ public final class Id3PeekerTest {
                     ApplicationProvider.getApplicationContext(), "media/id3/comm_apic.id3"))
             .build();
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         id3Peeker.peekId3Data(
             input,
             (majorVersion, id0, id1, id2, id3) ->

@@ -16,13 +16,13 @@
 package androidx.media3.effect;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages queueing frames and sending them to a given {@link GlShaderProgram

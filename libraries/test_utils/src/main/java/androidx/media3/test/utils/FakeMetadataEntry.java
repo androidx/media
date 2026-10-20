@@ -15,9 +15,9 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link Metadata.Entry}. */
 @UnstableApi

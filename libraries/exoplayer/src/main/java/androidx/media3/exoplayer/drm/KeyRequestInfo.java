@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.LoadEventInfo;
@@ -24,6 +23,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.SideEffectFree;
+import org.jspecify.annotations.Nullable;
 
 /** Information related to a completed DRM key request operation. */
 // TODO: http://github.com/androidx/media/issues/1001 - Add sessionId field.

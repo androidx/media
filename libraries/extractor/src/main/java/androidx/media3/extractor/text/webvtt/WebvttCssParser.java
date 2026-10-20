@@ -18,7 +18,6 @@ package androidx.media3.extractor.text.webvtt;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.util.ColorParser;
 import androidx.media3.common.util.Log;
@@ -29,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides a CSS parser for STYLE blocks in Webvtt files. Supports only a subset of the CSS

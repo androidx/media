@@ -31,6 +31,7 @@ import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.FakeHardwareBufferJniWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -56,7 +57,8 @@ public final class ImagePlanesToGlTextureConverterTest {
   private static final int CHROMA_HEIGHT = DEFAULT_HEIGHT / 2;
   private static final int RGBA_BYTES_PER_PIXEL = 4;
   private static final int LUMA_BYTES_PER_PIXEL = 1;
-  private static final int I420_CHROMA_PLANE_STRIDE = 1;
+  private static final int PLANAR_CHROMA_PIXEL_STRIDE = 1;
+  private static final int SEMI_PLANAR_CHROMA_PIXEL_STRIDE = 2;
   private static final int DEFAULT_RGBA_ROW_STRIDE = DEFAULT_WIDTH * RGBA_BYTES_PER_PIXEL;
   private static final Plane DEFAULT_RGBA_PLANE =
       new DefaultPlane(
@@ -70,7 +72,10 @@ public final class ImagePlanesToGlTextureConverterTest {
   public void setUp() {
     converter =
         new ImagePlanesToGlTextureConverter(
-            getApplicationContext(), BT709_SRGB, /* errorConsumer= */ error -> {});
+            getApplicationContext(),
+            new FakeHardwareBufferJniWrapper(),
+            BT709_SRGB,
+            /* errorConsumer= */ error -> {});
   }
 
   @Test
@@ -348,7 +353,8 @@ public final class ImagePlanesToGlTextureConverterTest {
             /* pixelStride= */ 2);
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
-                ImmutableList.of(invalidLumaPlane, createChromaPlane(), createChromaPlane()))
+                ImmutableList.of(
+                    invalidLumaPlane, createPlanarChromaPlane(), createPlanarChromaPlane()))
             .setFormat(format)
             .build();
 
@@ -379,6 +385,98 @@ public final class ImagePlanesToGlTextureConverterTest {
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
                 ImmutableList.of(createLumaPlane(), invalidChromaPlane, invalidChromaPlane))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_yuv420WithMismatchedChromaPixelStrides_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    int semiPlanarChromaRowStride = CHROMA_WIDTH * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(
+                    createLumaPlane(),
+                    createSemiPlanarChromaPlane(semiPlanarChromaRowStride),
+                    createPlanarChromaPlane()))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void convert_semiPlanarYuvWithUnequalChromaRowStrides_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    int chromaRowStride = CHROMA_WIDTH * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(
+                    createLumaPlane(),
+                    createSemiPlanarChromaPlane(chromaRowStride),
+                    createSemiPlanarChromaPlane(chromaRowStride + SEMI_PLANAR_CHROMA_PIXEL_STRIDE)))
+            .setFormat(format)
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ DIRECT_EXECUTOR,
+                /* listenerExecutor= */ DIRECT_EXECUTOR,
+                LISTENER));
+  }
+
+  @Test
+  public void
+      convert_semiPlanarYuvWithUndersizedChromaPlaneBuffer_throwsIllegalArgumentException() {
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .build();
+    int chromaRowStride = CHROMA_WIDTH * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+    // Each semi-planar chroma plane ends at its own last sample (1 byte short of chromaRowStride),
+    // so subtracting 2 bytes makes it 1 byte too short.
+    Plane undersizedChromaPlane =
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(chromaRowStride * CHROMA_HEIGHT - 2),
+            chromaRowStride,
+            SEMI_PLANAR_CHROMA_PIXEL_STRIDE);
+    ImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(
+                    createLumaPlane(),
+                    createSemiPlanarChromaPlane(chromaRowStride),
+                    undersizedChromaPlane))
             .setFormat(format)
             .build();
 
@@ -427,10 +525,11 @@ public final class ImagePlanesToGlTextureConverterTest {
         new DefaultPlane(
             ByteBuffer.allocateDirect(CHROMA_WIDTH * CHROMA_HEIGHT - 1),
             /* rowStride= */ CHROMA_WIDTH,
-            /* pixelStride= */ I420_CHROMA_PLANE_STRIDE);
+            /* pixelStride= */ PLANAR_CHROMA_PIXEL_STRIDE);
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
-                ImmutableList.of(createLumaPlane(), createChromaPlane(), undersizedChromaPlane))
+                ImmutableList.of(
+                    createLumaPlane(), createPlanarChromaPlane(), undersizedChromaPlane))
             .setFormat(format)
             .build();
 
@@ -451,10 +550,17 @@ public final class ImagePlanesToGlTextureConverterTest {
         /* pixelStride= */ LUMA_BYTES_PER_PIXEL);
   }
 
-  private static Plane createChromaPlane() {
+  private static Plane createPlanarChromaPlane() {
     return new DefaultPlane(
         ByteBuffer.allocateDirect(CHROMA_WIDTH * CHROMA_HEIGHT),
         /* rowStride= */ CHROMA_WIDTH,
-        /* pixelStride= */ I420_CHROMA_PLANE_STRIDE);
+        /* pixelStride= */ PLANAR_CHROMA_PIXEL_STRIDE);
+  }
+
+  private static Plane createSemiPlanarChromaPlane(int rowStride) {
+    int finalRowBytes = CHROMA_WIDTH * SEMI_PLANAR_CHROMA_PIXEL_STRIDE - 1;
+    int bufferSize = rowStride * (CHROMA_HEIGHT - 1) + finalRowBytes;
+    return new DefaultPlane(
+        ByteBuffer.allocateDirect(bufferSize), rowStride, SEMI_PLANAR_CHROMA_PIXEL_STRIDE);
   }
 }

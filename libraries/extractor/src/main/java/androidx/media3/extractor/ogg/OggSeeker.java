@@ -15,10 +15,10 @@
  */
 package androidx.media3.extractor.ogg;
 
-import androidx.annotation.Nullable;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SeekMap;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Used to seek in an Ogg stream. OggSeeker implementation may do direct seeking or progressive
@@ -31,8 +31,7 @@ import java.io.IOException;
    * Returns a {@link SeekMap} that returns an initial estimated position for progressive seeking or
    * the final position for direct seeking. Returns null if {@link #read} has yet to return -1.
    */
-  @Nullable
-  SeekMap createSeekMap();
+  @Nullable SeekMap createSeekMap();
 
   /**
    * Starts a seek operation.

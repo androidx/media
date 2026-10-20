@@ -82,8 +82,8 @@ import java.util.function.Consumer;
    * <p>If the compositor is at capacity, it returns {@code false} and the {@code wakeupListener}
    * will be invoked on the {@code listenerExecutor} when capacity becomes available.
    *
-   * <p>If {@code frames} contains only a single frame, the compositor is bypassed and the frame is
-   * passed directly downstream.
+   * <p>If compositing is a no-op, the compositor is bypassed and the frame is passed directly
+   * downstream.
    *
    * @param frames The input frames to composite.
    * @param listenerExecutor The executor to run the {@code wakeupListener} on.

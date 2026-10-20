@@ -16,11 +16,11 @@
 
 package androidx.media3.transformer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AnalyticsListener} that captures video and audio {@link DecoderCounters} objects.

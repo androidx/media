@@ -24,7 +24,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
@@ -53,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This class provides functionality for generating and adding Common Media Client Data (CMCD) data

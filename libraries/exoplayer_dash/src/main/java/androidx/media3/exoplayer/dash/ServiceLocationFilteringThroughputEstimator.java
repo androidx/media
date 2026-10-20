@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.dash;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -23,6 +22,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.upstream.experimental.BandwidthEstimator;
 import androidx.media3.exoplayer.upstream.experimental.SplitParallelSampleBandwidthEstimator;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An estimator that estimates media download throughput from network per service location.

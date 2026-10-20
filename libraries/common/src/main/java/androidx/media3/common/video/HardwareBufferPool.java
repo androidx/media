@@ -21,13 +21,13 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.hardware.HardwareBuffer;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A pool of {@link HardwareBuffer}s.

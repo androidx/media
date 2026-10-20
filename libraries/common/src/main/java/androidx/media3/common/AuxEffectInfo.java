@@ -17,8 +17,8 @@ package androidx.media3.common;
 
 import android.media.AudioTrack;
 import android.media.audiofx.AudioEffect;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents auxiliary effect information, which can be used to attach an auxiliary effect to an

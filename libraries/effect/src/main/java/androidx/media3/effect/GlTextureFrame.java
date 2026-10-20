@@ -17,7 +17,6 @@ package androidx.media3.effect;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
@@ -31,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** A frame that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.

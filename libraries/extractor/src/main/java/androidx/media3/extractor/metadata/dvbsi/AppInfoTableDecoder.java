@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.dvbsi;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
@@ -24,6 +23,7 @@ import androidx.media3.extractor.metadata.SimpleMetadataDecoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Decoder for the DVB Application Information Table (AIT).

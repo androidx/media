@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -38,6 +37,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.test.utils.FakeDataSet.FakeData.Segment;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Fake {@link ChunkSource} with adaptive media chunks of a given duration. */
 @UnstableApi

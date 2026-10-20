@@ -16,9 +16,9 @@
 package androidx.media3.common;
 
 import android.view.ViewGroup;
-import androidx.annotation.Nullable;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Provides information about views for the ad playback UI. */
 public interface AdViewProvider {
@@ -29,8 +29,7 @@ public interface AdViewProvider {
    * AdOverlayInfo AdOverlayInfos} returned by {@link #getAdOverlayInfos()}, for accurate
    * viewability measurement.
    */
-  @Nullable
-  ViewGroup getAdViewGroup();
+  @Nullable ViewGroup getAdViewGroup();
 
   /**
    * Returns a list of {@link AdOverlayInfo} instances describing views that are on top of the ad

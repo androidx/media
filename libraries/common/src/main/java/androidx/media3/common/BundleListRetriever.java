@@ -22,11 +22,11 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Binder} to transfer a list of {@link Bundle Bundles} across processes by splitting the

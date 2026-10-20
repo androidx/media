@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -27,6 +26,7 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manager for {@link SequencedFuture} that contains sequence numbers to be shared across processes.

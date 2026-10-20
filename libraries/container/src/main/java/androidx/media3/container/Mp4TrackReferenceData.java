@@ -17,11 +17,11 @@ package androidx.media3.container;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores MP4 track reference information parsed from a {@code TrackReferenceTypeBox} inside a

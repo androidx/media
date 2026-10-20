@@ -19,13 +19,13 @@ import static androidx.media3.common.util.GlUtil.checkGlError;
 
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import java.nio.FloatBuffer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class to render spherical meshes for video or images. Call {@link #init()} on the GL

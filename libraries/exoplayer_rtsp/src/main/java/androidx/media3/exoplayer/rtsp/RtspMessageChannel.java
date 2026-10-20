@@ -24,7 +24,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.exoplayer.upstream.Loader;
@@ -52,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Sends and receives RTSP messages. */
 /* package */ final class RtspMessageChannel implements Closeable {
@@ -306,8 +306,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       byte[] data = new byte[size];
       dataInputStream.readFully(data, /* off= */ 0, size);
 
-      @Nullable
-      InterleavedBinaryDataListener listener = interleavedBinaryDataListeners.get(channel);
+      @Nullable InterleavedBinaryDataListener listener =
+          interleavedBinaryDataListeners.get(channel);
       if (listener != null && !closed) {
         listener.onInterleavedBinaryDataReceived(data);
       }
@@ -369,8 +369,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     public ImmutableList<String> parseNext(byte firstByte, DataInputStream dataInputStream)
         throws IOException {
-      @Nullable
-      ImmutableList<String> parsedMessageLines =
+      @Nullable ImmutableList<String> parsedMessageLines =
           addMessageLine(parseNextLine(firstByte, dataInputStream));
 
       while (parsedMessageLines == null) {

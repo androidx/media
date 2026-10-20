@@ -18,10 +18,10 @@ package androidx.media3.extractor.metadata;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MetadataDecoder} base class that validates input buffers. */
 @UnstableApi

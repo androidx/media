@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
@@ -25,6 +24,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** An overridable {@link Renderer} implementation forwarding all methods to another renderer. */
 @UnstableApi

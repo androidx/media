@@ -32,6 +32,7 @@ import static java.lang.Math.min;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.BoxUtils;
 import androidx.media3.container.MdtaMetadataEntry;
 import com.google.common.collect.Range;
 import java.io.IOException;

@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
@@ -35,6 +34,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link TrackSelector} implementation for {@link CompositionPlayer}. */
 // TODO(b/540734725): Refactor and add tests for CompositionTrackSelector.
@@ -197,8 +197,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @Nullable String selectedAudioLanguage)
         throws ExoPlaybackException {
 
-      @Nullable
-      Pair<ExoTrackSelection.Definition, Integer> trackSelection =
+      @Nullable Pair<ExoTrackSelection.Definition, Integer> trackSelection =
           super.selectVideoTrack(
               mappedTrackInfo,
               rendererFormatSupports,
@@ -253,8 +252,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
 
-      @Nullable
-      Pair<ExoTrackSelection.Definition, Integer> trackSelection =
+      @Nullable Pair<ExoTrackSelection.Definition, Integer> trackSelection =
           super.selectImageTrack(mappedTrackInfo, rendererFormatSupports, params);
       // Images are treated as video tracks.
       listener.onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);

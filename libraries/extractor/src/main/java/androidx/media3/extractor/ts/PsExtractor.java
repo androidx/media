@@ -18,7 +18,6 @@ package androidx.media3.extractor.ts;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -36,6 +35,7 @@ import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the MPEG-2 PS container format. */
 @UnstableApi

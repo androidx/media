@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.avi;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -23,6 +22,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Holds the {@link Format} information contained in an STRF chunk. */
 /* package */ final class StreamFormatChunk implements AviChunk {

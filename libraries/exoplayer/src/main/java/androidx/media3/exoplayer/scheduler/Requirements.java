@@ -34,12 +34,12 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PowerManager;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a set of device state requirements. */
 @UnstableApi
@@ -185,8 +185,7 @@ public final class Requirements implements Parcelable {
   }
 
   private boolean isDeviceCharging(Context context) {
-    @Nullable
-    Intent batteryStatus =
+    @Nullable Intent batteryStatus =
         context.registerReceiver(
             /* receiver= */ null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
     if (batteryStatus == null) {
@@ -216,8 +215,7 @@ public final class Requirements implements Parcelable {
     }
 
     try {
-      @Nullable
-      NetworkCapabilities networkCapabilities =
+      @Nullable NetworkCapabilities networkCapabilities =
           connectivityManager.getNetworkCapabilities(activeNetwork);
       return networkCapabilities != null
           && networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);

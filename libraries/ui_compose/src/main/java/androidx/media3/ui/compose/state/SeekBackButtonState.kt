@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +49,7 @@ fun rememberSeekBackButtonState(player: Player?): SeekBackButtonState {
  *   [player's seekBackIncrement][Player.getSeekBackIncrement]. Defaults to `0` if [player] is
  *   `null`.
  */
+@Stable
 @UnstableApi
 class SeekBackButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)

@@ -18,16 +18,23 @@ package androidx.media3.demo.compose.layout
 
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -36,7 +43,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.MotionPhoto
+import androidx.media3.ui.compose.state.MotionPhotoConfig
 import androidx.media3.ui.compose.state.rememberMotionPhotoState
+
+private val PRESETS =
+  listOf("Default" to MotionPhotoConfig.DEFAULT, "Loop" to MotionPhotoConfig.LOOP)
 
 /**
  * Screen for displaying and interacting with a Motion Photo in the Compose demo.
@@ -74,7 +85,6 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
         .statusBarsPadding()
         .navigationBarsPadding()
   ) {
-    // TODO(b/544627271): Implement the crossfade transitions in further milestones.
     MotionPhoto(
       state = motionPhotoState,
       contentDescription = mediaItem.mediaMetadata.title?.toString(),
@@ -84,5 +94,18 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
         },
       bitmapLoader = bitmapLoader,
     )
+
+    Row(
+      modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      for ((label, config) in PRESETS) {
+        FilterChip(
+          selected = motionPhotoState.config == config,
+          onClick = { motionPhotoState.config = config },
+          label = { Text(label) },
+        )
+      }
+    }
   }
 }

@@ -22,7 +22,6 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -30,6 +29,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 // TODO(b/261820382): Add tests for sharing context.
 /**

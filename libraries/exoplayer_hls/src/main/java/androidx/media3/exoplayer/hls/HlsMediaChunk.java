@@ -225,8 +225,6 @@ import org.jspecify.annotations.Nullable;
    *
    * @param previousChunk The previous existing media chunk, or null if the new chunk is the first
    *     in the queue.
-   * @param bufferedPositionUs The position in the sample stream in microseconds since the start of
-   *     the period up to which data is already buffered.
    * @param playlistUrl The URL of the playlist from which the new chunk will be obtained.
    * @param isIndependent Whether the new chunk is independent (i.e, starts with a keyframe).
    * @param segmentBaseHolder The {@link HlsChunkSource.SegmentBaseHolder} with information about
@@ -236,7 +234,6 @@ import org.jspecify.annotations.Nullable;
    */
   public static boolean shouldSpliceIn(
       @Nullable HlsMediaChunk previousChunk,
-      long bufferedPositionUs,
       Uri playlistUrl,
       boolean isIndependent,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
@@ -254,7 +251,11 @@ import org.jspecify.annotations.Nullable;
     // non-overlapping segments to avoid the splice.
     long segmentStartTimeInPeriodUs =
         startOfPlaylistInPeriodUs + segmentBaseHolder.segmentBase.relativeStartTimeUs;
-    return !isIndependent || segmentStartTimeInPeriodUs < bufferedPositionUs;
+    long previousChunkEndTimeUs =
+        previousChunk.isPublished()
+            ? previousChunk.getPublishedEndTimeUs()
+            : previousChunk.endTimeUs;
+    return !isIndependent || segmentStartTimeInPeriodUs < previousChunkEndTimeUs;
   }
 
   public static final String PRIV_TIMESTAMP_FRAME_OWNER =

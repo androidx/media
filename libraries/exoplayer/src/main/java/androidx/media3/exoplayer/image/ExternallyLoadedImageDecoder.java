@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -34,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link ImageDecoder} for externally loaded images.

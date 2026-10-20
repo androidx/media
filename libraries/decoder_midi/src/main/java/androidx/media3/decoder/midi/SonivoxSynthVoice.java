@@ -18,7 +18,6 @@ package androidx.media3.decoder.midi;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.decoder.midi.SonivoxWaveData.Envelope;
 import androidx.media3.decoder.midi.SonivoxWaveData.WavetableRegion;
 import com.jsyn.data.ShortSample;
@@ -35,6 +34,7 @@ import com.jsyn.unitgen.VariableRateMonoReader;
 import com.jsyn.unitgen.WhiteNoise;
 import com.softsynth.math.AudioMath;
 import com.softsynth.shared.time.TimeStamp;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Synthesizer voice with a wavetable oscillator. Modulates the amplitude and filter using DAHDSR

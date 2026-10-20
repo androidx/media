@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
@@ -41,6 +40,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Encapsulates a mutating operation on the Cast media queue or playback position. */
 /* package */ abstract class QueuedOperation {
@@ -368,8 +368,7 @@ import java.util.Map;
         effectiveIndex = currentTimeline.getWindowCount();
       }
       Timeline.Window window = new Timeline.Window();
-      @Nullable
-      Object playingUid =
+      @Nullable Object playingUid =
           !currentTimeline.isEmpty()
               ? currentTimeline.getWindow(snapshot.currentWindowIndex, window).uid
               : null;

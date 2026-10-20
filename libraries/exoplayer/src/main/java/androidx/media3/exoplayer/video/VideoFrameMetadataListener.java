@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.video;
 
 import android.media.MediaFormat;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** A listener for metadata corresponding to video frames being rendered. */
 @UnstableApi

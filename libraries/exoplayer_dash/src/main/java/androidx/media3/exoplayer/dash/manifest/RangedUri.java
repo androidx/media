@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.dash.manifest;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a range of data located at a reference uri. */
 @UnstableApi

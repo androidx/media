@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.upstream.experimental;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
@@ -28,6 +27,7 @@ import androidx.media3.exoplayer.upstream.SlidingPercentile;
 import androidx.media3.exoplayer.upstream.TimeToFirstByteEstimator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implementation of {@link TimeToFirstByteEstimator} that returns a configured percentile of a

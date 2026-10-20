@@ -15,12 +15,12 @@
  */
 package androidx.media3.exoplayer.analytics;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manager for active playback sessions.
@@ -135,8 +135,7 @@ public interface PlaybackSessionManager {
    * Returns the session identifier of the session that is currently actively playing, or {@code
    * null} if there no such session.
    */
-  @Nullable
-  String getActiveSessionId();
+  @Nullable String getActiveSessionId();
 
   /**
    * Finishes all existing sessions and calls their respective {@link

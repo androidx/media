@@ -92,10 +92,18 @@ public final class AdtsExtractor implements Extractor {
   private static final int MAX_PACKET_SIZE = 2 * 1024;
 
   /**
-   * The maximum number of bytes to search when sniffing, excluding the header, before giving up.
-   * Frame sizes are represented by 13-bit fields, so expect a valid frame in the first 8192 bytes.
+   * The maximum number of bytes to search when sniffing or synchronizing, excluding the header,
+   * before giving up. Frame sizes are represented by 13-bit fields, so expect a valid frame in the
+   * first 8192 bytes.
    */
   private static final int MAX_SNIFF_BYTES = 8 * 1024;
+
+  /**
+   * Mask applied to the first four bytes of an ADTS header to extract the fields that must be the
+   * same for all frames of a stream: syncword, ID, layer, profile, sampling_frequency_index and
+   * channel_configuration.
+   */
+  private static final int FIXED_HEADER_MASK = 0xFFFEFDC0;
 
   /**
    * The maximum number of frames to use when calculating the average frame size for constant
@@ -149,47 +157,63 @@ public final class AdtsExtractor implements Extractor {
   public boolean sniff(ExtractorInput input) throws IOException {
     // Skip any ID3 headers.
     int startPosition = peekId3Header(input);
+    int syncOffset = findSyncOffset(input, startPosition);
+    if (syncOffset != C.INDEX_UNSET) {
+      firstFramePosition = syncOffset;
+    }
+    return syncOffset != C.INDEX_UNSET;
+  }
 
-    // Try to find four or more consecutive AAC audio frames, exceeding the MPEG TS packet size.
+  /**
+   * Returns the offset from the read position of the first frame found, or {@link C#INDEX_UNSET} if
+   * none is found within {@link #MAX_SNIFF_BYTES} of {@code startPosition}.
+   *
+   * @throws EOFException If the end of the input is reached first.
+   */
+  private int findSyncOffset(ExtractorInput input, int startPosition) throws IOException {
+    input.resetPeekPosition();
+    input.advancePeekPosition(startPosition);
+
+    // Try to find four or more consecutive AAC audio frames with consistent headers, exceeding the
+    // MPEG TS packet size.
     int headerPosition = startPosition;
     int totalValidFramesSize = 0;
     int validFramesCount = 0;
+    int fixedHeader = 0;
     while (true) {
       input.peekFully(scratch.getData(), 0, 2);
       scratch.setPosition(0);
       int syncBytes = scratch.readUnsignedShort();
-      if (!AdtsReader.isAdtsSyncWord(syncBytes)) {
-        // We didn't find an ADTS sync word. Start searching again from one byte further into the
-        // start of the stream.
+      int frameSize = 0;
+      int currentFixedHeader = 0;
+      if (AdtsReader.isAdtsSyncWord(syncBytes)) {
+        input.peekFully(scratch.getData(), 0, 4);
+        scratchBits.setPosition(14);
+        frameSize = scratchBits.readBits(13);
+        scratch.setPosition(0);
+        currentFixedHeader = ((syncBytes << 16) | scratch.readUnsignedShort()) & FIXED_HEADER_MASK;
+      }
+      if (frameSize <= 6 || (validFramesCount > 0 && currentFixedHeader != fixedHeader)) {
+        // We didn't find an ADTS sync word, the size is too small or the header doesn't match the
+        // previous frames, so we're probably not reading an ADTS frame. Start searching again from
+        // one byte further into the start of the stream.
         validFramesCount = 0;
         totalValidFramesSize = 0;
         headerPosition++;
         input.resetPeekPosition();
         input.advancePeekPosition(headerPosition);
       } else {
+        fixedHeader = currentFixedHeader;
         if (++validFramesCount >= 4 && totalValidFramesSize > TsExtractor.TS_PACKET_SIZE) {
-          return true;
+          return headerPosition;
         }
 
         // Skip the frame.
-        input.peekFully(scratch.getData(), 0, 4);
-        scratchBits.setPosition(14);
-        int frameSize = scratchBits.readBits(13);
-        if (frameSize <= 6) {
-          // The size is too small, so we're probably not reading an ADTS frame. Start searching
-          // again from one byte further into the start of the stream.
-          validFramesCount = 0;
-          totalValidFramesSize = 0;
-          headerPosition++;
-          input.resetPeekPosition();
-          input.advancePeekPosition(headerPosition);
-        } else {
-          input.advancePeekPosition(frameSize - 6);
-          totalValidFramesSize += frameSize;
-        }
+        input.advancePeekPosition(frameSize - 6);
+        totalValidFramesSize += frameSize;
       }
       if (headerPosition - startPosition >= MAX_SNIFF_BYTES) {
-        return false;
+        return C.INDEX_UNSET;
       }
     }
   }
@@ -217,6 +241,11 @@ public final class AdtsExtractor implements Extractor {
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
     // Asserts that init has been called.
     checkNotNull(extractorOutput);
+
+    // Synchronize on the first read and after each seek.
+    if (!startedPacket) {
+      synchronize(input);
+    }
 
     long inputLength = input.getLength();
     boolean canUseConstantBitrateSeeking =
@@ -268,6 +297,34 @@ public final class AdtsExtractor implements Extractor {
       this.firstFramePosition = firstFramePosition;
     }
     return firstFramePosition;
+  }
+
+  /**
+   * Skips any data preceding the first frame that is followed by consistent frames, so that the
+   * reader doesn't lock on to a false sync word in the payload of a partial first frame, for
+   * example when joining a live stream part way through a frame.
+   */
+  private void synchronize(ExtractorInput input) throws IOException {
+    int syncOffset = C.INDEX_UNSET;
+    try {
+      // Leave inputs that start with ID3 headers to the reader, so that it outputs them. Note that
+      // this applies at any position, as the input may be a byte range of a larger resource.
+      input.resetPeekPosition();
+      input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ 3);
+      scratch.setPosition(0);
+      if (scratch.readUnsignedInt24() != ID3_TAG) {
+        syncOffset = findSyncOffset(input, /* startPosition= */ 0);
+      }
+    } catch (EOFException e) {
+      // The input is too short to synchronize.
+    }
+    input.resetPeekPosition();
+    if (syncOffset > 0) {
+      if (input.getPosition() == 0) {
+        firstFramePosition = syncOffset;
+      }
+      input.skipFully(syncOffset);
+    }
   }
 
   @RequiresNonNull("extractorOutput")

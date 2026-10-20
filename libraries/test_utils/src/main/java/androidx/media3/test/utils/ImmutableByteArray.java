@@ -19,7 +19,6 @@ import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.io.BaseEncoding;
@@ -28,6 +27,7 @@ import com.google.common.primitives.UnsignedBytes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Collection;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@code byte} version of {@link com.google.common.primitives.ImmutableIntArray}.

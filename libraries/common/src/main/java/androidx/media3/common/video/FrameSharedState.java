@@ -18,7 +18,6 @@ package androidx.media3.common.video;
 import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.util.ArrayList;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Holds the shared reference count and release state across retained {@link ReferenceCounter}

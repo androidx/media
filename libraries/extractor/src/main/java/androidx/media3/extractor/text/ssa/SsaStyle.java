@@ -27,7 +27,6 @@ import android.graphics.PointF;
 import android.text.TextUtils;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Log;
@@ -39,6 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Represents a line from an SSA/ASS {@code [V4+ Styles]} section. */
 /* package */ final class SsaStyle {

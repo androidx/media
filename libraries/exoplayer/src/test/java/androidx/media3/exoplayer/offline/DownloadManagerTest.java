@@ -21,7 +21,6 @@ import static java.util.Arrays.asList;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.StreamKey;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.exoplayer.scheduler.Requirements;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;

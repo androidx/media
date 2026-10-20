@@ -15,7 +15,6 @@
  */
 package androidx.media3.cast;
 
-import androidx.annotation.Nullable;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.cast.QueuedOperation.QueueSnapshot;
 import androidx.media3.common.C;
@@ -30,6 +29,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChanne
 import com.google.android.gms.common.api.Status;
 import java.util.ArrayDeque;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Serializes Cast queue mutations and computes optimistic masked {@link QueueSnapshot

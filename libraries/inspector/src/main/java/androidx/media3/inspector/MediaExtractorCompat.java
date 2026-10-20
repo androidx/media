@@ -29,7 +29,6 @@ import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.PersistableBundle;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -62,6 +61,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A drop-in replacement for {@link MediaExtractor} that provides similar functionality, based on

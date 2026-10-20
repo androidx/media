@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
@@ -26,6 +25,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Extractor related utility methods. */
 @UnstableApi

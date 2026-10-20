@@ -22,7 +22,6 @@ import static java.lang.Math.min;
 import android.media.AudioFormat;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -54,6 +53,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** Logs events from {@link Player} and other core components using {@link Log}. */
 @SuppressWarnings("UngroupedOverloads")

@@ -1401,7 +1401,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              checkNotNull(transformerOutput.path));
+              transformerOutput);
     } else {
       currentExportOperation =
           new DefaultExportOperation(

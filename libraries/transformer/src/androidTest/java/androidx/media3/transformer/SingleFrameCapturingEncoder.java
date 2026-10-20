@@ -27,12 +27,12 @@ import android.media.ImageReader;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Codec} that captures a single output video frame as a {@linkplain Bitmap}.
@@ -83,8 +83,7 @@ import java.util.concurrent.atomic.AtomicReference;
      * Returns the last captured {@linkplain Bitmap bitmap}, or {@code null} if no frame was
      * captured.
      */
-    @Nullable
-    /* package */ Bitmap getLastBitmap() {
+    @Nullable /* package */ Bitmap getLastBitmap() {
       @Nullable SingleFrameCapturingEncoder encoder = lastVideoEncoder.get();
       return encoder != null ? encoder.getLastBitmap() : null;
     }
@@ -206,8 +205,7 @@ import java.util.concurrent.atomic.AtomicReference;
   /**
    * Returns the last captured {@linkplain Bitmap bitmap}, or {@code null} if no frame was captured.
    */
-  @Nullable
-  /* package */ Bitmap getLastBitmap() {
+  @Nullable /* package */ Bitmap getLastBitmap() {
     return lastBitmap;
   }
 

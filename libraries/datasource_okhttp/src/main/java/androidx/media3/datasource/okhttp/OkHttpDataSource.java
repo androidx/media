@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
@@ -57,6 +56,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link HttpDataSource} that delegates to Square's {@link Call.Factory}.
@@ -300,8 +300,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       }
       Map<String, List<String>> headers = response.headers().toMultimap();
       closeConnectionQuietly();
-      @Nullable
-      IOException cause =
+      @Nullable IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;

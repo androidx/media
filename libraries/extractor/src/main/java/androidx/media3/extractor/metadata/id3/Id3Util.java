@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for working with ID3 metadata. */
 @UnstableApi

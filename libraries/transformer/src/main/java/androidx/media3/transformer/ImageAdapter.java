@@ -17,7 +17,7 @@ package androidx.media3.transformer;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** An interface that wraps {@link android.media.Image}. */
 /* package */ interface ImageAdapter extends AutoCloseable {
@@ -28,12 +28,10 @@ import androidx.annotation.Nullable;
   /**
    * Returns the {@link HardwareBuffer} associated with this image, or {@code null} if none exists.
    */
-  @Nullable
-  HardwareBuffer getHardwareBuffer();
+  @Nullable HardwareBuffer getHardwareBuffer();
 
   /** Returns the underlying platform image object if available, or {@code null}. */
-  @Nullable
-  Image getInternalImage();
+  @Nullable Image getInternalImage();
 
   @Override
   void close();

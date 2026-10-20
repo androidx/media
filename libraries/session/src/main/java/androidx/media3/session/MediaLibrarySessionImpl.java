@@ -29,7 +29,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.os.Bundle;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -51,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
 
 /* package */ class MediaLibrarySessionImpl extends MediaSessionImpl {
 

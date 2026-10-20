@@ -36,7 +36,6 @@ import android.media.metrics.LogSessionId;
 import android.os.Build;
 import android.util.Size;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -49,6 +48,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link Codec.EncoderFactory}. */
 // TODO: b/224949986 - Split audio and video encoder factory.
@@ -287,8 +287,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       }
     }
     if (!encoderSelectedForRequestedProfile && enableFallback) {
-      @Nullable
-      EncoderQueryResult encoderQueryResult =
+      @Nullable EncoderQueryResult encoderQueryResult =
           findAudioEncoderWithClosestSupportedFormat(format, mediaCodecInfos);
       if (encoderQueryResult != null) {
         selectedEncoder = encoderQueryResult.encoder;
@@ -334,8 +333,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     checkNotNull(videoEncoderSelector);
 
-    @Nullable
-    VideoEncoderConfiguration encoderConfiguration =
+    @Nullable VideoEncoderConfiguration encoderConfiguration =
         resolveVideoEncoderConfiguration(
             format,
             requestedVideoEncoderSettings,
@@ -478,8 +476,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     checkNotNull(videoEncoderSelector);
 
-    @Nullable
-    VideoEncoderConfiguration encoderConfiguration =
+    @Nullable VideoEncoderConfiguration encoderConfiguration =
         resolveVideoEncoderConfiguration(
             requestedFormat,
             requestedVideoEncoderSettings,
@@ -657,8 +654,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     return filterEncoders(
         encoders,
         /* cost= */ (encoderInfo) -> {
-          @Nullable
-          Size closestSupportedResolution =
+          @Nullable Size closestSupportedResolution =
               EncoderUtil.getSupportedResolution(
                   encoderInfo, mimeType, requestedWidth, requestedHeight);
           if (closestSupportedResolution == null) {

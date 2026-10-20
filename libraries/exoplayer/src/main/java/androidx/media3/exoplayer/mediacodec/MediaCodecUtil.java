@@ -29,7 +29,6 @@ import android.text.TextUtils;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -49,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A utility class for querying the available codecs. */
 @SuppressLint("InlinedApi")
@@ -380,8 +380,7 @@ public final class MediaCodecUtil {
   public static int maxH264DecodableFrameSize() throws DecoderQueryException {
     if (maxH264DecodableFrameSize == -1) {
       int result = 0;
-      @Nullable
-      MediaCodecInfo decoderInfo =
+      @Nullable MediaCodecInfo decoderInfo =
           getDecoderInfo(MimeTypes.VIDEO_H264, /* secure= */ false, /* tunneling= */ false);
       if (decoderInfo != null) {
         for (CodecProfileLevel profileLevel : decoderInfo.getProfileLevels()) {
@@ -464,8 +463,7 @@ public final class MediaCodecUtil {
       // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
-      @Nullable
-      MediaCodecProfileAndLevel codecProfileAndLevel =
+      @Nullable MediaCodecProfileAndLevel codecProfileAndLevel =
           CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null && codecProfileAndLevel.isSupportableByMediaCodec()) {
         int profile = codecProfileAndLevel.getProfile();

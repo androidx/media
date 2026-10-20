@@ -16,13 +16,13 @@
 package androidx.media3.transformer;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /* package */ class InactiveTimestampAdjustment implements GlEffect {
   public final SpeedProvider speedProvider;

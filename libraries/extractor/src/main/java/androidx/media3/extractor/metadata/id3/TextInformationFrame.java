@@ -17,7 +17,6 @@ package androidx.media3.extractor.metadata.id3;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -27,6 +26,7 @@ import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Text information ID3 frame. */
 @UnstableApi
@@ -91,8 +91,7 @@ public final class TextInformationFrame extends Id3Frame {
         String[] trackNumbers = Util.split(values.get(0), "/");
         try {
           int trackNumber = Integer.parseInt(trackNumbers[0]);
-          @Nullable
-          Integer totalTrackCount =
+          @Nullable Integer totalTrackCount =
               trackNumbers.length > 1 ? Integer.parseInt(trackNumbers[1]) : null;
           builder.setTrackNumber(trackNumber).setTotalTrackCount(totalTrackCount);
         } catch (NumberFormatException e) {
@@ -185,8 +184,8 @@ public final class TextInformationFrame extends Id3Frame {
         String[] discNumbers = Util.split(values.get(0), "/");
         try {
           int discNumber = Integer.parseInt(discNumbers[0]);
-          @Nullable
-          Integer totalDiscCount = discNumbers.length > 1 ? Integer.parseInt(discNumbers[1]) : null;
+          @Nullable Integer totalDiscCount =
+              discNumbers.length > 1 ? Integer.parseInt(discNumbers[1]) : null;
           builder.setDiscNumber(discNumber).setTotalDiscCount(totalDiscCount);
         } catch (NumberFormatException e) {
           // Do nothing, invalid input.

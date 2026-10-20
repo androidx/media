@@ -22,11 +22,11 @@ import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.CheckResult;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FlagSet;
 import java.util.ArrayDeque;
 import java.util.concurrent.CopyOnWriteArraySet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A set of listeners.

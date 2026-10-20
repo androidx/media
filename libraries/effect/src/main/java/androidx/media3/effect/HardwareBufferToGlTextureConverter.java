@@ -31,7 +31,6 @@ import android.hardware.HardwareBuffer;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -59,6 +58,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
@@ -246,8 +246,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     }
                   },
                   () -> {
-                    @Nullable
-                    SyncFenceWrapper syncFence = getFirst(GlUtil.createSyncFences(1), null);
+                    @Nullable SyncFenceWrapper syncFence =
+                        getFirst(GlUtil.createSyncFences(1), null);
                     if (syncFence != null) {
                       glReadFence.set(syncFence);
                     } else {

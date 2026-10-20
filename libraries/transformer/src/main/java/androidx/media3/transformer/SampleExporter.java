@@ -23,7 +23,6 @@ import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdr
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -36,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exporter that processes media data.

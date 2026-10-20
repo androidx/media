@@ -32,7 +32,6 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.view.ViewGroup;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
@@ -77,6 +76,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Handles loading and playback of a single ad tag. */
 /* package */ final class AdTagLoader implements Player.Listener {
@@ -605,8 +605,7 @@ import java.util.Objects;
     @Nullable AdsManager adsManager = this.adsManager;
     if (!isAdsManagerInitialized && adsManager != null) {
       isAdsManagerInitialized = true;
-      @Nullable
-      AdsRenderingSettings adsRenderingSettings =
+      @Nullable AdsRenderingSettings adsRenderingSettings =
           setupAdsRendering(contentPositionMs, contentDurationMs);
       if (adsRenderingSettings == null) {
         // There are no ads to play.

@@ -20,12 +20,12 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.ContentValues;
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Represents the output destination for a Transformer export. */
 @UnstableApi

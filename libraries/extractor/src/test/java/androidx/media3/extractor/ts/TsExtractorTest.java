@@ -25,7 +25,6 @@ import static androidx.media3.extractor.ts.TsExtractor.MODE_SINGLE_PMT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
@@ -47,6 +46,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;

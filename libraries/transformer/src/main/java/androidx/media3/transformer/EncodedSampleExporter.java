@@ -20,7 +20,6 @@ import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -29,6 +28,7 @@ import java.nio.ByteOrder;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 
 /** Muxes encoded samples without any transcoding or transformation. */
 /* package */ final class EncodedSampleExporter extends SampleExporter implements GraphInput {

@@ -21,8 +21,8 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link ImageReaderAdapter} that wraps a real {@link ImageReader}. */
 /* package */ final class DefaultImageReaderAdapter implements ImageReaderAdapter {

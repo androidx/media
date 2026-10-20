@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -29,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Information about groups of tracks. */
 public final class Tracks {

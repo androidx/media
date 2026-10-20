@@ -32,7 +32,6 @@ import android.media.RouteDiscoveryPreference;
 import android.media.RoutingSessionInfo;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.BackgroundThreadStateHandler;
 import androidx.media3.common.util.Clock;
@@ -40,6 +39,7 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation for {@link SuitableOutputChecker}. */
 /* package */ final class DefaultSuitableOutputChecker implements SuitableOutputChecker {

@@ -16,11 +16,11 @@
 package androidx.media3.exoplayer.audio;
 
 import android.media.AudioDeviceInfo;
-import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** A forwarding base class that delegates all calls to the provided {@link AudioOutput}. */
 public class ForwardingAudioOutput implements AudioOutput {

@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -39,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.zip.Inflater;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for Vobsub subtitles. */
 @UnstableApi

@@ -15,13 +15,13 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An overridable {@link TrackOutput} implementation forwarding all methods to another track output.

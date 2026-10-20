@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import androidx.annotation.FloatRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Flags;
@@ -29,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Parameters to control the behavior of {@linkplain ExoPlayer#setScrubbingModeEnabled scrubbing

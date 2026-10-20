@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.dash.manifest;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A parsed Content Steering element. */
 @UnstableApi

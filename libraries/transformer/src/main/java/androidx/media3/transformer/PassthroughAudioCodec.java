@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
@@ -30,6 +29,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A passthrough {@link Codec} implementation for PCM audio samples. */
 /* package */ final class PassthroughAudioCodec implements Codec {

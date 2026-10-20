@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Comparator;
+import org.jspecify.annotations.Nullable;
 
 /** A comparator of ranking data. */
 @UnstableApi

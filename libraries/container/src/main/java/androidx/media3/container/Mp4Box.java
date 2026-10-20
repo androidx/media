@@ -15,12 +15,12 @@
  */
 package androidx.media3.container;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A representation of an MP4 box (aka atom). */
 @SuppressWarnings("ConstantField")

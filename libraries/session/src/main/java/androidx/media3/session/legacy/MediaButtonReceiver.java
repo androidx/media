@@ -28,12 +28,12 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.util.Log;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A media button receiver receives and helps translate hardware media playback buttons, such as

@@ -17,8 +17,8 @@ package androidx.media3.transformer;
 
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** An interface that wraps {@link android.media.ImageReader}. */
 /* package */ interface ImageReaderAdapter extends AutoCloseable {
@@ -33,8 +33,7 @@ import java.util.function.Consumer;
    * Acquires the next {@link ImageAdapter} from the reader's queue, or {@code null} if none is
    * available.
    */
-  @Nullable
-  ImageAdapter acquireNextImage();
+  @Nullable ImageAdapter acquireNextImage();
 
   /** Returns the {@link Surface} that can be used to produce images into the reader. */
   Surface getSurface();

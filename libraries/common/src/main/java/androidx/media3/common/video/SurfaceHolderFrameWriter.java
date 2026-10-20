@@ -31,7 +31,6 @@ import android.media.ImageWriter;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -45,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link FrameWriter} that outputs frames to a {@link SurfaceHolder}. */
 @ExperimentalApi // TODO: b/498176910 Remove once FrameWriter is production ready.
@@ -358,8 +358,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
     // On API <33, create an intermediate frame with usage equal to the requested usage, that
     // can also be read by the CPU. This will be filled by the caller, then copied into the
     // buffer dequeued from ImageWriter via the JNI.
-    @Nullable
-    HardwareBufferWithFence bufferWithFence =
+    @Nullable HardwareBufferWithFence bufferWithFence =
         hardwareBufferPool.get(
             currentFormat,
             currentUsageFlags | Frame.USAGE_CPU_READ_OFTEN,

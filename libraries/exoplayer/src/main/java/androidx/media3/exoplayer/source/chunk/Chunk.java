@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.source.chunk;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract base class for {@link Loadable} implementations that load chunks of data required for

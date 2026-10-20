@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
@@ -23,6 +22,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.source.BaseMediaSource;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.upstream.Allocator;
+import org.jspecify.annotations.Nullable;
 
 /** MediaSource producing an empty {@link Timeline}. */
 @UnstableApi

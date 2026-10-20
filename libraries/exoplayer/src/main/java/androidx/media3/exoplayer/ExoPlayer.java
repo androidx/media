@@ -33,7 +33,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
@@ -82,6 +81,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An extensible media player that plays {@link MediaSource}s. Instances can be obtained from {@link
@@ -1328,8 +1328,7 @@ public interface ExoPlayer extends Player {
    * {@link ExoPlaybackException}.
    */
   @Override
-  @Nullable
-  ExoPlaybackException getPlayerError();
+  @Nullable ExoPlaybackException getPlayerError();
 
   /**
    * Adds a listener to receive audio offload events.
@@ -1403,15 +1402,13 @@ public interface ExoPlayer extends Player {
    *     index.
    */
   @UnstableApi
-  @Nullable
-  Renderer getSecondaryRenderer(int index);
+  @Nullable Renderer getSecondaryRenderer(int index);
 
   /**
    * Returns the track selector that this player uses, or null if track selection is not supported.
    */
   @UnstableApi
-  @Nullable
-  TrackSelector getTrackSelector();
+  @Nullable TrackSelector getTrackSelector();
 
   /**
    * Returns the available track groups.
@@ -1964,23 +1961,19 @@ public interface ExoPlayer extends Player {
 
   /** Returns the audio format currently being played, or null if no audio is being played. */
   @UnstableApi
-  @Nullable
-  Format getAudioFormat();
+  @Nullable Format getAudioFormat();
 
   /** Returns the video format currently being played, or null if no video is being played. */
   @UnstableApi
-  @Nullable
-  Format getVideoFormat();
+  @Nullable Format getVideoFormat();
 
   /** Returns {@link DecoderCounters} for audio, or null if no audio is being played. */
   @UnstableApi
-  @Nullable
-  DecoderCounters getAudioDecoderCounters();
+  @Nullable DecoderCounters getAudioDecoderCounters();
 
   /** Returns {@link DecoderCounters} for video, or null if no video is being played. */
   @UnstableApi
-  @Nullable
-  DecoderCounters getVideoDecoderCounters();
+  @Nullable DecoderCounters getVideoDecoderCounters();
 
   /**
    * Sets whether the player should pause automatically when audio is rerouted from a headset to

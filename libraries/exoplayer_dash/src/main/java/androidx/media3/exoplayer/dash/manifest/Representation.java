@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.dash.manifest;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -29,6 +28,7 @@ import androidx.media3.exoplayer.dash.manifest.SegmentBase.SingleSegmentBase;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A DASH representation. */
 @UnstableApi

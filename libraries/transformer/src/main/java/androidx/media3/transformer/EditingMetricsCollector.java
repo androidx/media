@@ -29,7 +29,6 @@ import android.media.metrics.MediaMetricsManager;
 import android.os.PersistableBundle;
 import android.util.Size;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -48,6 +47,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A metrics collector that collects editing events and forwards them to {@link MetricsReporter}.

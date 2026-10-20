@@ -65,6 +65,9 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * A composable that provides a basic player UI layout, combining a [ContentFrame] for displaying
  * player content with customizable controls and a shutter.
  *
+ * ![Slots of the Player
+ * composable](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/player-layout-front.svg)
+ *
  * This composable is designed to be a flexible container for building player interfaces. It
  * consists of a [ContentFrame] that handles the rendering of the player's video, overlaid with
  * optional controls and a shutter.

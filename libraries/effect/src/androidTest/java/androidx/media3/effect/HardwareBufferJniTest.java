@@ -25,13 +25,13 @@ import android.os.Build;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link HardwareBufferJni}. */
-@SdkSuppress(minSdkVersion = 26)
 @RunWith(AndroidJUnit4.class)
 public final class HardwareBufferJniTest {
 
@@ -42,6 +42,7 @@ public final class HardwareBufferJniTest {
   @Rule public final TestName testName = new TestName();
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyBitmapToHardwareBuffer_sdr_matchesInputBitmap() throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH);
     try (HardwareBuffer hardwareBuffer =
@@ -126,6 +127,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyBitmapToHardwareBuffer_mismatchedDimensions_returnsFalse()
       throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH);
@@ -144,6 +146,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyBitmapToHardwareBuffer_incorrectUsage_returnsFalse() throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH);
     try (HardwareBuffer hardwareBuffer =
@@ -161,6 +164,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyBitmapToHardwareBuffer_incorrectFormat_returnsFalse() throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH);
     try (HardwareBuffer hardwareBuffer =
@@ -178,6 +182,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyHardwareBufferToHardwareBuffer_sdr_matchesInputBuffer() throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH);
     try (HardwareBuffer srcHb =
@@ -324,6 +329,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyHardwareBufferToHardwareBuffer_sameSourceAndDestination_returnsTrue()
       throws Exception {
     try (HardwareBuffer hardwareBuffer =
@@ -343,6 +349,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyHardwareBufferToHardwareBuffer_mismatchedDimensions_returnsFalse()
       throws Exception {
     try (HardwareBuffer hb1 =
@@ -365,6 +372,7 @@ public final class HardwareBufferJniTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void nativeCopyHardwareBufferToHardwareBuffer_mismatchedFormats_returnsFalse()
       throws Exception {
     try (HardwareBuffer hb1 =
@@ -384,5 +392,25 @@ public final class HardwareBufferJniTest {
       assertThat(HardwareBufferJni.INSTANCE.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2))
           .isFalse();
     }
+  }
+
+  @Test
+  public void nativeIsNv21_uBufferBeforeVBuffer_returnsFalse() {
+    ByteBuffer interleavedChroma = ByteBuffer.allocateDirect(/* capacity= */ 16);
+    ByteBuffer uBuffer = interleavedChroma.slice();
+    interleavedChroma.position(1);
+    ByteBuffer vBuffer = interleavedChroma.slice();
+
+    assertThat(HardwareBufferJni.INSTANCE.nativeIsNv21(uBuffer, vBuffer)).isFalse();
+  }
+
+  @Test
+  public void nativeIsNv21_vBufferBeforeUBuffer_returnsTrue() {
+    ByteBuffer interleavedChroma = ByteBuffer.allocateDirect(/* capacity= */ 16);
+    ByteBuffer vBuffer = interleavedChroma.slice();
+    interleavedChroma.position(1);
+    ByteBuffer uBuffer = interleavedChroma.slice();
+
+    assertThat(HardwareBufferJni.INSTANCE.nativeIsNv21(uBuffer, vBuffer)).isTrue();
   }
 }

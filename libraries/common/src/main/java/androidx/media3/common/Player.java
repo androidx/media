@@ -32,7 +32,6 @@ import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
@@ -47,6 +46,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A media player interface defining high-level functionality, such as the ability to play, pause,
@@ -529,8 +529,7 @@ public interface Player {
     public static PositionInfo fromBundle(Bundle bundle, int interfaceVersion) {
       int mediaItemIndex = max(0, bundle.getInt(FIELD_MEDIA_ITEM_INDEX, /* defaultValue= */ 0));
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
-      @Nullable
-      MediaItem mediaItem =
+      @Nullable MediaItem mediaItem =
           mediaItemBundle == null ? null : MediaItem.fromBundle(mediaItemBundle, interfaceVersion);
       int periodIndex = max(0, bundle.getInt(FIELD_PERIOD_INDEX, /* defaultValue= */ 0));
       long positionMs = bundle.getLong(FIELD_POSITION_MS, /* defaultValue= */ 0);
@@ -2589,8 +2588,7 @@ public interface Player {
    * @return The error, or {@code null}.
    * @see Listener#onPlayerError(PlaybackException)
    */
-  @Nullable
-  PlaybackException getPlayerError();
+  @Nullable PlaybackException getPlayerError();
 
   /**
    * Resumes playback as soon as {@link #getPlaybackState()} == {@link #STATE_READY}. Equivalent to
@@ -3001,8 +2999,7 @@ public interface Player {
    * Returns the current manifest. The type depends on the type of media being played. May be null.
    */
   @UnstableApi
-  @Nullable
-  Object getCurrentManifest();
+  @Nullable Object getCurrentManifest();
 
   /**
    * Returns the current {@link Timeline}. Never null, but may be empty.
@@ -3091,8 +3088,7 @@ public interface Player {
    *
    * @see Listener#onMediaItemTransition(MediaItem, int)
    */
-  @Nullable
-  MediaItem getCurrentMediaItem();
+  @Nullable MediaItem getCurrentMediaItem();
 
   /**
    * Returns the number of {@linkplain MediaItem media items} in the playlist.

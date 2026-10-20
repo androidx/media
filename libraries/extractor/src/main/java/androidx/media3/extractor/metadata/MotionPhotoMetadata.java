@@ -16,10 +16,10 @@
 
 package androidx.media3.extractor.metadata;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Metadata of a motion photo file. */
 @UnstableApi

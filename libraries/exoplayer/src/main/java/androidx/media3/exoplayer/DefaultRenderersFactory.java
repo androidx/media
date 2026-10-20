@@ -26,7 +26,6 @@ import android.media.PlaybackParams;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
@@ -58,6 +57,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** Default {@link RenderersFactory} implementation. */
 @UnstableApi
@@ -379,8 +379,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         videoRendererEventListener,
         allowedVideoJoiningTimeMs,
         renderersList);
-    @Nullable
-    AudioSink audioSink =
+    @Nullable AudioSink audioSink =
         buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParameters);
     if (audioSink != null) {
       buildAudioRenderers(

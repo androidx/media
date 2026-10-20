@@ -24,7 +24,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
@@ -34,6 +33,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import org.jspecify.annotations.Nullable;
 
 /** Provides access to the composition preview audio and video components on the playback thread. */
 /* package */ final class CompositionPlayerInternal implements Handler.Callback {

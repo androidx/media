@@ -16,9 +16,9 @@
 package androidx.media3.exoplayer.dash.manifest;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Represents a Location element, as defined by ISO 23009-1. */
 @UnstableApi

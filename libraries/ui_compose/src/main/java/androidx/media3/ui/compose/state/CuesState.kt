@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,7 @@ fun rememberCuesState(player: Player?): CuesState {
  * @property cues The current list of cues to be displayed. Defaults to an empty list and is also
  *   empty when [Player.COMMAND_GET_TEXT] is not available.
  */
+@Stable
 @UnstableApi
 class CuesState(private val player: Player?) {
   var cues: List<Cue> by mutableStateOf(emptyList())

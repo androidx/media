@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MediaMetadata.MediaType;
@@ -53,6 +52,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class to capture output from a playback test.

@@ -23,11 +23,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil.GlException;
@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Composites a list of {@link GlTextureFrame GlTextureFrames}, and outputs to a downstream {@link
@@ -160,8 +161,9 @@ import java.util.function.Consumer;
       throws VideoFrameProcessingException {
     // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
     checkArgument(!frames.isEmpty());
+    boolean canBypassCompositing = canBypassCompositing(frames);
     if (pendingOutputFrame != null
-        || (frames.size() > 1
+        || (!canBypassCompositing
             && outputTexturePool.isConfigured()
             && outputTexturePool.freeTextureCount() == 0)) {
       synchronized (lock) {
@@ -172,7 +174,7 @@ import java.util.function.Consumer;
     }
 
     inputStreamEnded = false;
-    if (frames.size() == 1) {
+    if (canBypassCompositing) {
       return downstreamConsumer.queue(frames.get(0), listenerExecutor, wakeupListener);
     }
 
@@ -319,6 +321,45 @@ import java.util.function.Consumer;
             errorConsumer.accept(VideoFrameProcessingException.from(e));
           }
         });
+  }
+
+  private static boolean canBypassCompositing(List<GlTextureFrame> frames) {
+    if (frames.size() > 1) {
+      return false;
+    }
+    GlTextureFrame inputFrame = frames.get(0);
+    VideoCompositorSettings videoCompositorSettings =
+        (VideoCompositorSettings)
+            inputFrame
+                .getMetadata()
+                .getOrDefault(KEY_COMPOSITOR_SETTINGS, VideoCompositorSettings.DEFAULT);
+    if (videoCompositorSettings.equals(VideoCompositorSettings.DEFAULT)) {
+      return true;
+    }
+    Size inputSize = new Size(inputFrame.glTextureInfo.width, inputFrame.glTextureInfo.height);
+    Size outputSize = videoCompositorSettings.getOutputSize(ImmutableList.of(inputSize));
+    if (!outputSize.equals(inputSize)) {
+      return false;
+    }
+    int sequenceIndex =
+        (int) checkNotNull(inputFrame.getMetadata().get(KEY_COMPOSITION_SEQUENCE_INDEX));
+    OverlaySettings overlaySettings =
+        videoCompositorSettings.getOverlaySettings(sequenceIndex, inputFrame.presentationTimeUs);
+    return isDefaultOverlaySettings(overlaySettings);
+  }
+
+  private static boolean isDefaultOverlaySettings(OverlaySettings overlaySettings) {
+    return overlaySettings.getAlphaScale() == OverlaySettings.DEFAULT_ALPHA_SCALE
+        && overlaySettings
+            .getBackgroundFrameAnchor()
+            .equals(OverlaySettings.DEFAULT_BACKGROUND_FRAME_ANCHOR)
+        && overlaySettings
+            .getOverlayFrameAnchor()
+            .equals(OverlaySettings.DEFAULT_OVERLAY_FRAME_ANCHOR)
+        && overlaySettings.getScale().equals(OverlaySettings.DEFAULT_SCALE)
+        && overlaySettings.getRotationDegrees() == OverlaySettings.DEFAULT_ROTATION_DEGREES
+        && overlaySettings.getHdrLuminanceMultiplier()
+            == OverlaySettings.DEFAULT_HDR_LUMINANCE_MULTIPLIER;
   }
 
   private static ImmutableMap<String, Object> stripKeys(

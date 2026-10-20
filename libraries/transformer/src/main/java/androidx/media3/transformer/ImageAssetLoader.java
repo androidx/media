@@ -32,7 +32,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -48,6 +47,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AssetLoader} implementation that loads images into {@link Bitmap} instances.
@@ -132,8 +132,8 @@ public final class ImageAssetLoader implements AssetLoader {
     listener.onTrackCount(1);
     ListenableFuture<Bitmap> future;
 
-    @Nullable
-    String mimeType = TransformerUtil.getImageMimeType(context, editedMediaItem.mediaItem);
+    @Nullable String mimeType =
+        TransformerUtil.getImageMimeType(context, editedMediaItem.mediaItem);
     if (mimeType == null || !bitmapLoader.supportsMimeType(mimeType)) {
       future =
           immediateFailedFuture(

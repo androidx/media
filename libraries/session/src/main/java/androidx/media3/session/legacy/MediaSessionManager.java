@@ -26,11 +26,11 @@ import android.content.pm.PackageManager;
 import android.os.Process;
 import android.provider.Settings;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.util.Log;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides support for interacting with {@link MediaSessionCompat media sessions} that applications

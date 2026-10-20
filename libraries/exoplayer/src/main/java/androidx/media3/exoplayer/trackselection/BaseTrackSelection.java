@@ -21,7 +21,6 @@ import static java.lang.Math.max;
 
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
@@ -31,6 +30,7 @@ import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** An abstract base class suitable for most {@link ExoTrackSelection} implementations. */
 @UnstableApi

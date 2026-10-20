@@ -39,6 +39,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -359,8 +360,13 @@ public final class GlFrameProcessorTestUtil {
   }
 
   public static final class FakeCompositorGlProgram implements CompositorGlProgram {
+    public final List<List<GlCompositionFrame>> drawnFramePackets;
     @Nullable public VideoFrameProcessingException exceptionToThrow;
     public GlUtil.@Nullable GlException glExceptionToThrow;
+
+    public FakeCompositorGlProgram() {
+      drawnFramePackets = new ArrayList<>();
+    }
 
     @Override
     public void drawFrame(List<GlCompositionFrame> inputFrameInfos, GlTextureInfo outputTexture)
@@ -371,6 +377,7 @@ public final class GlFrameProcessorTestUtil {
       if (glExceptionToThrow != null) {
         throw glExceptionToThrow;
       }
+      drawnFramePackets.add(ImmutableList.copyOf(inputFrameInfos));
     }
 
     @Override

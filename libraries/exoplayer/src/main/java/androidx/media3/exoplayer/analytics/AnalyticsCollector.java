@@ -21,7 +21,6 @@ import android.media.MediaCodec.CodecException;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
@@ -36,6 +35,7 @@ import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.video.VideoDecoderOutputBufferRenderer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for data collectors that forward analytics events to {@link AnalyticsListener

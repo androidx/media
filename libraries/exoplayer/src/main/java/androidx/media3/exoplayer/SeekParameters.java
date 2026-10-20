@@ -17,9 +17,9 @@ package androidx.media3.exoplayer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Parameters that apply to seeking.

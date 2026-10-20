@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.material3.text
 import android.content.Context
 import android.util.Pair
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.ErrorMessageProvider
@@ -26,6 +27,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.material3.R
 
+@Stable
 @UnstableApi
 class DefaultErrorMessageProvider(private val context: Context) :
   ErrorMessageProvider<PlaybackException> {

@@ -16,11 +16,21 @@
 
 package androidx.media3.demo.compose.buttons
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.media3.demo.compose.R
 
 /** A Material3 [IconButton] that enters fullscreen, or exits it if [isFullscreen] is `true`. */
@@ -29,15 +39,30 @@ internal fun FullscreenButton(
   isFullscreen: Boolean,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+  iconSize: Dp = 24.dp,
+  shape: Shape = IconButtonDefaults.standardShape,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
+  tint: Color = Color.Unspecified,
+  interactionSource: MutableInteractionSource? = null,
 ) {
-  IconButton(onClick = onClick, modifier = modifier) {
+  IconButton(
+    onClick = onClick,
+    modifier = modifier,
+    enabled = enabled,
+    colors = colors,
+    interactionSource = interactionSource,
+    shape = shape,
+  ) {
     Icon(
+      modifier = Modifier.size(iconSize),
       painter =
         painterResource(
           if (isFullscreen) R.drawable.media3_icon_fullscreen_exit
           else R.drawable.media3_icon_fullscreen_enter
         ),
       contentDescription = if (isFullscreen) "Exit fullscreen" else "Enter fullscreen",
+      tint = tint.takeOrElse { LocalContentColor.current },
     )
   }
 }

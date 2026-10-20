@@ -29,7 +29,6 @@ import androidx.media3.effect.HardwareBufferJniWrapper;
  * this class only adds fakes for the EGLImage methods. All operations return a successful result if
  * {@link #shouldSucceed} is {@code true} (the default), or a failure result otherwise.
  */
-@RequiresApi(26)
 @RestrictTo(LIBRARY_GROUP)
 public final class FakeHardwareBufferJniWrapper extends FakeHardwareBufferNativeHelpers
     implements HardwareBufferJniWrapper {
@@ -37,17 +36,20 @@ public final class FakeHardwareBufferJniWrapper extends FakeHardwareBufferNative
   /** The fake EGLImage handle returned on success. */
   public static final long FAKE_EGL_IMAGE_HANDLE = 1L;
 
+  @RequiresApi(26)
   @Override
   public long nativeCreateEglImageFromHardwareBuffer(
       long displayHandle, HardwareBuffer hardwareBuffer) {
     return shouldSucceed ? FAKE_EGL_IMAGE_HANDLE : 0L;
   }
 
+  @RequiresApi(26)
   @Override
   public boolean nativeBindEGLImage(int target, long eglImageHandle) {
     return shouldSucceed;
   }
 
+  @RequiresApi(26)
   @Override
   public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
     return shouldSucceed;

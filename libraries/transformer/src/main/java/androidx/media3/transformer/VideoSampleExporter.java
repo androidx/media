@@ -30,7 +30,6 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -50,6 +49,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.jspecify.annotations.Nullable;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {

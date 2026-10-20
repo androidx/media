@@ -17,7 +17,6 @@ package androidx.media3.extractor;
 
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
@@ -25,6 +24,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.io.EOFException;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link TrackOutput} that consumes and discards all reported samples. */
 @UnstableApi

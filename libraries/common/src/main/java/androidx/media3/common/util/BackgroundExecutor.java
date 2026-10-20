@@ -15,8 +15,8 @@
  */
 package androidx.media3.common.util;
 
-import androidx.annotation.Nullable;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** A utility class to obtain an {@link Executor} for background tasks. */
 @UnstableApi

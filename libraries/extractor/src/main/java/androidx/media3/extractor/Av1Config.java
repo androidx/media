@@ -17,7 +17,6 @@ package androidx.media3.extractor;
 
 import static androidx.media3.common.util.Util.formatInvariant;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ColorRange;
 import androidx.media3.common.C.ColorSpace;
@@ -28,6 +27,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** AV1 configuration data. */
 @UnstableApi

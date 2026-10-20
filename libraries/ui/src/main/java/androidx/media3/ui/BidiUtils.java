@@ -19,10 +19,10 @@ package androidx.media3.ui;
 import android.text.BidiFormatter;
 import android.text.SpannableStringBuilder;
 import android.text.TextDirectionHeuristics;
-import androidx.annotation.Nullable;
 import com.google.common.base.Splitter;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class for handling bidirectional (BiDi) text rendering.

@@ -23,7 +23,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Rating;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -34,6 +33,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A command that a {@link MediaController} can send to a {@link MediaSession}.

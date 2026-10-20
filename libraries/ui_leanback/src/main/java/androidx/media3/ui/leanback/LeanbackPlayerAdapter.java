@@ -20,7 +20,6 @@ import android.os.Handler;
 import android.util.Pair;
 import android.view.Surface;
 import android.view.SurfaceHolder;
-import androidx.annotation.Nullable;
 import androidx.leanback.R;
 import androidx.leanback.media.PlaybackGlueHost;
 import androidx.leanback.media.PlayerAdapter;
@@ -36,6 +35,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /** Leanback {@code PlayerAdapter} implementation for {@link Player}. */
 @UnstableApi

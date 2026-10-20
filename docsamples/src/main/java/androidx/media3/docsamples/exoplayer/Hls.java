@@ -22,7 +22,6 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
@@ -44,6 +43,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.ui.PlayerView;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Snippets for HLS. */
 @SuppressWarnings({"unused", "CheckReturnValue", "PrivateConstructorForUtilityClass"})

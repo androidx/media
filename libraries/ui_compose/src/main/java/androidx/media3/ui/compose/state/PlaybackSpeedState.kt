@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,7 @@ fun rememberPlaybackSpeedState(player: Player?): PlaybackSpeedState {
  *   [Player.playbackParameters.speed][androidx.media3.common.PlaybackParameters.speed]. Defaults to
  *   `1f` if the [player] is `null`.
  */
+@Stable
 @UnstableApi
 class PlaybackSpeedState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)

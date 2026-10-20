@@ -19,8 +19,8 @@ import static androidx.media3.common.util.Util.postOrRun;
 
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import com.google.common.util.concurrent.AbstractFuture;
+import org.jspecify.annotations.Nullable;
 
 /* package */ class MediaControllerHolder<T extends MediaController> extends AbstractFuture<T>
     implements MediaController.ConnectionCallback {

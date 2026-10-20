@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -46,6 +45,7 @@ import androidx.media3.test.utils.ActionSchedule.PlayerRunnable;
 import androidx.media3.test.utils.ActionSchedule.PlayerTarget;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Base class for actions to perform during playback tests. */
 @UnstableApi

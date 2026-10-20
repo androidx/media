@@ -29,7 +29,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -57,6 +56,7 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** An adaptor between a sequence player and a {@link Consumer} of {@link AsyncFrame} instances. */
 /* package */ final class HardwareBufferFrameReader {

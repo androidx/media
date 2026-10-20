@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.drm;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for Widevine. */
 @UnstableApi

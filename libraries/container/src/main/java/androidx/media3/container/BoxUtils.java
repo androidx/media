@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.muxer;
+package androidx.media3.container;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import androidx.annotation.RestrictTo;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /** Utilities for dealing with MP4 boxes. */
-/* package */ final class BoxUtils {
+@RestrictTo(LIBRARY_GROUP)
+public final class BoxUtils {
   private static final int BOX_TYPE_BYTES = 4;
   private static final int BOX_SIZE_BYTES = 4;
 
@@ -45,6 +49,22 @@ import java.util.List;
     box.put(contents);
     box.flip();
     return box;
+  }
+
+  /** Wraps the concatenated payloads into a box, prefixing them with a length and a box type. */
+  public static byte[] wrapIntoBox(String boxType, byte[]... payloads) {
+    int boxSize = BOX_TYPE_BYTES + BOX_SIZE_BYTES;
+    for (byte[] payload : payloads) {
+      boxSize += payload.length;
+    }
+
+    ByteBuffer box = ByteBuffer.allocate(boxSize);
+    box.putInt(boxSize);
+    box.put(boxType.getBytes(StandardCharsets.UTF_8), /* offset= */ 0, BOX_TYPE_BYTES);
+    for (byte[] payload : payloads) {
+      box.put(payload);
+    }
+    return box.array();
   }
 
   /** Concatenate multiple boxes into a box, prefixing it with a length and a box type. */

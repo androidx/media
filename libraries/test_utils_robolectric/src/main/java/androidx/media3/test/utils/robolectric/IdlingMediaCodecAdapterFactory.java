@@ -21,7 +21,6 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Context;
 import android.os.HandlerThread;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
@@ -32,6 +31,7 @@ import com.google.common.base.Supplier;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 import org.robolectric.shadows.ShadowLooper;
 
 /**

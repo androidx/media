@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link ChunkSource} for SmoothStreaming. */
 @UnstableApi

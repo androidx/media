@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.upstream;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.cache.Cache;
@@ -27,6 +26,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NavigableSet;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class for efficiently tracking regions of data that are stored in a {@link Cache} for a

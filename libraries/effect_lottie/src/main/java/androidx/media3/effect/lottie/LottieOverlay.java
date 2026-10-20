@@ -22,7 +22,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
@@ -35,6 +34,7 @@ import com.airbnb.lottie.LottieDrawable;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link CanvasOverlay} that renders a Lottie animation.

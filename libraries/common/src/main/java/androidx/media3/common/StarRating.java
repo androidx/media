@@ -20,10 +20,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import android.os.Bundle;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A rating expressed as a fractional number of stars. */
 public final class StarRating extends Rating {

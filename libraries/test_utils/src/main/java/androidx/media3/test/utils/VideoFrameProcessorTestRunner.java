@@ -35,7 +35,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -60,6 +59,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A test runner for {@link VideoFrameProcessor} tests. */
 @UnstableApi
@@ -299,8 +299,7 @@ public final class VideoFrameProcessorTestRunner {
                     checkNotNull(videoFrameProcessor).setOutputSurfaceInfo(null);
                   }
                 }
-                @Nullable
-                Surface outputSurface =
+                @Nullable Surface outputSurface =
                     bitmapReader.getSurface(width, height, useHighPrecisionColorComponents);
                 if (outputSurface != null) {
                   checkNotNull(videoFrameProcessor)
@@ -536,8 +535,7 @@ public final class VideoFrameProcessorTestRunner {
   public interface BitmapReader {
 
     /** Returns the {@link VideoFrameProcessor} output {@link Surface}, if one is needed. */
-    @Nullable
-    Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents);
+    @Nullable Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents);
 
     /** Returns the output {@link Bitmap}. */
     Bitmap getBitmap();

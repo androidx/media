@@ -19,7 +19,6 @@ import static androidx.media3.exoplayer.dash.DashSegmentIndex.INDEX_UNBOUNDED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.jspecify.annotations.Nullable;
 
 /** An approximate representation of a SegmentBase manifest element. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.

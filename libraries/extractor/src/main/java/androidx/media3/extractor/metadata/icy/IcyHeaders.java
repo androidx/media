@@ -17,7 +17,6 @@ package androidx.media3.extractor.metadata.icy;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaMetadata;
@@ -27,6 +26,7 @@ import androidx.media3.common.util.UnstableApi;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** ICY headers. */
 @UnstableApi

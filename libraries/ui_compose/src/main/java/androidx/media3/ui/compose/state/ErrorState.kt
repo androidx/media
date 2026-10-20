@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ fun rememberErrorState(player: Player?): ErrorState {
  * State holder that tracks the [Player.getPlayerError] by listening to [Player.EVENT_PLAYER_ERROR]
  * and [Player.EVENT_PLAYBACK_STATE_CHANGED].
  */
+@Stable
 @UnstableApi
 class ErrorState(private val player: Player?) {
   var error: PlaybackException? by mutableStateOf(player?.playerError)

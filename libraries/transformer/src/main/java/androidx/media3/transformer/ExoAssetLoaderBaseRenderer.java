@@ -23,7 +23,6 @@ import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCO
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -38,6 +37,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /* package */ abstract class ExoAssetLoaderBaseRenderer extends BaseRenderer {
 

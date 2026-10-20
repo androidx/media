@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
 import android.graphics.Typeface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.effect.StaticOverlaySettings;
@@ -31,6 +30,7 @@ import com.airbnb.lottie.LottieDrawable;
 import com.airbnb.lottie.LottieResult;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

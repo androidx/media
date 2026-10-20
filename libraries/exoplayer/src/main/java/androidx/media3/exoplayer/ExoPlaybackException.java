@@ -29,7 +29,6 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.CheckResult;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.Format;
@@ -44,6 +43,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
 public final class ExoPlaybackException extends PlaybackException {

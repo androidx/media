@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Builder for URI for IMA DAI streams. The resulting URI can be used to build a {@link
@@ -430,11 +430,9 @@ public final class ImaServerSideAdInsertionUriBuilder {
       streamRequest.setStreamActivityMonitorId(streamActivityMonitorId);
     }
 
-    @Nullable
-    String customUiOptionsSkippableSupport =
+    @Nullable String customUiOptionsSkippableSupport =
         uri.getQueryParameter(CUSTOM_UI_OPTIONS_SKIPPABLE_SUPPORT);
-    @Nullable
-    String customUiOptionsAboutThisAdSupport =
+    @Nullable String customUiOptionsAboutThisAdSupport =
         uri.getQueryParameter(CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT);
     if (customUiOptionsSkippableSupport != null || customUiOptionsAboutThisAdSupport != null) {
       CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();

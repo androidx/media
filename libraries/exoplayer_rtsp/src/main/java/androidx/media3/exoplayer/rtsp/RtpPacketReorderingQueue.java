@@ -21,10 +21,10 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Orders RTP packets by their sequence numbers to correct the possible alternation in packet

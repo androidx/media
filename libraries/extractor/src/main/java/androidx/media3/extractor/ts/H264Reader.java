@@ -19,7 +19,6 @@ import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_RANDOM_ACCESS_IN
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -40,6 +39,7 @@ import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parses a continuous H264 byte stream and extracts individual frames. */
 @UnstableApi

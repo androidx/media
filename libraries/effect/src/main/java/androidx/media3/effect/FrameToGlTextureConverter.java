@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
@@ -23,6 +22,7 @@ import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor.Listener;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** Converts from {@link Frame} to {@link GlTextureFrame}. */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
@@ -42,8 +42,7 @@ import java.util.function.Consumer;
    * <p>The returned {@link GlTextureFrame}'s texture is in standard OpenGL coordinate space
    * (upright, Y-up, with origin at bottom-left of the image).
    */
-  @Nullable
-  GlTextureFrame convert(
+  @Nullable GlTextureFrame convert(
       Frame frame, Executor glExecutor, Executor listenerExecutor, Listener listener)
       throws VideoFrameProcessingException;
 

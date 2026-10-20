@@ -18,7 +18,6 @@ package androidx.media3.docsamples.exoplayer;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -29,6 +28,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Code snippets for the Playlists guide. */
 @SuppressWarnings({

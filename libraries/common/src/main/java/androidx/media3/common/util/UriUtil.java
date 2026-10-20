@@ -19,10 +19,10 @@ import static java.lang.Math.min;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import com.google.common.base.Ascii;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for manipulating URIs. */
 @UnstableApi

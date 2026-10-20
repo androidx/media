@@ -23,7 +23,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.PersistableBundle;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Abstracts {@link MediaCodec} operations.
@@ -205,8 +205,7 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#getInputBuffer(int)
    */
-  @Nullable
-  ByteBuffer getInputBuffer(int index);
+  @Nullable ByteBuffer getInputBuffer(int index);
 
   /**
    * Uses an acquired input or output buffer (e.g. to read from or write data to it).
@@ -227,8 +226,7 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#getOutputBuffer(int)
    */
-  @Nullable
-  ByteBuffer getOutputBuffer(int index);
+  @Nullable ByteBuffer getOutputBuffer(int index);
 
   /**
    * Submit an input buffer for decoding.

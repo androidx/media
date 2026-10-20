@@ -26,7 +26,6 @@ import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.text.TextUtils;
 import androidx.annotation.MainThread;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Log;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The primary entry point for interacting with the Cast context.
@@ -309,8 +309,7 @@ public class Cast {
     }
   }
 
-  @Nullable
-  /* package */ MediaRouteSelector registerListenerAndGetCurrentSelector(
+  @Nullable /* package */ MediaRouteSelector registerListenerAndGetCurrentSelector(
       MediaRouteSelectorListener listener) {
     checkNotNull(listener);
     if (castContext != null) {

@@ -16,7 +16,13 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.interaction.Interaction
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
@@ -122,5 +128,27 @@ class MuteButtonTest {
     onNodeWithTag("muteButton").performClick()
 
     assertThat(onClickCalled).isTrue()
+  }
+
+  @Test
+  fun customizeShapeAndInteractionSource_emitsInteractions() = runComposeUiTest {
+    val player = FakePlayer()
+    val interactions = mutableListOf<Interaction>()
+    setContent {
+      val interactionSource = remember { MutableInteractionSource() }
+      LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interactions.add(it) }
+      }
+      MuteButton(
+        player,
+        Modifier.testTag("muteButton"),
+        shape = RectangleShape,
+        interactionSource = interactionSource,
+      )
+    }
+
+    onNodeWithTag("muteButton").performClick()
+
+    assertThat(interactions.filterIsInstance<PressInteraction.Release>()).isNotEmpty()
   }
 }

@@ -1130,7 +1130,7 @@ import org.jspecify.annotations.Nullable;
         HlsMediaChunk removed = mediaChunks.remove(mediaChunks.size() - 1);
         checkState(removed == loadable);
         if (mediaChunks.isEmpty()) {
-          pendingResetPositionUs = lastSeekPositionUs;
+          pendingResetPositionUs = max(lastSeekPositionUs, removed.startTimeUs);
         } else {
           getLast(mediaChunks).invalidateExtractor();
         }

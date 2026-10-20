@@ -17,7 +17,6 @@ package androidx.media3.effect.playservices;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import com.google.android.gms.media.effect.enhancement.EnhancementCallback;
 import com.google.android.gms.media.effect.enhancement.EnhancementOptions;
 import com.google.android.gms.media.effect.enhancement.EnhancementSession;
@@ -25,6 +24,7 @@ import com.google.android.gms.media.effect.enhancement.EnhancementSessionCallbac
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities and fakes for {@link EnhancementSessionManager} tests. */
 /* package */ final class EnhancementSessionTestUtil {

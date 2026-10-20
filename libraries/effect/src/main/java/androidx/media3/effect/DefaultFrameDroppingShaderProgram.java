@@ -20,13 +20,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.abs;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Drops frames by only making selected frames available to the {@link OutputListener}.

@@ -25,7 +25,6 @@ import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_SRGB;
 import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_WITHOUT_AUDIO;
 import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_WITH_REMOVE_VIDEO;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -35,6 +34,7 @@ import androidx.media3.transformer.Composition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.jspecify.annotations.Nullable;
 
 /** Test assets that describe various {@link Composition} configurations. */
 @UnstableApi

@@ -21,12 +21,12 @@ import static java.lang.Math.min;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link BitmapLoader} that limits the size of bitmaps loaded by {@link #decodeBitmap(byte[])} or

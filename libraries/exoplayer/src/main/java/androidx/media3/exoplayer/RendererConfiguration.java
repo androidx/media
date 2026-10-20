@@ -17,9 +17,9 @@ package androidx.media3.exoplayer;
 
 import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_DISABLED;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioSink;
+import org.jspecify.annotations.Nullable;
 
 /** The configuration of a {@link Renderer}. */
 @UnstableApi

@@ -20,12 +20,12 @@ import static java.util.Collections.max;
 import static java.util.Collections.min;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A track selection override, consisting of a {@link TrackGroup} and the indices of the tracks

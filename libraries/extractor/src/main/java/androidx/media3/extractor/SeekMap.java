@@ -17,9 +17,9 @@ package androidx.media3.extractor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Maps seek positions (in microseconds) to corresponding positions (byte offsets) in the stream.

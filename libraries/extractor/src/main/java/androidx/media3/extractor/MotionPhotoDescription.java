@@ -17,12 +17,12 @@ package androidx.media3.extractor;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Describes the layout and metadata of a motion photo file. */
 @RestrictTo(LIBRARY)

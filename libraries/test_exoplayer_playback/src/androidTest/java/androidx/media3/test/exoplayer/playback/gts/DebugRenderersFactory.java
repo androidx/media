@@ -20,7 +20,6 @@ import static java.lang.Math.max;
 
 import android.content.Context;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -33,6 +32,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A debug extension of {@link DefaultRenderersFactory}. Provides a video renderer that performs

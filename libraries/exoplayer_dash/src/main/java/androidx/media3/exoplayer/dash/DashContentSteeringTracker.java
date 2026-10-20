@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.dash;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
@@ -39,6 +38,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks the content steering states for a DASH stream. */
 @UnstableApi
@@ -234,8 +234,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
         for (Representation representation : adaptationSet.representations) {
           for (BaseUrl baseUrl : representation.baseUrls) {
             String serviceLocation = baseUrl.serviceLocation;
-            @Nullable
-            Set<BaseUrl> availableBaseUrlsForServiceLocation =
+            @Nullable Set<BaseUrl> availableBaseUrlsForServiceLocation =
                 availableBaseUrls.get(serviceLocation);
             if (availableBaseUrlsForServiceLocation == null) {
               availableBaseUrlsForServiceLocation = new HashSet<>();
@@ -254,8 +253,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
     for (int i = 0; i < manifest.locations.size(); i++) {
       Location location = manifest.locations.get(i);
       String serviceLocation = location.serviceLocation;
-      @Nullable
-      Set<Location> availableLocationsForServiceLocation =
+      @Nullable Set<Location> availableLocationsForServiceLocation =
           availableManifestLocations.get(serviceLocation);
       if (availableLocationsForServiceLocation == null) {
         availableLocationsForServiceLocation = new HashSet<>();

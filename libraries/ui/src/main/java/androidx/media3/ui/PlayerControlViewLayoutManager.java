@@ -27,9 +27,9 @@ import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.view.animation.LinearInterpolator;
-import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class PlayerControlViewLayoutManager {
   private static final long ANIMATION_INTERVAL_MS = 2_000;

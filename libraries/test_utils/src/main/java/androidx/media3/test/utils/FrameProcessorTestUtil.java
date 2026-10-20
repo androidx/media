@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 import static java.util.Objects.hash;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -39,6 +38,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import org.jspecify.annotations.Nullable;
 
 /** Test utilities for asserting {@link FrameProcessor} inputs. */
 @RequiresApi(26)

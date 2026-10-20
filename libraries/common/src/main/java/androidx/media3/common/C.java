@@ -1145,7 +1145,9 @@ public final class C {
   @UnstableApi public static final int SELECTION_REASON_CUSTOM_BASE = 10000;
 
   /** A default size in bytes for an individual allocation that forms part of a larger buffer. */
-  @UnstableApi public static final int DEFAULT_BUFFER_SEGMENT_SIZE = 64 * 1024;
+  // Subtract 16 bytes so that the byte[] plus ART's 12-byte array header fits within 64 KiB and
+  // does not round up to an extra OS page in ART's large object space.
+  @UnstableApi public static final int DEFAULT_BUFFER_SEGMENT_SIZE = 64 * 1024 - 16;
 
   /** A default seek back increment, in milliseconds. */
   public static final long DEFAULT_SEEK_BACK_INCREMENT_MS = 5_000;

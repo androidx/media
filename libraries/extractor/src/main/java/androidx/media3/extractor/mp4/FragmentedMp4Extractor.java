@@ -1161,9 +1161,7 @@ public class FragmentedMp4Extractor implements Extractor {
     for (int i = 0; i < leafChildrenSize; i++) {
       LeafBox atom = leafChildren.get(i);
       if (atom.type == Mp4Box.TYPE_trun) {
-        ParsableByteArray trunData = atom.data;
-        trunData.setPosition(Mp4Box.FULL_HEADER_SIZE);
-        int trunSampleCount = trunData.readUnsignedIntToInt();
+        int trunSampleCount = readTrunSampleCount(atom.data);
         if (trunSampleCount > 0) {
           totalSampleCount += trunSampleCount;
           trunCount++;
@@ -1179,11 +1177,16 @@ public class FragmentedMp4Extractor implements Extractor {
     int trunStartPosition = 0;
     for (int i = 0; i < leafChildrenSize; i++) {
       LeafBox trun = leafChildren.get(i);
-      if (trun.type == Mp4Box.TYPE_trun) {
+      if (trun.type == Mp4Box.TYPE_trun && readTrunSampleCount(trun.data) > 0) {
         trunStartPosition =
             parseTrun(trackBundle, trunIndex++, flags, trun.data, trunStartPosition);
       }
     }
+  }
+
+  private static int readTrunSampleCount(ParsableByteArray trun) {
+    trun.setPosition(Mp4Box.FULL_HEADER_SIZE);
+    return trun.readUnsignedIntToInt();
   }
 
   private static void parseSaiz(

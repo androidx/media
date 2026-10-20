@@ -18,7 +18,6 @@ package androidx.media3.datasource.rtmp;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.antmedia.rtmp_client.RtmpClient;
 import io.antmedia.rtmp_client.RtmpClient.RtmpIOException;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A Real-Time Messaging Protocol (RTMP) {@link DataSource}. */
 @UnstableApi

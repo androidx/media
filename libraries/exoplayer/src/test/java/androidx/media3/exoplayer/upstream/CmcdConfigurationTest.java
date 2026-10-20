@@ -18,11 +18,11 @@ package androidx.media3.exoplayer.upstream;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableListMultimap;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -141,8 +141,7 @@ public class CmcdConfigurationTest {
     CmcdConfiguration.Factory cmcdConfigurationFactory = mediaItem -> null;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId(TEST_MEDIA_ID).build();
 
-    @Nullable
-    CmcdConfiguration cmcdConfiguration =
+    @Nullable CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
 
     assertThat(cmcdConfiguration).isNull();

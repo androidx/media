@@ -17,8 +17,8 @@ package androidx.media3.session;
 
 import android.app.Activity;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A hidden activity to satisfy Bluetooth AVRCP validation on API 36 and 37 without exposing the app

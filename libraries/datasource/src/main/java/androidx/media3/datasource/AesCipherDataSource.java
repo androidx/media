@@ -19,13 +19,13 @@ import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import javax.crypto.Cipher;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSource} that decrypts the data read from an upstream source. */
 @UnstableApi

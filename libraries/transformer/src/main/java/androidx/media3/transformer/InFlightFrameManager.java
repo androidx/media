@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
@@ -27,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages {@link Frame} instances currently in flight downstream, releasing them when processed if

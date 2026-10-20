@@ -41,7 +41,6 @@ import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import android.os.Build;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.video.SyncFenceWrapper;
@@ -53,6 +52,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import javax.microedition.khronos.egl.EGL10;
+import org.jspecify.annotations.Nullable;
 
 /** OpenGL ES utilities. */
 @SuppressWarnings("InlinedApi") // GLES constants are used safely based on the API version.

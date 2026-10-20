@@ -17,7 +17,6 @@ package androidx.media3.decoder.flac;
 
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
@@ -30,6 +29,7 @@ import androidx.media3.extractor.FlacStreamMetadata;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Flac decoder. */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)

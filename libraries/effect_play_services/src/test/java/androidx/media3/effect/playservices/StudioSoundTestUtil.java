@@ -17,7 +17,6 @@ package androidx.media3.effect.playservices;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import com.google.android.gms.media.effect.studiosound.AudioFormat;
 import com.google.android.gms.media.effect.studiosound.ProcessingResult;
 import com.google.android.gms.media.effect.studiosound.StudioSoundCallback;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities and fakes for {@link StudioSoundAudioProcessor} tests. */
 /* package */ final class StudioSoundTestUtil {

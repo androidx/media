@@ -30,7 +30,6 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -53,6 +52,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AssetLoader} that is composed of a {@linkplain EditedMediaItemSequence sequence} of
@@ -330,8 +330,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } else {
         sequenceHasAudio = true;
       }
-      @Nullable
-      SampleConsumer wrappedSampleConsumer = sequenceAssetLoaderListener.onOutputFormat(format);
+      @Nullable SampleConsumer wrappedSampleConsumer =
+          sequenceAssetLoaderListener.onOutputFormat(format);
       if (wrappedSampleConsumer == null) {
         return null;
       }
@@ -439,8 +439,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void onMediaItemChanged(int trackType, @Nullable Format outputFormat) {
-    @Nullable
-    OnMediaItemChangedListener onMediaItemChangedListener =
+    @Nullable OnMediaItemChangedListener onMediaItemChangedListener =
         mediaItemChangedListenersByTrackType.get(trackType);
     if (onMediaItemChangedListener == null) {
       return;

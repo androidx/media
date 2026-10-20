@@ -20,10 +20,10 @@ import static androidx.media3.extractor.text.ttml.TextEmphasis.POSITION_OUTSIDE;
 import static androidx.media3.extractor.text.ttml.TextEmphasis.parse;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

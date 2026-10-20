@@ -23,7 +23,6 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
@@ -35,6 +34,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A base implementation of a preload manager, which maintains the lifecycle of {@linkplain

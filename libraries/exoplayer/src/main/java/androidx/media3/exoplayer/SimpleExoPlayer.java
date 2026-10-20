@@ -23,7 +23,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -61,6 +60,7 @@ import androidx.media3.exoplayer.video.spherical.CameraMotionListener;
 import androidx.media3.extractor.ExtractorsFactory;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated Use {@link ExoPlayer} instead.

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.LoadEventInfo;
@@ -31,6 +30,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A policy that defines how load errors are handled.
@@ -190,8 +190,7 @@ public interface LoadErrorHandlingPolicy {
    * @param loadErrorInfo A {@link LoadErrorInfo} holding information about the load error.
    * @return The selected fallback, or {@code null} if the calling loader should not fall back.
    */
-  @Nullable
-  FallbackSelection getFallbackSelectionFor(
+  @Nullable FallbackSelection getFallbackSelectionFor(
       FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo);
 
   /**

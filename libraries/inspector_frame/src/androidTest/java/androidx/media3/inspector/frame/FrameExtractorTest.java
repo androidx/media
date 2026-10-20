@@ -160,6 +160,26 @@ public class FrameExtractorTest {
   }
 
   @Test
+  public void extractFrame_sameMediaItemChangeEffects_returnsExpectedFrames() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri(FILE_PATH);
+    Frame unscaledFrame;
+    Frame scaledFrame;
+    try (FrameExtractor frameExtractor = new FrameExtractor.Builder(context, mediaItem).build()) {
+      unscaledFrame = frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+      try (FrameExtractor scaledFrameExtractor =
+          new FrameExtractor.Builder(context, mediaItem)
+              .setEffects(ImmutableList.of(Presentation.createForHeight(180)))
+              .build()) {
+        scaledFrame =
+            scaledFrameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+      }
+    }
+
+    assertThat(unscaledFrame.bitmap.getHeight()).isEqualTo(360);
+    assertThat(scaledFrame.bitmap.getHeight()).isEqualTo(180);
+  }
+
+  @Test
   public void extractFrame_pastDuration_returnsLastFrame() throws Exception {
     Frame frame;
     int initialRenderedOutputBufferCount;

@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.rtsp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -25,6 +24,7 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents the payload format used in RTP.

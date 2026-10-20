@@ -30,7 +30,6 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -59,6 +58,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Processes, encodes and muxes raw video frames. */
 @RequiresApi(26)
@@ -490,8 +490,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               // The encoder doesn't rotate frames, so the encoder's rotation is set to 0. The
               // requested rotation will be applied as container metadata.
               .setRotationDegrees(0);
-      @Nullable
-      String sampleMimeType =
+      @Nullable String sampleMimeType =
           findSupportedMimeTypeForEncoderAndMuxer(
               formatBuilder.setSampleMimeType(requestedSampleMimeType).build(),
               muxerSupportedSampleMimeTypes);

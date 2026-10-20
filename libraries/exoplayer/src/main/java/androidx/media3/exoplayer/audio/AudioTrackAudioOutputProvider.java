@@ -34,7 +34,6 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -58,6 +57,7 @@ import java.util.function.BiConsumer;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link AudioOutputProvider}. */
 public final class AudioTrackAudioOutputProvider implements AudioOutputProvider {
@@ -286,8 +286,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         useOffloadGapless = audioOffloadSupport.isGaplessSupported;
       } else {
         outputMode = OUTPUT_MODE_PASSTHROUGH;
-        @Nullable
-        Pair<Integer, Integer> encodingAndChannelConfig =
+        @Nullable Pair<Integer, Integer> encodingAndChannelConfig =
             audioCapabilities.getEncodingAndChannelConfigForPassthrough(
                 format, formatConfig.audioAttributes);
         if (encodingAndChannelConfig == null) {

@@ -22,7 +22,6 @@ import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -33,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Factory for creating instances of {@link Transformer} that can be used to analyze media.

@@ -16,9 +16,9 @@
 
 package androidx.media3.ui.compose.state
 
-import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +72,7 @@ fun rememberPresentationState(
  *   the current media item actually contains artwork data; the caller is responsible for validating
  *   the presence of artwork before rendering.
  */
+@Stable
 @UnstableApi
 class PresentationState(keepContentOnReset: Boolean = false) {
   private var _adjustedVideoSize by mutableStateOf<Size?>(null)
@@ -104,8 +105,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
 
   private var playerStateObserver: PlayerStateObserver? = null
 
-  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-  var player: Player? = null
+  internal var player: Player? = null
     set(value) {
       if (field == value) return
       field = value
@@ -184,8 +184,7 @@ class PresentationState(keepContentOnReset: Boolean = false) {
     return videoSize
   }
 
-  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-  fun updateForCurrentTrackSelections(player: Player?) {
+  internal fun updateForCurrentTrackSelections(player: Player?) {
     if (player != null) {
       val hasTracks =
         player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty

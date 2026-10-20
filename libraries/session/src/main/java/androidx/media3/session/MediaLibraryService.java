@@ -38,7 +38,6 @@ import android.os.IBinder;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -57,6 +56,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Superclass to be extended by services hosting {@link MediaLibrarySession media library sessions}.

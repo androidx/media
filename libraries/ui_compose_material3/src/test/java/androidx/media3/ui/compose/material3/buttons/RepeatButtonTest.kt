@@ -16,7 +16,13 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.interaction.Interaction
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
@@ -119,5 +125,32 @@ class RepeatButtonTest {
     onNodeWithTag("repeatButton").performClick()
 
     assertThat(onClickCalled).isTrue()
+  }
+
+  @Test
+  fun customizeShapeAndInteractionSource_emitsInteractions() = runComposeUiTest {
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+      )
+    val interactions = mutableListOf<Interaction>()
+    setContent {
+      val interactionSource = remember { MutableInteractionSource() }
+      LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interactions.add(it) }
+      }
+      RepeatButton(
+        player,
+        Modifier.testTag("repeatButton"),
+        shape = RectangleShape,
+        interactionSource = interactionSource,
+      )
+    }
+
+    onNodeWithTag("repeatButton").performClick()
+
+    assertThat(interactions.filterIsInstance<PressInteraction.Release>()).isNotEmpty()
   }
 }

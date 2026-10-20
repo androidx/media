@@ -21,9 +21,9 @@ import static java.lang.Math.exp;
 import static java.lang.Math.sqrt;
 
 import androidx.annotation.FloatRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implementation of a symmetric Gaussian function with a limited domain.

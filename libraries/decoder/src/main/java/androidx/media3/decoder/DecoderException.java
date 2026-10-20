@@ -15,8 +15,8 @@
  */
 package androidx.media3.decoder;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a {@link Decoder} error occurs. */
 @UnstableApi

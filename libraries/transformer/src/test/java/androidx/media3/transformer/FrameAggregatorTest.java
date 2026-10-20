@@ -25,7 +25,6 @@ import static org.junit.Assert.assertThrows;
 
 import android.hardware.HardwareBuffer;
 import android.util.Rational;
-import androidx.annotation.Nullable;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
@@ -37,6 +36,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

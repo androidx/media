@@ -15,12 +15,12 @@
  */
 package androidx.media3.transformer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.transformer.Composition.HdrMode;
 import java.util.Objects;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A test only class for holding the details of what fallbacks were applied during a test export.

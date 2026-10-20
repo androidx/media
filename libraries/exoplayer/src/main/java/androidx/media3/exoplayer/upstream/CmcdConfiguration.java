@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -31,6 +30,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Represents a configuration for the Common Media Client Data (CMCD) logging. */
 @UnstableApi
@@ -129,8 +129,7 @@ public final class CmcdConfiguration {
      * @param mediaItem The {@link MediaItem} from which to create the CMCD configuration.
      * @return A {@link CmcdConfiguration} instance, or {@code null} to disable CMCD logging.
      */
-    @Nullable
-    CmcdConfiguration createCmcdConfiguration(MediaItem mediaItem);
+    @Nullable CmcdConfiguration createCmcdConfiguration(MediaItem mediaItem);
 
     /**
      * The default factory implementation.

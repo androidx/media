@@ -18,7 +18,6 @@ package androidx.media3.test.utils.robolectric;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.createRobolectricConditionVariable;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.ConditionVariable;
@@ -27,6 +26,7 @@ import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.exoplayer.offline.Downloader;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link Downloader}. */
 @UnstableApi

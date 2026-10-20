@@ -32,7 +32,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -46,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link GlShaderProgram} that renders to a {@link SurfaceView} provided by {@link
@@ -162,8 +162,7 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
       outputWidth = inputWidth;
       outputHeight = inputHeight;
     }
-    @Nullable
-    SurfaceView debugSurfaceView =
+    @Nullable SurfaceView debugSurfaceView =
         debugViewProvider.getDebugPreviewSurfaceView(outputWidth, outputHeight);
     if (debugSurfaceView != null && !Objects.equals(this.debugSurfaceView, debugSurfaceView)) {
       debugSurfaceViewWrapper =
