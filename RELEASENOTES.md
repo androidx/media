@@ -54,6 +54,9 @@
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap
         and horizontal text subtitle cues.
+    *   Add `SubtitleView.setTextDirectionHeuristic` to allow customizing the
+        text direction heuristic used for bidirectional subtitle text wrapping
+        ([#3454](https://github.com/androidx/media/issues/3454)).
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

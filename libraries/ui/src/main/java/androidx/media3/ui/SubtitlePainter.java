@@ -31,6 +31,7 @@ import android.text.Layout.Alignment;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.StaticLayout;
+import android.text.TextDirectionHeuristic;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.AbsoluteSizeSpan;
@@ -84,6 +85,7 @@ import org.jspecify.annotations.Nullable;
   private float defaultTextSizePx;
   private float cueTextSizePx;
   private float bottomPaddingFraction;
+  @Nullable private TextDirectionHeuristic textDirectionHeuristic;
   private int parentLeft;
   private int parentTop;
   private int parentRight;
@@ -139,6 +141,8 @@ import org.jspecify.annotations.Nullable;
    * @param cueTextSizePx The embedded text size of this cue, in pixels.
    * @param bottomPaddingFraction The bottom padding fraction to apply when {@link Cue#line} is
    *     {@link Cue#DIMEN_UNSET}, as a fraction of the viewport height
+   * @param textDirectionHeuristic The {@link TextDirectionHeuristic} to use when wrapping
+   *     bidirectional text.
    * @param canvas The canvas into which to draw.
    * @param cueBoxLeft The left position of the enclosing cue box.
    * @param cueBoxTop The top position of the enclosing cue box.
@@ -151,6 +155,7 @@ import org.jspecify.annotations.Nullable;
       float defaultTextSizePx,
       float cueTextSizePx,
       float bottomPaddingFraction,
+      TextDirectionHeuristic textDirectionHeuristic,
       Canvas canvas,
       int cueBoxLeft,
       int cueBoxTop,
@@ -184,6 +189,7 @@ import org.jspecify.annotations.Nullable;
         && this.defaultTextSizePx == defaultTextSizePx
         && this.cueTextSizePx == cueTextSizePx
         && this.bottomPaddingFraction == bottomPaddingFraction
+        && Objects.equals(this.textDirectionHeuristic, textDirectionHeuristic)
         && this.parentLeft == cueBoxLeft
         && this.parentTop == cueBoxTop
         && this.parentRight == cueBoxRight
@@ -193,7 +199,7 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    this.cueText = BidiUtils.containsRtl(cue.text) ? BidiUtils.wrapText(cue.text) : cue.text;
+    this.cueText = cue.text;
     this.cueTextAlignment = cue.textAlignment;
     this.cueBitmap = cue.bitmap;
     this.cueLine = cue.line;
@@ -212,6 +218,7 @@ import org.jspecify.annotations.Nullable;
     this.defaultTextSizePx = defaultTextSizePx;
     this.cueTextSizePx = cueTextSizePx;
     this.bottomPaddingFraction = bottomPaddingFraction;
+    this.textDirectionHeuristic = textDirectionHeuristic;
     this.parentLeft = cueBoxLeft;
     this.parentTop = cueBoxTop;
     this.parentRight = cueBoxRight;
@@ -227,12 +234,18 @@ import org.jspecify.annotations.Nullable;
     drawLayout(canvas, isTextCue);
   }
 
-  @RequiresNonNull("cueText")
+  @RequiresNonNull({"cueText", "textDirectionHeuristic"})
   private void setupTextLayout() {
+    CharSequence cueTextInput = this.cueText;
+    TextDirectionHeuristic textDirectionHeuristic = this.textDirectionHeuristic;
+    CharSequence wrappedText =
+        BidiUtils.containsRtl(cueTextInput)
+            ? BidiUtils.wrapText(cueTextInput, textDirectionHeuristic)
+            : cueTextInput;
     SpannableStringBuilder cueText =
-        this.cueText instanceof SpannableStringBuilder
-            ? (SpannableStringBuilder) this.cueText
-            : new SpannableStringBuilder(this.cueText);
+        wrappedText instanceof SpannableStringBuilder
+            ? (SpannableStringBuilder) wrappedText
+            : new SpannableStringBuilder(wrappedText);
     int parentWidth = parentRight - parentLeft;
     int parentHeight = parentBottom - parentTop;
 

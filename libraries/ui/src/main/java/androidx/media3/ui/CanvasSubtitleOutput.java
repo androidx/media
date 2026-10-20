@@ -20,6 +20,8 @@ import static androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.text.TextDirectionHeuristic;
+import android.text.TextDirectionHeuristics;
 import android.util.AttributeSet;
 import android.view.View;
 import androidx.media3.common.text.Cue;
@@ -43,6 +45,7 @@ import org.jspecify.annotations.Nullable;
   private float textSize;
   private SubtitleStyle style;
   private float bottomPaddingFraction;
+  private TextDirectionHeuristic textDirectionHeuristic;
 
   public CanvasSubtitleOutput(Context context) {
     this(context, /* attrs= */ null);
@@ -56,6 +59,7 @@ import org.jspecify.annotations.Nullable;
     textSize = DEFAULT_TEXT_SIZE_FRACTION;
     style = SubtitleStyle.DEFAULT;
     bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
+    textDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR;
   }
 
   @Override
@@ -64,12 +68,14 @@ import org.jspecify.annotations.Nullable;
       SubtitleStyle style,
       float textSize,
       @Cue.TextSizeType int textSizeType,
-      float bottomPaddingFraction) {
+      float bottomPaddingFraction,
+      TextDirectionHeuristic textDirectionHeuristic) {
     this.cues = cues;
     this.style = style;
     this.textSize = textSize;
     this.textSizeType = textSizeType;
     this.bottomPaddingFraction = bottomPaddingFraction;
+    this.textDirectionHeuristic = textDirectionHeuristic;
     // Ensure we have sufficient painters.
     while (painters.size() < cues.size()) {
       painters.add(new SubtitlePainter(getContext()));
@@ -121,6 +127,7 @@ import org.jspecify.annotations.Nullable;
           defaultViewTextSizePx,
           cueTextSizePx,
           bottomPaddingFraction,
+          textDirectionHeuristic,
           canvas,
           left,
           top,
