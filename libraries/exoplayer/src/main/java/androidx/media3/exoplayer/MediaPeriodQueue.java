@@ -805,7 +805,8 @@ import org.jspecify.annotations.Nullable;
    */
   public MediaPeriodId resolveMediaPeriodIdForAds(
       Timeline timeline, Object periodUid, long positionUs) {
-    long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumber(timeline, periodUid);
+    long windowSequenceNumber =
+        resolvePeriodUidToWindowSequenceNumber(timeline, periodUid, /* currentPeriodId= */ null);
     return resolveMediaPeriodIdForAds(
         timeline, periodUid, positionUs, windowSequenceNumber, window, period);
   }
@@ -892,7 +893,8 @@ import org.jspecify.annotations.Nullable;
       long positionUs,
       boolean enforceAdPlayback,
       boolean transitionsFromPlaceholderPeriod) {
-    long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumber(timeline, periodUid);
+    long windowSequenceNumber =
+        resolvePeriodUidToWindowSequenceNumber(timeline, periodUid, playbackInfo.periodId);
     Object periodUidToPlay = periodUid;
     if (!enforceAdPlayback && !transitionsFromPlaceholderPeriod) {
       MediaPeriodId oldPeriodId = playbackInfo.periodId;
@@ -969,9 +971,12 @@ import org.jspecify.annotations.Nullable;
    *
    * @param timeline The timeline the period is part of.
    * @param periodUid The uid of the timeline period.
+   * @param currentPeriodId The current {@link PlaybackInfo#periodId}, or {@code null} if not
+   *     available.
    * @return A window sequence number for a media period created for this timeline period.
    */
-  private long resolvePeriodUidToWindowSequenceNumber(Timeline timeline, Object periodUid) {
+  private long resolvePeriodUidToWindowSequenceNumber(
+      Timeline timeline, Object periodUid, @Nullable MediaPeriodId currentPeriodId) {
     int windowIndex = timeline.getPeriodByUid(periodUid, period).windowIndex;
     if (oldFrontPeriodUid != null) {
       int oldFrontPeriodIndex = timeline.getIndexOfPeriod(oldFrontPeriodUid);
@@ -1002,6 +1007,19 @@ import org.jspecify.annotations.Nullable;
         }
       }
       mediaPeriodHolder = mediaPeriodHolder.getNext();
+    }
+    if (playing == null
+        && currentPeriodId != null
+        && currentPeriodId.windowSequenceNumber != C.INDEX_UNSET) {
+      int currentPeriodIndex = timeline.getIndexOfPeriod(currentPeriodId.periodUid);
+      if (currentPeriodIndex != C.INDEX_UNSET) {
+        int currentWindowIndex = timeline.getPeriod(currentPeriodIndex, period).windowIndex;
+        if (currentWindowIndex == windowIndex) {
+          // If the queue is empty after a seek or reset before the new period has been enqueued,
+          // reuse the window sequence number already assigned to the current period id.
+          return currentPeriodId.windowSequenceNumber;
+        }
+      }
     }
 
     long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumberInPreloadPeriods(periodUid);
