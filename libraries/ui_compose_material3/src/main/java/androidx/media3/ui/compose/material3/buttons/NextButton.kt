@@ -39,6 +39,9 @@ import androidx.media3.ui.compose.state.NextButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks to the next media
  * item.
  *
+ * ![NextButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/next-button.svg)
+ *
  * When clicked, it attempts to advance the [player] to the next media item in its current playlist.
  * The button's state (e.g., whether it's enabled) is managed by a [NextButtonState] instance
  * derived from the provided [player].

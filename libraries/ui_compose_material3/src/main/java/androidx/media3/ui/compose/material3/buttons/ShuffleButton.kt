@@ -39,6 +39,9 @@ import androidx.media3.ui.compose.state.ShuffleButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that toggles the shuffle mode of
  * the player.
  *
+ * ![ShuffleButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/shuffle-button.svg)
+ *
  * When clicked, it enables or disables the player's shuffle mode. The button's state (e.g., whether
  * it's enabled and the shuffle icon) is managed by a [ShuffleButtonState] instance derived from the
  * provided [player].

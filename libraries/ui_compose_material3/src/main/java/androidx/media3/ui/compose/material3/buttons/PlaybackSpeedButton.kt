@@ -32,6 +32,9 @@ import androidx.media3.ui.compose.material3.R
 /**
  * A Material3 [TextButton] that toggles the playback speed of the player.
  *
+ * ![PlaybackSpeedToggleButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/playback-speed-toggle-button.svg)
+ *
  * When clicked, it cycles through the available playback speeds in the order defined by
  * [speedSelection]. If the current playback speed is not among the ones in the list, a click will
  * toggle the speed to the next value that is greater than the current speed. If all speeds in

@@ -61,6 +61,9 @@ object LiveButtonDefaults {
  * position is available. It indicates whether the playback is at the live edge and seeks to the
  * default position (typically the live edge) when clicked while behind the live edge.
  *
+ * ![LiveButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/live-button.svg)
+ *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
  * @param liveEdgeThresholdMs How far behind the target live offset, in milliseconds, playback can

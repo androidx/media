@@ -79,6 +79,9 @@ object PlayerDefaults {
   /**
    * A Material3 horizontal layout with controls typically found at the top of the player interface.
    *
+   * ![PlayerDefaults.TopControls
+   * layout](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/player-defaults-top-controls.svg)
+   *
    * This component acts as a visibility wrapper and provides a flexible [Box]-based structure.
    * Because it executes the content within a [BoxScope], you can easily align individual elements
    * to specific corners (e.g., [Alignment.TopEnd] or [Alignment.TopStart]). By default, the
@@ -108,15 +111,10 @@ object PlayerDefaults {
    *
    * This component provides a flexible slot-based structure for the center player controls. The
    * layout is organized as a centered row of buttons:
-   * ```
-   * +---------------------------------------------------------------+
-   * |                                                               |
-   * | +-------------+--------+---------+---------+----------------+ |
-   * | |backSecondary|  back  | central | forward |forwardSecondary| |
-   * | +-------------+--------+---------+---------+----------------+ |
-   * |                                                               |
-   * +---------------------------------------------------------------+
-   * ```
+   *
+   * ![PlayerDefaults.CenterControls layout with the backSecondary, back, central, forward, and
+   * forwardSecondary
+   * slots](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/player-defaults-center-controls.svg)
    *
    * By default, it displays a [PreviousButton], [SeekBackButton], [PlayPauseButton],
    * [SeekForwardButton], and [NextButton] in that order. The central play/pause button is slightly
@@ -177,15 +175,10 @@ object PlayerDefaults {
    *
    * This component provides a flexible slot-based structure for building player controls. The
    * layout is organised as follows:
-   * ```
-   * +-------------------------------------------------+
-   * |                      above                      |
-   * +-------+---------------------------------+-------+
-   * | left  |         progressSlider          | right |
-   * +-------+---------------------------------+-------+
-   * |                      below                      |
-   * +-------------------------------------------------+
-   * ```
+   *
+   * ![PlayerDefaults.BottomControls layout with the above slot, then the left, progressSlider, and
+   * right slots, then the below
+   * slot](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/player-defaults-bottom-controls.svg)
    *
    * By default, this layout provides a [ProgressSlider] in the center. To its left, it displays the
    * current media position using [PositionText], and to its right, it displays the total media
@@ -239,6 +232,9 @@ object PlayerDefaults {
 
   /**
    * A Composable for displaying an error message overlay on top of the player.
+   *
+   * ![PlayerDefaults.ErrorOverlay
+   * layout](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/player-defaults-error-overlay.svg)
    *
    * @param player The [Player] instance to observe for errors.
    * @param modifier The [Modifier] to be applied to the layout.

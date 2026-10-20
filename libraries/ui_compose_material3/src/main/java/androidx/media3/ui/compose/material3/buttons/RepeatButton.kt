@@ -39,6 +39,9 @@ import androidx.media3.ui.compose.state.RepeatButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that toggles the repeat mode of
  * the player.
  *
+ * ![RepeatButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/repeat-button.svg)
+ *
  * When clicked, it cycles through the available repeat modes in the order defined by
  * [toggleModeSequence]. The button's state (e.g., whether it's enabled and the current repeat mode
  * icon) is managed by a [RepeatButtonState] instance derived from the provided [player].

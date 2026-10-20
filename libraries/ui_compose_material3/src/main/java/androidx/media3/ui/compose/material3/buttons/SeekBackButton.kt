@@ -40,6 +40,9 @@ import androidx.media3.ui.compose.state.SeekBackButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks back in the current
  * media item.
  *
+ * ![SeekBackButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/seek-back-button.svg)
+ *
  * When clicked, it attempts to seek back in the [player] by the amount returned by
  * [Player.getSeekBackIncrement]. The button's state (e.g., whether it's enabled) is managed by a
  * [SeekBackButtonState] instance derived from the provided [player].
