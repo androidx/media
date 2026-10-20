@@ -57,6 +57,10 @@
     *   Add `SubtitleView.setTextDirectionHeuristic` to allow customizing the
         text direction heuristic used for bidirectional subtitle text wrapping
         ([#3454](https://github.com/androidx/media/issues/3454)).
+    *   Animate all control slots in `Player` in `media3-ui-compose-material3`,
+        including custom ones, and remove the `visible` parameter from
+        `PlayerDefaults.TopControls`, `CenterControls` and `BottomControls`.
+        This is a breaking change on an unstable API.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

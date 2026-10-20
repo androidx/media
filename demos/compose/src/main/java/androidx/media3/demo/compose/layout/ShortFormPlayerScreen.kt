@@ -103,12 +103,14 @@ internal fun ShortFormPlayerScreen(
 
     Player(
       player = player,
-      showControls = false,
       contentScale = ContentScale.Crop,
       modifier = Modifier.fillMaxSize().noRippleClickable(playPauseButtonState::onClick),
+      showControls = true,
+      topControls = null,
       centerControls = {
         BufferingIndicator(player = player, displayMode = SHOW_BUFFERING_WHEN_PLAYING)
       },
+      bottomControls = null,
     )
   }
 }

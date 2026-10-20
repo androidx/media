@@ -16,9 +16,6 @@
 
 package androidx.media3.ui.compose.material3
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +53,8 @@ import androidx.media3.ui.compose.material3.text.rememberDefaultErrorMessageProv
  * Contains the default values used by [Player].
  *
  * This object provides the standard Material3 components that make up the default player interface,
- * including structural layouts like [TopControls], [CenterControls], and [BottomControls].
+ * including structural layouts like [TopControls], [CenterControls], and [BottomControls]. [Player]
+ * shows and hides these layouts.
  *
  * The components have opinionated styling properties to maintain a consistent aesthetic when
  * building custom controls or overriding specific slots within the provided layouts.
@@ -82,13 +80,11 @@ object PlayerDefaults {
    * ![PlayerDefaults.TopControls
    * layout](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/player-defaults-top-controls.svg)
    *
-   * This component acts as a visibility wrapper and provides a flexible [Box]-based structure.
-   * Because it executes the content within a [BoxScope], you can easily align individual elements
-   * to specific corners (e.g., [Alignment.TopEnd] or [Alignment.TopStart]). By default, the
-   * [content] is empty.
+   * This component provides a flexible [Box]-based structure. Because it executes the content
+   * within a [BoxScope], you can easily align individual elements to specific corners (e.g.,
+   * [Alignment.TopEnd] or [Alignment.TopStart]). By default, the [content] is empty.
    *
    * @param player The [Player] to control.
-   * @param visible Whether the controls should be visible.
    * @param modifier The [Modifier] to be applied to the container.
    * @param content The content of the top controls.
    */
@@ -96,13 +92,10 @@ object PlayerDefaults {
   fun TopControls(
     // TODO: b/490652467 - Unused until the default content includes a CC button that needs it.
     player: Player?,
-    visible: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit = {},
   ) {
-    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-      Box(modifier) { content() }
-    }
+    Box(modifier) { content() }
   }
 
   /**
@@ -121,8 +114,6 @@ object PlayerDefaults {
    * larger than the others.
    *
    * @param player The [Player] to control.
-   * @param visible Whether the layout should be visible. When `true`, a fade in-and-out animation
-   *   is used.
    * @param modifier The [Modifier] to be applied to the container.
    * @param horizontalArrangement The horizontal arrangement of the layout's children.
    * @param verticalAlignment The vertical alignment of the layout's children.
@@ -135,7 +126,6 @@ object PlayerDefaults {
   @Composable
   fun CenterControls(
     player: Player?,
-    visible: Boolean,
     modifier: Modifier = Modifier,
     horizontalArrangement: Arrangement.Horizontal =
       Arrangement.spacedBy(PlayerTokens.CenterControlsSpacing, Alignment.CenterHorizontally),
@@ -154,18 +144,16 @@ object PlayerDefaults {
       NextButton(player, modifier = mediumButtonModifier)
     },
   ) {
-    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-      Row(
-        modifier = modifier,
-        horizontalArrangement = horizontalArrangement,
-        verticalAlignment = verticalAlignment,
-      ) {
-        backSecondary()
-        back()
-        central()
-        forward()
-        forwardSecondary()
-      }
+    Row(
+      modifier = modifier,
+      horizontalArrangement = horizontalArrangement,
+      verticalAlignment = verticalAlignment,
+    ) {
+      backSecondary()
+      back()
+      central()
+      forward()
+      forwardSecondary()
     }
   }
 
@@ -185,8 +173,6 @@ object PlayerDefaults {
    * duration using [DurationText]. The [above] and [below] slots are empty by default.
    *
    * @param player The [Player] to control.
-   * @param visible Whether the layout should be visible. When `true`, a fade in-and-out animation
-   *   is used.
    * @param modifier The [Modifier] to be applied to the column container.
    * @param above Slot for content positioned above the slider.
    * @param left Slot for content positioned to the left of the slider. Defaults to [PositionText]
@@ -200,7 +186,6 @@ object PlayerDefaults {
   @Composable
   fun BottomControls(
     player: Player?,
-    visible: Boolean,
     modifier: Modifier = Modifier,
     above: @Composable ColumnScope.() -> Unit = {},
     left: @Composable () -> Unit = {
@@ -212,21 +197,18 @@ object PlayerDefaults {
     below: @Composable ColumnScope.() -> Unit = {},
     progressSlider: @Composable () -> Unit = { ProgressSlider(player) },
   ) {
-    AnimatedVisibility(
-      visible = visible,
-      modifier = Modifier.background(brush = PlayerTokens.bottomControlsGradient),
-      enter = fadeIn(),
-      exit = fadeOut(),
+    Column(
+      Modifier.background(brush = PlayerTokens.bottomControlsGradient)
+        .then(modifier)
+        .padding(horizontal = PlayerTokens.ControlsHorizontalPadding)
     ) {
-      Column(modifier.padding(horizontal = PlayerTokens.ControlsHorizontalPadding)) {
-        above()
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          left()
-          Box(modifier = Modifier.weight(1f)) { progressSlider() }
-          right()
-        }
-        below()
+      above()
+      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        left()
+        Box(modifier = Modifier.weight(1f)) { progressSlider() }
+        right()
       }
+      below()
     }
   }
 
