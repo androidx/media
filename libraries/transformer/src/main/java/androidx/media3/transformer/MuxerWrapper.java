@@ -49,6 +49,7 @@ import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -741,17 +742,22 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     isReady = false;
-    if (muxer != null) {
-      if (muxer instanceof FrameworkMuxer && releaseReason == MUXER_RELEASE_REASON_CANCELLED) {
-        ((FrameworkMuxer) muxer).setSuppressReleaseException();
+    try {
+      if (muxer != null) {
+        if (muxer instanceof FrameworkMuxer && releaseReason == MUXER_RELEASE_REASON_CANCELLED) {
+          ((FrameworkMuxer) muxer).setSuppressReleaseException();
+        }
+        muxer.close();
       }
-      muxer.close();
-    } else if (parcelFileDescriptor != null) {
-      Util.closeQuietly(parcelFileDescriptor);
-    }
-    if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
-      // Make sure to only read the output file size after the muxer and underlying file are closed.
-      listener.onFileSizeBytesAvailable(getCurrentOutputSizeBytes());
+      if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
+        // Make sure to only read the output file size after the muxer is closed so all data is
+        // flushed.
+        listener.onFileSizeBytesAvailable(getCurrentOutputSizeBytes());
+      }
+    } finally {
+      if (parcelFileDescriptor != null) {
+        Util.closeQuietly(parcelFileDescriptor);
+      }
     }
   }
 
@@ -798,7 +804,12 @@ import org.jspecify.annotations.Nullable;
   private void ensureMuxerInitialized() throws MuxerException {
     if (muxer == null) {
       if (parcelFileDescriptor != null) {
-        muxer = muxerFactory.create(parcelFileDescriptor);
+        try {
+          // The Muxer takes ownership of and closes the duplicated descriptor in muxer.close().
+          muxer = muxerFactory.create(parcelFileDescriptor.dup());
+        } catch (IOException e) {
+          throw new MuxerException("Error duplicating ParcelFileDescriptor", e);
+        }
       } else if (outputPath != null) {
         muxer = muxerFactory.create(outputPath);
       } else {
@@ -812,6 +823,9 @@ import org.jspecify.annotations.Nullable;
   private long getCurrentOutputSizeBytes() {
     if (outputPath != null) {
       long fileSize = new File(outputPath).length();
+      return fileSize > 0 ? fileSize : C.LENGTH_UNSET;
+    } else if (parcelFileDescriptor != null) {
+      long fileSize = parcelFileDescriptor.getStatSize();
       return fileSize > 0 ? fileSize : C.LENGTH_UNSET;
     }
     return C.LENGTH_UNSET;
