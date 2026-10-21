@@ -33,12 +33,6 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.AdditionalAnswers.delegatesTo
-import org.mockito.ArgumentMatchers.any
-import org.mockito.ArgumentMatchers.anyBoolean
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.never
-import org.mockito.Mockito.verify
 
 /**
  * Unit tests for [MotionPhotoState], [MotionPhotoConfig], [MotionPhotoState.VisualState], and
@@ -63,10 +57,7 @@ class MotionPhotoStateTest {
   @Test
   fun rememberMotionPhotoState_withPlayer_replacesPlaylistAndPreparesAndPauses() =
     runComposeUiTest {
-      // TODO(b/573079830): Update FakePlayer.handleSetMediaItems so it generates unique playlist
-      // UIDs for items that share the default empty mediaId, then remove this explicit mediaId.
-      val secondMediaItem =
-        MediaItem.Builder().setMediaId("other_video").setUri("file:///other_video.mp4").build()
+      val secondMediaItem = MediaItem.fromUri("file:///other_video.mp4")
       val player = FakePlayer(bufferingDelayMs = 0, playWhenReady = true)
       player.setMediaItems(listOf(testMediaItem, secondMediaItem))
 
@@ -102,19 +93,17 @@ class MotionPhotoStateTest {
   fun rememberMotionPhotoState_withoutSetMediaItemAndPlayPauseCommands_keepsPlaylistAndPlayState() =
     runComposeUiTest {
       val existingMediaItem = MediaItem.fromUri("file:///existing_video.mp4")
-      val player = FakePlayer(bufferingDelayMs = 0, playWhenReady = false)
+      val player =
+        FakePlayer(bufferingDelayMs = 0, playWhenReady = false, throwWhenCommandUnavailable = true)
       player.setMediaItem(existingMediaItem)
       player.prepare()
       player.removeCommands(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_PLAY_PAUSE)
-      // TODO(b/573079830): Add a strict command verification mode to FakePlayer/SimpleBasePlayer
-      // that throws when unavailable commands are invoked, then remove this Mockito spy wrapper.
-      val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
       lateinit var state: MotionPhotoState
 
       setContent {
         state =
           rememberMotionPhotoState(
-            player = spyPlayer,
+            player = player,
             mediaItem = testMediaItem,
             initialShowPhoto = false,
           )
@@ -131,11 +120,6 @@ class MotionPhotoStateTest {
       state.showPhoto = false
       waitForIdle()
       assertThat(player.playWhenReady).isFalse()
-
-      verify(spyPlayer, never()).setMediaItem(any())
-      verify(spyPlayer, never()).playWhenReady = anyBoolean()
-      verify(spyPlayer, never()).play()
-      verify(spyPlayer, never()).pause()
     }
 
   @Test
