@@ -27,7 +27,6 @@ import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,7 +34,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -71,6 +69,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** {@link DashHostedTest} builder. */
 /* package */ final class DashTestRunner {
@@ -491,7 +490,7 @@ import java.util.List;
 
     @Override
     protected void selectAllTracks(
-        ExoTrackSelection.@NullableType Definition[] definitions,
+        ExoTrackSelection.@Nullable Definition[] definitions,
         MappedTrackInfo mappedTrackInfo,
         int[][][] rendererFormatSupports,
         int[] rendererMixedMimeTypeAdaptationSupports,

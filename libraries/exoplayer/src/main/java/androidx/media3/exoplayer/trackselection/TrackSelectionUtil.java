@@ -16,11 +16,9 @@
 package androidx.media3.exoplayer.trackselection;
 
 import android.graphics.Point;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.RendererCapabilities;
@@ -30,6 +28,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection.Definition;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Track selection related utility methods. */
 @UnstableApi
@@ -59,8 +58,8 @@ public final class TrackSelectionUtil {
    * @return The array of created track selection. For null entries in {@code definitions} returns
    *     null values.
    */
-  public static @NullableType ExoTrackSelection[] createTrackSelectionsForDefinitions(
-      @NullableType Definition[] definitions,
+  public static @Nullable ExoTrackSelection[] createTrackSelectionsForDefinitions(
+      @Nullable Definition[] definitions,
       AdaptiveTrackSelectionFactory adaptiveTrackSelectionFactory) {
     ExoTrackSelection[] selections = new ExoTrackSelection[definitions.length];
     boolean createdAdaptiveTrackSelection = false;
@@ -114,8 +113,7 @@ public final class TrackSelectionUtil {
    */
   @SuppressWarnings({"unchecked", "rawtypes"}) // Initialization of array of Lists.
   public static Tracks buildTracks(
-      MappingTrackSelector.MappedTrackInfo mappedTrackInfo,
-      @NullableType TrackSelection[] selections) {
+      MappingTrackSelector.MappedTrackInfo mappedTrackInfo, @Nullable TrackSelection[] selections) {
     List<? extends TrackSelection>[] listSelections = new List[selections.length];
     for (int i = 0; i < selections.length; i++) {
       @Nullable TrackSelection selection = selections[i];

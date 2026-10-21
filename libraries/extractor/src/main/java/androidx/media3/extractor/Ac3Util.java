@@ -18,7 +18,6 @@ package androidx.media3.extractor;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility methods for parsing Dolby TrueHD and (E-)AC-3 syncframes. (E-)AC-3 parsing follows the
@@ -70,7 +70,7 @@ public final class Ac3Util {
      * The sample MIME type of the bitstream. One of {@link MimeTypes#AUDIO_AC3} and {@link
      * MimeTypes#AUDIO_E_AC3}.
      */
-    @Nullable public final String mimeType;
+    public final @Nullable String mimeType;
 
     /**
      * The type of the stream if {@link #mimeType} is {@link MimeTypes#AUDIO_E_AC3}, or {@link

@@ -31,7 +31,6 @@ import android.hardware.HardwareBuffer;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -59,6 +58,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 @RequiresApi(26)
@@ -73,7 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Map<HardwareBufferFrame, EglImageTextureWrapper> activeEglImageTextureWrappers;
   private final Map<HardwareBufferFrame, Integer> activeGainmapTextures;
 
-  @Nullable private GlTextureCopier glTextureCopier;
+  private @Nullable GlTextureCopier glTextureCopier;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private final float[] textureTransformMatrix;
 
@@ -246,8 +246,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     }
                   },
                   () -> {
-                    @Nullable
-                    SyncFenceWrapper syncFence = getFirst(GlUtil.createSyncFences(1), null);
+                    @Nullable SyncFenceWrapper syncFence =
+                        getFirst(GlUtil.createSyncFences(1), null);
                     if (syncFence != null) {
                       glReadFence.set(syncFence);
                     } else {
@@ -276,27 +276,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void releaseGlResources(Frame frame) throws VideoFrameProcessingException {
-    checkArgument(
-        frame instanceof HardwareBufferFrame, "Expected HardwareBufferFrame, got: %s", frame);
-    HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
-    Integer activeGainmapTexId = activeGainmapTextures.remove(hardwareBufferFrame);
-    EglImageTextureWrapper wrapper = activeEglImageTextureWrappers.remove(hardwareBufferFrame);
-
-    runAllAndAccumulateExceptions(
-        () -> {
-          if (activeGainmapTexId != null) {
-            GlUtil.deleteTexture(activeGainmapTexId);
-          }
-        },
-        () -> {
-          if (wrapper != null) {
-            releaseEglImageTexture(wrapper, hardwareBufferJniWrapper);
-          }
-        });
-  }
-
-  @Override
   public void close() throws VideoFrameProcessingException {
     List<ThrowingRunnable<?>> actions = new ArrayList<>();
     if (glTextureCopier != null) {
@@ -315,8 +294,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     runAllAndAccumulateExceptions(actions.toArray(new ThrowingRunnable<?>[0]));
   }
 
-  @Nullable
-  private static Object getInternalFrame(HardwareBufferFrame hardwareBufferFrame) {
+  private static @Nullable Object getInternalFrame(HardwareBufferFrame hardwareBufferFrame) {
     if (hardwareBufferFrame instanceof DefaultHardwareBufferFrame) {
       return ((DefaultHardwareBufferFrame) hardwareBufferFrame).getInternalImage();
     }

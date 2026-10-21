@@ -19,7 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link ImageAdapter} that wraps an {@link Image}. */
 /* package */ final class DefaultImageAdapter implements ImageAdapter {
@@ -36,8 +36,7 @@ import androidx.annotation.Nullable;
   }
 
   @Override
-  @Nullable
-  public HardwareBuffer getHardwareBuffer() {
+  public @Nullable HardwareBuffer getHardwareBuffer() {
     if (SDK_INT >= 28) {
       return image.getHardwareBuffer();
     }
@@ -45,8 +44,7 @@ import androidx.annotation.Nullable;
   }
 
   @Override
-  @Nullable
-  public Image getInternalImage() {
+  public @Nullable Image getInternalImage() {
     return image;
   }
 

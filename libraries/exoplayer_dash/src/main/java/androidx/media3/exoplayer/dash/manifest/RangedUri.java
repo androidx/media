@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.dash.manifest;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a range of data located at a reference uri. */
 @UnstableApi
@@ -82,8 +82,7 @@ public final class RangedUri {
    * @param baseUri The base Uri.
    * @return The merged {@link RangedUri} if the merge was successful. Null otherwise.
    */
-  @Nullable
-  public RangedUri attemptMerge(@Nullable RangedUri other, String baseUri) {
+  public @Nullable RangedUri attemptMerge(@Nullable RangedUri other, String baseUri) {
     final String resolvedUri = resolveUriString(baseUri);
     if (other == null || !resolvedUri.equals(other.resolveUriString(baseUri))) {
       return null;

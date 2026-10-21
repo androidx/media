@@ -39,7 +39,6 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -51,6 +50,7 @@ import java.util.Formatter;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArraySet;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A time bar that shows a current position, buffered position, duration and ad markers.
@@ -212,7 +212,7 @@ public class DefaultTimeBar extends View implements TimeBar {
   private final Paint adMarkerPaint;
   private final Paint playedAdMarkerPaint;
   private final Paint scrubberPaint;
-  @Nullable private final Drawable scrubberDrawable;
+  private final @Nullable Drawable scrubberDrawable;
   private final int barHeight;
   private final int touchTargetHeight;
   private final int barGravity;
@@ -243,8 +243,8 @@ public class DefaultTimeBar extends View implements TimeBar {
   private long position;
   private long bufferedPosition;
   private int adGroupCount;
-  @Nullable private long[] adGroupTimesMs;
-  @Nullable private boolean[] playedAdGroups;
+  private long @Nullable [] adGroupTimesMs;
+  private boolean @Nullable [] playedAdGroups;
 
   public DefaultTimeBar(Context context) {
     this(context, null);
@@ -575,7 +575,7 @@ public class DefaultTimeBar extends View implements TimeBar {
 
   @Override
   public void setAdGroupTimesMs(
-      @Nullable long[] adGroupTimesMs, @Nullable boolean[] playedAdGroups, int adGroupCount) {
+      long @Nullable [] adGroupTimesMs, boolean @Nullable [] playedAdGroups, int adGroupCount) {
     checkArgument(adGroupCount == 0 || (adGroupTimesMs != null && playedAdGroups != null));
     this.adGroupCount = adGroupCount;
     this.adGroupTimesMs = adGroupTimesMs;

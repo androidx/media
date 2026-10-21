@@ -37,7 +37,6 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
@@ -71,6 +70,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -504,8 +504,7 @@ public class EffectPlaybackPixelTest {
     }
   }
 
-  @Nullable
-  private static MediaCodecVideoRenderer findVideoRenderer(ExoPlayer player) {
+  private static @Nullable MediaCodecVideoRenderer findVideoRenderer(ExoPlayer player) {
     for (int i = 0; i < player.getRendererCount(); i++) {
       if (player.getRendererType(i) == C.TRACK_TYPE_VIDEO) {
         Renderer renderer = player.getRenderer(i);

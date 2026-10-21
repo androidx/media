@@ -22,7 +22,6 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -51,6 +50,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A helper for pre-caching a single media. */
 @UnstableApi
@@ -121,7 +121,7 @@ public final class PreCacheHelper {
     private final RenderersFactory renderersFactory;
     private TrackSelectionParameters trackSelectionParameters;
     private Executor downloadExecutor;
-    @Nullable private Listener listener;
+    private @Nullable Listener listener;
 
     /**
      * Creates a {@link Factory}.
@@ -282,17 +282,17 @@ public final class PreCacheHelper {
 
   private final MediaItem mediaItem;
 
-  @Nullable private final MediaSource.Factory testMediaSourceFactory;
+  private final MediaSource.@Nullable Factory testMediaSourceFactory;
   private final DownloadHelper.Factory downloadHelperFactory;
   private final DownloaderFactory downloaderFactory;
-  @Nullable private final Listener listener;
+  private final @Nullable Listener listener;
   private final Handler preCacheHandler;
   private final Handler applicationHandler;
-  @Nullable private DownloadCallback currentDownloadCallback;
+  private @Nullable DownloadCallback currentDownloadCallback;
 
   /* package */ PreCacheHelper(
       MediaItem mediaItem,
-      @Nullable MediaSource.Factory testMediaSourceFactory,
+      MediaSource.@Nullable Factory testMediaSourceFactory,
       DownloadHelper.Factory downloadHelperFactory,
       DownloaderFactory downloaderFactory,
       Looper preCacheLooper,
@@ -434,13 +434,13 @@ public final class PreCacheHelper {
     private final Object lock;
     private final long startPositionMs;
     private final long durationMs;
-    @Nullable private final ReleasableExecutorSupplier releasableExecutorSupplier;
+    private final @Nullable ReleasableExecutorSupplier releasableExecutorSupplier;
     private final DownloadHelper downloadHelper;
 
     private boolean isPreparationOngoing;
-    @Nullable private DownloadRequest pendingDownloadRequest;
-    @Nullable private Downloader downloader;
-    @Nullable private Task downloaderTask;
+    private @Nullable DownloadRequest pendingDownloadRequest;
+    private @Nullable Downloader downloader;
+    private @Nullable Task downloaderTask;
 
     @GuardedBy("lock")
     private boolean isCanceled;
@@ -595,9 +595,9 @@ public final class PreCacheHelper {
     private final boolean isRemove;
     private final int minRetryCount;
 
-    @Nullable private DownloadCallback downloadCallback;
+    private @Nullable DownloadCallback downloadCallback;
     private volatile boolean isCanceled;
-    @Nullable private volatile IOException finalException;
+    private volatile @Nullable IOException finalException;
     private volatile long contentLength;
     private volatile long bytesDownloaded;
     private volatile float percentDownloaded;

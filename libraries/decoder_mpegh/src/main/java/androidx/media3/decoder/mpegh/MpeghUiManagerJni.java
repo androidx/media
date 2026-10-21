@@ -15,9 +15,9 @@
  */
 package androidx.media3.decoder.mpegh;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** JNI wrapper for the libmpegh MPEG-H UI manager. */
 @UnstableApi

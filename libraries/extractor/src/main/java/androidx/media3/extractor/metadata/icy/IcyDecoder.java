@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
@@ -27,6 +26,7 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes ICY stream information. */
 @UnstableApi
@@ -81,8 +81,7 @@ public final class IcyDecoder extends SimpleMetadataDecoder {
   // The ICY spec doesn't specify a character encoding, and there's no way to communicate one
   // either. So try decoding UTF-8 first, then fall back to ISO-8859-1.
   // https://github.com/google/ExoPlayer/issues/6753
-  @Nullable
-  private String decodeToString(ByteBuffer data) {
+  private @Nullable String decodeToString(ByteBuffer data) {
     try {
       return utf8Decoder.decode(data).toString();
     } catch (CharacterCodingException e) {

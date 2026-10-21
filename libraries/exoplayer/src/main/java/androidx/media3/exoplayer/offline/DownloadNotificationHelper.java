@@ -22,19 +22,19 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.R;
 import androidx.media3.exoplayer.scheduler.Requirements;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Helper for creating download notifications. */
 @UnstableApi
 public final class DownloadNotificationHelper {
 
-  private static final @StringRes int NULL_STRING_ID = 0;
+  @StringRes private static final int NULL_STRING_ID = 0;
 
   private final Notification.Builder notificationBuilder;
 

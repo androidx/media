@@ -15,11 +15,11 @@
  */
 package androidx.media3.common.video;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** Consumes {@linkplain List<AsyncFrame> frames}, and outputs to a {@link FrameWriter}. */
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.

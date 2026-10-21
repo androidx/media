@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.source;
 
 import android.net.Uri;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +24,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 
 /** {@link MediaSource} load event information. */
 @UnstableApi
@@ -36,7 +36,7 @@ public final class LoadEventInfo {
     private DataSpec dataSpec;
     private long elapsedRealtimeMs;
     private Uri uri;
-    @Nullable private String steeredPathwayId;
+    private @Nullable String steeredPathwayId;
     private Map<String, List<String>> responseHeaders;
     private long loadDurationMs;
     private long bytesLoaded;
@@ -204,7 +204,7 @@ public final class LoadEventInfo {
    * The ID of the steered pathway from which data is being loaded, or {@code null} if not
    * applicable.
    */
-  @Nullable public final String steeredPathwayId;
+  public final @Nullable String steeredPathwayId;
 
   /** The response headers associated with the load, or an empty map if unavailable. */
   public final Map<String, List<String>> responseHeaders;

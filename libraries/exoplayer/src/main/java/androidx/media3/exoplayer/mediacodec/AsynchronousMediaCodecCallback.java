@@ -24,12 +24,12 @@ import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.CircularIntArray;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaCodec.Callback} that routes callbacks on a separate thread. */
 /* package */ final class AsynchronousMediaCodecCallback extends MediaCodec.Callback {
@@ -51,20 +51,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final ArrayDeque<MediaFormat> formats;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaFormat currentFormat;
+  private @Nullable MediaFormat currentFormat;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaFormat pendingOutputFormat;
+  private @Nullable MediaFormat pendingOutputFormat;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaCodec.CodecException mediaCodecException;
+  private MediaCodec.@Nullable CodecException mediaCodecException;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaCodec.CryptoException mediaCodecCryptoException;
+  private MediaCodec.@Nullable CryptoException mediaCodecCryptoException;
 
   @GuardedBy("lock")
   private long pendingFlushCount;
@@ -73,12 +69,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean shutDown;
 
   @GuardedBy("lock")
-  @Nullable
-  private IllegalStateException internalException;
+  private @Nullable IllegalStateException internalException;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaCodecAdapter.OnBufferAvailableListener onBufferAvailableListener;
+  private MediaCodecAdapter.@Nullable OnBufferAvailableListener onBufferAvailableListener;
 
   /**
    * Creates a new instance.

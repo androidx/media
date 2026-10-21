@@ -18,7 +18,6 @@ package androidx.media3.extractor.mp3;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
@@ -26,6 +25,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Representation of the ReplayGain data stored in a LAME Xing or Info frame. */
 @UnstableApi
@@ -142,8 +142,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
      */
     // Lint incorrectly thinks we're doing bitwise flag manipulation.
     @SuppressWarnings("WrongConstant")
-    @Nullable
-    private static GainField parse(int field) {
+    private static @Nullable GainField parse(int field) {
       int name = (field >> 13) & 7;
       if (name == 0) {
         return null;
@@ -194,13 +193,13 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
    * The first of two gain fields in the LAME MP3 Info header, or null if the field is invalid or
    * unset.
    */
-  @Nullable public GainField field1;
+  public @Nullable GainField field1;
 
   /**
    * The second of two gain fields in the LAME MP3 Info header, or null if the field is invalid or
    * unset.
    */
-  @Nullable public GainField field2;
+  public @Nullable GainField field2;
 
   private Mp3InfoReplayGain(float peak, @Nullable GainField field1, @Nullable GainField field2) {
     this.peak = peak;
@@ -213,8 +212,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
    *
    * <p>Returns null if the representation is invalid or should be ignored.
    */
-  @Nullable
-  public static Mp3InfoReplayGain parse(float peak, int field1, int field2) {
+  public static @Nullable Mp3InfoReplayGain parse(float peak, int field1, int field2) {
     GainField parsedField1 = GainField.parse(field1);
     GainField parsedField2 = GainField.parse(field2);
     if (peak <= 0 && parsedField1 == null && parsedField2 == null) {

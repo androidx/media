@@ -18,7 +18,6 @@ package androidx.media3.extractor.ts;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -32,6 +31,7 @@ import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.util.Arrays;
 import java.util.Collections;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parses a continuous H262 byte stream and extracts individual frames. */
 @UnstableApi
@@ -50,12 +50,12 @@ public final class H262Reader implements ElementaryStreamReader {
   private static final double[] FRAME_RATE_VALUES =
       new double[] {24000d / 1001, 24, 25, 30000d / 1001, 30, 50, 60000d / 1001, 60};
 
-  @Nullable private final UserDataReader userDataReader;
+  private final @Nullable UserDataReader userDataReader;
   private final String containerMimeType;
-  @Nullable private final ParsableByteArray userDataParsable;
+  private final @Nullable ParsableByteArray userDataParsable;
 
   // State that should be reset on seek.
-  @Nullable private final NalUnitTargetBuffer userData;
+  private final @Nullable NalUnitTargetBuffer userData;
   private final boolean[] prefixFlags;
   private final CsdBuffer csdBuffer;
   private long totalBytesWritten;

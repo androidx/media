@@ -15,8 +15,8 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface for objects that can provide a {@link ChunkIndex}.
@@ -33,6 +33,5 @@ public interface ChunkIndexProvider {
    * Returns a {@link ChunkIndex} for use by chunk-based media sources, or {@code null} if not
    * applicable.
    */
-  @Nullable
-  ChunkIndex getChunkIndex();
+  @Nullable ChunkIndex getChunkIndex();
 }

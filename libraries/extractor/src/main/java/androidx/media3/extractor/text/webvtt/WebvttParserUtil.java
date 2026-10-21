@@ -15,13 +15,13 @@
  */
 package androidx.media3.extractor.text.webvtt;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for parsing WebVTT data. */
 @UnstableApi
@@ -105,8 +105,7 @@ public final class WebvttParserUtil {
    *     reached without a cue header being found. In the case that a cue header is found, groups 1,
    *     2 and 3 of the returned matcher contain the start time, end time and settings list.
    */
-  @Nullable
-  public static Matcher findNextCueHeader(ParsableByteArray input) {
+  public static @Nullable Matcher findNextCueHeader(ParsableByteArray input) {
     @Nullable String line;
     while ((line = input.readLine()) != null) {
       if (COMMENT.matcher(line).matches()) {

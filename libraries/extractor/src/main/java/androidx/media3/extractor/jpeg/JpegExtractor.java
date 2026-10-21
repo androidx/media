@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.Pair;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
@@ -36,6 +35,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the JPEG container format. */
 @UnstableApi
@@ -62,13 +62,13 @@ public final class JpegExtractor implements Extractor {
   private static final int JPEG_FILE_SIGNATURE_LENGTH = 2;
 
   private final Extractor imageExtractor;
-  @Nullable private final Extractor videoExtractor;
+  private final @Nullable Extractor videoExtractor;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
   private @MonotonicNonNull Extractor activeExtractor;
 
   /** Holds a seek that arrives before {@link #activeExtractor} is assigned. */
-  @Nullable private Pair<Long, Long> pendingSeek;
+  private @Nullable Pair<Long, Long> pendingSeek;
 
   /** Creates an instance reading the video and metadata track. */
   public JpegExtractor() {

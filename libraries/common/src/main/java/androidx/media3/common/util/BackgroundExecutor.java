@@ -15,16 +15,15 @@
  */
 package androidx.media3.common.util;
 
-import androidx.annotation.Nullable;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** A utility class to obtain an {@link Executor} for background tasks. */
 @UnstableApi
 public final class BackgroundExecutor {
 
   @SuppressWarnings("NonFinalStaticField")
-  @Nullable
-  private static Executor staticInstance;
+  private static @Nullable Executor staticInstance;
 
   /**
    * Returns an {@link Executor} for background tasks.

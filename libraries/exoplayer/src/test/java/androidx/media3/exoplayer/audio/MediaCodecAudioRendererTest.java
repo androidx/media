@@ -41,7 +41,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -73,6 +72,7 @@ import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -140,8 +140,8 @@ public class MediaCodecAudioRendererTest {
   private MediaCodecAudioRenderer mediaCodecAudioRenderer;
   private DefaultMediaCodecAdapterFactory codecAdapterFactory;
   private MediaCodecSelector mediaCodecSelector;
-  @Nullable private HandlerThread callbackThread;
-  @Nullable private HandlerThread queueingThread;
+  private @Nullable HandlerThread callbackThread;
+  private @Nullable HandlerThread queueingThread;
 
   @Mock private AudioSink audioSink;
   @Mock private AudioRendererEventListener audioRendererEventListener;

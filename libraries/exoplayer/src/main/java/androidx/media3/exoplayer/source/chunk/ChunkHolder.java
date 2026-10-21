@@ -15,15 +15,15 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Holds a chunk or an indication that the end of the stream has been reached. */
 @UnstableApi
 public final class ChunkHolder {
 
   /** The chunk. */
-  @Nullable public Chunk chunk;
+  public @Nullable Chunk chunk;
 
   /** Indicates that the end of the stream has been reached. */
   public boolean endOfStream;

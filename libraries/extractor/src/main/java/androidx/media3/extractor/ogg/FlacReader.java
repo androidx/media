@@ -18,7 +18,6 @@ package androidx.media3.extractor.ogg;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
@@ -33,6 +32,7 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.flac.FlacConstants;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /** {@link StreamReader} to extract Flac data out of Ogg byte stream. */
 /* package */ final class FlacReader extends StreamReader {
@@ -41,8 +41,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   private static final int FRAME_HEADER_SAMPLE_NUMBER_OFFSET = 4;
 
-  @Nullable private FlacStreamMetadata streamMetadata;
-  @Nullable private FlacOggSeeker flacOggSeeker;
+  private @Nullable FlacStreamMetadata streamMetadata;
+  private @Nullable FlacOggSeeker flacOggSeeker;
 
   public static boolean verifyBitstreamType(ParsableByteArray data) {
     return data.bytesLeft() >= 5

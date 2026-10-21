@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.smoothstreaming.manifest;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a SmoothStreaming manifest.
@@ -71,7 +71,7 @@ public class SsManifest implements FilterableManifest<SsManifest> {
     public final int maxHeight;
     public final int displayWidth;
     public final int displayHeight;
-    @Nullable public final String language;
+    public final @Nullable String language;
     public final Format[] formats;
     public final int chunkCount;
 
@@ -248,7 +248,7 @@ public class SsManifest implements FilterableManifest<SsManifest> {
   public final boolean isLive;
 
   /** Content protection information, or null if the content is not protected. */
-  @Nullable public final ProtectionElement protectionElement;
+  public final @Nullable ProtectionElement protectionElement;
 
   /** The contained stream elements. */
   public final StreamElement[] streamElements;

@@ -32,7 +32,6 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -69,6 +68,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -98,8 +98,8 @@ public final class EnhancementSessionDecoratorAndroidTest {
   private FrameProcessor.Factory baseGlFactory;
   private FakeFrameWriter fakeDownstreamOutput;
   private FakeFrameProcessor.Listener testListener;
-  @Nullable private FrameProcessor decorator;
-  @Nullable private Transformer transformer;
+  private @Nullable FrameProcessor decorator;
+  private @Nullable Transformer transformer;
 
   @Before
   public void setUp() throws Exception {

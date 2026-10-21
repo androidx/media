@@ -23,7 +23,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
@@ -35,6 +34,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.concurrent.Executors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link BitmapLoader} implementation that uses a {@link DataSource} to support fetching images
@@ -56,9 +56,9 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
 
     private final Context context;
 
-    @Nullable private ListeningExecutorService listeningExecutorService;
-    @Nullable private DataSource.Factory dataSourceFactory;
-    @Nullable private BitmapFactory.Options options;
+    private @Nullable ListeningExecutorService listeningExecutorService;
+    private DataSource.@Nullable Factory dataSourceFactory;
+    private BitmapFactory.@Nullable Options options;
     private int maximumOutputDimension;
     private boolean makeShared;
 
@@ -108,7 +108,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    public Builder setBitmapFactoryOptions(@Nullable BitmapFactory.Options options) {
+    public Builder setBitmapFactoryOptions(BitmapFactory.@Nullable Options options) {
       this.options = options;
       return this;
     }
@@ -156,7 +156,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
 
   private final ListeningExecutorService listeningExecutorService;
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final BitmapFactory.Options options;
+  private final BitmapFactory.@Nullable Options options;
   private final int maximumOutputDimension;
   private final boolean makeShared;
 
@@ -194,7 +194,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   public DataSourceBitmapLoader(
       ListeningExecutorService listeningExecutorService,
       DataSource.Factory dataSourceFactory,
-      @Nullable BitmapFactory.Options options) {
+      BitmapFactory.@Nullable Options options) {
     this(
         listeningExecutorService,
         dataSourceFactory,
@@ -209,7 +209,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   public DataSourceBitmapLoader(
       ListeningExecutorService listeningExecutorService,
       DataSource.Factory dataSourceFactory,
-      @Nullable BitmapFactory.Options options,
+      BitmapFactory.@Nullable Options options,
       int maximumOutputDimension) {
     this.listeningExecutorService = listeningExecutorService;
     this.dataSourceFactory = dataSourceFactory;
@@ -259,7 +259,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   private static Bitmap load(
       DataSource dataSource,
       Uri uri,
-      @Nullable BitmapFactory.Options options,
+      BitmapFactory.@Nullable Options options,
       int maximumOutputDimension,
       boolean makeShared)
       throws IOException {

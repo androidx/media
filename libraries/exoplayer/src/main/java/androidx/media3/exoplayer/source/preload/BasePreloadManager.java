@@ -23,7 +23,6 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
@@ -35,6 +34,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A base implementation of a preload manager, which maintains the lifecycle of {@linkplain
@@ -81,8 +81,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   private int indexForSourceHolderToClear;
 
   @GuardedBy("lock")
-  @Nullable
-  private PreloadStatusT targetPreloadStatusOfCurrentPreloadingSource;
+  private @Nullable PreloadStatusT targetPreloadStatusOfCurrentPreloadingSource;
 
   // It's safe to use "this" because the invalidationListener of rankingDataComparator shouldn't be
   // triggered before exiting this (or subclass's) constructor.
@@ -227,8 +226,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
    * @return The source for the given {@code mediaItem} if it is managed by the preload manager,
    *     null otherwise.
    */
-  @Nullable
-  public final MediaSource getMediaSource(MediaItem mediaItem) {
+  public final @Nullable MediaSource getMediaSource(MediaItem mediaItem) {
     if (!mediaSourceHolderMap.containsKey(mediaItem)) {
       return null;
     }
@@ -479,16 +477,14 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   }
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaSourceHolder getCurrentlyPreloadingMediaSourceHolder() {
+  private @Nullable MediaSourceHolder getCurrentlyPreloadingMediaSourceHolder() {
     if (indexForSourceHolderToPreload >= sourceHolderPriorityList.size()) {
       return null;
     }
     return sourceHolderPriorityList.get(indexForSourceHolderToPreload);
   }
 
-  @Nullable
-  protected MediaSourceHolder getMediaSourceHolderToClear() {
+  protected @Nullable MediaSourceHolder getMediaSourceHolderToClear() {
     synchronized (lock) {
       if (indexForSourceHolderToPreload >= indexForSourceHolderToClear) {
         return null;
@@ -497,8 +493,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
     }
   }
 
-  @Nullable
-  protected final PreloadStatusT getTargetPreloadStatusIfCurrentlyPreloading(
+  protected final @Nullable PreloadStatusT getTargetPreloadStatusIfCurrentlyPreloading(
       MediaSource mediaSource) {
     synchronized (lock) {
       MediaSourceHolder currentMediaHolder = getCurrentlyPreloadingMediaSourceHolder();
@@ -509,8 +504,8 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
     }
   }
 
-  @Nullable
-  protected final PreloadStatusT getTargetPreloadStatusIfCurrentlyPreloading(MediaItem mediaItem) {
+  protected final @Nullable PreloadStatusT getTargetPreloadStatusIfCurrentlyPreloading(
+      MediaItem mediaItem) {
     synchronized (lock) {
       MediaSourceHolder currentMediaHolder = getCurrentlyPreloadingMediaSourceHolder();
       if (currentMediaHolder == null || !mediaItem.equals(currentMediaHolder.mediaItem)) {
@@ -666,13 +661,11 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
       return mediaItemToMediaSourceHolder.containsKey(mediaItem);
     }
 
-    @Nullable
-    public synchronized MediaSourceHolder get(MediaItem mediaItem) {
+    public synchronized @Nullable MediaSourceHolder get(MediaItem mediaItem) {
       return mediaItemToMediaSourceHolder.get(mediaItem);
     }
 
-    @Nullable
-    public synchronized MediaSourceHolder get(MediaSource mediaSource) {
+    public synchronized @Nullable MediaSourceHolder get(MediaSource mediaSource) {
       MediaItem mediaItem = mediaSourceToMediaItem.get(mediaSource);
       if (mediaItem != null) {
         return checkNotNull(mediaItemToMediaSourceHolder.get(mediaItem));

@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.upstream.contentsteering;
 import android.net.Uri;
 import android.util.JsonReader;
 import android.util.JsonToken;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
@@ -32,6 +31,7 @@ import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Parses a steering manifest JSON object. */
 @UnstableApi

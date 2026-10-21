@@ -24,7 +24,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Represents an HLS media playlist. */
 @UnstableApi
@@ -299,7 +299,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      * the media playlist does not define a media initialization section for this segment. The same
      * instance is used for all segments that share an EXT-X-MAP tag.
      */
-    @Nullable public final Segment initializationSegment;
+    public final @Nullable Segment initializationSegment;
 
     /** The duration of the segment in microseconds, as defined by #EXTINF or #EXT-X-PART. */
     public final long durationUs;
@@ -314,19 +314,19 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      * DRM initialization data for sample decryption, or null if the segment does not use CDM-DRM
      * protection.
      */
-    @Nullable public final DrmInitData drmInitData;
+    public final @Nullable DrmInitData drmInitData;
 
     /**
      * The encryption identity key uri as defined by #EXT-X-KEY, or null if the segment does not use
      * full segment encryption with identity key.
      */
-    @Nullable public final String fullSegmentEncryptionKeyUri;
+    public final @Nullable String fullSegmentEncryptionKeyUri;
 
     /**
      * The encryption initialization vector as defined by #EXT-X-KEY, or null if the segment is not
      * encrypted.
      */
-    @Nullable public final String encryptionIV;
+    public final @Nullable String encryptionIV;
 
     /**
      * The segment's byte range offset, as defined by #EXT-X-BYTERANGE, #EXT-X-PART or
@@ -533,10 +533,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     public final String id;
 
     /** The asset URI. Required if {@link #assetListUri} is null. */
-    @Nullable public final Uri assetUri;
+    public final @Nullable Uri assetUri;
 
     /** The asset list URI. Required if {@link #assetUri} is null. */
-    @Nullable public final Uri assetListUri;
+    public final @Nullable Uri assetListUri;
 
     /** The required start time, in microseconds. */
     public final long startDateUnixUs;
@@ -601,7 +601,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     public final long skipControlDurationUs;
 
     /** The ID of the label to be displayed on the skip control button. Null if not present. */
-    @Nullable public final String skipControlLabelId;
+    public final @Nullable String skipControlLabelId;
 
     /** Creates an instance. */
     public Interstitial(
@@ -736,7 +736,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       private @MonotonicNonNull @Interstitial.TimelineStyleType String timelineStyle;
       private long skipControlOffsetUs;
       private long skipControlDurationUs;
-      @Nullable private String skipControlLabelId;
+      private @Nullable String skipControlLabelId;
 
       /**
        * Creates the builder.
@@ -1199,8 +1199,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
        * properties fails. The properties are considered invalid, if the start date is missing or
        * both asset URI and asset list URI are set at the same time.
        */
-      @Nullable
-      public Interstitial build() {
+      public @Nullable Interstitial build() {
         if (((assetListUri == null && assetUri != null)
                 || (assetListUri != null && assetUri == null))
             && startDateUnixUs != C.TIME_UNSET) {
@@ -1260,7 +1259,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     public final int type;
 
     private final double doubleValue;
-    @Nullable private final String textValue;
+    private final @Nullable String textValue;
 
     /** Creates an instance of type {@link #TYPE_DOUBLE}. */
     public ClientDefinedAttribute(String name, double value) {
@@ -1398,7 +1397,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
    * Contains the CDM protection schemes used by segments in this playlist. Does not contain any key
    * acquisition data. Null if none of the segments in the playlist is CDM-encrypted.
    */
-  @Nullable public final DrmInitData protectionSchemes;
+  public final @Nullable DrmInitData protectionSchemes;
 
   /** The list of segments in the playlist. */
   public final List<Segment> segments;
@@ -1427,7 +1426,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
    * The last seen initialization segment defined by {@code #EXT-X-MAP}, or {@code null} if no
    * {@code #EXT-X-MAP} has been declared for the corresponding stream.
    */
-  @Nullable public final Segment lastSeenInitSegment;
+  public final @Nullable Segment lastSeenInitSegment;
 
   /**
    * Constructs an instance.

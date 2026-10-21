@@ -17,7 +17,6 @@ package androidx.media3.exoplayer;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
@@ -28,6 +27,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Renderer} implementation whose track type is {@link C#TRACK_TYPE_NONE} and does not
@@ -39,7 +39,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   private @MonotonicNonNull RendererConfiguration configuration;
   private int index;
   private int state;
-  @Nullable private SampleStream stream;
+  private @Nullable SampleStream stream;
   private boolean streamIsFinal;
 
   @Override
@@ -58,8 +58,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   }
 
   @Override
-  @Nullable
-  public MediaClock getMediaClock() {
+  public @Nullable MediaClock getMediaClock() {
     return null;
   }
 
@@ -109,8 +108,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   }
 
   @Override
-  @Nullable
-  public final SampleStream getStream() {
+  public final @Nullable SampleStream getStream() {
     return stream;
   }
 
@@ -290,8 +288,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
    * Returns the configuration set when the renderer was most recently enabled, or {@code null} if
    * the renderer has never been enabled.
    */
-  @Nullable
-  protected final RendererConfiguration getConfiguration() {
+  protected final @Nullable RendererConfiguration getConfiguration() {
     return configuration;
   }
 

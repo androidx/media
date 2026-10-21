@@ -15,17 +15,17 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.BoxUtils.concatenateBuffers;
+import static androidx.media3.container.BoxUtils.concatenateBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.ObuParser;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility methods for generating AV1 initialization data.
@@ -122,7 +122,7 @@ import java.util.List;
     ByteBuffer csd = ByteBuffer.allocate(MAX_AV1_CONFIG_RECORD_SIZE_BYTES);
     csd.put((byte) (0x1 << 7 | 0x1)); // Marker(0x1) << 7 | Version (0x1)
 
-    @Nullable ObuParser.SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(obu);
+    ObuParser.@Nullable SequenceHeader sequenceHeader = ObuParser.SequenceHeader.parse(obu);
     checkNotNull(sequenceHeader, "No sequence header available.");
     csd.put((byte) (sequenceHeader.seqProfile << 5 | sequenceHeader.seqLevelIdx0));
     csd.put(

@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ fun rememberPlaybackState(player: Player?): PlaybackState {
  * @property[isPlaying] Whether the player is actively playing.
  * @property[playerError] The last error that caused playback to fail, or null if there is no error.
  */
+@Stable
 @UnstableApi
 class PlaybackState(private val player: Player?) {
   var playbackState by mutableIntStateOf(player?.playbackState ?: Player.STATE_IDLE)

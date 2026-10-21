@@ -229,7 +229,6 @@ internal fun LongFormPlayerScreen(
           if (showControls) PointerIcon.Default else PointerIcon(0)
         )
       ) {
-        val controlsVisible = isRemotePlayback || showControls
         Player(
           player = player,
           artwork = {
@@ -287,10 +286,10 @@ internal fun LongFormPlayerScreen(
             Box(Modifier.fillMaxSize().background(Color.Black))
             CastingOverlay(castState, Modifier.fillMaxSize())
           },
+          showControls = isRemotePlayback || showControls,
           topControls = {
             PlayerDefaults.TopControls(
               player,
-              controlsVisible,
               Modifier.fillMaxWidth()
                 .windowInsetsPadding(
                   controlsInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
@@ -306,13 +305,12 @@ internal fun LongFormPlayerScreen(
           },
           centerControls = {
             if (!isRemotePlayback) {
-              PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
+              PlayerDefaults.CenterControls(player, Modifier.fillMaxWidth())
             }
           },
           bottomControls = {
             PlayerDefaults.BottomControls(
               player,
-              controlsVisible,
               modifier =
                 Modifier.fillMaxWidth()
                   .windowInsetsPadding(
@@ -320,7 +318,7 @@ internal fun LongFormPlayerScreen(
                   ),
               above = {
                 if (isRemotePlayback) {
-                  PlayerDefaults.CenterControls(player, controlsVisible, Modifier.fillMaxWidth())
+                  PlayerDefaults.CenterControls(player, Modifier.fillMaxWidth())
                 } else {
                   Box(Modifier.fillMaxWidth()) {
                     LiveButton(player, Modifier.align(Alignment.CenterStart))

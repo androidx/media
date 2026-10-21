@@ -19,7 +19,6 @@ import static androidx.media3.exoplayer.ExoPlayerImplInternal.READY_MAXIMUM_INTE
 import static java.lang.Math.min;
 
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.PlaybackParameters;
@@ -33,6 +32,7 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Information about an ongoing playback. */
 /* package */ final class PlaybackInfo {
@@ -76,7 +76,7 @@ import java.util.List;
   public final @Player.State int playbackState;
 
   /** The current playback error, or null if this is not an error state. */
-  @Nullable public final ExoPlaybackException playbackError;
+  public final @Nullable ExoPlaybackException playbackError;
 
   /** Whether the player is currently loading. */
   public final boolean isLoading;

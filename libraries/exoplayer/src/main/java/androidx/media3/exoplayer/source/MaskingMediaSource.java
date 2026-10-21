@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -30,6 +29,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} that masks the {@link Timeline} with a placeholder until the actual media
@@ -43,7 +43,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   private final Timeline.Period period;
 
   private MaskingTimeline timeline;
-  @Nullable private MaskingMediaPeriod unpreparedMaskingMediaPeriod;
+  private @Nullable MaskingMediaPeriod unpreparedMaskingMediaPeriod;
   private boolean hasStartedPreparing;
   private boolean isPrepared;
   private boolean hasRealTimeline;
@@ -208,8 +208,8 @@ public final class MaskingMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(MediaPeriodId mediaPeriodId) {
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+      MediaPeriodId mediaPeriodId) {
     return mediaPeriodId.copyWithPeriodUid(getExternalPeriodUid(mediaPeriodId.periodUid));
   }
 
@@ -258,8 +258,8 @@ public final class MaskingMediaSource extends WrappingMediaSource {
 
     public static final Object MASKING_EXTERNAL_PERIOD_UID = new Object();
 
-    @Nullable private final Object replacedInternalWindowUid;
-    @Nullable private final Object replacedInternalPeriodUid;
+    private final @Nullable Object replacedInternalWindowUid;
+    private final @Nullable Object replacedInternalPeriodUid;
 
     /**
      * Returns an instance with a placeholder timeline using the provided {@link MediaItem}.

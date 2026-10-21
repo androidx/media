@@ -23,7 +23,6 @@ import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.HandlerWrapper;
@@ -36,6 +35,7 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link GraphInput} that wraps {@link HardwareBufferFrameReader}.
@@ -46,10 +46,11 @@ import java.util.function.Consumer;
 /* package */ final class HardwareBufferSampleConsumer implements GraphInput {
 
   private final HardwareBufferFrameReader hardwareBufferFrameReader;
+  private final HardwareBufferFrameReader.InputSurface inputSurface;
   private final Composition composition;
   private final int sequenceIndex;
 
-  @Nullable private Format currentFormat;
+  private @Nullable Format currentFormat;
   // Start at -1 so the initial onMediaItemChanged increments the current index to 0.
   private int currentMediaItemIndex = C.INDEX_UNSET;
   private long currentTimeOffsetUs;
@@ -109,6 +110,7 @@ import java.util.function.Consumer;
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
             listenerHandler,
             hardwareBufferJniWrapper);
+    inputSurface = hardwareBufferFrameReader.createInputSurface();
   }
 
   @Override
@@ -139,16 +141,16 @@ import java.util.function.Consumer;
 
   @Override
   public Surface getInputSurface() {
-    return hardwareBufferFrameReader.getSurface();
+    return inputSurface.getSurface();
   }
 
   @Override
   public boolean registerVideoFrame(long presentationTimeUs) {
-    if (!hardwareBufferFrameReader.canAcceptFrameViaSurface()) {
+    if (!inputSurface.canAcceptFrame()) {
       return false;
     }
     checkState(currentFormat != null);
-    hardwareBufferFrameReader.queueFrameViaSurface(
+    inputSurface.queueFrame(
         presentationTimeUs, currentTimeOffsetUs, currentMediaItemIndex, currentFormat);
     return true;
   }

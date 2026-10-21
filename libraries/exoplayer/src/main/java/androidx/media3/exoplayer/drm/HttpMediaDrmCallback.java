@@ -22,7 +22,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
@@ -36,12 +35,13 @@ import com.google.common.primitives.Bytes;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaDrmCallback} that makes requests using {@link DataSource} instances. */
 @UnstableApi
 public final class HttpMediaDrmCallback implements MediaDrmCallback {
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final String defaultLicenseUrl;
+  private final @Nullable String defaultLicenseUrl;
   private final boolean forceDefaultLicenseUrl;
   private final Map<String, String> keyRequestProperties;
 

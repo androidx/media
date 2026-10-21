@@ -19,7 +19,6 @@ package androidx.media3.exoplayer.rtsp;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceUtil;
@@ -30,6 +29,7 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Loader.Loadable} that uses two {@link RtpDataChannel} instances to listen on incoming
@@ -75,7 +75,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Handler playbackThreadHandler;
   private final RtpDataChannel.Factory rtpDataChannelFactory;
 
-  @Nullable private RtpDataChannel dataChannel;
+  private @Nullable RtpDataChannel dataChannel;
   private @MonotonicNonNull RtpExtractor extractor;
   private @MonotonicNonNull DefaultExtractorInput extractorInput;
 

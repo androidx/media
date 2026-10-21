@@ -17,12 +17,10 @@ package androidx.media3.extractor.mp4;
 
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4Box;
@@ -35,6 +33,7 @@ import androidx.media3.extractor.metadata.id3.InternalFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for handling metadata in MP4. */
 /* package */ final class MetadataUtil {
@@ -101,7 +100,7 @@ import com.google.common.collect.ImmutableList;
       @Nullable Metadata mdtaMetadata,
       Format.Builder formatBuilder,
       @Nullable Metadata existingMetadata,
-      @NullableType Metadata... additionalMetadata) {
+      @Nullable Metadata... additionalMetadata) {
     Metadata formatMetadata = existingMetadata != null ? existingMetadata : new Metadata();
     if (mdtaMetadata != null) {
       for (MdtaMetadataEntry mdtaMetadataEntry :
@@ -146,8 +145,8 @@ import com.google.common.collect.ImmutableList;
    * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return The parsed element, or null if the element's type was not recognized.
    */
-  @Nullable
-  public static Metadata.Entry parseIlstElement(ParsableByteArray ilst, boolean ignoreArtwork) {
+  public static Metadata.@Nullable Entry parseIlstElement(
+      ParsableByteArray ilst, boolean ignoreArtwork) {
     int position = ilst.getPosition();
     int size = ilst.readInt();
     if (size < Mp4Box.HEADER_SIZE) {
@@ -240,8 +239,7 @@ import com.google.common.collect.ImmutableList;
    * @param key The mdta metadata entry key for the entry.
    * @return The parsed element, or null if the entry wasn't recognized.
    */
-  @Nullable
-  public static MdtaMetadataEntry parseMdtaMetadataEntryFromIlst(
+  public static @Nullable MdtaMetadataEntry parseMdtaMetadataEntryFromIlst(
       ParsableByteArray ilst, int endPosition, String key) {
     int atomPosition;
     while ((atomPosition = ilst.getPosition()) < endPosition) {
@@ -268,9 +266,9 @@ import com.google.common.collect.ImmutableList;
   /**
    * @deprecated Use {@link Metadata#getFirstMatchingEntry(Class, Predicate)} instead.
    */
-  @Nullable
   @Deprecated
-  public static MdtaMetadataEntry findMdtaMetadataEntryWithKey(Metadata metadata, String key) {
+  public static @Nullable MdtaMetadataEntry findMdtaMetadataEntryWithKey(
+      Metadata metadata, String key) {
     for (int i = 0; i < metadata.length(); i++) {
       Metadata.Entry entry = metadata.get(i);
       if (entry instanceof MdtaMetadataEntry) {
@@ -283,8 +281,7 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
-  @Nullable
-  private static TextInformationFrame parseTextAttribute(
+  private static @Nullable TextInformationFrame parseTextAttribute(
       int type, String id, ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
@@ -297,8 +294,7 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
-  @Nullable
-  private static CommentFrame parseCommentAttribute(int type, ParsableByteArray data) {
+  private static @Nullable CommentFrame parseCommentAttribute(int type, ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
     if (atomType == Mp4Box.TYPE_data) {
@@ -310,8 +306,7 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
-  @Nullable
-  private static Id3Frame parseIntegerAttribute(
+  private static @Nullable Id3Frame parseIntegerAttribute(
       int type,
       String id,
       ParsableByteArray data,
@@ -353,8 +348,7 @@ import com.google.common.collect.ImmutableList;
     return -1;
   }
 
-  @Nullable
-  private static TextInformationFrame parseIndexAndCountAttribute(
+  private static @Nullable TextInformationFrame parseIndexAndCountAttribute(
       int type, String attributeName, ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
@@ -375,8 +369,8 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
-  @Nullable
-  private static TextInformationFrame parseStandardGenreAttribute(ParsableByteArray data) {
+  private static @Nullable TextInformationFrame parseStandardGenreAttribute(
+      ParsableByteArray data) {
     int genreCode = parseIntegerAttribute(data);
     // ID3 tags are zero-indexed, but MP4 gnre codes are 1-indexed (the list of genres is otherwise
     // the same).
@@ -389,8 +383,7 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
-  @Nullable
-  private static ApicFrame parseCoverArt(ParsableByteArray data) {
+  private static @Nullable ApicFrame parseCoverArt(ParsableByteArray data) {
     int atomSize = data.readInt();
     int atomType = data.readInt();
     if (atomType == Mp4Box.TYPE_data) {
@@ -414,8 +407,8 @@ import com.google.common.collect.ImmutableList;
     return null;
   }
 
-  @Nullable
-  private static Id3Frame parseInternalAttribute(ParsableByteArray data, int endPosition) {
+  private static @Nullable Id3Frame parseInternalAttribute(
+      ParsableByteArray data, int endPosition) {
     @Nullable String domain = null;
     @Nullable String name = null;
     int dataAtomPosition = -1;

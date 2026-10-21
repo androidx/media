@@ -26,11 +26,9 @@ import static java.lang.Math.min;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
@@ -54,6 +52,7 @@ import java.io.IOException;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Fake {@link MediaPeriod} that provides tracks from the given {@link TrackGroupArray}. */
 @UnstableApi
@@ -117,15 +116,15 @@ public class FakeMediaPeriod implements MediaPeriod {
   private final TrackGroupArray trackGroupArray;
   private final Set<FakeSampleStream> sampleStreams;
   private final TrackDataFactory trackDataFactory;
-  @Nullable private final long[] syncSampleTimestampsUs;
+  private final long @Nullable [] syncSampleTimestampsUs;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private final Allocator allocator;
   private final DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final long fakePreparationLoadTaskId;
 
-  @Nullable private Handler playerHandler;
-  @Nullable private Callback prepareCallback;
+  private @Nullable Handler playerHandler;
+  private @Nullable Callback prepareCallback;
 
   private boolean deferOnPrepared;
   private boolean prepared;
@@ -242,7 +241,7 @@ public class FakeMediaPeriod implements MediaPeriod {
       TrackGroupArray trackGroupArray,
       Allocator allocator,
       TrackDataFactory trackDataFactory,
-      @Nullable long[] syncSampleTimestampsUs,
+      long @Nullable [] syncSampleTimestampsUs,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
@@ -335,9 +334,9 @@ public class FakeMediaPeriod implements MediaPeriod {
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     assertThat(prepared).isTrue();
@@ -501,7 +500,7 @@ public class FakeMediaPeriod implements MediaPeriod {
    */
   protected FakeSampleStream createSampleStream(
       Allocator allocator,
-      @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+      MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       Format initialFormat,

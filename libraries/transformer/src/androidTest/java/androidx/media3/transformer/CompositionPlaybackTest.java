@@ -30,7 +30,6 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Flags;
@@ -61,6 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -750,9 +750,8 @@ public class CompositionPlaybackTest {
   /**
    * Runs the composition and returns the video {@link DecoderCounters} (if any) from the player.
    */
-  @Nullable
   @CanIgnoreReturnValue
-  private DecoderCounters runCompositionPlayer(Composition composition)
+  private @Nullable DecoderCounters runCompositionPlayer(Composition composition)
       throws InterruptedException, ExecutionException {
     return runCompositionPlayer(
         composition,
@@ -763,9 +762,8 @@ public class CompositionPlaybackTest {
   /**
    * Runs the composition and returns the video {@link DecoderCounters} (if any) from the player.
    */
-  @Nullable
   @CanIgnoreReturnValue
-  private DecoderCounters runCompositionPlayer(
+  private @Nullable DecoderCounters runCompositionPlayer(
       Composition composition,
       boolean videoPrewarmingEnabled,
       boolean perStreamMediaProgressionEnabled)

@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.upstream.contentsteering;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a steering manifest.
@@ -83,7 +83,7 @@ public final class SteeringManifest {
   public static final class UriReplacement {
 
     /** The hostname for cloned URIs. Null if not present. */
-    @Nullable public final String host;
+    public final @Nullable String host;
 
     /**
      * The query parameters for cloned URIs. The keys represent query parameter names, and the
@@ -160,7 +160,7 @@ public final class SteeringManifest {
    * The optional {@link Uri} that the client must use for future steering manifest requests. It may
    * be relative to the current Steering Manifest URI. Null if not present.
    */
-  @Nullable public final Uri reloadUri;
+  public final @Nullable Uri reloadUri;
 
   /**
    * The priority list of pathway IDs. The pathway IDs are ordered by pathway preference, with the

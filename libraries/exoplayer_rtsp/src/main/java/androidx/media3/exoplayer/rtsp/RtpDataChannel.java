@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.rtsp.RtspMessageChannel.InterleavedBinaryDataListener;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** An RTP {@link DataSource}. */
 /* package */ interface RtpDataChannel extends DataSource {
@@ -36,8 +36,7 @@ import java.io.IOException;
     RtpDataChannel createAndOpenDataChannel(int trackId) throws IOException;
 
     /** Returns a fallback {@code Factory}, {@code null} when there is no fallback available. */
-    @Nullable
-    default Factory createFallbackDataChannelFactory() {
+    default @Nullable Factory createFallbackDataChannelFactory() {
       return null;
     }
   }
@@ -58,6 +57,5 @@ import java.io.IOException;
    * Returns a {@link InterleavedBinaryDataListener} if the implementation supports receiving RTP
    * packets on a side-band protocol, for example RTP-over-RTSP; otherwise {@code null}.
    */
-  @Nullable
-  InterleavedBinaryDataListener getInterleavedBinaryDataListener();
+  @Nullable InterleavedBinaryDataListener getInterleavedBinaryDataListener();
 }

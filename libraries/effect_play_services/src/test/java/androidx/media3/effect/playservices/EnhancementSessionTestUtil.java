@@ -17,7 +17,6 @@ package androidx.media3.effect.playservices;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import com.google.android.gms.media.effect.enhancement.EnhancementCallback;
 import com.google.android.gms.media.effect.enhancement.EnhancementOptions;
 import com.google.android.gms.media.effect.enhancement.EnhancementSession;
@@ -25,6 +24,7 @@ import com.google.android.gms.media.effect.enhancement.EnhancementSessionCallbac
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities and fakes for {@link EnhancementSessionManager} tests. */
 /* package */ final class EnhancementSessionTestUtil {
@@ -61,12 +61,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
       implements EnhancementSessionManager.Client {
 
     /* package */ final AtomicBoolean createSessionCalled;
-    @Nullable /* package */ Task<EnhancementSession> createSessionTask;
+    /* package */ @Nullable Task<EnhancementSession> createSessionTask;
     /* package */ boolean autoTriggerSessionCallback;
-    @Nullable /* package */ EnhancementSessionCallback savedSessionCallback;
-    @Nullable /* package */ EnhancementOptions lastOptions;
+    /* package */ @Nullable EnhancementSessionCallback savedSessionCallback;
+    /* package */ @Nullable EnhancementOptions lastOptions;
 
-    @Nullable private final EnhancementSession sessionToReturn;
+    private final @Nullable EnhancementSession sessionToReturn;
 
     /* package */ FakeClient(@Nullable EnhancementSession sessionToReturn) {
       this.createSessionCalled = new AtomicBoolean(false);

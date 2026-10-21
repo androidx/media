@@ -17,14 +17,13 @@ package androidx.media3.exoplayer.trackselection;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** The result of a {@link TrackSelector} operation. */
 @UnstableApi
@@ -37,10 +36,10 @@ public final class TrackSelectorResult {
    * A {@link RendererConfiguration} for each renderer. A null entry indicates the corresponding
    * renderer should be disabled.
    */
-  public final @NullableType RendererConfiguration[] rendererConfigurations;
+  public final @Nullable RendererConfiguration[] rendererConfigurations;
 
   /** A {@link ExoTrackSelection} array containing the track selection for each renderer. */
-  public final @NullableType ExoTrackSelection[] selections;
+  public final @Nullable ExoTrackSelection[] selections;
 
   /** Describe the tracks and which one were selected. */
   public final Tracks tracks;
@@ -49,7 +48,7 @@ public final class TrackSelectorResult {
    * An opaque object that will be returned to {@link TrackSelector#onSelectionActivated(Object)}
    * should the selections be activated.
    */
-  @Nullable public final Object info;
+  public final @Nullable Object info;
 
   /**
    * @param rendererConfigurations A {@link RendererConfiguration} for each renderer. A null entry
@@ -63,8 +62,8 @@ public final class TrackSelectorResult {
    */
   @Deprecated
   public TrackSelectorResult(
-      @NullableType RendererConfiguration[] rendererConfigurations,
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable RendererConfiguration[] rendererConfigurations,
+      @Nullable ExoTrackSelection[] selections,
       @Nullable Object info) {
     this(rendererConfigurations, selections, Tracks.EMPTY, info);
   }
@@ -82,8 +81,8 @@ public final class TrackSelectorResult {
    *     {@code null}.
    */
   public TrackSelectorResult(
-      @NullableType RendererConfiguration[] rendererConfigurations,
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable RendererConfiguration[] rendererConfigurations,
+      @Nullable ExoTrackSelection[] selections,
       Tracks tracks,
       @Nullable Object info) {
     checkArgument(rendererConfigurations.length == selections.length);

@@ -39,7 +39,6 @@ import android.view.KeyEvent;
 import android.view.Surface;
 import android.view.WindowManager;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.annotation.VisibleForTesting;
@@ -64,7 +63,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -85,6 +83,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A session that allows a media app to expose its player functionality, information of the playlist
@@ -630,7 +629,7 @@ public class MediaSession {
     private final int libraryVersion;
     private final int interfaceVersion;
     private final boolean isTrusted;
-    @Nullable private final ControllerCb controllerCb;
+    private final @Nullable ControllerCb controllerCb;
     private final Bundle connectionHints;
     private final int maxCommandsForMediaItems;
     private final boolean isPackageNameVerified;
@@ -790,8 +789,7 @@ public class MediaSession {
           + "}";
     }
 
-    @Nullable
-    /* package */ ControllerCb getControllerCb() {
+    /* package */ @Nullable ControllerCb getControllerCb() {
       return controllerCb;
     }
 
@@ -935,8 +933,7 @@ public class MediaSession {
     return MediaSessionImpl.getBitmapDimensionLimit(context);
   }
 
-  @Nullable
-  /* package */ static MediaSession getSession(Uri sessionUri) {
+  /* package */ static @Nullable MediaSession getSession(Uri sessionUri) {
     synchronized (STATIC_LOCK) {
       for (MediaSession session : SESSION_ID_TO_SESSION_MAP.values()) {
         if (Objects.equals(session.getUri(), sessionUri)) {
@@ -956,8 +953,7 @@ public class MediaSession {
    *
    * @return The {@link PendingIntent} to launch an activity belonging to the session.
    */
-  @Nullable
-  public final PendingIntent getSessionActivity() {
+  public final @Nullable PendingIntent getSessionActivity() {
     return impl.getSessionActivity();
   }
 
@@ -1108,8 +1104,7 @@ public class MediaSession {
    * @return The {@link ControllerInfo} of the controller that sent the current request, or {@code
    *     null} if not applicable.
    */
-  @Nullable
-  public final ControllerInfo getControllerForCurrentRequest() {
+  public final @Nullable ControllerInfo getControllerForCurrentRequest() {
     return impl.getControllerForCurrentRequest();
   }
 
@@ -1165,8 +1160,7 @@ public class MediaSession {
    * Player#getApplicationLooper() application looper}.
    */
   @UnstableApi
-  @Nullable
-  public ControllerInfo getMediaNotificationControllerInfo() {
+  public @Nullable ControllerInfo getMediaNotificationControllerInfo() {
     return impl.getMediaNotificationControllerInfo();
   }
 
@@ -1630,8 +1624,7 @@ public class MediaSession {
     impl.connectFromService(controller, controllerInfo);
   }
 
-  @Nullable
-  /* package */ final IBinder getLegacyBrowserServiceBinder() {
+  /* package */ final @Nullable IBinder getLegacyBrowserServiceBinder() {
     return impl.getLegacyBrowserServiceBinder();
   }
 
@@ -2342,10 +2335,10 @@ public class MediaSession {
     public static class AcceptedResultBuilder {
       private SessionCommands availableSessionCommands;
       private Player.Commands availablePlayerCommands;
-      @Nullable private ImmutableList<CommandButton> customLayout;
-      @Nullable private ImmutableList<CommandButton> mediaButtonPreferences;
-      @Nullable private Bundle sessionExtras;
-      @Nullable private PendingIntent sessionActivity;
+      private @Nullable ImmutableList<CommandButton> customLayout;
+      private @Nullable ImmutableList<CommandButton> mediaButtonPreferences;
+      private @Nullable Bundle sessionExtras;
+      private @Nullable PendingIntent sessionActivity;
 
       /**
        * @deprecated Use {@link #AcceptedResultBuilder(MediaSession, ControllerInfo)} instead to
@@ -2625,19 +2618,19 @@ public class MediaSession {
     public final Player.Commands availablePlayerCommands;
 
     /** The custom layout or null if the custom layout of the session should be used. */
-    @UnstableApi @Nullable public final ImmutableList<CommandButton> customLayout;
+    @UnstableApi public final @Nullable ImmutableList<CommandButton> customLayout;
 
     /**
      * The media button preferences or null if the media button preferences of the session should be
      * used.
      */
-    @UnstableApi @Nullable public final ImmutableList<CommandButton> mediaButtonPreferences;
+    @UnstableApi public final @Nullable ImmutableList<CommandButton> mediaButtonPreferences;
 
     /** The session extras. */
-    @UnstableApi @Nullable public final Bundle sessionExtras;
+    @UnstableApi public final @Nullable Bundle sessionExtras;
 
     /** The session activity. */
-    @UnstableApi @Nullable public final PendingIntent sessionActivity;
+    @UnstableApi public final @Nullable PendingIntent sessionActivity;
 
     /** Creates a new instance with the given available session and player commands. */
     private ConnectionResult(
@@ -2869,7 +2862,7 @@ public class MediaSession {
       BuilderT extends BuilderBase<SessionT, BuilderT, CallbackT>,
       CallbackT extends Callback> {
 
-    private static final AtomicReference<@NullableType ImmutableIntArray> bitmapSizesToAvoidApi29 =
+    private static final AtomicReference<@Nullable ImmutableIntArray> bitmapSizesToAvoidApi29 =
         new AtomicReference<>(/* initialValue= */ null);
 
     /* package */ final Context context;

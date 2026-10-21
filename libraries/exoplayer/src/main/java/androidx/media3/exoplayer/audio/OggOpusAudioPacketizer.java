@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.audio;
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
@@ -27,6 +26,7 @@ import com.google.common.primitives.UnsignedBytes;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A packetizer that encapsulates Opus audio encodings in Ogg packets. */
 @UnstableApi
@@ -77,8 +77,7 @@ public final class OggOpusAudioPacketizer {
     if (inputBuffer.data.limit() - inputBuffer.data.position() == 0) {
       return;
     }
-    @Nullable
-    byte[] providedOggIdHeaderPayloadBytes =
+    byte @Nullable [] providedOggIdHeaderPayloadBytes =
         pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER
                 && (initializationData.size() == 1 || initializationData.size() == 3)
             ? initializationData.get(0)
@@ -111,7 +110,7 @@ public final class OggOpusAudioPacketizer {
    * @return {@link ByteBuffer} containing Ogg packet
    */
   private ByteBuffer packetizeInternal(
-      ByteBuffer inputBuffer, @Nullable byte[] providedOggIdHeaderPayloadBytes) {
+      ByteBuffer inputBuffer, byte @Nullable [] providedOggIdHeaderPayloadBytes) {
     int position = inputBuffer.position();
     int limit = inputBuffer.limit();
     int inputBufferSize = limit - position;

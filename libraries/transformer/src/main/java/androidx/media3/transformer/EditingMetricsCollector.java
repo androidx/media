@@ -29,7 +29,6 @@ import android.media.metrics.MediaMetricsManager;
 import android.os.PersistableBundle;
 import android.util.Size;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -48,6 +47,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A metrics collector that collects editing events and forwards them to {@link MetricsReporter}.
@@ -99,9 +99,9 @@ import java.util.Set;
     }
 
     /** The {@link EditingSession} to report collected metrics to. */
-    @Nullable private EditingSession editingSession;
+    private @Nullable EditingSession editingSession;
 
-    @Nullable private final MediaMetricsManager mediaMetricsManager;
+    private final @Nullable MediaMetricsManager mediaMetricsManager;
 
     private boolean metricsReported;
     private boolean effectMetricsReported;
@@ -147,8 +147,7 @@ import java.util.Set;
      * Returns the {@link LogSessionId} associated with the current editing session, or {@code null}
      * if no {@link EditingSession} is active.
      */
-    @Nullable
-    public LogSessionId getLogSessionId() {
+    public @Nullable LogSessionId getLogSessionId() {
       if (editingSession != null) {
         return editingSession.getSessionId();
       }
@@ -294,7 +293,7 @@ import java.util.Set;
   private final boolean compositionHasAudioProcessors;
   private final boolean compositionHasVideoEffects;
   private final String exporterName;
-  @Nullable private final String muxerName;
+  private final @Nullable String muxerName;
   private final MetricsReporter metricsReporter;
 
   /**

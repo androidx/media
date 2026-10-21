@@ -30,7 +30,6 @@ import android.content.pm.ServiceInfo;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NotificationUtil;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Service} for downloading media.
@@ -193,8 +193,8 @@ public abstract class DownloadService extends Service {
   private static final HashMap<Class<? extends DownloadService>, DownloadManagerHelper>
       downloadManagerHelpers = new HashMap<>();
 
-  @Nullable private final ForegroundNotificationUpdater foregroundNotificationUpdater;
-  @Nullable private final String channelId;
+  private final @Nullable ForegroundNotificationUpdater foregroundNotificationUpdater;
+  private final @Nullable String channelId;
   @StringRes private final int channelNameResourceId;
   @StringRes private final int channelDescriptionResourceId;
 
@@ -598,8 +598,7 @@ public abstract class DownloadService extends Service {
       boolean foregroundAllowed = foregroundNotificationUpdater != null;
       // See https://developer.android.com/about/versions/12/foreground-services.
       boolean canStartForegroundServiceFromBackground = SDK_INT < 31;
-      @Nullable
-      Scheduler scheduler =
+      @Nullable Scheduler scheduler =
           foregroundAllowed && canStartForegroundServiceFromBackground ? getScheduler() : null;
       DownloadManager downloadManager = getDownloadManager();
       downloadManager.resumeDownloads();
@@ -635,8 +634,7 @@ public abstract class DownloadService extends Service {
         // Do nothing.
         break;
       case ACTION_ADD_DOWNLOAD:
-        @Nullable
-        DownloadRequest downloadRequest =
+        @Nullable DownloadRequest downloadRequest =
             checkNotNull(intent).getParcelableExtra(KEY_DOWNLOAD_REQUEST);
         if (downloadRequest == null) {
           Log.e(TAG, "Ignored ADD_DOWNLOAD: Missing " + KEY_DOWNLOAD_REQUEST + " extra");
@@ -670,8 +668,8 @@ public abstract class DownloadService extends Service {
         }
         break;
       case ACTION_SET_REQUIREMENTS:
-        @Nullable
-        Requirements requirements = checkNotNull(intent).getParcelableExtra(KEY_REQUIREMENTS);
+        @Nullable Requirements requirements =
+            checkNotNull(intent).getParcelableExtra(KEY_REQUIREMENTS);
         if (requirements == null) {
           Log.e(TAG, "Ignored SET_REQUIREMENTS: Missing " + KEY_REQUIREMENTS + " extra");
         } else {
@@ -719,8 +717,7 @@ public abstract class DownloadService extends Service {
    * Throws {@link UnsupportedOperationException} because this service is not designed to be bound.
    */
   @Override
-  @Nullable
-  public final IBinder onBind(Intent intent) {
+  public final @Nullable IBinder onBind(Intent intent) {
     throw new UnsupportedOperationException();
   }
 
@@ -764,8 +761,7 @@ public abstract class DownloadService extends Service {
    *   <li>
    * </ul>
    */
-  @Nullable
-  protected abstract Scheduler getScheduler();
+  protected abstract @Nullable Scheduler getScheduler();
 
   /**
    * Returns a notification to be displayed when this service running in the foreground.
@@ -951,10 +947,10 @@ public abstract class DownloadService extends Service {
     private final Context context;
     private final DownloadManager downloadManager;
     private final boolean foregroundAllowed;
-    @Nullable private final Scheduler scheduler;
+    private final @Nullable Scheduler scheduler;
     private final Class<? extends DownloadService> serviceClass;
 
-    @Nullable private DownloadService downloadService;
+    private @Nullable DownloadService downloadService;
     private @MonotonicNonNull Requirements scheduledRequirements;
 
     private DownloadManagerHelper(

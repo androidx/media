@@ -52,7 +52,6 @@ import android.view.Display;
 import android.view.Display.HdrCapabilities;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
@@ -105,6 +104,7 @@ import java.util.PriorityQueue;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Decodes and renders video using {@link MediaCodec}.
@@ -230,7 +230,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   private final long minEarlyUsToDropDecoderInput;
 
-  @Nullable private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
+  private final @Nullable VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
   private final PriorityQueue<Long> discardedDecoderInputBufferTimestamps;
 
@@ -243,8 +243,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private boolean hasSetVideoSink;
   private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
   private @MonotonicNonNull List<Effect> videoEffects;
-  @Nullable private Surface displaySurface;
-  @Nullable private PlaceholderSurface placeholderSurface;
+  private @Nullable Surface displaySurface;
+  private @Nullable PlaceholderSurface placeholderSurface;
   private Size outputResolution;
   private boolean haveReportedFirstFrameRenderedForCurrentSurface;
   private @C.VideoScalingMode int scalingMode;
@@ -253,19 +253,19 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private int droppedFrames;
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
-  @Nullable private ScrubbingModeParameters scrubbingModeParameters;
+  private @Nullable ScrubbingModeParameters scrubbingModeParameters;
   private long lastResetToKeyFramePositionUs;
   private boolean isFlushRequired;
   private long totalVideoFrameProcessingOffsetUs;
   private int videoFrameProcessingOffsetCount;
   private VideoSize decodedVideoSize;
-  @Nullable private VideoSize reportedVideoSize;
+  private @Nullable VideoSize reportedVideoSize;
   private int rendererPriority;
 
   private boolean tunneling;
   private int tunnelingAudioSessionId;
-  @Nullable private OnFrameRenderedListener tunnelingOnFrameRenderedListener;
-  @Nullable private VideoFrameMetadataListener frameMetadataListener;
+  private @Nullable OnFrameRenderedListener tunnelingOnFrameRenderedListener;
+  private @Nullable VideoFrameMetadataListener frameMetadataListener;
   private long startPositionUs;
   private boolean pendingVideoSinkInputStreamChange;
 
@@ -280,11 +280,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private MediaCodecAdapter.Factory codecAdapterFactory;
     private long allowedJoiningTimeMs;
     private boolean enableDecoderFallback;
-    @Nullable private Handler eventHandler;
-    @Nullable private VideoRendererEventListener eventListener;
+    private @Nullable Handler eventHandler;
+    private @Nullable VideoRendererEventListener eventListener;
     private int maxDroppedFramesToNotify;
     private float assumedMinimumCodecOperatingRate;
-    @Nullable private VideoSink videoSink;
+    private @Nullable VideoSink videoSink;
     private long lateThresholdToDropDecoderInputUs;
     private long earlySchedulingThresholdUs;
     private boolean skipBuffersWithIdenticalReleaseTime;
@@ -1463,8 +1463,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // for H.264/AV1 only if the format contains sufficient information for us to determine
       // unambiguously that it's a H.264/AV1 based profile.
       sampleMimeType = MimeTypes.VIDEO_H265;
-      @Nullable
-      Pair<Integer, Integer> codecProfileAndLevel =
+      @Nullable Pair<Integer, Integer> codecProfileAndLevel =
           CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null) {
         int profile = codecProfileAndLevel.first;
@@ -1704,8 +1703,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
-  @Nullable
-  protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+  protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
     @Nullable DecoderReuseEvaluation evaluation = super.onInputFormatChanged(formatHolder);
     isApplyingContainerHagcMetadata = false;
@@ -2456,8 +2454,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    *
    * <p>Must only be called if {@link #hasSurfaceForCodec(MediaCodecInfo)} returns true.
    */
-  @Nullable
-  private Surface getSurfaceForCodec(MediaCodecInfo codecInfo) {
+  private @Nullable Surface getSurfaceForCodec(MediaCodecInfo codecInfo) {
     if (videoSink != null) {
       return videoSink.getInputSurface();
     } else if (displaySurface != null) {
@@ -2774,8 +2771,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * @return The maximum video size to use, or {@code null} if the size of {@code format} should be
    *     used.
    */
-  @Nullable
-  private static Point getCodecMaxSize(MediaCodecInfo codecInfo, Format format) {
+  private static @Nullable Point getCodecMaxSize(MediaCodecInfo codecInfo, Format format) {
     boolean isVerticalVideo = format.height > format.width;
     int formatLongEdgePx = isVerticalVideo ? format.height : format.width;
     int formatShortEdgePx = isVerticalVideo ? format.width : format.height;
@@ -2881,8 +2877,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /** Returns the output surface. */
-  @Nullable
-  protected Surface getSurface() {
+  protected @Nullable Surface getSurface() {
     // TODO(b/260702159) Consider renaming the method to getOutputSurface().
     return displaySurface;
   }

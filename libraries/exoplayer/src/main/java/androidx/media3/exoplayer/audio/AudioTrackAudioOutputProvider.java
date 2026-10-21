@@ -34,7 +34,6 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -58,6 +57,7 @@ import java.util.function.BiConsumer;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link AudioOutputProvider}. */
 public final class AudioTrackAudioOutputProvider implements AudioOutputProvider {
@@ -70,17 +70,16 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
   /** A builder to create {@link AudioTrackAudioOutputProvider} instances. */
   public static final class Builder {
 
-    @Nullable private final Context context;
+    private final @Nullable Context context;
 
-    @Nullable private BiConsumer<AudioTrack.Builder, OutputConfig> audioTrackBuilderModifier;
+    private @Nullable BiConsumer<AudioTrack.Builder, OutputConfig> audioTrackBuilderModifier;
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
     private AudioTrackBufferSizeProvider bufferSizeProvider;
-    @Nullable private AudioCapabilities audioCapabilities;
+    private @Nullable AudioCapabilities audioCapabilities;
     private float maxPlaybackSpeed;
 
     @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
-    @Nullable
-    private AudioTrackProvider audioTrackProvider;
+    private @Nullable AudioTrackProvider audioTrackProvider;
 
     /**
      * Creates a new builder.
@@ -194,24 +193,23 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
   }
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
 
   @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
-  @Nullable
-  private final AudioTrackProvider audioTrackProvider;
+  private final @Nullable AudioTrackProvider audioTrackProvider;
 
-  @Nullable private final BiConsumer<AudioTrack.Builder, OutputConfig> builderModifier;
+  private final @Nullable BiConsumer<AudioTrack.Builder, OutputConfig> builderModifier;
   private final AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
   private final AudioOffloadSupportProvider audioOffloadSupportProvider;
-  @Nullable private final CapabilityChangeListener capabilityChangeListener;
+  private final @Nullable CapabilityChangeListener capabilityChangeListener;
   private final float maxPlaybackSpeed;
 
   private @MonotonicNonNull ListenerSet<Listener> listeners;
   private Clock clock;
   private @MonotonicNonNull AudioCapabilities audioCapabilities;
   private @MonotonicNonNull AudioCapabilitiesReceiver audioCapabilitiesReceiver;
-  @Nullable private Looper playbackLooper;
-  @Nullable private Context contextWithDeviceId;
+  private @Nullable Looper playbackLooper;
+  private @Nullable Context contextWithDeviceId;
 
   private AudioTrackAudioOutputProvider(Builder builder) {
     this.context = builder.context;
@@ -286,8 +284,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         useOffloadGapless = audioOffloadSupport.isGaplessSupported;
       } else {
         outputMode = OUTPUT_MODE_PASSTHROUGH;
-        @Nullable
-        Pair<Integer, Integer> encodingAndChannelConfig =
+        @Nullable Pair<Integer, Integer> encodingAndChannelConfig =
             audioCapabilities.getEncodingAndChannelConfigForPassthrough(
                 format, formatConfig.audioAttributes);
         if (encodingAndChannelConfig == null) {
@@ -440,8 +437,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
   /** Returns the {@link AudioCapabilities}. */
   @UnstableApi
-  @Nullable
-  public AudioCapabilities getAudioCapabilities() {
+  public @Nullable AudioCapabilities getAudioCapabilities() {
     return audioCapabilities;
   }
 

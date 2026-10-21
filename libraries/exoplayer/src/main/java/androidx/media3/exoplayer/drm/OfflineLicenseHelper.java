@@ -24,12 +24,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -39,6 +37,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import org.jspecify.annotations.Nullable;
 
 /** Helper class to download, renew and release offline licenses. */
 @UnstableApi
@@ -322,12 +321,12 @@ public final class OfflineLicenseHelper {
    * DrmSession} instances needed.
    */
   private byte[] acquireSessionAndGetOfflineLicenseKeySetIdOnHandlerThread(
-      @Mode int licenseMode, @Nullable byte[] offlineLicenseKeySetId, Format format)
+      @Mode int licenseMode, byte @Nullable [] offlineLicenseKeySetId, Format format)
       throws DrmSessionException {
     DrmSession drmSession =
         acquireFirstSessionOnHandlerThread(licenseMode, offlineLicenseKeySetId, format);
 
-    SettableFuture<byte @NullableType []> keySetId = SettableFuture.create();
+    SettableFuture<byte @Nullable []> keySetId = SettableFuture.create();
     handler.post(
         () -> {
           try {
@@ -370,7 +369,7 @@ public final class OfflineLicenseHelper {
    * </ul>
    */
   private DrmSession acquireFirstSessionOnHandlerThread(
-      @Mode int licenseMode, @Nullable byte[] offlineLicenseKeySetId, Format format)
+      @Mode int licenseMode, byte @Nullable [] offlineLicenseKeySetId, Format format)
       throws DrmSessionException {
     checkNotNull(format.drmInitData);
     SettableFuture<DrmSession> drmSessionFuture = SettableFuture.create();
@@ -405,7 +404,7 @@ public final class OfflineLicenseHelper {
     // (drmSession.state == STATE_ERROR).
     drmListenerConditionVariable.block();
 
-    SettableFuture<@NullableType DrmSessionException> drmSessionError = SettableFuture.create();
+    SettableFuture<@Nullable DrmSessionException> drmSessionError = SettableFuture.create();
     handler.post(
         () -> {
           try {

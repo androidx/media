@@ -29,7 +29,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.Context;
 import android.media.metrics.LogSessionId;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
@@ -56,6 +55,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExportOperation} implementation for resumed exports. */
 /* package */ final class ResumedExportOperation implements ExportOperation {
@@ -124,7 +124,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Context context;
   private final Composition composition;
   private final TransformationRequest transformationRequest;
-  @Nullable private final AssetLoader.Factory assetLoaderFactory;
+  private final AssetLoader.@Nullable Factory assetLoaderFactory;
   private final AudioMixer.Factory audioMixerFactory;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
   private final Codec.EncoderFactory encoderFactory;
@@ -136,11 +136,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final DebugViewProvider debugViewProvider;
   private final Clock clock;
 
-  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
+  private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
   private final boolean applyMp4EditListTrim;
   private final Muxer.Factory muxerFactory;
   private final String outputFilePath;
@@ -151,14 +151,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull ListenableFuture<ResumeMetadata> getResumeMetadataFuture;
   private @MonotonicNonNull ResumeMetadata resumeMetadata;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
-  @Nullable private TransformerInternal transformerInternal;
-  @Nullable private MuxerWrapper remuxingMuxerWrapper;
+  private @Nullable TransformerInternal transformerInternal;
+  private @Nullable MuxerWrapper remuxingMuxerWrapper;
 
   public ResumedExportOperation(
       Context context,
       Composition composition,
       TransformationRequest transformationRequest,
-      @Nullable AssetLoader.Factory assetLoaderFactory,
+      AssetLoader.@Nullable Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -169,7 +169,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable FrameProcessor.Factory frameProcessorFactory,
+      FrameProcessor.@Nullable Factory frameProcessorFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,

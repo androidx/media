@@ -21,13 +21,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.PersistableBundle;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaCodecAdapter} instance that forwards all calls to its delegate.
@@ -59,9 +59,8 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     return delegate.getOutputFormat();
   }
 
-  @Nullable
   @Override
-  public ByteBuffer getInputBuffer(int index) {
+  public @Nullable ByteBuffer getInputBuffer(int index) {
     return delegate.getInputBuffer(index);
   }
 
@@ -70,9 +69,8 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     delegate.useBuffer(runnable);
   }
 
-  @Nullable
   @Override
-  public ByteBuffer getOutputBuffer(int index) {
+  public @Nullable ByteBuffer getOutputBuffer(int index) {
     return delegate.getOutputBuffer(index);
   }
 

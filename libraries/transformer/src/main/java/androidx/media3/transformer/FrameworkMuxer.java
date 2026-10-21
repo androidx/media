@@ -30,7 +30,6 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.util.Pair;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -50,6 +49,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
 @UnstableApi

@@ -28,7 +28,6 @@ import android.content.Context;
 import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -70,6 +69,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A transformer to export media inputs.
@@ -128,8 +128,8 @@ public final class Transformer {
     private EditingMetricsCollector.MetricsReporter.@MonotonicNonNull Factory
         metricsReporterFactory;
 
-    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
-    @Nullable private FrameProcessor.Factory frameProcessorFactory;
+    private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private FrameProcessor.@Nullable Factory frameProcessorFactory;
 
     /**
      * Creates a builder with default values.
@@ -680,8 +680,7 @@ public final class Transformer {
           !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
-      @Nullable
-      HardwareBufferJniWrapper hardwareBufferJniWrapper =
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper =
           SDK_INT >= 26 && frameProcessorFactory != null && this.hardwareBufferJniWrapper == null
               ? HardwareBufferJni.INSTANCE
               : this.hardwareBufferJniWrapper;
@@ -822,7 +821,7 @@ public final class Transformer {
   private final int maxFramesInEncoder;
 
   private final ListenerSet<Transformer.Listener> listeners;
-  @Nullable private final AssetLoader.Factory assetLoaderFactory;
+  private final AssetLoader.@Nullable Factory assetLoaderFactory;
   private final AudioMixer.Factory audioMixerFactory;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
   private final Codec.EncoderFactory encoderFactory;
@@ -832,19 +831,19 @@ public final class Transformer {
   private final Clock clock;
   private final HandlerWrapper applicationHandler;
   private final ExportOperationListener exportOperationListener;
-  @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
+  private final EditingMetricsCollector.MetricsReporter.@Nullable Factory metricsReporterFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private ExportOperation currentExportOperation;
+  private @Nullable ExportOperation currentExportOperation;
   private boolean exportResumed;
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Composition originalComposition;
   private @MonotonicNonNull TransformerOutput transformerOutput;
   private @MonotonicNonNull String oldFilePath;
   private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
-  @Nullable private WatchdogTimer exportWatchdogTimer;
+  private @Nullable WatchdogTimer exportWatchdogTimer;
 
   private Transformer(
       Context context,
@@ -861,7 +860,7 @@ public final class Transformer {
       long maxDelayBetweenMuxerSamplesMs,
       int maxFramesInEncoder,
       ListenerSet<Listener> listeners,
-      @Nullable AssetLoader.Factory assetLoaderFactory,
+      AssetLoader.@Nullable Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -869,9 +868,9 @@ public final class Transformer {
       Looper looper,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
+      EditingMetricsCollector.MetricsReporter.@Nullable Factory metricsReporterFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
-      @Nullable FrameProcessor.Factory frameProcessorFactory) {
+      FrameProcessor.@Nullable Factory frameProcessorFactory) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -1402,7 +1401,7 @@ public final class Transformer {
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
-              checkNotNull(transformerOutput.path));
+              transformerOutput);
     } else {
       currentExportOperation =
           new DefaultExportOperation(
@@ -1431,8 +1430,7 @@ public final class Transformer {
     currentExportOperation.start();
   }
 
-  @Nullable
-  private LogSessionId setUpMetricsCollection() {
+  private @Nullable LogSessionId setUpMetricsCollection() {
     LogSessionId logSessionId = null;
     if (canCollectEditingMetrics()) {
       EditingMetricsCollector.MetricsReporter metricsReporter =

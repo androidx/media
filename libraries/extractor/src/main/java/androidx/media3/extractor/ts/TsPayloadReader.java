@@ -20,7 +20,6 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
@@ -34,6 +33,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Parses TS packet payload data. */
 @UnstableApi
@@ -60,8 +60,7 @@ public interface TsPayloadReader {
      * @return A {@link TsPayloadReader} for the packet stream carried by the provided pid, or
      *     {@code null} if the stream is not supported.
      */
-    @Nullable
-    TsPayloadReader createPayloadReader(int streamType, EsInfo esInfo);
+    @Nullable TsPayloadReader createPayloadReader(int streamType, EsInfo esInfo);
   }
 
   /** Holds information associated with a PMT entry. */
@@ -107,7 +106,7 @@ public interface TsPayloadReader {
     }
 
     public final int streamType;
-    @Nullable public final String language;
+    public final @Nullable String language;
     public final @AudioType int audioType;
     public final List<DvbSubtitleInfo> dvbSubtitleInfos;
     public final byte[] descriptorBytes;

@@ -17,11 +17,11 @@ package androidx.media3.extractor;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -51,8 +51,7 @@ public final class MotionPhotoDescriptionTest {
                     TEST_MOTION_PHOTO_VIDEO_LENGTH_BYTES,
                     /* padding= */ 0)));
 
-    @Nullable
-    MotionPhotoMetadata metadata =
+    @Nullable MotionPhotoMetadata metadata =
         motionPhotoDescription.getMotionPhotoMetadata(TEST_MOTION_PHOTO_LENGTH_BYTES);
 
     assertThat(metadata.photoStartPosition).isEqualTo(0);
@@ -90,8 +89,7 @@ public final class MotionPhotoDescriptionTest {
                     TEST_MOTION_PHOTO_VIDEO_LENGTH_BYTES,
                     /* padding= */ 0)));
 
-    @Nullable
-    MotionPhotoMetadata metadata =
+    @Nullable MotionPhotoMetadata metadata =
         motionPhotoDescription.getMotionPhotoMetadata(TEST_MOTION_PHOTO_LENGTH_BYTES);
 
     assertThat(metadata.photoStartPosition).isEqualTo(0);
@@ -123,8 +121,7 @@ public final class MotionPhotoDescriptionTest {
                 new MotionPhotoDescription.ContainerItem(
                     MimeTypes.VIDEO_MP4, "MotionPhoto", /* length= */ 0, /* padding= */ 0)));
 
-    @Nullable
-    MotionPhotoMetadata metadata =
+    @Nullable MotionPhotoMetadata metadata =
         motionPhotoDescription.getMotionPhotoMetadata(TEST_MOTION_PHOTO_LENGTH_BYTES);
 
     assertThat(metadata.photoStartPosition).isEqualTo(0);
@@ -148,8 +145,7 @@ public final class MotionPhotoDescriptionTest {
                     /* length= */ 0,
                     TEST_MOTION_PHOTO_PHOTO_PADDING_BYTES)));
 
-    @Nullable
-    MotionPhotoMetadata metadata =
+    @Nullable MotionPhotoMetadata metadata =
         motionPhotoDescription.getMotionPhotoMetadata(TEST_MOTION_PHOTO_LENGTH_BYTES);
 
     assertThat(metadata).isNull();

@@ -23,7 +23,6 @@ import static org.junit.Assert.fail;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -48,6 +47,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,7 +66,7 @@ public final class MpeghPlaybackTest {
           + " (Originalfassung) äöü\" />";
   private static final int MAX_PERSISTENCE_STORAGE = 8096;
 
-  @Nullable private ByteBuffer persistenceBuffer;
+  private @Nullable ByteBuffer persistenceBuffer;
 
   @Before
   public void setUp() {
@@ -156,12 +156,12 @@ public final class MpeghPlaybackTest {
     private final Context context;
     private final Uri uri;
     private final AudioSink audioSink;
-    @Nullable private final String command;
-    @Nullable private final ByteBuffer persistenceBuffer;
+    private final @Nullable String command;
+    private final @Nullable ByteBuffer persistenceBuffer;
     private final List<String> interceptedAsi;
 
-    @Nullable private ExoPlayer player;
-    @Nullable private PlaybackException playbackException;
+    private @Nullable ExoPlayer player;
+    private @Nullable PlaybackException playbackException;
 
     public TestPlaybackRunnable(
         Uri uri,

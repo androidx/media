@@ -42,7 +42,6 @@ import android.os.ResultReceiver;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
@@ -57,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Allows an app to interact with an ongoing media session. Media buttons and other commands can be
@@ -212,8 +212,7 @@ public final class MediaControllerCompat {
    * @see #isSessionReady
    * @see Callback#onSessionReady
    */
-  @Nullable
-  public PlaybackStateCompat getPlaybackState() {
+  public @Nullable PlaybackStateCompat getPlaybackState() {
     return impl.getPlaybackState();
   }
 
@@ -222,8 +221,7 @@ public final class MediaControllerCompat {
    *
    * @return The current MediaMetadata or null.
    */
-  @Nullable
-  public MediaMetadataCompat getMetadata() {
+  public @Nullable MediaMetadataCompat getMetadata() {
     return impl.getMetadata();
   }
 
@@ -233,8 +231,7 @@ public final class MediaControllerCompat {
    *
    * @return The current play queue or null.
    */
-  @Nullable
-  public List<QueueItem> getQueue() {
+  public @Nullable List<QueueItem> getQueue() {
     return impl.getQueue();
   }
 
@@ -315,14 +312,12 @@ public final class MediaControllerCompat {
   }
 
   /** Gets the queue title for this session. */
-  @Nullable
-  public CharSequence getQueueTitle() {
+  public @Nullable CharSequence getQueueTitle() {
     return impl.getQueueTitle();
   }
 
   /** Gets the extras for this session. */
-  @Nullable
-  public Bundle getExtras() {
+  public @Nullable Bundle getExtras() {
     return impl.getExtras();
   }
 
@@ -403,8 +398,7 @@ public final class MediaControllerCompat {
    *
    * @return The current playback info or null.
    */
-  @Nullable
-  public PlaybackInfo getPlaybackInfo() {
+  public @Nullable PlaybackInfo getPlaybackInfo() {
     return impl.getPlaybackInfo();
   }
 
@@ -413,8 +407,7 @@ public final class MediaControllerCompat {
    *
    * @return A {@link PendingIntent} to launch UI or null.
    */
-  @Nullable
-  public PendingIntent getSessionActivity() {
+  public @Nullable PendingIntent getSessionActivity() {
     return impl.getSessionActivity();
   }
 
@@ -535,8 +528,7 @@ public final class MediaControllerCompat {
    *
    * @return The package name of the session owner.
    */
-  @Nullable
-  public String getPackageName() {
+  public @Nullable String getPackageName() {
     return impl.getPackageName();
   }
 
@@ -562,8 +554,7 @@ public final class MediaControllerCompat {
    *
    * @return The underlying {@link android.media.session.MediaController} object, or null if none.
    */
-  @Nullable
-  public Object getMediaController() {
+  public @Nullable Object getMediaController() {
     return impl.getMediaController();
   }
 
@@ -572,8 +563,8 @@ public final class MediaControllerCompat {
    * #registerCallback}
    */
   public abstract static class Callback implements IBinder.DeathRecipient {
-    @Nullable final MediaController.Callback callbackFwk;
-    @Nullable private MessageHandler handler;
+    final MediaController.@Nullable Callback callbackFwk;
+    private @Nullable MessageHandler handler;
     @Nullable IMediaControllerCallback iControllerCallback;
 
     // Sharing this in constructor
@@ -777,7 +768,7 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onAudioInfoChanged(@Nullable MediaController.PlaybackInfo info) {
+      public void onAudioInfoChanged(MediaController.@Nullable PlaybackInfo info) {
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null && info != null) {
           int playbackType = info.getPlaybackType();
@@ -1101,7 +1092,7 @@ public final class MediaControllerCompat {
     private final int volumeControl;
     private final int maxVolume;
     private final int currentVolume;
-    @Nullable private final String volumeControlId;
+    private final @Nullable String volumeControlId;
 
     PlaybackInfo(
         int type,
@@ -1180,8 +1171,7 @@ public final class MediaControllerCompat {
      * Get the routing controller ID for this session. Returns null if unset, or if {@link
      * #getPlaybackType()} is {@link #PLAYBACK_TYPE_LOCAL}.
      */
-    @Nullable
-    public String getVolumeControlId() {
+    public @Nullable String getVolumeControlId() {
       return volumeControlId;
     }
   }
@@ -1195,14 +1185,11 @@ public final class MediaControllerCompat {
 
     TransportControls getTransportControls();
 
-    @Nullable
-    PlaybackStateCompat getPlaybackState();
+    @Nullable PlaybackStateCompat getPlaybackState();
 
-    @Nullable
-    MediaMetadataCompat getMetadata();
+    @Nullable MediaMetadataCompat getMetadata();
 
-    @Nullable
-    List<QueueItem> getQueue();
+    @Nullable List<QueueItem> getQueue();
 
     void addQueueItem(MediaDescriptionCompat description);
 
@@ -1210,11 +1197,9 @@ public final class MediaControllerCompat {
 
     void removeQueueItem(MediaDescriptionCompat description);
 
-    @Nullable
-    CharSequence getQueueTitle();
+    @Nullable CharSequence getQueueTitle();
 
-    @Nullable
-    Bundle getExtras();
+    @Nullable Bundle getExtras();
 
     int getRatingType();
 
@@ -1226,11 +1211,9 @@ public final class MediaControllerCompat {
 
     long getFlags();
 
-    @Nullable
-    PlaybackInfo getPlaybackInfo();
+    @Nullable PlaybackInfo getPlaybackInfo();
 
-    @Nullable
-    PendingIntent getSessionActivity();
+    @Nullable PendingIntent getSessionActivity();
 
     void setVolumeTo(int value, int flags);
 
@@ -1240,13 +1223,11 @@ public final class MediaControllerCompat {
 
     boolean isSessionReady();
 
-    @Nullable
-    String getPackageName();
+    @Nullable String getPackageName();
 
     Bundle getSessionInfo();
 
-    @Nullable
-    Object getMediaController();
+    @Nullable Object getMediaController();
   }
 
   static class MediaControllerImplBase implements MediaControllerImpl {
@@ -1259,7 +1240,7 @@ public final class MediaControllerCompat {
 
     private final HashMap<Callback, Callback.CallbackStub> callbackMap = new HashMap<>();
 
-    @Nullable protected Bundle sessionInfo;
+    protected @Nullable Bundle sessionInfo;
 
     final MediaSessionCompat.Token sessionToken;
 
@@ -1333,9 +1314,8 @@ public final class MediaControllerCompat {
       }
     }
 
-    @Nullable
     @Override
-    public PlaybackStateCompat getPlaybackState() {
+    public @Nullable PlaybackStateCompat getPlaybackState() {
       IMediaSession extraBinder = sessionToken.getExtraBinder();
       if (extraBinder != null) {
         try {
@@ -1348,16 +1328,14 @@ public final class MediaControllerCompat {
       return stateFwk != null ? PlaybackStateCompat.fromPlaybackState(stateFwk) : null;
     }
 
-    @Nullable
     @Override
-    public MediaMetadataCompat getMetadata() {
+    public @Nullable MediaMetadataCompat getMetadata() {
       MediaMetadata metadataFwk = controllerFwk.getMetadata();
       return metadataFwk != null ? MediaMetadataCompat.fromMediaMetadata(metadataFwk) : null;
     }
 
-    @Nullable
     @Override
-    public List<QueueItem> getQueue() {
+    public @Nullable List<QueueItem> getQueue() {
       List<MediaSession.QueueItem> queueFwks = controllerFwk.getQueue();
       return queueFwks != null ? QueueItem.fromQueueItemList(queueFwks) : null;
     }
@@ -1405,15 +1383,13 @@ public final class MediaControllerCompat {
       sendCommand(COMMAND_REMOVE_QUEUE_ITEM, params, null);
     }
 
-    @Nullable
     @Override
-    public CharSequence getQueueTitle() {
+    public @Nullable CharSequence getQueueTitle() {
       return controllerFwk.getQueueTitle();
     }
 
-    @Nullable
     @Override
-    public Bundle getExtras() {
+    public @Nullable Bundle getExtras() {
       return convertToNullIfInvalid(controllerFwk.getExtras());
     }
 
@@ -1466,9 +1442,8 @@ public final class MediaControllerCompat {
       return controllerFwk.getFlags();
     }
 
-    @Nullable
     @Override
-    public PlaybackInfo getPlaybackInfo() {
+    public @Nullable PlaybackInfo getPlaybackInfo() {
       MediaController.PlaybackInfo volumeInfoFwk = controllerFwk.getPlaybackInfo();
       return volumeInfoFwk != null
           ? new PlaybackInfo(
@@ -1481,9 +1456,8 @@ public final class MediaControllerCompat {
           : null;
     }
 
-    @Nullable
     @Override
-    public PendingIntent getSessionActivity() {
+    public @Nullable PendingIntent getSessionActivity() {
       return controllerFwk.getSessionActivity();
     }
 
@@ -1532,9 +1506,8 @@ public final class MediaControllerCompat {
       return sessionInfo == null ? Bundle.EMPTY : new Bundle(sessionInfo);
     }
 
-    @Nullable
     @Override
-    public Object getMediaController() {
+    public @Nullable Object getMediaController() {
       return controllerFwk;
     }
 

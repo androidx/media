@@ -33,7 +33,6 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.BaseGlShaderProgram;
 import androidx.media3.effect.Brightness;
 import androidx.media3.effect.DebugTraceUtil;
@@ -54,6 +53,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -106,8 +106,8 @@ public class TransformerProgressTest {
           }
         };
     Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-    AtomicReference<@NullableType Transformer> transformerRef = new AtomicReference<>();
-    AtomicReference<@NullableType Exception> exceptionRef = new AtomicReference<>();
+    AtomicReference<@Nullable Transformer> transformerRef = new AtomicReference<>();
+    AtomicReference<@Nullable Exception> exceptionRef = new AtomicReference<>();
     instrumentation.runOnMainSync(
         () -> {
           try {
@@ -184,7 +184,7 @@ public class TransformerProgressTest {
             .build();
     // Written to on main sync, read on test thread.
     Queue<Integer> progresses = new ConcurrentLinkedDeque<>();
-    SettableFuture<@NullableType Exception> transformerExceptionFuture = SettableFuture.create();
+    SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     DebugTraceUtil.enableTracing = true;
     // Created on test thread, only used on main sync.
     Transformer testTransformer =
@@ -264,7 +264,7 @@ public class TransformerProgressTest {
     AtomicInteger previousProgressState =
         new AtomicInteger(PROGRESS_STATE_WAITING_FOR_AVAILABILITY);
     AtomicBoolean foundInconsistentState = new AtomicBoolean();
-    SettableFuture<@NullableType Exception> transformerExceptionFuture = SettableFuture.create();
+    SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     DebugTraceUtil.enableTracing = true;
     // Created on test thread, only used on main sync.
     Transformer testTransformer =

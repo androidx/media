@@ -27,16 +27,16 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.view.Surface;
 import android.view.SurfaceHolder;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ExperimentalApi;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** An implementation of {@link SurfaceHolder} which is backed by an {@link ImageReader}. */
 @ExperimentalApi // TODO: b/498176910 - Remove once FrameWriter is production ready.
 public final class ImageReaderSurfaceHolder implements SurfaceHolder, AutoCloseable {
 
-  @Nullable public ImageReader imageReader;
+  public @Nullable ImageReader imageReader;
 
   private final List<Callback> callbacks = new CopyOnWriteArrayList<>();
   private final Handler handler;

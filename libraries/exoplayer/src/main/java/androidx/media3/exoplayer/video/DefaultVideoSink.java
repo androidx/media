@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The default {@link VideoSink} implementation. This implementation renders video frames to an
@@ -60,7 +60,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Queue<VideoFrameHandler> videoFrameHandlers;
   private final FixedFrameRateEstimator frameRateEstimator;
 
-  @Nullable private Surface outputSurface;
+  private @Nullable Surface outputSurface;
   private Format inputFormat;
   private long streamStartPositionUs;
   private Listener listener;

@@ -24,20 +24,19 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Command;
 import androidx.media3.common.Player.Commands;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat.BrowserRoot;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class MediaUtils {
 
@@ -90,7 +89,7 @@ import java.util.List;
   }
 
   /** Returns a new list that only contains non-null elements of the original list. */
-  public static <T> List<T> removeNullElements(List<@NullableType T> list) {
+  public static <T> List<T> removeNullElements(List<@Nullable T> list) {
     List<T> newList = new ArrayList<>();
     for (@Nullable T item : list) {
       if (item != null) {

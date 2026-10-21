@@ -15,10 +15,10 @@
  */
 package androidx.media3.datasource.rtmp;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated Use {@link RtmpDataSource.Factory} instead.
@@ -27,7 +27,7 @@ import androidx.media3.datasource.TransferListener;
 @UnstableApi
 public final class RtmpDataSourceFactory implements DataSource.Factory {
 
-  @Nullable private final TransferListener listener;
+  private final @Nullable TransferListener listener;
 
   public RtmpDataSourceFactory() {
     this(null);

@@ -17,18 +17,18 @@ package androidx.media3.extractor.text;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderOutputBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Base class for {@link SubtitleDecoder} output buffers. */
 @UnstableApi
 public abstract class SubtitleOutputBuffer extends DecoderOutputBuffer implements Subtitle {
 
-  @Nullable private Subtitle subtitle;
+  private @Nullable Subtitle subtitle;
   private long subsampleOffsetUs;
 
   /**

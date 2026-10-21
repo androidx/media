@@ -17,10 +17,8 @@ package androidx.media3.exoplayer;
 
 import android.media.MediaFormat;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
@@ -28,6 +26,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** An immutable collection of parameters to be applied to a codec. */
 @UnstableApi
@@ -36,9 +35,9 @@ public final class CodecParameters {
   /** An empty {@link CodecParameters} instance. */
   public static final CodecParameters EMPTY = new CodecParameters.Builder().build();
 
-  private final Map<String, @NullableType Object> params;
+  private final Map<String, @Nullable Object> params;
 
-  private CodecParameters(Map<String, @NullableType Object> params) {
+  private CodecParameters(Map<String, @Nullable Object> params) {
     this.params = Collections.unmodifiableMap(params);
   }
 
@@ -49,7 +48,7 @@ public final class CodecParameters {
 
   /** A builder for {@link CodecParameters} instances. */
   public static final class Builder {
-    private final Map<String, @NullableType Object> params;
+    private final Map<String, @Nullable Object> params;
 
     /** Creates an empty builder. */
     public Builder() {
@@ -202,8 +201,7 @@ public final class CodecParameters {
    * @param key A string representing the key of the codec parameter.
    * @return The value of the requested parameter, or {@code null} if the key is not present.
    */
-  @Nullable
-  public Object get(String key) {
+  public @Nullable Object get(String key) {
     return params.get(key);
   }
 
@@ -233,7 +231,7 @@ public final class CodecParameters {
   @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    for (Map.Entry<String, @NullableType Object> entry : params.entrySet()) {
+    for (Map.Entry<String, @Nullable Object> entry : params.entrySet()) {
       String key = entry.getKey();
       Object value = entry.getValue();
       if (value == null) {
@@ -260,7 +258,7 @@ public final class CodecParameters {
   /** Applies the parameters from this instance to the given {@link MediaFormat}. */
   @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   public void applyTo(MediaFormat mediaFormat) {
-    for (Map.Entry<String, @NullableType Object> entry : params.entrySet()) {
+    for (Map.Entry<String, @Nullable Object> entry : params.entrySet()) {
       String key = entry.getKey();
       Object value = entry.getValue();
       if (value == null) {

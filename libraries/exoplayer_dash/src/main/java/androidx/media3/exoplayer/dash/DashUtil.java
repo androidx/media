@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.dash;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -44,6 +43,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for DASH streams. */
 @UnstableApi
@@ -118,8 +118,7 @@ public final class DashUtil {
    * @return The loaded {@link Format}, or null if none is defined.
    * @throws IOException Thrown when there is an error while loading.
    */
-  @Nullable
-  public static Format loadFormatWithDrmInitData(DataSource dataSource, Period period)
+  public static @Nullable Format loadFormatWithDrmInitData(DataSource dataSource, Period period)
       throws IOException {
     @C.TrackType int primaryTrackType = C.TRACK_TYPE_VIDEO;
     Representation representation = getFirstRepresentation(period, primaryTrackType);
@@ -131,8 +130,8 @@ public final class DashUtil {
       }
     }
     Format manifestFormat = representation.format;
-    @Nullable
-    Format sampleFormat = DashUtil.loadSampleFormat(dataSource, primaryTrackType, representation);
+    @Nullable Format sampleFormat =
+        DashUtil.loadSampleFormat(dataSource, primaryTrackType, representation);
     return sampleFormat == null
         ? manifestFormat
         : sampleFormat.withManifestFormatInfo(manifestFormat);
@@ -150,8 +149,7 @@ public final class DashUtil {
    * @return the sample {@link Format} of the given representation.
    * @throws IOException Thrown when there is an error while loading.
    */
-  @Nullable
-  public static Format loadSampleFormat(
+  public static @Nullable Format loadSampleFormat(
       DataSource dataSource, int trackType, Representation representation, int baseUrlIndex)
       throws IOException {
     if (representation.getInitializationUri() == null) {
@@ -179,8 +177,7 @@ public final class DashUtil {
    * @return the sample {@link Format} of the given representation.
    * @throws IOException Thrown when there is an error while loading.
    */
-  @Nullable
-  public static Format loadSampleFormat(
+  public static @Nullable Format loadSampleFormat(
       DataSource dataSource, int trackType, Representation representation) throws IOException {
     return loadSampleFormat(dataSource, trackType, representation, /* baseUrlIndex= */ 0);
   }
@@ -198,8 +195,7 @@ public final class DashUtil {
    *     index data exists.
    * @throws IOException Thrown when there is an error while loading.
    */
-  @Nullable
-  public static ChunkIndex loadChunkIndex(
+  public static @Nullable ChunkIndex loadChunkIndex(
       DataSource dataSource, int trackType, Representation representation, int baseUrlIndex)
       throws IOException {
     if (representation.getInitializationUri() == null) {
@@ -229,8 +225,7 @@ public final class DashUtil {
    *     index data exists.
    * @throws IOException Thrown when there is an error while loading.
    */
-  @Nullable
-  public static ChunkIndex loadChunkIndex(
+  public static @Nullable ChunkIndex loadChunkIndex(
       DataSource dataSource, int trackType, Representation representation) throws IOException {
     return loadChunkIndex(dataSource, trackType, representation, /* baseUrlIndex= */ 0);
   }
@@ -353,8 +348,8 @@ public final class DashUtil {
     return new BundledChunkExtractor(extractor, trackType, format);
   }
 
-  @Nullable
-  private static Representation getFirstRepresentation(Period period, @C.TrackType int type) {
+  private static @Nullable Representation getFirstRepresentation(
+      Period period, @C.TrackType int type) {
     int index = period.getAdaptationSetIndex(type);
     if (index == C.INDEX_UNSET) {
       return null;

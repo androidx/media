@@ -18,9 +18,8 @@ package androidx.media3.common.util;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import java.util.function.Function;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper class to handle state updates on a background thread while maintaining a placeholder state
@@ -30,7 +29,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *     Object#equals(Object)}.
  */
 @UnstableApi
-public final class BackgroundThreadStateHandler<T extends @NonNull Object> {
+public final class BackgroundThreadStateHandler<T> {
 
   /**
    * An interface to handle changes to the state on the foreground thread.
@@ -38,7 +37,7 @@ public final class BackgroundThreadStateHandler<T extends @NonNull Object> {
    * @param <T> An immutable object representing the entire state. Must implement {@link
    *     Object#equals(Object)}.
    */
-  public interface StateChangeListener<T extends @NonNull Object> {
+  public interface StateChangeListener<T> {
 
     /**
      * The state has changed.

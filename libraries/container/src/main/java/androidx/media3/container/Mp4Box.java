@@ -15,12 +15,12 @@
  */
 package androidx.media3.container;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A representation of an MP4 box (aka atom). */
 @SuppressWarnings("ConstantField")
@@ -431,6 +431,12 @@ public abstract class Mp4Box {
   @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
   public static final int TYPE_chap = 0x63686170;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_cdsc = 0x63647363;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_rndr = 0x726e6472;
+
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_saut = 0x73617574;
 
@@ -606,8 +612,7 @@ public abstract class Mp4Box {
      * @param type The leaf type.
      * @return The child leaf of the given type, or null if no such child exists.
      */
-    @Nullable
-    public LeafBox getLeafBoxOfType(int type) {
+    public @Nullable LeafBox getLeafBoxOfType(int type) {
       int childrenSize = leafChildren.size();
       for (int i = 0; i < childrenSize; i++) {
         LeafBox box = leafChildren.get(i);
@@ -627,8 +632,7 @@ public abstract class Mp4Box {
      * @param type The container type.
      * @return The child container of the given type, or null if no such child exists.
      */
-    @Nullable
-    public ContainerBox getContainerBoxOfType(int type) {
+    public @Nullable ContainerBox getContainerBoxOfType(int type) {
       int childrenSize = containerChildren.size();
       for (int i = 0; i < childrenSize; i++) {
         ContainerBox box = containerChildren.get(i);

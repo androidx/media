@@ -18,7 +18,6 @@ package androidx.media3.common.video;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
@@ -30,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default implementation of {@link ImagePlanesFrame} with {@link ReferenceCounter} lifecycle
@@ -85,7 +85,7 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
     private Format format;
     private ImmutableMap<String, Object> metadata;
     private long contentTimeUs;
-    @Nullable private Object internalImage;
+    private @Nullable Object internalImage;
 
     /**
      * Creates a builder for {@link ImagePlanesFrame} instances without lifecycle management.
@@ -171,7 +171,7 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
   private final Format format;
   private final ImmutableMap<String, Object> metadata;
   private final long contentTimeUs;
-  @Nullable private final Object internalImage;
+  private final @Nullable Object internalImage;
   private final SharedStateReferenceCounter delegateCounter;
 
   private DefaultImagePlanesFrame(Builder builder) {
@@ -215,8 +215,7 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
     delegateCounter.release(releaseFence);
   }
 
-  @Nullable
-  public Object getInternalImage() {
+  public @Nullable Object getInternalImage() {
     return internalImage;
   }
 }

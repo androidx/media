@@ -29,7 +29,6 @@ import android.os.PersistableBundle;
 import android.view.Surface;
 import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -44,6 +43,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaCodecAdapter} that operates the underlying {@link MediaCodec} in asynchronous mode,
@@ -165,7 +165,7 @@ import java.util.List;
   private final MediaCodec codec;
   private final AsynchronousMediaCodecCallback asynchronousMediaCodecCallback;
   private final MediaCodecBufferEnqueuer bufferEnqueuer;
-  @Nullable private final LoudnessCodecController loudnessCodecController;
+  private final @Nullable LoudnessCodecController loudnessCodecController;
 
   private boolean codecReleased;
   private @State int state;
@@ -246,8 +246,7 @@ import java.util.List;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getInputBuffer(int index) {
+  public @Nullable ByteBuffer getInputBuffer(int index) {
     return codec.getInputBuffer(index);
   }
 
@@ -261,8 +260,7 @@ import java.util.List;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer(int index) {
+  public @Nullable ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);
   }
 

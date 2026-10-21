@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
@@ -41,6 +40,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Encapsulates a mutating operation on the Cast media queue or playback position. */
 /* package */ abstract class QueuedOperation {
@@ -167,6 +167,7 @@ import java.util.Map;
     MediaLoadRequestData loadRequestData =
         new MediaLoadRequestData.Builder()
             .setAutoplay(playerTransferState.getPlayWhenReady())
+            .setMediaInfo(queueItems[startIndex].getMedia())
             .setQueueData(mediaQueueData)
             .setCurrentTime(startPositionMs)
             .setPlaybackRate(playerTransferState.getPlaybackParameters().speed)
@@ -239,6 +240,7 @@ import java.util.Map;
                 window.durationUs,
                 window.defaultPositionUs,
                 window.isLive(),
+                window.isSeekable,
                 window.mediaItem,
                 UNKNOWN_CONTENT_ID));
       }
@@ -263,6 +265,7 @@ import java.util.Map;
                 /* durationUs= */ C.TIME_UNSET,
                 /* defaultPositionUs= */ mediaItem.clippingConfiguration.startPositionUs,
                 /* isLive= */ false,
+                /* isSeekable= */ false,
                 mediaItem,
                 UNKNOWN_CONTENT_ID));
       }
@@ -333,7 +336,7 @@ import java.util.Map;
 
   /** Command for {@code addMediaItems(...)}. */
   public static final class AddMediaItemsOperation extends MediaItemsInsertionOperation {
-    @Nullable private final Object insertBeforePeriodUid;
+    private final @Nullable Object insertBeforePeriodUid;
 
     public AddMediaItemsOperation(
         @Nullable Object insertBeforePeriodUid, ImmutableList<MediaItem> mediaItems) {
@@ -367,8 +370,7 @@ import java.util.Map;
         effectiveIndex = currentTimeline.getWindowCount();
       }
       Timeline.Window window = new Timeline.Window();
-      @Nullable
-      Object playingUid =
+      @Nullable Object playingUid =
           !currentTimeline.isEmpty()
               ? currentTimeline.getWindow(snapshot.currentWindowIndex, window).uid
               : null;
@@ -428,7 +430,7 @@ import java.util.Map;
   /** Command for {@code moveMediaItems(...)}. */
   public static final class MoveMediaItemsOperation extends QueuedOperation {
     private final ImmutableList<Object> uidsToMove;
-    @Nullable private final Object insertBeforePeriodUid;
+    private final @Nullable Object insertBeforePeriodUid;
 
     public MoveMediaItemsOperation(
         List<Object> uidsToMove, @Nullable Object insertBeforePeriodUid) {
@@ -471,6 +473,7 @@ import java.util.Map;
                 window.durationUs,
                 window.defaultPositionUs,
                 window.isLive(),
+                window.isSeekable,
                 window.mediaItem,
                 UNKNOWN_CONTENT_ID));
       }
@@ -590,6 +593,7 @@ import java.util.Map;
                 window.durationUs,
                 window.defaultPositionUs,
                 window.isLive(),
+                window.isSeekable,
                 window.mediaItem,
                 UNKNOWN_CONTENT_ID));
       }

@@ -19,7 +19,6 @@ import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -38,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AudioSink} forwarding to {@link DefaultAudioSink} that captures configuration,
@@ -52,7 +52,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
 
   private int bufferCount;
   private long lastPresentationTimeUs;
-  @Nullable private ByteBuffer currentBuffer;
+  private @Nullable ByteBuffer currentBuffer;
   private @MonotonicNonNull Format format;
   private boolean isPlaying;
   private boolean audioTrackFull;
@@ -262,7 +262,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   private static final class DumpableConfiguration implements Dumper.Dumpable {
 
     private final Format inputFormat;
-    @Nullable private final ImmutableIntArray outputChannels;
+    private final @Nullable ImmutableIntArray outputChannels;
 
     public DumpableConfiguration(Format inputFormat, @Nullable ImmutableIntArray outputChannels) {
       this.inputFormat = inputFormat;
@@ -333,10 +333,10 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     private final long presentationTimeUs;
 
     /** Exactly one of this and {@link #perChannelHashCodes} is non-null. */
-    @Nullable private final String dataDumpValue;
+    private final @Nullable String dataDumpValue;
 
     /** Exactly one of this and {@link #dataDumpValue} is non-null. */
-    @Nullable private final int[] perChannelHashCodes;
+    private final int @Nullable [] perChannelHashCodes;
 
     public DumpableBuffer(
         int bufferCounter, Format format, ByteBuffer buffer, long presentationTimeUs) {

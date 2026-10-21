@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
@@ -26,6 +25,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import java.io.IOException;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A base class for {@link Chunk} implementations where the data should be loaded into a {@code
@@ -56,7 +56,7 @@ public abstract class DataChunk extends Chunk {
       Format trackFormat,
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
-      @Nullable byte[] data) {
+      byte @Nullable [] data) {
     super(
         dataSource,
         dataSpec,

@@ -69,7 +69,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.support.v4.media.session.MediaSessionCompat;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -93,6 +92,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents remote {@link MediaSession} in the service app's {@link MediaSessionProviderService}.
@@ -152,8 +152,7 @@ public class RemoteMediaSession {
    *
    * @return A {@link SessionToken} object.
    */
-  @Nullable
-  public SessionToken getToken() throws RemoteException {
+  public @Nullable SessionToken getToken() throws RemoteException {
     return SessionToken.fromBundle(binder.getToken(sessionId));
   }
 
@@ -163,8 +162,7 @@ public class RemoteMediaSession {
    *
    * @return A {@link SessionToken} object.
    */
-  @Nullable
-  public MediaSessionCompat.Token getCompatToken() throws RemoteException {
+  public MediaSessionCompat.@Nullable Token getCompatToken() throws RemoteException {
     Bundle bundle = binder.getCompatToken(sessionId);
     bundle.setClassLoader(MediaSession.class.getClassLoader());
     return MediaSessionCompat.Token.fromBundle(bundle);

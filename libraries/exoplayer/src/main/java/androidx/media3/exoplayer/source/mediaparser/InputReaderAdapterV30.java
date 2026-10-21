@@ -16,20 +16,20 @@
 package androidx.media3.exoplayer.source.mediaparser;
 
 import android.media.MediaParser;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** {@link MediaParser.SeekableInputReader} implementation wrapping a {@link DataReader}. */
 @RequiresApi(30)
 @UnstableApi
 public final class InputReaderAdapterV30 implements MediaParser.SeekableInputReader {
 
-  @Nullable private DataReader dataReader;
+  private @Nullable DataReader dataReader;
   private long resourceLength;
   private long currentPosition;
   private long lastSeekPosition;

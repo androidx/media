@@ -20,7 +20,6 @@ import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -40,6 +39,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Merges multiple {@link MediaSource}s.
@@ -95,7 +95,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   private int periodCount;
   private long[][] periodTimeOffsetsUs;
 
-  @Nullable private IllegalMergeException mergeError;
+  private @Nullable IllegalMergeException mergeError;
 
   /**
    * Creates a merging media source.
@@ -297,8 +297,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Integer childSourceId, MediaPeriodId mediaPeriodId) {
     List<MediaPeriodAndId> childMediaPeriodIds = mediaPeriods.get(childSourceId);
     for (int i = 0; i < childMediaPeriodIds.size(); i++) {

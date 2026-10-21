@@ -30,7 +30,6 @@ import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.text.style.UnderlineSpan;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
@@ -45,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class to convert from <a
@@ -145,8 +145,7 @@ import java.util.regex.Pattern;
     return spanTransitions;
   }
 
-  @Nullable
-  private static String getOpeningTag(Object span, float displayDensity) {
+  private static @Nullable String getOpeningTag(Object span, float displayDensity) {
     if (span instanceof StrikethroughSpan) {
       return "<span style='text-decoration:line-through;'>";
     } else if (span instanceof ForegroundColorSpan) {
@@ -212,8 +211,7 @@ import java.util.regex.Pattern;
     }
   }
 
-  @Nullable
-  private static String getClosingTag(Object span) {
+  private static @Nullable String getClosingTag(Object span) {
     if (span instanceof StrikethroughSpan
         || span instanceof ForegroundColorSpan
         || span instanceof BackgroundColorSpan

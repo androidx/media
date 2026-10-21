@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Util;
@@ -43,6 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.SocketFactory;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -488,7 +488,7 @@ public final class RtspMediaPeriodTest {
     private static final String SESSION_ID = "00000000";
 
     private final ImmutableList<RtpPacketStreamDump> rtpPacketStreamDumps;
-    @Nullable private final AtomicBoolean getPlayResponseReference;
+    private final @Nullable AtomicBoolean getPlayResponseReference;
     private final boolean isWwwAuthenticationMode;
 
     private TestResponseProvider(
@@ -600,9 +600,9 @@ public final class RtspMediaPeriodTest {
       return false;
     }
 
-    @Nullable
     @Override
-    public RtspMessageChannel.InterleavedBinaryDataListener getInterleavedBinaryDataListener() {
+    public RtspMessageChannel.@Nullable InterleavedBinaryDataListener
+        getInterleavedBinaryDataListener() {
       return null;
     }
 
@@ -614,9 +614,8 @@ public final class RtspMediaPeriodTest {
       return C.LENGTH_UNSET;
     }
 
-    @Nullable
     @Override
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return null;
     }
 

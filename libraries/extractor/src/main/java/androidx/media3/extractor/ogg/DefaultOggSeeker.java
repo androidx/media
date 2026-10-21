@@ -18,7 +18,6 @@ package androidx.media3.extractor.ogg;
 import static androidx.media3.extractor.ExtractorUtil.skipFullyQuietly;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -29,6 +28,7 @@ import androidx.media3.extractor.SeekPoint;
 import java.io.EOFException;
 import java.io.IOException;
 import java.math.BigInteger;
+import org.jspecify.annotations.Nullable;
 
 /** Seeks in an Ogg stream. */
 /* package */ final class DefaultOggSeeker implements OggSeeker {
@@ -125,8 +125,7 @@ import java.math.BigInteger;
   }
 
   @Override
-  @Nullable
-  public OggSeekMap createSeekMap() {
+  public @Nullable OggSeekMap createSeekMap() {
     return totalGranules != 0 ? new OggSeekMap() : null;
   }
 

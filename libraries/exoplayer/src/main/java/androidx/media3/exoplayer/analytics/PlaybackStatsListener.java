@@ -21,7 +21,6 @@ import static java.lang.Math.max;
 
 import android.os.SystemClock;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -47,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link AnalyticsListener} to gather {@link PlaybackStats} from the player.
@@ -77,21 +77,21 @@ public final class PlaybackStatsListener
   private final PlaybackSessionManager sessionManager;
   private final Map<String, PlaybackStatsTracker> playbackStatsTrackers;
   private final Map<String, EventTime> sessionStartEventTimes;
-  @Nullable private final Callback callback;
+  private final @Nullable Callback callback;
   private final boolean keepHistory;
   private final Period period;
 
   private PlaybackStats finishedPlaybackStats;
 
-  @Nullable private String discontinuityFromSession;
+  private @Nullable String discontinuityFromSession;
   private long discontinuityFromPositionMs;
   private @Player.DiscontinuityReason int discontinuityReason;
   private int droppedFrames;
-  @Nullable private Exception nonFatalException;
+  private @Nullable Exception nonFatalException;
   private long bandwidthTimeMs;
   private long bandwidthBytes;
-  @Nullable private Format videoFormat;
-  @Nullable private Format audioFormat;
+  private @Nullable Format videoFormat;
+  private @Nullable Format audioFormat;
   private VideoSize videoSize;
 
   /**
@@ -137,11 +137,9 @@ public final class PlaybackStatsListener
    *
    * @return {@link PlaybackStats} for the current playback session.
    */
-  @Nullable
-  public PlaybackStats getPlaybackStats() {
+  public @Nullable PlaybackStats getPlaybackStats() {
     @Nullable String activeSessionId = sessionManager.getActiveSessionId();
-    @Nullable
-    PlaybackStatsTracker activeStatsTracker =
+    @Nullable PlaybackStatsTracker activeStatsTracker =
         activeSessionId == null ? null : playbackStatsTrackers.get(activeSessionId);
     return activeStatsTracker == null ? null : activeStatsTracker.build(/* isFinal= */ false);
   }
@@ -400,8 +398,8 @@ public final class PlaybackStatsListener
     private boolean hasFatalError;
     private boolean startedLoading;
     private long lastRebufferStartTimeMs;
-    @Nullable private Format currentVideoFormat;
-    @Nullable private Format currentAudioFormat;
+    private @Nullable Format currentVideoFormat;
+    private @Nullable Format currentAudioFormat;
     private long lastVideoFormatStartTimeMs;
     private long lastAudioFormatStartTimeMs;
     private float currentPlaybackSpeed;

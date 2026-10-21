@@ -26,7 +26,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Pair;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -40,6 +39,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Concatenates multiple {@link MediaSource MediaSources}, combining everything in one single {@link
@@ -64,8 +64,8 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     private final ImmutableList.Builder<MediaSourceHolder> mediaSourceHoldersBuilder;
 
     private int index;
-    @Nullable private MediaItem mediaItem;
-    @Nullable private MediaSource.Factory mediaSourceFactory;
+    private @Nullable MediaItem mediaItem;
+    private MediaSource.@Nullable Factory mediaSourceFactory;
 
     /** Creates the builder. */
     public Builder() {
@@ -226,7 +226,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
   private final ImmutableList<MediaSourceHolder> mediaSourceHolders;
   private final IdentityHashMap<MediaPeriod, MediaSourceHolder> mediaSourceByMediaPeriod;
 
-  @Nullable private Handler playbackThreadHandler;
+  private @Nullable Handler playbackThreadHandler;
   private boolean timelineUpdateScheduled;
 
   @GuardedBy("this")
@@ -239,9 +239,8 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     mediaSourceByMediaPeriod = new IdentityHashMap<>();
   }
 
-  @Nullable
   @Override
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     return maybeCreateConcatenatedTimeline();
   }
 
@@ -329,8 +328,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Integer childSourceId, MediaPeriodId mediaPeriodId) {
     int childIndex =
         getChildIndexFromChildWindowSequenceNumber(
@@ -360,8 +358,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     if (mediaTimeMs == C.TIME_UNSET || mediaPeriodId == null || mediaPeriodId.isAd()) {
       return mediaTimeMs;
     }
-    @Nullable
-    Long timeOffsetUs =
+    @Nullable Long timeOffsetUs =
         mediaSourceHolders.get(childSourceId).periodTimeOffsetsByUid.get(mediaPeriodId.periodUid);
     if (timeOffsetUs == null) {
       return mediaTimeMs;
@@ -400,8 +397,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     }
   }
 
-  @Nullable
-  private ConcatenatedTimeline maybeCreateConcatenatedTimeline() {
+  private @Nullable ConcatenatedTimeline maybeCreateConcatenatedTimeline() {
     Timeline.Window window = new Timeline.Window();
     Timeline.Period period = new Timeline.Period();
     ImmutableList.Builder<Timeline> timelinesBuilder = ImmutableList.builder();
@@ -557,7 +553,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     private final boolean isDynamic;
     private final long durationUs;
     private final long defaultPositionUs;
-    @Nullable private final Object manifest;
+    private final @Nullable Object manifest;
 
     public ConcatenatedTimeline(
         MediaItem mediaItem,

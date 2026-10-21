@@ -27,13 +27,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -47,6 +45,7 @@ import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.NotOnlyInitialized;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Browses media content offered by a {@link MediaLibraryService} in addition to the {@link
@@ -520,7 +519,7 @@ public final class MediaBrowser extends MediaController {
     return createDisconnectedFuture();
   }
 
-  private static <V extends @NullableType Object>
+  private static <V extends @Nullable Object>
       ListenableFuture<LibraryResult<V>> createDisconnectedFuture() {
     return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_DISCONNECTED));
   }

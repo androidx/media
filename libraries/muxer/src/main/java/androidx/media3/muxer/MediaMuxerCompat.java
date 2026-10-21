@@ -26,7 +26,6 @@ import android.system.ErrnoException;
 import android.system.Os;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -42,6 +41,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A drop-in replacement for {@link MediaMuxer} that provides similar functionality, based on the
@@ -110,7 +110,7 @@ public final class MediaMuxerCompat {
   /** The WebM file format. */
   public static final int OUTPUT_FORMAT_WEBM = MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM;
 
-  @Nullable private final FileDescriptor fileDescriptor;
+  private final @Nullable FileDescriptor fileDescriptor;
   private final Muxer muxer;
   private final CompatMetadataDelegate compatMetadataDelegate;
 

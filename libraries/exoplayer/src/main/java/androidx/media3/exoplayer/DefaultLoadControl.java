@@ -27,13 +27,11 @@ import static java.lang.Runtime.getRuntime;
 import android.content.ContentResolver;
 import android.text.TextUtils;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSchemeDataSource;
@@ -52,6 +50,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /** The default {@link LoadControl} implementation. */
 @UnstableApi
@@ -203,7 +202,7 @@ public class DefaultLoadControl implements LoadControl {
 
     private final HashMap<String, Integer> playerTargetBufferBytes;
 
-    @Nullable private DefaultAllocator allocator;
+    private @Nullable DefaultAllocator allocator;
     private int minBufferMs;
     private int minBufferForLocalPlaybackMs;
     private int maxBufferMs;
@@ -223,7 +222,7 @@ public class DefaultLoadControl implements LoadControl {
     // setPrioritizeTimeOverSizeThresholds methods should not use local playback specific defaults
     // for the other setter to avoid unintended side effects of changing one default but keeping the
     // manual override for the other.
-    @Nullable private Boolean onlyGenericConfigurationMethodsCalled;
+    private @Nullable Boolean onlyGenericConfigurationMethodsCalled;
 
     /** Constructs a new instance. */
     public Builder() {
@@ -725,7 +724,7 @@ public class DefaultLoadControl implements LoadControl {
   public void onTracksSelected(
       LoadControl.Parameters parameters,
       TrackGroupArray trackGroups,
-      @NullableType ExoTrackSelection[] trackSelections) {
+      @Nullable ExoTrackSelection[] trackSelections) {
     int targetBufferBytesOverwrite = getTargetBufferBytesOverwrite(parameters.playerId);
     checkNotNull(loadingStates.get(parameters.playerId)).targetBufferBytes =
         targetBufferBytesOverwrite == C.LENGTH_UNSET
@@ -844,7 +843,7 @@ public class DefaultLoadControl implements LoadControl {
    *     instead.
    */
   @Deprecated
-  protected int calculateTargetBufferBytes(@NullableType ExoTrackSelection[] trackSelectionArray) {
+  protected int calculateTargetBufferBytes(@Nullable ExoTrackSelection[] trackSelectionArray) {
     return C.LENGTH_UNSET;
   }
 
@@ -859,7 +858,7 @@ public class DefaultLoadControl implements LoadControl {
    */
   @SuppressWarnings("deprecation") // Calling deprecated method for backwards compatibility
   protected int calculateTargetBufferBytes(
-      LoadControl.Parameters parameters, @NullableType ExoTrackSelection[] trackSelectionArray) {
+      LoadControl.Parameters parameters, @Nullable ExoTrackSelection[] trackSelectionArray) {
     int deprecatedResult = calculateTargetBufferBytes(trackSelectionArray);
     if (deprecatedResult != C.LENGTH_UNSET) {
       return deprecatedResult;

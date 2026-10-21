@@ -24,14 +24,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
@@ -59,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} that inserts ads linearly into a provided content media source.
@@ -145,7 +144,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       new MediaPeriodId(/* periodUid= */ new Object());
 
   private final MaskingMediaSource contentMediaSource;
-  @Nullable final MediaItem.DrmConfiguration contentDrmConfiguration;
+  final MediaItem.@Nullable DrmConfiguration contentDrmConfiguration;
   private final MediaSource.Factory adMediaSourceFactory;
   private final AdsLoader adsLoader;
   private final AdViewProvider adViewProvider;
@@ -159,11 +158,11 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
   private final Map<ClippingMediaPeriod, MediaPeriodId> activeContentClippingMediaPeriods;
 
   // Accessed on the player thread.
-  @Nullable private ComponentListener componentListener;
-  @Nullable private Timeline contentTimeline;
-  @Nullable private Timeline activeTimeline;
-  @Nullable private AdPlaybackState adPlaybackState;
-  private @NullableType AdMediaSourceHolder[][] adMediaSourceHolders;
+  private @Nullable ComponentListener componentListener;
+  private @Nullable Timeline contentTimeline;
+  private @Nullable Timeline activeTimeline;
+  private @Nullable AdPlaybackState adPlaybackState;
+  private @Nullable AdMediaSourceHolder[][] adMediaSourceHolders;
 
   /**
    * Constructs a new source that inserts ads linearly with the content specified by {@code
@@ -302,8 +301,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         adMediaSourceHolders[adGroupIndex] =
             Arrays.copyOf(adMediaSourceHolders[adGroupIndex], adCount);
       }
-      @Nullable
-      AdMediaSourceHolder adMediaSourceHolder =
+      @Nullable AdMediaSourceHolder adMediaSourceHolder =
           adMediaSourceHolders[adGroupIndex][adIndexInAdGroup];
       if (adMediaSourceHolder == null) {
         long endPositionUs = C.TIME_END_OF_SOURCE;
@@ -442,10 +440,12 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         for (int i = 0; i < activeMediaSourceHolders.size(); i++) {
           AdMediaSourceHolder adMediaSourceHolder = activeMediaSourceHolders.get(i);
           MediaPeriodId id = adMediaSourceHolder.id;
-          long adDurationUs =
-              adPlaybackState.getAdGroup(id.adGroupIndex).durationsUs[id.adIndexInAdGroup];
-          if (adDurationUs != C.TIME_UNSET) {
-            adMediaSourceHolder.setEndPositionUs(adDurationUs);
+          long[] durationsUs = adPlaybackState.getAdGroup(id.adGroupIndex).durationsUs;
+          if (durationsUs.length > id.adIndexInAdGroup) {
+            long adDurationUs = durationsUs[id.adIndexInAdGroup];
+            if (adDurationUs != C.TIME_UNSET) {
+              adMediaSourceHolder.setEndPositionUs(adDurationUs);
+            }
           }
         }
       }
@@ -462,6 +462,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
             == newAdPlaybackState.endsWithLivePostrollPlaceHolder());
     int insertionCount = newAdPlaybackState.adGroupCount - oldAdPlaybackState.adGroupCount;
     checkState(insertionCount >= 0);
+    checkState(newAdPlaybackState.removedAdGroupCount >= oldAdPlaybackState.removedAdGroupCount);
     for (int i = newAdPlaybackState.removedAdGroupCount; i < oldAdPlaybackState.adGroupCount; i++) {
       AdGroup oldAdGroup = oldAdPlaybackState.getAdGroup(i);
       if (oldAdGroup.isLivePostrollPlaceholder()) {
@@ -484,10 +485,10 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     return insertionCount;
   }
 
-  private static @NullableType AdMediaSourceHolder[][] growAdMediaSourceHolderGrid(
-      @NullableType AdMediaSourceHolder[][] grid, int insertionCount) {
-    @NullableType
-    AdMediaSourceHolder[][] grownGrid = new AdMediaSourceHolder[grid.length + insertionCount][];
+  private static @Nullable AdMediaSourceHolder[][] growAdMediaSourceHolderGrid(
+      @Nullable AdMediaSourceHolder[][] grid, int insertionCount) {
+    @Nullable AdMediaSourceHolder[][] grownGrid =
+        new AdMediaSourceHolder[grid.length + insertionCount][];
     System.arraycopy(grid, 0, grownGrid, 0, grid.length);
     for (int i = grid.length; i < grownGrid.length; i++) {
       grownGrid[i] = new AdMediaSourceHolder[0];
@@ -508,8 +509,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       for (int adIndexInAdGroup = 0;
           adIndexInAdGroup < this.adMediaSourceHolders[adGroupIndex].length;
           adIndexInAdGroup++) {
-        @Nullable
-        AdMediaSourceHolder adMediaSourceHolder =
+        @Nullable AdMediaSourceHolder adMediaSourceHolder =
             this.adMediaSourceHolders[adGroupIndex][adIndexInAdGroup];
         AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
         if (adMediaSourceHolder != null
@@ -586,8 +586,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     return adDurationsUs;
   }
 
-  @Nullable
-  private static MediaItem.AdsConfiguration getAdsConfiguration(MediaItem mediaItem) {
+  private static MediaItem.@Nullable AdsConfiguration getAdsConfiguration(MediaItem mediaItem) {
     return mediaItem.localConfiguration == null
         ? null
         : mediaItem.localConfiguration.adsConfiguration;

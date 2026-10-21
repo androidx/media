@@ -23,7 +23,6 @@ import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -31,6 +30,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A result to be used with {@link ListenableFuture} for asynchronous calls between {@link
@@ -159,7 +159,7 @@ public final class SessionResult {
   public final long completionTimeMs;
 
   /** The optional session error. */
-  @UnstableApi @Nullable public final SessionError sessionError;
+  @UnstableApi public final @Nullable SessionError sessionError;
 
   /**
    * Creates an instance with a result code.

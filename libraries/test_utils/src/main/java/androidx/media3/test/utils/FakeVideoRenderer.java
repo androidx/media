@@ -19,7 +19,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoSize;
@@ -34,6 +33,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link FakeRenderer} that supports {@link C#TRACK_TYPE_VIDEO}. */
 @UnstableApi
@@ -44,8 +44,8 @@ public class FakeVideoRenderer extends FakeRenderer {
   private final DecoderCounters decoderCounters;
   private final AtomicReference<VideoSize> videoSizeRef = new AtomicReference<>();
   private @MonotonicNonNull Format format;
-  @Nullable private Object output;
-  @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
+  private @Nullable Object output;
+  private @Nullable VideoFrameMetadataListener videoFrameMetadataListener;
   private boolean renderedFirstFrameAfterReset;
   private boolean mayRenderFirstFrameAfterEnableIfNotStarted;
   private boolean renderedFirstFrameAfterEnable;

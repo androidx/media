@@ -35,6 +35,7 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -44,7 +45,7 @@ import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.PixelFormat;
 import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
+import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -52,6 +53,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.Frame;
@@ -65,11 +67,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -81,9 +89,21 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class ImagePlanesToGlTextureConverterTest {
 
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({YUV_PLANE_LAYOUT_I420, YUV_PLANE_LAYOUT_NV12, YUV_PLANE_LAYOUT_NV21})
+  private @interface YuvPlaneLayout {}
+
+  private static final int YUV_PLANE_LAYOUT_I420 = 0;
+  private static final int YUV_PLANE_LAYOUT_NV12 = 1;
+  private static final int YUV_PLANE_LAYOUT_NV21 = 2;
+
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000L : 10_000L;
   private static final int DEFAULT_FRAME_WIDTH = 64;
   private static final int DEFAULT_FRAME_HEIGHT = 32;
+  private static final Size DEFAULT_FRAME_SIZE =
+      new Size(DEFAULT_FRAME_WIDTH, DEFAULT_FRAME_HEIGHT);
 
   /**
    * A non-saturated color whose RGB channels are away from 0 and 255.
@@ -118,6 +138,7 @@ public final class ImagePlanesToGlTextureConverterTest {
   private static final int RGBA_PADDING_COLOR = Color.RED;
 
   private static final int RGBA_BYTES_PER_PIXEL = 4;
+  private static final int SEMI_PLANAR_CHROMA_PIXEL_STRIDE = 2;
 
   /**
    * Padding fill value for YUV planes.
@@ -199,7 +220,8 @@ public final class ImagePlanesToGlTextureConverterTest {
         .submit(() -> setupOpenGl(glObjectsProvider))
         .get(TEST_TIMEOUT_MS, MILLISECONDS);
     converter =
-        new ImagePlanesToGlTextureConverter(context, BT709_SRGB, /* errorConsumer= */ e -> {});
+        new ImagePlanesToGlTextureConverter(
+            context, HardwareBufferJni.INSTANCE, BT709_SRGB, /* errorConsumer= */ e -> {});
   }
 
   @After
@@ -378,12 +400,15 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvBt601LimitedRange_decodesYuvCorrectly() throws Exception {
+  public void convert_yuvBt601LimitedRange_decodesYuvCorrectly(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT601_LIMITED);
+        createYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT601_LIMITED, layout);
     converter =
         new ImagePlanesToGlTextureConverter(
             context,
+            HardwareBufferJni.INSTANCE,
             COLOR_INFO_BT601_LIMITED,
             /* errorConsumer= */ e -> {
               throw new AssertionError(e);
@@ -399,12 +424,15 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvBt601FullRange_decodesYuvCorrectly() throws Exception {
+  public void convert_yuvBt601FullRange_decodesYuvCorrectly(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT601_FULL);
+        createYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT601_FULL, layout);
     converter =
         new ImagePlanesToGlTextureConverter(
             context,
+            HardwareBufferJni.INSTANCE,
             COLOR_INFO_BT601_FULL,
             /* errorConsumer= */ e -> {
               throw new AssertionError(e);
@@ -420,9 +448,11 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvBt709LimitedRange_decodesYuvCorrectly() throws Exception {
+  public void convert_yuvBt709LimitedRange_decodesYuvCorrectly(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED);
+        createYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED, layout);
 
     GlTextureFrame glTextureFrame = convert(yuvFrame);
 
@@ -434,9 +464,11 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvBt709FullRange_decodesYuvCorrectly() throws Exception {
+  public void convert_yuvBt709FullRange_decodesYuvCorrectly(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT709_FULL);
+        createYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT709_FULL, layout);
 
     GlTextureFrame glTextureFrame = convert(yuvFrame);
 
@@ -448,9 +480,11 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvBt601InputWithBt709Output_appliesGamutConversion() throws Exception {
+  public void convert_yuvBt601InputWithBt709Output_appliesGamutConversion(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT601_LIMITED);
+        createYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ COLOR_INFO_BT601_LIMITED, layout);
     // DEFAULT_COLOR (64, 192, 64) converted from BT.601 gamut to BT.709 gamut:
     // 1. Linearize sRGB (srgbEotf): (64, 192, 64) / 255 -> (0.0513, 0.5271, 0.0513)
     // 2. Convert gamut (BT601_TO_BT709): -> (0.0751, 0.5108, 0.0492)
@@ -469,11 +503,14 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvWithPaddedRowStride_cropsRowPadding() throws Exception {
+  public void convert_yuvWithPaddedRowStride_cropsRowPadding(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame paddedYuvFrame =
-        createPlanarYuvFrame(
+        createYuvFrame(
             DEFAULT_COLOR,
             /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            layout,
             LUMA_ROW_PADDING_PIXEL_COUNT,
             CHROMA_ROW_PADDING_PIXEL_COUNT);
 
@@ -487,12 +524,36 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_planarYuvWithPaddedRowStride_doesNotBlendPaddingIntoRightmostColumn()
+  public void convert_yuvWithOddDimensions_decodesYuvCorrectly(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
+    Size oddSize = new Size(/* width= */ 63, /* height= */ 31);
+    ImagePlanesFrame oddYuvFrame =
+        createYuvFrame(
+            DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED, layout, oddSize);
+    Bitmap expectedBitmap =
+        createArgb8888BitmapWithSolidColor(oddSize.getWidth(), oddSize.getHeight(), DEFAULT_COLOR);
+
+    GlTextureFrame glTextureFrame = convert(oddYuvFrame);
+
+    Bitmap actualBitmap = createArgb8888BitmapFromGlTextureFrame(glTextureFrame);
+    assertThat(glTextureFrame.glTextureInfo.width).isEqualTo(oddSize.getWidth());
+    assertThat(glTextureFrame.glTextureInfo.height).isEqualTo(oddSize.getHeight());
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, actualBitmap, testName.getMethodName()))
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  public void convert_yuvWithPaddedRowStride_doesNotBlendPaddingIntoRightmostColumn(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
       throws Exception {
     ImagePlanesFrame paddedYuvFrame =
-        createPlanarYuvFrame(
+        createYuvFrame(
             DEFAULT_COLOR,
             /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            layout,
             LUMA_ROW_PADDING_PIXEL_COUNT,
             CHROMA_ROW_PADDING_PIXEL_COUNT);
     Bitmap expectedRightmostColumn =
@@ -537,10 +598,12 @@ public final class ImagePlanesToGlTextureConverterTest {
   }
 
   @Test
-  public void convert_rgbaFrameThenPlanarYuvFrame_decodesBothFramesCorrectly() throws Exception {
+  public void convert_rgbaFrameThenYuvFrame_decodesBothFramesCorrectly(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     ImagePlanesFrame rgbaFrame = createRgbaFrame(Color.BLUE);
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED);
+        createYuvFrame(DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED, layout);
 
     GlTextureFrame rgbaGlTextureFrame = convert(rgbaFrame);
     Bitmap actualRgbaBitmap = createArgb8888BitmapFromGlTextureFrame(rgbaGlTextureFrame);
@@ -562,6 +625,33 @@ public final class ImagePlanesToGlTextureConverterTest {
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
+  @Test
+  public void convert_planarYuvFrameThenSemiPlanarYuvFrame_decodesBothFramesCorrectly()
+      throws Exception {
+    ImagePlanesFrame i420Frame =
+        createYuvFrame(
+            DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED, YUV_PLANE_LAYOUT_I420);
+    ImagePlanesFrame nv12Frame =
+        createYuvFrame(
+            DEFAULT_COLOR, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED, YUV_PLANE_LAYOUT_NV12);
+
+    GlTextureFrame i420GlTextureFrame = convert(i420Frame);
+    Bitmap actualI420Bitmap = createArgb8888BitmapFromGlTextureFrame(i420GlTextureFrame);
+    i420GlTextureFrame.release(/* releaseFence= */ null);
+    GlTextureFrame nv12GlTextureFrame = convert(nv12Frame);
+    Bitmap actualNv12Bitmap = createArgb8888BitmapFromGlTextureFrame(nv12GlTextureFrame);
+    nv12GlTextureFrame.release(/* releaseFence= */ null);
+
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                EXPECTED_DEFAULT_COLOR_BITMAP, actualI420Bitmap, testName.getMethodName()))
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                EXPECTED_DEFAULT_COLOR_BITMAP, actualNv12Bitmap, testName.getMethodName()))
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
   @SdkSuppress(minSdkVersion = 29)
   @Test
   public void convert_rgbaPlanesFrameWithLinearOutputTransfer_appliesSrgbEotf() throws Exception {
@@ -577,7 +667,8 @@ public final class ImagePlanesToGlTextureConverterTest {
             expectedLinearChannel);
     ImagePlanesFrame rgbaFrame = createRgbaFrame(srgbMidTone);
     converter =
-        new ImagePlanesToGlTextureConverter(context, BT709_LINEAR, /* errorConsumer= */ e -> {});
+        new ImagePlanesToGlTextureConverter(
+            context, HardwareBufferJni.INSTANCE, BT709_LINEAR, /* errorConsumer= */ e -> {});
 
     GlTextureFrame glTextureFrame = convert(rgbaFrame);
 
@@ -589,7 +680,9 @@ public final class ImagePlanesToGlTextureConverterTest {
 
   @SdkSuppress(minSdkVersion = 29)
   @Test
-  public void convert_planarYuvWithLinearOutputTransfer_appliesSrgbEotf() throws Exception {
+  public void convert_yuvWithLinearOutputTransfer_appliesSrgbEotf(
+      @TestParameter(valuesProvider = YuvPlaneLayoutProvider.class) @YuvPlaneLayout int layout)
+      throws Exception {
     int srgbMidTone = Color.rgb(128, 128, 128);
     // srgbEotf(128 / 255.0) = ((128 / 255.0 + 0.055) / 1.055)^2.4 = 0.2158605f
     float expectedLinearChannel = 0.2158605f;
@@ -601,10 +694,11 @@ public final class ImagePlanesToGlTextureConverterTest {
             expectedLinearChannel,
             expectedLinearChannel);
     ImagePlanesFrame yuvFrame =
-        createPlanarYuvFrame(srgbMidTone, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED);
+        createYuvFrame(srgbMidTone, /* yuvColorInfo= */ ColorInfo.SDR_BT709_LIMITED, layout);
     converter =
         new ImagePlanesToGlTextureConverter(
             context,
+            HardwareBufferJni.INSTANCE,
             BT709_LINEAR,
             /* errorConsumer= */ e -> {
               throw new AssertionError(e);
@@ -629,33 +723,6 @@ public final class ImagePlanesToGlTextureConverterTest {
     assertThat(listener.frameProcessed.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(listener.processedFrame.get()).isSameInstanceAs(frame);
     assertThat(listener.onCompleteFence.get()).isNull();
-  }
-
-  @Test
-  public void release_afterReleasingGlResources_doesNotNotifyListener() throws Exception {
-    ImagePlanesFrame frame = createRgbaFrame(DEFAULT_COLOR);
-    CapturingFrameProcessorListener listener = new CapturingFrameProcessorListener();
-
-    glExecutorService
-        .submit(
-            () -> {
-              GlTextureFrame glTextureFrame =
-                  converter.convert(
-                      frame,
-                      /* glExecutor= */ glExecutorService,
-                      /* listenerExecutor= */ directExecutor(),
-                      listener);
-              converter.releaseGlResources(frame);
-              glTextureFrame.release(/* releaseFence= */ null);
-              return null;
-            })
-        .get(TEST_TIMEOUT_MS, MILLISECONDS);
-
-    // The release callback runs on the GL executor and notifies the listener synchronously via
-    // directExecutor(), so once the GL executor is drained the listener would already have been
-    // notified if the converter were going to notify it at all.
-    glExecutorService.submit(() -> {}).get(TEST_TIMEOUT_MS, MILLISECONDS);
-    assertThat(listener.processedFrame.get()).isNull();
   }
 
   private GlTextureFrame convert(ImagePlanesFrame frame) throws Exception {
@@ -752,37 +819,116 @@ public final class ImagePlanesToGlTextureConverterTest {
     buffer.put((byte) Color.alpha(pixelColor));
   }
 
-  private static DefaultImagePlanesFrame createPlanarYuvFrame(
-      @ColorInt int rgbColor, ColorInfo yuvColorInfo) {
-    return createPlanarYuvFrame(
-        rgbColor,
-        yuvColorInfo,
-        /* lumaRowPaddingPixelCount= */ 0,
-        /* chromaRowPaddingPixelCount= */ 0);
+  private static DefaultImagePlanesFrame createYuvFrame(
+      @ColorInt int rgbColor, ColorInfo yuvColorInfo, @YuvPlaneLayout int layout) {
+    return createYuvFrame(rgbColor, yuvColorInfo, layout, DEFAULT_FRAME_SIZE);
   }
 
-  private static DefaultImagePlanesFrame createPlanarYuvFrame(
+  private static DefaultImagePlanesFrame createYuvFrame(
+      @ColorInt int rgbColor, ColorInfo yuvColorInfo, @YuvPlaneLayout int layout, Size size) {
+    ImmutableList<Plane> planes =
+        createYuvPlanes(
+            rgbToYuv(rgbColor, yuvColorInfo.colorSpace, yuvColorInfo.colorRange),
+            layout,
+            size,
+            /* lumaRowPaddingPixelCount= */ 0,
+            /* chromaRowPaddingPixelCount= */ 0);
+    return createYuvFrameFromPlanes(planes, yuvColorInfo, size);
+  }
+
+  private static DefaultImagePlanesFrame createYuvFrame(
       @ColorInt int rgbColor,
       ColorInfo yuvColorInfo,
+      @YuvPlaneLayout int layout,
       int lumaRowPaddingPixelCount,
       int chromaRowPaddingPixelCount) {
-    byte[] yuv = rgbToYuv(rgbColor, yuvColorInfo.colorSpace, yuvColorInfo.colorRange);
-    int chromaWidth = (DEFAULT_FRAME_WIDTH + 1) / 2;
-    int chromaHeight = (DEFAULT_FRAME_HEIGHT + 1) / 2;
-    Plane yPlane =
-        createPlane(yuv[0], DEFAULT_FRAME_WIDTH, DEFAULT_FRAME_HEIGHT, lumaRowPaddingPixelCount);
-    Plane uPlane = createPlane(yuv[1], chromaWidth, chromaHeight, chromaRowPaddingPixelCount);
-    Plane vPlane = createPlane(yuv[2], chromaWidth, chromaHeight, chromaRowPaddingPixelCount);
+    ImmutableList<Plane> planes =
+        createYuvPlanes(
+            rgbToYuv(rgbColor, yuvColorInfo.colorSpace, yuvColorInfo.colorRange),
+            layout,
+            DEFAULT_FRAME_SIZE,
+            lumaRowPaddingPixelCount,
+            chromaRowPaddingPixelCount);
+    return createYuvFrameFromPlanes(planes, yuvColorInfo, DEFAULT_FRAME_SIZE);
+  }
+
+  private static DefaultImagePlanesFrame createYuvFrameFromPlanes(
+      ImmutableList<Plane> planes, ColorInfo yuvColorInfo, Size size) {
     Format format =
         new Format.Builder()
-            .setWidth(DEFAULT_FRAME_WIDTH)
-            .setHeight(DEFAULT_FRAME_HEIGHT)
+            .setWidth(size.getWidth())
+            .setHeight(size.getHeight())
             .setPixelFormat(ImageFormat.YUV_420_888)
             .setColorInfo(yuvColorInfo)
             .build();
-    return new DefaultImagePlanesFrame.Builder(ImmutableList.of(yPlane, uPlane, vPlane))
-        .setFormat(format)
-        .build();
+    return new DefaultImagePlanesFrame.Builder(planes).setFormat(format).build();
+  }
+
+  /**
+   * Returns Y, U, and V planes for a solid color YUV frame in {@code layout}.
+   *
+   * <p>Each row except the final one of each plane is padded by {@link #YUV_PADDING_VALUE}.
+   *
+   * <p>For {@link #YUV_PLANE_LAYOUT_NV12} and {@link #YUV_PLANE_LAYOUT_NV21}, the U and V planes
+   * are views of the same interleaved chroma, each ending at its own last sample (matching {@code
+   * ImageReader} plane buffers).
+   */
+  // Switch expressions need Java 14+, but Gradle compiles Media3 tests with Java 8.
+  // TODO(b/561916275): Remove once test targets apply Media3 javacopts.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
+  private static ImmutableList<Plane> createYuvPlanes(
+      byte[] yuv,
+      @YuvPlaneLayout int layout,
+      Size size,
+      int lumaRowPaddingPixelCount,
+      int chromaRowPaddingPixelCount) {
+    byte ySample = yuv[0];
+    byte uSample = yuv[1];
+    byte vSample = yuv[2];
+    int width = size.getWidth();
+    int height = size.getHeight();
+    int chromaWidth = (width + 1) / 2;
+    int chromaHeight = (height + 1) / 2;
+    int semiPlanarChromaRowStride =
+        (chromaWidth + chromaRowPaddingPixelCount) * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+    Plane yPlane = createPlane(ySample, width, height, lumaRowPaddingPixelCount);
+    Plane uPlane;
+    Plane vPlane;
+    switch (layout) {
+      case YUV_PLANE_LAYOUT_I420:
+        uPlane = createPlane(uSample, chromaWidth, chromaHeight, chromaRowPaddingPixelCount);
+        vPlane = createPlane(vSample, chromaWidth, chromaHeight, chromaRowPaddingPixelCount);
+        break;
+      case YUV_PLANE_LAYOUT_NV12:
+        ByteBuffer nv12Chroma =
+            createInterleavedChromaBuffer(
+                /* firstSample= */ uSample,
+                /* secondSample= */ vSample,
+                chromaWidth,
+                chromaHeight,
+                chromaRowPaddingPixelCount);
+        uPlane =
+            createSemiPlanarChromaPlane(nv12Chroma, /* offset= */ 0, semiPlanarChromaRowStride);
+        vPlane =
+            createSemiPlanarChromaPlane(nv12Chroma, /* offset= */ 1, semiPlanarChromaRowStride);
+        break;
+      case YUV_PLANE_LAYOUT_NV21:
+        ByteBuffer nv21Chroma =
+            createInterleavedChromaBuffer(
+                /* firstSample= */ vSample,
+                /* secondSample= */ uSample,
+                chromaWidth,
+                chromaHeight,
+                chromaRowPaddingPixelCount);
+        vPlane =
+            createSemiPlanarChromaPlane(nv21Chroma, /* offset= */ 0, semiPlanarChromaRowStride);
+        uPlane =
+            createSemiPlanarChromaPlane(nv21Chroma, /* offset= */ 1, semiPlanarChromaRowStride);
+        break;
+      default:
+        throw new AssertionError("Unexpected layout: " + layout);
+    }
+    return ImmutableList.of(yPlane, uPlane, vPlane);
   }
 
   /**
@@ -811,6 +957,51 @@ public final class ImagePlanesToGlTextureConverterTest {
     }
     buffer.flip();
     return new DefaultPlane(buffer, rowStride, /* pixelStride= */ 1);
+  }
+
+  /**
+   * Returns interleaved chroma in which each pair of samples is {@code firstSample} followed by
+   * {@code secondSample}.
+   *
+   * <p>Each row except the final one is padded by {@code rowPaddingPixelCount} pairs of {@link
+   * #YUV_PADDING_VALUE}, so the buffer ends at the last visible sample (matching {@code
+   * ImageReader} plane buffers).
+   */
+  private static ByteBuffer createInterleavedChromaBuffer(
+      byte firstSample, byte secondSample, int width, int height, int rowPaddingPixelCount) {
+    int rowStride = (width + rowPaddingPixelCount) * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+    int finalRowBytes = width * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+    int bufferSize = rowStride * (height - 1) + finalRowBytes;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize);
+    // The first `height - 1` rows are always padded.
+    for (int y = 0; y < height - 1; y++) {
+      for (int x = 0; x < width; x++) {
+        buffer.put(firstSample).put(secondSample);
+      }
+      for (int x = 0; x < rowPaddingPixelCount; x++) {
+        buffer.put(YUV_PADDING_VALUE).put(YUV_PADDING_VALUE);
+      }
+    }
+    // The final row ends at the last visible sample, without any padding.
+    for (int x = 0; x < width; x++) {
+      buffer.put(firstSample).put(secondSample);
+    }
+    buffer.flip();
+    return buffer;
+  }
+
+  /**
+   * Returns a plane with {@code pixelStride == 2} that is a view of {@code interleavedChroma}.
+   *
+   * <p>The view starts at {@code offset} (0 or 1) and ends at its own last sample.
+   */
+  private static Plane createSemiPlanarChromaPlane(
+      ByteBuffer interleavedChroma, int offset, int rowStride) {
+    ByteBuffer view = interleavedChroma.duplicate();
+    view.position(offset);
+    // The interleaved chroma ends with the last sample of the view that starts at offset 1.
+    view.limit(interleavedChroma.limit() - 1 + offset);
+    return new DefaultPlane(view.slice(), rowStride, SEMI_PLANAR_CHROMA_PIXEL_STRIDE);
   }
 
   private static byte[] rgbToYuv(
@@ -843,6 +1034,16 @@ public final class ImagePlanesToGlTextureConverterTest {
       (byte) Math.round((yuv[1] + yuvOffset[1]) * 255.0f),
       (byte) Math.round((yuv[2] + yuvOffset[2]) * 255.0f)
     };
+  }
+
+  private static final class YuvPlaneLayoutProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<?> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          value(YUV_PLANE_LAYOUT_I420).withName("I420"),
+          value(YUV_PLANE_LAYOUT_NV12).withName("NV12"),
+          value(YUV_PLANE_LAYOUT_NV21).withName("NV21"));
+    }
   }
 
   private static final class CapturingFrameProcessorListener implements FrameProcessor.Listener {

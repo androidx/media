@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.text.TextUtils;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -28,6 +27,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.net.UnknownHostException;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wrapper around {@link android.util.Log} which allows to set the log level and to specify a custom
@@ -320,9 +320,8 @@ public final class Log {
    * @return The string representation of the {@link Throwable}, or null if {@code throwable} is
    *     null.
    */
-  @Nullable
   @Pure
-  public static String getThrowableString(@Nullable Throwable throwable) {
+  public static @Nullable String getThrowableString(@Nullable Throwable throwable) {
     if (throwable == null) {
       return null;
     }

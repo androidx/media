@@ -24,10 +24,10 @@ import android.media.session.MediaSession;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class SessionTokenImplBase implements SessionToken.SessionTokenImpl {
 
@@ -41,17 +41,17 @@ import java.util.Objects;
 
   private final String packageName;
 
-  @Nullable private final String packageNameOverride;
+  private final @Nullable String packageNameOverride;
 
   private final String serviceName;
 
-  @Nullable private final ComponentName componentName;
+  private final @Nullable ComponentName componentName;
 
-  @Nullable private final IBinder iSession;
+  private final @Nullable IBinder iSession;
 
   private final Bundle extras;
 
-  @Nullable private final MediaSession.Token platformToken;
+  private final MediaSession.@Nullable Token platformToken;
 
   public SessionTokenImplBase(ComponentName serviceComponent, int uid, int type) {
     this(
@@ -76,7 +76,7 @@ import java.util.Objects;
       String packageName,
       IMediaSession iSession,
       Bundle tokenExtras,
-      @Nullable MediaSession.Token platformToken,
+      MediaSession.@Nullable Token platformToken,
       @Nullable String packageNameOverride) {
     this(
         uid,
@@ -102,7 +102,7 @@ import java.util.Objects;
       @Nullable ComponentName componentName,
       @Nullable IBinder iSession,
       Bundle extras,
-      @Nullable MediaSession.Token platformToken,
+      MediaSession.@Nullable Token platformToken,
       @Nullable String packageNameOverride) {
     this.uid = uid;
     this.type = type;
@@ -195,14 +195,12 @@ import java.util.Objects;
   }
 
   @Override
-  @Nullable
-  public ComponentName getComponentName() {
+  public @Nullable ComponentName getComponentName() {
     return componentName;
   }
 
   @Override
-  @SessionToken.TokenType
-  public int getType() {
+  public @SessionToken.TokenType int getType() {
     return type;
   }
 
@@ -222,14 +220,12 @@ import java.util.Objects;
   }
 
   @Override
-  @Nullable
-  public Object getBinder() {
+  public @Nullable Object getBinder() {
     return iSession;
   }
 
-  @Nullable
   @Override
-  public MediaSession.Token getPlatformToken() {
+  public MediaSession.@Nullable Token getPlatformToken() {
     return platformToken;
   }
 
@@ -270,7 +266,7 @@ import java.util.Objects;
 
   /** Restores a {@code SessionTokenImplBase} from a {@link Bundle}. */
   public static SessionTokenImplBase fromBundle(
-      Bundle bundle, @Nullable MediaSession.Token platformToken) {
+      Bundle bundle, MediaSession.@Nullable Token platformToken) {
     checkArgument(bundle.containsKey(FIELD_UID), "uid should be set.");
     int uid = bundle.getInt(FIELD_UID);
     checkArgument(bundle.containsKey(FIELD_TYPE), "type should be set.");
@@ -287,8 +283,8 @@ import java.util.Objects;
     @Nullable IBinder iSession = BundleCompat.getBinder(bundle, FIELD_ISESSION);
     @Nullable ComponentName componentName = bundle.getParcelable(FIELD_COMPONENT_NAME);
     @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
-    @Nullable
-    MediaSession.Token platformTokenFromBundle = bundle.getParcelable(FIELD_PLATFORM_TOKEN);
+    MediaSession.@Nullable Token platformTokenFromBundle =
+        bundle.getParcelable(FIELD_PLATFORM_TOKEN);
     if (platformTokenFromBundle != null) {
       platformToken = platformTokenFromBundle;
     }

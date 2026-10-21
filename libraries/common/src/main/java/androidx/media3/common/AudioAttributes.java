@@ -20,11 +20,11 @@ import static android.os.Build.VERSION.SDK_INT;
 import android.annotation.SuppressLint;
 import android.media.AudioManager;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Attributes for audio playback, which configure the underlying platform {@link
@@ -207,7 +207,7 @@ public final class AudioAttributes {
     return new Builder(this);
   }
 
-  @Nullable private android.media.AudioAttributes platformAudioAttributes;
+  private android.media.@Nullable AudioAttributes platformAudioAttributes;
 
   private AudioAttributes(
       @C.AudioContentType int contentType,

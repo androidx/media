@@ -32,6 +32,7 @@ import android.graphics.Gainmap;
 import android.graphics.ImageFormat;
 import android.hardware.HardwareBuffer;
 import android.os.HandlerThread;
+import android.view.Surface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -45,7 +46,10 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
+import androidx.media3.transformer.HardwareBufferFrameReader.InputSurface;
 import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
+import androidx.media3.transformer.TestUtil.FakeImageReaderAdapter;
+import androidx.media3.transformer.TestUtil.FakeImageReaderAdapterFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -64,6 +68,7 @@ public class HardwareBufferFrameReaderTest {
 
   private List<AsyncFrame> receivedFrames;
   private HardwareBufferFrameReader hardwareBufferFrameReader;
+  private InputSurface inputSurface;
   private HandlerThread handlerThread;
   private AtomicReference<Exception> hardwareBufferFrameReaderException;
 
@@ -96,6 +101,7 @@ public class HardwareBufferFrameReaderTest {
             /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
             SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
             mockJniWrapper);
+    inputSurface = hardwareBufferFrameReader.createInputSurface();
   }
 
   @After
@@ -105,36 +111,50 @@ public class HardwareBufferFrameReaderTest {
   }
 
   @Test
-  public void canAcceptFrameViaSurface_returnsTrue() {
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
+  public void canAcceptFrame_returnsTrue() {
+    assertThat(inputSurface.canAcceptFrame()).isTrue();
   }
 
   @Test
-  public void canAcceptFrameViaSurface_afterSurfaceFrame_returnsFalse() {
-    hardwareBufferFrameReader.queueFrameViaSurface(
+  public void canAcceptFrame_afterSurfaceFrame_returnsFalse() {
+    inputSurface.queueFrame(
         /* presentationTimeUs= */ 0,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
         new Format.Builder().build());
 
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+    assertThat(inputSurface.canAcceptFrame()).isFalse();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
   @Test
-  public void canAcceptFrameViaSurface_afterSequenceOfBitmaps_returnsFalse() {
+  public void canAcceptFrame_withPendingFrameOnOtherInputSurface_returnsFalse() {
+    InputSurface inputSurface2 = hardwareBufferFrameReader.createInputSurface();
+
+    inputSurface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build());
+
+    assertThat(inputSurface2.canAcceptFrame()).isFalse();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  public void canAcceptFrame_afterSequenceOfBitmaps_returnsFalse() {
     hardwareBufferFrameReader.outputBitmap(
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888),
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f),
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0);
 
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+    assertThat(inputSurface.canAcceptFrame()).isFalse();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
   @Test
-  public void canAcceptFrameViaSurface_afterSingleBitmap_returnsTrue() {
+  public void canAcceptFrame_afterSingleBitmap_returnsTrue() {
     // A timestamp iterator that will produce only a single output frame.
     TimestampIterator singleFrame =
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
@@ -146,7 +166,7 @@ public class HardwareBufferFrameReaderTest {
         /* indexOfItem= */ 0);
 
     assertThat(singleFrame.hasNext()).isFalse();
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
+    assertThat(inputSurface.canAcceptFrame()).isTrue();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
@@ -163,7 +183,7 @@ public class HardwareBufferFrameReaderTest {
 
     // Trying to output 30 frames. Stop outputting when the output capacity is reached.
     assertThat(thirtyFrames.hasNext()).isTrue();
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+    assertThat(inputSurface.canAcceptFrame()).isFalse();
     assertThat(receivedFrames).hasSize(CAPACITY);
     assertFramePresentationTimes(
         receivedFrames, /* firstFrameIndex= */ 0, /* sequenceOffsetUs= */ 0);
@@ -205,13 +225,13 @@ public class HardwareBufferFrameReaderTest {
 
     AtomicBoolean onWakeupCalled = new AtomicBoolean();
     hardwareBufferFrameReader.addRendererWakeupListener(() -> onWakeupCalled.set(true));
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+    assertThat(inputSurface.canAcceptFrame()).isFalse();
 
     releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(onWakeupCalled.get()).isTrue();
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
+    assertThat(inputSurface.canAcceptFrame()).isTrue();
   }
 
   @Test
@@ -227,14 +247,14 @@ public class HardwareBufferFrameReaderTest {
         /* indexOfItem= */ 0);
 
     hardwareBufferFrameReader.addRendererWakeupListener(rendererWakeupListener);
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+    assertThat(inputSurface.canAcceptFrame()).isFalse();
 
     hardwareBufferFrameReader.removeRendererWakeupListener(rendererWakeupListener);
     releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(onWakeupCalled.get()).isFalse();
-    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
+    assertThat(inputSurface.canAcceptFrame()).isTrue();
   }
 
   @Test
@@ -530,6 +550,95 @@ public class HardwareBufferFrameReaderTest {
         .isNotSameInstanceAs(getHardwareBuffer(frames.get(1)));
 
     frameReader.release();
+  }
+
+  @Test
+  public void createInputSurface_returnsNewSurface() {
+    HardwareBufferFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
+
+    Surface surface1 = frameReader.createInputSurface().getSurface();
+    Surface surface2 = frameReader.createInputSurface().getSurface();
+
+    assertThat(surface1).isNotSameInstanceAs(surface2);
+    frameReader.release();
+  }
+
+  @Test
+  public void release_closesAllInputSurfaceImageReaders() {
+    List<FakeImageReaderAdapter> imageReaders = new ArrayList<>();
+    HardwareBufferFrameReader frameReader =
+        createFrameReader(
+            (width, height, format, maxImages, usage) -> {
+              FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+              imageReaders.add(imageReader);
+              return imageReader;
+            });
+    InputSurface unused1 = frameReader.createInputSurface();
+    InputSurface unused2 = frameReader.createInputSurface();
+
+    frameReader.release();
+
+    assertThat(imageReaders).hasSize(2);
+    assertThat(imageReaders.get(0).isClosed()).isTrue();
+    assertThat(imageReaders.get(1).isClosed()).isTrue();
+  }
+
+  @Test
+  public void releaseInputSurface_closesImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    HardwareBufferFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface inputSurface = frameReader.createInputSurface();
+
+    inputSurface.release();
+
+    assertThat(imageReader.isClosed()).isTrue();
+    frameReader.release();
+  }
+
+  @Test
+  public void queueFrame_withDifferentInputSurfaces_outputsFramesInOrder() {
+    HardwareBufferFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
+    InputSurface inputSurface1 = frameReader.createInputSurface();
+    InputSurface inputSurface2 = frameReader.createInputSurface();
+
+    inputSurface1.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build());
+    shadowOf(handlerThread.getLooper()).idle();
+    inputSurface2.queueFrame(
+        /* presentationTimeUs= */ 33_333,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 1,
+        new Format.Builder().build());
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedFrames).hasSize(2);
+    assertFramePresentationTimes(
+        receivedFrames, /* firstFrameIndex= */ 0, /* sequenceOffsetUs= */ 0);
+    frameReader.release();
+  }
+
+  private HardwareBufferFrameReader createFrameReader(
+      ImageReaderAdapter.Factory imageReaderAdapterFactory) {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem, editedMediaItem)))
+            .build();
+    return new HardwareBufferFrameReader(
+        composition,
+        /* sequenceIndex= */ 0,
+        /* frameConsumer= */ receivedFrames::add,
+        handlerThread.getLooper(),
+        /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
+        imageReaderAdapterFactory,
+        /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
+        SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
+        mock(HardwareBufferJniWrapper.class));
   }
 
   private static long getPresentationTimeUs(AsyncFrame asyncFrame) {

@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -37,7 +36,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
@@ -72,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} for server-side inserted ad breaks.
@@ -112,14 +111,13 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   private final ListMultimap<Pair<Long, Object>, SharedMediaPeriod> mediaPeriods;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcherWithoutId;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcherWithoutId;
-  @Nullable private final AdPlaybackStateUpdater adPlaybackStateUpdater;
+  private final @Nullable AdPlaybackStateUpdater adPlaybackStateUpdater;
   private final Timeline.Period period;
 
   @GuardedBy("this")
-  @Nullable
-  private Handler playbackHandler;
+  private @Nullable Handler playbackHandler;
 
-  @Nullable private SharedMediaPeriod lastUsedMediaPeriod;
+  private @Nullable SharedMediaPeriod lastUsedMediaPeriod;
   private ImmutableMap<Object, AdPlaybackState> adPlaybackStates;
   private Timeline sourceTimeline;
   private Timeline splitTimeline;
@@ -219,8 +217,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
             }
           }
           if (lastUsedMediaPeriod != null) {
-            @Nullable
-            AdPlaybackState adPlaybackState = adPlaybackStates.get(lastUsedMediaPeriod.periodUid);
+            @Nullable AdPlaybackState adPlaybackState =
+                adPlaybackStates.get(lastUsedMediaPeriod.periodUid);
             if (adPlaybackState != null) {
               lastUsedMediaPeriod.updateAdPlaybackState(splitTimeline, adPlaybackState, period);
             }
@@ -308,8 +306,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       lastUsedMediaPeriod = null;
     }
     if (sharedPeriod == null) {
-      @Nullable
-      SharedMediaPeriod lastExistingPeriod =
+      @Nullable SharedMediaPeriod lastExistingPeriod =
           Iterables.getLast(mediaPeriods.get(sharedMediaPeriodKey), /* defaultValue= */ null);
       if (lastExistingPeriod != null
           && lastExistingPeriod.canReuseMediaPeriod(id, startPositionUs)) {
@@ -365,8 +362,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   @Override
   public void onDrmSessionAcquired(
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @DrmSession.State int state) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ true);
     if (mediaPeriod == null) {
@@ -379,8 +375,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   @Override
   public void onDrmKeysLoaded(
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, KeyRequestInfo keyRequestInfo) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
@@ -393,8 +388,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   @Override
   public void onDrmSessionManagerError(
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, Exception error) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
@@ -406,8 +400,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
   @Override
   public void onDrmKeysRestored(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
@@ -419,8 +412,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
   @Override
   public void onDrmKeysRemoved(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
@@ -432,8 +424,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
   @Override
   public void onDrmSessionReleased(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(
             mediaPeriodId, /* mediaLoadData= */ null, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
@@ -452,8 +443,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       int retryCount) {
     // TODO: b/375408535 - Update this to support non-zero retry counts.
     if (retryCount == 0) {
-      @Nullable
-      MediaPeriodImpl mediaPeriod =
+      @Nullable MediaPeriodImpl mediaPeriod =
           getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
       if (mediaPeriod == null) {
         mediaSourceEventDispatcherWithoutId.loadStarted(
@@ -477,8 +467,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
       MediaLoadData mediaLoadData) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
     if (mediaPeriod == null) {
       mediaSourceEventDispatcherWithoutId.loadCompleted(loadEventInfo, mediaLoadData);
@@ -499,8 +488,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
       MediaLoadData mediaLoadData) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
     if (mediaPeriod == null) {
       mediaSourceEventDispatcherWithoutId.loadCanceled(loadEventInfo, mediaLoadData);
@@ -523,8 +511,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       MediaLoadData mediaLoadData,
       IOException error,
       boolean wasCanceled) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ true);
     if (mediaPeriod == null) {
       mediaSourceEventDispatcherWithoutId.loadError(
@@ -547,8 +534,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   @Override
   public void onUpstreamDiscarded(
       int windowIndex, MediaPeriodId mediaPeriodId, MediaLoadData mediaLoadData) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
       mediaSourceEventDispatcherWithoutId.upstreamDiscarded(mediaLoadData);
@@ -564,8 +550,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   @Override
   public void onDownstreamFormatChanged(
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, MediaLoadData mediaLoadData) {
-    @Nullable
-    MediaPeriodImpl mediaPeriod =
+    @Nullable MediaPeriodImpl mediaPeriod =
         getMediaPeriodForEvent(mediaPeriodId, mediaLoadData, /* useLoadingPeriod= */ false);
     if (mediaPeriod == null) {
       mediaSourceEventDispatcherWithoutId.downstreamFormatChanged(mediaLoadData);
@@ -586,8 +571,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     }
   }
 
-  @Nullable
-  private MediaPeriodImpl getMediaPeriodForEvent(
+  private @Nullable MediaPeriodImpl getMediaPeriodForEvent(
       @Nullable MediaPeriodId mediaPeriodId,
       @Nullable MediaLoadData mediaLoadData,
       boolean useLoadingPeriod) {
@@ -670,12 +654,12 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     private final Object periodUid;
 
     private AdPlaybackState adPlaybackState;
-    @Nullable private MediaPeriodImpl loadingPeriod;
+    private @Nullable MediaPeriodImpl loadingPeriod;
     private boolean hasStartedPreparing;
     private boolean isPrepared;
-    public @NullableType ExoTrackSelection[] trackSelections;
-    public @NullableType SampleStream[] sampleStreams;
-    public @NullableType MediaLoadData[] lastDownstreamFormatChangeData;
+    public @Nullable ExoTrackSelection[] trackSelections;
+    public @Nullable SampleStream[] sampleStreams;
+    public @Nullable MediaLoadData[] lastDownstreamFormatChangeData;
 
     public SharedMediaPeriod(
         MediaPeriod actualMediaPeriod, Object periodUid, AdPlaybackState adPlaybackState) {
@@ -734,8 +718,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       return startPositionUs == previousEndPositionUs;
     }
 
-    @Nullable
-    public MediaPeriodImpl getMediaPeriodForEvent(@Nullable MediaLoadData mediaLoadData) {
+    public @Nullable MediaPeriodImpl getMediaPeriodForEvent(@Nullable MediaLoadData mediaLoadData) {
       if (mediaLoadData != null && mediaLoadData.mediaStartTimeMs != C.TIME_UNSET) {
         for (int i = 0; i < mediaPeriods.size(); i++) {
           MediaPeriodImpl mediaPeriod = mediaPeriods.get(i);
@@ -859,9 +842,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
     public long selectTracks(
         MediaPeriodImpl mediaPeriod,
-        @NullableType ExoTrackSelection[] selections,
+        @Nullable ExoTrackSelection[] selections,
         boolean[] mayRetainStreamFlags,
-        @NullableType SampleStream[] streams,
+        @Nullable SampleStream[] streams,
         boolean[] streamResetFlags,
         long positionUs) {
       mediaPeriod.lastStartPositionUs = positionUs;
@@ -870,8 +853,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
         trackSelections = Arrays.copyOf(selections, selections.length);
         long requestedPositionUs =
             getStreamPositionUs(positionUs, mediaPeriod.mediaPeriodId, adPlaybackState);
-        @NullableType
-        SampleStream[] realStreams =
+        @Nullable SampleStream[] realStreams =
             sampleStreams.length == 0
                 ? new SampleStream[selections.length]
                 : Arrays.copyOf(sampleStreams, sampleStreams.length);
@@ -1230,9 +1212,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
     @Override
     public long selectTracks(
-        @NullableType ExoTrackSelection[] selections,
+        @Nullable ExoTrackSelection[] selections,
         boolean[] mayRetainStreamFlags,
-        @NullableType SampleStream[] streams,
+        @Nullable SampleStream[] streams,
         boolean[] streamResetFlags,
         long positionUs) {
       if (hasNotifiedDownstreamFormatChange.length == 0) {

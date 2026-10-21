@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -34,6 +33,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Writes data into a cache.
@@ -133,10 +133,10 @@ public final class CacheDataSink implements DataSink {
   private final long fragmentSize;
   private final int bufferSize;
 
-  @Nullable private DataSpec dataSpec;
+  private @Nullable DataSpec dataSpec;
   private long dataSpecFragmentSize;
-  @Nullable private File file;
-  @Nullable private OutputStream outputStream;
+  private @Nullable File file;
+  private @Nullable OutputStream outputStream;
   private long outputStreamBytesWritten;
   private long dataSpecBytesWritten;
   private @MonotonicNonNull ReusableBufferedOutputStream bufferedOutputStream;

@@ -26,7 +26,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -63,6 +62,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A preload manager that preloads with the {@link PreloadMediaSource} to load the media data into
@@ -76,13 +76,13 @@ public final class DefaultPreloadManager
   public static final class Builder extends BuilderBase<Integer, PreloadStatus> {
 
     private final Context context;
-    @Nullable private DataSource.Factory dataSourceFactory;
+    private DataSource.@Nullable Factory dataSourceFactory;
     private PlaybackLooperProvider preloadLooperProvider;
     private TrackSelector.Factory trackSelectorFactory;
     private Supplier<BandwidthMeter> bandwidthMeterSupplier;
     private Supplier<RenderersFactory> renderersFactorySupplier;
     private Supplier<LoadControl> loadControlSupplier;
-    @Nullable private Cache cache;
+    private @Nullable Cache cache;
     private Executor cachingExecutor;
     private Clock clock;
     private boolean buildCalled;
@@ -146,7 +146,7 @@ public final class DefaultPreloadManager
             @Override
             @CanIgnoreReturnValue
             public MediaSourceFactorySupplier setDataSourceFactory(
-                @Nullable DataSource.Factory dataSourceFactory) {
+                DataSource.@Nullable Factory dataSourceFactory) {
               return this;
             }
 
@@ -579,7 +579,7 @@ public final class DefaultPreloadManager
   public static class SimpleRankingDataComparator implements RankingDataComparator<Integer> {
 
     private int currentPlayingIndex;
-    @Nullable private InvalidationListener invalidationListener;
+    private @Nullable InvalidationListener invalidationListener;
 
     /** Creates a {@link SimpleRankingDataComparator}. */
     public SimpleRankingDataComparator() {
@@ -632,8 +632,8 @@ public final class DefaultPreloadManager
   private final TrackSelector trackSelector;
   private final PlaybackLooperProvider preloadLooperProvider;
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
-  @Nullable private final HandlerThread preCacheThread;
-  @Nullable private final PreCacheHelper.Factory preCacheHelperFactory;
+  private final @Nullable HandlerThread preCacheThread;
+  private final PreCacheHelper.@Nullable Factory preCacheHelperFactory;
   private final HandlerWrapper preloadHandler;
   private boolean releaseCalled;
 
@@ -893,8 +893,8 @@ public final class DefaultPreloadManager
 
     @Override
     public void onPreloadError(PreloadException error, PreloadMediaSource mediaSource) {
-      @Nullable
-      PreloadStatus targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
+      @Nullable PreloadStatus targetPreloadStatus =
+          getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
       if (targetPreloadStatus == null || !targetPreloadStatus.isPreloadingCategory()) {
         // If the mediaSource is not the currently loading, skip silently as invalidate() must have
         // been called, and a new sequence of preloading must have started.
@@ -937,8 +937,8 @@ public final class DefaultPreloadManager
 
     private final Context context;
     private final Supplier<DefaultMediaSourceFactory> defaultMediaSourceFactorySupplier;
-    @Nullable private Cache cache;
-    @Nullable private DataSource.Factory dataSourceFactory;
+    private @Nullable Cache cache;
+    private DataSource.@Nullable Factory dataSourceFactory;
 
     private DefaultMediaSourceFactorySupplier(Context context) {
       this.context = context;
@@ -956,7 +956,7 @@ public final class DefaultPreloadManager
     @Override
     @CanIgnoreReturnValue
     public DefaultMediaSourceFactorySupplier setDataSourceFactory(
-        @Nullable DataSource.Factory dataSourceFactory) {
+        DataSource.@Nullable Factory dataSourceFactory) {
       this.dataSourceFactory = dataSourceFactory;
       return this;
     }
@@ -985,7 +985,7 @@ public final class DefaultPreloadManager
 
   private final class PreloadMediaSourceHolder extends MediaSourceHolder {
 
-    @Nullable public PreCacheHelper preCacheHelper;
+    public @Nullable PreCacheHelper preCacheHelper;
 
     public PreloadMediaSourceHolder(
         MediaItem mediaItem, PreloadMediaSource mediaSource, Integer rankingData) {

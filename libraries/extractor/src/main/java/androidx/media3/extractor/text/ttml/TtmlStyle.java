@@ -20,13 +20,13 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.graphics.Typeface;
 import android.text.Layout;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Style object of a <code>TtmlNode</code> */
 /* package */ final class TtmlStyle {
@@ -77,7 +77,7 @@ import java.lang.annotation.Target;
   public static final int RUBY_TYPE_TEXT = 3;
   public static final int RUBY_TYPE_DELIMITER = 4;
 
-  @Nullable private String fontFamily;
+  private @Nullable String fontFamily;
   private int fontColor;
   private boolean hasFontColor;
   private int backgroundColor;
@@ -88,17 +88,17 @@ import java.lang.annotation.Target;
   private @OptionalBoolean int italic;
   private @FontSizeUnit int fontSizeUnit;
   private float fontSize;
-  @Nullable private String id;
+  private @Nullable String id;
   private @RubyType int rubyType;
   private @TextAnnotation.Position int rubyPosition;
-  @Nullable private Layout.Alignment textAlign;
-  @Nullable private Layout.Alignment multiRowAlign;
+  private Layout.@Nullable Alignment textAlign;
+  private Layout.@Nullable Alignment multiRowAlign;
   private @OptionalBoolean int textCombine;
-  @Nullable private TextEmphasis textEmphasis;
+  private @Nullable TextEmphasis textEmphasis;
   private float shearPercentage;
-  @Nullable private String origin;
-  @Nullable private String extent;
-  @Nullable private String displayAlign;
+  private @Nullable String origin;
+  private @Nullable String extent;
+  private @Nullable String displayAlign;
 
   public TtmlStyle() {
     linethrough = UNSPECIFIED;
@@ -157,8 +157,7 @@ import java.lang.annotation.Target;
     return this;
   }
 
-  @Nullable
-  public String getFontFamily() {
+  public @Nullable String getFontFamily() {
     return fontFamily;
   }
 
@@ -306,8 +305,7 @@ import java.lang.annotation.Target;
     return this;
   }
 
-  @Nullable
-  public String getId() {
+  public @Nullable String getId() {
     return id;
   }
 
@@ -331,24 +329,22 @@ import java.lang.annotation.Target;
     return rubyPosition;
   }
 
-  @Nullable
-  public Layout.Alignment getTextAlign() {
+  public Layout.@Nullable Alignment getTextAlign() {
     return textAlign;
   }
 
   @CanIgnoreReturnValue
-  public TtmlStyle setTextAlign(@Nullable Layout.Alignment textAlign) {
+  public TtmlStyle setTextAlign(Layout.@Nullable Alignment textAlign) {
     this.textAlign = textAlign;
     return this;
   }
 
-  @Nullable
-  public Layout.Alignment getMultiRowAlign() {
+  public Layout.@Nullable Alignment getMultiRowAlign() {
     return multiRowAlign;
   }
 
   @CanIgnoreReturnValue
-  public TtmlStyle setMultiRowAlign(@Nullable Layout.Alignment multiRowAlign) {
+  public TtmlStyle setMultiRowAlign(Layout.@Nullable Alignment multiRowAlign) {
     this.multiRowAlign = multiRowAlign;
     return this;
   }
@@ -364,8 +360,7 @@ import java.lang.annotation.Target;
     return this;
   }
 
-  @Nullable
-  public TextEmphasis getTextEmphasis() {
+  public @Nullable TextEmphasis getTextEmphasis() {
     return textEmphasis;
   }
 
@@ -401,8 +396,7 @@ import java.lang.annotation.Target;
     return this;
   }
 
-  @Nullable
-  public String getOrigin() {
+  public @Nullable String getOrigin() {
     return origin;
   }
 
@@ -412,8 +406,7 @@ import java.lang.annotation.Target;
     return this;
   }
 
-  @Nullable
-  public String getExtent() {
+  public @Nullable String getExtent() {
     return extent;
   }
 
@@ -423,8 +416,7 @@ import java.lang.annotation.Target;
     return this;
   }
 
-  @Nullable
-  public String getDisplayAlign() {
+  public @Nullable String getDisplayAlign() {
     return displayAlign;
   }
 }

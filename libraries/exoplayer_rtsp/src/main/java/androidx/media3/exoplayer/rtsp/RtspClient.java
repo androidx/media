@@ -41,7 +41,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -70,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import javax.net.SocketFactory;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** The RTSP client. */
 /* package */ final class RtspClient implements Closeable {
@@ -162,11 +162,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private Uri uri;
 
   private RtspMessageChannel messageChannel;
-  @Nullable private RtspAuthUserInfo rtspAuthUserInfo;
-  @Nullable private String sessionId;
+  private @Nullable RtspAuthUserInfo rtspAuthUserInfo;
+  private @Nullable String sessionId;
   private long sessionTimeoutMs;
-  @Nullable private KeepAliveMonitor keepAliveMonitor;
-  @Nullable private RtspAuthenticationInfo rtspAuthenticationInfo;
+  private @Nullable KeepAliveMonitor keepAliveMonitor;
+  private @Nullable RtspAuthenticationInfo rtspAuthenticationInfo;
   private @RtspState int rtspState;
   private boolean hasUpdatedTimelineAndTracks;
   private boolean receivedAuthorizationRequest;
@@ -740,8 +740,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private void onDescribeResponseReceived(RtspDescribeResponse response) {
       RtspSessionTiming sessionTiming = RtspSessionTiming.DEFAULT;
-      @Nullable
-      String sessionRangeAttributeString =
+      @Nullable String sessionRangeAttributeString =
           response.sessionDescription.attributes.get(SessionDescription.ATTR_RANGE);
       if (sessionRangeAttributeString != null) {
         try {

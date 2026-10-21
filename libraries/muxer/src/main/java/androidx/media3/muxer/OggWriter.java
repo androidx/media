@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
@@ -37,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A writer for Ogg data. */
 /* package */ final class OggWriter {
@@ -73,8 +73,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long streamGranulePosition;
   private boolean isContinuedPage;
   private boolean wroteIdentificationAndCommentHeader;
-  @Nullable private VorbisIdHeader vorbisIdHeader;
-  @Nullable private Mode[] vorbisModes;
+  private @Nullable VorbisIdHeader vorbisIdHeader;
+  private Mode @Nullable [] vorbisModes;
   private int previousVorbisPacketBlockSize;
   private boolean seenFirstVorbisAudioPacket;
   private @MonotonicNonNull String sampleMimeType;

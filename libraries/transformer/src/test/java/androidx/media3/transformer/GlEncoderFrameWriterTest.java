@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 
 import android.content.Context;
 import android.media.metrics.LogSessionId;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -39,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -217,7 +217,7 @@ public final class GlEncoderFrameWriterTest {
 
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements GlEncoderFrameWriter.Listener {
-    @Nullable private VideoFrameProcessingException exception;
+    private @Nullable VideoFrameProcessingException exception;
 
     @Override
     public void onEndOfStream() {}
@@ -234,7 +234,7 @@ public final class GlEncoderFrameWriterTest {
     private final List<Format> checkedFormats = new ArrayList<>();
     private final List<Format> createdFormats = new ArrayList<>();
     private boolean isSupportedToReturn;
-    @Nullable private ExportException exceptionToThrow;
+    private @Nullable ExportException exceptionToThrow;
 
     private void setIsSupportedToReturn(boolean isSupported) {
       this.isSupportedToReturn = isSupported;

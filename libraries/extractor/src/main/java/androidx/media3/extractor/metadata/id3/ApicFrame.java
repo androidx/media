@@ -15,11 +15,11 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** APIC (Attached Picture) ID3 frame. */
 @UnstableApi
@@ -28,7 +28,7 @@ public final class ApicFrame extends Id3Frame {
   public static final String ID = "APIC";
 
   public final String mimeType;
-  @Nullable public final String description;
+  public final @Nullable String description;
   public final int pictureType;
   public final byte[] pictureData;
 

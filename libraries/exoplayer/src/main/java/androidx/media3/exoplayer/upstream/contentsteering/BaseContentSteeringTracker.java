@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
@@ -30,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Abstract base class for Content Steering tracker implementations.
@@ -41,7 +41,7 @@ import java.util.TreeMap;
 public abstract class BaseContentSteeringTracker {
 
   private final SteeringManifestTracker steeringManifestTracker;
-  @Nullable private ImmutableList<String> currentPathwayPriority;
+  private @Nullable ImmutableList<String> currentPathwayPriority;
   private boolean isActive;
 
   /**
@@ -152,8 +152,7 @@ public abstract class BaseContentSteeringTracker {
    *
    * @return The current pathway priority, or {@code null} if the tracker is not active.
    */
-  @Nullable
-  protected final ImmutableList<String> getCurrentPathwayPriority() {
+  protected final @Nullable ImmutableList<String> getCurrentPathwayPriority() {
     return currentPathwayPriority;
   }
 

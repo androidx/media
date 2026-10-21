@@ -16,12 +16,12 @@
 package androidx.media3.exoplayer.image;
 
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link Decoder} implementation for images. */
 @UnstableApi
@@ -67,7 +67,6 @@ public interface ImageDecoder
    * @return The output buffer, or {@code null} if an output buffer isn't available.
    * @throws ImageDecoderException If a decoder error has occurred.
    */
-  @Nullable
   @Override
-  ImageOutputBuffer dequeueOutputBuffer() throws ImageDecoderException;
+  @Nullable ImageOutputBuffer dequeueOutputBuffer() throws ImageDecoderException;
 }

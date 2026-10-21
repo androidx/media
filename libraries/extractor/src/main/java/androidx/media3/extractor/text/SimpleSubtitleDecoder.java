@@ -17,10 +17,10 @@ package androidx.media3.extractor.text;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.SimpleDecoder;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Base class for subtitle parsers that use their own decode thread. */
 @UnstableApi
@@ -72,8 +72,7 @@ public abstract class SimpleSubtitleDecoder
 
   @SuppressWarnings("ByteBufferBackingArray")
   @Override
-  @Nullable
-  protected final SubtitleDecoderException decode(
+  protected final @Nullable SubtitleDecoderException decode(
       SubtitleInputBuffer inputBuffer, SubtitleOutputBuffer outputBuffer, boolean reset) {
     try {
       ByteBuffer inputData = checkNotNull(inputBuffer.data);

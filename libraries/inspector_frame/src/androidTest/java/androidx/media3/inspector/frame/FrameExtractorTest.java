@@ -38,7 +38,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -67,6 +66,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -157,6 +157,26 @@ public class FrameExtractorTest {
     assertThat(frame.presentationTimeMs).isEqualTo(8_531);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
     assertThat(finalRenderedOutputBufferCount - initialRenderedOutputBufferCount).isAtMost(2);
+  }
+
+  @Test
+  public void extractFrame_sameMediaItemChangeEffects_returnsExpectedFrames() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri(FILE_PATH);
+    Frame unscaledFrame;
+    Frame scaledFrame;
+    try (FrameExtractor frameExtractor = new FrameExtractor.Builder(context, mediaItem).build()) {
+      unscaledFrame = frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+      try (FrameExtractor scaledFrameExtractor =
+          new FrameExtractor.Builder(context, mediaItem)
+              .setEffects(ImmutableList.of(Presentation.createForHeight(180)))
+              .build()) {
+        scaledFrame =
+            scaledFrameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+      }
+    }
+
+    assertThat(unscaledFrame.bitmap.getHeight()).isEqualTo(360);
+    assertThat(scaledFrame.bitmap.getHeight()).isEqualTo(180);
   }
 
   @Test
@@ -363,8 +383,8 @@ public class FrameExtractorTest {
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
       int initialRenderedOutputBufferCount =
           initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
-      AtomicReference<@NullableType Frame> frameAtomicReference = new AtomicReference<>();
-      AtomicReference<@NullableType Throwable> throwableAtomicReference = new AtomicReference<>();
+      AtomicReference<@Nullable Frame> frameAtomicReference = new AtomicReference<>();
+      AtomicReference<@Nullable Throwable> throwableAtomicReference = new AtomicReference<>();
       ConditionVariable frameReady = new ConditionVariable();
 
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);

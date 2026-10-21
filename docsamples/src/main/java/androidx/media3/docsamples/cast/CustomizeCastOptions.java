@@ -16,11 +16,11 @@
 package androidx.media3.docsamples.cast;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import com.google.android.gms.cast.framework.CastOptions;
 import com.google.android.gms.cast.framework.OptionsProvider;
 import com.google.android.gms.cast.framework.SessionProvider;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Snippets for customize-castoptions.md. */
 @SuppressWarnings("unused")
@@ -44,8 +44,7 @@ public class CustomizeCastOptions {
     }
 
     @Override
-    @Nullable
-    public List<SessionProvider> getAdditionalSessionProviders(Context context) {
+    public @Nullable List<SessionProvider> getAdditionalSessionProviders(Context context) {
       return null;
     }
   }

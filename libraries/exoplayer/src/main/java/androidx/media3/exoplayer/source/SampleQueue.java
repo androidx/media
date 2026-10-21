@@ -27,7 +27,6 @@ import static java.lang.Math.min;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -35,7 +34,6 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -52,6 +50,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A queue of media samples. */
 @UnstableApi
@@ -83,12 +82,12 @@ public class SampleQueue implements TrackOutput {
   private final SampleDataQueue sampleDataQueue;
   private final SampleExtrasHolder extrasHolder;
   private final SpannedData<SharedSampleMetadata> sharedSampleMetadata;
-  @Nullable private final DrmSessionManager drmSessionManager;
-  @Nullable private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
-  @Nullable private UpstreamFormatChangedListener upstreamFormatChangeListener;
+  private final @Nullable DrmSessionManager drmSessionManager;
+  private final DrmSessionEventListener.@Nullable EventDispatcher drmEventDispatcher;
+  private @Nullable UpstreamFormatChangedListener upstreamFormatChangeListener;
 
-  @Nullable private Format downstreamFormat;
-  @Nullable private DrmSession currentDrmSession;
+  private @Nullable Format downstreamFormat;
+  private @Nullable DrmSession currentDrmSession;
 
   private int capacity;
   private long[] sourceIds;
@@ -96,7 +95,7 @@ public class SampleQueue implements TrackOutput {
   private int[] sizes;
   private int[] flags;
   private long[] timesUs;
-  private @NullableType CryptoData[] cryptoDatas;
+  private @Nullable CryptoData[] cryptoDatas;
 
   private int length;
   private int absoluteFirstIndex;
@@ -119,8 +118,8 @@ public class SampleQueue implements TrackOutput {
   private boolean upstreamKeyframeRequired;
   private boolean upstreamFormatRequired;
   private boolean upstreamFormatAdjustmentRequired;
-  @Nullable private Format unadjustedUpstreamFormat;
-  @Nullable private Format upstreamFormat;
+  private @Nullable Format unadjustedUpstreamFormat;
+  private @Nullable Format upstreamFormat;
   private long upstreamSourceId;
   private boolean discardAllSamplesToStartTime;
   private boolean loggedUnexpectedNonSyncSample;
@@ -194,7 +193,7 @@ public class SampleQueue implements TrackOutput {
   protected SampleQueue(
       Allocator allocator,
       @Nullable DrmSessionManager drmSessionManager,
-      @Nullable DrmSessionEventListener.EventDispatcher drmEventDispatcher) {
+      DrmSessionEventListener.@Nullable EventDispatcher drmEventDispatcher) {
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     sampleDataQueue = new SampleDataQueue(allocator);
@@ -412,8 +411,7 @@ public class SampleQueue implements TrackOutput {
   }
 
   /** Returns the upstream {@link Format} in which samples are being queued. */
-  @Nullable
-  public final synchronized Format getUpstreamFormat() {
+  public final synchronized @Nullable Format getUpstreamFormat() {
     return upstreamFormatRequired ? null : upstreamFormat;
   }
 
@@ -1076,8 +1074,8 @@ public class SampleQueue implements TrackOutput {
    */
   private void onFormatResult(Format newFormat, FormatHolder outputFormatHolder) {
     boolean isFirstFormat = downstreamFormat == null;
-    @Nullable
-    DrmInitData oldDrmInitData = downstreamFormat == null ? null : downstreamFormat.drmInitData;
+    @Nullable DrmInitData oldDrmInitData =
+        downstreamFormat == null ? null : downstreamFormat.drmInitData;
     downstreamFormat = newFormat;
     @Nullable DrmInitData newDrmInitData = newFormat.drmInitData;
 
@@ -1335,7 +1333,7 @@ public class SampleQueue implements TrackOutput {
 
     public int size;
     public long offset;
-    @Nullable public CryptoData cryptoData;
+    public @Nullable CryptoData cryptoData;
   }
 
   /** A holder for metadata that applies to a span of contiguous samples. */

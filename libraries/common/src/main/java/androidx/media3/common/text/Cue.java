@@ -38,7 +38,6 @@ import android.text.SpannedString;
 import android.text.TextUtils;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -50,6 +49,7 @@ import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Objects;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Contains information about a specific cue, including textual content and formatting data. */
 // This class shouldn't be sub-classed. If a subtitle format needs additional fields, either they
@@ -168,19 +168,19 @@ public final class Cue {
    * The cue text, or null if this is an image cue. Note the {@link CharSequence} may be decorated
    * with styling spans.
    */
-  @Nullable public final CharSequence text;
+  public final @Nullable CharSequence text;
 
   /** The alignment of the cue text within the cue box, or null if the alignment is undefined. */
-  @Nullable public final Alignment textAlignment;
+  public final @Nullable Alignment textAlignment;
 
   /**
    * The alignment of multiple lines of text relative to the longest line, or null if the alignment
    * is undefined.
    */
-  @Nullable public final Alignment multiRowAlignment;
+  public final @Nullable Alignment multiRowAlignment;
 
   /** The cue image, or null if this is a text cue. */
-  @Nullable public final Bitmap bitmap;
+  public final @Nullable Bitmap bitmap;
 
   /**
    * The position of the cue box within the viewport in the direction orthogonal to the writing
@@ -427,10 +427,10 @@ public final class Cue {
   /** A builder for {@link Cue} objects. */
   @UnstableApi
   public static final class Builder {
-    @Nullable private CharSequence text;
-    @Nullable private Bitmap bitmap;
-    @Nullable private Alignment textAlignment;
-    @Nullable private Alignment multiRowAlignment;
+    private @Nullable CharSequence text;
+    private @Nullable Bitmap bitmap;
+    private @Nullable Alignment textAlignment;
+    private @Nullable Alignment multiRowAlignment;
     private float line;
     private @LineType int lineType;
     private @AnchorType int lineAnchor;
@@ -508,8 +508,7 @@ public final class Cue {
      * @see Cue#text
      */
     @Pure
-    @Nullable
-    public CharSequence getText() {
+    public @Nullable CharSequence getText() {
       return text;
     }
 
@@ -533,8 +532,7 @@ public final class Cue {
      * @see Cue#bitmap
      */
     @Pure
-    @Nullable
-    public Bitmap getBitmap() {
+    public @Nullable Bitmap getBitmap() {
       return bitmap;
     }
 
@@ -546,7 +544,7 @@ public final class Cue {
      * @see Cue#textAlignment
      */
     @CanIgnoreReturnValue
-    public Builder setTextAlignment(@Nullable Layout.Alignment textAlignment) {
+    public Builder setTextAlignment(Layout.@Nullable Alignment textAlignment) {
       this.textAlignment = textAlignment;
       return this;
     }
@@ -557,8 +555,7 @@ public final class Cue {
      * @see Cue#textAlignment
      */
     @Pure
-    @Nullable
-    public Alignment getTextAlignment() {
+    public @Nullable Alignment getTextAlignment() {
       return textAlignment;
     }
 
@@ -570,7 +567,7 @@ public final class Cue {
      * @see Cue#multiRowAlignment
      */
     @CanIgnoreReturnValue
-    public Builder setMultiRowAlignment(@Nullable Layout.Alignment multiRowAlignment) {
+    public Builder setMultiRowAlignment(Layout.@Nullable Alignment multiRowAlignment) {
       this.multiRowAlignment = multiRowAlignment;
       return this;
     }
@@ -965,8 +962,8 @@ public final class Cue {
     @Nullable CharSequence text = bundle.getCharSequence(FIELD_TEXT);
     if (text != null) {
       builder.setText(text);
-      @Nullable
-      ArrayList<Bundle> customSpanBundles = bundle.getParcelableArrayList(FIELD_CUSTOM_SPANS);
+      @Nullable ArrayList<Bundle> customSpanBundles =
+          bundle.getParcelableArrayList(FIELD_CUSTOM_SPANS);
       if (customSpanBundles != null) {
         SpannableString textWithCustomSpans = SpannableString.valueOf(text);
         for (Bundle customSpanBundle : customSpanBundles) {
@@ -979,8 +976,8 @@ public final class Cue {
     if (textAlignment != null) {
       builder.setTextAlignment(textAlignment);
     }
-    @Nullable
-    Alignment multiRowAlignment = (Alignment) bundle.getSerializable(FIELD_MULTI_ROW_ALIGNMENT);
+    @Nullable Alignment multiRowAlignment =
+        (Alignment) bundle.getSerializable(FIELD_MULTI_ROW_ALIGNMENT);
     if (multiRowAlignment != null) {
       builder.setMultiRowAlignment(multiRowAlignment);
     }
@@ -988,7 +985,7 @@ public final class Cue {
     if (bitmap != null) {
       builder.setBitmap(bitmap);
     } else {
-      @Nullable byte[] bitmapBytes = bundle.getByteArray(FIELD_BITMAP_BYTES);
+      byte @Nullable [] bitmapBytes = bundle.getByteArray(FIELD_BITMAP_BYTES);
       if (bitmapBytes != null) {
         builder.setBitmap(
             BitmapFactory.decodeByteArray(bitmapBytes, /* offset= */ 0, bitmapBytes.length));

@@ -19,13 +19,13 @@ import static androidx.media3.common.util.Util.contains;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.cache.CacheDataSource;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default {@link DownloaderFactory}, supporting creation of progressive, DASH, HLS and
@@ -78,7 +78,7 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
       case C.CONTENT_TYPE_SS:
         return createSegmentDownloader(request, contentType);
       case C.CONTENT_TYPE_OTHER:
-        @Nullable DownloadRequest.ByteRange byteRange = request.byteRange;
+        DownloadRequest.@Nullable ByteRange byteRange = request.byteRange;
         return new ProgressiveDownloader(
             new MediaItem.Builder()
                 .setUri(request.uri)

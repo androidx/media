@@ -93,7 +93,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
 import android.util.Rational;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
@@ -114,7 +113,6 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -159,6 +157,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -2541,7 +2540,7 @@ public class TransformerEndToEndTest {
         /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     CountDownLatch firstFrameLatch = new CountDownLatch(1);
-    AtomicReference<@NullableType ExportException> exceptionReference = new AtomicReference<>();
+    AtomicReference<@Nullable ExportException> exceptionReference = new AtomicReference<>();
     AtomicBoolean completedReference = new AtomicBoolean(false);
     GlEffect countingEffect =
         new GlEffect() {
@@ -2611,7 +2610,7 @@ public class TransformerEndToEndTest {
         testId,
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
-    AtomicReference<@NullableType ExportException> exceptionReference = new AtomicReference<>();
+    AtomicReference<@Nullable ExportException> exceptionReference = new AtomicReference<>();
     AtomicBoolean completedReference = new AtomicBoolean(false);
     EditedMediaItem item =
         new EditedMediaItem.Builder(

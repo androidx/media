@@ -15,11 +15,11 @@
  */
 package androidx.media3.decoder;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Video decoder output buffer containing video frame data. */
 @UnstableApi
@@ -43,18 +43,18 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
   public @C.VideoOutputMode int mode;
 
   /** RGB buffer for RGB mode. */
-  @Nullable public ByteBuffer data;
+  public @Nullable ByteBuffer data;
 
   public int width;
   public int height;
 
   /** The format of the input from which this output buffer was decoded. */
-  @Nullable public Format format;
+  public @Nullable Format format;
 
   /** YUV planes for YUV mode. */
-  @Nullable public ByteBuffer[] yuvPlanes;
+  public ByteBuffer @Nullable [] yuvPlanes;
 
-  @Nullable public int[] yuvStrides;
+  public int @Nullable [] yuvStrides;
   public int colorspace;
   public int yStride;
   public int uvStride;
@@ -63,7 +63,7 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
    * Supplemental data related to the output frame, if {@link #hasSupplementalData()} returns true.
    * If present, the buffer is populated with supplemental data from position 0 to its limit.
    */
-  @Nullable public ByteBuffer supplementalData;
+  public @Nullable ByteBuffer supplementalData;
 
   private final Owner<VideoDecoderOutputBuffer> owner;
 

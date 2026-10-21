@@ -21,7 +21,6 @@ import static java.lang.Math.max;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
-import androidx.annotation.Nullable;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -29,6 +28,7 @@ import androidx.media3.common.util.UnstableApi;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for {@link Bitmap} instances. */
 @UnstableApi
@@ -50,7 +50,7 @@ public final class BitmapUtil {
   // BitmapFactory's options parameter is null-ok.
   @SuppressWarnings("nullness:argument.type.incompatible")
   public static Bitmap decode(
-      byte[] data, int length, @Nullable BitmapFactory.Options options, int maximumOutputDimension)
+      byte[] data, int length, BitmapFactory.@Nullable Options options, int maximumOutputDimension)
       throws IOException {
     if (maximumOutputDimension != C.LENGTH_UNSET) {
       if (options == null) {

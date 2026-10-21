@@ -21,7 +21,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
@@ -29,6 +28,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
+import org.jspecify.annotations.Nullable;
 
 /** Controls buffering of media. */
 @UnstableApi
@@ -171,7 +171,7 @@ public interface LoadControl {
   default void onTracksSelected(
       Parameters parameters,
       TrackGroupArray trackGroups,
-      @NullableType ExoTrackSelection[] trackSelections) {
+      @Nullable ExoTrackSelection[] trackSelections) {
     // Media3 ExoPlayer will never call this method. This default implementation provides an
     // implementation to please the compiler only.
     throw new IllegalStateException("onTracksSelected not implemented");
@@ -189,7 +189,7 @@ public interface LoadControl {
       MediaPeriodId mediaPeriodId,
       Renderer[] renderers,
       TrackGroupArray trackGroups,
-      @NullableType ExoTrackSelection[] trackSelections) {
+      @Nullable ExoTrackSelection[] trackSelections) {
     onTracksSelected(timeline, mediaPeriodId, renderers, trackGroups, trackSelections);
   }
 
@@ -204,7 +204,7 @@ public interface LoadControl {
       MediaPeriodId mediaPeriodId,
       Renderer[] renderers,
       TrackGroupArray trackGroups,
-      @NullableType ExoTrackSelection[] trackSelections) {
+      @Nullable ExoTrackSelection[] trackSelections) {
     onTracksSelected(renderers, trackGroups, trackSelections);
   }
 
@@ -217,7 +217,7 @@ public interface LoadControl {
   default void onTracksSelected(
       Renderer[] renderers,
       TrackGroupArray trackGroups,
-      @NullableType ExoTrackSelection[] trackSelections) {
+      @Nullable ExoTrackSelection[] trackSelections) {
     // Media3 ExoPlayer will never call this method. This default implementation provides an
     // implementation to please the compiler only.
     throw new IllegalStateException("onTracksSelected not implemented");

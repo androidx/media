@@ -32,7 +32,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.media.AudioTrack;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -48,6 +47,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AudioSink} implementation that feeds an {@link AudioGraphInput}.
@@ -84,8 +84,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
      * @throws ExportException If there is a problem initializing the {@linkplain AudioGraphInput
      *     input}.
      */
-    @Nullable
-    AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
+    @Nullable AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
         throws ExportException;
 
     /**
@@ -117,11 +116,11 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   private final Controller controller;
 
-  @Nullable private AudioGraphInput outputGraphInput;
-  @Nullable private Format currentInputFormat;
+  private @Nullable AudioGraphInput outputGraphInput;
+  private @Nullable Format currentInputFormat;
   private boolean inputStreamEnded;
   private boolean signalledEndOfStream;
-  @Nullable private EditedMediaItem currentEditedMediaItem;
+  private @Nullable EditedMediaItem currentEditedMediaItem;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
   private long outputStreamOffsetUs;
@@ -353,9 +352,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   @Override
   public void setAudioAttributes(AudioAttributes audioAttributes) {}
 
-  @Nullable
   @Override
-  public AudioAttributes getAudioAttributes() {
+  public @Nullable AudioAttributes getAudioAttributes() {
     return null;
   }
 

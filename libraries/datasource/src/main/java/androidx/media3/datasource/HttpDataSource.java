@@ -19,7 +19,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Ascii;
@@ -36,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** An HTTP {@link DataSource}. */
 public interface HttpDataSource extends DataSource {
@@ -73,7 +73,7 @@ public interface HttpDataSource extends DataSource {
   final class RequestProperties {
 
     private final Map<String, String> requestProperties;
-    @Nullable private Map<String, String> requestPropertiesSnapshot;
+    private @Nullable Map<String, String> requestPropertiesSnapshot;
 
     public RequestProperties() {
       requestProperties = new HashMap<>();
@@ -419,7 +419,7 @@ public interface HttpDataSource extends DataSource {
     public final int responseCode;
 
     /** The http status message. */
-    @Nullable public final String responseMessage;
+    public final @Nullable String responseMessage;
 
     /** An unmodifiable map of the response header fields and values. */
     @UnstableApi public final Map<String, List<String>> headerFields;

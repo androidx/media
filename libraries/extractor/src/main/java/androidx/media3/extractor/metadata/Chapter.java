@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
@@ -23,6 +22,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Chapter information, for example ID3 {@code CHAP} or Quicktime {@code chap} data.
@@ -47,7 +47,7 @@ public interface Chapter extends Metadata.Entry {
     private long startTimeMs;
     private long endTimeMs;
     private boolean isHidden;
-    @Nullable private Label title;
+    private @Nullable Label title;
 
     /** Constructs an instance. */
     public Builder() {
@@ -128,6 +128,5 @@ public interface Chapter extends Metadata.Entry {
   boolean isHidden();
 
   /** Returns the title of the chapter, or {@code null} if it has no title. */
-  @Nullable
-  Label getTitle();
+  @Nullable Label getTitle();
 }

@@ -29,7 +29,6 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -38,6 +37,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
 public class PlaybackException extends Exception {
@@ -641,8 +641,7 @@ public class PlaybackException extends Exception {
     return extras != null ? extras : Bundle.EMPTY;
   }
 
-  @Nullable
-  private static Throwable getCauseFromBundle(Bundle bundle) {
+  private static @Nullable Throwable getCauseFromBundle(Bundle bundle) {
     @Nullable String causeClassName = bundle.getString(FIELD_STRING_CAUSE_CLASS_NAME);
     @Nullable String causeMessage = bundle.getString(FIELD_STRING_CAUSE_MESSAGE);
     @Nullable Throwable cause = null;

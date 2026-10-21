@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.text;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.MimeTypes;
@@ -30,6 +29,7 @@ import androidx.media3.extractor.text.vobsub.VobsubParser;
 import androidx.media3.extractor.text.webvtt.Mp4WebvttParser;
 import androidx.media3.extractor.text.webvtt.WebvttParser;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A factory for {@link SubtitleParser} instances.
@@ -50,7 +50,7 @@ import java.util.Objects;
 @UnstableApi
 public final class DefaultSubtitleParserFactory implements SubtitleParser.Factory {
 
-  @Nullable private final CharsetDetector charsetDetector;
+  private final @Nullable CharsetDetector charsetDetector;
 
   /** Creates an instance. */
   public DefaultSubtitleParserFactory() {

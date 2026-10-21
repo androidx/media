@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.text;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -25,6 +24,7 @@ import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.cea.Cea608Decoder;
 import androidx.media3.extractor.text.cea.Cea708Decoder;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A factory for {@link SubtitleDecoder} instances. */
 @UnstableApi

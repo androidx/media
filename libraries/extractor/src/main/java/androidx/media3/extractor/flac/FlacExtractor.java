@@ -22,7 +22,6 @@ import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -47,6 +46,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts data from FLAC container format.
@@ -125,7 +125,7 @@ public final class FlacExtractor implements Extractor {
   private @MonotonicNonNull TrackOutput trackOutput;
 
   private @State int state;
-  @Nullable private Metadata id3Metadata;
+  private @Nullable Metadata id3Metadata;
   private @MonotonicNonNull FlacStreamMetadata flacStreamMetadata;
   private int minFrameSize;
   private int frameStartMarker;

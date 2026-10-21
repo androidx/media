@@ -21,7 +21,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import android.content.Context;
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.ExperimentalApi;
@@ -39,6 +38,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An experimental {@link BandwidthMeter} that estimates bandwidth by listening to data transfers.
@@ -260,7 +260,7 @@ public final class ExperimentalBandwidthMeter implements BandwidthMeter, Transfe
     }
   }
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
   private final ImmutableMap<Integer, Long> initialBitrateEstimates;
   private final boolean resetOnNetworkTypeChange;
 

@@ -19,7 +19,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -39,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated The only use for this class is subtitle playback, but it is only compatible with
@@ -58,9 +58,9 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
 
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private boolean treatLoadErrorsAsEndOfStream;
-    @Nullable private Object tag;
-    @Nullable private String trackId;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Object tag;
+    private @Nullable String trackId;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a factory for {@link SingleSampleMediaSource}s.
@@ -178,9 +178,9 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
   private final boolean treatLoadErrorsAsEndOfStream;
   private final Timeline timeline;
   private final MediaItem mediaItem;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
-  @Nullable private TransferListener transferListener;
+  private @Nullable TransferListener transferListener;
 
   private SingleSampleMediaSource(
       @Nullable String trackId,

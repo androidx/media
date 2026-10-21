@@ -19,8 +19,8 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectXHE;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -287,8 +287,8 @@ public final class MimeTypesTest {
 
   private static void assert_getObjectTypeFromMp4aRFC6381CodecString_for_returns(
       String codec, int expectedObjectTypeIndicator, int expectedAudioObjectTypeIndicator) {
-    @Nullable
-    MimeTypes.Mp4aObjectType objectType = MimeTypes.getObjectTypeFromMp4aRFC6381CodecString(codec);
+    MimeTypes.@Nullable Mp4aObjectType objectType =
+        MimeTypes.getObjectTypeFromMp4aRFC6381CodecString(codec);
     assertThat(objectType).isNotNull();
     assertThat(objectType.objectTypeIndication).isEqualTo(expectedObjectTypeIndicator);
     assertThat(objectType.audioObjectTypeIndication).isEqualTo(expectedAudioObjectTypeIndicator);

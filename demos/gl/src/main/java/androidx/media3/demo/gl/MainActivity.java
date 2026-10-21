@@ -25,7 +25,6 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.FrameLayout;
 import android.widget.Toast;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -46,6 +45,7 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.PlayerView;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Activity that demonstrates playback of video to an {@link android.opengl.GLSurfaceView} with
@@ -63,10 +63,10 @@ public final class MainActivity extends Activity {
   private static final String DRM_SCHEME_EXTRA = "drm_scheme";
   private static final String DRM_LICENSE_URL_EXTRA = "drm_license_url";
 
-  @Nullable private PlayerView playerView;
-  @Nullable private VideoProcessingGLSurfaceView videoProcessingGLSurfaceView;
+  private @Nullable PlayerView playerView;
+  private @Nullable VideoProcessingGLSurfaceView videoProcessingGLSurfaceView;
 
-  @Nullable private ExoPlayer player;
+  private @Nullable ExoPlayer player;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {

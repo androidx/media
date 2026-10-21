@@ -17,27 +17,32 @@ package androidx.media3.ui;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.graphics.Color;
+import android.annotation.SuppressLint;
 import android.graphics.Typeface;
 import android.view.accessibility.CaptioningManager;
 import android.view.accessibility.CaptioningManager.CaptionStyle;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
+import androidx.media3.common.text.SubtitleStyle;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
-/** A compatibility wrapper for {@link CaptionStyle}. */
+/**
+ * A compatibility wrapper for {@link CaptionStyle}.
+ *
+ * @deprecated Use {@link SubtitleStyle} instead.
+ */
+@Deprecated
 @UnstableApi
 public final class CaptionStyleCompat {
 
   /**
-   * The type of edge, which may be none. One of {@link #EDGE_TYPE_NONE}, {@link
-   * #EDGE_TYPE_OUTLINE}, {@link #EDGE_TYPE_DROP_SHADOW}, {@link #EDGE_TYPE_RAISED} or {@link
-   * #EDGE_TYPE_DEPRESSED}.
+   * @deprecated Use {@link SubtitleStyle.EdgeType} instead.
    */
+  @Deprecated
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -50,33 +55,43 @@ public final class CaptionStyleCompat {
   })
   public @interface EdgeType {}
 
-  /** Edge type value specifying no character edges. */
-  public static final int EDGE_TYPE_NONE = 0;
+  /**
+   * @deprecated Use {@link SubtitleStyle#EDGE_TYPE_NONE} instead.
+   */
+  @Deprecated public static final int EDGE_TYPE_NONE = SubtitleStyle.EDGE_TYPE_NONE;
 
-  /** Edge type value specifying uniformly outlined character edges. */
-  public static final int EDGE_TYPE_OUTLINE = 1;
+  /**
+   * @deprecated Use {@link SubtitleStyle#EDGE_TYPE_OUTLINE} instead.
+   */
+  @Deprecated public static final int EDGE_TYPE_OUTLINE = SubtitleStyle.EDGE_TYPE_OUTLINE;
 
-  /** Edge type value specifying drop-shadowed character edges. */
-  public static final int EDGE_TYPE_DROP_SHADOW = 2;
+  /**
+   * @deprecated Use {@link SubtitleStyle#EDGE_TYPE_DROP_SHADOW} instead.
+   */
+  @Deprecated public static final int EDGE_TYPE_DROP_SHADOW = SubtitleStyle.EDGE_TYPE_DROP_SHADOW;
 
-  /** Edge type value specifying raised bevel character edges. */
-  public static final int EDGE_TYPE_RAISED = 3;
+  /**
+   * @deprecated Use {@link SubtitleStyle#EDGE_TYPE_RAISED} instead.
+   */
+  @Deprecated public static final int EDGE_TYPE_RAISED = SubtitleStyle.EDGE_TYPE_RAISED;
 
-  /** Edge type value specifying depressed bevel character edges. */
-  public static final int EDGE_TYPE_DEPRESSED = 4;
+  /**
+   * @deprecated Use {@link SubtitleStyle#EDGE_TYPE_DEPRESSED} instead.
+   */
+  @Deprecated public static final int EDGE_TYPE_DEPRESSED = SubtitleStyle.EDGE_TYPE_DEPRESSED;
 
-  /** Use color setting specified by the track and fallback to default caption style. */
-  public static final int USE_TRACK_COLOR_SETTINGS = 1;
+  /**
+   * Use color setting specified by the track and fallback to default caption style.
+   *
+   * @deprecated This constant is not used by the library.
+   */
+  @Deprecated public static final int USE_TRACK_COLOR_SETTINGS = 1;
 
-  /** Default caption style. */
-  public static final CaptionStyleCompat DEFAULT =
-      new CaptionStyleCompat(
-          Color.WHITE,
-          Color.BLACK,
-          Color.TRANSPARENT,
-          EDGE_TYPE_NONE,
-          Color.WHITE,
-          /* typeface= */ null);
+  /**
+   * @deprecated Use {@link SubtitleStyle#DEFAULT} instead.
+   */
+  @Deprecated
+  public static final CaptionStyleCompat DEFAULT = fromSubtitleStyle(SubtitleStyle.DEFAULT);
 
   /** The preferred foreground color. */
   public final int foregroundColor;
@@ -104,33 +119,21 @@ public final class CaptionStyleCompat {
   public final int edgeColor;
 
   /** The preferred typeface, or {@code null} if unspecified. */
-  @Nullable public final Typeface typeface;
+  public final @Nullable Typeface typeface;
 
   /**
-   * Creates a {@link CaptionStyleCompat} equivalent to a provided {@link CaptionStyle}.
-   *
-   * @param captionStyle A {@link CaptionStyle}.
-   * @return The equivalent {@link CaptionStyleCompat}.
+   * @deprecated Use {@link SubtitleStyle#fromCaptionStyle(CaptionStyle)} instead.
    */
+  @Deprecated
   public static CaptionStyleCompat createFromCaptionStyle(
       CaptioningManager.CaptionStyle captionStyle) {
-    return new CaptionStyleCompat(
-        captionStyle.hasForegroundColor() ? captionStyle.foregroundColor : DEFAULT.foregroundColor,
-        captionStyle.hasBackgroundColor() ? captionStyle.backgroundColor : DEFAULT.backgroundColor,
-        captionStyle.hasWindowColor() ? captionStyle.windowColor : DEFAULT.windowColor,
-        captionStyle.hasEdgeType() ? captionStyle.edgeType : DEFAULT.edgeType,
-        captionStyle.hasEdgeColor() ? captionStyle.edgeColor : DEFAULT.edgeColor,
-        captionStyle.getTypeface());
+    return fromSubtitleStyle(SubtitleStyle.fromCaptionStyle(captionStyle));
   }
 
   /**
-   * @param foregroundColor See {@link #foregroundColor}.
-   * @param backgroundColor See {@link #backgroundColor}.
-   * @param windowColor See {@link #windowColor}.
-   * @param edgeType See {@link #edgeType}.
-   * @param edgeColor See {@link #edgeColor}.
-   * @param typeface See {@link #typeface}.
+   * @deprecated Use {@link SubtitleStyle.Builder} instead.
    */
+  @Deprecated
   public CaptionStyleCompat(
       int foregroundColor,
       int backgroundColor,
@@ -144,5 +147,28 @@ public final class CaptionStyleCompat {
     this.edgeType = edgeType;
     this.edgeColor = edgeColor;
     this.typeface = typeface;
+  }
+
+  /** Returns the equivalent {@link SubtitleStyle}. */
+  @SuppressLint("WrongConstant") // CaptionStyleCompat.EdgeType and SubtitleStyle.EdgeType match.
+  /* package */ SubtitleStyle toSubtitleStyle() {
+    return new SubtitleStyle.Builder()
+        .setForegroundColor(foregroundColor)
+        .setBackgroundColor(backgroundColor)
+        .setWindowColor(windowColor)
+        .setEdgeType(edgeType)
+        .setEdgeColor(edgeColor)
+        .setTypeface(typeface)
+        .build();
+  }
+
+  private static CaptionStyleCompat fromSubtitleStyle(SubtitleStyle subtitleStyle) {
+    return new CaptionStyleCompat(
+        subtitleStyle.foregroundColor,
+        subtitleStyle.backgroundColor,
+        subtitleStyle.windowColor,
+        subtitleStyle.edgeType,
+        subtitleStyle.edgeColor,
+        subtitleStyle.typeface);
   }
 }

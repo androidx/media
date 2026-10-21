@@ -18,7 +18,6 @@ package androidx.media3.decoder.iamf;
 import android.content.Context;
 import android.media.AudioFormat;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -37,6 +36,7 @@ import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 import androidx.media3.exoplayer.audio.IamfUtil;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes and renders audio using the native IAMF decoder. */
 @UnstableApi
@@ -45,8 +45,8 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   /** Builds {@link IamfAudioRenderer} instances. */
   public static final class Builder {
     private final AudioSink audioSink;
-    @Nullable private Handler eventHandler;
-    @Nullable private AudioRendererEventListener eventListener;
+    private @Nullable Handler eventHandler;
+    private @Nullable AudioRendererEventListener eventListener;
     private @IamfUtil.OutputLayout int requestedOutputLayout;
     private Long requestedMixPresentationId;
     private @IamfDecoder.OutputSampleType int outputSampleType;

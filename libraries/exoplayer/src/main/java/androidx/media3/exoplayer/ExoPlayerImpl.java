@@ -56,7 +56,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -91,7 +90,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.StuckPlayerDetector;
 import androidx.media3.common.util.StuckPlayerException;
@@ -140,6 +138,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.IntConsumer;
+import org.jspecify.annotations.Nullable;
 
 /** The default implementation of {@link ExoPlayer}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -166,7 +165,7 @@ import java.util.function.IntConsumer;
   private final Context applicationContext;
   private final Player wrappingPlayer;
   private final Renderer[] renderers;
-  private final @NullableType Renderer[] secondaryRenderers;
+  private final @Nullable Renderer[] secondaryRenderers;
   private final TrackSelector trackSelector;
   private final HandlerWrapper playbackInfoUpdateHandler;
   private final ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener;
@@ -185,14 +184,14 @@ import java.util.function.IntConsumer;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
   private final AudioBecomingNoisyManager audioBecomingNoisyManager;
-  @Nullable private final StreamVolumeManager streamVolumeManager;
+  private final @Nullable StreamVolumeManager streamVolumeManager;
   private final WakeLockManager wakeLockManager;
   private final WifiLockManager wifiLockManager;
   private final long detachSurfaceTimeoutMs;
-  @Nullable private final SuitableOutputChecker suitableOutputChecker;
+  private final @Nullable SuitableOutputChecker suitableOutputChecker;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
   private final StuckPlayerDetector stuckPlayerDetector;
-  @Nullable private final VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
+  private final @Nullable VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
   private final CodecParameterListenerManager audioListenerManager;
   private final CodecParameterListenerManager videoListenerManager;
 
@@ -203,7 +202,7 @@ import java.util.function.IntConsumer;
   private boolean pendingDiscontinuity;
   private boolean foregroundMode;
   private boolean scrubbingModeEnabled;
-  @Nullable private ImmutableSet<@TrackType Integer> disabledTrackTypesWithoutScrubbingMode;
+  private @Nullable ImmutableSet<@TrackType Integer> disabledTrackTypesWithoutScrubbingMode;
   private ScrubbingModeParameters scrubbingModeParameters;
   private SeekParameters seekParameters;
   private ShuffleOrder shuffleOrder;
@@ -213,19 +212,19 @@ import java.util.function.IntConsumer;
   private Commands availableCommands;
   private MediaMetadata mediaMetadata;
   private MediaMetadata playlistMetadata;
-  @Nullable private Format videoFormat;
-  @Nullable private Format audioFormat;
-  @Nullable private Object videoOutput;
-  @Nullable private Surface ownedSurface;
-  @Nullable private SurfaceHolder surfaceHolder;
-  @Nullable private SphericalGLSurfaceView sphericalGLSurfaceView;
+  private @Nullable Format videoFormat;
+  private @Nullable Format audioFormat;
+  private @Nullable Object videoOutput;
+  private @Nullable Surface ownedSurface;
+  private @Nullable SurfaceHolder surfaceHolder;
+  private @Nullable SphericalGLSurfaceView sphericalGLSurfaceView;
   private boolean surfaceHolderSurfaceIsVideoOutput;
-  @Nullable private TextureView textureView;
+  private @Nullable TextureView textureView;
   private @C.VideoScalingMode int videoScalingMode;
   private @C.VideoChangeFrameRateStrategy int videoChangeFrameRateStrategy;
   private Size surfaceSize;
-  @Nullable private DecoderCounters videoDecoderCounters;
-  @Nullable private DecoderCounters audioDecoderCounters;
+  private @Nullable DecoderCounters videoDecoderCounters;
+  private @Nullable DecoderCounters audioDecoderCounters;
   private AudioAttributes audioAttributes;
   private float volume;
   private float unmuteVolume;
@@ -233,12 +232,12 @@ import java.util.function.IntConsumer;
   private CueGroup currentCueGroup;
   // TODO(b/552972009): Remove when deprecated set/clearVideoFrameMetadataListener methods are
   // removed.
-  @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
-  @Nullable private CameraMotionListener cameraMotionListener;
+  private @Nullable VideoFrameMetadataListener videoFrameMetadataListener;
+  private @Nullable CameraMotionListener cameraMotionListener;
   private boolean throwsWhenUsingWrongThread;
   private boolean hasNotifiedFullWrongThreadWarning;
   private @C.Priority int priority;
-  @Nullable private PriorityTaskManager priorityTaskManager;
+  private @Nullable PriorityTaskManager priorityTaskManager;
   private boolean isPriorityTaskManagerRegistered;
   private boolean playerReleased;
   private DeviceInfo deviceInfo;
@@ -582,8 +581,7 @@ import java.util.function.IntConsumer;
   }
 
   @Override
-  @Nullable
-  public ExoPlaybackException getPlayerError() {
+  public @Nullable ExoPlaybackException getPlayerError() {
     verifyApplicationThread();
     return playbackInfo.playbackError;
   }
@@ -1333,8 +1331,7 @@ import java.util.function.IntConsumer;
   }
 
   @Override
-  @Nullable
-  public Renderer getSecondaryRenderer(int index) {
+  public @Nullable Renderer getSecondaryRenderer(int index) {
     verifyApplicationThread();
     return secondaryRenderers[index];
   }
@@ -1584,8 +1581,7 @@ import java.util.function.IntConsumer;
         Log.w(TAG, "Replacing existing SurfaceTextureListener.");
       }
       textureView.setSurfaceTextureListener(componentListener);
-      @Nullable
-      SurfaceTexture surfaceTexture =
+      @Nullable SurfaceTexture surfaceTexture =
           textureView.isAvailable() ? textureView.getSurfaceTexture() : null;
       if (surfaceTexture == null) {
         setVideoOutputInternal(/* videoOutput= */ null);
@@ -1867,29 +1863,25 @@ import java.util.function.IntConsumer;
   }
 
   @Override
-  @Nullable
-  public Format getVideoFormat() {
+  public @Nullable Format getVideoFormat() {
     verifyApplicationThread();
     return videoFormat;
   }
 
   @Override
-  @Nullable
-  public Format getAudioFormat() {
+  public @Nullable Format getAudioFormat() {
     verifyApplicationThread();
     return audioFormat;
   }
 
   @Override
-  @Nullable
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     verifyApplicationThread();
     return videoDecoderCounters;
   }
 
   @Override
-  @Nullable
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     verifyApplicationThread();
     return audioDecoderCounters;
   }
@@ -2104,8 +2096,8 @@ import java.util.function.IntConsumer;
   @Override
   public boolean isTunnelingEnabled() {
     verifyApplicationThread();
-    for (@Nullable
-    RendererConfiguration config : playbackInfo.trackSelectorResult.rendererConfigurations) {
+    for (@Nullable RendererConfiguration config :
+        playbackInfo.trackSelectorResult.rendererConfigurations) {
       if (config != null && config.tunneling) {
         return true;
       }
@@ -2408,7 +2400,7 @@ import java.util.function.IntConsumer;
           });
     }
     if (mediaItemTransitioned) {
-      @Nullable final MediaItem finalMediaItem = mediaItem;
+      final @Nullable MediaItem finalMediaItem = mediaItem;
       listeners.queueEvent(
           Player.EVENT_MEDIA_ITEM_TRANSITION,
           listener -> listener.onMediaItemTransition(finalMediaItem, mediaItemTransitionReason));
@@ -2953,8 +2945,7 @@ import java.util.function.IntConsumer;
     return playbackInfo;
   }
 
-  @Nullable
-  private Pair<Object, Long> getPeriodPositionUsAfterTimelineChanged(
+  private @Nullable Pair<Object, Long> getPeriodPositionUsAfterTimelineChanged(
       Timeline oldTimeline,
       Timeline newTimeline,
       int currentWindowIndexInternal,
@@ -2966,8 +2957,7 @@ import java.util.function.IntConsumer;
           isCleared ? C.INDEX_UNSET : currentWindowIndexInternal,
           isCleared ? C.TIME_UNSET : contentPositionMs);
     }
-    @Nullable
-    Pair<Object, Long> oldPeriodPositionUs =
+    @Nullable Pair<Object, Long> oldPeriodPositionUs =
         oldTimeline.getPeriodPositionUs(
             window, period, currentWindowIndexInternal, Util.msToUs(contentPositionMs));
     Object periodUid = castNonNull(oldPeriodPositionUs).first;
@@ -2992,8 +2982,7 @@ import java.util.function.IntConsumer;
     }
   }
 
-  @Nullable
-  private Pair<Object, Long> maskWindowPositionMsOrGetPeriodPositionUs(
+  private @Nullable Pair<Object, Long> maskWindowPositionMsOrGetPeriodPositionUs(
       Timeline timeline, int windowIndex, long windowPositionMs) {
     if (timeline.isEmpty()) {
       // If empty we store the initial seek in the masking variables.
@@ -3734,9 +3723,9 @@ import java.util.function.IntConsumer;
         Renderer.MSG_CUSTOM_BASE + 2;
 
     private final CopyOnWriteArraySet<VideoFrameMetadataListener> videoFrameMetadataListeners;
-    @Nullable private CameraMotionListener cameraMotionListener;
-    @Nullable private VideoFrameMetadataListener internalVideoFrameMetadataListener;
-    @Nullable private CameraMotionListener internalCameraMotionListener;
+    private @Nullable CameraMotionListener cameraMotionListener;
+    private @Nullable VideoFrameMetadataListener internalVideoFrameMetadataListener;
+    private @Nullable CameraMotionListener internalCameraMotionListener;
 
     private FrameMetadataListener() {
       videoFrameMetadataListeners = new CopyOnWriteArraySet<>();

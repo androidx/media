@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
@@ -28,6 +27,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
+import org.jspecify.annotations.Nullable;
 
 /** A queue of buffers, ordered by presentation timestamp. */
 @RestrictTo(LIBRARY_GROUP)
@@ -50,7 +50,7 @@ public final class ReorderingBufferQueue {
   private final PriorityQueue<BuffersWithTimestamp> pendingBuffers;
 
   private int reorderingQueueSize;
-  @Nullable private BuffersWithTimestamp lastQueuedBuffer;
+  private @Nullable BuffersWithTimestamp lastQueuedBuffer;
 
   /**
    * Creates an instance, initially with no max size.

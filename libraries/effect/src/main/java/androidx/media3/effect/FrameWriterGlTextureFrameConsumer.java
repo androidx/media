@@ -33,7 +33,6 @@ import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -57,6 +56,7 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Writes input texture frames to a {@link FrameWriter}.
@@ -72,10 +72,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Context context;
   private final FrameWriter frameWriter;
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private ColorConversionShaderProgram colorConversionShaderProgram;
-  @Nullable private GlTextureInfo intermediateTexture;
+  private @Nullable ColorConversionShaderProgram colorConversionShaderProgram;
+  private @Nullable GlTextureInfo intermediateTexture;
   private @MonotonicNonNull ByteBuffer rgbaReadbackBuffer;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull Size inputSize;
@@ -395,8 +395,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void releaseGlResources() throws VideoFrameProcessingException {
-    @Nullable
-    ColorConversionShaderProgram colorConversionShaderProgram = this.colorConversionShaderProgram;
+    @Nullable ColorConversionShaderProgram colorConversionShaderProgram =
+        this.colorConversionShaderProgram;
     this.colorConversionShaderProgram = null;
     if (colorConversionShaderProgram != null) {
       colorConversionShaderProgram.release();

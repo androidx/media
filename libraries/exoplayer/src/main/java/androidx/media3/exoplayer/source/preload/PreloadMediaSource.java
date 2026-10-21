@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -52,6 +51,7 @@ import androidx.media3.exoplayer.upstream.PlayerIdAwareAllocator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Preloads a {@link MediaSource} and provides a {@link MediaPeriod} that has data loaded before
@@ -268,9 +268,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   private boolean prepareChildSourceCalled;
   private boolean releasePreloadMediaSourceCalled;
   private long startPositionUs;
-  @Nullable private Timeline timeline;
-  @Nullable private Pair<PreloadMediaPeriod, MediaPeriodKey> preloadingMediaPeriodAndKey;
-  @Nullable private Pair<PreloadMediaPeriod, MediaPeriodId> playingPreloadedMediaPeriodAndId;
+  private @Nullable Timeline timeline;
+  private @Nullable Pair<PreloadMediaPeriod, MediaPeriodKey> preloadingMediaPeriodAndKey;
+  private @Nullable Pair<PreloadMediaPeriod, MediaPeriodId> playingPreloadedMediaPeriodAndId;
   private boolean onSourcePreparedNotified;
   private boolean onUsedByPlayerNotified;
 
@@ -528,7 +528,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     private final long periodStartPositionUs;
     private boolean prepared;
     private int continueLoadingRetryCountBeforeCallingPreloadControlAgain;
-    @Nullable private Runnable maybeContinueLoadingRunnable;
+    private @Nullable Runnable maybeContinueLoadingRunnable;
     private boolean onLoadToTheEndOfSourceNotified;
 
     public PreloadMediaPeriodCallback(long periodStartPositionUs) {

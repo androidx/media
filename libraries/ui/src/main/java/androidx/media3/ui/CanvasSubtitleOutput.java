@@ -20,14 +20,17 @@ import static androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.text.TextDirectionHeuristic;
+import android.text.TextDirectionHeuristics;
 import android.util.AttributeSet;
 import android.view.View;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
+import androidx.media3.common.text.SubtitleStyle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SubtitleView.Output} that uses Android's native layout framework via {@link
@@ -40,8 +43,9 @@ import java.util.List;
   private List<Cue> cues;
   private @Cue.TextSizeType int textSizeType;
   private float textSize;
-  private CaptionStyleCompat style;
+  private SubtitleStyle style;
   private float bottomPaddingFraction;
+  private TextDirectionHeuristic textDirectionHeuristic;
 
   public CanvasSubtitleOutput(Context context) {
     this(context, /* attrs= */ null);
@@ -53,22 +57,25 @@ import java.util.List;
     cues = Collections.emptyList();
     textSizeType = Cue.TEXT_SIZE_TYPE_FRACTIONAL;
     textSize = DEFAULT_TEXT_SIZE_FRACTION;
-    style = CaptionStyleCompat.DEFAULT;
+    style = SubtitleStyle.DEFAULT;
     bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
+    textDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR;
   }
 
   @Override
   public void update(
       List<Cue> cues,
-      CaptionStyleCompat style,
+      SubtitleStyle style,
       float textSize,
       @Cue.TextSizeType int textSizeType,
-      float bottomPaddingFraction) {
+      float bottomPaddingFraction,
+      TextDirectionHeuristic textDirectionHeuristic) {
     this.cues = cues;
     this.style = style;
     this.textSize = textSize;
     this.textSizeType = textSizeType;
     this.bottomPaddingFraction = bottomPaddingFraction;
+    this.textDirectionHeuristic = textDirectionHeuristic;
     // Ensure we have sufficient painters.
     while (painters.size() < cues.size()) {
       painters.add(new SubtitlePainter(getContext()));
@@ -120,6 +127,7 @@ import java.util.List;
           defaultViewTextSizePx,
           cueTextSizePx,
           bottomPaddingFraction,
+          textDirectionHeuristic,
           canvas,
           left,
           top,

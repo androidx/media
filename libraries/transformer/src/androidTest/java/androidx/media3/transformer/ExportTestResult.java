@@ -17,11 +17,11 @@ package androidx.media3.transformer;
 
 import static androidx.media3.transformer.JsonUtil.exceptionAsJsonObject;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** A test only class for holding the details of a test export. */
 public final class ExportTestResult {
@@ -32,11 +32,11 @@ public final class ExportTestResult {
   public static final class Builder {
     private final ExportResult exportResult;
 
-    @Nullable private String filePath;
+    private @Nullable String filePath;
     private long elapsedTimeMs;
     private double ssim;
-    @Nullable private FallbackDetails fallbackDetails;
-    @Nullable private Exception analysisException;
+    private @Nullable FallbackDetails fallbackDetails;
+    private @Nullable Exception analysisException;
 
     /** Creates a new {@link Builder}. */
     public Builder(ExportResult exportResult) {
@@ -128,7 +128,7 @@ public final class ExportTestResult {
   public final ExportResult exportResult;
 
   /** The path to the file created in the export, or {@code null} if unset. */
-  @Nullable public final String filePath;
+  public final @Nullable String filePath;
 
   /**
    * The amount of time taken to perform the export in milliseconds, or {@link C#TIME_UNSET} if
@@ -149,13 +149,13 @@ public final class ExportTestResult {
    * The {@link FallbackDetails} describing the fallbacks that occurred doing export, or {@code
    * null} if no fallback occurred.
    */
-  @Nullable public final FallbackDetails fallbackDetails;
+  public final @Nullable FallbackDetails fallbackDetails;
 
   /**
    * The {@link Exception} thrown during post-export analysis, or {@code null} if nothing was
    * thrown.
    */
-  @Nullable public final Exception analysisException;
+  public final @Nullable Exception analysisException;
 
   /** Returns a {@link JSONObject} representing all the values in {@code this}. */
   public JSONObject asJsonObject() throws JSONException {

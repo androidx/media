@@ -18,7 +18,6 @@ package androidx.media3.cast;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -34,6 +33,7 @@ import java.util.Iterator;
 import java.util.UUID;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** Default {@link MediaItemConverter} implementation. */
 @UnstableApi
@@ -376,8 +376,8 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
     return json;
   }
 
-  @Nullable
-  private static JSONObject getPlayerConfigJson(MediaItem mediaItem) throws JSONException {
+  private static @Nullable JSONObject getPlayerConfigJson(MediaItem mediaItem)
+      throws JSONException {
     if (mediaItem.localConfiguration == null
         || mediaItem.localConfiguration.drmConfiguration == null) {
       return null;

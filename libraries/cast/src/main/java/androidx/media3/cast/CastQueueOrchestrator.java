@@ -15,7 +15,6 @@
  */
 package androidx.media3.cast;
 
-import androidx.annotation.Nullable;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.cast.QueuedOperation.QueueSnapshot;
 import androidx.media3.common.C;
@@ -30,6 +29,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChanne
 import com.google.android.gms.common.api.Status;
 import java.util.ArrayDeque;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Serializes Cast queue mutations and computes optimistic masked {@link QueueSnapshot
@@ -48,7 +48,7 @@ import java.util.function.Supplier;
      *     or if the timeline doesn't change.
      */
     void onQueueSnapshotChanged(
-        QueueSnapshot snapshot, @Nullable @TimelineChangeReason Integer timelineChangeReason);
+        QueueSnapshot snapshot, @TimelineChangeReason @Nullable Integer timelineChangeReason);
   }
 
   private static final String TAG = "CastQueueOrchestrator";
@@ -61,7 +61,7 @@ import java.util.function.Supplier;
   private final CastTimelineTracker timelineTracker;
   private final StateChangeListener onStateChangedListener;
   private final ArrayDeque<QueuedOperation> queuedOperations;
-  @Nullable private QueuedOperation activeOperation;
+  private @Nullable QueuedOperation activeOperation;
   private boolean wasQueueEnded;
   private boolean isReloadingFromQueueEnd;
 
@@ -87,8 +87,7 @@ import java.util.function.Supplier;
   }
 
   /** Returns the {@link ItemUid} for the given receiver item ID. */
-  @Nullable
-  public ItemUid getItemUid(int receiverItemId) {
+  public @Nullable ItemUid getItemUid(int receiverItemId) {
     return timelineTracker.getItemUid(receiverItemId);
   }
 

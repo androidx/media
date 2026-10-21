@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -42,6 +41,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Bridges a legacy {@link GlShaderProgram} to {@link GlTextureFrameProcessor}.
@@ -64,12 +64,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final ColorInfo outputColorInfo;
 
   private @MonotonicNonNull GlTextureFrameConsumer downstreamConsumer;
-  @Nullable private ImmutableMap<String, Object> lastQueuedMetadata;
-  @Nullable private Runnable pendingWakeupListener;
-  @Nullable private Executor pendingWakeupExecutor;
+  private @Nullable ImmutableMap<String, Object> lastQueuedMetadata;
+  private @Nullable Runnable pendingWakeupListener;
+  private @Nullable Executor pendingWakeupExecutor;
   private int shaderInputCapacity;
   private int currentStreamDiscontinuityNumber;
-  @Nullable private Format currentFormat;
+  private @Nullable Format currentFormat;
   private boolean inputStreamEnded;
   private boolean hasSignaledEosToWrappedShader;
   private boolean receivedEosSignalFromWrappedShader;

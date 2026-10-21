@@ -40,7 +40,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
@@ -54,6 +53,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,7 +79,7 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
   }
 
   private MediaBrowser createBrowser(
-      @Nullable Bundle connectionHints, @Nullable MediaBrowser.Listener listener) throws Exception {
+      @Nullable Bundle connectionHints, MediaBrowser.@Nullable Listener listener) throws Exception {
     SessionToken token = new SessionToken(context, MOCK_MEDIA3_LIBRARY_SERVICE);
     return (MediaBrowser) controllerTestRule.createController(token, connectionHints, listener);
   }

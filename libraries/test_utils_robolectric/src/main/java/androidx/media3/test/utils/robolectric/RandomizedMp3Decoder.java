@@ -23,7 +23,6 @@ import android.media.AudioFormat;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -34,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.robolectric.shadows.ShadowMediaCodec;
 
 /**

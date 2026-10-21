@@ -24,7 +24,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.util.Clock;
@@ -61,6 +60,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link RenderersFactory} that captures interactions with the audio and video {@link
@@ -338,9 +338,8 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       return index;
     }
 
-    @Nullable
     @Override
-    public ByteBuffer getInputBuffer(int index) {
+    public @Nullable ByteBuffer getInputBuffer(int index) {
       @Nullable ByteBuffer inputBuffer = super.getInputBuffer(index);
       if (inputBuffer != null) {
         dequeuedInputBuffers.put(index, inputBuffer);

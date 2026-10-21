@@ -18,11 +18,11 @@ package androidx.media3.ui;
 
 import android.text.BidiFormatter;
 import android.text.SpannableStringBuilder;
-import android.text.TextDirectionHeuristics;
-import androidx.annotation.Nullable;
+import android.text.TextDirectionHeuristic;
 import com.google.common.base.Splitter;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class for handling bidirectional (BiDi) text rendering.
@@ -80,9 +80,12 @@ final class BidiUtils {
    * It forces LTR context for wrapping and preserves spans and line breaks.
    *
    * @param input the input text as a {@link CharSequence}, possibly containing mixed-direction text
+   * @param textDirectionHeuristic the {@link TextDirectionHeuristic} used to estimate the direction
+   *     of each line
    * @return a {@link CharSequence} with each line wrapped for proper bidi rendering
    */
-  public static CharSequence wrapText(CharSequence input) {
+  public static CharSequence wrapText(
+      CharSequence input, TextDirectionHeuristic textDirectionHeuristic) {
     BidiFormatter bidiFormatter = BidiFormatter.getInstance(/* rtlContext= */ false);
     SpannableStringBuilder wrapped = new SpannableStringBuilder(input);
 
@@ -102,7 +105,7 @@ final class BidiUtils {
         wrapped.delete(lineStart + lineLength, lineStart + lineLength + 1);
       }
 
-      String wrappedLine = bidiFormatter.unicodeWrap(line, TextDirectionHeuristics.FIRSTSTRONG_LTR);
+      String wrappedLine = bidiFormatter.unicodeWrap(line, textDirectionHeuristic);
       int diff = wrappedLine.length() - lineLength;
       if (diff > 0) {
         // BidiFormatter.unicodeWrap adds either:

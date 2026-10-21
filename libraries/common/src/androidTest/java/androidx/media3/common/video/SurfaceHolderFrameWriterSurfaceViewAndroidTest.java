@@ -23,7 +23,6 @@ import android.app.Activity;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -33,6 +32,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -143,7 +143,7 @@ public final class SurfaceHolderFrameWriterSurfaceViewAndroidTest {
   }
 
   private static final class FakeListener implements SurfaceHolderFrameWriter.Listener {
-    @Nullable volatile VideoFrameProcessingException lastException;
+    volatile @Nullable VideoFrameProcessingException lastException;
 
     @Override
     public void onFrameAboutToBeRendered(

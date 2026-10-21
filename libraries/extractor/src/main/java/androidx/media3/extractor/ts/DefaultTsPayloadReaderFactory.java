@@ -19,7 +19,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
@@ -33,6 +32,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Default {@link TsPayloadReader.Factory} implementation. */
 @UnstableApi
@@ -146,8 +146,7 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
   }
 
   @Override
-  @Nullable
-  public TsPayloadReader createPayloadReader(int streamType, EsInfo esInfo) {
+  public @Nullable TsPayloadReader createPayloadReader(int streamType, EsInfo esInfo) {
     switch (streamType) {
       case TsExtractor.TS_STREAM_TYPE_MPA:
       case TsExtractor.TS_STREAM_TYPE_MPA_LSF:

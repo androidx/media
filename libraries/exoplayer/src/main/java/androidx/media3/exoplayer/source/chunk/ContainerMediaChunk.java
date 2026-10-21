@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -31,6 +30,7 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.TrackOutput;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link BaseMediaChunk} that uses an {@link Extractor} to decode sample data. */
 @UnstableApi

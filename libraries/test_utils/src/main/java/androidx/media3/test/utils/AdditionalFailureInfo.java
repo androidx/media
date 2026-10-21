@@ -15,12 +15,11 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.truth.Truth;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -41,7 +40,7 @@ import org.junit.runners.model.Statement;
 @UnstableApi
 public final class AdditionalFailureInfo implements TestRule {
 
-  private final AtomicReference<@NullableType String> info;
+  private final AtomicReference<@Nullable String> info;
 
   public AdditionalFailureInfo() {
     info = new AtomicReference<>();

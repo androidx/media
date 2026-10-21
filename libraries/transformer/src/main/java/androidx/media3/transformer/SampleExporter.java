@@ -23,7 +23,6 @@ import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdr
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -36,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exporter that processes media data.
@@ -46,7 +46,7 @@ import java.util.Objects;
 
   private final MuxerWrapper muxerWrapper;
   private final @C.TrackType int outputTrackType;
-  @Nullable private final Metadata metadata;
+  private final @Nullable Metadata metadata;
 
   private boolean muxerWrapperTrackAdded;
 
@@ -88,11 +88,9 @@ import java.util.Objects;
     return false;
   }
 
-  @Nullable
-  protected abstract Format getMuxerInputFormat() throws ExportException;
+  protected abstract @Nullable Format getMuxerInputFormat() throws ExportException;
 
-  @Nullable
-  protected abstract DecoderInputBuffer getMuxerInputBuffer() throws ExportException;
+  protected abstract @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException;
 
   protected abstract void releaseMuxerInputBuffer() throws ExportException;
 
@@ -160,8 +158,7 @@ import java.util.Objects;
    * <p>This is identical to calling {@code
    * #findSupportedMimeTypeForEncoderAndMuxer(requestedFormat, muxerSupportedMimeTypes, null)}.
    */
-  @Nullable
-  protected static String findSupportedMimeTypeForEncoderAndMuxer(
+  protected static @Nullable String findSupportedMimeTypeForEncoderAndMuxer(
       Format requestedFormat, List<String> muxerSupportedMimeTypes) {
     return findSupportedMimeTypeForEncoderAndMuxer(
         requestedFormat, muxerSupportedMimeTypes, /* encoderFactory= */ null);
@@ -187,8 +184,7 @@ import java.util.Objects;
    * @param encoderFactory The provided {@link EncoderFactory}.
    * @return A supported {@linkplain MimeTypes MIME type}, or {@code null} if none are supported.
    */
-  @Nullable
-  protected static String findSupportedMimeTypeForEncoderAndMuxer(
+  protected static @Nullable String findSupportedMimeTypeForEncoderAndMuxer(
       Format requestedFormat,
       List<String> muxerSupportedMimeTypes,
       @Nullable EncoderFactory encoderFactory) {

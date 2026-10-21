@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -34,6 +33,7 @@ import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import java.util.Collections;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parses and extracts samples from an AAC/LATM elementary stream. */
 @UnstableApi
@@ -48,7 +48,7 @@ public final class LatmReader implements ElementaryStreamReader {
   private static final int SYNC_BYTE_FIRST = 0x56;
   private static final int SYNC_BYTE_SECOND = 0xE0;
 
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
   private final ParsableByteArray sampleDataBuffer;
@@ -76,7 +76,7 @@ public final class LatmReader implements ElementaryStreamReader {
   private int sampleRateHz;
   private long sampleDurationUs;
   private int channelCount;
-  @Nullable private String codecs;
+  private @Nullable String codecs;
 
   /**
    * @param language Track language.

@@ -34,7 +34,6 @@ import android.view.Surface;
 import android.view.WindowManager;
 import androidx.annotation.AnyThread;
 import androidx.annotation.BinderThread;
-import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -44,6 +43,7 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renders a GL scene in a non-VR Activity that is affected by phone orientation and touch input.
@@ -80,13 +80,13 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
 
   private final CopyOnWriteArrayList<VideoSurfaceListener> videoSurfaceListeners;
   private final SensorManager sensorManager;
-  @Nullable private final Sensor orientationSensor;
+  private final @Nullable Sensor orientationSensor;
   private final OrientationListener orientationListener;
   private final Handler mainHandler;
   private final TouchTracker touchTracker;
   private final SceneRenderer scene;
-  @Nullable private SurfaceTexture surfaceTexture;
-  @Nullable private Surface surface;
+  private @Nullable SurfaceTexture surfaceTexture;
+  private @Nullable Surface surface;
   private boolean useSensorRotation;
   private boolean isStarted;
   private boolean isOrientationListenerRegistered;
@@ -106,8 +106,8 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
     // fusion. It's used instead of TYPE_ROTATION_VECTOR since the latter uses the magnetometer on
     // devices. When used indoors, the magnetometer can take some time to settle depending on the
     // device and amount of metal in the environment.
-    @Nullable
-    Sensor orientationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
+    @Nullable Sensor orientationSensor =
+        sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
     if (orientationSensor == null) {
       orientationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
     }
@@ -149,8 +149,7 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
    * Returns the {@link Surface} to which video frames should be rendered, or {@code null} if it has
    * not been created.
    */
-  @Nullable
-  public Surface getVideoSurface() {
+  public @Nullable Surface getVideoSurface() {
     return surface;
   }
 

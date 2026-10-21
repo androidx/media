@@ -22,7 +22,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
@@ -35,6 +34,7 @@ import com.airbnb.lottie.LottieDrawable;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link CanvasOverlay} that renders a Lottie animation.
@@ -60,8 +60,7 @@ public final class LottieOverlay extends CanvasOverlay {
      *
      * <p>The default implementation returns {@code null}.
      */
-    @Nullable
-    default ImageAssetDelegate getImageAssetDelegate() {
+    default @Nullable ImageAssetDelegate getImageAssetDelegate() {
       return null;
     }
 
@@ -79,8 +78,8 @@ public final class LottieOverlay extends CanvasOverlay {
   public static final class Builder {
     private final LottieProvider lottieProvider;
     private float speed;
-    @Nullable private StaticOverlaySettings overlaySettings;
-    @Nullable private LottieDrawable lottieDrawable;
+    private @Nullable StaticOverlaySettings overlaySettings;
+    private @Nullable LottieDrawable lottieDrawable;
 
     public Builder(LottieProvider lottieProvider) {
       this.lottieProvider = lottieProvider;

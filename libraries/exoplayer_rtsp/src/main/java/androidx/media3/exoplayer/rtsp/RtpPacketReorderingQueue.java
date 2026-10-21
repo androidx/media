@@ -21,10 +21,10 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Orders RTP packets by their sequence numbers to correct the possible alternation in packet
@@ -129,8 +129,7 @@ import java.util.TreeSet;
    *     {@link #offer received} timestamp is before {@code cutoffTimestampMs}. Otherwise {@code
    *     null}.
    */
-  @Nullable
-  public synchronized RtpPacket poll(long cutoffTimestampMs) {
+  public synchronized @Nullable RtpPacket poll(long cutoffTimestampMs) {
     if (packetQueue.isEmpty()) {
       return null;
     }

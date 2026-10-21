@@ -350,4 +350,30 @@ public class FrameExtractorHdrTest {
     assertThat(frameFirstItem.presentationTimeMs).isEqualTo(0);
     assertThat(frameSecondItem.presentationTimeMs).isEqualTo(0);
   }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34) // HLG and UltraHDR Bitmaps are only supported on API 34+.
+  public void extractFrame_sameMediaItemChangeFromHdrToUltraHdrOutput_returnsExpectedFrames()
+      throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    assumeDeviceSupportsHdrColorTransfer(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    MediaItem mediaItem = MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri);
+    FrameExtractor.Frame hlgFrame;
+    FrameExtractor.Frame ultraHdrFrame;
+
+    try (FrameExtractor hlgFrameExtractor =
+        new FrameExtractor.Builder(context, mediaItem).setExtractHdrFrames(true).build()) {
+      hlgFrame = hlgFrameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+      try (FrameExtractor ultraHdrFrameExtractor =
+          new FrameExtractor.Builder(context, mediaItem).setEnableUltraHdr(true).build()) {
+        ultraHdrFrame =
+            ultraHdrFrameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+      }
+    }
+
+    assertThat(hlgFrame.bitmap.getConfig()).isAnyOf(RGBA_1010102, RGBA_F16);
+    assertThat(hlgFrame.bitmap.hasGainmap()).isFalse();
+    assertThat(ultraHdrFrame.bitmap.getConfig()).isEqualTo(Bitmap.Config.ARGB_8888);
+    assertThat(ultraHdrFrame.bitmap.hasGainmap()).isTrue();
+  }
 }

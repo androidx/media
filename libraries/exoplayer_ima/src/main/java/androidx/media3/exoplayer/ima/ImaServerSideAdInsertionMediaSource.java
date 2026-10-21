@@ -47,7 +47,6 @@ import android.util.Pair;
 import android.view.ViewGroup;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.MainThread;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
@@ -111,6 +110,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** MediaSource for IMA server side inserted ad streams. */
 public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSource<Void> {
@@ -224,13 +224,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       private final Context context;
       private final AdViewProvider adViewProvider;
 
-      @Nullable private ImaSdkSettings imaSdkSettings;
+      private @Nullable ImaSdkSettings imaSdkSettings;
       private StreamEventListener streamEventListener;
-      @Nullable private AdEventListener adEventListener;
-      @Nullable private AdErrorEvent.AdErrorListener adErrorListener;
+      private @Nullable AdEventListener adEventListener;
+      private AdErrorEvent.@Nullable AdErrorListener adErrorListener;
       private State state;
       private ImmutableList<CompanionAdSlot> companionAdSlots;
-      @Nullable private AdSlot pauseAdSlot;
+      private @Nullable AdSlot pauseAdSlot;
       private boolean focusSkipButtonWhenAvailable;
       private boolean enableCustomTabs;
 
@@ -459,8 +459,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
       /** Restores a {@code State} from a {@link Bundle}. */
       public static State fromBundle(Bundle bundle) {
-        @Nullable
-        ImmutableMap.Builder<String, AdPlaybackState> adPlaybackStateMap =
+        ImmutableMap.@Nullable Builder<String, AdPlaybackState> adPlaybackStateMap =
             new ImmutableMap.Builder<>();
         Bundle adPlaybackStateBundle = checkNotNull(bundle.getBundle(FIELD_AD_PLAYBACK_STATES));
         for (String key : adPlaybackStateBundle.keySet()) {
@@ -480,7 +479,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     private final Map<String, MediaSourceResourceHolder> mediaSourceResources;
     private final Map<String, AdPlaybackState> adPlaybackStateMap;
 
-    @Nullable private Player player;
+    private @Nullable Player player;
 
     private AdsLoader(
         Context context, ServerSideAdInsertionConfiguration configuration, State state) {
@@ -623,8 +622,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private final AdsLoader adsLoader;
   private final com.google.ads.interactivemedia.v3.api.AdsLoader sdkAdsLoader;
   private final StreamEventListener streamEventListener;
-  @Nullable private final AdEventListener applicationAdEventListener;
-  @Nullable private final AdErrorListener applicationAdErrorListener;
+  private final @Nullable AdEventListener applicationAdEventListener;
+  private final @Nullable AdErrorListener applicationAdErrorListener;
   private final boolean isLiveStream;
   private final String adsId;
   private final StreamRequest streamRequest;
@@ -634,12 +633,12 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private final ComponentListener componentListener;
   private final ImaSdkFactory imaSdkFactory;
 
-  @Nullable private Loader loader;
-  @Nullable private StreamManager streamManager;
-  @Nullable private String streamId;
-  @Nullable private ServerSideAdInsertionMediaSource serverSideAdInsertionMediaSource;
-  @Nullable private IOException loadError;
-  @Nullable private Timeline contentTimeline;
+  private @Nullable Loader loader;
+  private @Nullable StreamManager streamManager;
+  private @Nullable String streamId;
+  private @Nullable ServerSideAdInsertionMediaSource serverSideAdInsertionMediaSource;
+  private @Nullable IOException loadError;
+  private @Nullable Timeline contentTimeline;
   private AdPlaybackState adPlaybackState;
 
   @GuardedBy("this")
@@ -695,7 +694,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     MediaItem existingMediaItem = getMediaItem();
     MediaItem.LocalConfiguration existingConfiguration =
         checkNotNull(existingMediaItem.localConfiguration);
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
@@ -1170,13 +1169,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     private final ImaServerSideAdInsertionMediaSource imaServerSideAdInsertionMediaSource;
     private final StreamRequest request;
     private final StreamPlayer streamPlayer;
-    @Nullable private final AdErrorListener adErrorListener;
+    private final @Nullable AdErrorListener adErrorListener;
     private final ConditionVariable conditionVariable;
 
-    @Nullable private volatile Uri contentUri;
+    private volatile @Nullable Uri contentUri;
     private volatile boolean cancelled;
     private volatile boolean error;
-    @Nullable private volatile String errorMessage;
+    private volatile @Nullable String errorMessage;
     private volatile int errorCode;
 
     /** Creates an instance. */
@@ -1196,8 +1195,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     }
 
     /** Returns the DAI content URI or null if not yet available. */
-    @Nullable
-    public Uri getContentUri() {
+    public @Nullable Uri getContentUri() {
       return contentUri;
     }
 
@@ -1305,9 +1303,9 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     private final boolean isDashStream;
 
     private ImmutableMap<Object, AdPlaybackState> adPlaybackStates;
-    @Nullable private Timeline contentTimeline;
-    @Nullable private Object adsId;
-    @Nullable private StreamLoadListener streamLoadListener;
+    private @Nullable Timeline contentTimeline;
+    private @Nullable Object adsId;
+    private @Nullable StreamLoadListener streamLoadListener;
 
     /** Creates an instance. */
     public StreamPlayer(Player player, MediaItem mediaItem, StreamRequest streamRequest) {

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getLast;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a DASH media presentation description (mpd), as defined by ISO/IEC 23009-1:2014
@@ -82,26 +82,26 @@ public class DashManifest implements FilterableManifest<DashManifest> {
    * The {@link UtcTimingElement}, or null if not present. Defined in DVB A168:7/2016, Section
    * 4.7.2.
    */
-  @Nullable public final UtcTimingElement utcTiming;
+  public final @Nullable UtcTimingElement utcTiming;
 
   /** The {@link ServiceDescriptionElement}, or null if not present. */
-  @Nullable public final ServiceDescriptionElement serviceDescription;
+  public final @Nullable ServiceDescriptionElement serviceDescription;
 
   /** The {@link ProgramInformation}, or null if not present. */
-  @Nullable public final ProgramInformation programInformation;
+  public final @Nullable ProgramInformation programInformation;
 
   private final List<Period> periods;
 
   /**
    * @deprecated Use {@link #locations} instead.
    */
-  @Deprecated @Nullable public final Uri location;
+  @Deprecated public final @Nullable Uri location;
 
   /** The locations to request future updates of the DASH media presentation description (mpd). */
   public final ImmutableList<Location> locations;
 
   /** The {@link ContentSteering}, or {@code null} if not present. */
-  @Nullable public final ContentSteering contentSteering;
+  public final @Nullable ContentSteering contentSteering;
 
   /**
    * @deprecated Use {@link #DashManifest(long, long, long, boolean, long, long, long, long,

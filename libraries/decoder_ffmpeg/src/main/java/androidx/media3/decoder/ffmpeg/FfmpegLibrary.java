@@ -15,7 +15,6 @@
  */
 package androidx.media3.decoder.ffmpeg;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -23,6 +22,7 @@ import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi
@@ -65,8 +65,7 @@ public final class FfmpegLibrary {
   }
 
   /** Returns the version of the underlying library if available, or null otherwise. */
-  @Nullable
-  public static String getVersion() {
+  public static @Nullable String getVersion() {
     if (!isAvailable()) {
       return null;
     }
@@ -114,8 +113,7 @@ public final class FfmpegLibrary {
    * Returns the name of the FFmpeg decoder that could be used to decode the format, or {@code null}
    * if it's unsupported.
    */
-  @Nullable
-  /* package */ static String getCodecName(String mimeType) {
+  /* package */ static @Nullable String getCodecName(String mimeType) {
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
         return "aac";

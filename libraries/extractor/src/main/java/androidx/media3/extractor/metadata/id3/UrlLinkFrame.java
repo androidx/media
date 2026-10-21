@@ -15,15 +15,15 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Url link ID3 frame. */
 @UnstableApi
 public final class UrlLinkFrame extends Id3Frame {
 
-  @Nullable public final String description;
+  public final @Nullable String description;
   public final String url;
 
   public UrlLinkFrame(String id, @Nullable String description, String url) {

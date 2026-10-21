@@ -16,10 +16,13 @@
 
 package androidx.media3.ui.compose.material3.text
 
+import android.graphics.Typeface
 import android.text.Layout
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.core.graphics.createBitmap
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueUtil
+import androidx.media3.common.text.SubtitleStyle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -259,8 +263,8 @@ class TextCueTest {
     val largeFontSize =
       onNodeWithText("Large").fetchTextLayoutResult().layoutInput.style.fontSize.value
 
-    assertThat(smallFontSize).isWithin(0.1f).of(10f)
-    assertThat(largeFontSize).isWithin(0.1f).of(50f)
+    assertThat(smallFontSize).isWithin(0.1f).of(with(density) { 10f.toSp().value })
+    assertThat(largeFontSize).isWithin(0.1f).of(with(density) { 50f.toSp().value })
   }
 
   @Test
@@ -282,9 +286,9 @@ class TextCueTest {
     val largeFontSize =
       onNodeWithText("Large").fetchTextLayoutResult().layoutInput.style.fontSize.value
 
-    // Viewport height is 1000, sizes are 0.1f (100) and 0.5f (500)
-    assertThat(smallFontSize).isWithin(0.1f).of(100f)
-    assertThat(largeFontSize).isWithin(0.1f).of(500f)
+    // Viewport height is 1000, sizes are 0.1f (100px) and 0.5f (500px)
+    assertThat(smallFontSize).isWithin(0.1f).of(with(density) { 100f.toSp().value })
+    assertThat(largeFontSize).isWithin(0.1f).of(with(density) { 500f.toSp().value })
   }
 
   @Test
@@ -359,6 +363,155 @@ class TextCueTest {
     assertThat(textLayoutResult.size.width).isEqualTo(1000)
     assertThat(lineLeft).isGreaterThan(0f)
     assertThat(lineRight).isWithin(1f).of(1000f)
+  }
+
+  @Test
+  fun textCue_withDefaultSubtitleStyle_usesWhiteForegroundAndNoShadow() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000)) }
+
+    val style = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style
+    assertThat(style.color).isEqualTo(Color.White)
+    assertThat(style.shadow).isNull()
+  }
+
+  @Test
+  fun textCue_withCustomForegroundColor_appliesForegroundColor() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle =
+      SubtitleStyle.Builder().setForegroundColor(android.graphics.Color.YELLOW).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val style = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style
+    assertThat(style.color).isEqualTo(Color.Yellow)
+  }
+
+  @Test
+  fun textCue_withDropShadowEdge_appliesEdgeColorShadow() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle =
+      SubtitleStyle.Builder()
+        .setEdgeType(SubtitleStyle.EDGE_TYPE_DROP_SHADOW)
+        .setEdgeColor(android.graphics.Color.RED)
+        .build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val shadow = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style.shadow
+    assertThat(shadow).isNotNull()
+    assertThat(shadow!!.color).isEqualTo(Color.Red)
+    assertThat(shadow.offset.x).isGreaterThan(0f)
+    assertThat(shadow.offset.y).isGreaterThan(0f)
+  }
+
+  @Test
+  fun textCue_withRaisedEdge_appliesEdgeColorShadowBelowText() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle =
+      SubtitleStyle.Builder()
+        .setEdgeType(SubtitleStyle.EDGE_TYPE_RAISED)
+        .setEdgeColor(android.graphics.Color.RED)
+        .build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val shadow = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style.shadow
+    assertThat(shadow).isNotNull()
+    assertThat(shadow!!.color).isEqualTo(Color.Red)
+    assertThat(shadow.offset.y).isGreaterThan(0f)
+  }
+
+  @Test
+  fun textCue_withDepressedEdge_appliesWhiteShadowBelowText() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle =
+      SubtitleStyle.Builder()
+        .setEdgeType(SubtitleStyle.EDGE_TYPE_DEPRESSED)
+        .setEdgeColor(android.graphics.Color.RED)
+        .build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val shadow = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style.shadow
+    assertThat(shadow).isNotNull()
+    assertThat(shadow!!.color).isEqualTo(Color.White)
+    assertThat(shadow.offset.y).isGreaterThan(0f)
+  }
+
+  @Test
+  fun textCue_withOutlineEdge_doesNotApplyShadow() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle = SubtitleStyle.Builder().setEdgeType(SubtitleStyle.EDGE_TYPE_OUTLINE).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val style = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style
+    assertThat(style.shadow).isNull()
+  }
+
+  @Test
+  fun textCue_withDefaultTextSizeFractionAndNoCueTextSize_usesDefaultTextSizeFraction() =
+    runComposeUiTest {
+      val cue = Cue.Builder().setText("Hello").build()
+
+      setContent {
+        TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), defaultTextSizeFraction = 0.2f)
+      }
+
+      val fontSize =
+        onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style.fontSize.value
+      // Viewport height is 1000, so 0.2f is 200px.
+      assertThat(fontSize).isWithin(0.1f).of(with(density) { 200f.toSp().value })
+    }
+
+  @Test
+  fun textCue_withDefaultTextSizeFractionAndCueTextSize_usesCueTextSize() = runComposeUiTest {
+    val cue =
+      Cue.Builder().setText("Hello").setTextSize(0.1f, Cue.TEXT_SIZE_TYPE_FRACTIONAL).build()
+
+    setContent {
+      TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), defaultTextSizeFraction = 0.2f)
+    }
+
+    val fontSize = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style.fontSize.value
+    assertThat(fontSize).isWithin(0.1f).of(with(density) { 100f.toSp().value })
+  }
+
+  @Test
+  fun textCue_withCustomTypeface_appliesFontFamily() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle = SubtitleStyle.Builder().setTypeface(Typeface.SERIF).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val style = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style
+    assertThat(style.fontFamily).isNotNull()
+  }
+
+  @Test
+  fun textCue_withCueWindowColor_usesCueWindowColor() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").setWindowColor(android.graphics.Color.BLUE).build()
+    val subtitleStyle = SubtitleStyle.Builder().setWindowColor(android.graphics.Color.RED).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val modifiers =
+      onNodeWithText("Hello").fetchSemanticsNode().layoutInfo.getModifierInfo().map { it.modifier }
+    assertThat(modifiers).contains(Modifier.background(Color.Blue))
+  }
+
+  @Test
+  fun textCue_withoutCueWindowColor_usesSubtitleStyleWindowColor() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").build()
+    val subtitleStyle = SubtitleStyle.Builder().setWindowColor(android.graphics.Color.RED).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val modifiers =
+      onNodeWithText("Hello").fetchSemanticsNode().layoutInfo.getModifierInfo().map { it.modifier }
+    assertThat(modifiers).contains(Modifier.background(Color.Red))
   }
 
   /**

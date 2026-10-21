@@ -21,7 +21,6 @@ import static androidx.media3.test.utils.TestUtil.getNonRandomByteBuffer;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -40,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -346,11 +346,11 @@ public class AudioGraphInputAudioSinkTest {
   }
 
   private static class MockController implements Controller {
-    @Nullable private AudioGraphInput input;
+    private @Nullable AudioGraphInput input;
 
-    @Nullable
     @Override
-    public AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format) {
+    public @Nullable AudioGraphInput getAudioGraphInput(
+        EditedMediaItem editedMediaItem, Format format) {
       try {
         input =
             new AudioGraphInput(

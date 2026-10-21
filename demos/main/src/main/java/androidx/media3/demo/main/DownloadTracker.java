@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.fragment.app.FragmentManager;
 import androidx.media3.common.C;
@@ -58,6 +57,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks media that has been downloaded. */
 @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -79,7 +79,7 @@ public class DownloadTracker {
   private final HashMap<Uri, Download> downloads;
   private final DownloadIndex downloadIndex;
 
-  @Nullable private StartDownloadDialogHelper startDownloadDialogHelper;
+  private @Nullable StartDownloadDialogHelper startDownloadDialogHelper;
 
   public DownloadTracker(
       Context context, DataSource.Factory dataSourceFactory, DownloadManager downloadManager) {
@@ -107,8 +107,7 @@ public class DownloadTracker {
     return download != null && download.state != Download.STATE_FAILED;
   }
 
-  @Nullable
-  public DownloadRequest getDownloadRequest(Uri uri) {
+  public @Nullable DownloadRequest getDownloadRequest(Uri uri) {
     @Nullable Download download = downloads.get(uri);
     return download != null && download.state != Download.STATE_FAILED ? download.request : null;
   }
@@ -174,7 +173,7 @@ public class DownloadTracker {
     private boolean tracksInfoAvailable;
     private TrackSelectionDialog trackSelectionDialog;
     private WidevineOfflineLicenseFetchTask widevineOfflineLicenseFetchTask;
-    @Nullable private byte[] keySetId;
+    private byte @Nullable [] keySetId;
 
     public StartDownloadDialogHelper(
         FragmentManager fragmentManager, DownloadHelper downloadHelper, MediaItem mediaItem) {
@@ -269,8 +268,7 @@ public class DownloadTracker {
      * Returns the first {@link Format} with a non-null {@link Format#drmInitData} found in the
      * content's tracks, or null if none is found.
      */
-    @Nullable
-    private Format getFirstFormatWithDrmInitData(DownloadHelper helper) {
+    private @Nullable Format getFirstFormatWithDrmInitData(DownloadHelper helper) {
       if (!tracksInfoAvailable) {
         return null;
       }
@@ -382,8 +380,8 @@ public class DownloadTracker {
     private final ExecutorService executorService;
 
     @Nullable Future<?> future;
-    @Nullable private byte[] keySetId;
-    @Nullable private DrmSession.DrmSessionException drmSessionException;
+    private byte @Nullable [] keySetId;
+    private DrmSession.@Nullable DrmSessionException drmSessionException;
 
     public WidevineOfflineLicenseFetchTask(
         Format format,

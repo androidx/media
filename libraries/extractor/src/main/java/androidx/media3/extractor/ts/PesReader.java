@@ -18,7 +18,6 @@ package androidx.media3.extractor.ts;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
@@ -29,6 +28,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.ExtractorOutput;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parses PES packet data and extracts samples. */
 @UnstableApi
@@ -207,7 +207,7 @@ public final class PesReader implements TsPayloadReader {
    * @return Whether the target length has been reached.
    */
   private boolean continueRead(
-      ParsableByteArray source, @Nullable byte[] target, int targetLength) {
+      ParsableByteArray source, byte @Nullable [] target, int targetLength) {
     int bytesToRead = min(source.bytesLeft(), targetLength - bytesRead);
     if (bytesToRead <= 0) {
       return true;

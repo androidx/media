@@ -18,7 +18,6 @@ package androidx.media3.decoder.mpegh;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -35,6 +34,7 @@ import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes and renders audio using the native MPEG-H decoder. */
 @UnstableApi

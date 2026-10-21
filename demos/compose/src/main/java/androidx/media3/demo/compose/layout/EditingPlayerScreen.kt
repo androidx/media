@@ -118,7 +118,6 @@ internal fun EditingPlayerScreen(
       bottomControls = {
         PlayerDefaults.BottomControls(
           player,
-          visible = true,
           modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
           above = {
             Row(

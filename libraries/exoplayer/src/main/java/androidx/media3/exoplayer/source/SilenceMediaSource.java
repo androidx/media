@@ -24,14 +24,12 @@ import static java.lang.Math.min;
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
@@ -43,6 +41,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** Media source with a single period consisting of silent raw audio of a given duration. */
 @UnstableApi
@@ -52,7 +51,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
   public static final class Factory {
 
     private long durationUs;
-    @Nullable private Object tag;
+    private @Nullable Object tag;
 
     /**
      * Sets the duration of the silent audio. The value needs to be a positive value.
@@ -206,9 +205,9 @@ public final class SilenceMediaSource extends BaseMediaSource {
 
     @Override
     public long selectTracks(
-        @NullableType ExoTrackSelection[] selections,
+        @Nullable ExoTrackSelection[] selections,
         boolean[] mayRetainStreamFlags,
-        @NullableType SampleStream[] streams,
+        @Nullable SampleStream[] streams,
         boolean[] streamResetFlags,
         long positionUs) {
       positionUs = constrainSeekPosition(positionUs);

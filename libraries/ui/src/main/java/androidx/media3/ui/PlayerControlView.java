@@ -65,7 +65,6 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.media3.common.C;
@@ -98,6 +97,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A view for controlling {@link Player} instances.
@@ -384,12 +384,12 @@ public class PlayerControlView extends FrameLayout {
   private final Resources resources;
   private final Handler handler;
   private final ComponentListener componentListener;
-  @Nullable private final Class<?> exoplayerClazz;
-  @Nullable private final Method setScrubbingModeEnabledMethod;
-  @Nullable private final Method isScrubbingModeEnabledMethod;
-  @Nullable private final Class<?> compositionPlayerClazz;
-  @Nullable private final Method compositionPlayerSetScrubbingModeEnabledMethod;
-  @Nullable private final Method compositionPlayerIsScrubbingModeEnabledMethod;
+  private final @Nullable Class<?> exoplayerClazz;
+  private final @Nullable Method setScrubbingModeEnabledMethod;
+  private final @Nullable Method isScrubbingModeEnabledMethod;
+  private final @Nullable Class<?> compositionPlayerClazz;
+  private final @Nullable Method compositionPlayerSetScrubbingModeEnabledMethod;
+  private final @Nullable Method compositionPlayerIsScrubbingModeEnabledMethod;
 
   @SuppressWarnings("deprecation") // Using the deprecated type for now.
   private final CopyOnWriteArrayList<VisibilityListener> visibilityListeners;
@@ -404,25 +404,25 @@ public class PlayerControlView extends FrameLayout {
   private final PopupWindow settingsWindow;
   private final int settingsWindowMargin;
 
-  @Nullable private final ImageView previousButton;
-  @Nullable private final ImageView nextButton;
-  @Nullable private final ImageView playPauseButton;
-  @Nullable private final View fastForwardButton;
-  @Nullable private final View rewindButton;
-  @Nullable private final TextView fastForwardButtonTextView;
-  @Nullable private final TextView rewindButtonTextView;
-  @Nullable private final ImageView repeatToggleButton;
-  @Nullable private final ImageView shuffleButton;
-  @Nullable private final ImageView vrButton;
-  @Nullable private final ImageView subtitleButton;
-  @Nullable private final ImageView fullscreenButton;
-  @Nullable private final ImageView minimalFullscreenButton;
-  @Nullable private final View settingsButton;
-  @Nullable private final View playbackSpeedButton;
-  @Nullable private final View audioTrackButton;
-  @Nullable private final TextView durationView;
-  @Nullable private final TextView positionView;
-  @Nullable private final TimeBar timeBar;
+  private final @Nullable ImageView previousButton;
+  private final @Nullable ImageView nextButton;
+  private final @Nullable ImageView playPauseButton;
+  private final @Nullable View fastForwardButton;
+  private final @Nullable View rewindButton;
+  private final @Nullable TextView fastForwardButtonTextView;
+  private final @Nullable TextView rewindButtonTextView;
+  private final @Nullable ImageView repeatToggleButton;
+  private final @Nullable ImageView shuffleButton;
+  private final @Nullable ImageView vrButton;
+  private final @Nullable ImageView subtitleButton;
+  private final @Nullable ImageView fullscreenButton;
+  private final @Nullable ImageView minimalFullscreenButton;
+  private final @Nullable View settingsButton;
+  private final @Nullable View playbackSpeedButton;
+  private final @Nullable View audioTrackButton;
+  private final @Nullable TextView durationView;
+  private final @Nullable TextView positionView;
+  private final @Nullable TimeBar timeBar;
   private final StringBuilder formatBuilder;
   private final Formatter formatter;
   private final Timeline.Period period;
@@ -452,12 +452,11 @@ public class PlayerControlView extends FrameLayout {
   private final String fullscreenExitContentDescription;
   private final String fullscreenEnterContentDescription;
 
-  @Nullable private Player player;
-  @Nullable private ProgressUpdateListener progressUpdateListener;
+  private @Nullable Player player;
+  private @Nullable ProgressUpdateListener progressUpdateListener;
 
   @SuppressWarnings("deprecation") // Supporting deprecated listener
-  @Nullable
-  private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
+  private @Nullable OnFullScreenModeChangedListener onFullScreenModeChangedListener;
 
   private boolean isFullscreen;
   private boolean isAttachedToWindow;
@@ -871,8 +870,7 @@ public class PlayerControlView extends FrameLayout {
    * Returns the {@link Player} currently being controlled by this view, or null if no player is
    * set.
    */
-  @Nullable
-  public Player getPlayer() {
+  public @Nullable Player getPlayer() {
     return player;
   }
 
@@ -934,7 +932,7 @@ public class PlayerControlView extends FrameLayout {
    *     extraAdGroupTimesMs}, or {@code null} if {@code extraAdGroupTimesMs} is {@code null}.
    */
   public void setExtraAdGroupMarkers(
-      @Nullable long[] extraAdGroupTimesMs, @Nullable boolean[] extraPlayedAdGroups) {
+      long @Nullable [] extraAdGroupTimesMs, boolean @Nullable [] extraPlayedAdGroups) {
     if (extraAdGroupTimesMs == null) {
       this.extraAdGroupTimesMs = new long[0];
       this.extraPlayedAdGroups = new boolean[0];

@@ -24,7 +24,6 @@ import android.hardware.HardwareBuffer;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a media format.
@@ -150,32 +150,32 @@ public final class Format {
   @UnstableApi
   public static final class Builder {
 
-    @Nullable private String id;
-    @Nullable private String label;
+    private @Nullable String id;
+    private @Nullable String label;
     private List<Label> labels;
-    @Nullable private String language;
+    private @Nullable String language;
     private @C.SelectionFlags int selectionFlags;
     private @C.RoleFlags int roleFlags;
     private float selectionPriority;
     private @C.AuxiliaryTrackType int auxiliaryTrackType;
     private int averageBitrate;
     private int peakBitrate;
-    @Nullable private String codecs;
-    @Nullable private Metadata metadata;
-    @Nullable private Object customData;
-    @Nullable private String primaryTrackGroupId;
+    private @Nullable String codecs;
+    private @Nullable Metadata metadata;
+    private @Nullable Object customData;
+    private @Nullable String primaryTrackGroupId;
 
     // Container specific.
 
-    @Nullable private String containerMimeType;
+    private @Nullable String containerMimeType;
 
     // Sample specific.
 
-    @Nullable private String sampleMimeType;
+    private @Nullable String sampleMimeType;
     private int maxInputSize;
     private int maxNumReorderSamples;
-    @Nullable private List<byte[]> initializationData;
-    @Nullable private DrmInitData drmInitData;
+    private @Nullable List<byte[]> initializationData;
+    private @Nullable DrmInitData drmInitData;
     private long subsampleOffsetUs;
 
     // Video specific.
@@ -189,9 +189,9 @@ public final class Format {
     private int rotationDegrees;
     private boolean mirrorHorizontal;
     private float pixelWidthHeightRatio;
-    @Nullable private byte[] projectionData;
+    private byte @Nullable [] projectionData;
     private @C.StereoMode int stereoMode;
-    @Nullable private ColorInfo colorInfo;
+    private @Nullable ColorInfo colorInfo;
     private int maxSubLayers;
 
     // Audio specific.
@@ -724,7 +724,7 @@ public final class Format {
      * @return The builder.
      */
     @CanIgnoreReturnValue
-    public Builder setProjectionData(@Nullable byte[] projectionData) {
+    public Builder setProjectionData(byte @Nullable [] projectionData) {
       this.projectionData = projectionData;
       return this;
     }
@@ -963,7 +963,7 @@ public final class Format {
   private static final Format DEFAULT = new Builder().build();
 
   /** An identifier for the format, or null if unknown or not applicable. */
-  @Nullable public final String id;
+  public final @Nullable String id;
 
   /**
    * The default human readable label, or null if unknown or not applicable.
@@ -971,7 +971,7 @@ public final class Format {
    * <p>If non-null, the same label will be part of {@link #labels} too. If null, {@link #labels}
    * will be empty.
    */
-  @Nullable public final String label;
+  public final @Nullable String label;
 
   /**
    * The human readable list of labels, or an empty list if unknown or not applicable.
@@ -982,7 +982,7 @@ public final class Format {
   @UnstableApi public final List<Label> labels;
 
   /** The language as an IETF BCP 47 conformant tag, or null if unknown or not applicable. */
-  @Nullable public final String language;
+  public final @Nullable String language;
 
   /** Track selection flags. */
   public final @C.SelectionFlags int selectionFlags;
@@ -1058,10 +1058,10 @@ public final class Format {
   @UnstableApi public final int bitrate;
 
   /** Codecs of the format as described in RFC 6381, or null if unknown or not applicable. */
-  @Nullable public final String codecs;
+  public final @Nullable String codecs;
 
   /** Metadata, or null if unknown or not applicable. */
-  @UnstableApi @Nullable public final Metadata metadata;
+  @UnstableApi public final @Nullable Metadata metadata;
 
   /**
    * An extra opaque object that can be added to the {@link Format} to provide additional
@@ -1070,24 +1070,24 @@ public final class Format {
    * <p>This value is not included in serialized {@link Bundle} instances of this class that are
    * used to transfer data to other processes.
    */
-  @UnstableApi @Nullable public final Object customData;
+  @UnstableApi public final @Nullable Object customData;
 
   /**
    * The {@link TrackGroup#id} of the primary {@link TrackGroup} this format is embedded into.
    *
    * <p>If {@code null}, the format is not known to be embedded in another stream.
    */
-  @UnstableApi @Nullable public final String primaryTrackGroupId;
+  @UnstableApi public final @Nullable String primaryTrackGroupId;
 
   // Container specific.
 
   /** The MIME type of the container, or null if unknown or not applicable. */
-  @Nullable public final String containerMimeType;
+  public final @Nullable String containerMimeType;
 
   // Sample specific.
 
   /** The sample MIME type, or null if unknown or not applicable. */
-  @Nullable public final String sampleMimeType;
+  public final @Nullable String sampleMimeType;
 
   /**
    * The maximum size of a buffer of data (typically one sample), or {@link #NO_VALUE} if unknown or
@@ -1108,7 +1108,7 @@ public final class Format {
   @UnstableApi public final List<byte[]> initializationData;
 
   /** DRM initialization data if the stream is protected, or null otherwise. */
-  @UnstableApi @Nullable public final DrmInitData drmInitData;
+  @UnstableApi public final @Nullable DrmInitData drmInitData;
 
   /**
    * For samples that contain subsamples, this is an offset that should be added to subsample
@@ -1171,7 +1171,7 @@ public final class Format {
   public final float pixelWidthHeightRatio;
 
   /** The projection data for 360/VR video, or null if not applicable. */
-  @UnstableApi @Nullable public final byte[] projectionData;
+  @UnstableApi public final byte @Nullable [] projectionData;
 
   /**
    * The stereo layout for 360/3D/VR video, or {@link #NO_VALUE} if not applicable. Valid stereo
@@ -1181,7 +1181,7 @@ public final class Format {
   @UnstableApi public final @C.StereoMode int stereoMode;
 
   /** The color metadata associated with the video, or null if not applicable. */
-  @UnstableApi @Nullable public final ColorInfo colorInfo;
+  @UnstableApi public final @Nullable ColorInfo colorInfo;
 
   /**
    * The maximum number of temporal scalable sub-layers in the video bitstream, or {@link #NO_VALUE}
@@ -1405,14 +1405,12 @@ public final class Format {
         codecs = codecsOfType;
       }
     }
-    @Nullable
-    String primaryTrackGroupId =
+    @Nullable String primaryTrackGroupId =
         this.primaryTrackGroupId != null
             ? this.primaryTrackGroupId
             : manifestFormat.primaryTrackGroupId;
 
-    @Nullable
-    Metadata metadata =
+    @Nullable Metadata metadata =
         this.metadata == null
             ? manifestFormat.metadata
             : this.metadata.copyWithAppendedEntriesFrom(manifestFormat.metadata);
@@ -1425,8 +1423,7 @@ public final class Format {
     // Merge manifest and sample format values.
     @C.SelectionFlags int selectionFlags = this.selectionFlags | manifestFormat.selectionFlags;
     @C.RoleFlags int roleFlags = this.roleFlags | manifestFormat.roleFlags;
-    @Nullable
-    DrmInitData drmInitData =
+    @Nullable DrmInitData drmInitData =
         DrmInitData.createSessionCreationData(manifestFormat.drmInitData, this.drmInitData);
 
     return buildUpon()
@@ -1903,7 +1900,7 @@ public final class Format {
 
     List<byte[]> initializationData = new ArrayList<>();
     for (int i = 0; ; i++) {
-      @Nullable byte[] data = bundle.getByteArray(keyForInitializationData(i));
+      byte @Nullable [] data = bundle.getByteArray(keyForInitializationData(i));
       if (data == null) {
         break;
       }
@@ -1970,8 +1967,7 @@ public final class Format {
    * Bundle#getString(String, String)} does not allow the defaultValue to be {@code null}, hence the
    * need for this method.
    */
-  @Nullable
-  private static <T> T defaultIfNull(@Nullable T value, @Nullable T defaultValue) {
+  private static <T> @Nullable T defaultIfNull(@Nullable T value, @Nullable T defaultValue) {
     return value != null ? value : defaultValue;
   }
 

@@ -15,19 +15,19 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Encapsulates media content components over a contiguous period of time. */
 @UnstableApi
 public class Period {
 
   /** The period identifier, if one exists. */
-  @Nullable public final String id;
+  public final @Nullable String id;
 
   /** The start time of the period in milliseconds, relative to the start of the manifest. */
   public final long startMs;
@@ -39,7 +39,7 @@ public class Period {
   public final List<EventStream> eventStreams;
 
   /** The asset identifier for this period, if one exists */
-  @Nullable public final Descriptor assetIdentifier;
+  public final @Nullable Descriptor assetIdentifier;
 
   /** The {@link AlternativeMpdEvent}s belonging to the period, sorted by presentation time. */
   public final ImmutableList<AlternativeMpdEvent> alternativeMpdEvents;

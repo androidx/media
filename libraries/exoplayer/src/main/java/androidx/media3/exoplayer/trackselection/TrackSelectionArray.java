@@ -15,10 +15,9 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
-import androidx.annotation.Nullable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** An array of {@link TrackSelection}s. */
 @UnstableApi
@@ -27,7 +26,7 @@ public final class TrackSelectionArray {
   /** The length of this array. */
   public final int length;
 
-  private final @NullableType TrackSelection[] trackSelections;
+  private final @Nullable TrackSelection[] trackSelections;
 
   // Lazily initialized hashcode.
   private int hashCode;
@@ -35,7 +34,7 @@ public final class TrackSelectionArray {
   /**
    * @param trackSelections The selections. Must not be null, but may contain null elements.
    */
-  public TrackSelectionArray(@NullableType TrackSelection... trackSelections) {
+  public TrackSelectionArray(@Nullable TrackSelection... trackSelections) {
     this.trackSelections = trackSelections;
     this.length = trackSelections.length;
   }
@@ -46,13 +45,12 @@ public final class TrackSelectionArray {
    * @param index The index of the selection.
    * @return The selection.
    */
-  @Nullable
-  public TrackSelection get(int index) {
+  public @Nullable TrackSelection get(int index) {
     return trackSelections[index];
   }
 
   /** Returns the selections in a newly allocated array. */
-  public @NullableType TrackSelection[] getAll() {
+  public @Nullable TrackSelection[] getAll() {
     return trackSelections.clone();
   }
 

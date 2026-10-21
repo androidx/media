@@ -18,7 +18,6 @@ package androidx.media3.extractor.text.webvtt;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.util.ColorParser;
 import androidx.media3.common.util.Log;
@@ -29,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides a CSS parser for STYLE blocks in Webvtt files. Supports only a subset of the CSS
@@ -122,8 +122,8 @@ import java.util.regex.Pattern;
    * @return A string containing the target, empty string if the selector is universal (targets all
    *     cues) or null if an error was encountered.
    */
-  @Nullable
-  private static String parseSelector(ParsableByteArray input, StringBuilder stringBuilder) {
+  private static @Nullable String parseSelector(
+      ParsableByteArray input, StringBuilder stringBuilder) {
     skipWhitespaceAndComments(input);
     if (input.bytesLeft() < 5) {
       return null;
@@ -234,8 +234,8 @@ import java.util.regex.Pattern;
   }
 
   // Visible for testing.
-  @Nullable
-  /* package */ static String parseNextToken(ParsableByteArray input, StringBuilder stringBuilder) {
+  /* package */ static @Nullable String parseNextToken(
+      ParsableByteArray input, StringBuilder stringBuilder) {
     skipWhitespaceAndComments(input);
     if (input.bytesLeft() == 0) {
       return null;
@@ -276,8 +276,8 @@ import java.util.regex.Pattern;
     return (char) input.getData()[position];
   }
 
-  @Nullable
-  private static String parsePropertyValue(ParsableByteArray input, StringBuilder stringBuilder) {
+  private static @Nullable String parsePropertyValue(
+      ParsableByteArray input, StringBuilder stringBuilder) {
     StringBuilder expressionBuilder = new StringBuilder();
     String token;
     int position;

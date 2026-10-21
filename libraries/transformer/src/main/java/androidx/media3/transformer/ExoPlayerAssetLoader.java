@@ -33,7 +33,6 @@ import android.content.Context;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -64,6 +63,7 @@ import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link AssetLoader} implementation that uses an {@link ExoPlayer} to load samples. */
 @UnstableApi
@@ -75,9 +75,9 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Context context;
     private final Codec.DecoderFactory decoderFactory;
     private final Clock clock;
-    @Nullable private final MediaSource.Factory mediaSourceFactory;
+    private final MediaSource.@Nullable Factory mediaSourceFactory;
     private final TrackSelector.Factory trackSelectorFactory;
-    @Nullable private final LogSessionId logSessionId;
+    private final @Nullable LogSessionId logSessionId;
     private final Supplier<LoadControl> loadControlSupplier;
 
     /**
@@ -174,8 +174,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Context context,
         Codec.DecoderFactory decoderFactory,
         Clock clock,
-        @Nullable MediaSource.Factory mediaSourceFactory,
-        @Nullable TrackSelector.Factory trackSelectorFactory,
+        MediaSource.@Nullable Factory mediaSourceFactory,
+        TrackSelector.@Nullable Factory trackSelectorFactory,
         @Nullable LogSessionId logSessionId,
         @Nullable LoadControl loadControl) {
       // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
@@ -375,7 +375,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Codec.DecoderFactory decoderFactory;
     private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
-    @Nullable private final LogSessionId logSessionId;
+    private final @Nullable LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
         EditedMediaItem editedMediaItem,

@@ -21,7 +21,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.opengl.Matrix;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -33,6 +32,7 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Creates {@link TextureOverlay}s from {@link Bitmap}s.
@@ -46,7 +46,7 @@ public abstract class BitmapOverlay extends TextureOverlay {
 
   private int lastTextureId;
   private int lastBitmapGenerationId;
-  @Nullable private Bitmap lastBitmap;
+  private @Nullable Bitmap lastBitmap;
 
   public BitmapOverlay() {
     float[] temp = GlUtil.create4x4IdentityMatrix();

@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.upstream;
 
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
@@ -28,6 +27,7 @@ import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import androidx.media3.exoplayer.upstream.Loader.UnexpectedLoaderException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation of {@link LoadErrorHandlingPolicy}. */
 @UnstableApi
@@ -95,8 +95,7 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
    * </ul>
    */
   @Override
-  @Nullable
-  public FallbackSelection getFallbackSelectionFor(
+  public @Nullable FallbackSelection getFallbackSelectionFor(
       FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo) {
     if (!isEligibleForFallback(loadErrorInfo.exception)) {
       return null;

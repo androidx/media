@@ -23,7 +23,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaDrm;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
@@ -34,6 +33,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** A DRM session. */
 @UnstableApi
@@ -120,8 +120,7 @@ public interface DrmSession {
    * Returns the cause of the error state, or null if {@link #getState()} is not {@link
    * #STATE_ERROR}.
    */
-  @Nullable
-  DrmSessionException getError();
+  @Nullable DrmSessionException getError();
 
   /** Returns the DRM scheme UUID for this session. */
   UUID getSchemeUuid();
@@ -130,8 +129,7 @@ public interface DrmSession {
    * Returns a {@link CryptoConfig} for the open session, or null if called before the session has
    * been opened or after it's been released.
    */
-  @Nullable
-  CryptoConfig getCryptoConfig();
+  @Nullable CryptoConfig getCryptoConfig();
 
   /**
    * Returns a map describing the key status for the session, or null if called before the session
@@ -145,15 +143,13 @@ public interface DrmSession {
    *     has been opened or after it's been released.
    * @see MediaDrm#queryKeyStatus(byte[])
    */
-  @Nullable
-  Map<String, String> queryKeyStatus();
+  @Nullable Map<String, String> queryKeyStatus();
 
   /**
    * Returns the key set id of the offline license loaded into this session, or null if there isn't
    * one.
    */
-  @Nullable
-  byte[] getOfflineLicenseKeySetId();
+  byte @Nullable [] getOfflineLicenseKeySetId();
 
   /**
    * Returns whether this session requires use of a secure decoder for the given MIME type. Assumes
@@ -172,7 +168,7 @@ public interface DrmSession {
    * @param eventDispatcher The {@link DrmSessionEventListener.EventDispatcher} used to route
    *     DRM-related events dispatched from this session, or null if no event handling is needed.
    */
-  void acquire(@Nullable DrmSessionEventListener.EventDispatcher eventDispatcher);
+  void acquire(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher);
 
   /**
    * Decrements the reference count. If the reference count drops to 0 underlying resources are
@@ -182,5 +178,5 @@ public interface DrmSession {
    *     the session is released (the same instance (possibly null) that was passed by the caller to
    *     {@link #acquire(DrmSessionEventListener.EventDispatcher)}).
    */
-  void release(@Nullable DrmSessionEventListener.EventDispatcher eventDispatcher);
+  void release(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher);
 }

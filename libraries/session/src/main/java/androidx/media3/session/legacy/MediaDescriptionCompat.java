@@ -25,11 +25,11 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.Log;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A simple set of metadata for a media item suitable for display. This can be created using the
@@ -140,33 +140,33 @@ public final class MediaDescriptionCompat implements Parcelable {
   public static final long STATUS_DOWNLOADED = 2;
 
   /** A unique persistent id for the content or null. */
-  @Nullable private final String mediaId;
+  private final @Nullable String mediaId;
 
   /** A primary title suitable for display or null. */
-  @Nullable private final CharSequence title;
+  private final @Nullable CharSequence title;
 
   /** A subtitle suitable for display or null. */
-  @Nullable private final CharSequence subtitle;
+  private final @Nullable CharSequence subtitle;
 
   /** A description suitable for display or null. */
-  @Nullable private final CharSequence description;
+  private final @Nullable CharSequence description;
 
   /** A bitmap icon suitable for display or null. */
-  @Nullable private final Bitmap icon;
+  private final @Nullable Bitmap icon;
 
-  @Nullable private byte[] compressedIcon;
+  private byte @Nullable [] compressedIcon;
 
   /** A Uri for an icon suitable for display or null. */
-  @Nullable private final Uri iconUri;
+  private final @Nullable Uri iconUri;
 
   /** Extras for opaque use by apps/system. */
-  @Nullable private final Bundle extras;
+  private final @Nullable Bundle extras;
 
   /** A Uri to identify this content. */
-  @Nullable private final Uri mediaUri;
+  private final @Nullable Uri mediaUri;
 
   /** A cached copy of the equivalent framework object. */
-  @Nullable private MediaDescription descriptionFwk;
+  private @Nullable MediaDescription descriptionFwk;
 
   MediaDescriptionCompat(
       @Nullable String mediaId,
@@ -188,8 +188,7 @@ public final class MediaDescriptionCompat implements Parcelable {
   }
 
   /** Returns the media id or null. See {@link MediaMetadataCompat#METADATA_KEY_MEDIA_ID}. */
-  @Nullable
-  public String getMediaId() {
+  public @Nullable String getMediaId() {
     return mediaId;
   }
 
@@ -198,8 +197,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return A title or null.
    */
-  @Nullable
-  public CharSequence getTitle() {
+  public @Nullable CharSequence getTitle() {
     return title;
   }
 
@@ -208,8 +206,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return A subtitle or null.
    */
-  @Nullable
-  public CharSequence getSubtitle() {
+  public @Nullable CharSequence getSubtitle() {
     return subtitle;
   }
 
@@ -218,8 +215,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return A description or null.
    */
-  @Nullable
-  public CharSequence getDescription() {
+  public @Nullable CharSequence getDescription() {
     return description;
   }
 
@@ -228,8 +224,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return An icon or null.
    */
-  @Nullable
-  public Bitmap getIconBitmap() {
+  public @Nullable Bitmap getIconBitmap() {
     return icon;
   }
 
@@ -238,8 +233,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return An icon uri or null.
    */
-  @Nullable
-  public Uri getIconUri() {
+  public @Nullable Uri getIconUri() {
     return iconUri;
   }
 
@@ -248,8 +242,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return A bundle of extras or null.
    */
-  @Nullable
-  public Bundle getExtras() {
+  public @Nullable Bundle getExtras() {
     return extras;
   }
 
@@ -258,8 +251,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    *
    * @return A media Uri or null.
    */
-  @Nullable
-  public Uri getMediaUri() {
+  public @Nullable Uri getMediaUri() {
     return mediaUri;
   }
 
@@ -282,8 +274,7 @@ public final class MediaDescriptionCompat implements Parcelable {
    * Returns the bytes for the compressed {@link #getIconBitmap()}, or null if there is no icon
    * bitmap or the compression fails.
    */
-  @Nullable
-  public byte[] getIconBitmapData() {
+  public byte @Nullable [] getIconBitmapData() {
     if (icon == null) {
       return null;
     }
@@ -379,14 +370,14 @@ public final class MediaDescriptionCompat implements Parcelable {
 
   /** Builder for {@link MediaDescriptionCompat} objects. */
   public static final class Builder {
-    @Nullable private String mediaId;
-    @Nullable private CharSequence title;
-    @Nullable private CharSequence subtitle;
-    @Nullable private CharSequence description;
-    @Nullable private Bitmap icon;
-    @Nullable private Uri iconUri;
-    @Nullable private Bundle extras;
-    @Nullable private Uri mediaUri;
+    private @Nullable String mediaId;
+    private @Nullable CharSequence title;
+    private @Nullable CharSequence subtitle;
+    private @Nullable CharSequence description;
+    private @Nullable Bitmap icon;
+    private @Nullable Uri iconUri;
+    private @Nullable Bundle extras;
+    private @Nullable Uri mediaUri;
 
     /** Creates an initially empty builder. */
     public Builder() {}

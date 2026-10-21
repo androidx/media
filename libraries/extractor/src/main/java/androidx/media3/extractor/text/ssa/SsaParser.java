@@ -28,7 +28,6 @@ import android.text.style.ForegroundColorSpan;
 import android.text.style.StrikethroughSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -50,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for SSA/ASS. */
 @UnstableApi
@@ -74,7 +74,7 @@ public final class SsaParser implements SubtitleParser {
   private static final float DEFAULT_MARGIN = 0.05f;
 
   private final boolean haveInitializationData;
-  @Nullable private final SsaDialogueFormat dialogueFormatFromInitializationData;
+  private final @Nullable SsaDialogueFormat dialogueFormatFromInitializationData;
   private final ParsableByteArray parsableByteArray;
 
   private @MonotonicNonNull Map<String, SsaStyle> styles;
@@ -151,8 +151,7 @@ public final class SsaParser implements SubtitleParser {
     }
     parseEventBody(parsableByteArray, cues, startTimesUs, charset);
 
-    @Nullable
-    List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
+    @Nullable List<CuesWithTiming> cuesWithTimingBeforeRequestedStartTimeUs =
         outputOptions.startTimeUs != C.TIME_UNSET && outputOptions.outputAllCues
             ? new ArrayList<>()
             : null;
@@ -265,7 +264,7 @@ public final class SsaParser implements SubtitleParser {
    */
   private static Map<String, SsaStyle> parseStyles(ParsableByteArray data, Charset charset) {
     Map<String, SsaStyle> styles = new LinkedHashMap<>();
-    @Nullable SsaStyle.Format formatInfo = null;
+    SsaStyle.@Nullable Format formatInfo = null;
     @Nullable String currentLine;
     while ((currentLine = data.readLine(charset)) != null
         && (data.bytesLeft() == 0 || data.peekCodePoint(charset) != '[')) {
@@ -295,8 +294,8 @@ public final class SsaParser implements SubtitleParser {
    */
   private void parseEventBody(
       ParsableByteArray data, List<List<Cue>> cues, List<Long> cueTimesUs, Charset charset) {
-    @Nullable
-    SsaDialogueFormat format = haveInitializationData ? dialogueFormatFromInitializationData : null;
+    @Nullable SsaDialogueFormat format =
+        haveInitializationData ? dialogueFormatFromInitializationData : null;
     @Nullable String currentLine;
     while ((currentLine = data.readLine(charset)) != null) {
       if (currentLine.startsWith(FORMAT_LINE_PREFIX)) {
@@ -350,8 +349,7 @@ public final class SsaParser implements SubtitleParser {
       return;
     }
 
-    @Nullable
-    SsaStyle style =
+    @Nullable SsaStyle style =
         styles != null && format.styleIndex != C.INDEX_UNSET
             ? styles.get(lineValues[format.styleIndex].trim())
             : null;
@@ -481,8 +479,7 @@ public final class SsaParser implements SubtitleParser {
     return cue.build();
   }
 
-  @Nullable
-  private static Layout.Alignment toTextAlignment(@SsaStyle.SsaAlignment int alignment) {
+  private static Layout.@Nullable Alignment toTextAlignment(@SsaStyle.SsaAlignment int alignment) {
     switch (alignment) {
       case SsaStyle.SSA_ALIGNMENT_BOTTOM_LEFT:
       case SsaStyle.SSA_ALIGNMENT_MIDDLE_LEFT:

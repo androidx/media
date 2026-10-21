@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -48,6 +47,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts HEIC motion photos following the <a
@@ -83,7 +83,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull MotionPhotoMetadata motionPhotoMetadata;
   private @MonotonicNonNull ExtractorInput lastExtractorInput;
   private @MonotonicNonNull StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
-  @Nullable private Mp4Extractor mp4Extractor;
+  private @Nullable Mp4Extractor mp4Extractor;
 
   private @State int state;
   private int atomType;
@@ -94,8 +94,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private long xmpOffset;
   private int xmpLength;
-  @Nullable private ParsableByteArray iinfPayload;
-  @Nullable private ParsableByteArray ilocPayload;
+  private @Nullable ParsableByteArray iinfPayload;
+  private @Nullable ParsableByteArray ilocPayload;
 
   /** Creates an instance. */
   public HeicMotionPhotoExtractor() {

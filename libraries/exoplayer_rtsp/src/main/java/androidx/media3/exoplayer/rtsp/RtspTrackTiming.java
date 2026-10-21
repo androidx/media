@@ -19,13 +19,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents an RTSP track's timing info, included as {@link RtspHeaders#RTP_INFO} in an RTSP PLAY

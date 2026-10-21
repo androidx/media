@@ -28,12 +28,12 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.util.Log;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A media button receiver receives and helps translate hardware media playback buttons, such as
@@ -168,7 +168,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     private final Intent intent;
     private final PendingResult pendingResult;
 
-    @Nullable private MediaBrowserCompat mediaBrowser;
+    private @Nullable MediaBrowserCompat mediaBrowser;
 
     MediaButtonConnectionCallback(Context context, Intent intent, PendingResult pendingResult) {
       this.context = context;
@@ -206,8 +206,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   /** */
-  @Nullable
-  public static ComponentName getMediaButtonReceiverComponent(Context context) {
+  public static @Nullable ComponentName getMediaButtonReceiverComponent(Context context) {
     Intent queryIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     queryIntent.setPackage(context.getPackageName());
     PackageManager pm = context.getPackageManager();
@@ -225,9 +224,9 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     return null;
   }
 
-  @Nullable
   @SuppressWarnings("deprecation")
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
+  private static @Nullable ComponentName getServiceComponentByAction(
+      Context context, String action) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(action);
     queryIntent.setPackage(context.getPackageName());

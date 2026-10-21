@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor.mp3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
+import org.jspecify.annotations.Nullable;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
@@ -37,7 +37,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   public final long dataSize;
 
   /** ReplayGain data. Only present if this frame is an Info or the LAME variant of a Xing frame. */
-  @Nullable public final Mp3InfoReplayGain replayGain;
+  public final @Nullable Mp3InfoReplayGain replayGain;
 
   /**
    * The number of samples to skip at the start of the stream, or {@link C#LENGTH_UNSET} if not
@@ -55,13 +55,13 @@ import androidx.media3.extractor.MpegAudioUtil;
    * Entries are in the range [0, 255], but are stored as long integers for convenience. Null if the
    * table of contents was missing from the header, in which case seeking is not be supported.
    */
-  @Nullable public final long[] tableOfContents;
+  public final long @Nullable [] tableOfContents;
 
   private XingFrame(
       MpegAudioUtil.Header header,
       long frameCount,
       long dataSize,
-      @Nullable long[] tableOfContents,
+      long @Nullable [] tableOfContents,
       @Nullable Mp3InfoReplayGain replayGain,
       int encoderDelay,
       int encoderPadding) {
@@ -162,8 +162,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
-  @Nullable
-  public Metadata getMetadata() {
+  public @Nullable Metadata getMetadata() {
     if (replayGain != null) {
       return new Metadata(replayGain);
     }

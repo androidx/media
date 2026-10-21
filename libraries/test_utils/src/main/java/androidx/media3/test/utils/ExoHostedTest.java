@@ -21,7 +21,6 @@ import android.os.ConditionVariable;
 import android.os.SystemClock;
 import android.view.Surface;
 import android.widget.FrameLayout;
-import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -42,6 +41,7 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.test.utils.HostActivity.HostedTest;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link HostedTest} for {@link ExoPlayer} playback tests. */
 @UnstableApi
@@ -59,7 +59,7 @@ public abstract class ExoHostedTest implements HostedTest {
   private final DecoderCounters audioDecoderCounters;
   private final ConditionVariable testFinished;
 
-  @Nullable private ActionSchedule pendingSchedule;
+  private @Nullable ActionSchedule pendingSchedule;
   private @MonotonicNonNull ExoPlayer player;
   private @MonotonicNonNull HandlerWrapper actionHandler;
   private @MonotonicNonNull DefaultTrackSelector trackSelector;

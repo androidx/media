@@ -27,7 +27,6 @@ import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
@@ -39,7 +38,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -89,6 +87,7 @@ import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the Matroska and WebM container formats. */
 @UnstableApi
@@ -487,7 +486,7 @@ public class MatroskaExtractor implements Extractor {
   private final ArrayDeque<ChapterEntry> currentChapters;
 
   // The track corresponding to the current TrackEntry element, or null.
-  @Nullable private Track currentTrack;
+  private @Nullable Track currentTrack;
 
   // Whether a seek map has been sent to the output.
   private boolean sentSeekMap;
@@ -2276,7 +2275,7 @@ public class MatroskaExtractor implements Extractor {
    * Returns an array that can store (at least) {@code length} elements, which will be either a new
    * array or {@code array} if it's not null and large enough.
    */
-  private static int[] ensureArrayCapacity(@Nullable int[] array, int length) {
+  private static int[] ensureArrayCapacity(int @Nullable [] array, int length) {
     if (array == null) {
       return new int[length];
     } else if (array.length >= length) {
@@ -2384,8 +2383,8 @@ public class MatroskaExtractor implements Extractor {
     public long trackUid;
     public @MonotonicNonNull String chapString;
     public @MonotonicNonNull String chapLanguage;
-    @Nullable public String currentDisplayString;
-    @Nullable public String currentDisplayLanguage;
+    public @Nullable String currentDisplayString;
+    public @Nullable String currentDisplayLanguage;
 
     public ChapterEntry() {
       timeStartNs = C.TIME_UNSET;
@@ -2548,7 +2547,7 @@ public class MatroskaExtractor implements Extractor {
           bitstreamChromaBitdepth = hevcConfig.bitdepthChroma;
           break;
         case CODEC_ID_FOURCC:
-          Pair<String, @NullableType List<byte[]>> pair =
+          Pair<String, @Nullable List<byte[]>> pair =
               parseFourCcPrivate(new ParsableByteArray(getCodecPrivate(codecId)));
           mimeType = pair.first;
           initializationData = pair.second;
@@ -2778,7 +2777,7 @@ public class MatroskaExtractor implements Extractor {
                 ? bitstreamChromaBitdepth
                 : (this.bitsPerChannel != Format.NO_VALUE ? this.bitsPerChannel : 8);
 
-        @Nullable byte[] hdrStaticInfo = getHdrStaticInfo();
+        byte @Nullable [] hdrStaticInfo = getHdrStaticInfo();
         ColorInfo colorInfo =
             new ColorInfo.Builder()
                 .setColorSpace(colorSpace)
@@ -2875,8 +2874,7 @@ public class MatroskaExtractor implements Extractor {
     }
 
     /** Returns the HDR Static Info as defined in CTA-861.3. */
-    @Nullable
-    private byte[] getHdrStaticInfo() {
+    private byte @Nullable [] getHdrStaticInfo() {
       // Are all fields present.
       if (primaryRChromaticityX == Format.NO_VALUE
           || primaryRChromaticityY == Format.NO_VALUE
@@ -3042,8 +3040,8 @@ public class MatroskaExtractor implements Extractor {
      *     is {@code null}.
      * @throws ParserException If the initialization data could not be built.
      */
-    private static Pair<String, @NullableType List<byte[]>> parseFourCcPrivate(
-        ParsableByteArray buffer) throws ParserException {
+    private static Pair<String, @Nullable List<byte[]>> parseFourCcPrivate(ParsableByteArray buffer)
+        throws ParserException {
       try {
         buffer.skipBytes(16); // size(4), width(4), height(4), planes(2), bitcount(2).
         long compression = buffer.readLittleEndianUnsignedInt();
@@ -3186,7 +3184,7 @@ public class MatroskaExtractor implements Extractor {
 
   private static final class MatroskaSeekMap implements TrackAwareSeekMap, ChunkIndexProvider {
 
-    @Nullable private final ChunkIndex chunkIndex;
+    private final @Nullable ChunkIndex chunkIndex;
     private final SparseArray<List<CuePointData>> perTrackCues;
     private final long durationUs;
     private final int primarySeekTrackNumber;
@@ -3269,13 +3267,11 @@ public class MatroskaExtractor implements Extractor {
     }
 
     @Override
-    @Nullable
-    public ChunkIndex getChunkIndex() {
+    public @Nullable ChunkIndex getChunkIndex() {
       return chunkIndex;
     }
 
-    @Nullable
-    private static ChunkIndex buildChunkIndex(
+    private static @Nullable ChunkIndex buildChunkIndex(
         SparseArray<List<CuePointData>> perTrackCues,
         long durationUs,
         int primarySeekTrackNumber,

@@ -16,11 +16,13 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -37,6 +39,9 @@ import androidx.media3.ui.compose.state.ShuffleButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that toggles the shuffle mode of
  * the player.
  *
+ * ![ShuffleButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/shuffle-button.svg)
+ *
  * When clicked, it enables or disables the player's shuffle mode. The button's state (e.g., whether
  * it's enabled and the shuffle icon) is managed by a [ShuffleButtonState] instance derived from the
  * provided [player].
@@ -48,10 +53,16 @@ import androidx.media3.ui.compose.state.ShuffleButtonState
  *   based on the button's current state (e.g. [ShuffleButtonState.shuffleOn]).
  * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
+ * @param shape Defines the shape of this icon button's container. See
+ *   [IconButtonDefaults.standardShape].
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
+ * @param interactionSource An optional hoisted [MutableInteractionSource] for observing and
+ *   emitting [Interaction][androidx.compose.foundation.interaction.Interaction]s for this icon
+ *   button. You can use this to change the icon button's appearance or preview the icon button in
+ *   different states. Note that if `null` is provided, interactions will still happen internally.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [ShuffleButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [ShuffleButtonState.isEnabled]). The default behavior is to call [ShuffleButtonState.onClick],
@@ -72,8 +83,10 @@ fun ShuffleButton(
   iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable ShuffleButtonState.() -> String =
     defaultShuffleContentDescription,
+  shape: Shape = IconButtonDefaults.standardShape,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
+  interactionSource: MutableInteractionSource? = null,
   onClick: ShuffleButtonState.() -> Unit = ShuffleButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -87,8 +100,10 @@ fun ShuffleButton(
       icon = painter(),
       iconSize = iconSize,
       contentDescription = contentDescription(),
+      shape = shape,
       colors = colors,
       tint = tint,
+      interactionSource = interactionSource,
       onClick = { customOnClick() },
     )
   }
@@ -108,11 +123,17 @@ fun ShuffleButton(
  *   is a composable lambda with [ShuffleButtonState] as its receiver, allowing the icon to be
  *   updated based on the button's current state (e.g. [ShuffleButtonState.shuffleOn]).
  * @param iconSize The size of the icon.
+ * @param contentDescription The content description for accessibility purposes.
+ * @param shape Defines the shape of this icon button's container. See
+ *   [IconButtonDefaults.standardShape].
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
- * @param contentDescription The content description for accessibility purposes.
+ * @param interactionSource An optional hoisted [MutableInteractionSource] for observing and
+ *   emitting [Interaction][androidx.compose.foundation.interaction.Interaction]s for this icon
+ *   button. You can use this to change the icon button's appearance or preview the icon button in
+ *   different states. Note that if `null` is provided, interactions will still happen internally.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [ShuffleButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [ShuffleButtonState.isEnabled]). The default behavior is to call [ShuffleButtonState.onClick],
@@ -134,8 +155,10 @@ fun ShuffleButton(
   iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable ShuffleButtonState.() -> String =
     defaultShuffleContentDescription,
+  shape: Shape = IconButtonDefaults.standardShape,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
+  interactionSource: MutableInteractionSource? = null,
   onClick: ShuffleButtonState.() -> Unit = ShuffleButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -149,8 +172,10 @@ fun ShuffleButton(
       icon = imageVector(),
       iconSize = iconSize,
       contentDescription = contentDescription(),
+      shape = shape,
       colors = colors,
       tint = tint,
+      interactionSource = interactionSource,
       onClick = { customOnClick() },
     )
   }

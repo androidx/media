@@ -18,9 +18,9 @@ package androidx.media3.exoplayer.hls;
 import static androidx.media3.common.util.TimestampAdjuster.MODE_SHARED;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Provides {@link TimestampAdjuster} instances for use during HLS playbacks. */
 @UnstableApi

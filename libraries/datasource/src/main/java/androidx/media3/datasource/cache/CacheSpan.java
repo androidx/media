@@ -15,10 +15,10 @@
  */
 package androidx.media3.datasource.cache;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.io.File;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a span of data that may or may not be cached (as indicated by {@link #isCached}). */
 @UnstableApi
@@ -39,7 +39,7 @@ public class CacheSpan implements Comparable<CacheSpan> {
   public final boolean isCached;
 
   /** The file corresponding to this {@link CacheSpan}, or null if {@link #isCached} is false. */
-  @Nullable public final File file;
+  public final @Nullable File file;
 
   /** The last touch timestamp, or {@link C#TIME_UNSET} if {@link #isCached} is false. */
   public final long lastTouchTimestamp;

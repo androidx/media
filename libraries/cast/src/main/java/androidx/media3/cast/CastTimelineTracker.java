@@ -19,7 +19,6 @@ import static androidx.media3.cast.CastTimeline.ItemData.UNKNOWN_CONTENT_ID;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Creates {@link CastTimeline CastTimelines} from cast receiver app status updates.
@@ -87,8 +87,7 @@ import org.json.JSONObject;
    * Returns the {@link ItemUid} associated with {@code receiverItemId}, or {@code null} if not
    * found.
    */
-  @Nullable
-  public ItemUid getItemUid(int receiverItemId) {
+  public @Nullable ItemUid getItemUid(int receiverItemId) {
     return receiverItemIdToUid.get(receiverItemId);
   }
 
@@ -326,6 +325,7 @@ import org.json.JSONObject;
         mediaInfo == null
             ? previousData.isLive
             : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE;
+    boolean isSeekable = durationUs != C.TIME_UNSET;
     if (defaultPositionUs == C.TIME_UNSET) {
       defaultPositionUs = previousData.defaultPositionUs;
     }
@@ -337,7 +337,7 @@ import org.json.JSONObject;
     itemIdToData.put(
         uid,
         previousData.copyWithNewValues(
-            durationUs, defaultPositionUs, isLive, mediaItem, contentId));
+            durationUs, defaultPositionUs, isLive, isSeekable, mediaItem, contentId));
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
@@ -371,8 +371,7 @@ import org.json.JSONObject;
    * @return The {@link MediaItem} associated with the given {@link ItemUid} and {@link MediaInfo},
    *     or {@code null} if not found.
    */
-  @Nullable
-  private MediaItem getMediaItem(ItemUid uid, @Nullable MediaInfo mediaInfo) {
+  private @Nullable MediaItem getMediaItem(ItemUid uid, @Nullable MediaInfo mediaInfo) {
     MediaItem mediaItem = mediaItemsBySyntheticId.get(uid);
     if (mediaItem != null) {
       return mediaItem;
@@ -448,8 +447,7 @@ import org.json.JSONObject;
     return queueItem;
   }
 
-  @Nullable
-  private static ItemUid getSyntheticItemUid(@Nullable MediaInfo mediaInfo) {
+  private static @Nullable ItemUid getSyntheticItemUid(@Nullable MediaInfo mediaInfo) {
     if (mediaInfo == null) {
       return null;
     }

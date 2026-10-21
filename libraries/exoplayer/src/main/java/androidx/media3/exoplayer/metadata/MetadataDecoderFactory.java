@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.metadata;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -25,6 +24,7 @@ import androidx.media3.extractor.metadata.emsg.EventMessageDecoder;
 import androidx.media3.extractor.metadata.icy.IcyDecoder;
 import androidx.media3.extractor.metadata.id3.Id3Decoder;
 import androidx.media3.extractor.metadata.scte35.SpliceInfoDecoder;
+import org.jspecify.annotations.Nullable;
 
 /** A factory for {@link MetadataDecoder} instances. */
 @UnstableApi

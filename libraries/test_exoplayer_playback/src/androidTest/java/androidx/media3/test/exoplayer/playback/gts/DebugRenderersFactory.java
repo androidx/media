@@ -20,7 +20,6 @@ import static java.lang.Math.max;
 
 import android.content.Context;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -33,6 +32,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A debug extension of {@link DefaultRenderersFactory}. Provides a video renderer that performs
@@ -126,8 +126,7 @@ import java.util.ArrayList;
     }
 
     @Override
-    @Nullable
-    protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+    protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
         throws ExoPlaybackException {
       @Nullable DecoderReuseEvaluation evaluation = super.onInputFormatChanged(formatHolder);
       // Ensure timestamps of buffers queued after this format change are never inserted into the

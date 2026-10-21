@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
@@ -34,6 +33,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -370,8 +370,7 @@ public class Cea608DecoderTest {
    *
    * <p>Fails if {@link Cea608Decoder#dequeueInputBuffer()} returns {@code null}.
    */
-  @Nullable
-  private static Subtitle decodeSampleAndCopyResult(
+  private static @Nullable Subtitle decodeSampleAndCopyResult(
       Cea608Decoder decoder, long timeUs, byte[] sample) throws SubtitleDecoderException {
     queueSample(decoder, timeUs, sample);
     return decodeToPositionAndCopyResult(decoder, timeUs);
@@ -393,9 +392,8 @@ public class Cea608DecoderTest {
    * Sets {@link Cea608Decoder#setPositionUs(long)} then dequeues the result, and copies and returns
    * it if it's non-null.
    */
-  @Nullable
-  private static Subtitle decodeToPositionAndCopyResult(Cea608Decoder decoder, long positionUs)
-      throws SubtitleDecoderException {
+  private static @Nullable Subtitle decodeToPositionAndCopyResult(
+      Cea608Decoder decoder, long positionUs) throws SubtitleDecoderException {
     decoder.setPositionUs(positionUs);
     @Nullable SubtitleOutputBuffer outputBuffer = decoder.dequeueOutputBuffer();
     if (outputBuffer == null) {

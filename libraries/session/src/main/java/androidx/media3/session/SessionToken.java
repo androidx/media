@@ -34,7 +34,6 @@ import android.os.Parcelable;
 import android.os.ResultReceiver;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
@@ -54,6 +53,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A token that represents an ongoing {@link MediaSession} or a service ({@link
@@ -263,8 +263,7 @@ public final class SessionToken {
    * Returns the component name of the session. It will be {@code null} if the {@link #getType()
    * type} is {@link #TYPE_SESSION}.
    */
-  @Nullable
-  /* package */ ComponentName getComponentName() {
+  /* package */ @Nullable ComponentName getComponentName() {
     return impl.getComponentName();
   }
 
@@ -319,13 +318,12 @@ public final class SessionToken {
     return impl.isLegacySession();
   }
 
-  @Nullable
-  /* package */ Object getBinder() {
+  /* package */ @Nullable Object getBinder() {
     return impl.getBinder();
   }
 
-  @Nullable /* package */
-  Token getPlatformToken() {
+  /* package */
+  @Nullable Token getPlatformToken() {
     return impl.getPlatformToken();
   }
 
@@ -555,8 +553,7 @@ public final class SessionToken {
 
     String getServiceName();
 
-    @Nullable
-    ComponentName getComponentName();
+    @Nullable ComponentName getComponentName();
 
     @TokenType
     int getType();
@@ -567,13 +564,11 @@ public final class SessionToken {
 
     Bundle getExtras();
 
-    @Nullable
-    Object getBinder();
+    @Nullable Object getBinder();
 
     Bundle toBundle();
 
-    @Nullable
-    Token getPlatformToken();
+    @Nullable Token getPlatformToken();
   }
 
   private static final String FIELD_IMPL_TYPE = Util.intToStringMaxRadix(0);

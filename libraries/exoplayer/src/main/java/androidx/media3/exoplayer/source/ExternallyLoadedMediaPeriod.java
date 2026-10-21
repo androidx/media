@@ -16,11 +16,9 @@
 package androidx.media3.exoplayer.source;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -38,6 +36,7 @@ import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaPeriod} that puts a {@link Charsets#UTF_8}-encoded {@link Uri} into the sample
@@ -71,7 +70,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     loadingFuture = externalLoader.load(new LoadRequest(uri));
     Futures.addCallback(
         loadingFuture,
-        new FutureCallback<@NullableType Object>() {
+        new FutureCallback<@Nullable Object>() {
           @Override
           public void onSuccess(@Nullable Object result) {
             loadingFinished.set(true);
@@ -97,9 +96,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     for (int i = 0; i < selections.length; i++) {
@@ -195,8 +194,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void maybeThrowError() throws IOException {
-      @Nullable
-      Throwable loadingThrowable = ExternallyLoadedMediaPeriod.this.loadingThrowable.get();
+      @Nullable Throwable loadingThrowable =
+          ExternallyLoadedMediaPeriod.this.loadingThrowable.get();
       if (loadingThrowable != null) {
         throw new IOException(loadingThrowable);
       }

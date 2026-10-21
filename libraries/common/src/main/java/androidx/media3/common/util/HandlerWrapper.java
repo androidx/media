@@ -17,7 +17,7 @@ package androidx.media3.common.util;
 
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface to call through to a {@link Handler}. Instances must be created by calling {@link

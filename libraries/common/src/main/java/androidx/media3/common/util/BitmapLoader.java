@@ -17,9 +17,9 @@ package androidx.media3.common.util;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.jspecify.annotations.Nullable;
 
 /** Loads images. */
 @UnstableApi
@@ -43,8 +43,7 @@ public interface BitmapLoader {
    * MediaMetadata#artworkUri} if it is present. The method will return null if neither {@link
    * MediaMetadata#artworkData} nor {@link MediaMetadata#artworkUri} is present.
    */
-  @Nullable
-  default ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+  default @Nullable ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
     @Nullable ListenableFuture<Bitmap> future;
     if (metadata.artworkData != null) {
       future = decodeBitmap(metadata.artworkData);

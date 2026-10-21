@@ -22,7 +22,6 @@ import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_FMTP;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_RTPMAP;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,6 +34,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Represents one media description section in a SDP message. */
 /* package */ final class MediaDescription {
@@ -125,9 +125,9 @@ import java.util.Objects;
     private final HashMap<String, String> attributes;
 
     private int bitrate;
-    @Nullable private String mediaTitle;
-    @Nullable private String connection;
-    @Nullable private String key;
+    private @Nullable String mediaTitle;
+    private @Nullable String connection;
+    private @Nullable String key;
 
     /**
      * Creates a new instance.
@@ -299,13 +299,13 @@ import java.util.Objects;
   public final int bitrate;
 
   /** The assigned media title. */
-  @Nullable public final String mediaTitle;
+  public final @Nullable String mediaTitle;
 
   /** The connection parameters. */
-  @Nullable public final String connection;
+  public final @Nullable String connection;
 
   /** The encryption parameter. */
-  @Nullable public final String key;
+  public final @Nullable String key;
 
   /** The media-specific attributes. */
   public final ImmutableMap<String, String> attributes;

@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.upstream;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** A source of allocations. */
 @UnstableApi
@@ -29,8 +29,7 @@ public interface Allocator {
     Allocation getAllocation();
 
     /** Returns the next chain node, or {@code null} if this is the last node in the chain. */
-    @Nullable
-    AllocationNode next();
+    @Nullable AllocationNode next();
   }
 
   /**

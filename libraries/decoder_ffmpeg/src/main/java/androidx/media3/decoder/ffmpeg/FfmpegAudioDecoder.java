@@ -17,7 +17,6 @@ package androidx.media3.decoder.ffmpeg;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -29,6 +28,7 @@ import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** FFmpeg audio decoder. */
 @UnstableApi
@@ -48,7 +48,7 @@ public final class FfmpegAudioDecoder
   private static final int FLAC_STREAM_INFO_DATA_SIZE = 34;
 
   private final String codecName;
-  @Nullable private final byte[] extraData;
+  private final byte @Nullable [] extraData;
   private final @C.PcmEncoding int encoding;
   private int outputBufferSize;
 
@@ -105,8 +105,7 @@ public final class FfmpegAudioDecoder
   }
 
   @Override
-  @Nullable
-  protected FfmpegDecoderException decode(
+  protected @Nullable FfmpegDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       nativeContext = ffmpegReset(nativeContext, extraData);
@@ -188,8 +187,7 @@ public final class FfmpegAudioDecoder
    * Returns FFmpeg-compatible codec-specific initialization data ("extra data"), or {@code null} if
    * not required.
    */
-  @Nullable
-  private static byte[] getExtraData(String mimeType, List<byte[]> initializationData) {
+  private static byte @Nullable [] getExtraData(String mimeType, List<byte[]> initializationData) {
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
       case MimeTypes.AUDIO_OPUS:
@@ -237,8 +235,7 @@ public final class FfmpegAudioDecoder
     return extraData;
   }
 
-  @Nullable
-  private static byte[] getFlacExtraData(List<byte[]> initializationData) {
+  private static byte @Nullable [] getFlacExtraData(List<byte[]> initializationData) {
     for (int i = 0; i < initializationData.size(); i++) {
       byte[] out = extractFlacStreamInfo(initializationData.get(i));
       if (out != null) {
@@ -248,8 +245,7 @@ public final class FfmpegAudioDecoder
     return null;
   }
 
-  @Nullable
-  private static byte[] extractFlacStreamInfo(byte[] data) {
+  private static byte @Nullable [] extractFlacStreamInfo(byte[] data) {
     int offset = 0;
     if (arrayStartsWith(data, flacStreamMarker)) {
       offset = flacStreamMarker.length;
@@ -299,7 +295,7 @@ public final class FfmpegAudioDecoder
 
   private native long ffmpegInitialize(
       String codecName,
-      @Nullable byte[] extraData,
+      byte @Nullable [] extraData,
       boolean outputFloat,
       int rawSampleRate,
       int rawChannelCount);
@@ -316,7 +312,7 @@ public final class FfmpegAudioDecoder
 
   private native int ffmpegGetSampleRate(long context);
 
-  private native long ffmpegReset(long context, @Nullable byte[] extraData);
+  private native long ffmpegReset(long context, byte @Nullable [] extraData);
 
   private native void ffmpegRelease(long context);
 }

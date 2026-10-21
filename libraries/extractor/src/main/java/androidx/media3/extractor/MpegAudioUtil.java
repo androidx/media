@@ -15,10 +15,10 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for handling MPEG audio streams. */
 @UnstableApi
@@ -31,7 +31,7 @@ public final class MpegAudioUtil {
     public int version;
 
     /** The MIME type. */
-    @Nullable public String mimeType;
+    public @Nullable String mimeType;
 
     /** Size of the frame associated with this header, in bytes. */
     public int frameSize;

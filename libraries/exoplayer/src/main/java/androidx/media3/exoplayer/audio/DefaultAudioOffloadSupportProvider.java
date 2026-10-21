@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -31,6 +30,7 @@ import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides the {@link AudioOffloadSupport} capabilities for a {@link Format} and {@link
@@ -43,7 +43,7 @@ public final class DefaultAudioOffloadSupportProvider
   /** AudioManager parameters key for retrieving support of variable speeds during offload. */
   private static final String OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY = "offloadVariableRateSupported";
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
 
   /**
    * Whether variable speeds are supported during offload. If {@code null} then it has not been

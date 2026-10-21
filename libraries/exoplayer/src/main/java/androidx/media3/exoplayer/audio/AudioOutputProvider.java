@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -32,6 +31,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A provider for {@link AudioOutput} instances and for querying their support. */
 public interface AudioOutputProvider {
@@ -55,7 +55,7 @@ public interface AudioOutputProvider {
     public final AudioAttributes audioAttributes;
 
     /** The preferred {@link AudioDeviceInfo} for audio output, or null for no preference. */
-    @Nullable public final AudioDeviceInfo preferredDevice;
+    public final @Nullable AudioDeviceInfo preferredDevice;
 
     /** Sets whether to enable high resolution PCM output with more than 16 bits. */
     public final boolean enableHighResolutionPcmOutput;
@@ -130,7 +130,7 @@ public interface AudioOutputProvider {
     public static final class Builder {
       private final Format format;
       private AudioAttributes audioAttributes;
-      @Nullable private AudioDeviceInfo preferredDevice;
+      private @Nullable AudioDeviceInfo preferredDevice;
       private boolean enableHighResolutionPcmOutput;
       private boolean enablePlaybackParameters;
       private boolean enableOffload;

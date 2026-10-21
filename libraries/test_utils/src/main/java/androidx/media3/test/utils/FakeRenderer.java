@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -36,6 +35,7 @@ import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fake {@link Renderer} that supports any format with the matching track type.
@@ -56,7 +56,7 @@ public class FakeRenderer extends BaseRenderer {
 
   private final DecoderInputBuffer buffer;
 
-  @Nullable private DrmSession currentDrmSession;
+  private @Nullable DrmSession currentDrmSession;
 
   private long playbackPositionUs;
   private long lastSamplePositionUs;

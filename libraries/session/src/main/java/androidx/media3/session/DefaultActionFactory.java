@@ -26,11 +26,11 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
+import org.jspecify.annotations.Nullable;
 
 /** The default {@link MediaNotification.ActionFactory}. */
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
@@ -41,8 +41,7 @@ import androidx.media3.common.util.Log;
    * Returns the {@link KeyEvent} that was included in the media action, or {@code null} if no
    * {@link KeyEvent} is found in the {@code intent}.
    */
-  @Nullable
-  public static KeyEvent getKeyEvent(Intent intent) {
+  public static @Nullable KeyEvent getKeyEvent(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
     if (extras != null) {
       try {
@@ -137,8 +136,7 @@ import androidx.media3.common.util.Log;
    * Returns the custom action that was included in the {@link #createCustomAction custom action},
    * or {@code null} if no custom action is found in the {@code intent}.
    */
-  @Nullable
-  public String getCustomAction(Intent intent) {
+  public @Nullable String getCustomAction(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
     @Nullable Object customAction = extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM) : null;
     return customAction instanceof String ? (String) customAction : null;
@@ -150,8 +148,8 @@ import androidx.media3.common.util.Log;
    */
   public Bundle getCustomActionExtras(Intent intent) {
     @Nullable Bundle extras = intent.getExtras();
-    @Nullable
-    Object customExtras = extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS) : null;
+    @Nullable Object customExtras =
+        extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS) : null;
     return customExtras instanceof Bundle ? (Bundle) customExtras : Bundle.EMPTY;
   }
 }

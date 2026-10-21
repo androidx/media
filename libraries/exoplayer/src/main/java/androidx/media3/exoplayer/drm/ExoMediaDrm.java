@@ -27,7 +27,6 @@ import android.media.ResourceBusyException;
 import android.os.Handler;
 import android.os.PersistableBundle;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.util.UnstableApi;
@@ -41,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Used to obtain keys for decrypting protected media streams.
@@ -135,10 +135,10 @@ public interface ExoMediaDrm {
      */
     void onEvent(
         ExoMediaDrm mediaDrm,
-        @Nullable byte[] sessionId,
+        byte @Nullable [] sessionId,
         int event,
         int extra,
-        @Nullable byte[] data);
+        byte @Nullable [] data);
   }
 
   /**
@@ -450,8 +450,7 @@ public interface ExoMediaDrm {
    * @throws NotProvisionedException If the response indicates that provisioning is needed.
    * @throws DeniedByServerException If the response indicates that the server rejected the request.
    */
-  @Nullable
-  byte[] provideKeyResponse(byte[] scope, byte[] response)
+  byte @Nullable [] provideKeyResponse(byte[] scope, byte[] response)
       throws NotProvisionedException, DeniedByServerException;
 
   /**
@@ -550,8 +549,7 @@ public interface ExoMediaDrm {
   /**
    * Returns metrics data for this ExoMediaDrm instance, or {@code null} if metrics are unavailable.
    */
-  @Nullable
-  PersistableBundle getMetrics();
+  @Nullable PersistableBundle getMetrics();
 
   /**
    * Returns the value of a string property. For standard property names, see {@link

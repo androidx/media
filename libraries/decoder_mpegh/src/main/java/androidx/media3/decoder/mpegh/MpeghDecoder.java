@@ -19,7 +19,6 @@ import static androidx.media3.decoder.mpegh.MpeghAudioRenderer.CODEC_PARAM_MPEGH
 import static androidx.media3.decoder.mpegh.MpeghAudioRenderer.CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -31,6 +30,7 @@ import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import java.nio.ByteBuffer;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** MPEG-H decoder. */
 @UnstableApi
@@ -120,8 +120,7 @@ public final class MpeghDecoder
   }
 
   @Override
-  @Nullable
-  protected MpeghDecoderException decode(
+  protected @Nullable MpeghDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       try {
@@ -180,8 +179,8 @@ public final class MpeghDecoder
           String osdXml = uiManager.getOsd();
 
           @Nullable Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
-          @Nullable
-          AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
+          AudioRendererEventListener.@Nullable EventDispatcher dispatcher =
+              uiHelper.getEventDispatcher();
           if (subscribedKeys != null && dispatcher != null) {
             if (subscribedKeys.contains(CODEC_PARAM_MPEGH_UI_CONFIG)) {
               // reset CodecParameter with KEY_MPEGH_UI_CONFIG to null as it is possible that the
@@ -265,8 +264,8 @@ public final class MpeghDecoder
         persistenceBuffer.rewind();
         int unused = uiManager.destroy(persistenceBuffer, persistenceBuffer.capacity());
         @Nullable Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
-        @Nullable
-        AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
+        AudioRendererEventListener.@Nullable EventDispatcher dispatcher =
+            uiHelper.getEventDispatcher();
         if (subscribedKeys != null && dispatcher != null) {
           if (subscribedKeys.contains(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER)) {
             dispatcher.audioCodecParametersChanged(

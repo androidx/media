@@ -16,12 +16,12 @@
 package androidx.media3.exoplayer.drm;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import org.jspecify.annotations.Nullable;
 
 /** Manages a DRM session. */
 @UnstableApi
@@ -52,9 +52,8 @@ public interface DrmSessionManager {
         public void setPlayer(Looper playbackLooper, PlayerId playerId) {}
 
         @Override
-        @Nullable
-        public DrmSession acquireSession(
-            @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+        public @Nullable DrmSession acquireSession(
+            DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
           if (format.drmInitData == null) {
             return null;
           } else {
@@ -131,7 +130,7 @@ public interface DrmSessionManager {
    *     {@link #acquireSession(DrmSessionEventListener.EventDispatcher, Format)} would return null.
    */
   default DrmSessionReference preacquireSession(
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
     return DrmSessionReference.EMPTY;
   }
 
@@ -154,9 +153,8 @@ public interface DrmSessionManager {
    * @param format The {@link Format} for which to acquire a {@link DrmSession}.
    * @return The DRM session. May be null if the given {@link Format#drmInitData} is null.
    */
-  @Nullable
-  DrmSession acquireSession(
-      @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format);
+  @Nullable DrmSession acquireSession(
+      DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format);
 
   /**
    * Returns the {@link C.CryptoType} that the DRM session manager will use for a given {@link

@@ -17,7 +17,6 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE;
 import static androidx.media3.common.util.GlUtil.checkGlError;
-import static androidx.media3.effect.FrameProcessorUtils.RGBA_8888_BYTES_PER_PIXEL;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static androidx.media3.effect.FrameProcessorUtils.validatePlaneDimensions;
@@ -29,7 +28,6 @@ import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RawRes;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -40,12 +38,12 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.common.video.ImagePlanesFrame.Plane;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -57,32 +55,41 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Converts an {@link ImagePlanesFrame} to a {@link GlTextureFrame}.
  *
- * <p>Supports single-plane {@link PixelFormat#RGBA_8888} frames and planar {@link
- * ImageFormat#YUV_420_888} (I420, {@code pixelStride == 1}) frames.
+ * <p>Supports single-plane {@link PixelFormat#RGBA_8888} frames and planar (I420) or semi-planar
+ * (NV12, NV21) {@link ImageFormat#YUV_420_888} frames.
  */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 /* package */ final class ImagePlanesToGlTextureConverter implements FrameToGlTextureConverter {
 
+  private static final int LUMA_BYTES_PER_PIXEL = 1;
+  private static final int CHROMA_BYTES_PER_SAMPLE = 1;
+  private static final int SEMI_PLANAR_CHROMA_PIXEL_STRIDE = 2;
+
   private final Context context;
+  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
   private final ColorInfo outputColorInfo;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final Map<ImagePlanesFrame, GlTextureInfo> activeOutputTextures;
   private final Deque<GlTextureInfo> availableOutputTextures;
 
-  private @MonotonicNonNull PlaneLayoutRenderer rgbaPlaneLayoutRenderer;
-  private @MonotonicNonNull PlaneLayoutRenderer i420PlaneLayoutRenderer;
+  private @MonotonicNonNull PlaneRenderer rgbaRenderer;
+  private @MonotonicNonNull PlaneRenderer planarYuvRenderer;
+  private @MonotonicNonNull PlaneRenderer semiPlanarYuvRenderer;
   private int fboId;
   private boolean isClosed;
 
   /* package */ ImagePlanesToGlTextureConverter(
       Context context,
+      HardwareBufferJniWrapper hardwareBufferJniWrapper,
       ColorInfo outputColorInfo,
       Consumer<VideoFrameProcessingException> errorConsumer) {
-    this.context = context.getApplicationContext();
+    this.context = context;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.outputColorInfo = outputColorInfo;
     this.errorConsumer = errorConsumer;
     this.activeOutputTextures = new HashMap<>();
@@ -91,8 +98,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  @Nullable
-  public GlTextureFrame convert(
+  public @Nullable GlTextureFrame convert(
       Frame frame, Executor glExecutor, Executor listenerExecutor, FrameProcessor.Listener listener)
       throws VideoFrameProcessingException {
     checkArgument(frame instanceof ImagePlanesFrame, "Expected ImagePlanesFrame, got: %s", frame);
@@ -102,8 +108,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     Format inputFormat = imagePlanesFrame.getFormat();
-    PlaneLayoutRenderer planeLayoutRenderer = resolvePlaneLayoutRenderer(inputFormat.pixelFormat);
-    planeLayoutRenderer.validateFrame(imagePlanesFrame);
+    PlaneRenderer planeRenderer = resolvePlaneRenderer(imagePlanesFrame);
+    planeRenderer.validateFrame(imagePlanesFrame);
 
     boolean isRotated = inputFormat.rotationDegrees == 90 || inputFormat.rotationDegrees == 270;
     int outputWidth = isRotated ? inputFormat.height : inputFormat.width;
@@ -113,7 +119,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     try {
       outputTexture = setupOutputTextureAndFbo(outputWidth, outputHeight);
       activeOutputTextures.put(imagePlanesFrame, outputTexture);
-      planeLayoutRenderer.render(imagePlanesFrame, outputWidth, outputHeight);
+      planeRenderer.render(imagePlanesFrame, outputWidth, outputHeight);
     } catch (GlException | IOException e) {
       activeOutputTextures.remove(imagePlanesFrame);
       if (outputTexture != null) {
@@ -131,33 +137,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void releaseGlResources(Frame frame) throws VideoFrameProcessingException {
-    checkArgument(frame instanceof ImagePlanesFrame, "Expected ImagePlanesFrame, got: %s", frame);
-    @Nullable GlTextureInfo outputTexture = activeOutputTextures.remove(frame);
-    if (outputTexture != null) {
-      if (isClosed) {
-        try {
-          outputTexture.release();
-        } catch (GlException e) {
-          throw VideoFrameProcessingException.from(e);
-        }
-      } else {
-        availableOutputTextures.addLast(outputTexture);
-      }
-    }
-  }
-
-  @Override
   public void close() throws VideoFrameProcessingException {
     if (isClosed) {
       return;
     }
     List<ThrowingRunnable<?>> cleanupActions = new ArrayList<>();
-    if (rgbaPlaneLayoutRenderer != null) {
-      cleanupActions.add(rgbaPlaneLayoutRenderer::release);
+    if (rgbaRenderer != null) {
+      cleanupActions.add(rgbaRenderer::release);
     }
-    if (i420PlaneLayoutRenderer != null) {
-      cleanupActions.add(i420PlaneLayoutRenderer::release);
+    if (planarYuvRenderer != null) {
+      cleanupActions.add(planarYuvRenderer::release);
+    }
+    if (semiPlanarYuvRenderer != null) {
+      cleanupActions.add(semiPlanarYuvRenderer::release);
     }
     for (GlTextureInfo outputTexture : activeOutputTextures.values()) {
       cleanupActions.add(outputTexture::release);
@@ -179,19 +171,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  // TODO(b/531653682): Add support for semi-planar (NV12 and NV21) formats.
-  private PlaneLayoutRenderer resolvePlaneLayoutRenderer(int pixelFormat) {
+  private PlaneRenderer resolvePlaneRenderer(ImagePlanesFrame frame) {
+    int pixelFormat = frame.getFormat().pixelFormat;
     switch (pixelFormat) {
       case PixelFormat.RGBA_8888:
-        if (rgbaPlaneLayoutRenderer == null) {
-          rgbaPlaneLayoutRenderer = new RgbaPlaneLayoutRenderer();
+        if (rgbaRenderer == null) {
+          rgbaRenderer = new RgbaPlaneRenderer();
         }
-        return rgbaPlaneLayoutRenderer;
+        return rgbaRenderer;
       case ImageFormat.YUV_420_888:
-        if (i420PlaneLayoutRenderer == null) {
-          i420PlaneLayoutRenderer = new I420PlaneLayoutRenderer();
+        ImmutableList<Plane> planes = frame.getPlanes();
+        checkArgument(
+            planes.size() == 3, "Expected 3 planes for YUV_420_888, got %s", planes.size());
+        if (planes.get(1).getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE) {
+          if (semiPlanarYuvRenderer == null) {
+            semiPlanarYuvRenderer = new SemiPlanarYuvPlaneRenderer();
+          }
+          return semiPlanarYuvRenderer;
         }
-        return i420PlaneLayoutRenderer;
+        if (planarYuvRenderer == null) {
+          planarYuvRenderer = new PlanarYuvPlaneRenderer();
+        }
+        return planarYuvRenderer;
       default:
         throw new UnsupportedOperationException("Unsupported pixel format: " + pixelFormat);
     }
@@ -265,9 +266,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* releaseTextureCallback= */ info -> {
               @Nullable GlTextureInfo activeTexture = activeOutputTextures.remove(inputFrame);
               if (activeTexture == null) {
-                // The frame's GL resources were already reclaimed, by releaseGlResources() after
-                // a downstream rejection or by close(). Notifying the listener here would
-                // falsely signal that processing succeeded.
+                // The frame's GL resources were already reclaimed by close(). Notifying the
+                // listener here would falsely signal that processing succeeded.
                 return;
               }
               if (isClosed) {
@@ -302,10 +302,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Validates, uploads, and renders the planes of an {@link ImagePlanesFrame} with a specific plane
    * layout into the currently focused output framebuffer.
    */
-  private abstract class PlaneLayoutRenderer {
+  private abstract class PlaneRenderer {
 
     /** The GL textures holding the uploaded planes of the current frame. */
-    /* package */ final @NullableType PlaneTexture[] planeTextures;
+    /* package */ final @Nullable PlaneTexture[] planeTextures;
 
     /**
      * The fraction of each plane texture's width that holds visible pixels (excluding row-stride
@@ -313,14 +313,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     /* package */ final float[] planeWidthRatios;
 
-    @Nullable /* package */ GlProgram glProgram;
-
+    /* package */ @Nullable GlProgram glProgram;
     @RawRes private final int fragmentShaderResId;
     private final float[] textureTransformMatrix;
 
-    /* package */ PlaneLayoutRenderer(@RawRes int fragmentShaderResId, int planeCount) {
-      this.planeTextures = new PlaneTexture[planeCount];
-      this.planeWidthRatios = new float[planeCount];
+    /* package */ PlaneRenderer(@RawRes int fragmentShaderResId, int planeTextureCount) {
+      this.planeTextures = new PlaneTexture[planeTextureCount];
+      this.planeWidthRatios = new float[planeTextureCount];
       this.fragmentShaderResId = fragmentShaderResId;
       this.textureTransformMatrix = new float[16];
     }
@@ -344,13 +343,31 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     /** Sets the format-specific uniforms and texture samplers on {@link #glProgram}. */
     /* package */ abstract void setFormatSpecificUniforms(Format inputFormat);
 
+    /**
+     * Uploads a plane to the texture at {@code planeIndex}, reading the final row directly from
+     * {@code plane}'s buffer.
+     */
     /* package */ void uploadPlaneToTexture(
-        int planeIndex, Plane plane, int width, int height, int glFormat, int bytesPerPixel)
+        int planeIndex, Plane plane, int width, int height, int glFormat) throws GlException {
+      // Position a duplicate at the final row so plane.getBuffer() stays positioned at row 0 (and
+      // remains unmodified for the caller).
+      ByteBuffer buffer = plane.getBuffer();
+      ByteBuffer finalRow = buffer.duplicate();
+      finalRow.position(buffer.position() + plane.getRowStride() * (height - 1));
+      uploadPlaneToTexture(planeIndex, plane, width, height, glFormat, finalRow);
+    }
+
+    /**
+     * Uploads a plane to the texture at {@code planeIndex}, reading the visible part of the plane's
+     * final row from {@code finalRow}.
+     */
+    /* package */ void uploadPlaneToTexture(
+        int planeIndex, Plane plane, int width, int height, int glFormat, ByteBuffer finalRow)
         throws GlException {
       // OpenGL ES 2.0 lacks GL_UNPACK_ROW_LENGTH, so upload the full rowStride width and crop the
       // row padding when sampling.
       int rowStride = plane.getRowStride();
-      int textureWidth = rowStride / bytesPerPixel;
+      int textureWidth = rowStride / plane.getPixelStride();
       planeWidthRatios[planeIndex] = (float) width / textureWidth;
 
       @Nullable PlaneTexture planeTexture = planeTextures[planeIndex];
@@ -399,26 +416,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             buffer);
         checkGlError();
       }
-
-      // glTexSubImage2D reads starting from buffer.position() without advancing it, so advance the
-      // position to the start of the final row and restore it afterwards.
-      int initialPosition = buffer.position();
-      try {
-        buffer.position(initialPosition + rowStride * finalRowIndex);
-        GLES20.glTexSubImage2D(
-            GLES20.GL_TEXTURE_2D,
-            /* level= */ 0,
-            /* xoffset= */ 0,
-            /* yoffset= */ finalRowIndex,
-            width,
-            /* height= */ 1,
-            glFormat,
-            GLES20.GL_UNSIGNED_BYTE,
-            buffer);
-        checkGlError();
-      } finally {
-        buffer.position(initialPosition);
-      }
+      GLES20.glTexSubImage2D(
+          GLES20.GL_TEXTURE_2D,
+          /* level= */ 0,
+          /* xoffset= */ 0,
+          /* yoffset= */ finalRowIndex,
+          width,
+          /* height= */ 1,
+          glFormat,
+          GLES20.GL_UNSIGNED_BYTE,
+          finalRow);
+      checkGlError();
     }
 
     private void validateFrame(ImagePlanesFrame frame) {
@@ -433,6 +441,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "Unsupported color space: %s",
           inputFormat.colorInfo);
       validatePlanes(frame.getPlanes(), inputFormat.width, inputFormat.height);
+      for (Plane plane : frame.getPlanes()) {
+        validateRowStrideMultipleOfPixelStride(plane);
+      }
     }
 
     private void render(ImagePlanesFrame frame, int outputWidth, int outputHeight)
@@ -473,8 +484,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private void uploadPlanes(List<Plane> planes, int width, int height) throws GlException {
       // By default, glTexSubImage2D rounds each row's byte length up to a multiple of 4 bytes
-      // (GL_UNPACK_ALIGNMENT = 4). Set alignment to 1 byte so 1-byte-per-texel GL_LUMINANCE planes
-      // whose rowStride is not a multiple of 4 are read without extra per-row padding.
+      // (GL_UNPACK_ALIGNMENT = 4). Set alignment to 1 byte so 1-byte GL_LUMINANCE and 2-byte
+      // GL_LUMINANCE_ALPHA planes whose rowStride is not a multiple of 4 are read without extra
+      // per-row padding.
       GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1);
       try {
         uploadPlaneTextures(planes, width, height);
@@ -526,30 +538,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       runAllAndAccumulateExceptions(cleanupActions.toArray(new ThrowingRunnable<?>[0]));
     }
+
+    // glTexImage2D and glTexSubImage2D specify row widths in texels, not bytes. Because
+    // uploadPlaneToTexture uploads padded rows with a width of (rowStride / pixelStride) texels,
+    // rowStride must be an exact multiple of the texel size in bytes (pixelStride).
+    // TODO(b/573528333): Investigate whether a rowStride that is not a multiple of pixelStride
+    // needs to be supported.
+    private void validateRowStrideMultipleOfPixelStride(Plane plane) {
+      int rowStride = plane.getRowStride();
+      int pixelStride = plane.getPixelStride();
+      checkArgument(
+          rowStride % pixelStride == 0,
+          "rowStride (%s) must be a multiple of pixelStride (%s)",
+          rowStride,
+          pixelStride);
+    }
   }
 
-  private final class RgbaPlaneLayoutRenderer extends PlaneLayoutRenderer {
+  private final class RgbaPlaneRenderer extends PlaneRenderer {
 
-    private RgbaPlaneLayoutRenderer() {
+    private RgbaPlaneRenderer() {
       super(
           R.raw.fragment_shader_transformation_sdr_internal_color_conversion_es2,
-          /* planeCount= */ 1);
+          /* planeTextureCount= */ 1);
     }
 
     @Override
     /* package */ void validatePlanes(List<Plane> planes, int width, int height) {
       validateRgba8888Planes(planes, width, height);
-      // OpenGL can only specify row widths in texels, not bytes, and uploadPlaneToTexture uploads
-      // the padded rows as rowStride / RGBA_8888_BYTES_PER_PIXEL texels. rowStride must therefore
-      // be a multiple of the 4-byte texel size.
-      // TODO(b/573528333): Investigate whether a rowStride that is not a multiple of
-      // RGBA_8888_BYTES_PER_PIXEL needs to be supported.
-      int rowStride = planes.get(0).getRowStride();
-      checkArgument(
-          rowStride % RGBA_8888_BYTES_PER_PIXEL == 0,
-          "rowStride (%s) must be a multiple of %s",
-          rowStride,
-          RGBA_8888_BYTES_PER_PIXEL);
     }
 
     @Override
@@ -560,13 +576,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     /* package */ void uploadPlaneTextures(List<Plane> planes, int width, int height)
         throws GlException {
-      uploadPlaneToTexture(
-          /* planeIndex= */ 0,
-          planes.get(0),
-          width,
-          height,
-          GLES20.GL_RGBA,
-          RGBA_8888_BYTES_PER_PIXEL);
+      uploadPlaneToTexture(/* planeIndex= */ 0, planes.get(0), width, height, GLES20.GL_RGBA);
     }
 
     @Override
@@ -584,25 +594,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private final class I420PlaneLayoutRenderer extends PlaneLayoutRenderer {
+  private final class PlanarYuvPlaneRenderer extends PlaneRenderer {
 
-    private static final int LUMA_BYTES_PER_PIXEL = 1;
-    private static final int I420_CHROMA_PLANE_STRIDE = 1;
+    private static final int PLANAR_CHROMA_PIXEL_STRIDE = 1;
 
-    private I420PlaneLayoutRenderer() {
-      super(R.raw.fragment_shader_yuv_planar_es2, /* planeCount= */ 3);
+    private PlanarYuvPlaneRenderer() {
+      super(R.raw.fragment_shader_yuv_planar_es2, /* planeTextureCount= */ 3);
     }
 
     @Override
     /* package */ void validatePlanes(List<Plane> planes, int width, int height) {
       checkArgument(
-          planes.size() == 3
-              && planes.get(0).getPixelStride() == LUMA_BYTES_PER_PIXEL
-              && planes.get(1).getPixelStride() == I420_CHROMA_PLANE_STRIDE
-              && planes.get(2).getPixelStride() == I420_CHROMA_PLANE_STRIDE,
-          "Expected 3 planes with luma pixelStride %s and chroma pixelStride %s for I420",
+          planes.get(0).getPixelStride() == LUMA_BYTES_PER_PIXEL
+              && planes.get(1).getPixelStride() == PLANAR_CHROMA_PIXEL_STRIDE
+              && planes.get(2).getPixelStride() == PLANAR_CHROMA_PIXEL_STRIDE,
+          "Expected luma pixelStride %s and chroma pixelStride %s for planar YUV",
           LUMA_BYTES_PER_PIXEL,
-          I420_CHROMA_PLANE_STRIDE);
+          PLANAR_CHROMA_PIXEL_STRIDE);
       validatePlaneDimensions(planes.get(0), width, height);
       // Round up odd dimensions so the subsampled UV planes cover the full Y plane.
       int chromaWidth = (width + 1) / 2;
@@ -614,29 +622,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     /* package */ void uploadPlaneTextures(List<Plane> planes, int width, int height)
         throws GlException {
-      uploadPlaneToTexture(
-          /* planeIndex= */ 0,
-          planes.get(0),
-          width,
-          height,
-          GLES20.GL_LUMINANCE,
-          LUMA_BYTES_PER_PIXEL);
+      uploadPlaneToTexture(/* planeIndex= */ 0, planes.get(0), width, height, GLES20.GL_LUMINANCE);
       int chromaWidth = (width + 1) / 2;
       int chromaHeight = (height + 1) / 2;
       uploadPlaneToTexture(
-          /* planeIndex= */ 1,
-          planes.get(1),
-          chromaWidth,
-          chromaHeight,
-          GLES20.GL_LUMINANCE,
-          I420_CHROMA_PLANE_STRIDE);
+          /* planeIndex= */ 1, planes.get(1), chromaWidth, chromaHeight, GLES20.GL_LUMINANCE);
       uploadPlaneToTexture(
-          /* planeIndex= */ 2,
-          planes.get(2),
-          chromaWidth,
-          chromaHeight,
-          GLES20.GL_LUMINANCE,
-          I420_CHROMA_PLANE_STRIDE);
+          /* planeIndex= */ 2, planes.get(2), chromaWidth, chromaHeight, GLES20.GL_LUMINANCE);
     }
 
     @Override
@@ -660,6 +652,147 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           "uTexU", checkNotNull(planeTextures[1]).texId, /* texUnitIndex= */ 1);
       program.setSamplerTexIdUniform(
           "uTexV", checkNotNull(planeTextures[2]).texId, /* texUnitIndex= */ 2);
+    }
+  }
+
+  private final class SemiPlanarYuvPlaneRenderer extends PlaneRenderer {
+
+    /**
+     * A scratch buffer in which the final row of a semi-planar frame's interleaved chroma is
+     * assembled.
+     *
+     * <p>See {@link #assembleFinalChromaRow}.
+     */
+    private @Nullable ByteBuffer scratchFinalChromaRow;
+
+    private boolean isNv21;
+
+    private SemiPlanarYuvPlaneRenderer() {
+      // Uses 2 GL textures: 1 for the Y plane (uTexY) and 1 for the interleaved UV chroma plane
+      // (uTexChroma).
+      super(R.raw.fragment_shader_yuv_semi_planar_es2, /* planeTextureCount= */ 2);
+    }
+
+    @Override
+    /* package */ void validatePlanes(List<Plane> planes, int width, int height) {
+      checkArgument(
+          planes.get(0).getPixelStride() == LUMA_BYTES_PER_PIXEL
+              && planes.get(1).getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE
+              && planes.get(2).getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE,
+          "Expected luma pixelStride %s and chroma pixelStride %s for semi-planar YUV",
+          LUMA_BYTES_PER_PIXEL,
+          SEMI_PLANAR_CHROMA_PIXEL_STRIDE);
+      validatePlaneDimensions(planes.get(0), width, height);
+      // Round up odd dimensions so the subsampled UV planes cover the full Y plane.
+      int chromaWidth = (width + 1) / 2;
+      int chromaHeight = (height + 1) / 2;
+      Plane uPlane = planes.get(1);
+      Plane vPlane = planes.get(2);
+      validatePlaneDimensions(uPlane, chromaWidth, chromaHeight, CHROMA_BYTES_PER_SAMPLE);
+      validatePlaneDimensions(vPlane, chromaWidth, chromaHeight, CHROMA_BYTES_PER_SAMPLE);
+      checkArgument(
+          uPlane.getRowStride() == vPlane.getRowStride(),
+          "U and V planes of interleaved chroma must have the same rowStride, got %s and %s",
+          uPlane.getRowStride(),
+          vPlane.getRowStride());
+    }
+
+    @Override
+    /* package */ void uploadPlaneTextures(List<Plane> planes, int width, int height)
+        throws GlException {
+      uploadPlaneToTexture(/* planeIndex= */ 0, planes.get(0), width, height, GLES20.GL_LUMINANCE);
+      Plane uPlane = planes.get(1);
+      Plane vPlane = planes.get(2);
+      // Query on each frame rather than caching once, as this converter may be reused across frames
+      // from different producers or decoders with different chroma orders (NV12 vs. NV21).
+      isNv21 = hardwareBufferJniWrapper.nativeIsNv21(uPlane.getBuffer(), vPlane.getBuffer());
+      // Both planes are overlapping views of the same interleaved chroma memory (e.g. [U, V, U, V,
+      // ...] for NV12), so uploading from the plane that starts first uploads both U and V as
+      // 2-byte GL_LUMINANCE_ALPHA texels (with the final row assembled in scratchFinalChromaRow).
+      Plane firstChromaPlane = isNv21 ? vPlane : uPlane;
+      Plane secondChromaPlane = isNv21 ? uPlane : vPlane;
+      int chromaWidth = (width + 1) / 2;
+      int chromaHeight = (height + 1) / 2;
+      ByteBuffer finalChromaRow =
+          assembleFinalChromaRow(firstChromaPlane, secondChromaPlane, chromaWidth, chromaHeight);
+      uploadPlaneToTexture(
+          /* planeIndex= */ 1,
+          firstChromaPlane,
+          chromaWidth,
+          chromaHeight,
+          GLES20.GL_LUMINANCE_ALPHA,
+          finalChromaRow);
+    }
+
+    @Override
+    /* package */ int getTextureCropBufferWidth(Format inputFormat) {
+      // Multi-plane YUV formats crop each plane separately in the fragment shader via
+      // uPlaneWidthRatios (since luma and chroma padding ratios can differ), so pass
+      // inputFormat.width to apply no crop in uTexTransformationMatrix.
+      return inputFormat.width;
+    }
+
+    @Override
+    /* package */ void setFormatSpecificUniforms(Format inputFormat) {
+      GlProgram program = checkNotNull(glProgram);
+      boolean isFullRange =
+          inputFormat.colorInfo != null && inputFormat.colorInfo.colorRange == C.COLOR_RANGE_FULL;
+      program.setIntUniform("uIsInputColorRangeFull", isFullRange ? 1 : 0);
+      program.setIntUniform("uIsNv21", isNv21 ? 1 : 0);
+      program.setFloatsUniform("uPlaneWidthRatios", planeWidthRatios);
+      program.setSamplerTexIdUniform(
+          "uTexY", checkNotNull(planeTextures[0]).texId, /* texUnitIndex= */ 0);
+      program.setSamplerTexIdUniform(
+          "uTexChroma", checkNotNull(planeTextures[1]).texId, /* texUnitIndex= */ 1);
+    }
+
+    /**
+     * Returns the visible part of the final row of a semi-planar frame's interleaved chroma.
+     *
+     * <p>Uploading the final row as {@link GLES20#GL_LUMINANCE_ALPHA} requires {@code rowBytes}
+     * bytes ({@code chromaWidth} 2-byte pairs), but each chroma plane's buffer ends at its own last
+     * sample (shown for NV12; U and V are swapped for NV21):
+     *
+     * <pre>{@code
+     * Interleaved row:   [U0, V0, U1, V1, ..., Un, Vn]  (rowBytes bytes)
+     * firstChromaPlane:  [U0, V0, U1, V1, ..., Un]      (rowBytes - 1 bytes; missing Vn)
+     * secondChromaPlane:     [V0, U1, V1, ..., Un, Vn]  (starts 1 byte later; ends with Vn)
+     * }</pre>
+     *
+     * <p>This method copies the first {@code rowBytes - 1} bytes from {@code firstChromaPlane} and
+     * appends the final sample ({@code Vn} for NV12, or {@code Un} for NV21) from {@code
+     * secondChromaPlane}.
+     */
+    private ByteBuffer assembleFinalChromaRow(
+        Plane firstChromaPlane, Plane secondChromaPlane, int chromaWidth, int chromaHeight) {
+      int rowBytes = chromaWidth * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+      @Nullable ByteBuffer assembledFinalChromaRow = scratchFinalChromaRow;
+      if (assembledFinalChromaRow == null || assembledFinalChromaRow.capacity() < rowBytes) {
+        scratchFinalChromaRow = ByteBuffer.allocateDirect(rowBytes);
+        assembledFinalChromaRow = scratchFinalChromaRow;
+      }
+      assembledFinalChromaRow.clear();
+      int finalRowOffset = firstChromaPlane.getRowStride() * (chromaHeight - 1);
+
+      // Create a bounded view of the (rowBytes - 1) bytes (e.g. [U0, V0, ..., Un], missing Vn, for
+      // NV12) in firstChromaPlane's final row so ByteBuffer.put(ByteBuffer) copies that range into
+      // assembledFinalChromaRow without modifying firstChromaPlane.getBuffer()'s position or limit.
+      int firstPlaneFinalRowBytes = rowBytes - 1;
+      ByteBuffer firstPlaneFinalRowView = firstChromaPlane.getBuffer().duplicate();
+      int firstPlaneFinalRowStart = firstPlaneFinalRowView.position() + finalRowOffset;
+      firstPlaneFinalRowView.position(firstPlaneFinalRowStart);
+      firstPlaneFinalRowView.limit(firstPlaneFinalRowStart + firstPlaneFinalRowBytes);
+      assembledFinalChromaRow.put(firstPlaneFinalRowView);
+
+      // Append the last sample (e.g. [Vn] for NV12) from secondChromaPlane's final row.
+      ByteBuffer secondChromaBuffer = secondChromaPlane.getBuffer();
+      int secondPlaneFinalRowStart = secondChromaBuffer.position() + finalRowOffset;
+      int finalRowOffsetToLastSample = (chromaWidth - 1) * SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
+      int lastSampleIndex = secondPlaneFinalRowStart + finalRowOffsetToLastSample;
+      assembledFinalChromaRow.put(secondChromaBuffer.get(lastSampleIndex));
+
+      assembledFinalChromaRow.flip();
+      return assembledFinalChromaRow;
     }
   }
 

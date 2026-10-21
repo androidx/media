@@ -22,13 +22,13 @@ import static java.lang.Math.min;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSource} for reading from a local asset. */
 @UnstableApi
@@ -59,8 +59,8 @@ public final class AssetDataSource extends BaseDataSource {
 
   private final AssetManager assetManager;
 
-  @Nullable private Uri uri;
-  @Nullable private InputStream inputStream;
+  private @Nullable Uri uri;
+  private @Nullable InputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -145,8 +145,7 @@ public final class AssetDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

@@ -19,7 +19,6 @@ import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -38,6 +37,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fake {@link SampleStream} that outputs a given {@link Format} and any amount of {@link
@@ -97,11 +97,10 @@ public class FakeSampleStream implements SampleStream {
           /* format= */ null, new SampleInfo(sampleData.clone(), flags, timeUs));
     }
 
-    @Nullable private final Format format;
+    private final @Nullable Format format;
 
-    @Nullable
     @VisibleForTesting(otherwise = PRIVATE)
-    /* package */ final SampleInfo sampleInfo;
+    /* package */ final @Nullable SampleInfo sampleInfo;
 
     /**
      * Creates an instance. Exactly one of {@code format} or {@code sampleInfo} must be non-null.
@@ -114,13 +113,13 @@ public class FakeSampleStream implements SampleStream {
   }
 
   private final SampleQueue sampleQueue;
-  @Nullable private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
+  private final MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher;
   private final List<FakeSampleStreamItem> sampleStreamItems;
 
   private int sampleStreamItemsWritePosition;
   private boolean loadingFinished;
-  @Nullable private Format downstreamFormat;
-  @Nullable private Format notifiedDownstreamFormat;
+  private @Nullable Format downstreamFormat;
+  private @Nullable Format notifiedDownstreamFormat;
   private @SampleStream.Flags int flags;
 
   /**
@@ -138,7 +137,7 @@ public class FakeSampleStream implements SampleStream {
    */
   public FakeSampleStream(
       Allocator allocator,
-      @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+      MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       Format initialFormat,
@@ -181,7 +180,7 @@ public class FakeSampleStream implements SampleStream {
     @Nullable Format pendingFirstFormat = null;
     for (int i = 0; i < sampleStreamItems.size(); i++) {
       FakeSampleStreamItem fakeSampleStreamItem = sampleStreamItems.get(i);
-      @Nullable FakeSampleStream.SampleInfo sampleInfo = fakeSampleStreamItem.sampleInfo;
+      FakeSampleStream.@Nullable SampleInfo sampleInfo = fakeSampleStreamItem.sampleInfo;
       if (sampleInfo == null) {
         if (writtenFirstFormat) {
           sampleQueue.format(checkNotNull(fakeSampleStreamItem.format));

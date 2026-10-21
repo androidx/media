@@ -18,13 +18,13 @@ package androidx.media3.container;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility methods for parsing AV1 Open Bitstream Units or OBUs.
@@ -209,8 +209,7 @@ public final class ObuParser {
      *
      * @param obu The input OBU with type {@link #OBU_SEQUENCE_HEADER}.
      */
-    @Nullable
-    public static SequenceHeader parse(Obu obu) {
+    public static @Nullable SequenceHeader parse(Obu obu) {
       try {
         return new SequenceHeader(obu);
       } catch (NotYetImplementedException ignored) {
@@ -445,8 +444,7 @@ public final class ObuParser {
      * @param sequenceHeader The most recent sequence header before the frame header.
      * @param obu The input OBU with type {@link #OBU_FRAME} or {@link #OBU_FRAME_HEADER}.
      */
-    @Nullable
-    public static FrameHeader parse(SequenceHeader sequenceHeader, Obu obu) {
+    public static @Nullable FrameHeader parse(SequenceHeader sequenceHeader, Obu obu) {
       try {
         return new FrameHeader(sequenceHeader, obu);
       } catch (NotYetImplementedException ignored) {

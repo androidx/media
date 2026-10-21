@@ -24,7 +24,6 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -40,12 +39,14 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** Utility class containing fakes for GlFrameProcessor testing. */
 public final class GlFrameProcessorTestUtil {
@@ -65,9 +66,9 @@ public final class GlFrameProcessorTestUtil {
     @Override
     public void configure(Format format, long usage) {}
 
-    @Nullable
     @Override
-    public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+    public @Nullable AsyncFrame dequeueInputFrame(
+        Executor wakeupExecutor, Runnable wakeupListener) {
       return null;
     }
 
@@ -91,20 +92,20 @@ public final class GlFrameProcessorTestUtil {
     public volatile boolean shouldAcceptIncomingFrames;
     public volatile int framesReceived;
     public volatile boolean signalEndOfStreamCalled;
-    @Nullable public Runnable wakeupListener;
-    @Nullable public Executor listenerExecutor;
-    @Nullable public GlTextureFrame lastReceivedFrame;
-    @Nullable public FrameWriter frameWriter;
-    @Nullable public VideoFrameProcessingException exceptionToThrowOnQueueing;
-    @Nullable public RuntimeException runtimeExceptionToThrowOnQueueing;
+    public @Nullable Runnable wakeupListener;
+    public @Nullable Executor listenerExecutor;
+    public @Nullable GlTextureFrame lastReceivedFrame;
+    public @Nullable FrameWriter frameWriter;
+    public @Nullable VideoFrameProcessingException exceptionToThrowOnQueueing;
+    public @Nullable RuntimeException runtimeExceptionToThrowOnQueueing;
 
     /** Opened when a frame is rejected and a wakeup listener is registered. */
     public final ConditionVariable wakeupListenerRegistered;
 
     /** The thread that called {@link #close()}, or {@code null} if not closed. */
-    @Nullable public volatile Thread closeThread;
+    public volatile @Nullable Thread closeThread;
 
-    @Nullable private volatile CountDownLatch framesReceivedLatch;
+    private volatile @Nullable CountDownLatch framesReceivedLatch;
 
     public FakeGlTextureFrameConsumer(@Nullable FrameWriter frameWriter) {
       this.frameWriter = frameWriter;
@@ -316,7 +317,6 @@ public final class GlFrameProcessorTestUtil {
   /** Fake {@link FrameToGlTextureConverter} for testing. */
   public static final class FakeFrameToGlTextureConverter implements FrameToGlTextureConverter {
     public int framesReceived;
-    public int framesWithGlResourceReleased;
     private final Runnable releaseListener;
 
     public FakeFrameToGlTextureConverter(Runnable releaseListener) {
@@ -356,17 +356,17 @@ public final class GlFrameProcessorTestUtil {
     }
 
     @Override
-    public void releaseGlResources(Frame frame) {
-      framesWithGlResourceReleased++;
-    }
-
-    @Override
     public void close() {}
   }
 
   public static final class FakeCompositorGlProgram implements CompositorGlProgram {
-    @Nullable public VideoFrameProcessingException exceptionToThrow;
-    @Nullable public GlUtil.GlException glExceptionToThrow;
+    public final List<List<GlCompositionFrame>> drawnFramePackets;
+    public @Nullable VideoFrameProcessingException exceptionToThrow;
+    public GlUtil.@Nullable GlException glExceptionToThrow;
+
+    public FakeCompositorGlProgram() {
+      drawnFramePackets = new ArrayList<>();
+    }
 
     @Override
     public void drawFrame(List<GlCompositionFrame> inputFrameInfos, GlTextureInfo outputTexture)
@@ -377,6 +377,7 @@ public final class GlFrameProcessorTestUtil {
       if (glExceptionToThrow != null) {
         throw glExceptionToThrow;
       }
+      drawnFramePackets.add(ImmutableList.copyOf(inputFrameInfos));
     }
 
     @Override

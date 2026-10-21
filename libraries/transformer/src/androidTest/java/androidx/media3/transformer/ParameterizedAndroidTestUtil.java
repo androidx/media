@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -36,6 +35,7 @@ import com.google.common.collect.Iterables;
 import java.math.RoundingMode;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Test utilities for parameterized instrumentation tests. */
 /* package */ final class ParameterizedAndroidTestUtil {
@@ -105,9 +105,9 @@ import java.util.Set;
   /** Test parameters for an {@link EditedMediaItem}. */
   public abstract static class ItemConfig {
     public final int frameCount;
-    @Nullable public final Format format;
+    public final @Nullable Format format;
     // TODO: b/345483531 - Modify output format to account for effects (such as presentation).
-    @Nullable public final Format outputFormat;
+    public final @Nullable Format outputFormat;
 
     protected final Effects effects;
 

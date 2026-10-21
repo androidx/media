@@ -24,7 +24,6 @@ import static com.google.common.truth.Truth.assertThat;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -57,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fake {@link MediaSource} that provides a given timeline. Creating the period will return a {@link
@@ -83,10 +83,10 @@ public class FakeMediaSource extends BaseMediaSource {
 
   /** A builder for {@link FakeMediaSource} instances. */
   public static class Builder {
-    @Nullable private Timeline timeline;
+    private @Nullable Timeline timeline;
     private DrmSessionManager drmSessionManager;
-    @Nullable private TrackDataFactory trackDataFactory;
-    @Nullable private long[] syncSampleTimesUs;
+    private @Nullable TrackDataFactory trackDataFactory;
+    private long @Nullable [] syncSampleTimesUs;
     private TrackGroupArray trackGroupArray;
 
     public Builder() {
@@ -185,8 +185,8 @@ public class FakeMediaSource extends BaseMediaSource {
   private static final int MANIFEST_LOAD_BYTES = 100;
 
   private final TrackGroupArray trackGroupArray;
-  @Nullable private final FakeMediaPeriod.TrackDataFactory trackDataFactory;
-  @Nullable private final long[] syncSampleTimesUs;
+  private final FakeMediaPeriod.@Nullable TrackDataFactory trackDataFactory;
+  private final long @Nullable [] syncSampleTimesUs;
   private final ArrayList<MediaPeriod> activeMediaPeriods;
   private final ArrayList<MediaPeriodId> createdMediaPeriods;
   private final DrmSessionManager drmSessionManager;
@@ -196,8 +196,8 @@ public class FakeMediaSource extends BaseMediaSource {
   private @MonotonicNonNull Timeline timeline;
   private boolean preparedSource;
   private boolean releasedSource;
-  @Nullable private Handler sourceInfoRefreshHandler;
-  @Nullable private TransferListener transferListener;
+  private @Nullable Handler sourceInfoRefreshHandler;
+  private @Nullable TransferListener transferListener;
   private boolean periodDefersOnPreparedCallback;
 
   /**
@@ -241,7 +241,7 @@ public class FakeMediaSource extends BaseMediaSource {
   public FakeMediaSource(
       @Nullable Timeline timeline,
       DrmSessionManager drmSessionManager,
-      @Nullable FakeMediaPeriod.TrackDataFactory trackDataFactory,
+      FakeMediaPeriod.@Nullable TrackDataFactory trackDataFactory,
       Format... formats) {
     this(timeline, drmSessionManager, trackDataFactory, buildTrackGroupArray(formats));
   }
@@ -255,7 +255,7 @@ public class FakeMediaSource extends BaseMediaSource {
   public FakeMediaSource(
       @Nullable Timeline timeline,
       DrmSessionManager drmSessionManager,
-      @Nullable FakeMediaPeriod.TrackDataFactory trackDataFactory,
+      FakeMediaPeriod.@Nullable TrackDataFactory trackDataFactory,
       TrackGroupArray trackGroupArray) {
     this(
         timeline,
@@ -275,8 +275,8 @@ public class FakeMediaSource extends BaseMediaSource {
   protected FakeMediaSource(
       @Nullable Timeline timeline,
       DrmSessionManager drmSessionManager,
-      @Nullable FakeMediaPeriod.TrackDataFactory trackDataFactory,
-      @Nullable long[] syncSampleTimesUs,
+      FakeMediaPeriod.@Nullable TrackDataFactory trackDataFactory,
+      long @Nullable [] syncSampleTimesUs,
       TrackGroupArray trackGroupArray) {
     if (timeline != null) {
       this.timeline = timeline;
@@ -315,8 +315,7 @@ public class FakeMediaSource extends BaseMediaSource {
     this.canUpdateMediaItems = canUpdateMediaItems;
   }
 
-  @Nullable
-  protected Timeline getTimeline() {
+  protected @Nullable Timeline getTimeline() {
     return timeline;
   }
 
@@ -345,8 +344,7 @@ public class FakeMediaSource extends BaseMediaSource {
   }
 
   @Override
-  @Nullable
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     return timeline == null || timeline.isEmpty() || timeline.getWindowCount() == 1
         ? null
         : new InitialTimeline(timeline);

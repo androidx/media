@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.UnstableApi;
@@ -38,6 +37,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link ProgressiveMediaExtractor} built on top of {@link Extractor} instances, whose
@@ -48,8 +48,8 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
 
   private final ExtractorsFactory extractorsFactory;
 
-  @Nullable private Extractor extractor;
-  @Nullable private ExtractorInput extractorInput;
+  private @Nullable Extractor extractor;
+  private @Nullable ExtractorInput extractorInput;
 
   /**
    * Creates a holder that will select an extractor and initialize it using the specified output.
@@ -149,8 +149,7 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
   }
 
   @Override
-  @Nullable
-  public String getUnderlyingImplementationName() {
+  public @Nullable String getUnderlyingImplementationName() {
     return extractor != null
         ? extractor.getUnderlyingImplementation().getClass().getSimpleName()
         : null;

@@ -22,7 +22,6 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.os.HandlerThread;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -34,6 +33,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The default {@link MediaCodecAdapter.Factory}.
@@ -59,9 +59,9 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
 
   private static final String TAG = "DMCodecAdapterFactory";
 
-  @Nullable private final Context context;
-  @Nullable private final Supplier<HandlerThread> callbackThreadSupplier;
-  @Nullable private final Supplier<HandlerThread> queueingThreadSupplier;
+  private final @Nullable Context context;
+  private final @Nullable Supplier<HandlerThread> callbackThreadSupplier;
+  private final @Nullable Supplier<HandlerThread> queueingThreadSupplier;
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;

@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Flags;
 import com.google.common.collect.ImmutableSet;
@@ -36,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps a byte array, providing a set of methods for parsing data from it. Numerical values are
@@ -59,7 +59,7 @@ public final class ParsableByteArray {
           StandardCharsets.UTF_16LE);
 
   // TODO: b/147657250 - Remove once setShouldEnforceLimitOnLegacyMethods is removed.
-  private static final AtomicReference<@NullableType Boolean> shouldEnforceLimitOnLegacyMethods =
+  private static final AtomicReference<@Nullable Boolean> shouldEnforceLimitOnLegacyMethods =
       new AtomicReference<>();
 
   private byte[] data;
@@ -610,8 +610,7 @@ public final class ParsableByteArray {
    * @return The string not including any terminating NUL byte, or null if the end of the data has
    *     already been reached.
    */
-  @Nullable
-  public String readNullTerminatedString() {
+  public @Nullable String readNullTerminatedString() {
     return readDelimiterTerminatedString('\0');
   }
 
@@ -621,8 +620,7 @@ public final class ParsableByteArray {
    * @return The string not including any terminating delimiter byte, or null if the end of the data
    *     has already been reached.
    */
-  @Nullable
-  public String readDelimiterTerminatedString(char delimiter) {
+  public @Nullable String readDelimiterTerminatedString(char delimiter) {
     if (bytesLeft() == 0) {
       return null;
     }
@@ -643,8 +641,7 @@ public final class ParsableByteArray {
    *
    * <p>Equivalent to passing {@link StandardCharsets#UTF_8} to {@link #readLine(Charset)}.
    */
-  @Nullable
-  public String readLine() {
+  public @Nullable String readLine() {
     return readLine(StandardCharsets.UTF_8);
   }
 
@@ -664,8 +661,7 @@ public final class ParsableByteArray {
    * @throws IllegalArgumentException if charset is not supported. Only US_ASCII, UTF-8, UTF-16,
    *     UTF-16BE, and UTF-16LE are supported.
    */
-  @Nullable
-  public String readLine(Charset charset) {
+  public @Nullable String readLine(Charset charset) {
     checkArgument(
         SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
@@ -766,8 +762,7 @@ public final class ParsableByteArray {
    * Reads a UTF byte order mark (BOM) and returns the UTF {@link Charset} it represents. Returns
    * {@code null} without advancing {@link #getPosition() position} if no BOM is found.
    */
-  @Nullable
-  public Charset readUtfCharsetFromBom() {
+  public @Nullable Charset readUtfCharsetFromBom() {
     if (bytesLeft() >= 3
         && data[position] == (byte) 0xEF
         && data[position + 1] == (byte) 0xBB

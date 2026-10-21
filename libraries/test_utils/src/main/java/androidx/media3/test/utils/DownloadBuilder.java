@@ -16,7 +16,6 @@
 package androidx.media3.test.utils;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
@@ -27,6 +26,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Builder for {@link Download}.
@@ -42,10 +42,10 @@ public final class DownloadBuilder {
 
   private String id;
   private Uri uri;
-  @Nullable private String mimeType;
+  private @Nullable String mimeType;
   private List<StreamKey> streamKeys;
-  @Nullable private byte[] keySetId;
-  @Nullable private String cacheKey;
+  private byte @Nullable [] keySetId;
+  private @Nullable String cacheKey;
   private byte[] customMetadata;
 
   private @Download.State int state;
@@ -93,7 +93,7 @@ public final class DownloadBuilder {
       Uri uri,
       @Nullable String mimeType,
       List<StreamKey> streamKeys,
-      @Nullable byte[] keySetId,
+      byte @Nullable [] keySetId,
       @Nullable String cacheKey,
       byte[] customMetadata) {
     this.id = id;

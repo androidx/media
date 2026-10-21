@@ -24,7 +24,6 @@ import static androidx.media3.test.utils.CacheAsserts.assertCachedData;
 import android.app.Notification;
 import android.content.Context;
 import android.content.Intent;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.ConditionVariable;
@@ -51,6 +50,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -132,8 +132,7 @@ public class DownloadServiceDashTest {
                 }
 
                 @Override
-                @Nullable
-                protected Scheduler getScheduler() {
+                protected @Nullable Scheduler getScheduler() {
                   return null;
                 }
 

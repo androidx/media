@@ -20,7 +20,6 @@ import static androidx.media3.common.FileTypes.inferFileTypeFromUri;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -61,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link ExtractorsFactory} that provides an array of extractors for the following formats:
@@ -152,7 +152,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private @TsExtractor.Mode int tsMode;
   private @DefaultTsPayloadReaderFactory.Flags int tsFlags;
   // TODO (b/261183220): Initialize tsSubtitleFormats in constructor once shrinking bug is fixed.
-  @Nullable private ImmutableList<Format> tsSubtitleFormats;
+  private @Nullable ImmutableList<Format> tsSubtitleFormats;
   private int tsTimestampSearchBytes;
   private boolean textTrackTranscodingEnabled;
   private SubtitleParser.Factory subtitleParserFactory;
@@ -628,8 +628,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     // LINT.ThenChange(../../../../../../proguard-rules.txt)
   }
 
-  @Nullable
-  private static Constructor<? extends Extractor> getFlacExtractorConstructor()
+  private static @Nullable Constructor<? extends Extractor> getFlacExtractorConstructor()
       throws ClassNotFoundException,
           NoSuchMethodException,
           InvocationTargetException,
@@ -653,8 +652,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private static final class ExtensionLoader {
 
     public interface ConstructorSupplier {
-      @Nullable
-      Constructor<? extends Extractor> getConstructor()
+      @Nullable Constructor<? extends Extractor> getConstructor()
           throws InvocationTargetException,
               IllegalAccessException,
               NoSuchMethodException,
@@ -665,18 +663,16 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     private final AtomicBoolean extensionLoaded;
 
     @GuardedBy("extensionLoaded")
-    @Nullable
-    private Constructor<? extends Extractor> extractorConstructor;
+    private @Nullable Constructor<? extends Extractor> extractorConstructor;
 
     public ExtensionLoader(ConstructorSupplier constructorSupplier) {
       this.constructorSupplier = constructorSupplier;
       extensionLoaded = new AtomicBoolean(false);
     }
 
-    @Nullable
-    public Extractor getExtractor(Object... constructorParams) {
-      @Nullable
-      Constructor<? extends Extractor> extractorConstructor = maybeLoadExtractorConstructor();
+    public @Nullable Extractor getExtractor(Object... constructorParams) {
+      @Nullable Constructor<? extends Extractor> extractorConstructor =
+          maybeLoadExtractorConstructor();
       if (extractorConstructor == null) {
         return null;
       }
@@ -687,8 +683,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
       }
     }
 
-    @Nullable
-    private Constructor<? extends Extractor> maybeLoadExtractorConstructor() {
+    private @Nullable Constructor<? extends Extractor> maybeLoadExtractorConstructor() {
       synchronized (extensionLoaded) {
         if (extensionLoaded.get()) {
           return extractorConstructor;

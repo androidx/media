@@ -29,7 +29,6 @@ import android.text.TextUtils;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -49,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A utility class for querying the available codecs. */
 @SuppressLint("InlinedApi")
@@ -111,8 +111,7 @@ public final class MediaCodecUtil {
    * @return A {@link MediaCodecInfo} describing the decoder, or null if no suitable decoder exists.
    * @throws DecoderQueryException If there was an error querying the available decoders.
    */
-  @Nullable
-  public static MediaCodecInfo getDecryptOnlyDecoderInfo() throws DecoderQueryException {
+  public static @Nullable MediaCodecInfo getDecryptOnlyDecoderInfo() throws DecoderQueryException {
     return getDecoderInfo(MimeTypes.AUDIO_RAW, /* secure= */ false, /* tunneling= */ false);
   }
 
@@ -127,9 +126,8 @@ public final class MediaCodecUtil {
    * @return A {@link MediaCodecInfo} describing the decoder, or null if no suitable decoder exists.
    * @throws DecoderQueryException If there was an error querying the available decoders.
    */
-  @Nullable
-  public static MediaCodecInfo getDecoderInfo(String mimeType, boolean secure, boolean tunneling)
-      throws DecoderQueryException {
+  public static @Nullable MediaCodecInfo getDecoderInfo(
+      String mimeType, boolean secure, boolean tunneling) throws DecoderQueryException {
     List<MediaCodecInfo> decoderInfos = getDecoderInfos(mimeType, secure, tunneling);
     return decoderInfos.isEmpty() ? null : decoderInfos.get(0);
   }
@@ -380,8 +378,7 @@ public final class MediaCodecUtil {
   public static int maxH264DecodableFrameSize() throws DecoderQueryException {
     if (maxH264DecodableFrameSize == -1) {
       int result = 0;
-      @Nullable
-      MediaCodecInfo decoderInfo =
+      @Nullable MediaCodecInfo decoderInfo =
           getDecoderInfo(MimeTypes.VIDEO_H264, /* secure= */ false, /* tunneling= */ false);
       if (decoderInfo != null) {
         for (CodecProfileLevel profileLevel : decoderInfo.getProfileLevels()) {
@@ -414,8 +411,7 @@ public final class MediaCodecUtil {
       replacement = "CodecSpecificDataUtil.getCodecProfileAndLevel(format)",
       imports = {"androidx.media3.common.util.CodecSpecificDataUtil"})
   @Deprecated
-  @Nullable
-  public static Pair<Integer, Integer> getCodecProfileAndLevel(Format format) {
+  public static @Nullable Pair<Integer, Integer> getCodecProfileAndLevel(Format format) {
     return CodecSpecificDataUtil.getCodecProfileAndLevel(format);
   }
 
@@ -427,8 +423,8 @@ public final class MediaCodecUtil {
    * @return A pair (profile constant, level constant) if the initializationData of the {@code
    *     format} is well-formed and recognized, or null otherwise.
    */
-  @Nullable
-  public static MediaCodecProfileAndLevel getHevcBaseLayerCodecProfileAndLevel(Format format) {
+  public static @Nullable MediaCodecProfileAndLevel getHevcBaseLayerCodecProfileAndLevel(
+      Format format) {
     String codecs = NalUnitUtil.getH265BaseLayerCodecsString(format.initializationData);
     if (codecs == null) {
       return null;
@@ -446,8 +442,7 @@ public final class MediaCodecUtil {
    *     Format} (besides the default {@link Format#sampleMimeType}), or null if no such alternative
    *     exists.
    */
-  @Nullable
-  public static String getAlternativeCodecMimeType(Format format) {
+  public static @Nullable String getAlternativeCodecMimeType(Format format) {
     if (MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType)) {
       // E-AC3 decoders can decode JOC streams, but in 2-D rather than 3-D.
       // Some devices (e.g. Pixel) integrate an EAC3 decoder that does not support EAC3-JOC
@@ -464,8 +459,7 @@ public final class MediaCodecUtil {
       // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
-      @Nullable
-      MediaCodecProfileAndLevel codecProfileAndLevel =
+      @Nullable MediaCodecProfileAndLevel codecProfileAndLevel =
           CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null && codecProfileAndLevel.isSupportableByMediaCodec()) {
         int profile = codecProfileAndLevel.getProfile();
@@ -593,8 +587,7 @@ public final class MediaCodecUtil {
    *     the codec can't be used. If non-null, the returned type will be equal to {@code mimeType}
    *     except in cases where the codec is known to use a non-standard MIME type alias.
    */
-  @Nullable
-  private static String getCodecMimeType(
+  private static @Nullable String getCodecMimeType(
       android.media.MediaCodecInfo info, String name, String mimeType) {
     String[] supportedTypes = info.getSupportedTypes();
     for (String supportedType : supportedTypes) {

@@ -26,7 +26,6 @@ import android.media.PlaybackParams;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
@@ -58,6 +57,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import org.jspecify.annotations.Nullable;
 
 /** Default {@link RenderersFactory} implementation. */
 @UnstableApi
@@ -379,8 +379,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         videoRendererEventListener,
         allowedVideoJoiningTimeMs,
         renderersList);
-    @Nullable
-    AudioSink audioSink =
+    @Nullable AudioSink audioSink =
         buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParameters);
     if (audioSink != null) {
       buildAudioRenderers(
@@ -849,8 +848,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     no audio renderers are required. If {@code null} is returned then {@link
    *     #buildAudioRenderers} will not be called.
    */
-  @Nullable
-  protected AudioSink buildAudioSink(
+  protected @Nullable AudioSink buildAudioSink(
       Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
     return new DefaultAudioSink.Builder(context)
         .setEnableFloatOutput(enableFloatOutput)
@@ -859,8 +857,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   @Override
-  @Nullable
-  public Renderer createSecondaryRenderer(
+  public @Nullable Renderer createSecondaryRenderer(
       Renderer renderer,
       Handler eventHandler,
       VideoRendererEventListener videoRendererEventListener,
@@ -903,8 +900,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     seamlessly join an ongoing playback, in milliseconds.
    * @return The created secondary {@link Renderer renderer instance}.
    */
-  @Nullable
-  protected Renderer buildSecondaryVideoRenderer(
+  protected @Nullable Renderer buildSecondaryVideoRenderer(
       Renderer renderer,
       Context context,
       @ExtensionRendererMode int extensionRendererMode,

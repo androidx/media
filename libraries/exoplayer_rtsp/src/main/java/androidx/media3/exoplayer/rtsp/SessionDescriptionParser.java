@@ -22,13 +22,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Parses a String based SDP message into {@link SessionDescription}. */
 /* package */ final class SessionDescriptionParser {
@@ -75,7 +75,7 @@ import java.util.regex.Pattern;
    */
   public static SessionDescription parse(String sdpString) throws ParserException {
     SessionDescription.Builder sessionDescriptionBuilder = new SessionDescription.Builder();
-    @Nullable MediaDescription.Builder mediaDescriptionBuilder = null;
+    MediaDescription.@Nullable Builder mediaDescriptionBuilder = null;
 
     // Tracks if currently parsing an invalid media description and should skip any parsed
     // and related SDP lines until the next valid media description.
@@ -253,8 +253,7 @@ import java.util.regex.Pattern;
    *     port or format values.
    * @throws ParserException if malformed SDP media description line.
    */
-  @Nullable
-  private static MediaDescription.Builder parseMediaDescriptionLine(String line)
+  private static MediaDescription.@Nullable Builder parseMediaDescriptionLine(String line)
       throws ParserException {
     Matcher matcher = MEDIA_DESCRIPTION_PATTERN.matcher(line);
     if (!matcher.matches()) {
@@ -266,7 +265,7 @@ import java.util.regex.Pattern;
     String transportProtocol = checkNotNull(matcher.group(3));
     String payloadTypeString = checkNotNull(matcher.group(4));
 
-    @Nullable MediaDescription.Builder mediaDescriptionBuilder = null;
+    MediaDescription.@Nullable Builder mediaDescriptionBuilder = null;
     try {
       mediaDescriptionBuilder =
           new MediaDescription.Builder(

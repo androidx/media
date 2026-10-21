@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -46,6 +45,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Generic extractor for extracting subtitles from various subtitle formats. */
 @UnstableApi
@@ -89,7 +89,7 @@ public class SubtitleExtractor implements Extractor {
 
   private final SubtitleParser subtitleParser;
   private final CueEncoder cueEncoder;
-  @Nullable private final Format format;
+  private final @Nullable Format format;
   private final List<Sample> samples;
   private final ParsableByteArray scratchSampleArray;
 

@@ -23,7 +23,6 @@ import android.os.Handler;
 import android.os.Handler.Callback;
 import android.os.Looper;
 import android.os.Message;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -40,6 +39,7 @@ import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.dataflow.qual.SideEffectFree;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A renderer for metadata.
@@ -62,15 +62,15 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   private final MetadataDecoderFactory decoderFactory;
   private final MetadataOutput output;
-  @Nullable private final Handler outputHandler;
+  private final @Nullable Handler outputHandler;
   private final MetadataInputBuffer buffer;
   private final boolean outputMetadataEarly;
 
-  @Nullable private MetadataDecoder decoder;
+  private @Nullable MetadataDecoder decoder;
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
   private long subsampleOffsetUs;
-  @Nullable private Metadata pendingMetadata;
+  private @Nullable Metadata pendingMetadata;
   private long outputStreamOffsetUs;
 
   /**

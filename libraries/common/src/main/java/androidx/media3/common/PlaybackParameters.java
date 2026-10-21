@@ -20,9 +20,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import android.os.Bundle;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /** Parameters that apply to playback, including speed setting. */
 public final class PlaybackParameters {

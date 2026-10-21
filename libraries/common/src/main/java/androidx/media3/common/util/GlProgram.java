@@ -24,13 +24,13 @@ import android.content.Context;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import java.io.IOException;
 import java.nio.Buffer;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a GLSL shader program.
@@ -384,7 +384,7 @@ public final class GlProgram {
     /** The index or location of the attribute, from glGetAttribLocation. */
     private final int location;
 
-    @Nullable private Buffer buffer;
+    private @Nullable Buffer buffer;
     private int size;
 
     private Attribute(String name, int location) {

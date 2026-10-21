@@ -31,19 +31,21 @@ import android.text.Layout.Alignment;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.StaticLayout;
+import android.text.TextDirectionHeuristic;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.AbsoluteSizeSpan;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
 import android.util.DisplayMetrics;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
+import androidx.media3.common.text.SubtitleStyle;
 import androidx.media3.common.util.Log;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Paints subtitle {@link Cue}s. */
 /* package */ final class SubtitlePainter {
@@ -65,9 +67,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final Paint bitmapPaint;
 
   // Previous input variables.
-  @Nullable private CharSequence cueText;
-  @Nullable private Alignment cueTextAlignment;
-  @Nullable private Bitmap cueBitmap;
+  private @Nullable CharSequence cueText;
+  private @Nullable Alignment cueTextAlignment;
+  private @Nullable Bitmap cueBitmap;
   private float cueLine;
   private @Cue.LineType int cueLineType;
   private @Cue.AnchorType int cueLineAnchor;
@@ -79,10 +81,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private int backgroundColor;
   private int windowColor;
   private int edgeColor;
-  private @CaptionStyleCompat.EdgeType int edgeType;
+  private @SubtitleStyle.EdgeType int edgeType;
   private float defaultTextSizePx;
   private float cueTextSizePx;
   private float bottomPaddingFraction;
+  private @Nullable TextDirectionHeuristic textDirectionHeuristic;
   private int parentLeft;
   private int parentTop;
   private int parentRight;
@@ -138,6 +141,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param cueTextSizePx The embedded text size of this cue, in pixels.
    * @param bottomPaddingFraction The bottom padding fraction to apply when {@link Cue#line} is
    *     {@link Cue#DIMEN_UNSET}, as a fraction of the viewport height
+   * @param textDirectionHeuristic The {@link TextDirectionHeuristic} to use when wrapping
+   *     bidirectional text.
    * @param canvas The canvas into which to draw.
    * @param cueBoxLeft The left position of the enclosing cue box.
    * @param cueBoxTop The top position of the enclosing cue box.
@@ -146,10 +151,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   public void draw(
       Cue cue,
-      CaptionStyleCompat style,
+      SubtitleStyle style,
       float defaultTextSizePx,
       float cueTextSizePx,
       float bottomPaddingFraction,
+      TextDirectionHeuristic textDirectionHeuristic,
       Canvas canvas,
       int cueBoxLeft,
       int cueBoxTop,
@@ -183,6 +189,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         && this.defaultTextSizePx == defaultTextSizePx
         && this.cueTextSizePx == cueTextSizePx
         && this.bottomPaddingFraction == bottomPaddingFraction
+        && Objects.equals(this.textDirectionHeuristic, textDirectionHeuristic)
         && this.parentLeft == cueBoxLeft
         && this.parentTop == cueBoxTop
         && this.parentRight == cueBoxRight
@@ -192,7 +199,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
 
-    this.cueText = BidiUtils.containsRtl(cue.text) ? BidiUtils.wrapText(cue.text) : cue.text;
+    this.cueText = cue.text;
     this.cueTextAlignment = cue.textAlignment;
     this.cueBitmap = cue.bitmap;
     this.cueLine = cue.line;
@@ -211,6 +218,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.defaultTextSizePx = defaultTextSizePx;
     this.cueTextSizePx = cueTextSizePx;
     this.bottomPaddingFraction = bottomPaddingFraction;
+    this.textDirectionHeuristic = textDirectionHeuristic;
     this.parentLeft = cueBoxLeft;
     this.parentTop = cueBoxTop;
     this.parentRight = cueBoxRight;
@@ -226,12 +234,18 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     drawLayout(canvas, isTextCue);
   }
 
-  @RequiresNonNull("cueText")
+  @RequiresNonNull({"cueText", "textDirectionHeuristic"})
   private void setupTextLayout() {
+    CharSequence cueTextInput = this.cueText;
+    TextDirectionHeuristic textDirectionHeuristic = this.textDirectionHeuristic;
+    CharSequence wrappedText =
+        BidiUtils.containsRtl(cueTextInput)
+            ? BidiUtils.wrapText(cueTextInput, textDirectionHeuristic)
+            : cueTextInput;
     SpannableStringBuilder cueText =
-        this.cueText instanceof SpannableStringBuilder
-            ? (SpannableStringBuilder) this.cueText
-            : new SpannableStringBuilder(this.cueText);
+        wrappedText instanceof SpannableStringBuilder
+            ? (SpannableStringBuilder) wrappedText
+            : new SpannableStringBuilder(wrappedText);
     int parentWidth = parentRight - parentLeft;
     int parentHeight = parentBottom - parentTop;
 
@@ -258,7 +272,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     // Remove embedded font color to not destroy edges, otherwise it overrides edge color.
     SpannableStringBuilder cueTextEdge = new SpannableStringBuilder(cueText);
-    if (edgeType == CaptionStyleCompat.EDGE_TYPE_OUTLINE) {
+    if (edgeType == SubtitleStyle.EDGE_TYPE_OUTLINE) {
       ForegroundColorSpan[] foregroundColorSpans =
           cueTextEdge.getSpans(0, cueTextEdge.length(), ForegroundColorSpan.class);
       for (ForegroundColorSpan foregroundColorSpan : foregroundColorSpans) {
@@ -271,8 +285,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // otherwise the background color gets drawn in front of the edge color
     // (https://github.com/google/ExoPlayer/pull/6724#issuecomment-564650572).
     if (Color.alpha(backgroundColor) > 0) {
-      if (edgeType == CaptionStyleCompat.EDGE_TYPE_NONE
-          || edgeType == CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW) {
+      if (edgeType == SubtitleStyle.EDGE_TYPE_NONE
+          || edgeType == SubtitleStyle.EDGE_TYPE_DROP_SHADOW) {
         cueText.setSpan(
             new BackgroundColorSpan(backgroundColor), 0, cueText.length(), Spanned.SPAN_PRIORITY);
       } else {
@@ -410,17 +424,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           windowPaint);
     }
 
-    if (edgeType == CaptionStyleCompat.EDGE_TYPE_OUTLINE) {
+    if (edgeType == SubtitleStyle.EDGE_TYPE_OUTLINE) {
       textPaint.setStrokeJoin(Join.ROUND);
       textPaint.setStrokeWidth(outlineWidth);
       textPaint.setColor(edgeColor);
       textPaint.setStyle(Style.FILL_AND_STROKE);
       edgeLayout.draw(canvas);
-    } else if (edgeType == CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW) {
+    } else if (edgeType == SubtitleStyle.EDGE_TYPE_DROP_SHADOW) {
       textPaint.setShadowLayer(shadowRadius, shadowOffset, shadowOffset, edgeColor);
-    } else if (edgeType == CaptionStyleCompat.EDGE_TYPE_RAISED
-        || edgeType == CaptionStyleCompat.EDGE_TYPE_DEPRESSED) {
-      boolean raised = edgeType == CaptionStyleCompat.EDGE_TYPE_RAISED;
+    } else if (edgeType == SubtitleStyle.EDGE_TYPE_RAISED
+        || edgeType == SubtitleStyle.EDGE_TYPE_DEPRESSED) {
+      boolean raised = edgeType == SubtitleStyle.EDGE_TYPE_RAISED;
       int colorUp = raised ? Color.WHITE : edgeColor;
       int colorDown = raised ? edgeColor : Color.WHITE;
       float offset = shadowRadius / 2f;

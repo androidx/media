@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.text;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when an error occurs decoding subtitle data. */
 @UnstableApi

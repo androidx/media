@@ -15,11 +15,11 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** ICY in-stream information. */
 @UnstableApi
@@ -29,10 +29,10 @@ public final class IcyInfo implements Metadata.Entry {
   public final byte[] rawMetadata;
 
   /** The stream title if present and decodable, or {@code null}. */
-  @Nullable public final String title;
+  public final @Nullable String title;
 
   /** The stream URL if present and decodable, or {@code null}. */
-  @Nullable public final String url;
+  public final @Nullable String url;
 
   /**
    * Construct a new IcyInfo from the source metadata, and optionally a StreamTitle and StreamUrl

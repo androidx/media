@@ -38,7 +38,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
@@ -58,6 +57,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -293,8 +293,7 @@ public final class TransformerHdrSequenceEffectTest {
 
     boolean atLeastOneDecoderSucceeds = false;
     for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;
@@ -329,8 +328,7 @@ public final class TransformerHdrSequenceEffectTest {
 
     boolean atLeastOneDecoderSucceeds = false;
     for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
-      @Nullable
-      ExportTestResult result =
+      @Nullable ExportTestResult result =
           tryToExportCompositionWithDecoder(testId, context, mediaCodecInfo, composition);
       if (result == null) {
         continue;

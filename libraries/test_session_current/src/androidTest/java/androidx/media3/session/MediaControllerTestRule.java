@@ -23,7 +23,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.media.session.MediaSessionCompat;
 import androidx.annotation.MainThread;
-import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.Log;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
@@ -31,6 +30,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import org.jspecify.annotations.Nullable;
 import org.junit.rules.ExternalResource;
 
 /**
@@ -103,7 +103,7 @@ public final class MediaControllerTestRule extends ExternalResource {
 
   /** Creates {@link MediaController} from {@link MediaSessionCompat.Token}. */
   public MediaController createController(
-      MediaSessionCompat.Token token, @Nullable MediaController.Listener listener)
+      MediaSessionCompat.Token token, MediaController.@Nullable Listener listener)
       throws Exception {
     return createController(token, listener, /* controllerCreationListener= */ null);
   }
@@ -111,7 +111,7 @@ public final class MediaControllerTestRule extends ExternalResource {
   /** Creates {@link MediaController} from {@link MediaSessionCompat.Token}. */
   public MediaController createController(
       MediaSessionCompat.Token token,
-      @Nullable MediaController.Listener listener,
+      MediaController.@Nullable Listener listener,
       @Nullable MediaControllerCreationListener controllerCreationListener)
       throws Exception {
     TestMediaBrowserListener testListener = new TestMediaBrowserListener(listener);
@@ -130,7 +130,7 @@ public final class MediaControllerTestRule extends ExternalResource {
   public MediaController createController(
       SessionToken token,
       @Nullable Bundle connectionHints,
-      @Nullable MediaController.Listener listener)
+      MediaController.@Nullable Listener listener)
       throws Exception {
     return createController(
         token,
@@ -144,7 +144,7 @@ public final class MediaControllerTestRule extends ExternalResource {
   public MediaController createController(
       SessionToken token,
       @Nullable Bundle connectionHints,
-      @Nullable MediaController.Listener listener,
+      MediaController.@Nullable Listener listener,
       @Nullable MediaControllerCreationListener controllerCreationListener,
       int maxCommandsForMediaItems)
       throws Exception {

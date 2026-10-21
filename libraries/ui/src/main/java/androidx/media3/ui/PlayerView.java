@@ -55,7 +55,6 @@ import android.widget.TextView;
 import android.window.SurfaceSyncGroup;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.AdOverlayInfo;
@@ -86,6 +85,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A high level view for {@link Player} media playbacks. It displays video, subtitles and album art
@@ -296,44 +296,43 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   // LINT.ThenChange(../../../../res/values/attrs.xml)
 
   private final ComponentListener componentListener;
-  @Nullable private final AspectRatioFrameLayout contentFrame;
-  @Nullable private final View shutterView;
-  @Nullable private final View surfaceView;
+  private final @Nullable AspectRatioFrameLayout contentFrame;
+  private final @Nullable View shutterView;
+  private final @Nullable View surfaceView;
   private final boolean surfaceViewIgnoresVideoAspectRatio;
-  @Nullable private final SurfaceSyncGroupCompatV34 surfaceSyncGroupV34;
-  @Nullable private final ImageView imageView;
-  @Nullable private final ImageView artworkView;
-  @Nullable private final SubtitleView subtitleView;
-  @Nullable private final View bufferingView;
-  @Nullable private final TextView errorMessageView;
-  @Nullable private final PlayerControlView controller;
-  @Nullable private final FrameLayout adOverlayFrameLayout;
-  @Nullable private final FrameLayout overlayFrameLayout;
+  private final @Nullable SurfaceSyncGroupCompatV34 surfaceSyncGroupV34;
+  private final @Nullable ImageView imageView;
+  private final @Nullable ImageView artworkView;
+  private final @Nullable SubtitleView subtitleView;
+  private final @Nullable View bufferingView;
+  private final @Nullable TextView errorMessageView;
+  private final @Nullable PlayerControlView controller;
+  private final @Nullable FrameLayout adOverlayFrameLayout;
+  private final @Nullable FrameLayout overlayFrameLayout;
   private final Handler mainLooperHandler;
-  @Nullable private final Class<?> exoPlayerClazz;
-  @Nullable private final Method setImageOutputMethod;
-  @Nullable private final Object imageOutput;
+  private final @Nullable Class<?> exoPlayerClazz;
+  private final @Nullable Method setImageOutputMethod;
+  private final @Nullable Object imageOutput;
 
-  @Nullable private Player player;
+  private @Nullable Player player;
   private boolean useController;
 
   // At most one of controllerVisibilityListener and legacyControllerVisibilityListener is non-null.
-  @Nullable private ControllerVisibilityListener controllerVisibilityListener;
+  private @Nullable ControllerVisibilityListener controllerVisibilityListener;
 
   @SuppressWarnings("deprecation")
-  @Nullable
-  private PlayerControlView.VisibilityListener legacyControllerVisibilityListener;
+  private PlayerControlView.@Nullable VisibilityListener legacyControllerVisibilityListener;
 
-  @Nullable private FullscreenButtonClickListener fullscreenButtonClickListener;
+  private @Nullable FullscreenButtonClickListener fullscreenButtonClickListener;
 
   private @ArtworkDisplayMode int artworkDisplayMode;
   private @ImageDisplayMode int imageDisplayMode;
 
-  @Nullable private Drawable defaultArtwork;
+  private @Nullable Drawable defaultArtwork;
   private @ShowBuffering int showBuffering;
   private boolean keepContentOnPlayerReset;
-  @Nullable private ErrorMessageProvider<? super PlaybackException> errorMessageProvider;
-  @Nullable private CharSequence customErrorMessage;
+  private @Nullable ErrorMessageProvider<? super PlaybackException> errorMessageProvider;
+  private @Nullable CharSequence customErrorMessage;
   private int controllerShowTimeoutMs;
   private boolean controllerAutoShow;
   private boolean controllerHideDuringAds;
@@ -626,8 +625,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /** Returns the player currently set on this view, or null if no player is set. */
-  @Nullable
-  public Player getPlayer() {
+  public @Nullable Player getPlayer() {
     return player;
   }
 
@@ -781,8 +779,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
   /** Returns the default artwork to display. */
   @UnstableApi
-  @Nullable
-  public Drawable getDefaultArtwork() {
+  public @Nullable Drawable getDefaultArtwork() {
     return defaultArtwork;
   }
 
@@ -1111,7 +1108,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Deprecated
   @UnstableApi
   public void setControllerVisibilityListener(
-      @Nullable PlayerControlView.VisibilityListener listener) {
+      PlayerControlView.@Nullable VisibilityListener listener) {
     checkNotNull(controller);
     if (this.legacyControllerVisibilityListener == listener) {
       return;
@@ -1173,7 +1170,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Deprecated
   @UnstableApi
   public void setControllerOnFullScreenModeChangedListener(
-      @Nullable PlayerControlView.OnFullScreenModeChangedListener listener) {
+      PlayerControlView.@Nullable OnFullScreenModeChangedListener listener) {
     checkNotNull(controller);
     this.fullscreenButtonClickListener = null;
     controller.setOnFullScreenModeChangedListener(listener);
@@ -1339,7 +1336,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setExtraAdGroupMarkers(
-      @Nullable long[] extraAdGroupTimesMs, @Nullable boolean[] extraPlayedAdGroups) {
+      long @Nullable [] extraAdGroupTimesMs, boolean @Nullable [] extraPlayedAdGroups) {
     checkNotNull(controller);
     controller.setExtraAdGroupMarkers(extraAdGroupTimesMs, extraPlayedAdGroups);
   }
@@ -1352,7 +1349,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setAspectRatioListener(
-      @Nullable AspectRatioFrameLayout.AspectRatioListener listener) {
+      AspectRatioFrameLayout.@Nullable AspectRatioListener listener) {
     checkNotNull(contentFrame);
     contentFrame.setAspectRatioListener(listener);
   }
@@ -1388,8 +1385,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    *     VideoDecoderGLSurfaceView} or {@code null}.
    */
   @UnstableApi
-  @Nullable
-  public View getVideoSurfaceView() {
+  public @Nullable View getVideoSurfaceView() {
     return surfaceView;
   }
 
@@ -1401,8 +1397,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    *     the overlay is not present.
    */
   @UnstableApi
-  @Nullable
-  public FrameLayout getOverlayFrameLayout() {
+  public @Nullable FrameLayout getOverlayFrameLayout() {
     return overlayFrameLayout;
   }
 
@@ -1413,8 +1408,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    *     subtitle view is not present.
    */
   @UnstableApi
-  @Nullable
-  public SubtitleView getSubtitleView() {
+  public @Nullable SubtitleView getSubtitleView() {
     return subtitleView;
   }
 
@@ -2008,8 +2002,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
         Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
       mainLooperHandler.post(
           () -> {
-            @Nullable
-            AttachedSurfaceControl rootSurfaceControl = surfaceView.getRootSurfaceControl();
+            @Nullable AttachedSurfaceControl rootSurfaceControl =
+                surfaceView.getRootSurfaceControl();
             if (rootSurfaceControl == null) {
               // The SurfaceView isn't attached to a window, so don't apply the workaround.
               return;

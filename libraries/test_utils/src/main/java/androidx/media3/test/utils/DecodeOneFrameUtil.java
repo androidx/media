@@ -26,19 +26,18 @@ import android.content.Context;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for decoding a video frame for tests. */
 @UnstableApi
@@ -87,8 +86,8 @@ public final class DecodeOneFrameUtil {
   public static void decodeOneMediaItemFrame(
       MediaItem mediaItem, Listener listener, Surface surface) throws Exception {
     Context context = getApplicationContext();
-    AtomicReference<@NullableType Exception> unexpectedExceptionReference = new AtomicReference<>();
-    AtomicReference<@NullableType PlaybackException> playbackExceptionReference =
+    AtomicReference<@Nullable Exception> unexpectedExceptionReference = new AtomicReference<>();
+    AtomicReference<@Nullable PlaybackException> playbackExceptionReference =
         new AtomicReference<>();
     ConditionVariable firstFrameRenderedOrError = new ConditionVariable();
 

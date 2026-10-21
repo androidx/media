@@ -27,7 +27,6 @@ import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.os.Handler;
 import android.os.HandlerThread;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -45,6 +44,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -636,8 +636,8 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     CountDownLatch renderedLatch;
     private long lastPresentationTimeUs;
     private long lastReleaseTimeNs;
-    @Nullable private Format lastFormat;
-    @Nullable private VideoFrameProcessingException lastException;
+    private @Nullable Format lastFormat;
+    private @Nullable VideoFrameProcessingException lastException;
 
     private FakeListener() {
       renderedLatch = new CountDownLatch(1);

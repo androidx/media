@@ -17,15 +17,15 @@ package androidx.media3.transformer;
 
 import android.media.metrics.LogSessionId;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
+import org.jspecify.annotations.Nullable;
 
 /** A forwarding {@link Codec.DecoderFactory} that captures details about the codecs created. */
 /* package */ final class CapturingDecoderFactory implements Codec.DecoderFactory {
   private final Codec.DecoderFactory decoderFactory;
 
-  @Nullable private String audioDecoderName;
-  @Nullable private String videoDecoderName;
+  private @Nullable String audioDecoderName;
+  private @Nullable String videoDecoderName;
 
   public CapturingDecoderFactory(Codec.DecoderFactory decoderFactory) {
     this.decoderFactory = decoderFactory;
@@ -57,8 +57,7 @@ import androidx.media3.common.Format;
    * Returns the name of the last audio {@linkplain Codec decoder} created, or {@code null} if none
    * were created.
    */
-  @Nullable
-  public String getAudioDecoderName() {
+  public @Nullable String getAudioDecoderName() {
     return audioDecoderName;
   }
 
@@ -66,8 +65,7 @@ import androidx.media3.common.Format;
    * Returns the name of the last video {@linkplain Codec decoder} created, or {@code null} if none
    * were created.
    */
-  @Nullable
-  public String getVideoDecoderName() {
+  public @Nullable String getVideoDecoderName() {
     return videoDecoderName;
   }
 }

@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.ConditionVariable;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.MediaItem;
@@ -58,6 +57,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -453,7 +453,7 @@ public final class ClippingProgressivePlaybackTest {
   private Pair<ExoPlayer, PlaybackOutput> setUpPlayerAndCapturingOutputForClippingTest(
       @Nullable ConditionVariable blockLoadingCondition,
       @Nullable Predicate<DumpableSampleMetadata> blockLoadingFilter,
-      @Nullable CapturingExtractorsFactory[] factoryHolder) {
+      CapturingExtractorsFactory @Nullable [] factoryHolder) {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     // Capture the extracted samples in addition to the decoded samples to capture the loading
@@ -510,8 +510,8 @@ public final class ClippingProgressivePlaybackTest {
   private static final class CapturingExtractorsFactory extends ForwardingExtractorsFactory
       implements Dumper.Dumpable {
 
-    @Nullable private final ConditionVariable blockLoadingCondition;
-    @Nullable private final Predicate<DumpableSampleMetadata> blockLoadingFilter;
+    private final @Nullable ConditionVariable blockLoadingCondition;
+    private final @Nullable Predicate<DumpableSampleMetadata> blockLoadingFilter;
 
     private ImmutableList.Builder<DumpableSampleMetadata> samples;
     private volatile boolean isBlocked;

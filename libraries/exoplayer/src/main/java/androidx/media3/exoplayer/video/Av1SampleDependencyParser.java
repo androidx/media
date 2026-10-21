@@ -23,13 +23,13 @@ import static androidx.media3.container.ObuParser.OBU_TEMPORAL_DELIMITER;
 import static androidx.media3.container.ObuParser.split;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.ObuParser;
 import androidx.media3.container.ObuParser.FrameHeader;
 import androidx.media3.container.ObuParser.SequenceHeader;
 import java.nio.ByteBuffer;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** An AV1 bitstream parser that identifies frames that are not depended on. */
 @UnstableApi
@@ -64,7 +64,7 @@ public final class Av1SampleDependencyParser {
    */
   private final ByteBuffer delayedKeyFrameTruncatedSample;
 
-  @Nullable private SequenceHeader sequenceHeader;
+  private @Nullable SequenceHeader sequenceHeader;
 
   public Av1SampleDependencyParser() {
     delayedKeyFrameTruncatedSample = ByteBuffer.allocateDirect(MAX_BYTES_FROM_KEYFRAME_TO_READ);

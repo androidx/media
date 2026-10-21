@@ -20,11 +20,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSource} for reading from a byte array. */
 @UnstableApi
@@ -47,8 +47,8 @@ public final class ByteArrayDataSource extends BaseDataSource {
 
   private final UriResolver uriResolver;
 
-  @Nullable private Uri uri;
-  @Nullable private byte[] data;
+  private @Nullable Uri uri;
+  private byte @Nullable [] data;
   private int readPosition;
   private int bytesRemaining;
   private boolean opened;
@@ -109,8 +109,7 @@ public final class ByteArrayDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

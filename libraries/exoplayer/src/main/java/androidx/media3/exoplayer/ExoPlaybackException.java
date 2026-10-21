@@ -29,7 +29,6 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.CheckResult;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.Format;
@@ -44,6 +43,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
 public final class ExoPlaybackException extends PlaybackException {
@@ -94,7 +94,7 @@ public final class ExoPlaybackException extends PlaybackException {
   @UnstableApi public final @Type int type;
 
   /** If {@link #type} is {@link #TYPE_RENDERER}, this is the name of the renderer. */
-  @UnstableApi @Nullable public final String rendererName;
+  @UnstableApi public final @Nullable String rendererName;
 
   /** If {@link #type} is {@link #TYPE_RENDERER}, this is the index of the renderer. */
   @UnstableApi public final int rendererIndex;
@@ -103,7 +103,7 @@ public final class ExoPlaybackException extends PlaybackException {
    * If {@link #type} is {@link #TYPE_RENDERER}, this is the {@link Format} the renderer was using
    * at the time of the exception, or null if the renderer wasn't using a {@link Format}.
    */
-  @UnstableApi @Nullable public final Format rendererFormat;
+  @UnstableApi public final @Nullable Format rendererFormat;
 
   /**
    * If {@link #type} is {@link #TYPE_RENDERER}, this is the level of {@link FormatSupport} of the
@@ -113,7 +113,7 @@ public final class ExoPlaybackException extends PlaybackException {
   @UnstableApi public final @FormatSupport int rendererFormatSupport;
 
   /** The {@link MediaPeriodId} of the media associated with this error, or null if undetermined. */
-  @UnstableApi @Nullable public final MediaPeriodId mediaPeriodId;
+  @UnstableApi public final @Nullable MediaPeriodId mediaPeriodId;
 
   /**
    * If {@link #type} is {@link #TYPE_RENDERER}, this field indicates whether the error may be

@@ -34,7 +34,6 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -71,6 +70,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link FrameProcessor} implementation that executes a chain of {@link GlTextureFrameConsumer}s.
@@ -86,12 +86,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     /** A builder for {@link Factory} instances. */
     public static final class Builder {
       private final Context context;
-      @Nullable private ColorInfo workingColorSpace;
-      @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
-      @Nullable private GlObjectsProvider glObjectsProvider;
-      @Nullable private ExecutorService executorService;
-      @Nullable private FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
-      @Nullable private GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+      private @Nullable ColorInfo workingColorSpace;
+      private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
+      private @Nullable GlObjectsProvider glObjectsProvider;
+      private @Nullable ExecutorService executorService;
+      private FrameToGlTextureConverter.@Nullable Factory frameToGlTextureConverterFactory;
+      private @Nullable GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
       private GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
       private boolean assumeSurfacelessContextExtensionSupported;
 
@@ -187,6 +187,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       /**
        * Sets the {@link FrameToGlTextureConverter.Factory}.
        *
+       * <p>The default value creates a {@link DefaultFrameToGlTextureConverter} instance.
+       *
        * @param frameToGlTextureConverterFactory The {@link FrameToGlTextureConverter.Factory}.
        * @return This builder.
        */
@@ -254,7 +256,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         if (frameToGlTextureConverterFactory == null) {
           frameToGlTextureConverterFactory =
               (outputColorInfo, errorConsumer) ->
-                  new HardwareBufferToGlTextureConverter(
+                  new DefaultFrameToGlTextureConverter(
                       context, hardwareBufferJniWrapper, outputColorInfo, errorConsumer);
         }
         return new Factory(this);
@@ -265,12 +267,12 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
     private final Context context;
     // The working color space set by the app, or null if it's resolved from the first input frame.
-    @Nullable private final ColorInfo workingColorSpace;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
-    @Nullable private final ExecutorService glExecutorService;
+    private final @Nullable ColorInfo workingColorSpace;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
+    private final @Nullable ExecutorService glExecutorService;
     private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
     private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-    @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+    private final @Nullable GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
     private final GlTextureFrameCompositor.Factory glTextureFrameCompositorFactory;
     // Whether to assume the surfaceless context extension is supported instead of detecting support
     // at runtime. Only set to true in tests.
@@ -469,8 +471,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private @MonotonicNonNull FrameToGlTextureConverter frameToGlTextureConverter;
 
   @GuardedBy("lock")
-  @Nullable
-  private List<AsyncFrame> pendingFrames;
+  private @Nullable List<AsyncFrame> pendingFrames;
 
   @GuardedBy("lock")
   private boolean shouldTriggerWakeupListener;
@@ -483,7 +484,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   // Accessed on the GL thread.
   // A null color space means it's unset; and it's inferred from the input color.
-  @Nullable private ColorInfo workingColorSpace;
+  private @Nullable ColorInfo workingColorSpace;
   private boolean isPipelineInitialized;
   private boolean isGlSetup;
   private boolean isHdrSupported;
@@ -704,8 +705,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       return;
     }
     try {
-      @Nullable
-      GlTextureFrameProcessorChain processingChain = preProcessingChains.get(sequenceIndex);
+      @Nullable GlTextureFrameProcessorChain processingChain =
+          preProcessingChains.get(sequenceIndex);
       if (processingChain == null) {
         processingChain =
             new GlTextureFrameProcessorChain(
@@ -745,8 +746,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       if (!waitAndCloseFence(asyncFrame)) {
         GLES20.glFinish();
       }
-      @Nullable
-      GlTextureFrame convertedFrame =
+      @Nullable GlTextureFrame convertedFrame =
           checkNotNull(frameToGlTextureConverter)
               .convert(frame, glExecutorService, listenerExecutor, listener);
       if (convertedFrame == null) {

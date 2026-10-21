@@ -37,7 +37,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.Context;
 import android.media.metrics.LogSessionId;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
@@ -57,11 +56,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExportOperation} implementation for trim optimized exports. */
 /* package */ final class TrimOptimizedExportOperation implements ExportOperation {
@@ -78,7 +79,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Context context;
   private final TransformationRequest transformationRequest;
-  @Nullable private final AssetLoader.Factory assetLoaderFactory;
+  private final AssetLoader.@Nullable Factory assetLoaderFactory;
   private final AudioMixer.Factory audioMixerFactory;
   private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
   private final Codec.EncoderFactory encoderFactory;
@@ -90,13 +91,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final DebugViewProvider debugViewProvider;
   private final Clock clock;
 
-  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
+  private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
   private final Muxer.Factory muxerFactory;
-  private final String outputFilePath;
+  private final TransformerOutputResolver outputResolver;
   private final boolean applyMp4EditListTrim;
   private final ExportResult.Builder exportResultBuilder;
   private final ComponentListener componentListener;
@@ -104,9 +105,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private Composition composition;
   private @ExportState int state;
   private @MonotonicNonNull ListenableFuture<Mp4Info> getMp4InfoFuture;
-  @Nullable private TransformerInternal transformerInternal;
-  @Nullable private MuxerWrapper remuxingMuxerWrapper;
-  @Nullable private Mp4Info mediaItemInfo;
+  private @Nullable TransformerInternal transformerInternal;
+  private @Nullable MuxerWrapper remuxingMuxerWrapper;
+  private @Nullable Mp4Info mediaItemInfo;
   // Only accessed on the application thread.
   private boolean isCancelled;
 
@@ -114,7 +115,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       Composition composition,
       TransformationRequest transformationRequest,
-      @Nullable AssetLoader.Factory assetLoaderFactory,
+      AssetLoader.@Nullable Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -125,12 +126,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable FrameProcessor.Factory frameProcessorFactory,
+      FrameProcessor.@Nullable Factory frameProcessorFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
       Muxer.Factory muxerFactory,
-      String outputFilePath) {
+      TransformerOutput transformerOutput) {
     this.context = context;
     this.composition = composition;
     this.transformationRequest = transformationRequest;
@@ -149,7 +150,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.logSessionId = logSessionId;
     this.muxerFactory = muxerFactory;
-    this.outputFilePath = outputFilePath;
+    this.outputResolver = new TransformerOutputResolver(context, transformerOutput);
     this.applyMp4EditListTrim = applyMp4EditListTrim;
     exportResultBuilder = new ExportResult.Builder();
     componentListener = new ComponentListener();
@@ -188,11 +189,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void cancel() {
     isCancelled = true;
     if (transformerInternal != null) {
+      // Blocks until the export pipeline has ended, releasing the muxer and closing the file
+      // descriptor, so that the MediaStore entry can be safely deleted below.
       transformerInternal.cancel();
     }
     if (getMp4InfoFuture != null) {
       getMp4InfoFuture.cancel(/* mayInterruptIfRunning= */ false);
     }
+    outputResolver.deleteIfPresent();
   }
 
   @Override
@@ -277,21 +281,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               processFullInput();
               return;
             }
-            remuxingMuxerWrapper =
-                new MuxerWrapper(
-                    checkNotNull(outputFilePath),
-                    muxerFactory,
-                    componentListener,
-                    MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
-                    /* dropSamplesBeforeFirstVideoSample= */ false,
-                    mp4Info.videoFormat);
             if (shouldTranscodeVideo(
                     checkNotNull(mp4Info.videoFormat),
                     composition,
                     /* sequenceIndex= */ 0,
                     transformationRequest,
                     encoderFactory,
-                    remuxingMuxerWrapper,
+                    muxerFactory,
                     /* hasFrameProcessorFactory= */ frameProcessorFactory != null)
                 || (mp4Info.audioFormat != null
                     && shouldTranscodeAudio(
@@ -300,11 +296,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                         /* sequenceIndex= */ 0,
                         transformationRequest,
                         encoderFactory,
-                        remuxingMuxerWrapper))) {
-              remuxingMuxerWrapper = null;
+                        muxerFactory))) {
               exportResultBuilder.setOptimizationResult(
                   OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED);
               processFullInput();
+              return;
+            }
+            remuxingMuxerWrapper =
+                createMuxerWrapper(MuxerWrapper.MUXER_MODE_MUX_PARTIAL, mp4Info.videoFormat);
+            if (remuxingMuxerWrapper == null) {
               return;
             }
 
@@ -341,16 +341,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private void processFullInput() {
     state = STATE_PROCESS_FULL_INPUT;
-    startInternal(
-        checkNotNull(composition),
-        new MuxerWrapper(
-            checkNotNull(outputFilePath),
-            muxerFactory,
-            componentListener,
-            MuxerWrapper.MUXER_MODE_DEFAULT,
-            /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null),
-        /* initialTimestampOffsetUs= */ 0);
+    MuxerWrapper muxerWrapper =
+        createMuxerWrapper(MuxerWrapper.MUXER_MODE_DEFAULT, /* appendVideoFormat= */ null);
+    if (muxerWrapper == null) {
+      return;
+    }
+    startInternal(checkNotNull(composition), muxerWrapper, /* initialTimestampOffsetUs= */ 0);
+  }
+
+  private @Nullable MuxerWrapper createMuxerWrapper(
+      @MuxerWrapper.MuxerMode int muxerMode, @Nullable Format appendVideoFormat) {
+    try {
+      return outputResolver.createMuxerWrapper(
+          muxerFactory,
+          componentListener,
+          muxerMode,
+          /* dropSamplesBeforeFirstVideoSample= */ false,
+          appendVideoFormat);
+    } catch (IOException e) {
+      ExportException exportException =
+          ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED);
+      listener.onError(
+          exportResultBuilder.setExportException(exportException).build(), exportException);
+      return null;
+    }
   }
 
   private void remuxRemainingMedia() {
@@ -448,13 +462,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       transformerInternal = null;
       if (state == STATE_PROCESS_MEDIA_START) {
         remuxRemainingMedia();
-      } else if (state == STATE_REMUX_REMAINING_MEDIA) {
+        return;
+      }
+      outputResolver.clearPendingFlag();
+      if (state == STATE_REMUX_REMAINING_MEDIA) {
         mediaItemInfo = null;
         exportResultBuilder.setOptimizationResult(ExportResult.OPTIMIZATION_SUCCEEDED);
-        listener.onCompleted(exportResultBuilder.build());
-      } else {
-        listener.onCompleted(exportResultBuilder.build());
       }
+      listener.onCompleted(exportResultBuilder.build());
     }
 
     @Override
@@ -475,6 +490,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         processFullInput();
         return;
       }
+      outputResolver.deleteIfPresent();
       listener.onError(
           exportResultBuilder.setExportException(exportException).build(), exportException);
     }

@@ -20,7 +20,6 @@ import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -44,6 +43,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts data from the AVI container format.
@@ -155,7 +155,7 @@ public final class AviExtractor implements Extractor {
   private ChunkReader[] chunkReaders;
 
   private long pendingReposition;
-  @Nullable private ChunkReader currentChunkReader;
+  private @Nullable ChunkReader currentChunkReader;
   private int hdrlSize;
   private long moviStart;
   private long moviEnd;
@@ -446,8 +446,7 @@ public final class AviExtractor implements Extractor {
     return seekOffset;
   }
 
-  @Nullable
-  private ChunkReader getChunkReader(int chunkId) {
+  private @Nullable ChunkReader getChunkReader(int chunkId) {
     for (ChunkReader chunkReader : chunkReaders) {
       if (chunkReader.handlesChunkId(chunkId)) {
         return chunkReader;
@@ -495,8 +494,7 @@ public final class AviExtractor implements Extractor {
     return RESULT_CONTINUE;
   }
 
-  @Nullable
-  private ChunkReader processStreamList(ListChunk streamList, int streamId) {
+  private @Nullable ChunkReader processStreamList(ListChunk streamList, int streamId) {
     AviStreamHeaderChunk aviStreamHeaderChunk = streamList.getChild(AviStreamHeaderChunk.class);
     StreamFormatChunk streamFormatChunk = streamList.getChild(StreamFormatChunk.class);
     if (aviStreamHeaderChunk == null) {

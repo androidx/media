@@ -22,12 +22,12 @@ import android.content.res.TypedArray;
 import android.util.AttributeSet;
 import android.widget.FrameLayout;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link FrameLayout} that resizes itself to match a specified aspect ratio. */
 @UnstableApi
@@ -101,7 +101,7 @@ public final class AspectRatioFrameLayout extends FrameLayout {
 
   private final AspectRatioUpdateDispatcher aspectRatioUpdateDispatcher;
 
-  @Nullable private AspectRatioListener aspectRatioListener;
+  private @Nullable AspectRatioListener aspectRatioListener;
 
   private float videoAspectRatio;
   private @ResizeMode int resizeMode;

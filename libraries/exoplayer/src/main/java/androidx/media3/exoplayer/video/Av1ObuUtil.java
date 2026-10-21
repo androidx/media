@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.video;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -24,6 +23,7 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for AV1 OBUs. */
 @UnstableApi
@@ -47,9 +47,8 @@ public final class Av1ObuUtil {
    *     0x80} followed by any zero padding bytes), or {@code null} if no valid HAGC metadata OBU is
    *     found.
    */
-  @Nullable
-  public static byte[] extractHagcMetadataAndStripAllT35Metadata(ByteBuffer buffer) {
-    @Nullable byte[] hagcData = null;
+  public static byte @Nullable [] extractHagcMetadataAndStripAllT35Metadata(ByteBuffer buffer) {
+    byte @Nullable [] hagcData = null;
     List<Integer> t35MetadataTypeIndices = new ArrayList<>();
     for (ObuParser.Obu obu : ObuParser.split(buffer)) {
       if (obu.type != ObuParser.OBU_METADATA) {
@@ -89,8 +88,7 @@ public final class Av1ObuUtil {
    * Returns the HAGC payload in {@code payload} without the ITU-T T.35 header and the AV1 OBU
    * trailing bits, or {@code null} if the payload is empty or the trailing bits are missing.
    */
-  @Nullable
-  private static byte[] readHagcPayload(ByteBuffer payload) {
+  private static byte @Nullable [] readHagcPayload(ByteBuffer payload) {
     int startIndex = payload.position() + CodecSpecificDataUtil.HAGC_T35_HEADER_LENGTH;
     int lastNonZeroIndex = payload.limit() - 1;
     while (lastNonZeroIndex >= startIndex && payload.get(lastNonZeroIndex) == 0) {

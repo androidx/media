@@ -37,7 +37,6 @@ import android.os.SystemClock;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -55,7 +54,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.NetworkTypeObserver;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.FileDataSource;
@@ -83,6 +81,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AnalyticsListener} that interacts with the Android {@link MediaMetricsManager}.
@@ -102,10 +101,8 @@ public final class MediaMetricsListener
    * @return The {@link MediaMetricsListener}, or null if the {@link Context#MEDIA_METRICS_SERVICE
    *     media metrics service} isn't available.
    */
-  @Nullable
-  public static MediaMetricsListener create(Context context) {
-    @Nullable
-    MediaMetricsManager mediaMetricsManager =
+  public static @Nullable MediaMetricsListener create(Context context) {
+    @Nullable MediaMetricsManager mediaMetricsManager =
         (MediaMetricsManager) context.getSystemService(Context.MEDIA_METRICS_SERVICE);
     return mediaMetricsManager == null
         ? null
@@ -122,18 +119,18 @@ public final class MediaMetricsListener
   private final HashMap<String, Long> bandwidthTimeMs;
   private final HashMap<String, Long> bandwidthBytes;
 
-  @Nullable private String activeSessionId;
-  @Nullable private PlaybackMetrics.Builder metricsBuilder;
+  private @Nullable String activeSessionId;
+  private PlaybackMetrics.@Nullable Builder metricsBuilder;
   private @Player.DiscontinuityReason int discontinuityReason;
   private int currentPlaybackState;
   private int currentNetworkType;
-  @Nullable private PlaybackException pendingPlayerError;
-  @Nullable private PendingFormatUpdate pendingVideoFormat;
-  @Nullable private PendingFormatUpdate pendingAudioFormat;
-  @Nullable private PendingFormatUpdate pendingTextFormat;
-  @Nullable private Format currentVideoFormat;
-  @Nullable private Format currentAudioFormat;
-  @Nullable private Format currentTextFormat;
+  private @Nullable PlaybackException pendingPlayerError;
+  private @Nullable PendingFormatUpdate pendingVideoFormat;
+  private @Nullable PendingFormatUpdate pendingAudioFormat;
+  private @Nullable PendingFormatUpdate pendingTextFormat;
+  private @Nullable Format currentVideoFormat;
+  private @Nullable Format currentAudioFormat;
+  private @Nullable Format currentTextFormat;
   private boolean isSeeking;
   private int ioErrorType;
   private boolean hasFatalError;
@@ -576,8 +573,7 @@ public final class MediaMetricsListener
         builder.setAudioSampleRate(format.sampleRate);
       }
       if (format.language != null) {
-        Pair<String, @NullableType String> languageAndRegion =
-            getLanguageAndRegion(format.language);
+        Pair<String, @Nullable String> languageAndRegion = getLanguageAndRegion(format.language);
         builder.setLanguage(languageAndRegion.first);
         if (languageAndRegion.second != null) {
           builder.setLanguageRegion(languageAndRegion.second);
@@ -596,7 +592,7 @@ public final class MediaMetricsListener
 
   @RequiresNonNull("metricsBuilder")
   private void maybeUpdateTimelineMetadata(
-      Timeline timeline, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
+      Timeline timeline, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
     PlaybackMetrics.Builder metricsBuilder = this.metricsBuilder;
     if (mediaPeriodId == null) {
       return;
@@ -676,7 +672,7 @@ public final class MediaMetricsListener
     }
   }
 
-  private static Pair<String, @NullableType String> getLanguageAndRegion(String languageCode) {
+  private static Pair<String, @Nullable String> getLanguageAndRegion(String languageCode) {
     String[] parts = Util.split(languageCode, "-");
     return Pair.create(parts[0], parts.length >= 2 ? parts[1] : null);
   }
@@ -828,8 +824,7 @@ public final class MediaMetricsListener
         && rendererFormatSupport == C.FORMAT_UNSUPPORTED_DRM) {
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DRM_SCHEME_UNSUPPORTED, /* subErrorCode= */ 0);
     } else if (cause instanceof MediaCodecRenderer.DecoderInitializationException) {
-      @Nullable
-      String diagnosticsInfo =
+      @Nullable String diagnosticsInfo =
           ((MediaCodecRenderer.DecoderInitializationException) cause).diagnosticInfo;
       int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return new ErrorInfo(PlaybackErrorEvent.ERROR_DECODER_INIT_FAILED, subErrorCode);
@@ -853,8 +848,7 @@ public final class MediaMetricsListener
     }
   }
 
-  @Nullable
-  private static DrmInitData getDrmInitData(ImmutableList<Tracks.Group> trackGroups) {
+  private static @Nullable DrmInitData getDrmInitData(ImmutableList<Tracks.Group> trackGroups) {
     for (Tracks.Group trackGroup : trackGroups) {
       for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
         if (trackGroup.isTrackSelected(trackIndex)) {

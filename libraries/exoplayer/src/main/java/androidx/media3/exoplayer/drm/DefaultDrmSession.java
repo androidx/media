@@ -28,7 +28,6 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.util.CopyOnWriteMultiset;
@@ -53,6 +52,7 @@ import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DrmSession} that supports playbacks using {@link ExoMediaDrm}. */
 /* package */ class DefaultDrmSession implements DrmSession {
@@ -120,7 +120,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private static final int MAX_LICENSE_DURATION_TO_RENEW_SECONDS = 60;
 
   /** The DRM scheme datas, or null if this session uses offline keys. */
-  @Nullable public final List<SchemeData> schemeDatas;
+  public final @Nullable List<SchemeData> schemeDatas;
 
   private final ExoMediaDrm mediaDrm;
   private final ProvisioningManager provisioningManager;
@@ -141,20 +141,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private @DrmSession.State int state;
   private int referenceCount;
-  @Nullable private HandlerThread requestHandlerThread;
-  @Nullable private RequestHandler requestHandler;
-  @Nullable private CryptoConfig cryptoConfig;
-  @Nullable private DrmSessionException lastException;
-  @Nullable private byte[] sessionId;
+  private @Nullable HandlerThread requestHandlerThread;
+  private @Nullable RequestHandler requestHandler;
+  private @Nullable CryptoConfig cryptoConfig;
+  private @Nullable DrmSessionException lastException;
+  private byte @Nullable [] sessionId;
   private byte @MonotonicNonNull [] offlineLicenseKeySetId;
 
-  @Nullable private KeyRequest currentKeyRequest;
+  private @Nullable KeyRequest currentKeyRequest;
 
   @GuardedBy("keyRequestInfoLock")
-  @Nullable
-  private KeyRequestInfo.Builder currentKeyRequestInfo;
+  private KeyRequestInfo.@Nullable Builder currentKeyRequestInfo;
 
-  @Nullable private ProvisionRequest currentProvisionRequest;
+  private @Nullable ProvisionRequest currentProvisionRequest;
 
   /**
    * Instantiates a new DRM session.
@@ -184,7 +183,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @DefaultDrmSessionManager.Mode int mode,
       boolean playClearSamplesWithoutKeys,
       boolean isPlaceholderSession,
-      @Nullable byte[] offlineLicenseKeySetId,
+      byte @Nullable [] offlineLicenseKeySetId,
       HashMap<String, String> keyRequestParameters,
       MediaDrmCallback callback,
       Looper playbackLooper,
@@ -270,8 +269,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   @Override
-  @Nullable
-  public final DrmSessionException getError() {
+  public final @Nullable DrmSessionException getError() {
     verifyPlaybackThread();
     return state == STATE_ERROR ? lastException : null;
   }
@@ -283,22 +281,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   @Override
-  @Nullable
-  public final CryptoConfig getCryptoConfig() {
+  public final @Nullable CryptoConfig getCryptoConfig() {
     verifyPlaybackThread();
     return cryptoConfig;
   }
 
   @Override
-  @Nullable
-  public Map<String, String> queryKeyStatus() {
+  public @Nullable Map<String, String> queryKeyStatus() {
     verifyPlaybackThread();
     return sessionId == null ? null : mediaDrm.queryKeyStatus(sessionId);
   }
 
   @Override
-  @Nullable
-  public byte[] getOfflineLicenseKeySetId() {
+  public byte @Nullable [] getOfflineLicenseKeySetId() {
     verifyPlaybackThread();
     return offlineLicenseKeySetId;
   }
@@ -310,7 +305,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   @Override
-  public void acquire(@Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+  public void acquire(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
     verifyPlaybackThread();
     if (referenceCount < 0) {
       Log.e(TAG, "Session reference count less than zero: " + referenceCount);
@@ -338,7 +333,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   @Override
-  public void release(@Nullable DrmSessionEventListener.EventDispatcher eventDispatcher) {
+  public void release(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {
     verifyPlaybackThread();
     if (referenceCount <= 0) {
       Log.e(TAG, "release() called on a session that's already fully released.");

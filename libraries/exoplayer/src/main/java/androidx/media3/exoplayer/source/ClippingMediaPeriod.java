@@ -20,14 +20,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -38,6 +36,7 @@ import androidx.media3.exoplayer.source.ClippingMediaSource.IllegalClippingExcep
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps a {@link MediaPeriod} and clips its {@link SampleStream}s to provide a subsequence of their
@@ -51,15 +50,15 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
 
   private final boolean enableClippingInMediaPeriod;
 
-  @Nullable private MediaPeriod.Callback callback;
-  private @NullableType ClippingSampleStream[] sampleStreams;
+  private MediaPeriod.@Nullable Callback callback;
+  private @Nullable ClippingSampleStream[] sampleStreams;
   private long pendingInitialDiscontinuityPositionUs;
   private boolean hasProcessedInitialDiscontinuity;
   private boolean usesStreamPrerollFlags;
   private long lastReportedDiscontinuityUs;
   /* package */ long startUs;
   /* package */ long endUs;
-  @Nullable private IllegalClippingException clippingError;
+  private @Nullable IllegalClippingException clippingError;
   private boolean isPeriodClippingEndPosition;
 
   /**
@@ -174,13 +173,13 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     sampleStreams = new ClippingSampleStream[streams.length];
-    @NullableType SampleStream[] childStreams = new SampleStream[streams.length];
+    @Nullable SampleStream[] childStreams = new SampleStream[streams.length];
     for (int i = 0; i < streams.length; i++) {
       sampleStreams[i] = (ClippingSampleStream) streams[i];
       childStreams[i] = sampleStreams[i] != null ? sampleStreams[i].childStream : null;
@@ -354,7 +353,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   private static boolean shouldKeepInitialDiscontinuity(
       long enablePositionUs,
       long requestedPositionUs,
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       int streamIndex) {
     // If the source adjusted the enable position to be before the requested position, we need to
     // report a discontinuity to ensure renderers decode-only the samples before the requested start

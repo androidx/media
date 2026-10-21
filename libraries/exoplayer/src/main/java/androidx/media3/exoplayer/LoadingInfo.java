@@ -18,11 +18,11 @@ package androidx.media3.exoplayer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Information about the player state when loading is started or continued. */
 @UnstableApi

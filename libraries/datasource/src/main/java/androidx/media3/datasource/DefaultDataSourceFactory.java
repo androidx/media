@@ -16,9 +16,9 @@
 package androidx.media3.datasource;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource.Factory;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @deprecated Use {@link DefaultDataSource.Factory} instead.
@@ -28,7 +28,7 @@ import androidx.media3.datasource.DataSource.Factory;
 public final class DefaultDataSourceFactory implements Factory {
 
   private final Context context;
-  @Nullable private final TransferListener listener;
+  private final @Nullable TransferListener listener;
   private final DataSource.Factory baseDataSourceFactory;
 
   /**

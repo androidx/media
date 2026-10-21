@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.media.metrics.LogSessionId;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
@@ -34,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Processes, encodes and muxes raw audio samples. */
 /* package */ final class AudioSampleExporter extends SampleExporter {
@@ -49,7 +49,7 @@ import org.checkerframework.dataflow.qual.Pure;
 
   private boolean returnedFirstInput;
   private long encoderTotalInputBytes;
-  @Nullable private DecoderInputBuffer partiallyFilledEncoderInputBuffer;
+  private @Nullable DecoderInputBuffer partiallyFilledEncoderInputBuffer;
 
   public AudioSampleExporter(
       Format firstAssetLoaderTrackFormat,
@@ -168,14 +168,12 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   @Override
-  @Nullable
-  protected Format getMuxerInputFormat() throws ExportException {
+  protected @Nullable Format getMuxerInputFormat() throws ExportException {
     return encoder.getOutputFormat();
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
     encoderOutputBuffer.data = encoder.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;

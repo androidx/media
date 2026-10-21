@@ -29,9 +29,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.Pair;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec.HttpMethod;
@@ -63,6 +61,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Dispatcher} for {@link okhttp3.mockwebserver.MockWebServer} that allows per-path
@@ -531,8 +530,7 @@ public final class WebServerDispatcher extends Dispatcher {
       return response;
     }
 
-    @Nullable
-    Pair<@NullableType Integer, @NullableType Integer> range = getRangeHeader(rangeHeader);
+    @Nullable Pair<@Nullable Integer, @Nullable Integer> range = getRangeHeader(rangeHeader);
 
     if (range == null || (range.first != null && range.first >= resourceData.length)) {
       return response
@@ -644,10 +642,10 @@ public final class WebServerDispatcher extends Dispatcher {
    *
    * <p>Missing qvalues are stored in the map as -1.
    */
-  @Nullable
-  private static ImmutableMap<String, Float> getAcceptEncodingHeader(RecordedRequest request) {
-    @Nullable
-    List<String> headers = request.getHeaders().toMultimap().get(HttpHeaders.ACCEPT_ENCODING);
+  private static @Nullable ImmutableMap<String, Float> getAcceptEncodingHeader(
+      RecordedRequest request) {
+    @Nullable List<String> headers =
+        request.getHeaders().toMultimap().get(HttpHeaders.ACCEPT_ENCODING);
     if (headers == null) {
       return null;
     }
@@ -677,8 +675,7 @@ public final class WebServerDispatcher extends Dispatcher {
    * @param supportedContentCodings A list of content-codings supported by the server in order of
    *     preference.
    */
-  @Nullable
-  private static String getPreferredContentCoding(
+  private static @Nullable String getPreferredContentCoding(
       @Nullable ImmutableMap<String, Float> acceptEncodingHeader,
       List<String> supportedContentCodings) {
     if (acceptEncodingHeader == null) {
@@ -713,8 +710,7 @@ public final class WebServerDispatcher extends Dispatcher {
   /**
    * Parses an RFC 7233 Range header to its component parts. Returns null if the Range is invalid.
    */
-  @Nullable
-  private static Pair<@NullableType Integer, @NullableType Integer> getRangeHeader(
+  private static @Nullable Pair<@Nullable Integer, @Nullable Integer> getRangeHeader(
       String rangeHeader) {
     Pattern rangePattern = Pattern.compile("bytes=(\\d*)-(\\d*)");
     Matcher rangeMatcher = rangePattern.matcher(rangeHeader);
@@ -725,7 +721,7 @@ public final class WebServerDispatcher extends Dispatcher {
     String first = checkNotNull(rangeMatcher.group(1));
     String second = checkNotNull(rangeMatcher.group(2));
 
-    Pair<@NullableType Integer, @NullableType Integer> result =
+    Pair<@Nullable Integer, @Nullable Integer> result =
         Pair.create(
             first.isEmpty() ? null : Integer.parseInt(first),
             second.isEmpty() ? null : Integer.parseInt(second));

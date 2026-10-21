@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ThrowingRunnable;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Encapsulates N-to-1 frame aggregation logic.
@@ -48,7 +48,7 @@ import java.util.function.Consumer;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   private final SparseArray<InputFrameConsumer> sequenceConsumers;
 
-  @Nullable private ImmutableSet<Integer> pendingSequenceIndices;
+  private @Nullable ImmutableSet<Integer> pendingSequenceIndices;
   private boolean isClosed;
   // This is reset when a new batch of frames is queued.
   private boolean allInputStreamsEnded;
@@ -297,9 +297,9 @@ import java.util.function.Consumer;
 
   private final class InputFrameConsumer implements GlTextureFrameConsumer {
     private final int sequenceIndex;
-    @Nullable private Runnable pendingWakeupListener;
-    @Nullable private Executor pendingWakeupExecutor;
-    @Nullable private GlTextureFrame pendingFrame;
+    private @Nullable Runnable pendingWakeupListener;
+    private @Nullable Executor pendingWakeupExecutor;
+    private @Nullable GlTextureFrame pendingFrame;
     // This is reset when a new batch of frames is queued.
     private boolean isEnded;
     private boolean isActive;

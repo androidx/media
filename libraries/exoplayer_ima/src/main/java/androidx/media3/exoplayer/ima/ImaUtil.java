@@ -34,7 +34,6 @@ import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
@@ -76,6 +75,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities for working with IMA SDK and IMA extension data types. */
 /* package */ final class ImaUtil {
@@ -127,14 +127,14 @@ import java.util.Set;
     public final boolean playAdBeforeStartPosition;
     public final boolean enableCustomTabs;
     public final int mediaBitrate;
-    @Nullable public final Boolean enableContinuousPlayback;
-    @Nullable public final List<String> adMediaMimeTypes;
-    @Nullable public final Set<UiElement> adUiElements;
-    @Nullable public final Collection<CompanionAdSlot> companionAdSlots;
-    @Nullable public final AdErrorEvent.AdErrorListener applicationAdErrorListener;
-    @Nullable public final AdEvent.AdEventListener applicationAdEventListener;
-    @Nullable public final VideoAdPlayer.VideoAdPlayerCallback applicationVideoAdPlayerCallback;
-    @Nullable public final ImaSdkSettings imaSdkSettings;
+    public final @Nullable Boolean enableContinuousPlayback;
+    public final @Nullable List<String> adMediaMimeTypes;
+    public final @Nullable Set<UiElement> adUiElements;
+    public final @Nullable Collection<CompanionAdSlot> companionAdSlots;
+    public final AdErrorEvent.@Nullable AdErrorListener applicationAdErrorListener;
+    public final AdEvent.@Nullable AdEventListener applicationAdEventListener;
+    public final VideoAdPlayer.@Nullable VideoAdPlayerCallback applicationVideoAdPlayerCallback;
+    public final @Nullable ImaSdkSettings imaSdkSettings;
     public final boolean debugModeEnabled;
 
     public Configuration(
@@ -149,9 +149,9 @@ import java.util.Set;
         @Nullable List<String> adMediaMimeTypes,
         @Nullable Set<UiElement> adUiElements,
         @Nullable Collection<CompanionAdSlot> companionAdSlots,
-        @Nullable AdErrorEvent.AdErrorListener applicationAdErrorListener,
-        @Nullable AdEvent.AdEventListener applicationAdEventListener,
-        @Nullable VideoAdPlayer.VideoAdPlayerCallback applicationVideoAdPlayerCallback,
+        AdErrorEvent.@Nullable AdErrorListener applicationAdErrorListener,
+        AdEvent.@Nullable AdEventListener applicationAdEventListener,
+        VideoAdPlayer.@Nullable VideoAdPlayerCallback applicationVideoAdPlayerCallback,
         @Nullable ImaSdkSettings imaSdkSettings,
         boolean debugModeEnabled) {
       this.adPreloadTimeoutMs = adPreloadTimeoutMs;
@@ -179,10 +179,10 @@ import java.util.Set;
     public final AdViewProvider adViewProvider;
     public final ImaSdkSettings imaSdkSettings;
     public final ImaServerSideAdInsertionMediaSource.StreamEventListener streamEventListener;
-    @Nullable public final AdEvent.AdEventListener applicationAdEventListener;
-    @Nullable public final AdErrorEvent.AdErrorListener applicationAdErrorListener;
+    public final AdEvent.@Nullable AdEventListener applicationAdEventListener;
+    public final AdErrorEvent.@Nullable AdErrorListener applicationAdErrorListener;
     public final ImmutableList<CompanionAdSlot> companionAdSlots;
-    @Nullable public final AdSlot pauseAdSlot;
+    public final @Nullable AdSlot pauseAdSlot;
     public final boolean focusSkipButtonWhenAvailable;
     public final boolean enableCustomTabs;
     public final boolean debugModeEnabled;
@@ -191,8 +191,8 @@ import java.util.Set;
         AdViewProvider adViewProvider,
         ImaSdkSettings imaSdkSettings,
         ImaServerSideAdInsertionMediaSource.StreamEventListener streamEventListener,
-        @Nullable AdEvent.AdEventListener applicationAdEventListener,
-        @Nullable AdErrorEvent.AdErrorListener applicationAdErrorListener,
+        AdEvent.@Nullable AdEventListener applicationAdEventListener,
+        AdErrorEvent.@Nullable AdErrorListener applicationAdErrorListener,
         List<CompanionAdSlot> companionAdSlots,
         @Nullable AdSlot pauseAdSlot,
         boolean focusSkipButtonWhenAvailable,

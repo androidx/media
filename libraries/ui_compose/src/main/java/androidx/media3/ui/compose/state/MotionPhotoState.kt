@@ -19,7 +19,9 @@ package androidx.media3.ui.compose.state
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +39,12 @@ import androidx.media3.common.listenTo
  * Note: This state holder configures [player] with a single-item playlist containing only
  * [mediaItem] (via [Player.setMediaItem]) and prepares playback. Callers should not modify the
  * [player]'s playlist while it is bound to this state. Changing [mediaItem] creates and remembers a
- * new [MotionPhotoState], resetting [MotionPhotoState.showPhoto] to [initialShowPhoto].
+ * new [MotionPhotoState], resetting [MotionPhotoState.showPhoto] to [initialShowPhoto] and
+ * [MotionPhotoState.config] to [initialConfig].
+ *
+ * This state holder also owns [Player.repeatMode] while bound: it is set to
+ * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
+ * and is not restored when [player] is detached.
  *
  * This state holder does not pause, stop, or release [player] when [player] is replaced with a
  * different instance or `null`, or when `rememberMotionPhotoState` leaves the composition. Callers
@@ -48,18 +55,19 @@ import androidx.media3.common.listenTo
  * @param mediaItem The [MediaItem] representing the Motion Photo. Must have a non-null
  *   [MediaItem.LocalConfiguration.uri].
  * @param initialShowPhoto Whether the still photo is initially shown instead of playing motion.
+ * @param initialConfig The initial [MotionPhotoConfig] governing motion playback behavior,
+ *   subsequently changed via [MotionPhotoState.config].
  * @return A remembered [MotionPhotoState] instance bound to the lifecycle of this composition.
  */
-// TODO(b/544627271): Add `config: MotionPhotoConfig = MotionPhotoConfig.DEFAULT` parameter once
-// `MotionPhotoConfig` is introduced in `androidx.media3.ui.compose.state`.
 @RestrictTo(LIBRARY_GROUP)
 @Composable
 fun rememberMotionPhotoState(
   player: Player?,
   mediaItem: MediaItem,
   initialShowPhoto: Boolean = true,
+  initialConfig: MotionPhotoConfig = MotionPhotoConfig.DEFAULT,
 ): MotionPhotoState {
-  val state = remember(mediaItem) { MotionPhotoState(mediaItem, initialShowPhoto) }
+  val state = remember(mediaItem) { MotionPhotoState(mediaItem, initialShowPhoto, initialConfig) }
   state.player = player
   LaunchedEffect(state, player) {
     state.bindAndInitialize()
@@ -76,17 +84,23 @@ fun rememberMotionPhotoState(
  * the playlist, and prepares playback. Callers should not modify the [Player]'s playlist while it
  * is bound to this state.
  *
+ * This state holder also owns [Player.repeatMode] while bound: it is set to
+ * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
+ * and is not restored when the [Player] is detached.
+ *
  * @property mediaItem The [MediaItem] representing the motion photo, guaranteed to have a non-null
  *   [MediaItem.LocalConfiguration.uri].
  * @param initialShowPhoto Whether the still photo is initially shown instead of playing motion.
+ * @param initialConfig The initial [MotionPhotoConfig] governing motion playback behavior.
  */
-// TODO(b/544627271): Introduce `MotionPhotoConfig` in `androidx.media3.ui.compose.state` (exposed
-// on `MotionPhotoState` via `var config: MotionPhotoConfig`) in follow-up CLs to configure playback
-// boundaries, looping, custom key photo frame anchor timestamp, resume behavior, crossfade
-// duration, presets...
+@Stable
 @RestrictTo(LIBRARY_GROUP)
 class MotionPhotoState
-internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true) {
+internal constructor(
+  val mediaItem: MediaItem,
+  initialShowPhoto: Boolean = true,
+  initialConfig: MotionPhotoConfig = MotionPhotoConfig.DEFAULT,
+) {
 
   init {
     requireNotNull(mediaItem.localConfiguration?.uri) {
@@ -100,6 +114,7 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
    * @property isPhotoVisible Whether the still photo overlay should currently cover the video
    *   surface.
    */
+  @Immutable
   class VisualState internal constructor(val isPhotoVisible: Boolean) {
     override fun equals(other: Any?): Boolean {
       if (this === other) return true
@@ -146,6 +161,29 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
       player?.let { syncPlaybackState(it, allowPrepareOnError = !value) }
     }
 
+  private var _config by mutableStateOf(initialConfig)
+
+  /**
+   * The [MotionPhotoConfig] governing motion playback behavior.
+   *
+   * This value is initialized from `initialConfig` and can be updated by the application to change
+   * playback behavior dynamically. Setting this property syncs the attached [Player] accordingly.
+   */
+  var config: MotionPhotoConfig
+    get() = _config
+    set(value) {
+      if (_config == value) {
+        return
+      }
+      _config = value
+      player?.let { currentPlayer ->
+        syncRepeatMode(currentPlayer)
+        if (currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping) {
+          showPhoto = true
+        }
+      }
+    }
+
   /** The current resolved [VisualState] for presenting the Motion Photo. */
   val visualState: VisualState by derivedStateOf {
     VisualState(
@@ -173,13 +211,12 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
 
   internal suspend fun observe() {
     val currentPlayer = player ?: return
-    // TODO(b/544627271): Also observe STATE_ENDED (which automatically flips `showPhoto` back to
-    // `true`).
     currentPlayer.listenTo(
       Player.EVENT_TRACKS_CHANGED,
       Player.EVENT_PLAYER_ERROR,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
       Player.EVENT_RENDERED_FIRST_FRAME,
+      Player.EVENT_PLAYBACK_STATE_CHANGED,
     ) { events ->
       if (
         events.containsAny(
@@ -190,6 +227,9 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
       ) {
         updateMotionAvailability(this)
       }
+      if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
+        syncRepeatMode(this)
+      }
       if (
         events.contains(Player.EVENT_TRACKS_CHANGED) &&
           (!isCommandAvailable(Player.COMMAND_GET_TRACKS) || currentTracks.isEmpty)
@@ -198,6 +238,21 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
       }
       if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
         hasRenderedFirstFrame = true
+      }
+      if (
+        events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_ENDED
+      ) {
+        if (!_config.isLooping) {
+          showPhoto = true
+        } else if (!_showPhoto) {
+          // Repeat mode is unsupported or was not applied by the player, so emulate
+          // REPEAT_MODE_ONE manually.
+          if (isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+            seekToDefaultPosition()
+          } else {
+            showPhoto = true
+          }
+        }
       }
     }
   }
@@ -213,7 +268,18 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
     }
   }
 
+  private fun syncRepeatMode(currentPlayer: Player) {
+    val repeatMode = if (_config.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    if (
+      currentPlayer.isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE) &&
+        currentPlayer.repeatMode != repeatMode
+    ) {
+      currentPlayer.repeatMode = repeatMode
+    }
+  }
+
   private fun syncPlaybackState(currentPlayer: Player, allowPrepareOnError: Boolean) {
+    syncRepeatMode(currentPlayer)
     if (
       currentPlayer.playbackState == Player.STATE_IDLE &&
         (currentPlayer.playerError == null || allowPrepareOnError) &&
@@ -238,5 +304,41 @@ internal constructor(val mediaItem: MediaItem, initialShowPhoto: Boolean = true)
     init {
       MediaLibraryInfo.registerModule("media3.ui.compose")
     }
+  }
+}
+
+/**
+ * Configuration for Motion Photo playback behavior.
+ *
+ * @property isLooping Whether the motion video should loop continuously instead of returning to the
+ *   still photo when playback reaches the end. If the [Player] supports neither
+ *   [Player.COMMAND_SET_REPEAT_MODE] nor [Player.COMMAND_SEEK_TO_DEFAULT_POSITION], playback
+ *   returns to the still photo instead of looping.
+ */
+// TODO(b/544627271): Add playback boundaries (`startBoundary`, `startPositionOffsetMs`,
+// `endBoundary`, `endPositionOffsetMs`), custom key photo frame anchor timestamp
+// (`customImageAnchorTimestampMs`), resume behavior (`resumeVideoFromPreviousPosition`), and other
+// presets in follow-up CLs.
+@Immutable
+@RestrictTo(LIBRARY_GROUP)
+class MotionPhotoConfig(val isLooping: Boolean = false) {
+  /** Returns a copy of this [MotionPhotoConfig] with the given properties updated. */
+  fun copy(isLooping: Boolean = this.isLooping): MotionPhotoConfig =
+    MotionPhotoConfig(isLooping = isLooping)
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is MotionPhotoConfig) return false
+    return isLooping == other.isLooping
+  }
+
+  override fun hashCode(): Int = isLooping.hashCode()
+
+  companion object {
+    /** Default configuration instance that plays motion once and returns to the still photo. */
+    @JvmField val DEFAULT = MotionPhotoConfig()
+
+    /** Configuration preset that loops motion playback continuously. */
+    @JvmField val LOOP = MotionPhotoConfig(isLooping = true)
   }
 }

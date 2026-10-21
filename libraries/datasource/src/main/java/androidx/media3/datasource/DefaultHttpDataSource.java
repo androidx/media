@@ -23,7 +23,6 @@ import static java.lang.Math.min;
 
 import android.net.TrafficStats;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
@@ -51,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link HttpDataSource} that uses Android's {@link HttpURLConnection}.
@@ -70,9 +70,9 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
     private final RequestProperties defaultRequestProperties;
 
-    @Nullable private TransferListener transferListener;
-    @Nullable private Predicate<String> contentTypePredicate;
-    @Nullable private String userAgent;
+    private @Nullable TransferListener transferListener;
+    private @Nullable Predicate<String> contentTypePredicate;
+    private @Nullable String userAgent;
     private int connectTimeoutMs;
     private int readTimeoutMs;
     private boolean allowCrossProtocolRedirects;
@@ -253,15 +253,15 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private final boolean crossProtocolRedirectsForceOriginal;
   private final int connectTimeoutMillis;
   private final int readTimeoutMillis;
-  @Nullable private final String userAgent;
-  @Nullable private final RequestProperties defaultRequestProperties;
+  private final @Nullable String userAgent;
+  private final @Nullable RequestProperties defaultRequestProperties;
   private final RequestProperties requestProperties;
-  @Nullable private final Predicate<String> contentTypePredicate;
+  private final @Nullable Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
 
-  @Nullable private DataSpec dataSpec;
-  @Nullable private HttpURLConnection connection;
-  @Nullable private InputStream inputStream;
+  private @Nullable DataSpec dataSpec;
+  private @Nullable HttpURLConnection connection;
+  private @Nullable InputStream inputStream;
   private boolean transferStarted;
   private int responseCode;
   private long bytesToRead;
@@ -295,8 +295,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     if (connection != null) {
       return Uri.parse(connection.getURL().toString());
     } else if (dataSpec != null) {
@@ -395,8 +394,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
         errorResponseBody = Util.EMPTY_BYTE_ARRAY;
       }
       closeConnectionQuietly();
-      @Nullable
-      IOException cause =
+      @Nullable IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;
@@ -515,7 +513,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private HttpURLConnection makeConnection(DataSpec dataSpec) throws IOException {
     URL url = new URL(dataSpec.uri.toString());
     @HttpMethod int httpMethod = dataSpec.httpMethod;
-    @Nullable byte[] httpBody = dataSpec.httpBody;
+    byte @Nullable [] httpBody = dataSpec.httpBody;
     long position = dataSpec.position;
     long length = dataSpec.length;
     boolean allowGzip = dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP);
@@ -603,7 +601,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private HttpURLConnection makeConnection(
       URL url,
       @HttpMethod int httpMethod,
-      @Nullable byte[] httpBody,
+      byte @Nullable [] httpBody,
       long position,
       long length,
       boolean allowGzip,
@@ -830,9 +828,8 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       return key != null && super.containsKey(key);
     }
 
-    @Nullable
     @Override
-    public List<String> get(@Nullable Object key) {
+    public @Nullable List<String> get(@Nullable Object key) {
       return key == null ? null : super.get(key);
     }
 

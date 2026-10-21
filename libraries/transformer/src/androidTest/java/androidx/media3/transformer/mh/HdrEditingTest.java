@@ -37,7 +37,6 @@ import android.content.Context;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -63,6 +62,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
@@ -83,7 +83,7 @@ public final class HdrEditingTest {
   @Rule public final TestName testName = new TestName();
 
   private String testId;
-  @Nullable private Surface placeholderSurface;
+  private @Nullable Surface placeholderSurface;
 
   @Before
   public void setUpTestId() {

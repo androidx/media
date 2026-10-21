@@ -18,12 +18,12 @@ package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A media transformation request. */
 @UnstableApi
@@ -33,8 +33,8 @@ public final class TransformationRequest {
   public static final class Builder {
 
     private int outputHeight;
-    @Nullable private String audioMimeType;
-    @Nullable private String videoMimeType;
+    private @Nullable String audioMimeType;
+    private @Nullable String videoMimeType;
     private @Composition.HdrMode int hdrMode;
 
     /**
@@ -160,7 +160,7 @@ public final class TransformationRequest {
    *
    * @see Builder#setAudioMimeType(String)
    */
-  @Nullable public final String audioMimeType;
+  public final @Nullable String audioMimeType;
 
   /**
    * The requested output video sample {@linkplain MimeTypes MIME type}, or {@code null} if inferred
@@ -168,7 +168,7 @@ public final class TransformationRequest {
    *
    * @see Builder#setVideoMimeType(String)
    */
-  @Nullable public final String videoMimeType;
+  public final @Nullable String videoMimeType;
 
   /**
    * The {@link Composition.HdrMode} specifying how to handle HDR input video.

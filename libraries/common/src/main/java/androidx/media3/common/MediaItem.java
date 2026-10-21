@@ -25,7 +25,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Representation of a media item. */
 public final class MediaItem {
@@ -68,9 +68,9 @@ public final class MediaItem {
   /** A builder for {@link MediaItem} instances. */
   public static final class Builder {
 
-    @Nullable private String mediaId;
-    @Nullable private Uri uri;
-    @Nullable private String mimeType;
+    private @Nullable String mediaId;
+    private @Nullable Uri uri;
+    private @Nullable String mimeType;
     // TODO: Change this to ClippingProperties once all the deprecated individual setters are
     // removed.
     private ClippingConfiguration.Builder clippingConfiguration;
@@ -78,12 +78,12 @@ public final class MediaItem {
     // are removed.
     private DrmConfiguration.Builder drmConfiguration;
     private List<StreamKey> streamKeys;
-    @Nullable private String customCacheKey;
+    private @Nullable String customCacheKey;
     private ImmutableList<SubtitleConfiguration> subtitleConfigurations;
-    @Nullable private AdsConfiguration adsConfiguration;
-    @Nullable private Object tag;
+    private @Nullable AdsConfiguration adsConfiguration;
+    private @Nullable Object tag;
     private long imageDurationMs;
-    @Nullable private MediaMetadata mediaMetadata;
+    private @Nullable MediaMetadata mediaMetadata;
     // TODO: Change this to LiveConfiguration once all the deprecated individual setters
     // are removed.
     private LiveConfiguration.Builder liveConfiguration;
@@ -379,7 +379,7 @@ public final class MediaItem {
     @CanIgnoreReturnValue
     @UnstableApi
     @Deprecated
-    public Builder setDrmKeySetId(@Nullable byte[] keySetId) {
+    public Builder setDrmKeySetId(byte @Nullable [] keySetId) {
       drmConfiguration.setKeySetId(keySetId);
       return this;
     }
@@ -640,14 +640,14 @@ public final class MediaItem {
     public static final class Builder {
 
       // TODO remove @Nullable annotation when the deprecated zero-arg constructor is removed.
-      @Nullable private UUID scheme;
-      @Nullable private Uri licenseUri;
+      private @Nullable UUID scheme;
+      private @Nullable Uri licenseUri;
       private ImmutableMap<String, String> licenseRequestHeaders;
       private boolean multiSession;
       private boolean playClearContentWithoutKey;
       private boolean forceDefaultLicenseUri;
       private ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes;
-      @Nullable private byte[] keySetId;
+      private byte @Nullable [] keySetId;
 
       /**
        * Constructs an instance.
@@ -816,7 +816,7 @@ public final class MediaItem {
        * mode,byte[] offlineLicenseKeySetId)}).
        */
       @CanIgnoreReturnValue
-      public Builder setKeySetId(@Nullable byte[] keySetId) {
+      public Builder setKeySetId(byte @Nullable [] keySetId) {
         this.keySetId = keySetId != null ? Arrays.copyOf(keySetId, keySetId.length) : null;
         return this;
       }
@@ -838,7 +838,7 @@ public final class MediaItem {
      * Optional default DRM license server {@link Uri}. If {@code null} then the DRM license server
      * must be specified by the media.
      */
-    @Nullable public final Uri licenseUri;
+    public final @Nullable Uri licenseUri;
 
     /**
      * @deprecated Use {@link #licenseRequestHeaders} instead.
@@ -873,7 +873,7 @@ public final class MediaItem {
      */
     public final ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes;
 
-    @Nullable private final byte[] keySetId;
+    private final byte @Nullable [] keySetId;
 
     @SuppressWarnings("deprecation") // Setting deprecated field
     private DrmConfiguration(Builder builder) {
@@ -895,8 +895,7 @@ public final class MediaItem {
     }
 
     /** Returns the key set ID of the offline license. */
-    @Nullable
-    public byte[] getKeySetId() {
+    public byte @Nullable [] getKeySetId() {
       return keySetId != null ? Arrays.copyOf(keySetId, keySetId.length) : null;
     }
 
@@ -969,7 +968,7 @@ public final class MediaItem {
               bundle, FIELD_FORCED_SESSION_TRACK_TYPES, new ArrayList<>());
       ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes =
           ImmutableList.copyOf(forcedSessionTrackTypesArray);
-      @Nullable byte[] keySetId = bundle.getByteArray(FIELD_KEY_SET_ID);
+      byte @Nullable [] keySetId = bundle.getByteArray(FIELD_KEY_SET_ID);
 
       Builder builder = new Builder(scheme);
       return builder
@@ -1022,7 +1021,7 @@ public final class MediaItem {
     public static final class Builder {
 
       private Uri adTagUri;
-      @Nullable private Object adsId;
+      private @Nullable Object adsId;
 
       /**
        * Constructs a new instance.
@@ -1069,7 +1068,7 @@ public final class MediaItem {
      * same ad playback state. To resume ad playback when recreating the playlist on returning from
      * the background, pass the same ads identifiers to the player.
      */
-    @Nullable public final Object adsId;
+    public final @Nullable Object adsId;
 
     private AdsConfiguration(Builder builder) {
       this.adTagUri = builder.adTagUri;
@@ -1137,19 +1136,19 @@ public final class MediaItem {
      * <p>The MIME type can be used to disambiguate media items that have a URI which does not allow
      * to infer the actual media type.
      */
-    @Nullable public final String mimeType;
+    public final @Nullable String mimeType;
 
     /** Optional {@link DrmConfiguration} for the media. */
-    @Nullable public final DrmConfiguration drmConfiguration;
+    public final @Nullable DrmConfiguration drmConfiguration;
 
     /** Optional ads configuration. */
-    @Nullable public final AdsConfiguration adsConfiguration;
+    public final @Nullable AdsConfiguration adsConfiguration;
 
     /** Optional stream keys by which the manifest is filtered. */
     @UnstableApi public final List<StreamKey> streamKeys;
 
     /** Optional custom cache key (only used for progressive streams). */
-    @UnstableApi @Nullable public final String customCacheKey;
+    @UnstableApi public final @Nullable String customCacheKey;
 
     /** Optional subtitles to be sideloaded. */
     public final ImmutableList<SubtitleConfiguration> subtitleConfigurations;
@@ -1167,7 +1166,7 @@ public final class MediaItem {
      * the {@code androidx.media3.common.Timeline} of the source as {@code
      * androidx.media3.common.Timeline.Window#tag}.
      */
-    @Nullable public final Object tag;
+    public final @Nullable Object tag;
 
     /** Duration for image assets in milliseconds. */
     @UnstableApi public final long imageDurationMs;
@@ -1296,8 +1295,8 @@ public final class MediaItem {
           streamKeysBundles == null
               ? ImmutableList.of()
               : BundleCollectionUtil.fromBundleList(StreamKey::fromBundle, streamKeysBundles);
-      @Nullable
-      List<Bundle> subtitleBundles = bundle.getParcelableArrayList(FIELD_SUBTITLE_CONFIGURATION);
+      @Nullable List<Bundle> subtitleBundles =
+          bundle.getParcelableArrayList(FIELD_SUBTITLE_CONFIGURATION);
       ImmutableList<SubtitleConfiguration> subtitleConfiguration =
           subtitleBundles == null
               ? ImmutableList.of()
@@ -1561,12 +1560,12 @@ public final class MediaItem {
     /** Builder for {@link SubtitleConfiguration} instances. */
     public static final class Builder {
       private Uri uri;
-      @Nullable private String mimeType;
-      @Nullable private String language;
+      private @Nullable String mimeType;
+      private @Nullable String language;
       private @C.SelectionFlags int selectionFlags;
       private @C.RoleFlags int roleFlags;
-      @Nullable private String label;
-      @Nullable private String id;
+      private @Nullable String label;
+      private @Nullable String id;
       private long timeOffsetUs;
 
       /**
@@ -1684,10 +1683,10 @@ public final class MediaItem {
     public final Uri uri;
 
     /** The optional MIME type of the subtitle file, or {@code null} if unspecified. */
-    @Nullable public final String mimeType;
+    public final @Nullable String mimeType;
 
     /** The language. */
-    @Nullable public final String language;
+    public final @Nullable String language;
 
     /** The selection flags. */
     public final @C.SelectionFlags int selectionFlags;
@@ -1696,13 +1695,13 @@ public final class MediaItem {
     public final @C.RoleFlags int roleFlags;
 
     /** The label. */
-    @Nullable public final String label;
+    public final @Nullable String label;
 
     /**
      * The ID of the subtitles. This will be propagated to the {@link Format#id} of the subtitle
      * track created from this configuration.
      */
-    @Nullable public final String id;
+    public final @Nullable String id;
 
     /**
      * The offset that is added to the timestamps of the cues in this subtitle track, in
@@ -2222,9 +2221,9 @@ public final class MediaItem {
     /** Builder for {@link RequestMetadata} instances. */
     public static final class Builder {
 
-      @Nullable private Uri mediaUri;
-      @Nullable private String searchQuery;
-      @Nullable private Bundle extras;
+      private @Nullable Uri mediaUri;
+      private @Nullable String searchQuery;
+      private @Nullable Bundle extras;
 
       /** Constructs an instance. */
       public Builder() {}
@@ -2263,10 +2262,10 @@ public final class MediaItem {
     }
 
     /** The URI of the requested media, or null if not known or applicable. */
-    @Nullable public final Uri mediaUri;
+    public final @Nullable Uri mediaUri;
 
     /** The search query for the requested media, or null if not applicable. */
-    @Nullable public final String searchQuery;
+    public final @Nullable String searchQuery;
 
     /**
      * Optional extras {@link Bundle}.
@@ -2275,7 +2274,7 @@ public final class MediaItem {
      * contents of these extras are not considered in the {@link #equals(Object)} or {@link
      * #hashCode()} implementation.
      */
-    @Nullable public final Bundle extras;
+    public final @Nullable Bundle extras;
 
     private RequestMetadata(Builder builder) {
       this.mediaUri = builder.mediaUri;
@@ -2356,12 +2355,12 @@ public final class MediaItem {
    * Optional configuration for local playback. May be {@code null} if shared over process
    * boundaries.
    */
-  @Nullable public final LocalConfiguration localConfiguration;
+  public final @Nullable LocalConfiguration localConfiguration;
 
   /**
    * @deprecated Use {@link #localConfiguration} instead.
    */
-  @UnstableApi @Deprecated @Nullable public final LocalConfiguration playbackProperties;
+  @UnstableApi @Deprecated public final @Nullable LocalConfiguration playbackProperties;
 
   /** The live playback configuration. */
   public final LiveConfiguration liveConfiguration;

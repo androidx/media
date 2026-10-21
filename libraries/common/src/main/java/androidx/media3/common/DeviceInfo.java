@@ -22,7 +22,6 @@ import android.media.MediaRouter2;
 import android.os.Bundle;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -31,6 +30,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Information about the playback device. */
 public final class DeviceInfo {
@@ -61,8 +61,8 @@ public final class DeviceInfo {
 
     private int minVolume;
     private int maxVolume;
-    @Nullable private String routingControllerId;
-    @Nullable private String routingControllerName;
+    private @Nullable String routingControllerId;
+    private @Nullable String routingControllerName;
 
     /**
      * Creates the builder.
@@ -165,13 +165,13 @@ public final class DeviceInfo {
    * <p>This id allows mapping this device information to a routing controller, which provides
    * information about the media route and allows controlling its volume.
    */
-  @Nullable public final String routingControllerId;
+  public final @Nullable String routingControllerId;
 
   /**
    * The display name of the routing controller or remote device (e.g. "Living Room TV"), or null if
    * unset or {@link #playbackType} is {@link #PLAYBACK_TYPE_LOCAL}.
    */
-  @UnstableApi @Nullable public final String routingControllerName;
+  @UnstableApi public final @Nullable String routingControllerName;
 
   /**
    * @deprecated Use {@link Builder} instead.

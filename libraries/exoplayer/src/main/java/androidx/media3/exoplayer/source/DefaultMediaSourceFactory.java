@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The default {@link MediaSource.Factory} implementation.
@@ -117,11 +117,11 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
 
   private DataSource.Factory dataSourceFactory;
   private SubtitleParser.Factory subtitleParserFactory;
-  @Nullable private MediaSource.Factory serverSideAdInsertionMediaSourceFactory;
-  @Nullable private ExternalLoader externalImageLoader;
-  @Nullable private AdsLoader.Provider adsLoaderProvider;
-  @Nullable private AdViewProvider adViewProvider;
-  @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+  private MediaSource.@Nullable Factory serverSideAdInsertionMediaSourceFactory;
+  private @Nullable ExternalLoader externalImageLoader;
+  private AdsLoader.@Nullable Provider adsLoaderProvider;
+  private @Nullable AdViewProvider adViewProvider;
+  private @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private long liveTargetOffsetMs;
   private long liveMinOffsetMs;
   private long liveMaxOffsetMs;
@@ -258,7 +258,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   @UnstableApi
   @Deprecated
   public DefaultMediaSourceFactory setAdsLoaderProvider(
-      @Nullable AdsLoader.Provider adsLoaderProvider) {
+      AdsLoader.@Nullable Provider adsLoaderProvider) {
     this.adsLoaderProvider = adsLoaderProvider;
     return this;
   }
@@ -343,7 +343,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
    */
   @CanIgnoreReturnValue
   public DefaultMediaSourceFactory setServerSideAdInsertionMediaSourceFactory(
-      @Nullable MediaSource.Factory serverSideAdInsertionMediaSourceFactory) {
+      MediaSource.@Nullable Factory serverSideAdInsertionMediaSourceFactory) {
     this.serverSideAdInsertionMediaSourceFactory = serverSideAdInsertionMediaSourceFactory;
     return this;
   }
@@ -710,12 +710,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
 
   private MediaSource maybeWrapWithAdsMediaSource(MediaItem mediaItem, MediaSource mediaSource) {
     checkNotNull(mediaItem.localConfiguration);
-    @Nullable
-    MediaItem.AdsConfiguration adsConfiguration = mediaItem.localConfiguration.adsConfiguration;
+    MediaItem.@Nullable AdsConfiguration adsConfiguration =
+        mediaItem.localConfiguration.adsConfiguration;
     if (adsConfiguration == null) {
       return mediaSource;
     }
-    @Nullable AdsLoader.Provider adsLoaderProvider = this.adsLoaderProvider;
+    AdsLoader.@Nullable Provider adsLoaderProvider = this.adsLoaderProvider;
     @Nullable AdViewProvider adViewProvider = this.adViewProvider;
     if (adsLoaderProvider == null || adViewProvider == null) {
       Log.w(
@@ -753,10 +753,10 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private boolean parseSubtitlesDuringExtraction;
     private SubtitleParser.Factory subtitleParserFactory;
     private boolean loadOnlySelectedTracks;
-    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
-    @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
-    @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private CmcdConfiguration.@Nullable Factory cmcdConfigurationFactory;
+    private @Nullable DrmSessionManagerProvider drmSessionManagerProvider;
+    private @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     public DelegateFactoryLoader(
         ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
@@ -776,7 +776,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     @SuppressWarnings("deprecation") // Forwarding to deprecated methods.
     public MediaSource.Factory getMediaSourceFactory(@C.ContentType int contentType)
         throws ClassNotFoundException {
-      @Nullable MediaSource.Factory mediaSourceFactory = mediaSourceFactories.get(contentType);
+      MediaSource.@Nullable Factory mediaSourceFactory = mediaSourceFactories.get(contentType);
       if (mediaSourceFactory != null) {
         return mediaSourceFactory;
       }
@@ -881,8 +881,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     }
 
     @CanIgnoreReturnValue
-    @Nullable
-    private Supplier<MediaSource.Factory> maybeLoadSupplier(@C.ContentType int contentType) {
+    private @Nullable Supplier<MediaSource.Factory> maybeLoadSupplier(
+        @C.ContentType int contentType) {
       try {
         return loadSupplier(contentType);
       } catch (ClassNotFoundException e) {
@@ -893,8 +893,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
 
     private Supplier<MediaSource.Factory> loadSupplier(@C.ContentType int contentType)
         throws ClassNotFoundException {
-      @Nullable
-      Supplier<MediaSource.Factory> mediaSourceFactorySupplier =
+      @Nullable Supplier<MediaSource.Factory> mediaSourceFactorySupplier =
           mediaSourceFactorySuppliers.get(contentType);
       if (mediaSourceFactorySupplier != null) {
         return mediaSourceFactorySupplier;

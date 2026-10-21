@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -47,6 +46,7 @@ import java.nio.ByteBuffer;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Facilitates the extraction of data from the FLAC container format. */
 @UnstableApi
@@ -89,7 +89,7 @@ public final class FlacExtractor implements Extractor {
   private final boolean id3MetadataDisabled;
   private final boolean ignoreArtwork;
 
-  @Nullable private FlacDecoderJni decoderJni;
+  private @Nullable FlacDecoderJni decoderJni;
   private @MonotonicNonNull ExtractorOutput extractorOutput;
   private @MonotonicNonNull TrackOutput trackOutput;
 
@@ -97,8 +97,8 @@ public final class FlacExtractor implements Extractor {
   private @MonotonicNonNull FlacStreamMetadata streamMetadata;
   private @MonotonicNonNull OutputFrameHolder outputFrameHolder;
 
-  @Nullable private Metadata id3Metadata;
-  @Nullable private FlacBinarySearchSeeker binarySearchSeeker;
+  private @Nullable Metadata id3Metadata;
+  private @Nullable FlacBinarySearchSeeker binarySearchSeeker;
 
   /** Constructs an instance with {@code flags = 0}. */
   public FlacExtractor() {
@@ -230,8 +230,8 @@ public final class FlacExtractor implements Extractor {
               input.getLength(),
               extractorOutput,
               outputFrameHolder);
-      @Nullable
-      Metadata metadata = streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
+      @Nullable Metadata metadata =
+          streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
       outputFormat(streamMetadata, metadata, trackOutput);
       trackOutput.durationUs(streamMetadata.getDurationUs());
     }
@@ -257,8 +257,7 @@ public final class FlacExtractor implements Extractor {
    * Outputs a {@link SeekMap} and returns a {@link FlacBinarySearchSeeker} if one is required to
    * handle seeks.
    */
-  @Nullable
-  private static FlacBinarySearchSeeker outputSeekMap(
+  private static @Nullable FlacBinarySearchSeeker outputSeekMap(
       FlacDecoderJni decoderJni,
       FlacStreamMetadata streamMetadata,
       long streamLength,

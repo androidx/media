@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
@@ -36,9 +35,10 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.Mp4Box;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
@@ -73,8 +73,10 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.lang.annotation.Documented;
@@ -92,6 +94,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} that extracts data using an {@link Extractor}. */
 /* package */ final class ProgressiveMediaPeriod
@@ -136,11 +139,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final Listener listener;
   private final Allocator allocator;
-  @Nullable private final String customCacheKey;
+  private final @Nullable String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
   private final boolean loadOnlySelectedTracks;
   private final int singleTrackId;
-  @Nullable private final Format singleTrackFormat;
+  private final @Nullable Format singleTrackFormat;
   private final long singleSampleDurationUs;
   private final Loader loader;
   private final ProgressiveMediaExtractor progressiveMediaExtractor;
@@ -151,8 +154,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final List<MergingMetadataSampleStream> mergingSampleStreams;
   private final LoadingStateMachine loadingStateMachine;
 
-  @Nullable private Callback callback;
-  @Nullable private IcyHeaders icyHeaders;
+  private @Nullable Callback callback;
+  private @Nullable IcyHeaders icyHeaders;
   // TODO(b/457738425) - Consider merging controledTrackOutputs, sampleQueues together, since they
   // are essentially the same objects.
   private ControlledTrackOutput[] controlledTrackOutputs;
@@ -317,9 +320,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     assertPrepared();
@@ -394,12 +397,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (Build.VERSION.SDK_INT >= 37
             && !isT35TrackExplicitlySelected
             && MimeTypes.isVideo(selection.getSelectedFormat().sampleMimeType)) {
-          // TODO: b/388762778 - The MP4 container has extra information (e.g. cdsc box) specifying
-          // which HAGC track describes which video track. We should use this information to create
-          // the correct mergingSampleStreams when multiple video/HAGC tracks exist.
           for (int j = 0; j < tracks.length; j++) {
             Format format = tracks.get(j).getFormat(0);
-            if (CodecSpecificDataUtil.isHagcTrack(format)) {
+            if (isHagcTrackForVideoFormat(format, selection.getSelectedFormat())) {
               checkState(!trackEnabledStates[j]);
               enabledTrackCount++;
               trackEnabledStates[j] = true;
@@ -981,17 +981,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SampleQueue.createWithDrm(allocator, drmSessionManager, drmEventDispatcher);
     ControlledTrackOutput trackOutput = new ControlledTrackOutput(sampleQueue);
     sampleQueue.setUpstreamFormatChangeListener(this);
-    @NullableType
-    TrackId[] sampleQueueTrackIds = Arrays.copyOf(this.sampleQueueTrackIds, trackCount + 1);
+    @Nullable TrackId[] sampleQueueTrackIds =
+        Arrays.copyOf(this.sampleQueueTrackIds, trackCount + 1);
     sampleQueueTrackIds[trackCount] = id;
     this.sampleQueueTrackIds = Util.castNonNullTypeArray(sampleQueueTrackIds);
 
-    @NullableType SampleQueue[] sampleQueues = Arrays.copyOf(this.sampleQueues, trackCount + 1);
+    @Nullable SampleQueue[] sampleQueues = Arrays.copyOf(this.sampleQueues, trackCount + 1);
     sampleQueues[trackCount] = sampleQueue;
     this.sampleQueues = Util.castNonNullTypeArray(sampleQueues);
 
-    @NullableType
-    ControlledTrackOutput[] controlledTrackOutputs =
+    @Nullable ControlledTrackOutput[] controlledTrackOutputs =
         Arrays.copyOf(this.controlledTrackOutputs, trackCount + 1);
     controlledTrackOutputs[trackCount] = trackOutput;
     this.controlledTrackOutputs = Util.castNonNullTypeArray(controlledTrackOutputs);
@@ -1262,6 +1261,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return selectedForLoading;
   }
 
+  private static boolean isHagcTrackForVideoFormat(Format candidateFormat, Format videoFormat) {
+    if (!CodecSpecificDataUtil.isHagcTrack(candidateFormat)
+        || candidateFormat.metadata == null
+        || videoFormat.id == null) {
+      return false;
+    }
+    @Nullable Integer videoTrackId = Ints.tryParse(videoFormat.id);
+    if (videoTrackId == null) {
+      return false;
+    }
+    ImmutableList<Mp4TrackReferenceData> trackReferences =
+        candidateFormat.metadata.getEntriesOfType(Mp4TrackReferenceData.class);
+    for (int i = 0; i < trackReferences.size(); i++) {
+      Mp4TrackReferenceData trackReference = trackReferences.get(i);
+      if ((trackReference.referenceType == Mp4Box.TYPE_rndr
+              || trackReference.referenceType == Mp4Box.TYPE_cdsc)
+          && trackReference.referencedTrackIds.contains(videoTrackId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private boolean trackHasPreroll(int trackIndex, long positionUs) {
     if (isSingleSample) {
       return false;
@@ -1341,7 +1363,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean pendingExtractorSeek;
     private long seekTimeUs;
     private DataSpec dataSpec;
-    @Nullable private TrackOutput icyTrackOutput;
+    private @Nullable TrackOutput icyTrackOutput;
     private boolean seenIcyMetadata;
 
     @SuppressWarnings("nullness:method.invocation")

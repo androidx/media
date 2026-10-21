@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -61,6 +60,7 @@ import androidx.media3.test.utils.Action.WaitForPositionDiscontinuity;
 import androidx.media3.test.utils.Action.WaitForTimelineChanged;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Schedules a sequence of {@link Action}s for execution during a test. */
 @UnstableApi
@@ -653,9 +653,9 @@ public final class ActionSchedule {
       void onMessageArrived();
     }
 
-    @Nullable private ExoPlayer player;
+    private @Nullable ExoPlayer player;
     private boolean hasArrived;
-    @Nullable private Callback callback;
+    private @Nullable Callback callback;
 
     public void setCallback(Callback callback) {
       this.callback = callback;
@@ -689,7 +689,7 @@ public final class ActionSchedule {
    */
   public abstract static class PlayerRunnable implements Runnable {
 
-    @Nullable private ExoPlayer player;
+    private @Nullable ExoPlayer player;
 
     /** Executes Runnable with reference to player. */
     public abstract void run(ExoPlayer player);
@@ -712,11 +712,11 @@ public final class ActionSchedule {
     private final long delayMs;
     private final long repeatIntervalMs;
 
-    @Nullable private ActionNode next;
+    private @Nullable ActionNode next;
 
     private @MonotonicNonNull ExoPlayer player;
     private @MonotonicNonNull DefaultTrackSelector trackSelector;
-    @Nullable private Surface surface;
+    private @Nullable Surface surface;
     private @MonotonicNonNull HandlerWrapper mainHandler;
 
     /**
@@ -813,7 +813,7 @@ public final class ActionSchedule {
   /** An action calling a specified {@link ActionSchedule.Callback}. */
   private static final class CallbackAction extends Action {
 
-    @Nullable private Callback callback;
+    private @Nullable Callback callback;
 
     public CallbackAction(@Size(max = 23) String tag) {
       super(tag, "FinishedCallback");

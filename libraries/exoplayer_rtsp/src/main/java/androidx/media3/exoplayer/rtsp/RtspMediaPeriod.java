@@ -23,12 +23,10 @@ import static java.lang.Math.min;
 
 import android.net.Uri;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
@@ -59,6 +57,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.net.SocketFactory;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} that loads an RTSP stream. */
 /* package */ final class RtspMediaPeriod implements MediaPeriod {
@@ -87,8 +86,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private @MonotonicNonNull Callback callback;
   private @MonotonicNonNull ImmutableList<TrackGroup> trackGroups;
-  @Nullable private IOException preparationError;
-  @Nullable private RtspPlaybackException playbackException;
+  private @Nullable IOException preparationError;
+  private @Nullable RtspPlaybackException playbackException;
 
   private long requestedSeekPositionUs;
   private long pendingSeekPositionUs;
@@ -183,9 +182,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
 
@@ -424,8 +423,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   // Internal methods.
 
-  @Nullable
-  private RtpDataLoadable getLoadableByTrackUri(Uri trackUri) {
+  private @Nullable RtpDataLoadable getLoadableByTrackUri(Uri trackUri) {
     for (int i = 0; i < rtspLoaderWrappers.size(); i++) {
       if (!rtspLoaderWrappers.get(i).canceled) {
         RtpLoadInfo loadInfo = rtspLoaderWrappers.get(i).loadInfo;
@@ -717,8 +715,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     rtspClient.retryWithRtpTcp();
 
-    @Nullable
-    RtpDataChannel.Factory fallbackRtpDataChannelFactory =
+    RtpDataChannel.@Nullable Factory fallbackRtpDataChannelFactory =
         rtpDataChannelFactory.createFallbackDataChannelFactory();
     if (fallbackRtpDataChannelFactory == null) {
       playbackException =
@@ -891,7 +888,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private final RtpDataLoadable loadable;
 
-    @Nullable private String transport;
+    private @Nullable String transport;
 
     /** Creates a new instance. */
     public RtpLoadInfo(
@@ -906,9 +903,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           (transport, rtpDataChannel) -> {
             RtpLoadInfo.this.transport = transport;
 
-            @Nullable
-            RtspMessageChannel.InterleavedBinaryDataListener interleavedBinaryDataListener =
-                rtpDataChannel.getInterleavedBinaryDataListener();
+            RtspMessageChannel.@Nullable InterleavedBinaryDataListener
+                interleavedBinaryDataListener = rtpDataChannel.getInterleavedBinaryDataListener();
             if (interleavedBinaryDataListener != null) {
               rtspClient.registerInterleavedDataChannel(
                   rtpDataChannel.getLocalPort(), interleavedBinaryDataListener);

@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -29,13 +28,14 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class ExoAssetLoaderAudioRenderer extends ExoAssetLoaderBaseRenderer {
 
   private static final String TAG = "ExoAssetLoaderAudioRenderer";
 
   private final Codec.DecoderFactory decoderFactory;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private boolean hasPendingConsumerInput;
 

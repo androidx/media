@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -37,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
@@ -54,7 +54,7 @@ public class SimpleBitmapLoaderTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  @Nullable private MockWebServer mockWebServer;
+  private @Nullable MockWebServer mockWebServer;
 
   @After
   public void tearDown() throws Exception {

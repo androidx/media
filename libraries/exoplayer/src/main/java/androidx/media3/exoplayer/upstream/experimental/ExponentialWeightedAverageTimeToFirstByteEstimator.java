@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.upstream.experimental;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
@@ -25,6 +24,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.upstream.TimeToFirstByteEstimator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Implementation of {@link TimeToFirstByteEstimator} based on exponential weighted average. */
 @UnstableApi

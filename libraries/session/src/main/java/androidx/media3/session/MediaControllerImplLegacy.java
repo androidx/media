@@ -39,7 +39,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -63,7 +62,6 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.LegacyConversions.ConversionException;
@@ -87,6 +85,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaControllerImplLegacy implements MediaController.MediaControllerImpl {
@@ -107,8 +106,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   private final Bundle connectionHints;
   private final long platformSessionCallbackAggregationTimeoutMs;
 
-  @Nullable private MediaControllerCompat controllerCompat;
-  @Nullable private MediaBrowserCompat browserCompat;
+  private @Nullable MediaControllerCompat controllerCompat;
+  private @Nullable MediaBrowserCompat browserCompat;
   private boolean released;
   private boolean connected;
   private LegacyPlayerInfo legacyPlayerInfo;
@@ -245,8 +244,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
-  @Nullable
-  public SessionToken getConnectedToken() {
+  public @Nullable SessionToken getConnectedToken() {
     return connected ? token : null;
   }
 
@@ -320,9 +318,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       return;
     }
     int newMediaItemIndex = currentMediaItemIndex;
-    @Nullable
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason = null;
+    @Nullable Integer mediaItemTransitionReason = null;
     if (mediaItemIndex != currentMediaItemIndex) {
       QueueTimeline queueTimeline = (QueueTimeline) controllerInfo.playerInfo.timeline;
       long queueId = queueTimeline.getQueueId(mediaItemIndex);
@@ -341,9 +338,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
                 + mediaItemIndex);
       }
     }
-    @Nullable
     @Player.DiscontinuityReason
-    Integer discontinuityReason;
+    @Nullable Integer discontinuityReason;
     long currentPositionMs = getCurrentPosition();
     long newPositionMs;
     if (positionMs == C.TIME_UNSET) {
@@ -441,8 +437,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
-  @Nullable
-  public PendingIntent getSessionActivity() {
+  public @Nullable PendingIntent getSessionActivity() {
     return controllerCompat.getSessionActivity();
   }
 
@@ -462,8 +457,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return controllerInfo.playerInfo.playerError;
   }
 
@@ -553,8 +547,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
-    @Nullable
-    String currentMediaItemMediaId =
+    @Nullable String currentMediaItemMediaId =
         legacyPlayerInfo.mediaMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID);
     if (mediaId.equals(currentMediaItemMediaId)) {
       controllerCompat
@@ -638,7 +631,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   public ListenableFuture<SessionResult> sendCustomCommand(
       SessionCommand command,
       Bundle args,
-      @Nullable MediaController.ProgressListener progressListener) {
+      MediaController.@Nullable ProgressListener progressListener) {
     return sendCustomCommand(command, args);
   }
 
@@ -1385,14 +1378,12 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
-  @Nullable
-  public MediaBrowserCompat getBrowserCompat() {
+  public @Nullable MediaBrowserCompat getBrowserCompat() {
     return browserCompat;
   }
 
-  @Nullable
   @Override
-  public IMediaController getBinder() {
+  public @Nullable IMediaController getBinder() {
     return null;
   }
 
@@ -1457,7 +1448,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   private void addQueueItems(List<MediaItem> mediaItems, int startIndex) {
-    List<@NullableType ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
+    List<@Nullable ListenableFuture<Bitmap>> bitmapFutures = new ArrayList<>();
     final AtomicInteger resultCount = new AtomicInteger(0);
     Runnable handleBitmapFuturesTask =
         () -> {
@@ -1483,7 +1474,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   private void handleBitmapFuturesAllCompletedAndAddQueueItems(
-      List<@NullableType ListenableFuture<Bitmap>> bitmapFutures,
+      List<@Nullable ListenableFuture<Bitmap>> bitmapFutures,
       List<MediaItem> mediaItems,
       int startIndex) {
     if (released
@@ -1526,7 +1517,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             getInstance().getTimeDiffMs(),
             hasPendingExtrasChange,
             context);
-    Pair<@NullableType Integer, @NullableType Integer> reasons =
+    Pair<@Nullable Integer, @Nullable Integer> reasons =
         calculateDiscontinuityAndTransitionReason(
             legacyPlayerInfo,
             controllerInfo,
@@ -1551,8 +1542,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private void updateStateMaskedControllerInfo(
       ControllerInfo newControllerInfo,
-      @Nullable @Player.DiscontinuityReason Integer discontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.DiscontinuityReason @Nullable Integer discontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
     // Safe to pass legacyPlayerInfo without updating.
     // updateControllerInfo() takes LegacyPlayerInfo just to easily detect some changes in the
     // controller info, and LegacyPlayerInfo isn't used for values that state-masking may be
@@ -1573,8 +1564,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       LegacyPlayerInfo newLegacyPlayerInfo,
       boolean hasNewLegacyPlayerInfo,
       ControllerInfo newControllerInfo,
-      @Nullable @Player.DiscontinuityReason Integer discontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.DiscontinuityReason @Nullable Integer discontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
     LegacyPlayerInfo oldLegacyPlayerInfo = legacyPlayerInfo;
     ControllerInfo oldControllerInfo = controllerInfo;
     if (hasNewLegacyPlayerInfo) {
@@ -1879,7 +1870,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     @Override
-    public void onAudioInfoChanged(@Nullable MediaControllerCompat.PlaybackInfo newPlaybackInfo) {
+    public void onAudioInfoChanged(MediaControllerCompat.@Nullable PlaybackInfo newPlaybackInfo) {
       pendingLegacyPlayerInfo = pendingLegacyPlayerInfo.copyWithPlaybackInfoCompat(newPlaybackInfo);
       startWaitingForPendingChanges();
     }
@@ -2256,8 +2247,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         || isCurrentActiveQueueIdChanged
         || isQueueChanged) {
       int activeQueueIndex = findQueueItemIndex(newLegacyPlayerInfo.queue, newActiveQueueId);
-      @Nullable
-      MediaDescriptionCompat currentDescriptionCompat =
+      @Nullable MediaDescriptionCompat currentDescriptionCompat =
           activeQueueIndex != C.INDEX_UNSET
               ? newLegacyPlayerInfo.queue.get(activeQueueIndex).getDescription()
               : null;
@@ -2388,19 +2378,17 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
    *
    * <p>The returned reasons may be null if they can't be determined.
    */
-  private static Pair<@NullableType Integer, @NullableType Integer>
+  private static Pair<@Nullable Integer, @Nullable Integer>
       calculateDiscontinuityAndTransitionReason(
           LegacyPlayerInfo oldLegacyPlayerInfo,
           ControllerInfo oldControllerInfo,
           LegacyPlayerInfo newLegacyPlayerInfo,
           ControllerInfo newControllerInfo,
           long timeDiffMs) {
-    @Nullable
     @Player.DiscontinuityReason
-    Integer discontinuityReason;
-    @Nullable
+    @Nullable Integer discontinuityReason;
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason;
+    @Nullable Integer mediaItemTransitionReason;
     boolean isOldTimelineEmpty = oldControllerInfo.playerInfo.timeline.isEmpty();
     boolean isNewTimelineEmpty = newControllerInfo.playerInfo.timeline.isEmpty();
     if (isOldTimelineEmpty && isNewTimelineEmpty) {
@@ -2457,12 +2445,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   private static List<QueueItem> convertToNonNullQueueItemList(
-      @Nullable List<@NullableType QueueItem> queue) {
+      @Nullable List<@Nullable QueueItem> queue) {
     return queue == null ? Collections.emptyList() : MediaUtils.removeNullElements(queue);
   }
 
-  @Nullable
-  private static PlaybackStateCompat convertToSafePlaybackStateCompat(
+  private static @Nullable PlaybackStateCompat convertToSafePlaybackStateCompat(
       @Nullable PlaybackStateCompat state) {
     if (state == null) {
       return null;
@@ -2677,11 +2664,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private static final class LegacyPlayerInfo {
 
-    @Nullable public final MediaControllerCompat.PlaybackInfo playbackInfoCompat;
-    @Nullable public final PlaybackStateCompat playbackStateCompat;
-    @Nullable public final MediaMetadataCompat mediaMetadataCompat;
+    public final MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat;
+    public final @Nullable PlaybackStateCompat playbackStateCompat;
+    public final @Nullable MediaMetadataCompat mediaMetadataCompat;
     public final List<QueueItem> queue;
-    @Nullable public final CharSequence queueTitle;
+    public final @Nullable CharSequence queueTitle;
     @PlaybackStateCompat.RepeatMode public final int repeatMode;
     @PlaybackStateCompat.ShuffleMode public final int shuffleMode;
     public final Bundle sessionExtras;
@@ -2698,7 +2685,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     }
 
     public LegacyPlayerInfo(
-        @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat,
+        MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat,
         @Nullable PlaybackStateCompat playbackStateCompat,
         @Nullable MediaMetadataCompat mediaMetadataCompat,
         List<QueueItem> queue,
@@ -2788,7 +2775,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
     @CheckResult
     public LegacyPlayerInfo copyWithPlaybackInfoCompat(
-        @Nullable MediaControllerCompat.PlaybackInfo playbackInfo) {
+        MediaControllerCompat.@Nullable PlaybackInfo playbackInfo) {
       return new LegacyPlayerInfo(
           playbackInfo,
           playbackStateCompat,
@@ -2847,7 +2834,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     public final Commands availablePlayerCommands;
     public final ImmutableList<CommandButton> mediaButtonPreferences;
     public final Bundle sessionExtras;
-    @Nullable public final SessionError sessionError;
+    public final @Nullable SessionError sessionError;
 
     public ControllerInfo() {
       playerInfo = PlayerInfo.DEFAULT.copyWithTimeline(QueueTimeline.DEFAULT);

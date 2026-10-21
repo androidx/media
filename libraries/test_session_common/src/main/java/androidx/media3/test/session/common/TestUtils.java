@@ -27,13 +27,13 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.WindowManager;
-import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Provides utility methods for testing purpose. */
 public class TestUtils {

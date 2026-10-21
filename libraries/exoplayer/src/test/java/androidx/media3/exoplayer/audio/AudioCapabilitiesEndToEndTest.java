@@ -38,7 +38,6 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioProfile;
 import android.media.MediaCodec;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -63,6 +62,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -82,7 +82,7 @@ public class AudioCapabilitiesEndToEndTest {
   private Context applicationContext;
   private AudioManager audioManager;
   private Parameters defaultParameters;
-  @Nullable private AudioDeviceInfo directPlaybackDevice;
+  private @Nullable AudioDeviceInfo directPlaybackDevice;
   private List<Tracks> selectedTracks;
   private List<String> analyticsListenerReceivedCallbacks;
 

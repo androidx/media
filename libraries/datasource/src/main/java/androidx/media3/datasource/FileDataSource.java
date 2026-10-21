@@ -23,7 +23,6 @@ import android.net.Uri;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -31,6 +30,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link DataSource} for reading local files. */
 @UnstableApi
@@ -72,7 +72,7 @@ public final class FileDataSource extends BaseDataSource {
   /** {@link DataSource.Factory} for {@link FileDataSource} instances. */
   public static final class Factory implements DataSource.Factory {
 
-    @Nullable private TransferListener listener;
+    private @Nullable TransferListener listener;
 
     /**
      * Sets a {@link TransferListener} for {@link FileDataSource} instances created by this factory.
@@ -96,8 +96,8 @@ public final class FileDataSource extends BaseDataSource {
     }
   }
 
-  @Nullable private RandomAccessFile file;
-  @Nullable private Uri uri;
+  private @Nullable RandomAccessFile file;
+  private @Nullable Uri uri;
   private long bytesRemaining;
   private boolean opened;
 
@@ -155,8 +155,7 @@ public final class FileDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

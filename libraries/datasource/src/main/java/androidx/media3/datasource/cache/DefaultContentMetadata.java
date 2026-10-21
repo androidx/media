@@ -15,7 +15,6 @@
  */
 package androidx.media3.datasource.cache;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation of {@link ContentMetadata}. Values are stored as byte arrays. */
 @UnstableApi
@@ -68,9 +68,8 @@ public final class DefaultContentMetadata implements ContentMetadata {
   }
 
   @Override
-  @Nullable
-  public final byte[] get(String key, @Nullable byte[] defaultValue) {
-    @Nullable byte[] bytes = metadata.get(key);
+  public final byte @Nullable [] get(String key, byte @Nullable [] defaultValue) {
+    byte @Nullable [] bytes = metadata.get(key);
     if (bytes != null) {
       return Arrays.copyOf(bytes, bytes.length);
     } else {
@@ -79,9 +78,8 @@ public final class DefaultContentMetadata implements ContentMetadata {
   }
 
   @Override
-  @Nullable
-  public final String get(String key, @Nullable String defaultValue) {
-    @Nullable byte[] bytes = metadata.get(key);
+  public final @Nullable String get(String key, @Nullable String defaultValue) {
+    byte @Nullable [] bytes = metadata.get(key);
     if (bytes != null) {
       return new String(bytes, StandardCharsets.UTF_8);
     } else {
@@ -91,7 +89,7 @@ public final class DefaultContentMetadata implements ContentMetadata {
 
   @Override
   public final long get(String key, long defaultValue) {
-    @Nullable byte[] bytes = metadata.get(key);
+    byte @Nullable [] bytes = metadata.get(key);
     if (bytes != null) {
       return ByteBuffer.wrap(bytes).getLong();
     } else {
@@ -133,7 +131,7 @@ public final class DefaultContentMetadata implements ContentMetadata {
     }
     for (Entry<String, byte[]> entry : first.entrySet()) {
       byte[] value = entry.getValue();
-      @Nullable byte[] otherValue = second.get(entry.getKey());
+      byte @Nullable [] otherValue = second.get(entry.getKey());
       if (!Arrays.equals(value, otherValue)) {
         return false;
       }

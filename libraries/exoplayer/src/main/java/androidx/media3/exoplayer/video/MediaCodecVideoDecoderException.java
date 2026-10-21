@@ -17,10 +17,10 @@ package androidx.media3.exoplayer.video;
 
 import android.media.MediaCodec;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.mediacodec.MediaCodecDecoderException;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a failure occurs in a {@link MediaCodec} video decoder. */
 @UnstableApi

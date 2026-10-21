@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -34,6 +33,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Implementation of {@link MediaBrowserServiceCompat} for interoperability between {@link
@@ -66,8 +66,7 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   @Override
-  @Nullable
-  public BrowserRoot onGetRoot(
+  public @Nullable BrowserRoot onGetRoot(
       @Nullable String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
     RemoteUserInfo info = getCurrentBrowserInfo();
     MediaSession.ControllerInfo controller =

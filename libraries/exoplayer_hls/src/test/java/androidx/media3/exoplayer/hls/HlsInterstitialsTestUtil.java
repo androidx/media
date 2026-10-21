@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import androidx.annotation.Nullable;
 import com.google.common.util.concurrent.Uninterruptibles;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for HLS interstitials testing. */
 public final class HlsInterstitialsTestUtil {

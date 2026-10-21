@@ -28,7 +28,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.widget.Button;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -38,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -972,7 +972,7 @@ public final class FakeClockTest {
     public final int what;
     public final int arg1;
     public final int arg2;
-    @Nullable public final Object obj;
+    public final @Nullable Object obj;
 
     public MessageData(int what, int arg1, int arg2, @Nullable Object obj) {
       this.what = what;

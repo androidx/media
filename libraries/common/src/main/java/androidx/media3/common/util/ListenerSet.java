@@ -22,12 +22,11 @@ import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.CheckResult;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FlagSet;
 import java.util.ArrayDeque;
 import java.util.concurrent.CopyOnWriteArraySet;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A set of listeners.
@@ -43,7 +42,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * @param <T> The listener type.
  */
 @UnstableApi
-public final class ListenerSet<T extends @NonNull Object> {
+public final class ListenerSet<T> {
 
   /**
    * An event sent to a listener.
@@ -76,10 +75,10 @@ public final class ListenerSet<T extends @NonNull Object> {
 
   private static final int MSG_ITERATION_FINISHED = 1;
 
-  @Nullable private final Clock clock;
+  private final @Nullable Clock clock;
   private final Thread thread;
-  @Nullable private final HandlerWrapper iterationFinishedHandler;
-  @Nullable private final IterationFinishedEvent<T> iterationFinishedEvent;
+  private final @Nullable HandlerWrapper iterationFinishedHandler;
+  private final @Nullable IterationFinishedEvent<T> iterationFinishedEvent;
   private final CopyOnWriteArraySet<ListenerHolder<T>> listeners;
   private final ArrayDeque<Runnable> flushingEvents;
   private final ArrayDeque<Runnable> queuedEvents;
@@ -436,7 +435,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     checkState(isRunningOnCorrectThread());
   }
 
-  private static final class ListenerHolder<T extends @NonNull Object> {
+  private static final class ListenerHolder<T> {
 
     public final T listener;
 

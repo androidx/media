@@ -32,7 +32,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -54,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -108,9 +108,8 @@ public abstract class DataSourceContractTest {
    * for the {@link DataSource} most recently created by {@link #createDataSource()}. If it's the
    * same {@link DataSource} then {@code null} can be returned.
    */
-  @Nullable
   @ForOverride
-  protected DataSource getTransferListenerDataSource() {
+  protected @Nullable DataSource getTransferListenerDataSource() {
     return null;
   }
 
@@ -862,7 +861,7 @@ public abstract class DataSourceContractTest {
   /** Information about a resource that can be used to test the {@link DataSource} instance. */
   public static final class TestResource {
 
-    @Nullable private final String name;
+    private final @Nullable String name;
     private final Uri uri;
     private final Uri resolvedUri;
     private final @HttpMethod int httpMethod;
@@ -897,8 +896,7 @@ public abstract class DataSourceContractTest {
     }
 
     /** Returns a human-readable name for the resource, for use in test failure messages. */
-    @Nullable
-    public String getName() {
+    public @Nullable String getName() {
       return name;
     }
 

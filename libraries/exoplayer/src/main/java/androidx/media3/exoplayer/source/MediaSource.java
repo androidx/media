@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.source;
 
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -37,6 +36,7 @@ import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Defines and provides media to be played by an {@link ExoPlayer}. A MediaSource has two main
@@ -429,8 +429,7 @@ public interface MediaSource {
    * <p>This method must be called on the application thread.
    */
   @UnstableApi
-  @Nullable
-  default Timeline getInitialTimeline() {
+  default @Nullable Timeline getInitialTimeline() {
     return null;
   }
 

@@ -16,10 +16,10 @@
 package androidx.media3.datasource.cronet;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import org.chromium.net.CronetEngine;
 import org.chromium.net.CronetProvider;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A wrapper class for a {@link CronetEngine}.
@@ -34,7 +34,7 @@ import org.chromium.net.CronetProvider;
 @UnstableApi
 public final class CronetEngineWrapper {
 
-  @Nullable private final CronetEngine cronetEngine;
+  private final @Nullable CronetEngine cronetEngine;
 
   /**
    * Creates a wrapper for a {@link CronetEngine} built using the most suitable {@link
@@ -77,8 +77,7 @@ public final class CronetEngineWrapper {
    *
    * @return The CronetEngine, or null if no CronetEngine is available.
    */
-  @Nullable
-  /* package */ CronetEngine getCronetEngine() {
+  /* package */ @Nullable CronetEngine getCronetEngine() {
     return cronetEngine;
   }
 }

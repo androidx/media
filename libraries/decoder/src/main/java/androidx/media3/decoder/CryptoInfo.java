@@ -16,9 +16,9 @@
 package androidx.media3.decoder;
 
 import android.media.MediaCodec;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Metadata describing the structure of an encrypted input sample.
@@ -34,14 +34,14 @@ public final class CryptoInfo {
    *
    * @see android.media.MediaCodec.CryptoInfo#iv
    */
-  @Nullable public byte[] iv;
+  public byte @Nullable [] iv;
 
   /**
    * The 16 byte key id.
    *
    * @see android.media.MediaCodec.CryptoInfo#key
    */
-  @Nullable public byte[] key;
+  public byte @Nullable [] key;
 
   /**
    * The type of encryption that has been applied. Must be one of the {@link C.CryptoMode} values.
@@ -56,7 +56,7 @@ public final class CryptoInfo {
    *
    * @see android.media.MediaCodec.CryptoInfo#numBytesOfClearData
    */
-  @Nullable public int[] numBytesOfClearData;
+  public int @Nullable [] numBytesOfClearData;
 
   /**
    * The number of trailing encrypted bytes in each sub-sample. If null, all bytes are treated as
@@ -64,7 +64,7 @@ public final class CryptoInfo {
    *
    * @see android.media.MediaCodec.CryptoInfo#numBytesOfEncryptedData
    */
-  @Nullable public int[] numBytesOfEncryptedData;
+  public int @Nullable [] numBytesOfEncryptedData;
 
   /**
    * The number of subSamples that make up the buffer's contents.

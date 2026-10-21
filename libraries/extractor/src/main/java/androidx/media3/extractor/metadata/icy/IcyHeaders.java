@@ -17,7 +17,6 @@ package androidx.media3.extractor.metadata.icy;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaMetadata;
@@ -27,6 +26,7 @@ import androidx.media3.common.util.UnstableApi;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** ICY headers. */
 @UnstableApi
@@ -50,8 +50,7 @@ public final class IcyHeaders implements Metadata.Entry {
    * @param responseHeaders The response headers.
    * @return The parsed {@link IcyHeaders}, or {@code null} if no ICY headers were present.
    */
-  @Nullable
-  public static IcyHeaders parse(Map<String, List<String>> responseHeaders) {
+  public static @Nullable IcyHeaders parse(Map<String, List<String>> responseHeaders) {
     boolean icyHeadersPresent = false;
     int bitrate = Format.NO_VALUE;
     String genre = null;
@@ -122,13 +121,13 @@ public final class IcyHeaders implements Metadata.Entry {
   public final int bitrate;
 
   /** The genre ({@code icy-genre}). */
-  @Nullable public final String genre;
+  public final @Nullable String genre;
 
   /** The stream name ({@code icy-name}). */
-  @Nullable public final String name;
+  public final @Nullable String name;
 
   /** The URL of the radio station ({@code icy-url}). */
-  @Nullable public final String url;
+  public final @Nullable String url;
 
   /**
    * Whether the radio station is listed ({@code icy-pub}), or {@code false} if the header was not

@@ -57,7 +57,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -97,6 +96,7 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /** Util methods for converting between {@code androidx.media3} and {@code androidx.media} types. */
 /* package*/ class LegacyConversions {
@@ -150,8 +150,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
-  @Nullable
-  public static PlaybackException convertToPlaybackException(
+  public static @Nullable PlaybackException convertToPlaybackException(
       @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
     if (playbackStateCompat == null
         || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
@@ -178,8 +177,7 @@ import java.util.concurrent.TimeoutException;
    * @param context The context to read string resources to be used as fallback error messages.
    * @return The {@link SessionError}.
    */
-  @Nullable
-  public static SessionError convertToSessionError(
+  public static @Nullable SessionError convertToSessionError(
       @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
     if (playbackStateCompat == null) {
       return null;
@@ -193,8 +191,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   @VisibleForTesting
-  @Nullable
-  /* package */ static SessionError convertToSessionError(
+  /* package */ static @Nullable SessionError convertToSessionError(
       @PlaybackStateCompat.State int state,
       @PlaybackStateCompat.ErrorCode int errorCode,
       @Nullable CharSequence errorMessage,
@@ -384,8 +381,8 @@ import java.util.concurrent.TimeoutException;
     if (mediaId != null) {
       builder.setMediaId(mediaId);
     }
-    @Nullable
-    String mediaUriString = metadataCompat.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI);
+    @Nullable String mediaUriString =
+        metadataCompat.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI);
     if (mediaUriString != null) {
       builder.setRequestMetadata(
           new MediaItem.RequestMetadata.Builder().setMediaUri(Uri.parse(mediaUriString)).build());
@@ -503,8 +500,8 @@ import java.util.concurrent.TimeoutException;
       @Nullable CharSequence queueTitle,
       @Nullable MediaMetadataCompat metadataCompat,
       @Nullable MediaDescriptionCompat descriptionCompat) {
-    @Nullable
-    Bundle descriptionExtras = descriptionCompat != null ? descriptionCompat.getExtras() : null;
+    @Nullable Bundle descriptionExtras =
+        descriptionCompat != null ? descriptionCompat.getExtras() : null;
 
     @Nullable String artworkUriString = null;
     if (metadataCompat != null) {
@@ -560,7 +557,7 @@ import java.util.concurrent.TimeoutException;
         .setArtworkUri(descriptionCompat.getIconUri())
         .setUserRating(convertToRating(RatingCompat.newUnratedRating(ratingType)));
 
-    @Nullable byte[] artworkData = descriptionCompat.getIconBitmapData();
+    byte @Nullable [] artworkData = descriptionCompat.getIconBitmapData();
     if (artworkData != null) {
       builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
@@ -640,8 +637,7 @@ import java.util.concurrent.TimeoutException;
 
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
-    @Nullable
-    CharSequence displayTitle =
+    @Nullable CharSequence displayTitle =
         metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE);
     CharSequence displaySubtitle;
     CharSequence displayDescription;
@@ -686,8 +682,7 @@ import java.util.concurrent.TimeoutException;
       }
     }
 
-    @Nullable
-    Rating userRating =
+    @Nullable Rating userRating =
         convertToRating(metadataCompat.getRating(MediaMetadataCompat.METADATA_KEY_USER_RATING));
     if (userRating != null) {
       builder.setUserRating(userRating);
@@ -705,7 +700,7 @@ import java.util.concurrent.TimeoutException;
       builder.setArtworkUri(artworkUri);
     }
 
-    @Nullable byte[] artworkData = metadataCompat.getMostRelevantArtworkBitmapData();
+    byte @Nullable [] artworkData = metadataCompat.getMostRelevantArtworkBitmapData();
     if (artworkData != null) {
       builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
@@ -987,8 +982,7 @@ import java.util.concurrent.TimeoutException;
         .build();
   }
 
-  @Nullable
-  private static CharSequence getText(String key, MediaMetadata metadata) {
+  private static @Nullable CharSequence getText(String key, MediaMetadata metadata) {
     switch (key) {
       case MediaMetadataCompat.METADATA_KEY_TITLE:
         return metadata.title;
@@ -1064,8 +1058,7 @@ import java.util.concurrent.TimeoutException;
    * @param ratingCompat A {@link RatingCompat} object.
    * @return The newly created {@link Rating} object.
    */
-  @Nullable
-  public static Rating convertToRating(@Nullable RatingCompat ratingCompat) {
+  public static @Nullable Rating convertToRating(@Nullable RatingCompat ratingCompat) {
     if (ratingCompat == null) {
       return null;
     }
@@ -1107,8 +1100,7 @@ import java.util.concurrent.TimeoutException;
    * @return The newly created {@link RatingCompat} object.
    */
   @SuppressLint("WrongConstant") // for @StarStyle
-  @Nullable
-  public static RatingCompat convertToRatingCompat(@Nullable Rating rating) {
+  public static @Nullable RatingCompat convertToRatingCompat(@Nullable Rating rating) {
     if (rating == null) {
       return null;
     }
@@ -1316,7 +1308,8 @@ import java.util.concurrent.TimeoutException;
     return MediaUtils.calculateBufferedPercentage(bufferedPositionMs, durationMs);
   }
 
-  public static @RatingCompat.Style int getRatingCompatStyle(@Nullable Rating rating) {
+  @RatingCompat.Style
+  public static int getRatingCompatStyle(@Nullable Rating rating) {
     if (rating instanceof HeartRating) {
       return RatingCompat.RATING_HEART;
     } else if (rating instanceof ThumbRating) {
@@ -1403,8 +1396,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   /** Converts the rootHints, option, and extra to the {@link LibraryParams}. */
-  @Nullable
-  public static LibraryParams convertToLibraryParams(
+  public static @Nullable LibraryParams convertToLibraryParams(
       Context context, @Nullable Bundle legacyBundle) {
     if (legacyBundle == null) {
       return null;
@@ -1433,8 +1425,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   /** Converts {@link LibraryParams} to the root hints. */
-  @Nullable
-  public static Bundle convertToRootHints(@Nullable LibraryParams params) {
+  public static @Nullable Bundle convertToRootHints(@Nullable LibraryParams params) {
     if (params == null) {
       return null;
     }
@@ -1630,8 +1621,7 @@ import java.util.concurrent.TimeoutException;
       if (extras != null) {
         button.setExtras(extras);
       }
-      @Nullable
-      String iconUriString =
+      @Nullable String iconUriString =
           extras != null
               ? extras.getString(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT)
               : null;
@@ -1676,7 +1666,7 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link MediaControllerCompat.PlaybackInfo} to {@link DeviceInfo}. */
   public static DeviceInfo convertToDeviceInfo(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
+      MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat) {
     if (playbackInfoCompat == null) {
       return DeviceInfo.UNKNOWN;
     }
@@ -1693,7 +1683,7 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link MediaControllerCompat.PlaybackInfo} to device volume. */
   public static int convertToDeviceVolume(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
+      MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat) {
     if (playbackInfoCompat == null) {
       return 0;
     }
@@ -1702,7 +1692,7 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link MediaControllerCompat.PlaybackInfo} to device muted. */
   public static boolean convertToIsDeviceMuted(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
+      MediaControllerCompat.@Nullable PlaybackInfo playbackInfoCompat) {
     if (playbackInfoCompat == null) {
       return false;
     }
@@ -1719,16 +1709,15 @@ import java.util.concurrent.TimeoutException;
    * @param browseActionBundle The bundle containing the information of a browse action.
    * @return The resulting {@link CommandButton} or null.
    */
-  @Nullable
-  public static CommandButton convertCustomBrowseActionToCommandButton(Bundle browseActionBundle) {
+  public static @Nullable CommandButton convertCustomBrowseActionToCommandButton(
+      Bundle browseActionBundle) {
     String commandAction =
         browseActionBundle.getString(
             androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID);
     if (commandAction == null) {
       return null;
     }
-    @Nullable
-    CommandButton.Builder commandButton =
+    CommandButton.@Nullable Builder commandButton =
         new CommandButton.Builder()
             .setSessionCommand(new SessionCommand(commandAction, Bundle.EMPTY));
     String label =

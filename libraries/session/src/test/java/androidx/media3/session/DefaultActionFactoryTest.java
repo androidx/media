@@ -24,13 +24,13 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media3.common.Player;
 import androidx.media3.test.utils.MalformedParcelable;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -245,9 +245,8 @@ public class DefaultActionFactoryTest {
 
   /** A test service for unit tests. */
   public static final class TestService extends MediaLibraryService {
-    @Nullable
     @Override
-    public MediaLibrarySession onGetSession(MediaSession.ControllerInfo controllerInfo) {
+    public @Nullable MediaLibrarySession onGetSession(MediaSession.ControllerInfo controllerInfo) {
       return null;
     }
   }

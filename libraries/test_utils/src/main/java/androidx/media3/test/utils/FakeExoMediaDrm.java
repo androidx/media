@@ -31,7 +31,6 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.util.UnstableApi;
@@ -58,6 +57,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A fake implementation of {@link ExoMediaDrm} for use in tests.
@@ -213,7 +213,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
 
   private int provisionsReceived;
   private int referenceCount;
-  @Nullable private OnEventListener onEventListener;
+  private @Nullable OnEventListener onEventListener;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -407,9 +407,8 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public PersistableBundle getMetrics() {
+  public @Nullable PersistableBundle getMetrics() {
     checkState(referenceCount > 0);
 
     return null;
@@ -428,7 +427,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
   @Override
   public byte[] getPropertyByteArray(String propertyName) {
     checkState(referenceCount > 0);
-    @Nullable byte[] value = byteProperties.get(propertyName);
+    byte @Nullable [] value = byteProperties.get(propertyName);
     if (value == null) {
       throw new IllegalArgumentException("Unrecognized propertyName: " + propertyName);
     }
@@ -471,7 +470,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
    * passing the provided values for {@code event}, {@code extra} and {@code data}.
    */
   public void triggerEvent(
-      Predicate<byte[]> sessionIdPredicate, int event, int extra, @Nullable byte[] data) {
+      Predicate<byte[]> sessionIdPredicate, int event, int extra, byte @Nullable [] data) {
     @Nullable OnEventListener onEventListener = this.onEventListener;
     if (onEventListener == null) {
       return;

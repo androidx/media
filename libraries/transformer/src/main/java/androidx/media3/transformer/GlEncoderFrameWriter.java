@@ -32,7 +32,6 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -63,6 +62,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of {@link FrameWriter} that uses OpenGL to render {@link HardwareBuffer}s to a
@@ -101,15 +101,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final GlObjectsProvider glObjectsProvider;
   private final AtomicBoolean isClosed;
   private final FrameRenderer frameRenderer;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private EGLDisplay eglDisplay;
   private EGLContext eglContext;
   private EGLSurface placeholderSurface;
   private EGLSurface outputEglSurface;
   private @MonotonicNonNull Format configurationFormat;
-  @Nullable private DefaultShaderProgram defaultShaderProgram;
-  @Nullable private Codec encoder;
+  private @Nullable DefaultShaderProgram defaultShaderProgram;
+  private @Nullable Codec encoder;
   private boolean isRgba8888Shader;
 
   /**
@@ -181,9 +181,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* onSuccessListener= */ null);
   }
 
-  @Nullable
   @Override
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     checkState(configurationFormat != null);
     if (isClosed.get()) {
       return null;
@@ -410,8 +409,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * Dequeues an input frame, or registers {@code wakeupListener} and returns {@code null} if no
      * frame buffer is available.
      */
-    @Nullable
-    AsyncFrame dequeueInputFrame(Runnable wakeupListener);
+    @Nullable AsyncFrame dequeueInputFrame(Runnable wakeupListener);
 
     /** Queues an input {@link Frame} to be rendered to the encoder surface. */
     void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence);
@@ -437,12 +435,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.usage = usage;
     }
 
-    @Nullable
     @Override
-    public AsyncFrame dequeueInputFrame(Runnable wakeupListener) {
+    public @Nullable AsyncFrame dequeueInputFrame(Runnable wakeupListener) {
       Format format = checkNotNull(configurationFormat);
-      @Nullable
-      HardwareBufferPool.HardwareBufferWithFence bufferWithFence =
+      HardwareBufferPool.@Nullable HardwareBufferWithFence bufferWithFence =
           hardwareBufferPool.get(format, usage, wakeupListener);
       if (bufferWithFence == null) {
         return null;

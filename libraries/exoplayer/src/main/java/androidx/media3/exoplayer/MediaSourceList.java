@@ -23,12 +23,10 @@ import static java.lang.Math.min;
 
 import android.os.Handler;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -55,6 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Concatenates multiple {@link MediaSource}s. The list of {@link MediaSource}s can be modified
@@ -446,8 +445,7 @@ import java.util.Set;
 
   // Internal methods to manage child sources.
 
-  @Nullable
-  private static MediaSource.MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  private static MediaSource.@Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       MediaSourceHolder mediaSourceHolder, MediaSource.MediaPeriodId mediaPeriodId) {
     for (int i = 0; i < mediaSourceHolder.activeMediaPeriodIds.size(); i++) {
       // Ensure the reported media period id has the same window sequence number as the one created
@@ -565,12 +563,11 @@ import java.util.Set;
     @Override
     public void onLoadStarted(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData,
         int retryCount) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -587,11 +584,10 @@ import java.util.Set;
     @Override
     public void onLoadCompleted(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -604,11 +600,10 @@ import java.util.Set;
     @Override
     public void onLoadCanceled(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -621,13 +616,12 @@ import java.util.Set;
     @Override
     public void onLoadError(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         LoadEventInfo loadEventData,
         MediaLoadData mediaLoadData,
         IOException error,
         boolean wasCanceled) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -645,10 +639,9 @@ import java.util.Set;
     @Override
     public void onUpstreamDiscarded(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         MediaLoadData mediaLoadData) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -661,10 +654,9 @@ import java.util.Set;
     @Override
     public void onDownstreamFormatChanged(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         MediaLoadData mediaLoadData) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -679,10 +671,9 @@ import java.util.Set;
     @Override
     public void onDrmSessionAcquired(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         @DrmSession.State int state) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -695,10 +686,9 @@ import java.util.Set;
     @Override
     public void onDrmKeysLoaded(
         int windowIndex,
-        @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+        MediaSource.@Nullable MediaPeriodId mediaPeriodId,
         KeyRequestInfo keyRequestInfo) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -710,9 +700,8 @@ import java.util.Set;
 
     @Override
     public void onDrmSessionManagerError(
-        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, Exception error) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+        int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId, Exception error) {
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -724,9 +713,8 @@ import java.util.Set;
 
     @Override
     public void onDrmKeysRestored(
-        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+        int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -736,9 +724,8 @@ import java.util.Set;
 
     @Override
     public void onDrmKeysRemoved(
-        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+        int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -748,9 +735,8 @@ import java.util.Set;
 
     @Override
     public void onDrmSessionReleased(
-        int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
-      @Nullable
-      Pair<Integer, MediaSource.@NullableType MediaPeriodId> eventParameters =
+        int windowIndex, MediaSource.@Nullable MediaPeriodId mediaPeriodId) {
+      @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
         eventHandler.post(
@@ -760,10 +746,9 @@ import java.util.Set;
     }
 
     /** Updates the event parameters and returns whether the event should be dispatched. */
-    @Nullable
-    private Pair<Integer, MediaSource.@NullableType MediaPeriodId> getEventParameters(
-        int childWindowIndex, @Nullable MediaSource.MediaPeriodId childMediaPeriodId) {
-      @Nullable MediaSource.MediaPeriodId mediaPeriodId = null;
+    private @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> getEventParameters(
+        int childWindowIndex, MediaSource.@Nullable MediaPeriodId childMediaPeriodId) {
+      MediaSource.@Nullable MediaPeriodId mediaPeriodId = null;
       if (childMediaPeriodId != null) {
         mediaPeriodId = getMediaPeriodIdForChildMediaPeriodId(id, childMediaPeriodId);
         if (mediaPeriodId == null) {

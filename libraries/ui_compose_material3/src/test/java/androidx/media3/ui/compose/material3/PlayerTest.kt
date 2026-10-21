@@ -124,6 +124,23 @@ class PlayerTest {
   }
 
   @Test
+  fun player_showControlsFalse_hidesCustomControls() {
+    composeTestRule.setContent {
+      Player(
+        FakePlayer(),
+        showControls = false,
+        topControls = { Box(Modifier.testTag("topControls")) { BasicText("Top") } },
+        centerControls = { Box(Modifier.testTag("centerControls")) { BasicText("Center") } },
+        bottomControls = { Box(Modifier.testTag("bottomControls")) { BasicText("Bottom") } },
+      )
+    }
+
+    composeTestRule.onNodeWithTag("topControls", useUnmergedTree = true).assertDoesNotExist()
+    composeTestRule.onNodeWithTag("centerControls", useUnmergedTree = true).assertDoesNotExist()
+    composeTestRule.onNodeWithTag("bottomControls", useUnmergedTree = true).assertDoesNotExist()
+  }
+
+  @Test
   fun player_customControls_areDisplayedAndAlignedCorrectly() {
     val player = FakePlayer()
     var tolerance = 1f
@@ -132,6 +149,7 @@ class PlayerTest {
       Player(
         player,
         Modifier.testTag(playerTestTag),
+        showControls = true,
         topControls = { Box(Modifier.testTag("topControls")) { BasicText("Top") } },
         centerControls = { Box(Modifier.testTag("centerControls")) { BasicText("Center") } },
         bottomControls = { Box(Modifier.testTag("bottomControls")) { BasicText("Bottom") } },
@@ -177,6 +195,7 @@ class PlayerTest {
       Player(
         player = currentPlayer,
         Modifier.testTag(playerTestTag),
+        showControls = true,
         topControls = {
           val tag =
             if (currentPlayer != null) "topControlsWithPlayer" else "topControlsWithoutPlayer"

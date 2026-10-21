@@ -28,7 +28,6 @@ import android.media.metrics.EditingEndedEvent;
 import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaItemInfo;
 import android.util.Size;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -49,6 +48,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -413,8 +413,7 @@ public class EditingMetricsCollectorTest {
       this.wrappedMetricsReporter = metricsReporter;
       this.listener = listener;
       if (wrappedMetricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
-        @Nullable
-        LogSessionId logSessionId =
+        @Nullable LogSessionId logSessionId =
             ((EditingMetricsCollector.DefaultMetricsReporter) wrappedMetricsReporter)
                 .getLogSessionId();
         if (logSessionId != null) {

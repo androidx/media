@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Builder for URI for IMA DAI streams. The resulting URI can be used to build a {@link
@@ -64,18 +64,18 @@ public final class ImaServerSideAdInsertionUriBuilder {
   private static final String CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT =
       "customUiOptionsAboutThisAdSupport";
 
-  @Nullable private String adsId;
-  @Nullable private String assetKey;
-  @Nullable private String apiKey;
-  @Nullable private String contentSourceId;
-  @Nullable private String videoId;
-  @Nullable private String networkCode;
-  @Nullable private String manifestSuffix;
-  @Nullable private String contentUrl;
-  @Nullable private String authToken;
-  @Nullable private String streamActivityMonitorId;
+  private @Nullable String adsId;
+  private @Nullable String assetKey;
+  private @Nullable String apiKey;
+  private @Nullable String contentSourceId;
+  private @Nullable String videoId;
+  private @Nullable String networkCode;
+  private @Nullable String manifestSuffix;
+  private @Nullable String contentUrl;
+  private @Nullable String authToken;
+  private @Nullable String streamActivityMonitorId;
   private ImmutableMap<String, String> adTagParameters;
-  @Nullable private CustomUiOptions customUiOptions;
+  private @Nullable CustomUiOptions customUiOptions;
   public @ContentType int format;
   private int loadVideoTimeoutMs;
 
@@ -430,11 +430,9 @@ public final class ImaServerSideAdInsertionUriBuilder {
       streamRequest.setStreamActivityMonitorId(streamActivityMonitorId);
     }
 
-    @Nullable
-    String customUiOptionsSkippableSupport =
+    @Nullable String customUiOptionsSkippableSupport =
         uri.getQueryParameter(CUSTOM_UI_OPTIONS_SKIPPABLE_SUPPORT);
-    @Nullable
-    String customUiOptionsAboutThisAdSupport =
+    @Nullable String customUiOptionsAboutThisAdSupport =
         uri.getQueryParameter(CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT);
     if (customUiOptionsSkippableSupport != null || customUiOptionsAboutThisAdSupport != null) {
       CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();

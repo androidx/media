@@ -27,7 +27,6 @@ import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -47,6 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.io.File;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -266,9 +266,8 @@ public class ForceEndOfStreamTest {
         return wrappedDecoder.getInputFormat();
       }
 
-      @Nullable
       @Override
-      public Format getOutputFormat() throws ExportException {
+      public @Nullable Format getOutputFormat() throws ExportException {
         return wrappedDecoder.getOutputFormat();
       }
 
@@ -277,9 +276,8 @@ public class ForceEndOfStreamTest {
         throw new UnsupportedOperationException();
       }
 
-      @Nullable
       @Override
-      public MediaCodec.BufferInfo getOutputBufferInfo() throws ExportException {
+      public MediaCodec.@Nullable BufferInfo getOutputBufferInfo() throws ExportException {
         return wrappedDecoder.getOutputBufferInfo();
       }
 

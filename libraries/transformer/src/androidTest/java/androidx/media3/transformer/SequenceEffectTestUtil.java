@@ -27,7 +27,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.os.Build;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
@@ -40,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Utility class for checking testing {@link EditedMediaItemSequence} instances. */
 public final class SequenceEffectTestUtil {
@@ -209,8 +209,7 @@ public final class SequenceEffectTestUtil {
    * @return The {@link ExportTestResult} when successful, or {@code null} if decoding fails.
    * @throws Exception The cause of the export not completing.
    */
-  @Nullable
-  public static ExportTestResult tryToExportCompositionWithDecoder(
+  public static @Nullable ExportTestResult tryToExportCompositionWithDecoder(
       String testId, Context context, MediaCodecInfo decoderMediaCodecInfo, Composition composition)
       throws Exception {
     try {

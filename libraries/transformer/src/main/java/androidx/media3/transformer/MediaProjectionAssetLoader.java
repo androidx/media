@@ -24,13 +24,13 @@ import android.media.projection.MediaProjection;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableMap;
+import org.jspecify.annotations.Nullable;
 
 /** Asset loader that provides video from {@link MediaProjection}. */
 @UnstableApi
@@ -82,8 +82,8 @@ public final class MediaProjectionAssetLoader implements AssetLoader {
   private final Handler handler;
   private final SurfaceAssetLoader surfaceAssetLoader;
 
-  @Nullable private Format videoFormat;
-  @Nullable private VirtualDisplay virtualDisplay;
+  private @Nullable Format videoFormat;
+  private @Nullable VirtualDisplay virtualDisplay;
 
   /**
    * Creates a new asset that provides video from {@link MediaProjection}.
@@ -210,9 +210,8 @@ public final class MediaProjectionAssetLoader implements AssetLoader {
       return true;
     }
 
-    @Nullable
     @Override
-    public SampleConsumer onOutputFormat(Format format) throws ExportException {
+    public @Nullable SampleConsumer onOutputFormat(Format format) throws ExportException {
       if (videoFormat == null) {
         return null;
       }

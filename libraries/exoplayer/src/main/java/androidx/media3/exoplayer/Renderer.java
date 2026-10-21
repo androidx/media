@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.media.MediaCodec;
 import android.view.Surface;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -48,6 +47,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Renders media read from a {@link SampleStream}.
@@ -495,8 +495,7 @@ public interface Renderer extends PlayerMessage.Target {
    *
    * @return The {@link MediaClock} tracking the playback position of the renderer, or null.
    */
-  @Nullable
-  MediaClock getMediaClock();
+  @Nullable MediaClock getMediaClock();
 
   /**
    * Returns the current state of the renderer.
@@ -574,8 +573,7 @@ public interface Renderer extends PlayerMessage.Target {
       throws ExoPlaybackException;
 
   /** Returns the {@link SampleStream} being consumed, or null if the renderer is disabled. */
-  @Nullable
-  SampleStream getStream();
+  @Nullable SampleStream getStream();
 
   /**
    * Returns whether the renderer has read the current {@link SampleStream} to the end.

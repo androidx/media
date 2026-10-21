@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A descriptor, as defined by ISO 23009-1, 2nd edition, 5.8.2. */
 @UnstableApi
@@ -27,10 +27,10 @@ public final class Descriptor {
   public final String schemeIdUri;
 
   /** The value, or null. */
-  @Nullable public final String value;
+  public final @Nullable String value;
 
   /** The identifier, or null. */
-  @Nullable public final String id;
+  public final @Nullable String id;
 
   /**
    * @param schemeIdUri The scheme URI.

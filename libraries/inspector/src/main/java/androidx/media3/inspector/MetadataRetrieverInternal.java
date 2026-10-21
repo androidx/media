@@ -25,7 +25,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -54,6 +53,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages the internal logic for retrieving metadata from a {@link MediaItem}.
@@ -167,33 +167,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     {@link C#TIME_UNSET} if unknown.
    */
   /* package */ ListenableFuture<Long> retrieveDurationUs() {
-    synchronized (lock) {
-      if (released) {
-        return immediateFailedFuture(new IllegalStateException("Retriever is released."));
-      }
-      ListenableFuture<Timeline> timelineFuture = retrieveTimeline();
-      SettableFuture<Long> externalFuture = SettableFuture.create();
-      allFutures.add(externalFuture);
-      Futures.addCallback(
-          timelineFuture,
-          new FutureCallback<Timeline>() {
-            @Override
-            public void onSuccess(Timeline timeline) {
-              if (timeline.isEmpty()) {
-                externalFuture.set(C.TIME_UNSET);
-              } else {
-                externalFuture.set(timeline.getWindow(0, new Timeline.Window()).getDurationUs());
-              }
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              externalFuture.setException(t);
-            }
-          },
-          directExecutor());
-      return externalFuture;
-    }
+    return Futures.transform(
+        retrieveTimeline(),
+        timeline ->
+            timeline.isEmpty()
+                ? C.TIME_UNSET
+                : timeline.getWindow(0, new Timeline.Window()).getDurationUs(),
+        directExecutor());
   }
 
   @Override
@@ -339,7 +319,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               @Override
               public void onLoadError(
                   int windowIndex,
-                  @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                  MediaSource.@Nullable MediaPeriodId mediaPeriodId,
                   LoadEventInfo loadEventInfo,
                   MediaLoadData mediaLoadData,
                   IOException error,
@@ -464,7 +444,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new AtomicInteger(MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
 
     private final Deque<RetrievalTask> pendingRetrievals;
-    @Nullable private HandlerThread mediaSourceThread;
+    private @Nullable HandlerThread mediaSourceThread;
     private int referenceCount;
 
     private SharedWorkerThread() {

@@ -26,7 +26,6 @@ import android.media.ImageWriter;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -41,6 +40,7 @@ import androidx.media3.common.video.SyncFenceWrapper;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of {@link FrameWriter} that uses an {@link ImageWriter} to forward frames to a
@@ -90,14 +90,14 @@ public class EncoderFrameWriter implements FrameWriter {
   private final Listener listener;
   private final Executor listenerExecutor;
   private final Handler imageReleaseHandler;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private int inUseCount;
   private @MonotonicNonNull Format configurationFormat;
-  @Nullable private ImageWriter imageWriter;
-  @Nullable private Codec encoder;
-  @Nullable private Executor wakeupExecutor;
-  @Nullable private Runnable wakeupListener;
+  private @Nullable ImageWriter imageWriter;
+  private @Nullable Codec encoder;
+  private @Nullable Executor wakeupExecutor;
+  private @Nullable Runnable wakeupListener;
 
   public EncoderFrameWriter(
       Codec.EncoderFactory encoderFactory,
@@ -156,9 +156,8 @@ public class EncoderFrameWriter implements FrameWriter {
     imageWriter.setOnImageReleasedListener((writer) -> onImageReleased(), imageReleaseHandler);
   }
 
-  @Nullable
   @Override
-  public synchronized AsyncFrame dequeueInputFrame(
+  public synchronized @Nullable AsyncFrame dequeueInputFrame(
       Executor wakeupExecutor, Runnable wakeupListener) {
     checkState(imageWriter != null);
     if (inUseCount == CAPACITY) {

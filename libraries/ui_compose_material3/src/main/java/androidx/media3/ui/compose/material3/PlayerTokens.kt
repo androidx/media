@@ -15,6 +15,9 @@
  */
 package androidx.media3.ui.compose.material3
 
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
@@ -31,6 +34,11 @@ internal object PlayerTokens {
   val CenterControlsSpacing = 10.dp
   val ControlsHorizontalPadding = 15.dp
   val BottomControlsHorizontalPadding = 8.dp
+
+  // The default effects spring of the standard Material motion scheme.
+  // TODO: b/502167525 - Use MaterialTheme.motionScheme.defaultEffectsSpec() once available.
+  val ControlsFadeSpec: FiniteAnimationSpec<Float> =
+    spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 1600f)
   val ErrorTextStyle: TextStyle
     @Composable get() = MaterialTheme.typography.titleMedium
 

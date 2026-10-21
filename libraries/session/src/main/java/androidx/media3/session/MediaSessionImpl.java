@@ -62,7 +62,6 @@ import android.view.ViewConfiguration;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.concurrent.futures.ResolvableFuture;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
@@ -105,6 +104,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.jspecify.annotations.Nullable;
 
 /* package */ class MediaSessionImpl {
 
@@ -146,18 +146,17 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final boolean isPeriodicPositionUpdateEnabled;
   private final boolean useLegacySurfaceHandling;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
-  @Nullable private final String packageNameOverride;
+  private final @Nullable String packageNameOverride;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
-  @Nullable private PendingIntent sessionActivity;
-  @Nullable private PlayerListener playerListener;
-  @Nullable private MediaSession.Listener mediaSessionListener;
-  @Nullable private ControllerInfo controllerForCurrentRequest;
+  private @Nullable PendingIntent sessionActivity;
+  private @Nullable PlayerListener playerListener;
+  private MediaSession.@Nullable Listener mediaSessionListener;
+  private @Nullable ControllerInfo controllerForCurrentRequest;
 
   @GuardedBy("lock")
-  @Nullable
-  private MediaSessionServiceLegacyStub browserServiceLegacyStub;
+  private @Nullable MediaSessionServiceLegacyStub browserServiceLegacyStub;
 
   @GuardedBy("lock")
   private boolean closed;
@@ -168,7 +167,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private Bundle sessionExtras;
-  @Nullable private PlaybackException playbackException;
+  private @Nullable PlaybackException playbackException;
 
   @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   public MediaSessionImpl(
@@ -426,8 +425,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return controllers.build();
   }
 
-  @Nullable
-  public ControllerInfo getControllerForCurrentRequest() {
+  public @Nullable ControllerInfo getControllerForCurrentRequest() {
     verifyApplicationThread();
     return controllerForCurrentRequest != null
         ? resolveControllerInfoForCallback(controllerForCurrentRequest)
@@ -445,7 +443,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * @param controllerInfo The controller info.
    * @return Whether the controller info belongs to the System UI controller.
    */
-  protected boolean isSystemUiController(@Nullable MediaSession.ControllerInfo controllerInfo) {
+  protected boolean isSystemUiController(MediaSession.@Nullable ControllerInfo controllerInfo) {
     return controllerInfo != null
         && Objects.equals(controllerInfo.getPackageName(), SYSTEM_UI_PACKAGE_NAME);
   }
@@ -491,8 +489,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * Returns the {@link ControllerInfo} of the system UI notification controller, or {@code null} if
    * the System UI controller is not connected.
    */
-  @Nullable
-  protected ControllerInfo getSystemUiControllerInfo() {
+  protected @Nullable ControllerInfo getSystemUiControllerInfo() {
     ImmutableList<ControllerInfo> connectedControllers =
         sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
@@ -515,8 +512,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * Returns the {@link ControllerInfo} of the media notification controller, or {@code null} if the
    * media notification controller is not connected.
    */
-  @Nullable
-  public ControllerInfo getMediaNotificationControllerInfo() {
+  public @Nullable ControllerInfo getMediaNotificationControllerInfo() {
     verifyApplicationThread();
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
@@ -534,8 +530,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return isMediaNotificationControllerConnected;
   }
 
-  @Nullable
-  public String getPackageNameOverride() {
+  public @Nullable String getPackageNameOverride() {
     return packageNameOverride;
   }
 
@@ -678,15 +673,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         });
   }
 
-  @Nullable
-  public PlaybackException getPlaybackException() {
+  public @Nullable PlaybackException getPlaybackException() {
     verifyApplicationThread();
     return playbackException;
   }
 
-  @Nullable
-  /* package */ static Player.Commands createPlayerCommandsForCustomErrorState(
-      @Nullable Player.Commands playerCommandsBeforeException) {
+  /* package */ static Player.@Nullable Commands createPlayerCommandsForCustomErrorState(
+      Player.@Nullable Commands playerCommandsBeforeException) {
     if (playerCommandsBeforeException == null) {
       // This may happen when the controller is already disconnected.
       return null;
@@ -1048,8 +1041,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               : instance.getSessionExtras();
       dispatchRemoteControllerTaskToLegacyStub(
           (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
-      @Nullable
-      PendingIntent sessionActivity =
+      @Nullable PendingIntent sessionActivity =
           connectionResult.sessionActivity != null
               ? connectionResult.sessionActivity
               : instance.getSessionActivity();
@@ -1104,7 +1096,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   public ListenableFuture<SessionResult> onCustomCommandOnHandler(
       ControllerInfo controller,
-      @Nullable MediaSession.ProgressReporter progressReporter,
+      MediaSession.@Nullable ProgressReporter progressReporter,
       SessionCommand command,
       Bundle extras) {
     return checkNotNull(
@@ -1174,8 +1166,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  @Nullable
-  protected PendingIntent getSessionActivity() {
+  protected @Nullable PendingIntent getSessionActivity() {
     verifyApplicationThread();
     return sessionActivity;
   }
@@ -1234,8 +1225,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * Gets the service binder from the MediaBrowserServiceCompat. Should be only called by the thread
    * with a Looper.
    */
-  @Nullable
-  protected IBinder getLegacyBrowserServiceBinder() {
+  protected @Nullable IBinder getLegacyBrowserServiceBinder() {
     MediaSessionServiceLegacyStub legacyStub;
     synchronized (lock) {
       if (browserServiceLegacyStub == null) {
@@ -1261,8 +1251,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     schedulePeriodicSessionPositionInfoChanges();
   }
 
-  @Nullable
-  protected MediaSessionServiceLegacyStub getLegacyBrowserService() {
+  protected @Nullable MediaSessionServiceLegacyStub getLegacyBrowserService() {
     synchronized (lock) {
       return browserServiceLegacyStub;
     }
@@ -1386,8 +1375,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
       }
     } else {
-      @Nullable
-      ListenableFuture<MediaItemsWithStartPosition> future =
+      @Nullable ListenableFuture<MediaItemsWithStartPosition> future =
           checkNotNull(
               callback.onPlaybackResumption(
                   instance, controllerForRequest, /* isForPlayback= */ true),
@@ -1513,8 +1501,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, RemoteControllerTask task) {
     try {
       int seq;
-      @Nullable
-      SequencedFutureManager manager =
+      @Nullable SequencedFutureManager manager =
           sessionStub.getConnectedControllersManager().getSequencedFutureManager(controller);
       if (manager != null) {
         seq = manager.obtainNextSequenceNumber();
@@ -1564,8 +1551,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     try {
       ListenableFuture<SessionResult> future;
       int seq;
-      @Nullable
-      SequencedFutureManager manager =
+      @Nullable SequencedFutureManager manager =
           sessionStub.getConnectedControllersManager().getSequencedFutureManager(controller);
       if (manager != null) {
         future = manager.createSequencedFuture(RESULT_WHEN_CLOSED);
@@ -2368,8 +2354,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           /* excludeTimeline= */ true, /* excludeTracks= */ true);
     }
 
-    @Nullable
-    private MediaSessionImpl getSession() {
+    private @Nullable MediaSessionImpl getSession() {
       return this.session.get();
     }
   }
@@ -2381,7 +2366,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   private class MediaPlayPauseKeyHandler extends Handler {
 
-    @Nullable private Runnable playPauseTask;
+    private @Nullable Runnable playPauseTask;
 
     public MediaPlayPauseKeyHandler(Looper applicationLooper) {
       super(applicationLooper);
@@ -2404,8 +2389,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       postDelayed(playPauseTask, ViewConfiguration.getDoubleTapTimeout());
     }
 
-    @Nullable
-    public Runnable clearPendingPlayPauseTask() {
+    public @Nullable Runnable clearPendingPlayPauseTask() {
       if (playPauseTask != null) {
         removeCallbacks(playPauseTask);
         Runnable task = playPauseTask;

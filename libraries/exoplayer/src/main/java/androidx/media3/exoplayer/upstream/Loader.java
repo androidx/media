@@ -26,7 +26,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
@@ -40,6 +39,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /** Manages the background loading of {@link Loadable}s. */
 @UnstableApi
@@ -224,8 +224,8 @@ public final class Loader implements LoaderErrorThrower {
 
   private final ReleasableExecutor downloadExecutor;
 
-  @Nullable private LoadTask<? extends Loadable> currentTask;
-  @Nullable private IOException fatalError;
+  private @Nullable LoadTask<? extends Loadable> currentTask;
+  private @Nullable IOException fatalError;
 
   /**
    * Constructs an instance.
@@ -369,11 +369,11 @@ public final class Loader implements LoaderErrorThrower {
     private final T loadable;
     private final long startTimeMs;
 
-    @Nullable private Loader.Callback<T> callback;
-    @Nullable private IOException currentError;
+    private Loader.@Nullable Callback<T> callback;
+    private @Nullable IOException currentError;
     private int errorCount;
 
-    @Nullable private Thread executorThread;
+    private @Nullable Thread executorThread;
     private boolean canceled;
     private volatile boolean released;
 

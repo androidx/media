@@ -30,7 +30,6 @@ import android.net.http.UrlRequest.Status;
 import android.net.http.UrlResponseInfo;
 import android.os.Build;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresExtension;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -58,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * DataSource without intermediate buffer based on {@link HttpEngine} set using {@link UrlRequest}.
@@ -77,9 +77,9 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     private final Executor executor;
     private final RequestProperties defaultRequestProperties;
 
-    @Nullable private Predicate<String> contentTypePredicate;
-    @Nullable private TransferListener transferListener;
-    @Nullable private String userAgent;
+    private @Nullable Predicate<String> contentTypePredicate;
+    private @Nullable TransferListener transferListener;
+    private @Nullable String userAgent;
     private int requestPriority;
     private int connectTimeoutMs;
     private int readTimeoutMs;
@@ -330,33 +330,33 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   private final int readTimeoutMs;
   private final boolean resetTimeoutOnRedirects;
   private final boolean handleSetCookieRequests;
-  @Nullable private final String userAgent;
-  @Nullable private final RequestProperties defaultRequestProperties;
+  private final @Nullable String userAgent;
+  private final @Nullable RequestProperties defaultRequestProperties;
   private final RequestProperties requestProperties;
   private final ConditionVariable operation;
   private final Clock clock;
 
-  @Nullable private Predicate<String> contentTypePredicate;
+  private @Nullable Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
 
   // Accessed by the calling thread only.
   private boolean transferStarted;
   private long bytesRemaining;
 
-  @Nullable private DataSpec currentDataSpec;
-  @Nullable private UrlRequestWrapper currentUrlRequestWrapper;
+  private @Nullable DataSpec currentDataSpec;
+  private @Nullable UrlRequestWrapper currentUrlRequestWrapper;
 
   // Reference written and read by calling thread only. Passed to HttpEngine thread as a local
   // variable.
   // operation.open() calls ensure writes into the buffer are visible to reads made by the calling
   // thread.
-  @Nullable private ByteBuffer readBuffer;
+  private @Nullable ByteBuffer readBuffer;
 
   // Written from the HttpEngine thread only. operation.open() calls ensure writes are visible to
   // reads
   // made by the calling thread.
-  @Nullable private UrlResponseInfo responseInfo;
-  @Nullable private IOException exception;
+  private @Nullable UrlResponseInfo responseInfo;
+  private @Nullable IOException exception;
   private boolean finished;
 
   private volatile long currentConnectTimeoutMs;
@@ -427,8 +427,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     if (responseInfo != null) {
       return Uri.parse(responseInfo.getUrl());
     } else if (currentDataSpec != null) {
@@ -517,8 +516,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
         responseBody = Util.EMPTY_BYTE_ARRAY;
       }
 
-      @Nullable
-      IOException cause =
+      @Nullable IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;
@@ -710,8 +708,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   /** Returns current {@link UrlRequest.Callback}. May be null if the data source is not opened. */
   @UnstableApi
   @VisibleForTesting
-  @Nullable
-  UrlRequestCallback getCurrentUrlRequestCallback() {
+  @Nullable UrlRequestCallback getCurrentUrlRequestCallback() {
     return currentUrlRequestWrapper == null
         ? null
         : currentUrlRequestWrapper.getUrlRequestCallback();
@@ -933,8 +930,8 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     return false;
   }
 
-  @Nullable
-  private static String getFirstHeader(Map<String, List<String>> allHeaders, String headerName) {
+  private static @Nullable String getFirstHeader(
+      Map<String, List<String>> allHeaders, String headerName) {
     @Nullable List<String> headers = allHeaders.get(headerName);
     return headers != null && !headers.isEmpty() ? headers.get(0) : null;
   }

@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -40,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks the content steering states for an HLS stream. */
 @UnstableApi
@@ -85,7 +85,7 @@ public final class HlsContentSteeringTracker extends BaseContentSteeringTracker 
   private static final String THROUGHPUT_PARAM = "_HLS_throughput";
 
   private final BandwidthMeter bandwidthMeter;
-  @Nullable private final Callback callback;
+  private final @Nullable Callback callback;
   private final Set<String> availablePathwayIds;
   private final Set<String> excludedPathwayIds;
   private final HandlerWrapper handler;
@@ -94,7 +94,7 @@ public final class HlsContentSteeringTracker extends BaseContentSteeringTracker 
   private final List<HlsRedundantGroup> audioRenditionRedundantGroups;
   private final List<HlsRedundantGroup> subtitleRenditionRedundantGroups;
 
-  @Nullable private String currentPathwayId;
+  private @Nullable String currentPathwayId;
 
   /**
    * Creates an {@link HlsContentSteeringTracker}.
@@ -112,7 +112,7 @@ public final class HlsContentSteeringTracker extends BaseContentSteeringTracker 
       HlsDataSourceFactory dataSourceFactory,
       @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier,
       HlsPlaylistTracker playlistTracker,
-      @Nullable HlsContentSteeringTracker.Callback callback,
+      HlsContentSteeringTracker.@Nullable Callback callback,
       BandwidthMeter bandwidthMeter,
       Clock clock) {
     super(

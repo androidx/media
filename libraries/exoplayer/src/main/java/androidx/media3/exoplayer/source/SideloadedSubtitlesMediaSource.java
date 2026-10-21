@@ -18,12 +18,12 @@ package androidx.media3.exoplayer.source;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.exoplayer.upstream.Allocator;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} merging a content source with its sideloaded subtitle sources, applying the
@@ -76,9 +76,9 @@ import java.util.List;
   }
 
   private boolean canUpdateSubtitleConfigurations(MediaItem mediaItem) {
-    @Nullable MediaItem.LocalConfiguration localConfiguration = mediaItem.localConfiguration;
-    @Nullable
-    MediaItem.LocalConfiguration currentLocalConfiguration = getMediaItem().localConfiguration;
+    MediaItem.@Nullable LocalConfiguration localConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration currentLocalConfiguration =
+        getMediaItem().localConfiguration;
     if (localConfiguration == null
         || currentLocalConfiguration == null
         || localConfiguration.subtitleConfigurations.size()

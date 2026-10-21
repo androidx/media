@@ -26,15 +26,14 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.CryptoInfo;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Performs {@link MediaCodec} input buffer queueing on a background thread. This is required on API
@@ -55,7 +54,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final MediaCodec codec;
   private final HandlerThread handlerThread;
   private @MonotonicNonNull Handler handler;
-  private final AtomicReference<@NullableType RuntimeException> pendingRuntimeException;
+  private final AtomicReference<@Nullable RuntimeException> pendingRuntimeException;
   private final ConditionVariable conditionVariable;
   private boolean started;
 
@@ -311,8 +310,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param dst The destination array, which will be reused if it's at least as long as {@code src}.
    * @return The copy, which may be {@code dst} if it was reused.
    */
-  @Nullable
-  private static int[] copy(@Nullable int[] src, @Nullable int[] dst) {
+  private static int @Nullable [] copy(int @Nullable [] src, int @Nullable [] dst) {
     if (src == null) {
       return dst;
     }
@@ -332,8 +330,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param dst The destination array, which will be reused if it's at least as long as {@code src}.
    * @return The copy, which may be {@code dst} if it was reused.
    */
-  @Nullable
-  private static byte[] copy(@Nullable byte[] src, @Nullable byte[] dst) {
+  private static byte @Nullable [] copy(byte @Nullable [] src, byte @Nullable [] dst) {
     if (src == null) {
       return dst;
     }

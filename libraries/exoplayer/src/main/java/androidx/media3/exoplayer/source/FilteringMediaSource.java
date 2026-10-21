@@ -17,12 +17,10 @@ package androidx.media3.exoplayer.source;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
@@ -33,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link MediaSource} that filters the available {@linkplain C.TrackType track types}.
@@ -86,8 +85,8 @@ public class FilteringMediaSource extends WrappingMediaSource {
 
     private final ImmutableSet<@C.TrackType Integer> trackTypes;
 
-    @Nullable private Callback callback;
-    @Nullable private TrackGroupArray filteredTrackGroups;
+    private @Nullable Callback callback;
+    private @Nullable TrackGroupArray filteredTrackGroups;
 
     public FilteringMediaPeriod(
         MediaPeriod mediaPeriod, ImmutableSet<@C.TrackType Integer> trackTypes) {
@@ -118,9 +117,9 @@ public class FilteringMediaSource extends WrappingMediaSource {
 
     @Override
     public long selectTracks(
-        @NullableType ExoTrackSelection[] selections,
+        @Nullable ExoTrackSelection[] selections,
         boolean[] mayRetainStreamFlags,
-        @NullableType SampleStream[] streams,
+        @Nullable SampleStream[] streams,
         boolean[] streamResetFlags,
         long positionUs) {
       return mediaPeriod.selectTracks(

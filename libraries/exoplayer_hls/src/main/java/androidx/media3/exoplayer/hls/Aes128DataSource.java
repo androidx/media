@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.hls;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceInputStream;
@@ -37,6 +36,7 @@ import javax.crypto.CipherInputStream;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} that decrypts data read from an upstream source, encrypted with AES-128 with
@@ -52,7 +52,7 @@ import javax.crypto.spec.SecretKeySpec;
   private final byte[] encryptionKey;
   private final byte[] encryptionIv;
 
-  @Nullable private CipherInputStream cipherInputStream;
+  private @Nullable CipherInputStream cipherInputStream;
 
   /**
    * @param upstream The upstream {@link DataSource}.
@@ -107,8 +107,7 @@ import javax.crypto.spec.SecretKeySpec;
   }
 
   @Override
-  @Nullable
-  public final Uri getUri() {
+  public final @Nullable Uri getUri() {
     return upstream.getUri();
   }
 

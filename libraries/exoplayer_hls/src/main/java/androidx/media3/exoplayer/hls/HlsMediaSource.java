@@ -23,7 +23,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -67,6 +66,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** An HLS {@link MediaSource}. */
 @UnstableApi
@@ -107,16 +107,16 @@ public final class HlsMediaSource extends BaseMediaSource
 
     private final HlsDataSourceFactory hlsDataSourceFactory;
 
-    @Nullable private HlsExtractorFactory extractorFactory;
-    @Nullable private SubtitleParser.Factory subtitleParserFactoryOverride;
+    private @Nullable HlsExtractorFactory extractorFactory;
+    private SubtitleParser.@Nullable Factory subtitleParserFactoryOverride;
     private boolean parseSubtitlesDuringExtraction;
     private HlsPlaylistParserFactory playlistParserFactory;
     private HlsPlaylistTracker.Factory playlistTrackerFactory;
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
+    private CmcdConfiguration.@Nullable Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     private boolean allowChunklessPreparation;
     private @MetadataType int metadataType;
@@ -413,8 +413,7 @@ public final class HlsMediaSource extends BaseMediaSource
         playlistParserFactory =
             new FilteringHlsPlaylistParserFactory(playlistParserFactory, streamKeys);
       }
-      @Nullable
-      CmcdConfiguration cmcdConfiguration =
+      @Nullable CmcdConfiguration cmcdConfiguration =
           cmcdConfigurationFactory == null
               ? null
               : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
@@ -450,7 +449,7 @@ public final class HlsMediaSource extends BaseMediaSource
   private final HlsExtractorFactory extractorFactory;
   private final HlsDataSourceFactory dataSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final boolean allowChunklessPreparation;
@@ -459,10 +458,10 @@ public final class HlsMediaSource extends BaseMediaSource
   private final HlsPlaylistTracker playlistTracker;
   private final long elapsedRealTimeOffsetMs;
   private final long timestampAdjusterInitializationTimeoutMs;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private MediaItem.LiveConfiguration liveConfiguration;
-  @Nullable private TransferListener mediaTransferListener;
+  private @Nullable TransferListener mediaTransferListener;
 
   @GuardedBy("this")
   private MediaItem mediaItem;
@@ -509,7 +508,7 @@ public final class HlsMediaSource extends BaseMediaSource
     MediaItem existingMediaItem = getMediaItem();
     MediaItem.LocalConfiguration existingConfiguration =
         checkNotNull(existingMediaItem.localConfiguration);
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
@@ -694,8 +693,7 @@ public final class HlsMediaSource extends BaseMediaSource
     if (playlist.preciseStart) {
       return startPositionUs;
     }
-    @Nullable
-    HlsMediaPlaylist.Part part =
+    HlsMediaPlaylist.@Nullable Part part =
         findClosestPrecedingIndependentPart(playlist.trailingParts, startPositionUs);
     if (part != null) {
       return part.relativeStartTimeUs;
@@ -762,10 +760,9 @@ public final class HlsMediaSource extends BaseMediaSource
     return targetOffsetUs + liveEdgeOffsetUs;
   }
 
-  @Nullable
-  private static HlsMediaPlaylist.Part findClosestPrecedingIndependentPart(
+  private static HlsMediaPlaylist.@Nullable Part findClosestPrecedingIndependentPart(
       List<HlsMediaPlaylist.Part> parts, long positionUs) {
-    @Nullable HlsMediaPlaylist.Part closestPart = null;
+    HlsMediaPlaylist.@Nullable Part closestPart = null;
     for (int i = 0; i < parts.size(); i++) {
       HlsMediaPlaylist.Part part = parts.get(i);
       if (part.relativeStartTimeUs <= positionUs && part.isIndependent) {

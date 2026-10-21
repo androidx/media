@@ -30,7 +30,6 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -50,6 +49,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.jspecify.annotations.Nullable;
 
 /** Processes, encodes and muxes raw video frames. */
 /* package */ final class VideoSampleExporter extends SampleExporter {
@@ -174,14 +174,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Override
-  @Nullable
-  protected Format getMuxerInputFormat() throws ExportException {
+  protected @Nullable Format getMuxerInputFormat() throws ExportException {
     return encoderWrapper.getOutputFormat();
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
     encoderOutputBuffer.data = encoderWrapper.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;
@@ -228,8 +226,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     private final boolean renderFramesAutomatically;
     private final long initialTimestampOffsetUs;
     private final int maxFramesInEncoder;
-    private @GuardedBy("lock") int framesInEncoder;
-    private @GuardedBy("lock") int framesAvailableToRender;
+
+    @GuardedBy("lock")
+    private int framesInEncoder;
+
+    @GuardedBy("lock")
+    private int framesAvailableToRender;
 
     public VideoGraphWrapper(
         Context context,

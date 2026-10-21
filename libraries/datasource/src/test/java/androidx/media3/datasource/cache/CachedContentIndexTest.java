@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
@@ -32,6 +31,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -463,7 +463,7 @@ public class CachedContentIndexTest {
     return newLegacyInstance(null);
   }
 
-  private CachedContentIndex newLegacyInstance(@Nullable byte[] key) {
+  private CachedContentIndex newLegacyInstance(byte @Nullable [] key) {
     return new CachedContentIndex(
         /* databaseProvider= */ null,
         cacheDir,

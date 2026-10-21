@@ -18,9 +18,9 @@ package androidx.media3.exoplayer.hls;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * LRU cache that holds up to {@code maxSize} full-segment-encryption keys. Which each addition,
@@ -46,8 +46,7 @@ import java.util.Map;
    * Returns the {@code encryptionKey} cached against this {@code uri}, or null if {@code uri} is
    * null or not present in the cache.
    */
-  @Nullable
-  public byte[] get(@Nullable Uri uri) {
+  public byte @Nullable [] get(@Nullable Uri uri) {
     if (uri == null) {
       return null;
     }
@@ -59,8 +58,7 @@ import java.util.Map;
    *
    * @throws NullPointerException if {@code uri} or {@code encryptionKey} are null.
    */
-  @Nullable
-  public byte[] put(Uri uri, byte[] encryptionKey) {
+  public byte @Nullable [] put(Uri uri, byte[] encryptionKey) {
     return backingMap.put(checkNotNull(uri), checkNotNull(encryptionKey));
   }
 
@@ -79,8 +77,7 @@ import java.util.Map;
    *
    * @throws NullPointerException if {@code uri} is null.
    */
-  @Nullable
-  public byte[] remove(Uri uri) {
+  public byte @Nullable [] remove(Uri uri) {
     return backingMap.remove(checkNotNull(uri));
   }
 }

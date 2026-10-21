@@ -15,10 +15,10 @@
  */
 package androidx.media3.common.video;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Allocates {@link Frame} instances, allowing callers to dequeue and fill them, before processing
@@ -73,8 +73,7 @@ public interface FrameWriter extends AutoCloseable {
    * @return The dequeued frame, or null if the writer is at capacity.
    * @throws IllegalStateException if {@link #configure(Format, long)} has not been called.
    */
-  @Nullable
-  AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener);
+  @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener);
 
   /**
    * Queues a filled frame for further processing.

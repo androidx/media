@@ -37,7 +37,6 @@ import android.opengl.EGLSurface;
 import android.util.SparseArray;
 import android.view.Surface;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -65,6 +64,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link VideoGraph} that handles multiple input streams. */
 @UnstableApi
@@ -134,8 +134,8 @@ public final class MultipleInputVideoGraph implements VideoGraph {
 
   private List<Effect> compositionEffects;
   private VideoCompositorSettings videoCompositorSettings;
-  @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
-  @Nullable private VideoCompositor videoCompositor;
+  private @Nullable VideoFrameProcessor compositionVideoFrameProcessor;
+  private @Nullable VideoCompositor videoCompositor;
   private Size compositorOutputSize;
 
   private boolean compositorEnded;

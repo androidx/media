@@ -19,9 +19,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Created by {@link MediaController} to send its state to the {@link MediaSession} to request to

@@ -38,7 +38,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.ForwardingPlayer;
@@ -63,6 +62,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -340,9 +340,8 @@ public class MediaSessionPermissionTest {
             throw new UnsupportedOperationException();
           }
 
-          @Nullable
           @Override
-          public MediaItem getCurrentMediaItem() {
+          public @Nullable MediaItem getCurrentMediaItem() {
             throw new UnsupportedOperationException();
           }
 

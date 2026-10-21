@@ -16,11 +16,13 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -36,6 +38,9 @@ import androidx.media3.ui.compose.state.MuteButtonState
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that mutes or unmutes the player.
  *
+ * ![MuteButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/mute-button.svg)
+ *
  * When clicked, it will mute the [player] if it's currently unmuted, and unmute it otherwise. The
  * button's state (e.g., whether it's enabled and the current mute icon) is managed by a
  * [MuteButtonState] instance derived from the provided [player].
@@ -47,10 +52,16 @@ import androidx.media3.ui.compose.state.MuteButtonState
  *   on the button's current state (e.g. [MuteButtonState.showMuted]).
  * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
+ * @param shape Defines the shape of this icon button's container. See
+ *   [IconButtonDefaults.standardShape].
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
+ * @param interactionSource An optional hoisted [MutableInteractionSource] for observing and
+ *   emitting [Interaction][androidx.compose.foundation.interaction.Interaction]s for this icon
+ *   button. You can use this to change the icon button's appearance or preview the icon button in
+ *   different states. Note that if `null` is provided, interactions will still happen internally.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [MuteButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [MuteButtonState.isEnabled]). The default behavior is to call [MuteButtonState.onClick], which
@@ -68,8 +79,10 @@ fun MuteButton(
   painter: @Composable MuteButtonState.() -> Painter = defaultMutePainterIcon,
   iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
+  shape: Shape = IconButtonDefaults.standardShape,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
+  interactionSource: MutableInteractionSource? = null,
   onClick: MuteButtonState.() -> Unit = MuteButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -83,8 +96,10 @@ fun MuteButton(
       icon = painter(),
       iconSize = iconSize,
       contentDescription = contentDescription(),
+      shape = shape,
       colors = colors,
       tint = tint,
+      interactionSource = interactionSource,
       onClick = { customOnClick() },
     )
   }
@@ -103,11 +118,17 @@ fun MuteButton(
  *   is a composable lambda with [MuteButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g. [MuteButtonState.showMuted]).
  * @param iconSize The size of the icon.
+ * @param contentDescription The content description for accessibility purposes.
+ * @param shape Defines the shape of this icon button's container. See
+ *   [IconButtonDefaults.standardShape].
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
- * @param contentDescription The content description for accessibility purposes.
+ * @param interactionSource An optional hoisted [MutableInteractionSource] for observing and
+ *   emitting [Interaction][androidx.compose.foundation.interaction.Interaction]s for this icon
+ *   button. You can use this to change the icon button's appearance or preview the icon button in
+ *   different states. Note that if `null` is provided, interactions will still happen internally.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [MuteButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [MuteButtonState.isEnabled]). The default behavior is to call [MuteButtonState.onClick], which
@@ -126,8 +147,10 @@ fun MuteButton(
   imageVector: MuteButtonState.() -> ImageVector,
   iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
+  shape: Shape = IconButtonDefaults.standardShape,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
+  interactionSource: MutableInteractionSource? = null,
   onClick: MuteButtonState.() -> Unit = MuteButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -141,8 +164,10 @@ fun MuteButton(
       icon = imageVector(),
       iconSize = iconSize,
       contentDescription = contentDescription(),
+      shape = shape,
       colors = colors,
       tint = tint,
+      interactionSource = interactionSource,
       onClick = { customOnClick() },
     )
   }

@@ -18,10 +18,10 @@ package androidx.media3.extractor.metadata;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -91,9 +91,8 @@ public class SimpleMetadataDecoderTest {
       result = new Metadata();
     }
 
-    @Nullable
     @Override
-    protected Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
+    protected @Nullable Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
       decodeWasCalled = true;
       return result;
     }

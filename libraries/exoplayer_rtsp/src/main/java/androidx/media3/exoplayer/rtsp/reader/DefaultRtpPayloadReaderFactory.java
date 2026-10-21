@@ -18,18 +18,17 @@ package androidx.media3.exoplayer.rtsp.reader;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
+import org.jspecify.annotations.Nullable;
 
 /** Default {@link RtpPayloadReader.Factory} implementation. */
 @UnstableApi
 public final class DefaultRtpPayloadReaderFactory implements RtpPayloadReader.Factory {
 
   @Override
-  @Nullable
-  public RtpPayloadReader createPayloadReader(RtpPayloadFormat payloadFormat) {
+  public @Nullable RtpPayloadReader createPayloadReader(RtpPayloadFormat payloadFormat) {
     switch (checkNotNull(payloadFormat.format.sampleMimeType)) {
       case MimeTypes.AUDIO_AC3:
         return new RtpAc3Reader(payloadFormat);

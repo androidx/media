@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -44,6 +43,7 @@ import com.google.common.base.Ascii;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import javax.net.SocketFactory;
+import org.jspecify.annotations.Nullable;
 
 /** An Rtsp {@link MediaSource} */
 @UnstableApi
@@ -270,7 +270,7 @@ public final class RtspMediaSource extends BaseMediaSource {
 
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
-    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    MediaItem.@Nullable LocalConfiguration newConfiguration = mediaItem.localConfiguration;
     return newConfiguration != null
         && maybeConvertRtsptUriScheme(newConfiguration.uri).equals(this.uri);
   }

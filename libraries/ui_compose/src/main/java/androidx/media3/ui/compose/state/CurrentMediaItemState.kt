@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,7 @@ fun rememberCurrentMediaItemState(player: Player?): CurrentMediaItemState {
  * @property durationMs The duration of the currently playing item (content or ad) in milliseconds,
  *   or [C.TIME_UNSET] if the duration is unknown or the command is not available.
  */
+@Stable
 @UnstableApi
 class CurrentMediaItemState(private val player: Player?) {
   var mediaItem: MediaItem? by mutableStateOf(null)

@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.source;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -29,6 +28,7 @@ import androidx.media3.exoplayer.source.ShuffleOrder.UnshuffledShuffleOrder;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Loops a {@link MediaSource} a specified number of times.
@@ -74,8 +74,7 @@ public final class LoopingMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  @Nullable
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     MaskingMediaSource maskingMediaSource = (MaskingMediaSource) mediaSource;
     return loopCount != Integer.MAX_VALUE
         ? new LoopingTimeline(maskingMediaSource.getTimeline(), loopCount)
@@ -104,8 +103,8 @@ public final class LoopingMediaSource extends WrappingMediaSource {
   @Override
   public void releasePeriod(MediaPeriod mediaPeriod) {
     mediaSource.releasePeriod(mediaPeriod);
-    @Nullable
-    MediaPeriodId childMediaPeriodId = mediaPeriodToChildMediaPeriodId.remove(mediaPeriod);
+    @Nullable MediaPeriodId childMediaPeriodId =
+        mediaPeriodToChildMediaPeriodId.remove(mediaPeriod);
     if (childMediaPeriodId != null) {
       childMediaPeriodIdToMediaPeriodId.remove(childMediaPeriodId);
     }
@@ -121,8 +120,8 @@ public final class LoopingMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(MediaPeriodId mediaPeriodId) {
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+      MediaPeriodId mediaPeriodId) {
     return loopCount != Integer.MAX_VALUE
         ? childMediaPeriodIdToMediaPeriodId.get(mediaPeriodId)
         : mediaPeriodId;

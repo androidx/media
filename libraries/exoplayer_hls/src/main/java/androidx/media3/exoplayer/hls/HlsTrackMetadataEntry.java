@@ -16,13 +16,13 @@
 package androidx.media3.exoplayer.hls;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Holds metadata associated to an HLS media track. */
 @UnstableApi
@@ -44,25 +44,25 @@ public final class HlsTrackMetadataEntry implements Metadata.Entry {
      * The VIDEO value as defined in the EXT-X-STREAM-INF tag, or null if the VIDEO attribute is not
      * present.
      */
-    @Nullable public final String videoGroupId;
+    public final @Nullable String videoGroupId;
 
     /**
      * The AUDIO value as defined in the EXT-X-STREAM-INF tag, or null if the AUDIO attribute is not
      * present.
      */
-    @Nullable public final String audioGroupId;
+    public final @Nullable String audioGroupId;
 
     /**
      * The SUBTITLES value as defined in the EXT-X-STREAM-INF tag, or null if the SUBTITLES
      * attribute is not present.
      */
-    @Nullable public final String subtitleGroupId;
+    public final @Nullable String subtitleGroupId;
 
     /**
      * The CLOSED-CAPTIONS value as defined in the EXT-X-STREAM-INF tag, or null if the
      * CLOSED-CAPTIONS attribute is not present.
      */
-    @Nullable public final String captionGroupId;
+    public final @Nullable String captionGroupId;
 
     /**
      * Creates an instance.
@@ -122,13 +122,13 @@ public final class HlsTrackMetadataEntry implements Metadata.Entry {
    * The GROUP-ID value of this track, if the track is derived from an EXT-X-MEDIA tag. Null if the
    * track is not derived from an EXT-X-MEDIA TAG.
    */
-  @Nullable public final String groupId;
+  public final @Nullable String groupId;
 
   /**
    * The NAME value of this track, if the track is derived from an EXT-X-MEDIA tag. Null if the
    * track is not derived from an EXT-X-MEDIA TAG.
    */
-  @Nullable public final String name;
+  public final @Nullable String name;
 
   /**
    * The EXT-X-STREAM-INF tags attributes associated with this track. This field is non-applicable

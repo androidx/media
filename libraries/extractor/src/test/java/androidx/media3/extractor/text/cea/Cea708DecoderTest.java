@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
@@ -38,6 +37,7 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -202,9 +202,8 @@ public class Cea708DecoderTest {
    *
    * <p>Fails if {@link Cea608Decoder#dequeueInputBuffer()} returns {@code null}.
    */
-  @Nullable
-  private static Subtitle decodeSampleAndCopyResult(SubtitleDecoder decoder, byte[] sample)
-      throws SubtitleDecoderException {
+  private static @Nullable Subtitle decodeSampleAndCopyResult(
+      SubtitleDecoder decoder, byte[] sample) throws SubtitleDecoderException {
     SubtitleInputBuffer inputBuffer = checkNotNull(decoder.dequeueInputBuffer());
     inputBuffer.data = ByteBuffer.wrap(sample);
     decoder.queueInputBuffer(inputBuffer);

@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -39,6 +38,7 @@ import java.util.function.Consumer;
 import java.util.zip.Inflater;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for Vobsub subtitles. */
 @UnstableApi
@@ -59,7 +59,7 @@ public final class VobsubParser implements SubtitleParser {
   private final ParsableByteArray scratch;
   private final ParsableByteArray inflatedScratch;
   private final CueBuilder cueBuilder;
-  @Nullable private Inflater inflater;
+  private @Nullable Inflater inflater;
 
   public VobsubParser(List<byte[]> initializationData) {
     scratch = new ParsableByteArray();
@@ -135,7 +135,7 @@ public final class VobsubParser implements SubtitleParser {
     private int @MonotonicNonNull [] palette;
     private int planeWidth;
     private int planeHeight;
-    @Nullable private Rect boundingBox;
+    private @Nullable Rect boundingBox;
     private int dataOffset0;
     private int dataOffset1;
 
@@ -368,8 +368,7 @@ public final class VobsubParser implements SubtitleParser {
       return true;
     }
 
-    @Nullable
-    public Cue build(ParsableByteArray buffer) {
+    public @Nullable Cue build(ParsableByteArray buffer) {
       if (palette == null
           || !hasPlane
           || !hasColors

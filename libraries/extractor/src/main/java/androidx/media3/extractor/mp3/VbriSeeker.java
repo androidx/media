@@ -18,13 +18,13 @@ package androidx.media3.extractor.mp3;
 import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static java.lang.Math.max;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.SeekPoint;
+import org.jspecify.annotations.Nullable;
 
 /** MP3 seeker that uses metadata from a VBRI header. */
 /* package */ final class VbriSeeker implements Seeker {
@@ -44,8 +44,7 @@ import androidx.media3.extractor.SeekPoint;
    * @return A {@link VbriSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
-  @Nullable
-  public static VbriSeeker create(
+  public static @Nullable VbriSeeker create(
       long inputLength,
       long position,
       MpegAudioUtil.Header mpegAudioHeader,

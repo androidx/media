@@ -24,7 +24,6 @@ import android.content.Context;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -52,6 +51,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Helper class to run an ExoPlayer test. */
 @UnstableApi
@@ -398,10 +398,10 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
   private final boolean skipSettingMediaSources;
   private final int initialMediaItemIndex;
   private final long initialPositionMs;
-  @Nullable private final Surface surface;
-  @Nullable private final ActionSchedule actionSchedule;
-  @Nullable private final Player.Listener playerListener;
-  @Nullable private final AnalyticsListener analyticsListener;
+  private final @Nullable Surface surface;
+  private final @Nullable ActionSchedule actionSchedule;
+  private final Player.@Nullable Listener playerListener;
+  private final @Nullable AnalyticsListener analyticsListener;
 
   private final Clock clock;
   private final HandlerThread playerThread;
@@ -429,7 +429,7 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
       long initialPositionMs,
       @Nullable Surface surface,
       @Nullable ActionSchedule actionSchedule,
-      @Nullable Player.Listener playerListener,
+      Player.@Nullable Listener playerListener,
       @Nullable AnalyticsListener analyticsListener,
       int expectedPlayerEndedCount,
       boolean pauseAtEndOfMediaItems) {

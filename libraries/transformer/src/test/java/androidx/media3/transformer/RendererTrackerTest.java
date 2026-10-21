@@ -17,7 +17,6 @@ package androidx.media3.transformer;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -25,6 +24,7 @@ import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -258,7 +258,7 @@ public final class RendererTrackerTest {
 
   private static final class FakeTrackedRenderer extends FakeRenderer
       implements RendererTracker.TrackedRenderer {
-    @Nullable private MediaPeriodId mediaPeriodId;
+    private @Nullable MediaPeriodId mediaPeriodId;
 
     FakeTrackedRenderer(@Nullable MediaPeriodId mediaPeriodId) {
       super(C.TRACK_TYPE_VIDEO);
@@ -270,14 +270,12 @@ public final class RendererTrackerTest {
     }
 
     @Override
-    @Nullable
-    public MediaPeriodId getTrackedMediaPeriodId() {
+    public @Nullable MediaPeriodId getTrackedMediaPeriodId() {
       return mediaPeriodId;
     }
 
     @Override
-    @Nullable
-    public Timeline getTrackedTimeline() {
+    public @Nullable Timeline getTrackedTimeline() {
       return getTimeline();
     }
   }

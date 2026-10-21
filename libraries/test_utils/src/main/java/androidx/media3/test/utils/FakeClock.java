@@ -23,7 +23,6 @@ import android.os.Handler.Callback;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
@@ -38,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Fake {@link Clock} implementation that allows to {@link #advanceTime(long) advance the time}
@@ -177,8 +177,7 @@ public class FakeClock implements Clock {
   private long timeSinceBootMs;
 
   @GuardedBy("this")
-  @Nullable
-  private Looper activeMessageLooper;
+  private @Nullable Looper activeMessageLooper;
 
   /**
    * Creates a fake clock that doesn't auto-advance and assumes that the system was booted exactly
@@ -505,11 +504,11 @@ public class FakeClock implements Clock {
     private final long messageId;
     private final long timeMs;
     private final ClockHandler handler;
-    @Nullable private final Runnable runnable;
+    private final @Nullable Runnable runnable;
     private final int what;
     private final int arg1;
     private final int arg2;
-    @Nullable private final Object obj;
+    private final @Nullable Object obj;
 
     private HandlerMessage(
         long timeMs,

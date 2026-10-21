@@ -20,14 +20,12 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -43,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A bandwidth based adaptive {@link ExoTrackSelection}, whose selected track is updated to be the
@@ -251,8 +250,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     }
 
     @Override
-    public final @NullableType ExoTrackSelection[] createTrackSelections(
-        @NullableType Definition[] definitions,
+    public final @Nullable ExoTrackSelection[] createTrackSelections(
+        @Nullable Definition[] definitions,
         BandwidthMeter bandwidthMeter,
         MediaPeriodId mediaPeriodId,
         Timeline timeline) {
@@ -340,7 +339,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private int selectedIndex;
   private @C.SelectionReason int reason;
   private long lastBufferEvaluationMs;
-  @Nullable private MediaChunk lastBufferEvaluationMediaChunk;
+  private @Nullable MediaChunk lastBufferEvaluationMediaChunk;
   private long latestBitrateEstimate;
   private final int[] latestLocationSteeringPriority;
 
@@ -593,8 +592,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   }
 
   @Override
-  @Nullable
-  public Object getSelectionData() {
+  public @Nullable Object getSelectionData() {
     return null;
   }
 
@@ -812,8 +810,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    *     with more than one selected track.
    */
   private static ImmutableList<ImmutableList<AdaptationCheckpoint>> getAdaptationCheckpoints(
-      @NullableType Definition[] definitions) {
-    List<ImmutableList.@NullableType Builder<AdaptationCheckpoint>> checkPointBuilders =
+      @Nullable Definition[] definitions) {
+    List<ImmutableList.@Nullable Builder<AdaptationCheckpoint>> checkPointBuilders =
         new ArrayList<>();
     for (int i = 0; i < definitions.length; i++) {
       if (definitions[i] != null && definitions[i].tracks.length > 1) {
@@ -850,14 +848,14 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     addCheckpoint(checkPointBuilders, currentTrackBitrates);
     ImmutableList.Builder<ImmutableList<AdaptationCheckpoint>> output = ImmutableList.builder();
     for (int i = 0; i < checkPointBuilders.size(); i++) {
-      @Nullable ImmutableList.Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
+      ImmutableList.@Nullable Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
       output.add(builder == null ? ImmutableList.of() : builder.build());
     }
     return output.build();
   }
 
   /** Returns sorted track bitrates for all selected tracks. */
-  private static long[][] getSortedTrackBitrates(@NullableType Definition[] definitions) {
+  private static long[][] getSortedTrackBitrates(@Nullable Definition[] definitions) {
     long[][] trackBitrates = new long[definitions.length][];
     for (int i = 0; i < definitions.length; i++) {
       @Nullable Definition definition = definitions[i];
@@ -914,7 +912,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    * @param checkpointBitrates The bitrates of each track at this checkpoint.
    */
   private static void addCheckpoint(
-      List<ImmutableList.@NullableType Builder<AdaptationCheckpoint>> checkPointBuilders,
+      List<ImmutableList.@Nullable Builder<AdaptationCheckpoint>> checkPointBuilders,
       long[] checkpointBitrates) {
     // Total bitrate includes all fixed tracks.
     long totalBitrate = 0;
@@ -922,7 +920,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       totalBitrate += checkpointBitrates[i];
     }
     for (int i = 0; i < checkPointBuilders.size(); i++) {
-      @Nullable ImmutableList.Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
+      ImmutableList.@Nullable Builder<AdaptationCheckpoint> builder = checkPointBuilders.get(i);
       if (builder == null) {
         continue;
       }

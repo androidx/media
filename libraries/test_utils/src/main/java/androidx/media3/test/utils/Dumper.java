@@ -17,9 +17,7 @@ package androidx.media3.test.utils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Function;
@@ -27,6 +25,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Helper utility to dump field values. */
 @UnstableApi
@@ -107,10 +106,7 @@ public final class Dumper {
    */
   @CanIgnoreReturnValue
   public <T> Dumper addIfNonDefault(
-      String field,
-      T value,
-      T defaultValue,
-      Function<T, @NullableType Object> valueTransformFunction) {
+      String field, T value, T defaultValue, Function<T, @Nullable Object> valueTransformFunction) {
     return addIfNonDefault(
         field, valueTransformFunction.apply(value), valueTransformFunction.apply(defaultValue));
   }

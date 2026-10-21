@@ -15,10 +15,10 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** An index of {@link Download Downloads}. */
 @WorkerThread
@@ -35,8 +35,7 @@ public interface DownloadIndex {
    *     id doesn't exist.
    * @throws IOException If an error occurs reading the state.
    */
-  @Nullable
-  Download getDownload(String id) throws IOException;
+  @Nullable Download getDownload(String id) throws IOException;
 
   /**
    * Returns a {@link DownloadCursor} to {@link Download}s with the given {@code states}.

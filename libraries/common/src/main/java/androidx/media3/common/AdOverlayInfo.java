@@ -23,13 +23,13 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.view.View;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Provides information about an overlay view shown on top of an ad view group. */
 public final class AdOverlayInfo {
@@ -64,7 +64,7 @@ public final class AdOverlayInfo {
     private final View view;
     private final @Purpose int purpose;
 
-    @Nullable private String detailedReason;
+    private @Nullable String detailedReason;
 
     /**
      * Creates a new builder.
@@ -103,7 +103,7 @@ public final class AdOverlayInfo {
   public final @Purpose int purpose;
 
   /** An optional, detailed reason that the overlay view is needed. */
-  @Nullable public final String reasonDetail;
+  public final @Nullable String reasonDetail;
 
   /**
    * @deprecated Use {@link Builder} instead.

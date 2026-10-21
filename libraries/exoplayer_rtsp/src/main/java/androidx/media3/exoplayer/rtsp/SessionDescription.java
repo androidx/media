@@ -19,13 +19,13 @@ package androidx.media3.exoplayer.rtsp;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Records all the information in a SDP message.
@@ -40,15 +40,15 @@ import java.util.Objects;
     private final HashMap<String, String> attributes;
     private final ImmutableList.Builder<MediaDescription> mediaDescriptionListBuilder;
     private int bitrate;
-    @Nullable private String sessionName;
-    @Nullable private String origin;
-    @Nullable private String timing;
-    @Nullable private Uri uri;
-    @Nullable private String connection;
-    @Nullable private String key;
-    @Nullable private String sessionInfo;
-    @Nullable private String emailAddress;
-    @Nullable private String phoneNumber;
+    private @Nullable String sessionName;
+    private @Nullable String origin;
+    private @Nullable String timing;
+    private @Nullable Uri uri;
+    private @Nullable String connection;
+    private @Nullable String key;
+    private @Nullable String sessionInfo;
+    private @Nullable String emailAddress;
+    private @Nullable String phoneNumber;
 
     /** Creates a new instance. */
     public Builder() {
@@ -254,34 +254,34 @@ import java.util.Objects;
   public final ImmutableList<MediaDescription> mediaDescriptionList;
 
   /** The name of a session. */
-  @Nullable public final String sessionName;
+  public final @Nullable String sessionName;
 
   /** The origin sender info. */
-  @Nullable public final String origin;
+  public final @Nullable String origin;
 
   /** The timing info. */
-  @Nullable public final String timing;
+  public final @Nullable String timing;
 
   /** The estimated bitrate in bits per seconds. */
   public final int bitrate;
 
   /** The uri of a linked content. */
-  @Nullable public final Uri uri;
+  public final @Nullable Uri uri;
 
   /** The connection info. */
-  @Nullable public final String connection;
+  public final @Nullable String connection;
 
   /** The encryption method and key info. */
-  @Nullable public final String key;
+  public final @Nullable String key;
 
   /** The email info. */
-  @Nullable public final String emailAddress;
+  public final @Nullable String emailAddress;
 
   /** The phone number info. */
-  @Nullable public final String phoneNumber;
+  public final @Nullable String phoneNumber;
 
   /** The session info, a detailed description of the session. */
-  @Nullable public final String sessionInfo;
+  public final @Nullable String sessionInfo;
 
   /** Creates a new instance. */
   private SessionDescription(Builder builder) {

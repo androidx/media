@@ -22,13 +22,11 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -82,6 +80,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** A DASH {@link MediaPeriod}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -98,8 +97,8 @@ import java.util.regex.Pattern;
 
   /* package */ final int id;
   private final DashChunkSource.Factory chunkSourceFactory;
-  @Nullable private final TransferListener transferListener;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable TransferListener transferListener;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final BaseUrlExclusionList baseUrlExclusionList;
@@ -115,13 +114,13 @@ import java.util.regex.Pattern;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final PlayerId playerId;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
-  @Nullable private final DashContentSteeringTracker contentSteeringTracker;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable DashContentSteeringTracker contentSteeringTracker;
 
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
 
-  @Nullable
-  private DashContentSteeringTracker.SteeringQueryParamsProvider steeringQueryParamsProvider;
+  private DashContentSteeringTracker.@Nullable SteeringQueryParamsProvider
+      steeringQueryParamsProvider;
 
   private ChunkSampleStream<DashChunkSource>[] sampleStreams;
   private EventSampleStream[] eventSampleStreams;
@@ -308,9 +307,9 @@ import java.util.regex.Pattern;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     int[] streamIndexToTrackGroupIndex = getStreamIndexToTrackGroupIndex(selections);
@@ -678,16 +677,15 @@ import java.util.regex.Pattern;
       AdaptationSet adaptationSet = adaptationSets.get(i);
 
       // Trick-play adaptation sets are merged with their corresponding main adaptation sets.
-      @Nullable
-      Descriptor trickPlayProperty = findTrickPlayProperty(adaptationSet.essentialProperties);
+      @Nullable Descriptor trickPlayProperty =
+          findTrickPlayProperty(adaptationSet.essentialProperties);
       if (trickPlayProperty == null) {
         // Trick-play can also be specified using a supplemental property.
         trickPlayProperty = findTrickPlayProperty(adaptationSet.supplementalProperties);
       }
       if (trickPlayProperty != null) {
         String mainAdaptationSetId = Util.splitAtFirst(trickPlayProperty.value, "\\s+")[0];
-        @Nullable
-        Integer mainAdaptationSetIndex =
+        @Nullable Integer mainAdaptationSetIndex =
             adaptationSetIdToIndex.get(Long.parseLong(mainAdaptationSetId));
         if (mainAdaptationSetIndex != null
             && canMergeAdaptationSets(adaptationSet, adaptationSets.get(mainAdaptationSetIndex))) {
@@ -698,14 +696,12 @@ import java.util.regex.Pattern;
       // Adaptation sets that are safe for switching are merged, using the smallest index for the
       // merged group.
       if (mergedGroupIndex == i) {
-        @Nullable
-        Descriptor adaptationSetSwitchingProperty =
+        @Nullable Descriptor adaptationSetSwitchingProperty =
             findAdaptationSetSwitchingProperty(adaptationSet.supplementalProperties);
         if (adaptationSetSwitchingProperty != null) {
           String[] otherAdaptationSetIds = Util.split(adaptationSetSwitchingProperty.value, ",");
           for (String adaptationSetId : otherAdaptationSetIds) {
-            @Nullable
-            Integer otherAdaptationSetIndex =
+            @Nullable Integer otherAdaptationSetIndex =
                 adaptationSetIdToIndex.get(Long.parseLong(adaptationSetId));
             if (otherAdaptationSetIndex != null
                 && canMergeAdaptationSets(
@@ -1031,18 +1027,17 @@ import java.util.regex.Pattern;
     return true;
   }
 
-  @Nullable
-  private static Descriptor findAdaptationSetSwitchingProperty(List<Descriptor> descriptors) {
+  private static @Nullable Descriptor findAdaptationSetSwitchingProperty(
+      List<Descriptor> descriptors) {
     return findDescriptor(descriptors, "urn:mpeg:dash:adaptation-set-switching:2016");
   }
 
-  @Nullable
-  private static Descriptor findTrickPlayProperty(List<Descriptor> descriptors) {
+  private static @Nullable Descriptor findTrickPlayProperty(List<Descriptor> descriptors) {
     return findDescriptor(descriptors, "http://dashif.org/guidelines/trickmode");
   }
 
-  @Nullable
-  private static Descriptor findDescriptor(List<Descriptor> descriptors, String schemeIdUri) {
+  private static @Nullable Descriptor findDescriptor(
+      List<Descriptor> descriptors, String schemeIdUri) {
     for (int i = 0; i < descriptors.size(); i++) {
       Descriptor descriptor = descriptors.get(i);
       if (schemeIdUri.equals(descriptor.schemeIdUri)) {
@@ -1196,7 +1191,7 @@ import java.util.regex.Pattern;
     private final int embeddedClosedCaptionTrackGroupLength;
 
     /** Only non-null for track groups representing embedded caption tracks. */
-    @Nullable private final Format embeddedClosedCaptionTrackOriginalFormat;
+    private final @Nullable Format embeddedClosedCaptionTrackOriginalFormat;
 
     public static TrackGroupInfo primaryTrack(
         int trackType,

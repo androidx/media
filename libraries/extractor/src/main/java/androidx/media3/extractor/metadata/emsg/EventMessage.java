@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.emsg;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -23,6 +22,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** An Event Message (emsg) as defined in ISO 23009-1. */
 @UnstableApi
@@ -87,8 +87,7 @@ public final class EventMessage implements Metadata.Entry {
   }
 
   @Override
-  @Nullable
-  public Format getWrappedMetadataFormat() {
+  public @Nullable Format getWrappedMetadataFormat() {
     switch (schemeIdUri) {
       case ID3_SCHEME_ID_AOM:
       case ID3_SCHEME_ID_APPLE:
@@ -101,8 +100,7 @@ public final class EventMessage implements Metadata.Entry {
   }
 
   @Override
-  @Nullable
-  public byte[] getWrappedMetadataBytes() {
+  public byte @Nullable [] getWrappedMetadataBytes() {
     return getWrappedMetadataFormat() != null ? messageData : null;
   }
 

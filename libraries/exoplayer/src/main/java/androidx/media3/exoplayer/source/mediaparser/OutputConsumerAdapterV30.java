@@ -38,7 +38,6 @@ import android.media.MediaFormat;
 import android.media.MediaParser;
 import android.media.MediaParser.TrackData;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.C.SelectionFlags;
@@ -49,7 +48,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -70,6 +68,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link MediaParser.OutputConsumer} implementation that redirects output to an {@link
@@ -92,21 +91,21 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   private static final Pattern REGEX_CRYPTO_INFO_PATTERN =
       Pattern.compile("pattern \\(encrypt: (\\d+), skip: (\\d+)\\)");
 
-  private final ArrayList<@NullableType TrackOutput> trackOutputs;
-  private final ArrayList<@NullableType Format> trackFormats;
-  private final ArrayList<@NullableType CryptoInfo> lastReceivedCryptoInfos;
-  private final ArrayList<@NullableType CryptoData> lastOutputCryptoDatas;
+  private final ArrayList<@Nullable TrackOutput> trackOutputs;
+  private final ArrayList<@Nullable Format> trackFormats;
+  private final ArrayList<@Nullable CryptoInfo> lastReceivedCryptoInfos;
+  private final ArrayList<@Nullable CryptoData> lastOutputCryptoDatas;
   private final DataReaderAdapter scratchDataReaderAdapter;
   private final boolean expectDummySeekMap;
   private final @C.TrackType int primaryTrackType;
-  @Nullable private final Format primaryTrackManifestFormat;
+  private final @Nullable Format primaryTrackManifestFormat;
 
   private ExtractorOutput extractorOutput;
-  @Nullable private MediaParser.SeekMap dummySeekMap;
-  @Nullable private MediaParser.SeekMap lastSeekMap;
-  @Nullable private String containerMimeType;
-  @Nullable private ChunkIndex lastChunkIndex;
-  @Nullable private TimestampAdjuster timestampAdjuster;
+  private MediaParser.@Nullable SeekMap dummySeekMap;
+  private MediaParser.@Nullable SeekMap lastSeekMap;
+  private @Nullable String containerMimeType;
+  private @Nullable ChunkIndex lastChunkIndex;
+  private @Nullable TimestampAdjuster timestampAdjuster;
   private List<Format> muxedCaptionFormats;
   private int primaryTrackIndex;
   private long sampleTimestampUpperLimitFilterUs;
@@ -195,14 +194,12 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
    * {@link MediaParser.SeekPoint#timeMicros} matches the requested timestamp, and {@link
    * MediaParser.SeekPoint#position} is 0.
    */
-  @Nullable
-  public MediaParser.SeekMap getDummySeekMap() {
+  public MediaParser.@Nullable SeekMap getDummySeekMap() {
     return dummySeekMap;
   }
 
   /** Returns the most recently output {@link ChunkIndex}, or null if none has been output. */
-  @Nullable
-  public ChunkIndex getChunkIndex() {
+  public @Nullable ChunkIndex getChunkIndex() {
     return lastChunkIndex;
   }
 
@@ -230,8 +227,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
    * Returns the last output format for each track, or null if not all the tracks have been
    * identified.
    */
-  @Nullable
-  public Format[] getSampleFormats() {
+  public Format @Nullable [] getSampleFormats() {
     if (!tracksFoundCalled) {
       return null;
     }
@@ -276,8 +272,8 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     ensureSpaceForTrackIndex(trackIndex);
     @Nullable TrackOutput trackOutput = trackOutputs.get(trackIndex);
     if (trackOutput == null) {
-      @Nullable
-      String trackTypeString = trackData.mediaFormat.getString(MEDIA_FORMAT_KEY_TRACK_TYPE);
+      @Nullable String trackTypeString =
+          trackData.mediaFormat.getString(MEDIA_FORMAT_KEY_TRACK_TYPE);
       int trackType =
           toTrackTypeConstant(
               trackTypeString != null
@@ -329,7 +325,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
       int flags,
       int size,
       int offset,
-      @Nullable MediaCodec.CryptoInfo cryptoInfo) {
+      MediaCodec.@Nullable CryptoInfo cryptoInfo) {
     if (sampleTimestampUpperLimitFilterUs != C.TIME_UNSET
         && timeUs >= sampleTimestampUpperLimitFilterUs) {
       // Ignore this sample.
@@ -344,8 +340,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
   // Private methods.
 
   private boolean maybeObtainChunkIndex(MediaFormat mediaFormat) {
-    @Nullable
-    ByteBuffer chunkIndexSizesByteBuffer =
+    @Nullable ByteBuffer chunkIndexSizesByteBuffer =
         mediaFormat.getByteBuffer(MEDIA_FORMAT_KEY_CHUNK_INDEX_SIZES);
     if (chunkIndexSizesByteBuffer == null) {
       return false;
@@ -381,8 +376,8 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     }
   }
 
-  @Nullable
-  private CryptoData toExoPlayerCryptoData(int trackIndex, @Nullable CryptoInfo cryptoInfo) {
+  private @Nullable CryptoData toExoPlayerCryptoData(
+      int trackIndex, @Nullable CryptoInfo cryptoInfo) {
     if (cryptoInfo == null) {
       return null;
     }
@@ -529,9 +524,8 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
     return formatBuilder.build();
   }
 
-  @Nullable
-  private static DrmInitData toExoPlayerDrmInitData(
-      @Nullable String schemeType, @Nullable android.media.DrmInitData drmInitData) {
+  private static @Nullable DrmInitData toExoPlayerDrmInitData(
+      @Nullable String schemeType, android.media.@Nullable DrmInitData drmInitData) {
     if (drmInitData == null) {
       return null;
     }
@@ -657,7 +651,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
 
   private static final class DataReaderAdapter implements DataReader {
 
-    @Nullable public MediaParser.InputReader input;
+    public MediaParser.@Nullable InputReader input;
 
     @Override
     public int read(byte[] buffer, int offset, int length) throws IOException {

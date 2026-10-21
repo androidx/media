@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.muxer;
+package androidx.media3.container;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -24,6 +24,20 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public final class BoxUtilsTest {
+
+  @Test
+  public void wrapIntoBox_withByteArrayPayloads_prefixesConcatenatedPayloadsWithHeader() {
+    byte[] box = BoxUtils.wrapIntoBox("test", new byte[] {1, 2}, new byte[] {3});
+
+    assertThat(box).isEqualTo(new byte[] {0, 0, 0, 11, 't', 'e', 's', 't', 1, 2, 3});
+  }
+
+  @Test
+  public void wrapIntoBox_withoutPayloads_returnsHeaderOnly() {
+    byte[] box = BoxUtils.wrapIntoBox("test");
+
+    assertThat(box).isEqualTo(new byte[] {0, 0, 0, 8, 't', 'e', 's', 't'});
+  }
 
   @Test
   public void getUleb128Bytes_negativeValueThrows() {

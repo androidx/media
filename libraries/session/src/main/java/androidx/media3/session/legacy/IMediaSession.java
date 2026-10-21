@@ -18,9 +18,9 @@ package androidx.media3.session.legacy;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import org.checkerframework.checker.nullness.qual.PolyNull;
+import org.jspecify.annotations.Nullable;
 
 /** Interface to a MediaSessionCompat. */
 @RestrictTo(LIBRARY)
@@ -58,7 +58,7 @@ public interface IMediaSession extends android.os.IInterface {
 
     @Override
     public boolean onTransact(
-        int code, android.os.Parcel data, @Nullable android.os.Parcel reply, int flags)
+        int code, android.os.Parcel data, android.os.@Nullable Parcel reply, int flags)
         throws android.os.RemoteException {
       String descriptor = DESCRIPTOR;
       switch (code) {
@@ -202,9 +202,8 @@ public interface IMediaSession extends android.os.IInterface {
         }
       }
 
-      @Nullable
       @Override
-      public PlaybackStateCompat getPlaybackState() throws android.os.RemoteException {
+      public @Nullable PlaybackStateCompat getPlaybackState() throws android.os.RemoteException {
         android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
         PlaybackStateCompat result;
@@ -287,9 +286,8 @@ public interface IMediaSession extends android.os.IInterface {
         return result;
       }
 
-      @Nullable
       @Override
-      public android.os.Bundle getSessionInfo() throws android.os.RemoteException {
+      public android.os.@Nullable Bundle getSessionInfo() throws android.os.RemoteException {
         android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
         android.os.Bundle result;
@@ -312,7 +310,7 @@ public interface IMediaSession extends android.os.IInterface {
         return result;
       }
 
-      @Nullable public static IMediaSession defaultImpl;
+      public static @Nullable IMediaSession defaultImpl;
     }
 
     static final int TRANSACTION_registerCallbackListener =
@@ -341,8 +339,7 @@ public interface IMediaSession extends android.os.IInterface {
       return false;
     }
 
-    @Nullable
-    public static IMediaSession getDefaultImpl() {
+    public static @Nullable IMediaSession getDefaultImpl() {
       return Proxy.defaultImpl;
     }
   }
@@ -353,8 +350,7 @@ public interface IMediaSession extends android.os.IInterface {
   public void unregisterCallbackListener(@Nullable IMediaControllerCallback cb)
       throws android.os.RemoteException;
 
-  @Nullable
-  public PlaybackStateCompat getPlaybackState() throws android.os.RemoteException;
+  public @Nullable PlaybackStateCompat getPlaybackState() throws android.os.RemoteException;
 
   public boolean isCaptioningEnabled() throws android.os.RemoteException;
 
@@ -362,6 +358,5 @@ public interface IMediaSession extends android.os.IInterface {
 
   public int getShuffleMode() throws android.os.RemoteException;
 
-  @Nullable
-  public android.os.Bundle getSessionInfo() throws android.os.RemoteException;
+  public android.os.@Nullable Bundle getSessionInfo() throws android.os.RemoteException;
 }

@@ -35,7 +35,6 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.core.app.NotificationCompat;
@@ -60,6 +59,7 @@ import java.util.Arrays;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The default {@link MediaNotification.Provider}.
@@ -262,8 +262,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   private @MonotonicNonNull OnBitmapLoadedFutureCallback pendingOnBitmapLoadedFutureCallback;
   @DrawableRes private int smallIconResourceId;
-  @Nullable private BitmapLoader mediaSessionBitmapLoader;
-  @Nullable private BitmapLoader notificationIconBitmapLoader;
+  private @Nullable BitmapLoader mediaSessionBitmapLoader;
+  private @Nullable BitmapLoader notificationIconBitmapLoader;
 
   /**
    * Creates an instance. Use this constructor only when you want to override methods of this class.
@@ -348,8 +348,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
                     maxNotificationIconSize.get(),
                     /* makeShared= */ true));
       }
-      @Nullable
-      ListenableFuture<Bitmap> bitmapFuture =
+      @Nullable ListenableFuture<Bitmap> bitmapFuture =
           notificationIconBitmapLoader.loadBitmapFromMetadata(metadata);
       if (bitmapFuture != null) {
         if (pendingOnBitmapLoadedFutureCallback != null) {
@@ -609,8 +608,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * @param metadata The media metadata from which content title is fetched.
    * @return Notification content title.
    */
-  @Nullable
-  protected CharSequence getNotificationContentTitle(MediaMetadata metadata) {
+  protected @Nullable CharSequence getNotificationContentTitle(MediaMetadata metadata) {
     return metadata.title;
   }
 
@@ -627,8 +625,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * @param metadata The media metadata from which content text is fetched.
    * @return Notification content text.
    */
-  @Nullable
-  protected CharSequence getNotificationContentText(MediaMetadata metadata) {
+  protected @Nullable CharSequence getNotificationContentText(MediaMetadata metadata) {
     return metadata.artist;
   }
 

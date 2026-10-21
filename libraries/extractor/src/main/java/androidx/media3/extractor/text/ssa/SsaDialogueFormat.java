@@ -20,9 +20,9 @@ import static androidx.media3.extractor.text.ssa.SsaParser.FORMAT_LINE_PREFIX;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import com.google.common.base.Ascii;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a {@code Format:} line from the {@code [Events]} section
@@ -59,8 +59,7 @@ import com.google.common.base.Ascii;
    *
    * @return the parsed info, or null if {@code formatLine} doesn't contain both 'start' and 'end'.
    */
-  @Nullable
-  public static SsaDialogueFormat fromFormatLine(String formatLine) {
+  public static @Nullable SsaDialogueFormat fromFormatLine(String formatLine) {
     int layerIndex = C.INDEX_UNSET;
     int startTimeIndex = C.INDEX_UNSET;
     int endTimeIndex = C.INDEX_UNSET;

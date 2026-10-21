@@ -15,11 +15,11 @@
  */
 package androidx.media3.decoder.opus;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi
@@ -62,8 +62,7 @@ public final class OpusLibrary {
   }
 
   /** Returns the version of the underlying library if available, or null otherwise. */
-  @Nullable
-  public static String getVersion() {
+  public static @Nullable String getVersion() {
     return isAvailable() ? opusGetVersion() : null;
   }
 

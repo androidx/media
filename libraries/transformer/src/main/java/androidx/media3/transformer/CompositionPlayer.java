@@ -50,7 +50,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
@@ -80,7 +79,6 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.Frame;
@@ -142,6 +140,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Player} implementation that plays {@linkplain Composition compositions} of media assets.
@@ -175,7 +174,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
     private Supplier<ImageDecoder.Factory> imageDecoderFactorySupplier;
     private Supplier<GlObjectsProvider> glObjectsProviderSupplier;
-    @Nullable private ExecutorService glExecutorService;
+    private @Nullable ExecutorService glExecutorService;
     private Supplier<LoadControl> loadControlSupplier;
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
@@ -183,11 +182,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     private FrameProcessor.@MonotonicNonNull Factory frameProcessorFactory;
 
-    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
     private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
-    @Nullable private AnalyticsListener sequencePlayerAnalyticsListener;
-    @Nullable private VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
+    private @Nullable AnalyticsListener sequencePlayerAnalyticsListener;
+    private VideoFrameReleaseControl.@Nullable FrameTimingEvaluator frameTimingEvaluator;
 
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
@@ -633,7 +632,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final long lateThresholdToDropInputUs;
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
-  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+  private final @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   /**
    * The frame processor used to process video frames.
@@ -641,12 +640,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    * <p>All interactions with this processor (including creation, queueing, and releasing) and its
    * listener callbacks must be executed on the {@link #playbackThread}.
    */
-  @Nullable private final FrameProcessor frameProcessor;
+  private final @Nullable FrameProcessor frameProcessor;
 
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
 
-  @Nullable private final SurfaceHolderFrameWriter surfaceHolderFrameWriter;
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable SurfaceHolderFrameWriter surfaceHolderFrameWriter;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   private final HandlerThread playbackThread;
   private final HandlerWrapper playbackThreadHandler;
@@ -655,8 +654,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final SparseBooleanArray videoTracksSelected;
 
   private final AnalyticsCollector analyticsCollector;
-  @Nullable private final AnalyticsListener sequencePlayerAnalyticsListener;
-  @Nullable private final VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator;
+  private final @Nullable AnalyticsListener sequencePlayerAnalyticsListener;
+  private final VideoFrameReleaseControl.@Nullable FrameTimingEvaluator frameTimingEvaluator;
 
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
@@ -674,13 +673,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private float volume;
   private boolean renderedFirstFrame;
   private boolean packetConsumerEnded;
-  @Nullable private VideoSize videoSize;
-  @Nullable private Object videoOutput;
-  @Nullable private PlaybackException playbackException;
+  private @Nullable VideoSize videoSize;
+  private @Nullable Object videoOutput;
+  private @Nullable PlaybackException playbackException;
   private @Player.State int playbackState;
   private @PlaybackSuppressionReason int playbackSuppressionReason;
-  @Nullable private SurfaceHolder surfaceHolder;
-  @Nullable private Surface displaySurface;
+  private @Nullable SurfaceHolder surfaceHolder;
+  private @Nullable Surface displaySurface;
   private boolean repeatingCompositionSeekInProgress;
   private LivePositionSupplier positionSupplier;
   private LivePositionSupplier bufferedPositionSupplier;
@@ -733,7 +732,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
-    @Nullable FrameProcessor.Factory frameProcessorFactory = builder.frameProcessorFactory;
+    FrameProcessor.@Nullable Factory frameProcessorFactory = builder.frameProcessorFactory;
     playbackThread =
         new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     try {
@@ -1544,15 +1543,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       if (frameAggregator != null) {
         frameAggregator.close();
       }
-      // Flush the primary sequence to reset the state of the release control when a new Composition
-      // is set.
-      checkNotNull(videoPacketReleaseControl).flush(/* sequenceIndex= */ 0);
       frameAggregator =
           new FrameAggregator(
               composition.sequences.size(),
               composition.videoFrameAggregationParameters.frameRate,
-              videoPacketReleaseControl::queue,
-              videoPacketReleaseControl::flush);
+              checkNotNull(videoPacketReleaseControl)::queue,
+              checkNotNull(videoPacketReleaseControl)::flush);
     }
 
     prepareCompositionPlayerInternal();
@@ -1628,8 +1624,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     boolean sequenceContainsVideo =
         composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
     SequenceRenderersFactory renderersFactory;
-    Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier =
-        () -> null;
+    Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier = () -> null;
     if (frameProcessor != null) {
       // TODO: b/449956936 - Support MediaCodec tone mapping with packet consumer.
       checkState(!requestMediaCodecToneMapping);
@@ -1714,10 +1709,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
     playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
-    if (frameProcessor != null && sequenceContainsVideo) {
-      playerHolder.player.setVideoSurface(
-          checkNotNull(hardwareBufferFrameReaderSupplier.get()).getSurface());
-    }
     return playerHolder;
   }
 
@@ -1920,9 +1911,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private static MediaSource wrapMediaSourceWithCompositionForwardingTimeline(
       EditedMediaItemSequence sequence, MediaSource mediaSource) {
     return new WrappingMediaSource(mediaSource) {
-      @Nullable
       @Override
-      public Timeline getInitialTimeline() {
+      public @Nullable Timeline getInitialTimeline() {
         Timeline initialTimeline = mediaSource.getInitialTimeline();
         if (initialTimeline == null) {
           return null;
@@ -2334,7 +2324,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public final ExoPlayer player;
     public final SequenceRenderersFactory renderersFactory;
     public final CompositionTrackSelector trackSelector;
-    final Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+    final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
     final boolean shouldReleaseHardwareBufferFrameReader;
 
     private SequencePlayerHolder(
@@ -2344,7 +2334,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Clock clock,
         SequenceRenderersFactory renderersFactory,
         int inputIndex,
-        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
         boolean shouldReleaseHardwareBufferFrameReader) {
       trackSelector =
           new CompositionTrackSelector(
@@ -2392,7 +2382,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private final ImageDecoder.Factory imageDecoderFactory;
     private @MonotonicNonNull Format format;
 
-    public GapHandlingDecoderFactory(@Nullable ImageDecoder.Factory imageDecoderFactory) {
+    public GapHandlingDecoderFactory(ImageDecoder.@Nullable Factory imageDecoderFactory) {
       this.imageDecoderFactory = checkNotNull(imageDecoderFactory);
     }
 

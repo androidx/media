@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.dash.manifest;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
 import androidx.media3.exoplayer.dash.manifest.SegmentBase.SingleSegmentBase;
@@ -28,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

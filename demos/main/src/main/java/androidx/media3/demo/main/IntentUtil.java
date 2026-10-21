@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Intent;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -37,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Util to read from and populate an intent. */
 public class IntentUtil {
@@ -139,8 +139,7 @@ public class IntentUtil {
     @Nullable String mimeType = intent.getStringExtra(MIME_TYPE_EXTRA + extrasKeySuffix);
     @Nullable String title = intent.getStringExtra(TITLE_EXTRA + extrasKeySuffix);
     @Nullable String adTagUri = intent.getStringExtra(AD_TAG_URI_EXTRA + extrasKeySuffix);
-    @Nullable
-    SubtitleConfiguration subtitleConfiguration =
+    @Nullable SubtitleConfiguration subtitleConfiguration =
         createSubtitleConfiguration(intent, extrasKeySuffix);
     long imageDurationMs = intent.getLongExtra(IMAGE_DURATION_MS + extrasKeySuffix, C.TIME_UNSET);
     MediaItem.Builder builder =
@@ -168,8 +167,7 @@ public class IntentUtil {
     return populateDrmPropertiesFromIntent(builder, intent, extrasKeySuffix).build();
   }
 
-  @Nullable
-  private static MediaItem.SubtitleConfiguration createSubtitleConfiguration(
+  private static MediaItem.@Nullable SubtitleConfiguration createSubtitleConfiguration(
       Intent intent, String extrasKeySuffix) {
     if (!intent.hasExtra(SUBTITLE_URI_EXTRA + extrasKeySuffix)) {
       return null;
@@ -191,8 +189,7 @@ public class IntentUtil {
       return builder;
     }
     Map<String, String> headers = new HashMap<>();
-    @Nullable
-    String[] keyRequestPropertiesArray =
+    String @Nullable [] keyRequestPropertiesArray =
         intent.getStringArrayExtra(DRM_KEY_REQUEST_PROPERTIES_EXTRA + extrasKeySuffix);
     if (keyRequestPropertiesArray != null) {
       for (int i = 0; i < keyRequestPropertiesArray.length; i += 2) {

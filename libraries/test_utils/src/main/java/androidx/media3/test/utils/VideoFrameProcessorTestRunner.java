@@ -35,7 +35,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -60,6 +59,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A test runner for {@link VideoFrameProcessor} tests. */
 @UnstableApi
@@ -244,15 +244,15 @@ public final class VideoFrameProcessorTestRunner {
   public static final int VIDEO_FRAME_PROCESSING_WAIT_MS = 5_000;
 
   private final String testId;
-  @Nullable private final String videoAssetPath;
+  private final @Nullable String videoAssetPath;
   private final String outputFileLabel;
   private final float pixelWidthHeightRatio;
   private final ConditionVariable videoFrameProcessorReadyCondition;
-  @Nullable private final CountDownLatch videoFrameProcessingEndedLatch;
+  private final @Nullable CountDownLatch videoFrameProcessingEndedLatch;
   private final AtomicReference<VideoFrameProcessingException> videoFrameProcessingException;
   private final VideoFrameProcessor videoFrameProcessor;
   private final ImmutableList<Effect> effects;
-  @Nullable private final BitmapReader bitmapReader;
+  private final @Nullable BitmapReader bitmapReader;
 
   private VideoFrameProcessorTestRunner(
       String testId,
@@ -299,8 +299,7 @@ public final class VideoFrameProcessorTestRunner {
                     checkNotNull(videoFrameProcessor).setOutputSurfaceInfo(null);
                   }
                 }
-                @Nullable
-                Surface outputSurface =
+                @Nullable Surface outputSurface =
                     bitmapReader.getSurface(width, height, useHighPrecisionColorComponents);
                 if (outputSurface != null) {
                   checkNotNull(videoFrameProcessor)
@@ -536,8 +535,7 @@ public final class VideoFrameProcessorTestRunner {
   public interface BitmapReader {
 
     /** Returns the {@link VideoFrameProcessor} output {@link Surface}, if one is needed. */
-    @Nullable
-    Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents);
+    @Nullable Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents);
 
     /** Returns the output {@link Bitmap}. */
     Bitmap getBitmap();
@@ -571,8 +569,8 @@ public final class VideoFrameProcessorTestRunner {
 
     @Override
     @SuppressLint("WrongConstant")
-    @Nullable
-    public Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents) {
+    public @Nullable Surface getSurface(
+        int width, int height, boolean useHighPrecisionColorComponents) {
       if (imageReader != null && releaseOutputSurface) {
         Image oldImage = imageQueue.poll();
         if (oldImage != null) {

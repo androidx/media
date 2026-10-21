@@ -31,7 +31,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -45,6 +44,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -143,8 +143,8 @@ public class MediaControllerSurfaceSizeChangeTest {
   private SurfaceActivity activity;
   private RemoteMediaSession remoteSession;
 
-  @Nullable private View viewForPrecondition;
-  @Nullable private View viewForAction;
+  private @Nullable View viewForPrecondition;
+  private @Nullable View viewForAction;
   private int expectedWidthFromCallback;
   private int expectedHeightFromCallback;
 

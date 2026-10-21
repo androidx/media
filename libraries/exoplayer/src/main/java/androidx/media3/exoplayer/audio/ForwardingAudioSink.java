@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.audio;
 
 import android.media.AudioDeviceInfo;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -27,6 +26,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import com.google.common.primitives.ImmutableIntArray;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** An overridable {@link AudioSink} implementation forwarding all methods to another sink. */
 @UnstableApi
@@ -78,7 +78,7 @@ public class ForwardingAudioSink implements AudioSink {
   @SuppressWarnings("deprecation")
   @Override
   public final void configure(
-      Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+      Format inputFormat, int specifiedBufferSize, int @Nullable [] outputChannels)
       throws ConfigurationException {
     configure(
         new AudioSinkConfig.Builder(inputFormat)
@@ -151,14 +151,12 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
-  @Nullable
-  public AudioAttributes getAudioAttributes() {
+  public @Nullable AudioAttributes getAudioAttributes() {
     return sink.getAudioAttributes();
   }
 
   @Override
-  @Nullable
-  public AudioCapabilities getAudioCapabilities() {
+  public @Nullable AudioCapabilities getAudioCapabilities() {
     return sink.getAudioCapabilities();
   }
 

@@ -35,7 +35,6 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.os.Parcel;
 import android.view.SurfaceView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -46,7 +45,6 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
@@ -103,7 +101,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.function.ThrowingRunnable;
 import org.mockito.Mockito;
 
@@ -839,10 +837,9 @@ public class TestUtil {
    * an instance of {@code forwardingType} results in the call being forwarded to the {@code
    * superType} delegate.
    */
-  public static <T extends @NonNull Object, F extends T>
-      void assertForwardingClassForwardsAllMethods(
-          Class<T> superType, Function<T, F> forwardingInstanceFactory)
-          throws InvocationTargetException, IllegalAccessException {
+  public static <T, F extends T> void assertForwardingClassForwardsAllMethods(
+      Class<T> superType, Function<T, F> forwardingInstanceFactory)
+      throws InvocationTargetException, IllegalAccessException {
     assertForwardingClassForwardsAllMethodsExcept(
         superType, forwardingInstanceFactory, /* excludedMethods= */ ImmutableSet.of());
   }
@@ -858,17 +855,16 @@ public class TestUtil {
   // non-null parameters. See also
   // https://github.com/typetools/checker-framework/blob/c26bb695ebc572fac1e9cd2e331fc5b9d3953ec0/checker/jdk/nullness/src/java/lang/reflect/Method.java#L109
   @SuppressWarnings("nullness:argument.type.incompatible")
-  public static <T extends @NonNull Object, F extends T>
-      void assertForwardingClassForwardsAllMethodsExcept(
-          Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
-          throws InvocationTargetException, IllegalAccessException {
+  public static <T, F extends T> void assertForwardingClassForwardsAllMethodsExcept(
+      Class<T> superType, Function<T, F> forwardingInstanceFactory, Set<String> excludedMethods)
+      throws InvocationTargetException, IllegalAccessException {
     for (Method method : getPublicOverridableMethods(superType)) {
       if (excludedMethods.contains(method.getName())) {
         continue;
       }
       T delegate = mock(superType);
       F forwardingInstance = forwardingInstanceFactory.apply(delegate);
-      @NullableType Object[] parameters = new Object[method.getParameterCount()];
+      @Nullable Object[] parameters = new Object[method.getParameterCount()];
       for (int i = 0; i < method.getParameterCount(); i++) {
         parameters[i] = tryCreateMockInstance(method.getParameterTypes()[i]);
       }
@@ -887,8 +883,7 @@ public class TestUtil {
    * instead.
    */
   @SuppressWarnings("unchecked")
-  @Nullable
-  private static <T extends @NullableType Object> T tryCreateMockInstance(Class<T> clazz) {
+  private static <T extends @Nullable Object> @Nullable T tryCreateMockInstance(Class<T> clazz) {
     if (clazz.isPrimitive()) {
       // Get a default value of the right primitive type by creating a single-element array.
       return (T) Array.get(Array.newInstance(clazz, 1), 0);
@@ -914,8 +909,7 @@ public class TestUtil {
   // The nullness checker is deliberately over-conservative and doesn't permit passing a null
   // parameter to Constructor.newInstance(), even if the real constructor does accept null.
   @SuppressWarnings({"unchecked", "nullness:argument.type.incompatible"})
-  @Nullable
-  private static <T extends @NullableType Object> T tryCreateInstance(Class<T> clazz) {
+  private static <T extends @Nullable Object> @Nullable T tryCreateInstance(Class<T> clazz) {
     Constructor<T>[] constructors = (Constructor<T>[]) clazz.getConstructors();
     // Start with the constructor with fewest parameters.
     Arrays.sort(constructors, Comparator.comparingInt(c -> c.getParameterTypes().length));
@@ -959,8 +953,8 @@ public class TestUtil {
     return null;
   }
 
-  private static @NullableType Object[] createParameters(Class<?>[] parameterTypes) {
-    @NullableType Object[] parameters = new Object[parameterTypes.length];
+  private static @Nullable Object[] createParameters(Class<?>[] parameterTypes) {
+    @Nullable Object[] parameters = new Object[parameterTypes.length];
     for (int i = 0; i < parameters.length; i++) {
       parameters[i] = tryCreateMockInstance(parameterTypes[i]);
     }
@@ -970,8 +964,7 @@ public class TestUtil {
   /**
    * Returns an inner class of {@code clazz} called {@code className} if it exists, otherwise null.
    */
-  @Nullable
-  public static Class<?> getInnerClass(Class<?> clazz, String className) {
+  public static @Nullable Class<?> getInnerClass(Class<?> clazz, String className) {
     for (Class<?> innerClass : clazz.getDeclaredClasses()) {
       if (innerClass.getSimpleName().equals(className)) {
         return innerClass;

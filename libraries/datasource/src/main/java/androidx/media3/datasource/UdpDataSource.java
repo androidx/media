@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /** A UDP {@link DataSource}. */
 @UnstableApi
@@ -62,10 +62,10 @@ public final class UdpDataSource extends BaseDataSource {
   private final byte[] packetBuffer;
   private final DatagramPacket packet;
 
-  @Nullable private Uri uri;
-  @Nullable private DatagramSocket socket;
-  @Nullable private MulticastSocket multicastSocket;
-  @Nullable private InetAddress address;
+  private @Nullable Uri uri;
+  private @Nullable DatagramSocket socket;
+  private @Nullable MulticastSocket multicastSocket;
+  private @Nullable InetAddress address;
   private boolean opened;
 
   private int packetRemaining;
@@ -155,8 +155,7 @@ public final class UdpDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

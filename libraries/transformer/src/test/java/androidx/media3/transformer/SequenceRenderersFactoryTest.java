@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AVC;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -58,6 +59,8 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
+import androidx.media3.transformer.TestUtil.FakeImageReaderAdapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -66,12 +69,18 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test for {@link SequenceRenderersFactory}. */
 @RunWith(AndroidJUnit4.class)
 public final class SequenceRenderersFactoryTest {
+
+  @Rule
+  public final ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withCodecs(
+          /* decoders= */ ImmutableList.of(CODEC_INFO_AVC), /* encoders= */ ImmutableList.of());
 
   private HandlerThread handlerThread;
 
@@ -191,6 +200,53 @@ public final class SequenceRenderersFactoryTest {
   }
 
   @Test
+  public void
+      hardwareBufferVideoRenderer_releasingAndReinitializingCodec_closesPreviousInputSurfaceAndCreatesNewOne()
+          throws Exception {
+    List<AsyncFrame> receivedFrames = new ArrayList<>();
+    List<FakeImageReaderAdapter> imageReaders = new ArrayList<>();
+    EditedMediaItemSequence sequence = createSequence();
+    HardwareBufferFrameReader hardwareBufferFrameReader =
+        createHardwareBufferFrameReader(
+            sequence,
+            receivedFrames,
+            handlerThread.getLooper(),
+            (width, height, format, maxImages, usage) -> {
+              FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+              imageReaders.add(imageReader);
+              return imageReader;
+            });
+    SequenceRenderersFactory factory =
+        createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader);
+    Renderer videoRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
+    Timeline timeline =
+        new CompositionPlayer.CompositionForwardingTimeline(new FakeTimeline(), sequence);
+    Format videoFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(640)
+            .setHeight(360)
+            .build();
+
+    enableRenderer(videoRenderer, timeline, /* periodIndex= */ 0, videoFormat);
+    videoRenderer.render(/* positionUs= */ 0L, /* elapsedRealtimeUs= */ 0L);
+
+    assertThat(imageReaders).hasSize(1);
+    assertThat(imageReaders.get(0).isClosed()).isFalse();
+
+    videoRenderer.disable();
+    videoRenderer.reset();
+
+    assertThat(imageReaders.get(0).isClosed()).isTrue();
+
+    enableRenderer(videoRenderer, timeline, /* periodIndex= */ 0, videoFormat);
+    videoRenderer.render(/* positionUs= */ 0L, /* elapsedRealtimeUs= */ 0L);
+
+    assertThat(imageReaders).hasSize(2);
+    assertThat(imageReaders.get(1).isClosed()).isFalse();
+  }
+
+  @Test
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void hardwareBufferImageRenderer_loopingSequence_wrapsItemIndexInFrameMetadata()
       throws Exception {
@@ -272,6 +328,15 @@ public final class SequenceRenderersFactoryTest {
 
   private static HardwareBufferFrameReader createHardwareBufferFrameReader(
       EditedMediaItemSequence sequence, List<AsyncFrame> receivedFrames, Looper looper) {
+    return createHardwareBufferFrameReader(
+        sequence, receivedFrames, looper, new DefaultImageReaderAdapter.Factory());
+  }
+
+  private static HardwareBufferFrameReader createHardwareBufferFrameReader(
+      EditedMediaItemSequence sequence,
+      List<AsyncFrame> receivedFrames,
+      Looper looper,
+      ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     Composition composition = new Composition.Builder(sequence, createSequence()).build();
     HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
     when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
@@ -281,7 +346,7 @@ public final class SequenceRenderersFactoryTest {
         /* frameConsumer= */ receivedFrames::add,
         looper,
         /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-        new DefaultImageReaderAdapter.Factory(),
+        imageReaderAdapterFactory,
         /* listener= */ e -> {},
         SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
         mockJniWrapper);
@@ -300,13 +365,19 @@ public final class SequenceRenderersFactoryTest {
             .setTileCountHorizontal(1)
             .setTileCountVertical(1)
             .build();
+    enableRenderer(renderer, timeline, periodIndex, imageFormat);
+  }
+
+  private static void enableRenderer(
+      Renderer renderer, Timeline timeline, int periodIndex, Format format)
+      throws ExoPlaybackException {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
             /* mediaSourceEventDispatcher= */ null,
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
-            imageFormat,
+            format,
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 0L, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
@@ -314,7 +385,7 @@ public final class SequenceRenderersFactoryTest {
     renderer.setTimeline(timeline);
     renderer.enable(
         RendererConfiguration.DEFAULT,
-        new Format[] {imageFormat},
+        new Format[] {format},
         fakeSampleStream,
         /* positionUs= */ 0L,
         /* joining= */ false,

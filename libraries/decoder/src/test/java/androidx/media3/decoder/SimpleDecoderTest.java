@@ -18,11 +18,11 @@ package androidx.media3.decoder;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -132,9 +132,8 @@ public final class SimpleDecoderTest {
       return new DecoderException("Unexpected error", error);
     }
 
-    @Nullable
     @Override
-    protected DecoderException decode(
+    protected @Nullable DecoderException decode(
         DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
       if (inputBuffer.isEndOfStream()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);

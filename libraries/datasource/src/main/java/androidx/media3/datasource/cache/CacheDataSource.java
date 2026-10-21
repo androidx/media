@@ -27,7 +27,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PriorityTaskManager;
@@ -53,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} that reads and writes a {@link Cache}. Requests are fulfilled from the cache
@@ -67,14 +67,14 @@ public final class CacheDataSource implements DataSource {
 
     private @MonotonicNonNull Cache cache;
     private DataSource.Factory cacheReadDataSourceFactory;
-    @Nullable private DataSink.Factory cacheWriteDataSinkFactory;
+    private DataSink.@Nullable Factory cacheWriteDataSinkFactory;
     private CacheKeyFactory cacheKeyFactory;
     private boolean cacheIsReadOnly;
-    @Nullable private DataSource.Factory upstreamDataSourceFactory;
-    @Nullable private PriorityTaskManager upstreamPriorityTaskManager;
+    private DataSource.@Nullable Factory upstreamDataSourceFactory;
+    private @Nullable PriorityTaskManager upstreamPriorityTaskManager;
     private @C.Priority int upstreamPriority;
     private @CacheDataSource.Flags int flags;
-    @Nullable private CacheDataSource.EventListener eventListener;
+    private CacheDataSource.@Nullable EventListener eventListener;
 
     public Factory() {
       cacheReadDataSourceFactory = new FileDataSource.Factory();
@@ -99,8 +99,7 @@ public final class CacheDataSource implements DataSource {
      * Returns the cache that will be used, or {@code null} if {@link #setCache} has yet to be
      * called.
      */
-    @Nullable
-    public Cache getCache() {
+    public @Nullable Cache getCache() {
       return cache;
     }
 
@@ -131,7 +130,7 @@ public final class CacheDataSource implements DataSource {
      */
     @CanIgnoreReturnValue
     public Factory setCacheWriteDataSinkFactory(
-        @Nullable DataSink.Factory cacheWriteDataSinkFactory) {
+        DataSink.@Nullable Factory cacheWriteDataSinkFactory) {
       this.cacheWriteDataSinkFactory = cacheWriteDataSinkFactory;
       this.cacheIsReadOnly = cacheWriteDataSinkFactory == null;
       return this;
@@ -169,7 +168,7 @@ public final class CacheDataSource implements DataSource {
      */
     @CanIgnoreReturnValue
     public Factory setUpstreamDataSourceFactory(
-        @Nullable DataSource.Factory upstreamDataSourceFactory) {
+        DataSource.@Nullable Factory upstreamDataSourceFactory) {
       this.upstreamDataSourceFactory = upstreamDataSourceFactory;
       return this;
     }
@@ -203,8 +202,7 @@ public final class CacheDataSource implements DataSource {
      * Returns the {@link PriorityTaskManager} that will bs used when requesting data from upstream,
      * or {@code null} if there is none.
      */
-    @Nullable
-    public PriorityTaskManager getUpstreamPriorityTaskManager() {
+    public @Nullable PriorityTaskManager getUpstreamPriorityTaskManager() {
       return upstreamPriorityTaskManager;
     }
 
@@ -404,23 +402,23 @@ public final class CacheDataSource implements DataSource {
 
   private final Cache cache;
   private final DataSource cacheReadDataSource;
-  @Nullable private final DataSource cacheWriteDataSource;
+  private final @Nullable DataSource cacheWriteDataSource;
   private final DataSource upstreamDataSource;
   private final CacheKeyFactory cacheKeyFactory;
-  @Nullable private final EventListener eventListener;
+  private final @Nullable EventListener eventListener;
 
   private final boolean blockOnCache;
   private final boolean ignoreCacheOnError;
   private final boolean ignoreCacheForUnsetLengthRequests;
 
-  @Nullable private Uri actualUri;
-  @Nullable private DataSpec requestDataSpec;
-  @Nullable private DataSpec currentDataSpec;
-  @Nullable private DataSource currentDataSource;
+  private @Nullable Uri actualUri;
+  private @Nullable DataSpec requestDataSpec;
+  private @Nullable DataSpec currentDataSpec;
+  private @Nullable DataSource currentDataSource;
   private long currentDataSourceBytesRead;
   private long readPosition;
   private long bytesRemaining;
-  @Nullable private CacheSpan currentHoleSpan;
+  private @Nullable CacheSpan currentHoleSpan;
   private boolean seenCacheError;
   private boolean currentRequestIgnoresCache;
   private long totalCachedBytesRead;
@@ -665,8 +663,7 @@ public final class CacheDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return actualUri;
   }
 

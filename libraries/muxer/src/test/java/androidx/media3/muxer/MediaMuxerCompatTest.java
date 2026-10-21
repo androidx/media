@@ -28,7 +28,6 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -49,6 +48,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -256,8 +256,8 @@ public final class MediaMuxerCompatTest {
     assertThat(videoTrackFormat.rotationDegrees).isEqualTo(orientation);
   }
 
-  @Nullable
-  private static <T extends Metadata.Entry> T findMetadataEntry(Format format, Class<T> clazz) {
+  private static <T extends Metadata.Entry> @Nullable T findMetadataEntry(
+      Format format, Class<T> clazz) {
     if (format.metadata == null) {
       return null;
     }

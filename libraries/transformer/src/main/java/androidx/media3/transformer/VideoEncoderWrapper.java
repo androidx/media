@@ -28,7 +28,6 @@ import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps an {@linkplain Codec encoder} and provides its input {@link Surface}.
@@ -55,11 +55,11 @@ import org.checkerframework.dataflow.qual.Pure;
   private final Format inputFormat;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final List<String> muxerSupportedMimeTypes;
-  @Nullable private final TransformationRequest transformationRequest;
+  private final @Nullable TransformationRequest transformationRequest;
   private final FallbackListener fallbackListener;
   private final String requestedOutputMimeType;
   private final @Composition.HdrMode int hdrModeAfterFallback;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private @MonotonicNonNull SurfaceInfo encoderSurfaceInfo;
 
@@ -115,8 +115,7 @@ import org.checkerframework.dataflow.qual.Pure;
    * Returns an encoder input {@link SurfaceInfo} with the closest supported dimensions, and a fixed
    * {@code rotationDegrees}.
    */
-  @Nullable
-  public SurfaceInfo getFixedRotationSurfaceInfo(
+  public @Nullable SurfaceInfo getFixedRotationSurfaceInfo(
       int requestedWidth, int requestedHeight, int rotationDegrees) throws ExportException {
     if (releaseEncoder) {
       return null;
@@ -177,8 +176,7 @@ import org.checkerframework.dataflow.qual.Pure;
    * Returns an encoder input {@link SurfaceInfo} with the closest supported dimensions. Prefers
    * landscape encoding, and picks a rotation based on {@link #allowedEncodingRotationDegrees}.
    */
-  @Nullable
-  public SurfaceInfo getSurfaceInfo(int requestedWidth, int requestedHeight)
+  public @Nullable SurfaceInfo getSurfaceInfo(int requestedWidth, int requestedHeight)
       throws ExportException {
     if (releaseEncoder) {
       return null;
@@ -331,8 +329,7 @@ import org.checkerframework.dataflow.qual.Pure;
     }
   }
 
-  @Nullable
-  public Format getOutputFormat() throws ExportException {
+  public @Nullable Format getOutputFormat() throws ExportException {
     if (encoder == null) {
       return null;
     }
@@ -343,13 +340,11 @@ import org.checkerframework.dataflow.qual.Pure;
     return outputFormat;
   }
 
-  @Nullable
-  public ByteBuffer getOutputBuffer() throws ExportException {
+  public @Nullable ByteBuffer getOutputBuffer() throws ExportException {
     return encoder != null ? encoder.getOutputBuffer() : null;
   }
 
-  @Nullable
-  public MediaCodec.BufferInfo getOutputBufferInfo() throws ExportException {
+  public MediaCodec.@Nullable BufferInfo getOutputBufferInfo() throws ExportException {
     return encoder != null ? encoder.getOutputBufferInfo() : null;
   }
 

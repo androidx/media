@@ -19,13 +19,13 @@ package androidx.media3.transformer;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides a layer of abstraction for interacting with decoders and encoders.
@@ -218,8 +218,7 @@ public interface Codec {
    *
    * @throws ExportException If the underlying decoder or encoder encounters a problem.
    */
-  @Nullable
-  Format getOutputFormat() throws ExportException;
+  @Nullable Format getOutputFormat() throws ExportException;
 
   /**
    * Returns the current output {@link ByteBuffer}, or {@code null} if unavailable.
@@ -229,8 +228,7 @@ public interface Codec {
    *
    * @throws ExportException If the underlying decoder or encoder encounters a problem.
    */
-  @Nullable
-  ByteBuffer getOutputBuffer() throws ExportException;
+  @Nullable ByteBuffer getOutputBuffer() throws ExportException;
 
   /**
    * Returns the {@link BufferInfo} associated with the current output buffer, or {@code null} if
@@ -240,8 +238,7 @@ public interface Codec {
    *
    * @throws ExportException If the underlying decoder or encoder encounters a problem.
    */
-  @Nullable
-  BufferInfo getOutputBufferInfo() throws ExportException;
+  @Nullable BufferInfo getOutputBufferInfo() throws ExportException;
 
   /**
    * Releases the current output buffer.

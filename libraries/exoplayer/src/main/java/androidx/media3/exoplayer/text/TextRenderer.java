@@ -24,7 +24,6 @@ import android.os.Handler.Callback;
 import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -60,6 +59,7 @@ import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.checkerframework.dataflow.qual.SideEffectFree;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Renderer} for text.
@@ -117,19 +117,19 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private final SubtitleDecoderFactory subtitleDecoderFactory;
   private boolean waitingForKeyFrame;
   private @ReplacementState int decoderReplacementState;
-  @Nullable private SubtitleDecoder subtitleDecoder;
-  @Nullable private SubtitleInputBuffer nextSubtitleInputBuffer;
-  @Nullable private SubtitleOutputBuffer subtitle;
-  @Nullable private SubtitleOutputBuffer nextSubtitle;
+  private @Nullable SubtitleDecoder subtitleDecoder;
+  private @Nullable SubtitleInputBuffer nextSubtitleInputBuffer;
+  private @Nullable SubtitleOutputBuffer subtitle;
+  private @Nullable SubtitleOutputBuffer nextSubtitle;
   private int nextSubtitleEventIndex;
 
   // Fields used with both CuesWithTiming and Subtitle objects
-  @Nullable private final Handler outputHandler;
+  private final @Nullable Handler outputHandler;
   private final TextOutput output;
   private final FormatHolder formatHolder;
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
-  @Nullable private Format streamFormat;
+  private @Nullable Format streamFormat;
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;

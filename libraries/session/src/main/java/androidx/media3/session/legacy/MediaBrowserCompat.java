@@ -67,12 +67,10 @@ import android.os.RemoteException;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.session.legacy.MediaControllerCompat.TransportControls;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -80,6 +78,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Browses media content offered by a {@link MediaBrowserServiceCompat}.
@@ -223,8 +222,7 @@ public final class MediaBrowserCompat {
    * @return The extra bundle if it is connected and set, and {@code null} otherwise.
    * @throws IllegalStateException if not connected.
    */
-  @Nullable
-  public Bundle getExtras() {
+  public @Nullable Bundle getExtras() {
     return impl.getExtras();
   }
 
@@ -354,8 +352,7 @@ public final class MediaBrowserCompat {
    * @return A bundle which is passed to {@link MediaBrowserServiceCompat#notifyChildrenChanged(
    *     String, Bundle)}
    */
-  @Nullable
-  public Bundle getNotifyChildrenChangedOptions() {
+  public @Nullable Bundle getNotifyChildrenChangedOptions() {
     return impl.getNotifyChildrenChangedOptions();
   }
 
@@ -393,8 +390,7 @@ public final class MediaBrowserCompat {
      * @return An equivalent {@link MediaItem} object, or null if none.
      */
     @SuppressLint("WrongConstant")
-    @Nullable
-    public static MediaItem fromMediaItem(@Nullable MediaBrowser.MediaItem item) {
+    public static @Nullable MediaItem fromMediaItem(MediaBrowser.@Nullable MediaItem item) {
       if (item == null) {
         return null;
       }
@@ -411,8 +407,7 @@ public final class MediaBrowserCompat {
      * @param itemList A list of {@link android.media.browse.MediaBrowser.MediaItem} objects.
      * @return An equivalent list of {@link MediaItem} objects, or null if none.
      */
-    @Nullable
-    public static List<MediaItem> fromMediaItemList(
+    public static @Nullable List<MediaItem> fromMediaItemList(
         @Nullable List<MediaBrowser.MediaItem> itemList) {
       if (itemList == null) {
         return null;
@@ -517,15 +512,14 @@ public final class MediaBrowserCompat {
      *
      * @see MediaMetadataCompat#METADATA_KEY_MEDIA_ID
      */
-    @Nullable
-    public String getMediaId() {
+    public @Nullable String getMediaId() {
       return description.getMediaId();
     }
   }
 
   /** Callbacks for connection related events. */
   public static class ConnectionCallback {
-    @Nullable final MediaBrowser.ConnectionCallback connectionCallbackFwk;
+    final MediaBrowser.@Nullable ConnectionCallback connectionCallbackFwk;
     @Nullable ConnectionCallbackInternal connectionCallbackInternal;
 
     public ConnectionCallback() {
@@ -672,7 +666,7 @@ public final class MediaBrowserCompat {
           List<MediaBrowserCompat.MediaItem> itemList =
               checkNotNull(MediaItem.fromMediaItemList(children));
           final List<SubscriptionCallback> callbacks = sub.getCallbacks();
-          final List<@NullableType Bundle> optionsList = sub.getOptionsList();
+          final List<@Nullable Bundle> optionsList = sub.getOptionsList();
           for (int i = 0; i < callbacks.size(); ++i) {
             Bundle options = optionsList.get(i);
             if (options == null) {
@@ -690,8 +684,7 @@ public final class MediaBrowserCompat {
         SubscriptionCallback.this.onError(parentId);
       }
 
-      @Nullable
-      List<MediaBrowserCompat.MediaItem> applyOptions(
+      @Nullable List<MediaBrowserCompat.MediaItem> applyOptions(
           List<MediaBrowserCompat.MediaItem> list, final Bundle options) {
         int page = options.getInt(MediaBrowserCompat.EXTRA_PAGE, -1);
         int pageSize = options.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1);
@@ -829,8 +822,7 @@ public final class MediaBrowserCompat {
 
     String getRoot();
 
-    @Nullable
-    Bundle getExtras();
+    @Nullable Bundle getExtras();
 
     MediaSessionCompat.Token getSessionToken();
 
@@ -845,8 +837,7 @@ public final class MediaBrowserCompat {
     void sendCustomAction(
         String action, @Nullable Bundle extras, @Nullable CustomActionCallback callback);
 
-    @Nullable
-    Bundle getNotifyChildrenChangedOptions();
+    @Nullable Bundle getNotifyChildrenChangedOptions();
   }
 
   interface MediaBrowserServiceCallbackImpl {
@@ -875,10 +866,10 @@ public final class MediaBrowserCompat {
     private final ArrayMap<String, Subscription> subscriptions = new ArrayMap<>();
 
     protected int serviceVersion;
-    @Nullable protected ServiceBinderWrapper serviceBinderWrapper;
-    @Nullable protected Messenger callbacksMessenger;
-    @Nullable private MediaSessionCompat.Token mediaSessionToken;
-    @Nullable private Bundle notifyChildrenChangedOptions;
+    protected @Nullable ServiceBinderWrapper serviceBinderWrapper;
+    protected @Nullable Messenger callbacksMessenger;
+    private MediaSessionCompat.@Nullable Token mediaSessionToken;
+    private @Nullable Bundle notifyChildrenChangedOptions;
 
     @SuppressWarnings("argument.type.incompatible") // Using this before constructor finishes
     MediaBrowserImplBase(
@@ -927,8 +918,7 @@ public final class MediaBrowserCompat {
     }
 
     @Override
-    @Nullable
-    public Bundle getExtras() {
+    public @Nullable Bundle getExtras() {
       return convertToNullIfInvalid(browserFwk.getExtras());
     }
 
@@ -982,7 +972,7 @@ public final class MediaBrowserCompat {
           browserFwk.unsubscribe(parentId);
         } else {
           final List<SubscriptionCallback> callbacks = sub.getCallbacks();
-          final List<@NullableType Bundle> optionsList = sub.getOptionsList();
+          final List<@Nullable Bundle> optionsList = sub.getOptionsList();
           for (int i = callbacks.size() - 1; i >= 0; --i) {
             if (callbacks.get(i) == callback) {
               callbacks.remove(i);
@@ -1001,7 +991,7 @@ public final class MediaBrowserCompat {
                 parentId, null, checkNotNull(callbacksMessenger));
           } else {
             final List<SubscriptionCallback> callbacks = sub.getCallbacks();
-            final List<@NullableType Bundle> optionsList = sub.getOptionsList();
+            final List<@Nullable Bundle> optionsList = sub.getOptionsList();
             for (int i = callbacks.size() - 1; i >= 0; --i) {
               if (callbacks.get(i) == callback) {
                 serviceBinderWrapper.removeSubscription(
@@ -1106,7 +1096,7 @@ public final class MediaBrowserCompat {
     public void sendCustomAction(
         final String action,
         @Nullable Bundle extras,
-        @Nullable final CustomActionCallback callback) {
+        final @Nullable CustomActionCallback callback) {
       if (!isConnected()) {
         throw new IllegalStateException(
             "Cannot send a custom action ("
@@ -1244,9 +1234,8 @@ public final class MediaBrowserCompat {
       }
     }
 
-    @Nullable
     @Override
-    public Bundle getNotifyChildrenChangedOptions() {
+    public @Nullable Bundle getNotifyChildrenChangedOptions() {
       return notifyChildrenChangedOptions;
     }
   }
@@ -1295,7 +1284,7 @@ public final class MediaBrowserCompat {
 
   private static class Subscription {
     private final List<SubscriptionCallback> callbacks;
-    private final List<@NullableType Bundle> optionsList;
+    private final List<@Nullable Bundle> optionsList;
 
     public Subscription() {
       callbacks = new ArrayList<>();
@@ -1306,7 +1295,7 @@ public final class MediaBrowserCompat {
       return callbacks.isEmpty();
     }
 
-    public List<@NullableType Bundle> getOptionsList() {
+    public List<@Nullable Bundle> getOptionsList() {
       return optionsList;
     }
 
@@ -1314,8 +1303,7 @@ public final class MediaBrowserCompat {
       return callbacks;
     }
 
-    @Nullable
-    public SubscriptionCallback getCallback(@Nullable Bundle options) {
+    public @Nullable SubscriptionCallback getCallback(@Nullable Bundle options) {
       for (int i = 0; i < optionsList.size(); ++i) {
         if (MediaBrowserCompatUtils.areSameOptions(optionsList.get(i), options)) {
           return callbacks.get(i);
@@ -1338,7 +1326,7 @@ public final class MediaBrowserCompat {
 
   private static class CallbackHandler extends Handler {
     private final WeakReference<MediaBrowserServiceCallbackImpl> callbackImplRef;
-    @Nullable private WeakReference<Messenger> callbacksMessengerRef;
+    private @Nullable WeakReference<Messenger> callbacksMessengerRef;
 
     CallbackHandler(MediaBrowserServiceCallbackImpl callbackImpl) {
       super();
@@ -1399,7 +1387,7 @@ public final class MediaBrowserCompat {
 
   private static class ServiceBinderWrapper {
     private final Messenger messenger;
-    @Nullable private final Bundle rootHints;
+    private final @Nullable Bundle rootHints;
 
     public ServiceBinderWrapper(IBinder target, @Nullable Bundle rootHints) {
       messenger = new Messenger(target);
@@ -1534,7 +1522,7 @@ public final class MediaBrowserCompat {
   @SuppressLint("RestrictedApi")
   private static class SearchResultReceiver extends ResultReceiver {
     private final String query;
-    @Nullable private final Bundle extras;
+    private final @Nullable Bundle extras;
     private final SearchCallback callback;
 
     SearchResultReceiver(
@@ -1579,8 +1567,8 @@ public final class MediaBrowserCompat {
   @SuppressLint("RestrictedApi")
   private static class CustomActionResultReceiver extends ResultReceiver {
     private final String action;
-    @Nullable private final Bundle extras;
-    @Nullable private final CustomActionCallback callback;
+    private final @Nullable Bundle extras;
+    private final @Nullable CustomActionCallback callback;
 
     CustomActionResultReceiver(
         String action,

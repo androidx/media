@@ -16,6 +16,14 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.test.utils.AssetInfo.RAW_WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_24LE_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_32LE_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_8BIT_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_FLOAT32_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_FLOAT64_PCM_ASSET;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import androidx.media3.extractor.wav.WavExtractor;
@@ -36,25 +44,16 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end parameterized tests for {@link WavMuxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class WavMuxerEndToEndParameterizedTest {
-  private static final String ASSET_DIRECTORY = "asset:///media/";
-  private static final String PCM_8_BIT_MONO = "wav/sample_8bit.wav";
-  private static final String PCM_16_BIT_MONO = "wav/sample.wav";
-  private static final String PCM_16_BIT_STEREO = "wav/bbb_2ch_44kHz.wav";
-  private static final String PCM_24_BIT_MONO = "wav/sine_24le.wav";
-  private static final String PCM_32_BIT_STEREO = "wav/sine_32le.wav";
-  private static final String PCM_FLOAT_32_MONO = "wav/sample_float32.wav";
-  private static final String PCM_FLOAT_64_MONO = "wav/sample_float64.wav";
-
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
-        PCM_8_BIT_MONO,
-        PCM_16_BIT_MONO,
-        PCM_16_BIT_STEREO,
-        PCM_24_BIT_MONO,
-        PCM_32_BIT_STEREO,
-        PCM_FLOAT_32_MONO,
-        PCM_FLOAT_64_MONO);
+        WAV_8BIT_PCM_ASSET.uri,
+        WAV_ASSET.uri,
+        RAW_WAV_ASSET.uri,
+        WAV_24LE_PCM_ASSET.uri,
+        WAV_32LE_PCM_ASSET.uri,
+        WAV_FLOAT32_PCM_ASSET.uri,
+        WAV_FLOAT64_PCM_ASSET.uri);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;
@@ -68,7 +67,7 @@ public class WavMuxerEndToEndParameterizedTest {
     String outputFilePath = temporaryFolder.newFile("muxeroutput.wav").getPath();
 
     try (WavMuxer wavMuxer = new WavMuxer(SeekableMuxerOutput.of(outputFilePath))) {
-      feedInputDataToMuxer(context, wavMuxer, ASSET_DIRECTORY + inputFile);
+      feedInputDataToMuxer(context, wavMuxer, checkNotNull(inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =

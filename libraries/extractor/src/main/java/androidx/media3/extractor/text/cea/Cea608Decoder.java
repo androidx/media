@@ -28,13 +28,11 @@ import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.text.Subtitle;
@@ -46,6 +44,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleDecoder} for CEA-608 (also known as "line 21 captions" and "EIA-608"). */
 @UnstableApi
@@ -332,8 +331,8 @@ public final class Cea608Decoder extends CeaDecoder {
   private final ArrayList<CueBuilder> cueBuilders;
 
   private CueBuilder currentCueBuilder;
-  @Nullable private List<Cue> cues;
-  @Nullable private List<Cue> lastCues;
+  private @Nullable List<Cue> cues;
+  private @Nullable List<Cue> lastCues;
 
   private int captionMode;
   private int captionRowCount;
@@ -429,9 +428,8 @@ public final class Cea608Decoder extends CeaDecoder {
     // Do nothing
   }
 
-  @Nullable
   @Override
-  public SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
+  public @Nullable SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
     SubtitleOutputBuffer outputBuffer = super.dequeueOutputBuffer();
     if (outputBuffer != null) {
       return outputBuffer;
@@ -710,7 +708,7 @@ public final class Cea608Decoder extends CeaDecoder {
     // preference, then middle alignment, then end alignment.
     @Cue.AnchorType int positionAnchor = Cue.ANCHOR_TYPE_END;
     int cueBuilderCount = cueBuilders.size();
-    List<@NullableType Cue> cueBuilderCues = new ArrayList<>(cueBuilderCount);
+    List<@Nullable Cue> cueBuilderCues = new ArrayList<>(cueBuilderCount);
     for (int i = 0; i < cueBuilderCount; i++) {
       @Nullable Cue cue = cueBuilders.get(i).build(/* forcedPositionAnchor= */ Cue.TYPE_UNSET);
       cueBuilderCues.add(cue);
@@ -972,8 +970,7 @@ public final class Cea608Decoder extends CeaDecoder {
       }
     }
 
-    @Nullable
-    public Cue build(@Cue.AnchorType int forcedPositionAnchor) {
+    public @Nullable Cue build(@Cue.AnchorType int forcedPositionAnchor) {
       SpannableStringBuilder cueString = new SpannableStringBuilder();
       // Add any rolled up captions, separated by new lines.
       for (int i = 0; i < rolledUpCaptions.size(); i++) {

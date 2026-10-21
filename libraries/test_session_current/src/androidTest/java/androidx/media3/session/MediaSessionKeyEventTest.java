@@ -32,7 +32,6 @@ import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -50,6 +49,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -473,7 +473,7 @@ public class MediaSessionKeyEventTest {
   private static class TestSessionCallback implements MediaSession.Callback {
 
     private final List<KeyEvent> mediaButtonKeyEvents;
-    @Nullable private CountDownLatch latch;
+    private @Nullable CountDownLatch latch;
 
     private TestSessionCallback() {
       mediaButtonKeyEvents = new ArrayList<>();

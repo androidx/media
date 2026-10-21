@@ -22,7 +22,6 @@ import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -31,6 +30,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -174,7 +174,7 @@ public class EncoderFrameWriterTest {
 
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements EncoderFrameWriter.Listener {
-    @Nullable private VideoFrameProcessingException exception;
+    private @Nullable VideoFrameProcessingException exception;
 
     @Override
     public void onEndOfStream() {}
@@ -191,7 +191,7 @@ public class EncoderFrameWriterTest {
     private final List<Format> checkedFormats = new ArrayList<>();
     private final List<Format> createdFormats = new ArrayList<>();
     private boolean isSupportedToReturn;
-    @Nullable private ExportException exceptionToThrow;
+    private @Nullable ExportException exceptionToThrow;
 
     private void setIsSupportedToReturn(boolean isSupported) {
       this.isSupportedToReturn = isSupported;

@@ -43,7 +43,6 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
@@ -61,7 +60,6 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
@@ -98,10 +96,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages the internal logic for extracting frames from a {@link MediaItem}.
@@ -121,8 +121,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final List<Effect> effects;
     private final SeekParameters seekParameters;
     private final MediaCodecSelector mediaCodecSelector;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
-    @Nullable private final MediaSource.Factory mediaSourceFactory;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
+    private final MediaSource.@Nullable Factory mediaSourceFactory;
     private final boolean extractHdrFrames;
     private final boolean enableUltraHdr;
     private final long positionMs;
@@ -134,7 +134,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SeekParameters seekParameters,
         MediaCodecSelector mediaCodecSelector,
         @Nullable GlObjectsProvider glObjectsProvider,
-        @Nullable MediaSource.Factory mediaSourceFactory,
+        MediaSource.@Nullable Factory mediaSourceFactory,
         boolean extractHdrFrames,
         boolean enableUltraHdr,
         long positionMs) {
@@ -190,29 +190,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @SuppressWarnings("NonFinalStaticField") // Required for lazy initialization.
   @GuardedBy("LOCK")
-  @Nullable
-  private static FrameExtractorInternal instance;
+  private static @Nullable FrameExtractorInternal instance;
 
   private final AtomicInteger referenceCount;
 
   private final ExecutionSequencer executionSequencer;
   private final Handler playerHandler;
   private final AtomicBoolean extractedFrameNeedsRendering;
-  private final AtomicReference<
-          CallbackToFutureAdapter.@NullableType Completer<FrameExtractor.Frame>>
+  private final AtomicReference<CallbackToFutureAdapter.@Nullable Completer<FrameExtractor.Frame>>
       activeTaskCompleter;
 
-  @Nullable private ExoPlayer player;
+  private @Nullable ExoPlayer player;
 
-  @Nullable private FrameExtractor.Frame lastSeekDedupeFrame;
+  private FrameExtractor.@Nullable Frame lastSeekDedupeFrame;
 
   private MediaCodecSelector currentMediaCodecSelector;
 
   private boolean extractHdrFrames;
   private boolean enableUltraHdr;
 
-  @Nullable private GlObjectsProvider currentGlObjectsProvider;
-  @Nullable private MediaSource.Factory currentMediaSourceFactory;
+  private @Nullable GlObjectsProvider currentGlObjectsProvider;
+  private MediaSource.@Nullable Factory currentMediaSourceFactory;
+  private ImmutableList<Effect> currentVideoEffects;
   private long thumbnailPresentationTimeMs;
 
   private FrameExtractorInternal() {
@@ -224,6 +223,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.currentMediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
     this.extractHdrFrames = false;
     this.enableUltraHdr = false;
+    this.currentVideoEffects = ImmutableList.of();
     thumbnailPresentationTimeMs = C.TIME_UNSET;
   }
 
@@ -256,6 +256,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 enableUltraHdr = false;
                 currentGlObjectsProvider = null;
                 currentMediaSourceFactory = null;
+                currentVideoEffects = ImmutableList.of();
                 lastSeekDedupeFrame = null;
                 thumbnailPresentationTimeMs = C.TIME_UNSET;
               }
@@ -281,7 +282,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   || request.glObjectsProvider != currentGlObjectsProvider
                   || request.mediaSourceFactory != currentMediaSourceFactory;
 
-          boolean needsPrepare = needsNewPlayer || mediaItemChanged;
+          FrameReader frameReader =
+              new FrameReader(this, request.extractHdrFrames, request.enableUltraHdr);
+          ImmutableList<Effect> videoEffects = buildVideoEffects(request.effects, frameReader);
+          // Re-prepare when videoEffects change so same-position requests re-render through the
+          // updated effects pipeline instead of returning lastSeekDedupeFrame.
+          boolean needsPrepare =
+              needsNewPlayer || mediaItemChanged || !videoEffects.equals(currentVideoEffects);
 
           boolean isThumbnailRequest = request.positionMs == C.TIME_UNSET;
 
@@ -289,6 +296,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             ListenableFuture<FrameExtractor.Frame> prepareFuture =
                 processTask(
                     request.copyWithPositionMs(/* positionMs= */ 0),
+                    videoEffects,
                     needsNewPlayer,
                     /* needsPrepare= */ true);
 
@@ -302,6 +310,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   } else {
                     return processTask(
                         request.copyWithPositionMs(timestampToExtractMs),
+                        videoEffects,
                         /* needsNewPlayer= */ false,
                         /* needsPrepare= */ false);
                   }
@@ -314,15 +323,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             long timestampToExtractMs =
                 isThumbnailRequest ? getThumbnailPresentationTimeMs() : request.positionMs;
             return processTask(
-                request.copyWithPositionMs(timestampToExtractMs), needsNewPlayer, needsPrepare);
+                request.copyWithPositionMs(timestampToExtractMs),
+                videoEffects,
+                needsNewPlayer,
+                needsPrepare);
           }
         },
         playerHandler::post);
   }
 
   /** Gets the decoder counters from the player. */
-  /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
-    return CallbackToFutureAdapter.<@NullableType DecoderCounters>getFuture(
+  /* package */ ListenableFuture<@Nullable DecoderCounters> getDecoderCounters() {
+    return CallbackToFutureAdapter.<@Nullable DecoderCounters>getFuture(
         completer -> {
           ListenableFuture<Void> unused =
               executionSequencer.submit(
@@ -369,7 +381,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private ListenableFuture<FrameExtractor.Frame> processTask(
-      FrameExtractionRequest request, boolean needsNewPlayer, boolean needsPrepare) {
+      FrameExtractionRequest request,
+      ImmutableList<Effect> videoEffects,
+      boolean needsNewPlayer,
+      boolean needsPrepare) {
     return CallbackToFutureAdapter.getFuture(
         completer -> {
           if (!activeTaskCompleter.compareAndSet(null, completer)) {
@@ -379,11 +394,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
           ensurePlayerInitialized(request, needsNewPlayer);
 
-          FrameReader frameReader = new FrameReader(this);
-          ImmutableList<Effect> videoEffects = buildVideoEffects(request.effects, frameReader);
-
           ExoPlayer player = checkNotNull(this.player);
           if (needsPrepare) {
+            currentVideoEffects = videoEffects;
             lastSeekDedupeFrame = null;
             extractedFrameNeedsRendering.set(true);
             thumbnailPresentationTimeMs = C.TIME_UNSET;
@@ -549,15 +562,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final class FrameReader implements GlEffect {
     private final FrameExtractorInternal internal;
+    private final boolean extractHdrFrames;
+    private final boolean enableUltraHdr;
 
-    private FrameReader(FrameExtractorInternal internal) {
+    private FrameReader(
+        FrameExtractorInternal internal, boolean extractHdrFrames, boolean enableUltraHdr) {
       this.internal = internal;
+      this.extractHdrFrames = extractHdrFrames;
+      this.enableUltraHdr = enableUltraHdr;
     }
 
     @Override
     public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
         throws VideoFrameProcessingException {
-      return new FrameReadingGlShaderProgram(context, useHdr, internal);
+      return new FrameReadingGlShaderProgram(
+          context, useHdr, extractHdrFrames, enableUltraHdr, internal);
     }
 
     @Override
@@ -569,18 +588,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return false;
       }
       FrameReader that = (FrameReader) obj;
-      return internal.equals(that.internal);
+      return extractHdrFrames == that.extractHdrFrames
+          && enableUltraHdr == that.enableUltraHdr
+          && internal.equals(that.internal);
     }
 
     @Override
     public int hashCode() {
-      return internal.hashCode();
+      return Objects.hash(internal, extractHdrFrames, enableUltraHdr);
     }
   }
 
   private static final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
     private final int bytesPerPixel;
     private final boolean useHdr;
+    private final boolean extractHdrFrames;
+    private final boolean enableUltraHdr;
     private final boolean hdrUses16BitFloat;
     private final FrameExtractorInternal internal;
 
@@ -604,10 +627,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private ByteBuffer gainmapByteBuffer;
 
     private FrameReadingGlShaderProgram(
-        Context context, boolean useHdr, FrameExtractorInternal internal)
+        Context context,
+        boolean useHdr,
+        boolean extractHdrFrames,
+        boolean enableUltraHdr,
+        FrameExtractorInternal internal)
         throws VideoFrameProcessingException {
       super();
       this.useHdr = useHdr;
+      this.extractHdrFrames = extractHdrFrames;
+      this.enableUltraHdr = enableUltraHdr;
       this.internal = internal;
       gainmapTextureId = C.INDEX_UNSET;
       downscaledGainmapTextureId = C.INDEX_UNSET;
@@ -987,20 +1016,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private boolean shouldReadUltraHdrFrame() {
-      return SDK_INT >= 34 && useHdr && !internal.extractHdrFrames && internal.enableUltraHdr;
+      return SDK_INT >= 34 && useHdr && !extractHdrFrames && enableUltraHdr;
     }
   }
 
   /** A custom MediaCodecVideoRenderer that renders only one frame per position reset. */
   private static final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
     private final boolean toneMapHdrToSdr;
-    @Nullable private final GlObjectsProvider glObjectsProvider;
+    private final @Nullable GlObjectsProvider glObjectsProvider;
     private final AtomicBoolean extractedFrameNeedsRendering;
     private final FrameExtractorInternal internal;
 
     private boolean frameRenderedSinceLastPositionReset;
     private List<Effect> effectsFromPlayer;
-    @Nullable private Effect rotation;
+    private @Nullable Effect rotation;
 
     private FrameExtractorRenderer(
         Context context,
@@ -1060,8 +1089,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       for (Format format : formats) {
         if (MimeTypes.isVideo(format.sampleMimeType)) {
           if (format.metadata != null) {
-            @Nullable
-            ThumbnailMetadata thumbnailMetadata =
+            @Nullable ThumbnailMetadata thumbnailMetadata =
                 format.metadata.getFirstEntryOfType(ThumbnailMetadata.class);
             if (thumbnailMetadata != null && thumbnailMetadata.presentationTimeUs >= 0) {
               internal.thumbnailPresentationTimeMs =
@@ -1090,8 +1118,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    @Nullable
-    protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+    protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
         throws ExoPlaybackException {
       if (formatHolder.format != null) {
         Format format = formatHolder.format;

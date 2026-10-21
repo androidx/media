@@ -34,7 +34,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
@@ -45,6 +44,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for RTSP messages. */
 /* package */ final class RtspMessageUtil {
@@ -205,8 +205,7 @@ import java.util.regex.Pattern;
    * @return The extracted {@link RtspAuthUserInfo}, {@code null} if the argument {@link Uri} does
    *     not contain userinfo, or it's not properly formatted.
    */
-  @Nullable
-  public static RtspAuthUserInfo parseUserInfo(Uri uri) {
+  public static @Nullable RtspAuthUserInfo parseUserInfo(Uri uri) {
     @Nullable String userInfo = uri.getUserInfo();
     if (userInfo == null) {
       return null;

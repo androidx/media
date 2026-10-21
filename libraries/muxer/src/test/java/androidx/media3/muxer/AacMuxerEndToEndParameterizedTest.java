@@ -16,6 +16,9 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.test.utils.AssetInfo.AAC_LC_AAC_ASSET;
+import static androidx.media3.test.utils.AssetInfo.AAC_M4A_ASSET;
+import static androidx.media3.test.utils.AssetInfo.AAC_MP4_ASSET;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
@@ -38,15 +41,9 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end parameterized tests for {@link AacMuxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class AacMuxerEndToEndParameterizedTest {
-  private static final String AAC_M4A = "mp4/bbb_1ch_8kHz_aac_lc.m4a";
-  private static final String AAC_MP4 = "mp4/bbb_1ch_16kHz_aac.mp4";
-  private static final String RAW_AAC = "aac/bbb_1ch_8kHz_aac_lc.aac";
-
-  public static final String MEDIA_FILE_ASSET_DIRECTORY = "asset:///media/";
-
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of(AAC_M4A, AAC_MP4, RAW_AAC);
+    return ImmutableList.of(AAC_M4A_ASSET.uri, AAC_MP4_ASSET.uri, AAC_LC_AAC_ASSET.uri);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;
@@ -59,7 +56,7 @@ public class AacMuxerEndToEndParameterizedTest {
     String outputPath = temporaryFolder.newFile("muxeroutput.aac").getPath();
 
     try (AacMuxer muxer = new AacMuxer(new FileOutputStream(outputPath))) {
-      feedInputDataToMuxer(context, muxer, checkNotNull(MEDIA_FILE_ASSET_DIRECTORY + inputFile));
+      feedInputDataToMuxer(context, muxer, checkNotNull(inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =

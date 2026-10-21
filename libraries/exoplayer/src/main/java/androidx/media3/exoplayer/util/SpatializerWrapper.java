@@ -24,7 +24,6 @@ import android.media.AudioManager;
 import android.media.Spatializer;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.Format;
@@ -35,6 +34,7 @@ import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * SpatializerWrapper Wraps the {@link Spatializer} in order to encapsulate its APIs within an inner
@@ -47,10 +47,10 @@ import java.util.Objects;
 @UnstableApi
 public class SpatializerWrapper {
 
-  @Nullable private final Spatializer spatializer;
+  private final @Nullable Spatializer spatializer;
   private final boolean spatializationSupported;
-  @Nullable private final Handler handler;
-  @Nullable private final Spatializer.OnSpatializerStateChangedListener listener;
+  private final @Nullable Handler handler;
+  private final Spatializer.@Nullable OnSpatializerStateChangedListener listener;
 
   /**
    * Creates an instance of the Spatializer Wrapper and registers it to listen for changes.
@@ -64,8 +64,7 @@ public class SpatializerWrapper {
       @Nullable Context context,
       @Nullable Runnable spatializerChangedCallback,
       @Nullable Boolean deviceIsTv) {
-    @Nullable
-    AudioManager audioManager =
+    @Nullable AudioManager audioManager =
         context == null ? null : AudioManagerCompat.getAudioManager(context);
     if (audioManager == null || (deviceIsTv != null && deviceIsTv)) {
       spatializer = null;

@@ -15,8 +15,8 @@
  */
 package androidx.media3.common.video;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ExperimentalApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A data class storing a {@link Frame} and a {@link SyncFenceWrapper} that must be waited on before
@@ -40,7 +40,7 @@ public final class AsyncFrame {
    * <p>The consumer of this {@link AsyncFrame} is responsible for closing the fence after it has
    * been waited on.
    */
-  @Nullable public final SyncFenceWrapper acquireFence;
+  public final @Nullable SyncFenceWrapper acquireFence;
 
   /** Creates a new instance. */
   public AsyncFrame(Frame frame, @Nullable SyncFenceWrapper acquireFence) {

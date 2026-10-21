@@ -35,7 +35,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -74,6 +73,7 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Plays audio data. The implementation delegates to an {@link AudioOutput} and handles playback
@@ -275,9 +275,9 @@ public final class DefaultAudioSink implements AudioSink {
   @SuppressWarnings("deprecation") // Keeping deprecated AudioTrackProvider as field.
   public static final class Builder {
 
-    @Nullable private final Context context;
+    private final @Nullable Context context;
     private AudioCapabilities audioCapabilities;
-    @Nullable private androidx.media3.common.audio.AudioProcessorChain audioProcessorChain;
+    private androidx.media3.common.audio.@Nullable AudioProcessorChain audioProcessorChain;
     private boolean enableFloatOutput;
     private boolean enableAudioOutputPlaybackParameters;
 
@@ -286,7 +286,7 @@ public final class DefaultAudioSink implements AudioSink {
     private @MonotonicNonNull AudioOutputProvider audioOutputProvider;
     private @MonotonicNonNull AudioTrackProvider audioTrackProvider;
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
-    @Nullable private AudioOffloadListener audioOffloadListener;
+    private @Nullable AudioOffloadListener audioOffloadListener;
 
     /**
      * @deprecated Use {@link #Builder(Context)} instead.
@@ -555,7 +555,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   private static final String TAG = "DefaultAudioSink";
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
   private final androidx.media3.common.audio.AudioProcessorChain audioProcessorChain;
   private final boolean enableFloatOutput;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
@@ -566,23 +566,23 @@ public final class DefaultAudioSink implements AudioSink {
   private final ArrayDeque<MediaPositionParameters> mediaPositionParametersCheckpoints;
   private final boolean preferAudioOutputPlaybackParameters;
   private @OffloadMode int offloadMode;
-  @Nullable private AudioOutputListener audioOutputListener;
+  private @Nullable AudioOutputListener audioOutputListener;
   private final PendingExceptionHolder<InitializationException>
       initializationExceptionPendingExceptionHolder;
   private final PendingExceptionHolder<WriteException> writeExceptionPendingExceptionHolder;
-  @Nullable private final AudioOffloadListener audioOffloadListener;
+  private final @Nullable AudioOffloadListener audioOffloadListener;
 
-  @Nullable private PlayerId playerId;
-  @Nullable private Listener listener;
-  @Nullable private Configuration pendingConfiguration;
+  private @Nullable PlayerId playerId;
+  private @Nullable Listener listener;
+  private @Nullable Configuration pendingConfiguration;
   private @MonotonicNonNull Configuration configuration;
   private @MonotonicNonNull AudioProcessingPipeline audioProcessingPipeline;
   private AudioOutputProvider audioOutputProvider;
   private AudioOutputProvider.@MonotonicNonNull Listener audioOutputProviderListener;
-  @Nullable private AudioOutput audioOutput;
+  private @Nullable AudioOutput audioOutput;
 
   private AudioAttributes audioAttributes;
-  @Nullable private MediaPositionParameters afterDrainParameters;
+  private @Nullable MediaPositionParameters afterDrainParameters;
   private MediaPositionParameters mediaPositionParameters;
   private PlaybackParameters playbackParameters;
   private boolean skipSilenceEnabled;
@@ -600,10 +600,10 @@ public final class DefaultAudioSink implements AudioSink {
   private long outputStreamOffsetUs;
   private float volume;
 
-  @Nullable private ByteBuffer inputBuffer;
+  private @Nullable ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
   private ByteBuffer trimmedOutputBuffer;
-  @Nullable private ByteBuffer outputBuffer;
+  private @Nullable ByteBuffer outputBuffer;
   private boolean handledEndOfStream;
   private boolean stoppedAudioOutput;
   private boolean handledOffloadOnPresentationEnded;
@@ -613,7 +613,7 @@ public final class DefaultAudioSink implements AudioSink {
   private int audioSessionId;
   private boolean pendingAudioSessionIdChangeConfirmation;
   private AuxEffectInfo auxEffectInfo;
-  @Nullable private AudioDeviceInfo preferredDevice;
+  private @Nullable AudioDeviceInfo preferredDevice;
   private int virtualDeviceId;
   private boolean tunneling;
   private long lastFeedElapsedRealtimeMs;
@@ -1540,9 +1540,8 @@ public final class DefaultAudioSink implements AudioSink {
     return audioAttributes;
   }
 
-  @Nullable
   @Override
-  public AudioCapabilities getAudioCapabilities() {
+  public @Nullable AudioCapabilities getAudioCapabilities() {
     if (audioOutputProvider instanceof AudioTrackAudioOutputProvider) {
       return ((AudioTrackAudioOutputProvider) audioOutputProvider).getAudioCapabilities();
     }
@@ -2182,7 +2181,7 @@ public final class DefaultAudioSink implements AudioSink {
     private final OutputConfig outputConfig;
     private final AudioProcessingPipeline audioProcessingPipeline;
     private final Timeline timeline;
-    @Nullable private final Object periodUid;
+    private final @Nullable Object periodUid;
     private int encoderDelay;
     private int encoderPadding;
 
@@ -2260,7 +2259,7 @@ public final class DefaultAudioSink implements AudioSink {
     /** Minimum delay between two retries. */
     private static final int RETRY_DELAY_MS = 50;
 
-    @Nullable private T pendingException;
+    private @Nullable T pendingException;
     private long throwDeadlineMs;
     private long earliestNextRetryTimeMs;
 

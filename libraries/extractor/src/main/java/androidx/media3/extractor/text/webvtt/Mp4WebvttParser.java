@@ -17,7 +17,6 @@ package androidx.media3.extractor.text.webvtt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for Webvtt embedded in a Mp4 container file. */
 @SuppressWarnings("ConstantField")
@@ -96,7 +96,7 @@ public final class Mp4WebvttParser implements SubtitleParser {
   }
 
   private static Cue parseVttCueBox(ParsableByteArray sampleData, int remainingCueBoxBytes) {
-    @Nullable Cue.Builder cueBuilder = null;
+    Cue.@Nullable Builder cueBuilder = null;
     @Nullable CharSequence cueText = null;
     while (remainingCueBoxBytes > 0) {
       checkArgument(

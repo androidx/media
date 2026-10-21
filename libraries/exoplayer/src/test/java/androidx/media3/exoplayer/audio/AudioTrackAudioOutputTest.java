@@ -26,7 +26,6 @@ import static org.mockito.Mockito.verify;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
@@ -39,6 +38,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -329,7 +329,7 @@ public final class AudioTrackAudioOutputTest {
   }
 
   private void initializeAudioTrackAudioOutput(
-      @Nullable AudioTrackAudioOutput.CapabilityChangeListener listener,
+      AudioTrackAudioOutput.@Nullable CapabilityChangeListener listener,
       int audioFormatEncoding,
       int encoding,
       int channelMask,
@@ -366,7 +366,7 @@ public final class AudioTrackAudioOutputTest {
 
   private AudioTrackAudioOutput createAudioTrackAudioOutput(
       AudioTrack audioTrack,
-      @Nullable AudioTrackAudioOutput.CapabilityChangeListener listener,
+      AudioTrackAudioOutput.@Nullable CapabilityChangeListener listener,
       int encoding,
       int channelMask,
       int sampleRate,

@@ -16,11 +16,11 @@
 
 package androidx.media3.transformer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AnalyticsListener} that captures video and audio {@link DecoderCounters} objects.
@@ -48,8 +48,7 @@ public final class DecoderCountersListener implements AnalyticsListener {
    *
    * <p>Can be called on any thread.
    */
-  @Nullable
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     return audioDecoderCounters.get();
   }
 
@@ -58,8 +57,7 @@ public final class DecoderCountersListener implements AnalyticsListener {
    *
    * <p>Can be called on any thread.
    */
-  @Nullable
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     return videoDecoderCounters.get();
   }
 }

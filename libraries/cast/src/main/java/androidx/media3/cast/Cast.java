@@ -26,7 +26,6 @@ import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.text.TextUtils;
 import androidx.annotation.MainThread;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Log;
@@ -44,6 +43,7 @@ import java.util.List;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The primary entry point for interacting with the Cast context.
@@ -64,16 +64,15 @@ public class Cast {
 
   // Intentionally mutable static field. Listeners should only be temporary and not cause leaks.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
-  @Nullable
-  private static Cast singletonInstance;
+  private static @Nullable Cast singletonInstance;
 
   private final List<SessionManagerListener<CastSession>> pendingListeners;
 
   private final Set<MediaRouteSelectorListener> pendingMediaRouteSelectorListeners;
-  @Nullable private CastParams pendingCastParams;
+  private @Nullable CastParams pendingCastParams;
 
-  @Nullable private final Context context;
-  @Nullable private CastContext castContext;
+  private final @Nullable Context context;
+  private @Nullable CastContext castContext;
   private @MonotonicNonNull Throwable castContextLoadFailure;
   private boolean isInitOngoing;
 
@@ -277,8 +276,7 @@ public class Cast {
    */
   // TODO: b/459879564 - Use this method to show an appropriate error message in Cast UI
   // affordances.
-  @Nullable
-  public Throwable getCastContextLoadFailure() {
+  public @Nullable Throwable getCastContextLoadFailure() {
     return castContextLoadFailure;
   }
 
@@ -309,8 +307,7 @@ public class Cast {
     }
   }
 
-  @Nullable
-  /* package */ MediaRouteSelector registerListenerAndGetCurrentSelector(
+  /* package */ @Nullable MediaRouteSelector registerListenerAndGetCurrentSelector(
       MediaRouteSelectorListener listener) {
     checkNotNull(listener);
     if (castContext != null) {
@@ -337,8 +334,7 @@ public class Cast {
    * Returns the ongoing Cast session, or null if there's no ongoing Cast session, or there's no
    * Cast context available.
    */
-  @Nullable
-  public CastSession getCurrentCastSession() {
+  public @Nullable CastSession getCurrentCastSession() {
     verifyMainThread();
     return castContext != null ? castContext.getSessionManager().getCurrentCastSession() : null;
   }

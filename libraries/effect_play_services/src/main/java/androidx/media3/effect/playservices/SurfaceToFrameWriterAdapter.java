@@ -25,7 +25,6 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -37,6 +36,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.HardwareBufferNativeHelpers;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Creates and provides an output {@link Surface} and forwards frames rendered to it into a
@@ -73,9 +73,9 @@ import java.util.concurrent.Executor;
   private final Listener listener;
   private final LongArrayQueue inputPresentationTimestampsUs;
 
-  @Nullable private ImageReader imageReader;
-  @Nullable private Surface surface;
-  @Nullable private Image pendingImage;
+  private @Nullable ImageReader imageReader;
+  private @Nullable Surface surface;
+  private @Nullable Image pendingImage;
 
   // All state counters and flags below are accessed exclusively on the Handler thread.
   private int totalInputFramesCount;

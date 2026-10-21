@@ -19,9 +19,9 @@ import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.os.ParcelFileDescriptor;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Dumpable} {@link Muxer} implementation that supports dumping information about all
@@ -54,7 +55,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   public static final class Factory implements Muxer.Factory {
     private final Muxer.Factory wrappedFactory;
     private final boolean handleAudioAsPcm;
-    @Nullable private CapturingMuxer muxer;
+    private @Nullable CapturingMuxer muxer;
 
     /**
      * Creates an instance.
@@ -86,6 +87,12 @@ public final class CapturingMuxer implements Muxer, Dumpable {
     @Override
     public Muxer create(String path) throws MuxerException {
       muxer = new CapturingMuxer(wrappedFactory.create(path), handleAudioAsPcm);
+      return muxer;
+    }
+
+    @Override
+    public Muxer create(ParcelFileDescriptor parcelFileDescriptor) throws MuxerException {
+      muxer = new CapturingMuxer(wrappedFactory.create(parcelFileDescriptor), handleAudioAsPcm);
       return muxer;
     }
 

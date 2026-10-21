@@ -17,7 +17,6 @@ package androidx.media3.test.utils;
 
 import android.media.AudioDeviceInfo;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -46,6 +45,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract {@link ExoPlayer} implementation that throws {@link UnsupportedOperationException}
@@ -356,8 +356,7 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  @Nullable
-  public TrackSelector getTrackSelector() {
+  public @Nullable TrackSelector getTrackSelector() {
     throw new UnsupportedOperationException();
   }
 
@@ -399,27 +398,23 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public Format getAudioFormat() {
+  public @Nullable Format getAudioFormat() {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public Format getVideoFormat() {
+  public @Nullable Format getVideoFormat() {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     throw new UnsupportedOperationException();
   }
 
-  @Nullable
   @Override
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     throw new UnsupportedOperationException();
   }
 

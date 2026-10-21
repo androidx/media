@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.upstream;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
@@ -34,6 +33,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Loadable} for objects that can be parsed from binary data using a {@link Parser}.
@@ -64,7 +64,7 @@ public final class ParsingLoadable<T> implements Loadable {
     private final DataSpec dataSpec;
     private final @C.DataType int type;
     private final Parser<? extends T> parser;
-    @Nullable private String steeredPathwayId;
+    private @Nullable String steeredPathwayId;
 
     /**
      * Creates a builder.
@@ -133,12 +133,12 @@ public final class ParsingLoadable<T> implements Loadable {
    * The ID of the steered pathway from which data is being loaded, or {@code null} if not
    * applicable.
    */
-  @Nullable public final String steeredPathwayId;
+  public final @Nullable String steeredPathwayId;
 
   private final StatsDataSource dataSource;
   private final Parser<? extends T> parser;
 
-  @Nullable private volatile T result;
+  private volatile @Nullable T result;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -234,8 +234,7 @@ public final class ParsingLoadable<T> implements Loadable {
   }
 
   /** Returns the loaded object, or null if an object has not been loaded. */
-  @Nullable
-  public final T getResult() {
+  public final @Nullable T getResult() {
     return result;
   }
 

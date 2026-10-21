@@ -25,7 +25,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -36,6 +35,7 @@ import androidx.media3.common.util.TimestampIterator;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Forwards a video frame produced from a {@link Bitmap} to a {@link GlShaderProgram} for
@@ -49,7 +49,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean signalRepeatingSequence;
 
   private @MonotonicNonNull RepeatingGainmapShaderProgram repeatingGainmapShaderProgram;
-  @Nullable private GlTextureInfo currentSdrGlTextureInfo;
+  private @Nullable GlTextureInfo currentSdrGlTextureInfo;
   private int downstreamShaderProgramCapacity;
   private boolean currentInputStreamEnded;
   private boolean isNextFrameInTexture;

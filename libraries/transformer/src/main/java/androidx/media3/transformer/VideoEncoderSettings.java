@@ -24,7 +24,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -32,6 +31,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Represents the video encoder settings. */
 @UnstableApi

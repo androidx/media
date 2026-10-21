@@ -30,7 +30,6 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultDataSource;
@@ -57,6 +56,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -558,8 +558,8 @@ public final class HlsPlaybackTest {
 
   private static class AnalyticsListenerImpl implements AnalyticsListener {
 
-    @Nullable private LoadEventInfo loadErrorEventInfo;
-    @Nullable private IOException loadError;
+    private @Nullable LoadEventInfo loadErrorEventInfo;
+    private @Nullable IOException loadError;
 
     @Override
     public void onLoadError(

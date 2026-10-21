@@ -18,9 +18,9 @@ package androidx.media3.common;
 import android.os.Bundle;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /** Represents the video size. */
 public final class VideoSize {

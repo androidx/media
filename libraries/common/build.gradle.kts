@@ -50,6 +50,7 @@ dependencies {
   testImplementation(libs.mockito.core)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
+  testImplementation(libs.guava.testlib)
   testImplementation(libs.junit)
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.truth)

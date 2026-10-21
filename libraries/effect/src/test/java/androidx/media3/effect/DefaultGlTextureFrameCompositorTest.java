@@ -23,8 +23,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeCompositorGlProgram;
 import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlObjectsProvider;
@@ -32,6 +34,7 @@ import androidx.media3.effect.GlFrameProcessorTestUtil.FakeGlTextureFrameConsume
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -85,7 +88,67 @@ public final class DefaultGlTextureFrameCompositorTest {
     assertThat(compositingProcessor.queue(ImmutableList.of(frame), directExecutor(), () -> {}))
         .isTrue();
 
+    assertThat(compositorGlProgram.drawnFramePackets).isEmpty();
     assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
+    assertThat(downstreamConsumer.lastReceivedFrame).isSameInstanceAs(frame);
+  }
+
+  @Test
+  public void queue_singleInputFrameWithNonDefaultOverlaySettings_compositesAndPassesToDownstream()
+      throws Exception {
+    VideoCompositorSettings nonDefaultSettings =
+        new VideoCompositorSettings() {
+          @Override
+          public Size getOutputSize(List<Size> inputSizes) {
+            return inputSizes.get(0);
+          }
+
+          @Override
+          public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
+            return new StaticOverlaySettings.Builder().setAlphaScale(0.5f).build();
+          }
+        };
+    GlTextureFrame frame =
+        createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0, nonDefaultSettings);
+
+    assertThat(compositingProcessor.queue(ImmutableList.of(frame), directExecutor(), () -> {}))
+        .isTrue();
+
+    assertThat(compositorGlProgram.drawnFramePackets).hasSize(1);
+    assertThat(compositorGlProgram.drawnFramePackets.get(0).get(0).glTextureInfo)
+        .isEqualTo(frame.glTextureInfo);
+    assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
+    assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.texId)
+        .isEqualTo(FAKE_GL_TEXTURE_ID);
+  }
+
+  @Test
+  public void queue_singleInputFrameWithNonDefaultOutputSize_compositesAndPassesToDownstream()
+      throws Exception {
+    VideoCompositorSettings nonDefaultSizeSettings =
+        new VideoCompositorSettings() {
+          @Override
+          public Size getOutputSize(List<Size> inputSizes) {
+            return new Size(WIDTH * 2, HEIGHT * 2);
+          }
+
+          @Override
+          public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
+            return new OverlaySettings() {};
+          }
+        };
+    GlTextureFrame frame =
+        createGlTextureFrame(/* texId= */ 0, /* sequenceIndex= */ 0, nonDefaultSizeSettings);
+
+    assertThat(compositingProcessor.queue(ImmutableList.of(frame), directExecutor(), () -> {}))
+        .isTrue();
+
+    assertThat(compositorGlProgram.drawnFramePackets).hasSize(1);
+    assertThat(compositorGlProgram.drawnFramePackets.get(0).get(0).glTextureInfo)
+        .isEqualTo(frame.glTextureInfo);
+    assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
+    assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.width).isEqualTo(WIDTH * 2);
+    assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.height).isEqualTo(HEIGHT * 2);
   }
 
   @Test
@@ -350,6 +413,11 @@ public final class DefaultGlTextureFrameCompositorTest {
   }
 
   private static GlTextureFrame createGlTextureFrame(int texId, int sequenceIndex) {
+    return createGlTextureFrame(texId, sequenceIndex, VideoCompositorSettings.DEFAULT);
+  }
+
+  private static GlTextureFrame createGlTextureFrame(
+      int texId, int sequenceIndex, VideoCompositorSettings videoCompositorSettings) {
     return new GlTextureFrame.Builder(
             new GlTextureInfo(
                 /* texId= */ texId,
@@ -362,7 +430,7 @@ public final class DefaultGlTextureFrameCompositorTest {
         .setMetadata(
             ImmutableMap.of(
                 KEY_COMPOSITOR_SETTINGS,
-                VideoCompositorSettings.DEFAULT,
+                videoCompositorSettings,
                 DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX,
                 sequenceIndex))
         .build();

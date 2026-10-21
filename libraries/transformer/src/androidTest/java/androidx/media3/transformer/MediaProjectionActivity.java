@@ -31,10 +31,10 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.WindowManager;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.Future;
+import org.jspecify.annotations.Nullable;
 
 /** Activity for setting up media projection. */
 public final class MediaProjectionActivity extends Activity {
@@ -96,8 +96,7 @@ public final class MediaProjectionActivity extends Activity {
     private static final int NOTIFICATION_ID = 1;
 
     @Override
-    @Nullable
-    public IBinder onBind(Intent intent) {
+    public @Nullable IBinder onBind(Intent intent) {
       return null;
     }
 

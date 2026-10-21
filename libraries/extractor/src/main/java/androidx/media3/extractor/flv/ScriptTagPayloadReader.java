@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.flv;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.DiscardingTrackOutput;
@@ -24,6 +23,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Parses Script Data tags from an FLV stream and extracts metadata information. */
 /* package */ final class ScriptTagPayloadReader extends TagPayloadReader {
@@ -246,8 +246,7 @@ import java.util.Map;
     return date;
   }
 
-  @Nullable
-  private static Object readAmfData(ParsableByteArray data, int type) {
+  private static @Nullable Object readAmfData(ParsableByteArray data, int type) {
     switch (type) {
       case AMF_TYPE_NUMBER:
         return readAmfDouble(data);

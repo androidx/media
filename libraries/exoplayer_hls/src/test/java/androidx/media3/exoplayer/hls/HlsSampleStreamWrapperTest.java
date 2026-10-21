@@ -28,11 +28,11 @@ import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.LoadingInfo;
@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -563,6 +564,164 @@ public final class HlsSampleStreamWrapperTest {
     assertThat(sampleStreamWrapper.getStreamFlags(/* trackGroupIndex= */ 0)).isEqualTo(0);
   }
 
+  @Test
+  public void seekToUs_toStartOfSplicedInChunk_seeksInsideBufferWithoutError() {
+    Format videoFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+    HlsSampleStreamWrapper sampleStreamWrapper =
+        createSampleStreamWrapper(/* positionUs= */ 0L, videoFormat);
+    when(mockChunkSource.hasIndependentSegments()).thenReturn(true);
+    doAnswer(
+            invocation -> {
+              ExtractorOutput extractorOutput = invocation.getArgument(0);
+              TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+              trackOutput.format(videoFormat);
+              extractorOutput.endTracks();
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 500_000L,
+                  C.BUFFER_FLAG_KEY_FRAME,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              return null;
+            })
+        .when(mockExtractor)
+        .init(any());
+    HlsMediaChunk chunk =
+        createMediaChunk(
+            /* startTimeUs= */ 500_000L, /* durationUs= */ 500_000L, /* shouldSpliceIn= */ true);
+    doAnswer(
+            invocation -> {
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = chunk;
+              return null;
+            })
+        .when(mockChunkSource)
+        .getNextChunk(any(), anyLong(), anyLong(), any(), anyBoolean(), any());
+    sampleStreamWrapper.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0L).build());
+    shadowOf(Looper.getMainLooper()).idle();
+
+    boolean resetRequired =
+        sampleStreamWrapper.seekToUs(/* positionUs= */ 500_000L, /* forceReset= */ false);
+
+    assertThat(resetRequired).isFalse();
+  }
+
+  @Test
+  public void seekToUs_toChunkOverwrittenBySubsequentSplicedInChunk_seeksToKeyframe() {
+    Format videoFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+    HlsSampleStreamWrapper sampleStreamWrapper =
+        createSampleStreamWrapper(/* positionUs= */ 0L, videoFormat);
+    when(mockChunkSource.hasIndependentSegments()).thenReturn(true);
+    HlsMediaChunk chunk0 =
+        createMediaChunk(
+            /* startTimeUs= */ 0L, /* durationUs= */ 500_000L, /* shouldSpliceIn= */ false);
+    HlsMediaChunk chunk1 =
+        createMediaChunk(
+            /* startTimeUs= */ 500_000L, /* durationUs= */ 500_000L, /* shouldSpliceIn= */ false);
+    HlsMediaChunk chunk2 =
+        createMediaChunk(
+            /* startTimeUs= */ 250_000L, /* durationUs= */ 750_000L, /* shouldSpliceIn= */ true);
+    doAnswer(
+            invocation -> {
+              ExtractorOutput extractorOutput = invocation.getArgument(0);
+              TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+              trackOutput.format(videoFormat);
+              extractorOutput.endTracks();
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 0L,
+                  C.BUFFER_FLAG_KEY_FRAME,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 250_000L,
+                  C.BUFFER_FLAG_KEY_FRAME,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              return null;
+            })
+        .doAnswer(
+            invocation -> {
+              ExtractorOutput extractorOutput = invocation.getArgument(0);
+              TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+              trackOutput.format(videoFormat);
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 500_000L,
+                  C.BUFFER_FLAG_KEY_FRAME,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              return null;
+            })
+        .doAnswer(
+            invocation -> {
+              ExtractorOutput extractorOutput = invocation.getArgument(0);
+              TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+              trackOutput.format(videoFormat);
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 250_000L,
+                  C.BUFFER_FLAG_KEY_FRAME,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 400_000L,
+                  /* flags= */ 0,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              trackOutput.sampleMetadata(
+                  /* timeUs= */ 500_000L,
+                  C.BUFFER_FLAG_KEY_FRAME,
+                  /* size= */ 0,
+                  /* offset= */ 0,
+                  /* cryptoData= */ null);
+              return null;
+            })
+        .when(mockExtractor)
+        .init(any());
+    doAnswer(
+            invocation -> {
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = chunk0;
+              return null;
+            })
+        .doAnswer(
+            invocation -> {
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = chunk1;
+              return null;
+            })
+        .doAnswer(
+            invocation -> {
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = chunk2;
+              return null;
+            })
+        .when(mockChunkSource)
+        .getNextChunk(any(), anyLong(), anyLong(), any(), anyBoolean(), any());
+    sampleStreamWrapper.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0L).build());
+    shadowOf(Looper.getMainLooper()).idle();
+    sampleStreamWrapper.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0L).build());
+    shadowOf(Looper.getMainLooper()).idle();
+    sampleStreamWrapper.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0L).build());
+    shadowOf(Looper.getMainLooper()).idle();
+    int sampleQueueIndex =
+        sampleStreamWrapper.bindSampleQueueToSampleStream(/* trackGroupIndex= */ 0);
+
+    boolean resetRequired =
+        sampleStreamWrapper.seekToUs(/* positionUs= */ 500_000L, /* forceReset= */ false);
+
+    assertThat(resetRequired).isFalse();
+    assertThat(sampleStreamWrapper.skipData(sampleQueueIndex, /* positionUs= */ 500_000L))
+        .isEqualTo(0);
+  }
+
   private HlsSampleStreamWrapper createSampleStreamWrapper(long positionUs) {
     return createSampleStreamWrapper(positionUs, new Format.Builder().build());
   }
@@ -581,7 +740,8 @@ public final class HlsSampleStreamWrapperTest {
             mock(DrmSessionManager.class),
             new DrmSessionEventListener.EventDispatcher(),
             mock(LoadErrorHandlingPolicy.class),
-            new MediaSourceEventListener.EventDispatcher(),
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, new MediaSource.MediaPeriodId(new Object())),
             /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
             /* downloadExecutor= */ ReleasableExecutor.from(directExecutor(), e -> {}));
     sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
@@ -590,6 +750,22 @@ public final class HlsSampleStreamWrapperTest {
   }
 
   private HlsMediaChunk createMediaChunk(long startTimeUs, long durationUs) {
+    return createMediaChunk(startTimeUs, durationUs, /* shouldSpliceIn= */ false);
+  }
+
+  private HlsMediaChunk createMediaChunk(
+      long startTimeUs, long durationUs, boolean shouldSpliceIn) {
+    FakeDataSource fakeDataSource = new FakeDataSource();
+    fakeDataSource.getDataSet().newDefaultData().appendReadData(10).endData();
+    return createMediaChunk(startTimeUs, durationUs, fakeDataSource, shouldSpliceIn);
+  }
+
+  private HlsMediaChunk createMediaChunk(long startTimeUs, long durationUs, DataSource dataSource) {
+    return createMediaChunk(startTimeUs, durationUs, dataSource, /* shouldSpliceIn= */ false);
+  }
+
+  private HlsMediaChunk createMediaChunk(
+      long startTimeUs, long durationUs, DataSource dataSource, boolean shouldSpliceIn) {
     HlsMediaPlaylist.Part part =
         new HlsMediaPlaylist.Part(
             /* url= */ "part1.ts",
@@ -634,11 +810,9 @@ public final class HlsSampleStreamWrapperTest {
             /* renditionReports= */ ImmutableMap.of(),
             /* interstitials= */ ImmutableList.of(),
             /* lastSeenInitSegment= */ null);
-    FakeDataSource fakeDataSource = new FakeDataSource();
-    fakeDataSource.getDataSet().newDefaultData().appendReadData(10).endData();
     return HlsMediaChunk.createInstance(
         mockExtractorFactory,
-        fakeDataSource,
+        dataSource,
         new Format.Builder().build(),
         /* startOfPlaylistInPeriodUs= */ 0L,
         playlist,
@@ -655,7 +829,7 @@ public final class HlsSampleStreamWrapperTest {
         /* previousChunk= */ null,
         /* mediaSegmentKey= */ null,
         /* initSegmentKey= */ null,
-        /* shouldSpliceIn= */ false,
+        shouldSpliceIn,
         /* isIndependent= */ true,
         PlayerId.UNSET,
         /* cmcdDataFactory= */ null);
@@ -672,7 +846,7 @@ public final class HlsSampleStreamWrapperTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,
@@ -746,7 +920,7 @@ public final class HlsSampleStreamWrapperTest {
           @Override
           public void onLoadError(
               int windowIndex,
-              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              MediaSource.@Nullable MediaPeriodId mediaPeriodId,
               LoadEventInfo loadEventInfo,
               MediaLoadData mediaLoadData,
               IOException error,
@@ -875,5 +1049,159 @@ public final class HlsSampleStreamWrapperTest {
     assertThat(actionWithinLimit).isEqualTo(Loader.RETRY);
     assertThat(actionExhausted).isEqualTo(Loader.DONT_RETRY_FATAL);
     assertThat(wasCanceledEvents).containsExactly(true);
+  }
+
+  @Test
+  public void
+      onLoadError_excludedMediaChunkWithZeroBytesLoadedRemoved_resetsPositionToRemovedChunkStart() {
+    HlsSampleStreamWrapper sampleStreamWrapper = createSampleStreamWrapper(/* positionUs= */ 0L);
+    HlsMediaChunk chunk =
+        createMediaChunk(
+            /* startTimeUs= */ 1_000_000L, /* durationUs= */ 1_000_000L, new FakeDataSource());
+    doAnswer(
+            invocation -> {
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = chunk;
+              return null;
+            })
+        .when(mockChunkSource)
+        .getNextChunk(any(), anyLong(), anyLong(), any(), anyBoolean(), any());
+    when(mockChunkSource.onChunkError(any(), any())).thenReturn(true);
+
+    sampleStreamWrapper.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(chunk.bytesLoaded()).isEqualTo(0);
+    assertThat(sampleStreamWrapper.getNextLoadPositionUs()).isEqualTo(1_000_000L);
+  }
+
+  @Test
+  public void
+      continueLoading_reloadingPartiallyLoadedFailedChunk_discardsFailedChunkAndClearsSplice()
+          throws Exception {
+    HlsSampleStreamWrapper sampleStreamWrapper = createSampleStreamWrapper(/* positionUs= */ 0L);
+    HlsMediaChunk failedChunk =
+        createMediaChunk(/* startTimeUs= */ 1_000_000L, /* durationUs= */ 1_000_000L);
+    when(mockExtractor.read(any()))
+        .thenThrow(new IOException("Exception after partial read"))
+        .thenReturn(false);
+    doAnswer(
+            invocation -> {
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = failedChunk;
+              return null;
+            })
+        .when(mockChunkSource)
+        .getNextChunk(any(), anyLong(), anyLong(), any(), anyBoolean(), any());
+    when(mockChunkSource.onChunkError(any(), any())).thenReturn(true);
+
+    // First load partially reads 10 bytes and then fails.
+    sampleStreamWrapper.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(failedChunk.bytesLoaded()).isGreaterThan(0);
+    assertThat(failedChunk.isLoadCompleted()).isFalse();
+
+    // Create replacement chunk at the same start time (1_000_000L) on a fallback playlist.
+    HlsMediaPlaylist.Part replacementPart =
+        new HlsMediaPlaylist.Part(
+            /* url= */ "part1_low.ts",
+            /* initializationSegment= */ null,
+            /* durationUs= */ 1_000_000L,
+            /* relativeDiscontinuitySequence= */ 0,
+            /* relativeStartTimeUs= */ 1_000_000L,
+            /* drmInitData= */ null,
+            /* fullSegmentEncryptionKeyUri= */ null,
+            /* encryptionIV= */ null,
+            /* byteRangeOffset= */ 0,
+            /* byteRangeLength= */ C.LENGTH_UNSET,
+            /* hasGapTag= */ false,
+            /* isIndependent= */ true,
+            /* isPreload= */ false);
+    HlsMediaPlaylist fallbackPlaylist =
+        new HlsMediaPlaylist(
+            HlsMediaPlaylist.PLAYLIST_TYPE_UNKNOWN,
+            /* baseUri= */ "http://example.com/low/",
+            /* tags= */ ImmutableList.of(),
+            /* startOffsetUs= */ C.TIME_UNSET,
+            /* preciseStart= */ false,
+            /* startTimeUs= */ 0L,
+            /* hasDiscontinuitySequence= */ false,
+            /* discontinuitySequence= */ 0,
+            /* mediaSequence= */ 0L,
+            /* version= */ 7,
+            /* targetDurationUs= */ 4_000_000L,
+            /* partTargetDurationUs= */ C.TIME_UNSET,
+            /* hasIndependentSegments= */ true,
+            /* hasEndTag= */ false,
+            /* hasProgramDateTime= */ false,
+            /* protectionSchemes= */ null,
+            /* segments= */ ImmutableList.of(),
+            /* trailingParts= */ ImmutableList.of(replacementPart),
+            new HlsMediaPlaylist.ServerControl(
+                /* skipUntilUs= */ C.TIME_UNSET,
+                /* canSkipDateRanges= */ false,
+                /* holdBackUs= */ C.TIME_UNSET,
+                /* partHoldBackUs= */ C.TIME_UNSET,
+                /* canBlockReload= */ false),
+            /* renditionReports= */ ImmutableMap.of(),
+            /* interstitials= */ ImmutableList.of(),
+            /* lastSeenInitSegment= */ null);
+    HlsChunkSource.SegmentBaseHolder segmentBaseHolder =
+        new HlsChunkSource.SegmentBaseHolder(
+            fallbackPlaylist.trailingParts.get(0), /* mediaSequence= */ 0, /* partIndex= */ 0);
+    Uri fallbackPlaylistUri = Uri.parse("http://example.com/low/playlist.m3u8");
+    boolean shouldSpliceIn =
+        HlsMediaChunk.shouldSpliceIn(
+            failedChunk,
+            fallbackPlaylistUri,
+            /* isIndependent= */ true,
+            segmentBaseHolder,
+            /* startOfPlaylistInPeriodUs= */ 0L);
+    assertThat(shouldSpliceIn).isTrue();
+
+    FakeDataSource fakeDataSource = new FakeDataSource();
+    fakeDataSource.getDataSet().newDefaultData().appendReadData(10).endData();
+    HlsMediaChunk replacementChunk =
+        HlsMediaChunk.createInstance(
+            mockExtractorFactory,
+            fakeDataSource,
+            new Format.Builder().build(),
+            /* startOfPlaylistInPeriodUs= */ 0L,
+            fallbackPlaylist,
+            segmentBaseHolder,
+            fallbackPlaylistUri,
+            /* steeredPathwayId= */ null,
+            /* muxedCaptionFormats= */ null,
+            C.SELECTION_REASON_ADAPTIVE,
+            /* trackSelectionData= */ null,
+            /* isPrimaryTimestampSource= */ true,
+            new TimestampAdjusterProvider(),
+            /* timestampAdjusterInitializationTimeoutMs= */ 0,
+            /* previousChunk= */ failedChunk,
+            /* mediaSegmentKey= */ null,
+            /* initSegmentKey= */ null,
+            shouldSpliceIn,
+            /* isIndependent= */ true,
+            PlayerId.UNSET,
+            /* cmcdDataFactory= */ null);
+    AtomicReference<List<HlsMediaChunk>> mediaChunks = new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              mediaChunks.set(invocation.getArgument(3));
+              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+              chunkHolder.chunk = replacementChunk;
+              return null;
+            })
+        .when(mockChunkSource)
+        .getNextChunk(any(), anyLong(), anyLong(), any(), anyBoolean(), any());
+
+    sampleStreamWrapper.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // The unread failed chunk at the same start time is discarded and shouldSpliceIn is cleared.
+    assertThat(mediaChunks.get()).containsExactly(replacementChunk);
+    assertThat(replacementChunk.shouldSpliceIn()).isFalse();
+    assertThat(replacementChunk.isLoadCompleted()).isTrue();
   }
 }

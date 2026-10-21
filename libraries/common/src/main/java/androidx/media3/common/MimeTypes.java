@@ -18,7 +18,6 @@ package androidx.media3.common;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -28,6 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Defines common MIME types and helper methods. */
 public final class MimeTypes {
@@ -352,8 +352,7 @@ public final class MimeTypes {
    * @return The first derived video MIME type, or {@code null}.
    */
   @UnstableApi
-  @Nullable
-  public static String getVideoMediaMimeType(@Nullable String codecs) {
+  public static @Nullable String getVideoMediaMimeType(@Nullable String codecs) {
     if (codecs == null) {
       return null;
     }
@@ -394,8 +393,7 @@ public final class MimeTypes {
    *     or {@code codecs} does not contain a codec that corresponds to {@code mimeType}.
    */
   @UnstableApi
-  @Nullable
-  public static String getCodecsCorrespondingToMimeType(
+  public static @Nullable String getCodecsCorrespondingToMimeType(
       @Nullable String codecs, @Nullable String mimeType) {
     if (codecs == null || mimeType == null) {
       return null;
@@ -420,8 +418,7 @@ public final class MimeTypes {
    * @return The first derived audio MIME type, or {@code null}.
    */
   @UnstableApi
-  @Nullable
-  public static String getAudioMediaMimeType(@Nullable String codecs) {
+  public static @Nullable String getAudioMediaMimeType(@Nullable String codecs) {
     if (codecs == null) {
       return null;
     }
@@ -442,8 +439,7 @@ public final class MimeTypes {
    * @return The first derived text MIME type, or {@code null}.
    */
   @UnstableApi
-  @Nullable
-  public static String getTextMediaMimeType(@Nullable String codecs) {
+  public static @Nullable String getTextMediaMimeType(@Nullable String codecs) {
     if (codecs == null) {
       return null;
     }
@@ -465,8 +461,7 @@ public final class MimeTypes {
    * @return The corresponding MIME type, or {@code null} if it could not be determined.
    */
   @UnstableApi
-  @Nullable
-  public static String getMediaMimeType(@Nullable String codec) {
+  public static @Nullable String getMediaMimeType(@Nullable String codec) {
     if (codec == null) {
       return null;
     }
@@ -546,8 +541,7 @@ public final class MimeTypes {
    *     determined.
    */
   @UnstableApi
-  @Nullable
-  public static Byte getMp4ObjectTypeFromMimeType(String sampleMimeType) {
+  public static @Nullable Byte getMp4ObjectTypeFromMimeType(String sampleMimeType) {
     switch (sampleMimeType) {
       case MimeTypes.AUDIO_AAC:
         return (byte) 0x40;
@@ -568,8 +562,7 @@ public final class MimeTypes {
    * @return The corresponding MIME type, or {@code null} if it could not be determined.
    */
   @UnstableApi
-  @Nullable
-  public static String getMimeTypeFromMp4ObjectType(int objectType) {
+  public static @Nullable String getMimeTypeFromMp4ObjectType(int objectType) {
     switch (objectType) {
       case 0x20:
         return MimeTypes.VIDEO_MP4V;
@@ -803,8 +796,7 @@ public final class MimeTypes {
    * contain a forward slash character ({@code '/'}).
    */
   @UnstableApi
-  @Nullable
-  private static String getTopLevelType(@Nullable String mimeType) {
+  private static @Nullable String getTopLevelType(@Nullable String mimeType) {
     if (mimeType == null) {
       return null;
     }
@@ -815,8 +807,7 @@ public final class MimeTypes {
     return mimeType.substring(0, indexOfSlash);
   }
 
-  @Nullable
-  private static String getCustomMimeTypeForCodec(String codec) {
+  private static @Nullable String getCustomMimeTypeForCodec(String codec) {
     int customMimeTypeCount = customMimeTypes.size();
     for (int i = 0; i < customMimeTypeCount; i++) {
       CustomMimeType customMimeType = customMimeTypes.get(i);
@@ -860,8 +851,8 @@ public final class MimeTypes {
    * @return The {@link Mp4aObjectType}, or {@code null} if the input was invalid.
    */
   @VisibleForTesting
-  @Nullable
-  /* package */ static Mp4aObjectType getObjectTypeFromMp4aRFC6381CodecString(String codec) {
+  /* package */ static @Nullable Mp4aObjectType getObjectTypeFromMp4aRFC6381CodecString(
+      String codec) {
     Matcher matcher = MP4A_RFC_6381_CODEC_PATTERN.matcher(codec);
     if (!matcher.matches()) {
       return null;

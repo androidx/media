@@ -38,7 +38,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AudioAttributes;
@@ -94,6 +93,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Implements the internal behavior of {@link ExoPlayerImpl}. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -247,10 +247,10 @@ import java.util.Objects;
   private boolean enforceAdPlaybackOnTimelineRefresh;
   private SeekParameters seekParameters;
   private ScrubbingModeParameters scrubbingModeParameters;
-  @Nullable private SeekParameters scrubbingModeSeekParameters;
+  private @Nullable SeekParameters scrubbingModeSeekParameters;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
-  @Nullable private SeekPosition queuedSeekWhileScrubbing;
+  private @Nullable SeekPosition queuedSeekWhileScrubbing;
   private int droppedSeeksWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
@@ -266,12 +266,12 @@ import java.util.Objects;
   private boolean requestForRendererSleep;
   private boolean offloadSchedulingEnabled;
   private int enabledRendererCount;
-  @Nullable private SeekPosition pendingInitialSeekPosition;
+  private @Nullable SeekPosition pendingInitialSeekPosition;
   private long rendererPositionUs;
   private long rendererPositionElapsedRealtimeUs;
   private int nextPendingMessageIndexHint;
   private boolean deliverPendingMessageAtStartPositionRequired;
-  @Nullable private ExoPlaybackException pendingRecoverableRendererError;
+  private @Nullable ExoPlaybackException pendingRecoverableRendererError;
   private long setForegroundModeTimeoutMs;
   private long playbackMaybeBecameStuckAtMs;
   private PreloadConfiguration preloadConfiguration;
@@ -335,8 +335,7 @@ import java.util.Objects;
     playbackInfoUpdate = new PlaybackInfoUpdate(playbackInfo);
     rendererCapabilities = new RendererCapabilities[renderers.length];
     rendererReportedReady = new boolean[renderers.length];
-    @Nullable
-    RendererCapabilities.Listener rendererCapabilitiesListener =
+    RendererCapabilities.@Nullable Listener rendererCapabilitiesListener =
         trackSelector.getRendererCapabilitiesListener();
 
     boolean hasSecondaryRenderers = false;
@@ -1727,8 +1726,7 @@ import java.util.Objects;
     long periodPositionUs;
     long requestedContentPositionUs;
     boolean seekPositionAdjusted;
-    @Nullable
-    Pair<Object, Long> resolvedSeekPosition =
+    @Nullable Pair<Object, Long> resolvedSeekPosition =
         resolveSeekPositionUs(
             playbackInfo.timeline,
             seekPosition,
@@ -2826,8 +2824,8 @@ import java.util.Objects;
     boolean loadingPeriodChanged = false;
     queue.reevaluateBuffer(rendererPositionUs);
     if (queue.shouldLoadNextMediaPeriod()) {
-      @Nullable
-      MediaPeriodInfo info = queue.getNextMediaPeriodInfo(rendererPositionUs, playbackInfo);
+      @Nullable MediaPeriodInfo info =
+          queue.getNextMediaPeriodInfo(rendererPositionUs, playbackInfo);
       if (info != null) {
         MediaPeriodHolder mediaPeriodHolder = queue.enqueueNextMediaPeriodHolder(info);
         if (!mediaPeriodHolder.prepareCalled) {
@@ -3227,53 +3225,89 @@ import java.util.Objects;
   }
 
   private void maybeUpdateReadingRenderersPerStream() throws ExoPlaybackException {
-    boolean allUpdated = true;
+    // First replace streams or disable ended renderers, then enable newly selected renderers so
+    // disabling and enabling renderers do not conflict on shared media clocks or sinks.
     for (int i = 0; i < renderers.length; i++) {
-      @Nullable MediaPeriodHolder readingPeriod = queue.getReadingPeriod(/* index= */ i);
-      if (readingPeriod == null
-          || queue.getPlayingPeriod() == readingPeriod
-          || readingPeriod.isRendererInCorrectState(/* index= */ i)) {
-        // Not reading ahead or all renderers updated.
-        continue;
-      }
+      maybeReplaceStreamOrDisableRendererForTransition(i);
+    }
+    for (int i = 0; i < renderers.length; i++) {
+      maybeEnableRendererForTransition(i);
+    }
+  }
 
-      if (updateRendererForTransition(i)) {
-        if (readingPeriod.prepared) {
-          readingPeriod.setRendererToCorrectState(/* index= */ i);
-        }
-      } else {
-        allUpdated = false;
+  private void maybeReplaceStreamOrDisableRendererForTransition(int index)
+      throws ExoPlaybackException {
+    @Nullable MediaPeriodHolder readingPeriod = queue.getReadingPeriod(index);
+    if (readingPeriod == null
+        || readingPeriod == queue.getPlayingPeriod()
+        || readingPeriod.isRendererInCorrectState(index)) {
+      return;
+    }
+    RendererHolder renderer = renderers[index];
+    TrackSelectorResult newTrackSelectorResult = readingPeriod.getTrackSelectorResult();
+    if (newTrackSelectorResult.isRendererEnabled(index)
+        && renderer.isRendererEnabled()
+        && !isRendererPrewarming(index)
+        && !renderer.isReadingFromPeriod(readingPeriod)) {
+      @SampleStream.Flags int flags = readingPeriod.sampleStreams[index].getFlags();
+      if ((flags & FLAG_MAYBE_HAS_PREROLL) != 0) {
+        return;
+      } else if ((flags & FLAG_HAS_PREROLL) != 0) {
+        renderer.setCurrentStreamFinal(
+            /* streamEndPositionUs= */ readingPeriod.getStartPositionRendererTime());
       }
     }
-    @Nullable MediaPeriodHolder earliestReadingPeriod = queue.getEarliestReadingPeriod();
-    if (earliestReadingPeriod != null
-        && queue.getPlayingPeriod() != earliestReadingPeriod
-        && !earliestReadingPeriod.prepared
-        && allUpdated) {
-      setAllRenderersToCorrectState(earliestReadingPeriod);
+    if (replaceStreamOrDisableRenderer(readingPeriod, index)) {
+      boolean waitingToEnable =
+          newTrackSelectorResult.isRendererEnabled(index)
+              && !renderer.isReadingFromPeriod(readingPeriod);
+      if (!waitingToEnable) {
+        readingPeriod.setRendererToCorrectState(index);
+      }
     }
+  }
+
+  private void maybeEnableRendererForTransition(int index) throws ExoPlaybackException {
+    @Nullable MediaPeriodHolder readingPeriod = queue.getReadingPeriod(index);
+    if (readingPeriod == null
+        || readingPeriod == queue.getPlayingPeriod()
+        || readingPeriod.isRendererInCorrectState(index)) {
+      return;
+    }
+    if (readingPeriod.getTrackSelectorResult().isRendererEnabled(index)
+        && !renderers[index].isRendererEnabled()
+        && !hasRendererWaitingToDisable(readingPeriod, renderers[index].getTrackType())) {
+      enableRenderer(
+          readingPeriod,
+          /* rendererIndex= */ index,
+          /* wasRendererEnabled= */ false,
+          readingPeriod.getStartPositionRendererTime());
+      readingPeriod.setRendererToCorrectState(index);
+    }
+  }
+
+  private boolean hasRendererWaitingToDisable(
+      MediaPeriodHolder readingPeriod, @C.TrackType int trackType) {
+    TrackSelectorResult trackSelectorResult = readingPeriod.getTrackSelectorResult();
+    for (int i = 0; i < renderers.length; i++) {
+      // Check !isRendererInCorrectState(i) to ignore a renderer that has already disabled for
+      // readingPeriod and is now prewarming a subsequent period.
+      if (renderers[i].getTrackType() == trackType
+          && renderers[i].isRendererEnabled()
+          && !trackSelectorResult.isRendererEnabled(i)
+          && !readingPeriod.isRendererInCorrectState(i)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean updateRenderersForTransition() throws ExoPlaybackException {
     MediaPeriodHolder readingMediaPeriod = queue.getEarliestReadingPeriod();
     TrackSelectorResult newTrackSelectorResult = readingMediaPeriod.getTrackSelectorResult();
     boolean allUpdated = true;
-    for (RendererHolder renderer : renderers) {
-      int enabledRendererCountPreTransition = renderer.getEnabledRendererCount();
-      int result =
-          renderer.replaceStreamsOrDisableRendererForTransition(
-              readingMediaPeriod, newTrackSelectorResult, mediaClock);
-      if ((result & REPLACE_STREAMS_DISABLE_RENDERERS_DISABLE_OFFLOAD_SCHEDULING) != 0
-          && offloadSchedulingEnabled) {
-        // Prevent sleeping across offload track transition else position won't get updated.
-        // TODO: (b/183635183) Optimize Offload End-Of-Stream: Sleep to just before end of track
-        setOffloadSchedulingEnabled(false);
-      }
-      enabledRendererCount -=
-          enabledRendererCountPreTransition - renderer.getEnabledRendererCount();
-
-      boolean completedUpdate = (result & REPLACE_STREAMS_DISABLE_RENDERERS_COMPLETED) != 0;
-      allUpdated &= completedUpdate;
+    for (int i = 0; i < renderers.length; i++) {
+      allUpdated &= replaceStreamOrDisableRenderer(readingMediaPeriod, i);
     }
     if (allUpdated) {
       for (int i = 0; i < renderers.length; i++) {
@@ -3290,29 +3324,13 @@ import java.util.Objects;
     return allUpdated;
   }
 
-  private boolean updateRendererForTransition(int index) throws ExoPlaybackException {
+  private boolean replaceStreamOrDisableRenderer(MediaPeriodHolder readingPeriod, int index)
+      throws ExoPlaybackException {
     RendererHolder renderer = renderers[index];
-    MediaPeriodHolder readingMediaPeriod = queue.getReadingPeriod(index);
-    TrackSelectorResult newTrackSelectorResult = readingMediaPeriod.getTrackSelectorResult();
-
-    if (readingMediaPeriod.prepared
-        && newTrackSelectorResult.isRendererEnabled(index)
-        && renderer.isRendererEnabled()
-        && !isRendererPrewarming(index)
-        && !renderer.isReadingFromPeriod(readingMediaPeriod)) {
-      @SampleStream.Flags int flags = readingMediaPeriod.sampleStreams[index].getFlags();
-      if ((flags & FLAG_MAYBE_HAS_PREROLL) != 0) {
-        return false;
-      } else if ((flags & FLAG_HAS_PREROLL) != 0) {
-        renderer.setCurrentStreamFinal(
-            /* streamEndPositionUs= */ readingMediaPeriod.getStartPositionRendererTime());
-      }
-    }
-
     int enabledRendererCountPreTransition = renderer.getEnabledRendererCount();
     int result =
         renderer.replaceStreamsOrDisableRendererForTransition(
-            readingMediaPeriod, newTrackSelectorResult, mediaClock);
+            readingPeriod, readingPeriod.getTrackSelectorResult(), mediaClock);
     if ((result & REPLACE_STREAMS_DISABLE_RENDERERS_DISABLE_OFFLOAD_SCHEDULING) != 0
         && offloadSchedulingEnabled) {
       // Prevent sleeping across offload track transition else position won't get updated.
@@ -3320,20 +3338,7 @@ import java.util.Objects;
       setOffloadSchedulingEnabled(false);
     }
     enabledRendererCount -= enabledRendererCountPreTransition - renderer.getEnabledRendererCount();
-
-    boolean replaceAndDisableCompleted =
-        (result & REPLACE_STREAMS_DISABLE_RENDERERS_COMPLETED) != 0;
-    if (replaceAndDisableCompleted) {
-      if (newTrackSelectorResult.isRendererEnabled(index)
-          && !renderer.isReadingFromPeriod(readingMediaPeriod)) {
-        enableRenderer(
-            readingMediaPeriod,
-            /* rendererIndex= */ index,
-            /* wasRendererEnabled= */ false,
-            readingMediaPeriod.getStartPositionRendererTime());
-      }
-    }
-    return replaceAndDisableCompleted;
+    return (result & REPLACE_STREAMS_DISABLE_RENDERERS_COMPLETED) != 0;
   }
 
   private void maybeUpdatePreloadPeriods(boolean loadingPeriodChanged) {
@@ -3406,10 +3411,10 @@ import java.util.Objects;
           renderers[i].maybeHandlePrewarmingTransition();
         }
       }
+      allowRenderersToRenderStartOfStreams();
       if (playbackInfo.playbackState == Player.STATE_READY) {
         startRenderers();
       }
-      allowRenderersToRenderStartOfStreams();
       advancedPlayingPeriod = true;
     }
   }
@@ -3452,12 +3457,13 @@ import java.util.Objects;
   }
 
   private void allowRenderersToRenderStartOfStreams() {
-    TrackSelectorResult playingTracks = queue.getPlayingPeriod().getTrackSelectorResult();
+    MediaPeriodHolder playingPeriodHolder = checkNotNull(queue.getPlayingPeriod());
+    TrackSelectorResult playingTracks = playingPeriodHolder.getTrackSelectorResult();
     for (int i = 0; i < renderers.length; i++) {
       if (!playingTracks.isRendererEnabled(i)) {
         continue;
       }
-      renderers[i].enableMayRenderStartOfStream();
+      renderers[i].enableMayRenderStartOfStream(playingPeriodHolder);
     }
   }
 
@@ -4036,8 +4042,7 @@ import java.util.Objects;
     boolean setTargetLiveOffset = false;
     if (pendingInitialSeekPosition != null) {
       // Resolve initial seek position.
-      @Nullable
-      Pair<Object, Long> periodPosition =
+      @Nullable Pair<Object, Long> periodPosition =
           resolveSeekPositionUs(
               timeline,
               pendingInitialSeekPosition,
@@ -4332,8 +4337,7 @@ import java.util.Objects;
           pendingMessageInfo.message.getPositionMs() == C.TIME_END_OF_SOURCE
               ? C.TIME_UNSET
               : Util.msToUs(pendingMessageInfo.message.getPositionMs());
-      @Nullable
-      Pair<Object, Long> periodPosition =
+      @Nullable Pair<Object, Long> periodPosition =
           resolveSeekPositionUs(
               newTimeline,
               new SeekPosition(
@@ -4412,8 +4416,7 @@ import java.util.Objects;
    * @throws IllegalSeekPositionException If the window index of the seek position is outside the
    *     bounds of the timeline.
    */
-  @Nullable
-  private static Pair<Object, Long> resolveSeekPositionUs(
+  private static @Nullable Pair<Object, Long> resolveSeekPositionUs(
       Timeline timeline,
       SeekPosition seekPosition,
       boolean trySubsequentPeriods,
@@ -4612,7 +4615,7 @@ import java.util.Objects;
 
     public int resolvedPeriodIndex;
     public long resolvedPeriodTimeUs;
-    @Nullable public Object resolvedPeriodUid;
+    public @Nullable Object resolvedPeriodUid;
 
     public PendingMessageInfo(PlayerMessage message) {
       this.message = message;

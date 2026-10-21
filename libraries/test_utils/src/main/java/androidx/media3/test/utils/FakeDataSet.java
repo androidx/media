@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
@@ -28,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Collection of {@link FakeData} to be served by a {@link FakeDataSource}.
@@ -83,11 +83,11 @@ public class FakeDataSet {
      */
     public static final class Segment {
 
-      @Nullable public final IOException exception;
-      @Nullable public final byte[] data;
+      public final @Nullable IOException exception;
+      public final byte @Nullable [] data;
       public final int length;
       public final long byteOffset;
-      @Nullable public final Runnable action;
+      public final @Nullable Runnable action;
 
       public boolean exceptionThrown;
       public boolean exceptionCleared;
@@ -110,7 +110,7 @@ public class FakeDataSet {
       }
 
       private Segment(
-          @Nullable byte[] data,
+          byte @Nullable [] data,
           int length,
           @Nullable IOException exception,
           @Nullable Runnable action,
@@ -135,7 +135,7 @@ public class FakeDataSet {
     private final FakeDataSet dataSet;
 
     /** Uri of the data or null if this is the default FakeData. */
-    @Nullable public final Uri uri;
+    public final @Nullable Uri uri;
 
     private final ArrayList<Segment> segments;
     private boolean simulateUnknownLength;
@@ -221,15 +221,14 @@ public class FakeDataSet {
       return simulateUnknownLength;
     }
 
-    @Nullable
-    private Segment getLastSegment() {
+    private @Nullable Segment getLastSegment() {
       int count = segments.size();
       return count > 0 ? segments.get(count - 1) : null;
     }
   }
 
   private final HashMap<Uri, FakeData> dataMap;
-  @Nullable private FakeData defaultData;
+  private @Nullable FakeData defaultData;
 
   public FakeDataSet() {
     dataMap = new HashMap<>();
@@ -274,14 +273,12 @@ public class FakeDataSet {
   }
 
   /** Returns the data for the given {@code uri}, or {@code defaultData} if no data is set. */
-  @Nullable
-  public FakeData getData(String uri) {
+  public @Nullable FakeData getData(String uri) {
     return getData(Uri.parse(uri));
   }
 
   /** Returns the data for the given {@code uri}, or {@code defaultData} if no data is set. */
-  @Nullable
-  public FakeData getData(Uri uri) {
+  public @Nullable FakeData getData(Uri uri) {
     @Nullable FakeData data = dataMap.get(uri.normalizeScheme());
     return data != null ? data : defaultData;
   }

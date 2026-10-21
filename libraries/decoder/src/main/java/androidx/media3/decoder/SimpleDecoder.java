@@ -19,11 +19,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Base class for {@link Decoder}s that use their own decode thread and decode each input buffer
@@ -45,17 +45,17 @@ public abstract class SimpleDecoder<
 
   private int availableInputBufferCount;
   private int availableOutputBufferCount;
-  @Nullable private I dequeuedInputBuffer;
+  private @Nullable I dequeuedInputBuffer;
 
-  @Nullable private E exception;
+  private @Nullable E exception;
   private boolean flushed;
   private boolean released;
   private int skippedOutputBufferCount;
   private long outputStartTimeUs;
 
-  @Nullable private Executor executor;
-  @Nullable private Runnable onOutputBufferAvailableRunnable;
-  @Nullable private Runnable onInputBufferAvailableRunnable;
+  private @Nullable Executor executor;
+  private @Nullable Runnable onOutputBufferAvailableRunnable;
+  private @Nullable Runnable onInputBufferAvailableRunnable;
 
   /**
    * @param inputBuffers An array of nulls that will be used to store references to input buffers.
@@ -138,8 +138,7 @@ public abstract class SimpleDecoder<
   }
 
   @Override
-  @Nullable
-  public final I dequeueInputBuffer() throws E {
+  public final @Nullable I dequeueInputBuffer() throws E {
     synchronized (lock) {
       maybeThrowException();
       checkState(dequeuedInputBuffer == null);
@@ -163,8 +162,7 @@ public abstract class SimpleDecoder<
   }
 
   @Override
-  @Nullable
-  public final O dequeueOutputBuffer() throws E {
+  public final @Nullable O dequeueOutputBuffer() throws E {
     synchronized (lock) {
       maybeThrowException();
       if (queuedOutputBuffers.isEmpty()) {
@@ -374,6 +372,5 @@ public abstract class SimpleDecoder<
    * @param reset Whether the decoder must be reset before decoding.
    * @return A decoder exception if an error occurred, or null if decoding was successful.
    */
-  @Nullable
-  protected abstract E decode(I inputBuffer, O outputBuffer, boolean reset);
+  protected abstract @Nullable E decode(I inputBuffer, O outputBuffer, boolean reset);
 }

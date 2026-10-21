@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.dash;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
@@ -39,6 +38,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks the content steering states for a DASH stream. */
 @UnstableApi
@@ -65,14 +65,14 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
 
   private static final String PATHWAY_PARAM = "_DASH_pathway";
   private static final String THROUGHPUT_PARAM = "_DASH_throughput";
-  @Nullable private final Callback callback;
+  private final @Nullable Callback callback;
   private final ServiceLocationFilteringThroughputEstimator throughputEstimator;
   private final Set<SteeringQueryParamsProvider> steeringQueryParamsProviders;
 
-  @Nullable private DashManifest manifest;
+  private @Nullable DashManifest manifest;
   private Map<String, Set<Location>> availableManifestLocations;
   private Map<String, Set<BaseUrl>> availableBaseUrls;
-  @Nullable private ImmutableList<String> initialPathwayIds;
+  private @Nullable ImmutableList<String> initialPathwayIds;
 
   /**
    * Creates a {@link DashContentSteeringTracker}.
@@ -133,8 +133,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
    * Returns the current service location priority, or {@code null} if the tracker is inactive or no
    * priority has been established.
    */
-  @Nullable
-  public ImmutableList<String> getCurrentServiceLocationPriority() {
+  public @Nullable ImmutableList<String> getCurrentServiceLocationPriority() {
     if (!isActive()) {
       return null;
     }
@@ -234,8 +233,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
         for (Representation representation : adaptationSet.representations) {
           for (BaseUrl baseUrl : representation.baseUrls) {
             String serviceLocation = baseUrl.serviceLocation;
-            @Nullable
-            Set<BaseUrl> availableBaseUrlsForServiceLocation =
+            @Nullable Set<BaseUrl> availableBaseUrlsForServiceLocation =
                 availableBaseUrls.get(serviceLocation);
             if (availableBaseUrlsForServiceLocation == null) {
               availableBaseUrlsForServiceLocation = new HashSet<>();
@@ -254,8 +252,7 @@ public final class DashContentSteeringTracker extends BaseContentSteeringTracker
     for (int i = 0; i < manifest.locations.size(); i++) {
       Location location = manifest.locations.get(i);
       String serviceLocation = location.serviceLocation;
-      @Nullable
-      Set<Location> availableLocationsForServiceLocation =
+      @Nullable Set<Location> availableLocationsForServiceLocation =
           availableManifestLocations.get(serviceLocation);
       if (availableLocationsForServiceLocation == null) {
         availableLocationsForServiceLocation = new HashSet<>();

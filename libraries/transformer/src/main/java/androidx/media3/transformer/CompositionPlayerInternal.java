@@ -24,7 +24,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
@@ -34,6 +33,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import org.jspecify.annotations.Nullable;
 
 /** Provides access to the composition preview audio and video components on the playback thread. */
 /* package */ final class CompositionPlayerInternal implements Handler.Callback {
@@ -92,7 +92,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
-  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+  private final @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   private int droppedFrames;
   private long droppedFrameAccumulationStartTimeMs;
@@ -303,6 +303,11 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
     playbackVideoGraphWrapper.setIsInputSdrToneMapped(
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+      // Flush the primary sequence to reset the state of the release control when a new Composition
+      // is set.
+      videoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    }
   }
 
   private void releaseInternal(ConditionVariable conditionVariable) {

@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -35,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** Decodes ID3 tags. */
 @UnstableApi
@@ -92,7 +92,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
   private static final int ID3_TEXT_ENCODING_UTF_16BE = 2;
   private static final int ID3_TEXT_ENCODING_UTF_8 = 3;
 
-  @Nullable private final FramePredicate framePredicate;
+  private final @Nullable FramePredicate framePredicate;
 
   public Id3Decoder() {
     this(null);
@@ -116,9 +116,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
   }
 
   @Override
-  @Nullable
   @SuppressWarnings("ByteBufferBackingArray") // Buffer validated by SimpleMetadataDecoder.decode
-  protected Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
+  protected @Nullable Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
     return decode(buffer.array(), buffer.limit());
   }
 
@@ -130,8 +129,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
    * @return A {@link Metadata} object containing the decoded ID3 tags, or null if the data could
    *     not be decoded.
    */
-  @Nullable
-  public Metadata decode(byte[] data, int size) {
+  public @Nullable Metadata decode(byte[] data, int size) {
     List<Id3Frame> id3Frames = new ArrayList<>();
     ParsableByteArray id3Data = new ParsableByteArray(data, size);
 
@@ -159,8 +157,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     while (id3Data.bytesLeft() >= frameHeaderSize) {
-      @Nullable
-      Id3Frame frame =
+      @Nullable Id3Frame frame =
           decodeFrame(
               id3Header.majorVersion,
               id3Data,
@@ -179,8 +176,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
    * @param data A {@link ParsableByteArray} from which the header should be read.
    * @return The parsed header, or null if the ID3 tag is unsupported.
    */
-  @Nullable
-  private static Id3Header decodeHeader(ParsableByteArray data) {
+  private static @Nullable Id3Header decodeHeader(ParsableByteArray data) {
     if (data.bytesLeft() < ID3_HEADER_LENGTH) {
       Log.w(TAG, "Data too short to be an ID3 tag");
       return null;
@@ -301,8 +297,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
   }
 
-  @Nullable
-  private static Id3Frame decodeFrame(
+  private static @Nullable Id3Frame decodeFrame(
       int majorVersion,
       ParsableByteArray id3Data,
       boolean unsignedIntFrameSizeHack,
@@ -469,8 +464,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return frame;
   }
 
-  @Nullable
-  private static TextInformationFrame decodeTxxxFrame(ParsableByteArray id3Data, int frameSize) {
+  private static @Nullable TextInformationFrame decodeTxxxFrame(
+      ParsableByteArray id3Data, int frameSize) {
     if (frameSize < 1) {
       // Frame is malformed.
       return null;
@@ -490,8 +485,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return new TextInformationFrame("TXXX", description, values);
   }
 
-  @Nullable
-  private static TextInformationFrame decodeTextInformationFrame(
+  private static @Nullable TextInformationFrame decodeTextInformationFrame(
       ParsableByteArray id3Data, int frameSize, String id) {
     if (frameSize < 1) {
       // Frame is malformed.
@@ -529,8 +523,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return result.isEmpty() ? ImmutableList.of("") : result;
   }
 
-  @Nullable
-  private static UrlLinkFrame decodeWxxxFrame(ParsableByteArray id3Data, int frameSize) {
+  private static @Nullable UrlLinkFrame decodeWxxxFrame(ParsableByteArray id3Data, int frameSize) {
     if (frameSize < 1) {
       // Frame is malformed.
       return null;
@@ -641,8 +634,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return new ApicFrame(mimeType, description, pictureType, pictureData);
   }
 
-  @Nullable
-  private static CommentFrame decodeCommentFrame(ParsableByteArray id3Data, int frameSize) {
+  private static @Nullable CommentFrame decodeCommentFrame(
+      ParsableByteArray id3Data, int frameSize) {
     if (frameSize < 4) {
       // Frame is malformed.
       return null;
@@ -668,8 +661,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return new CommentFrame(language, description, text);
   }
 
-  @Nullable
-  private static ChapterFrame decodeChapterFrame(
+  private static @Nullable ChapterFrame decodeChapterFrame(
       ParsableByteArray id3Data,
       int frameSize,
       int majorVersion,
@@ -750,8 +742,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     ArrayList<Id3Frame> subFrames = new ArrayList<>();
     int limit = framePosition + frameSize;
     while (id3Data.getPosition() < limit) {
-      @Nullable
-      Id3Frame frame =
+      @Nullable Id3Frame frame =
           decodeFrame(
               majorVersion, id3Data, unsignedIntFrameSizeHack, frameHeaderSize, framePredicate);
       if (frame != null) {

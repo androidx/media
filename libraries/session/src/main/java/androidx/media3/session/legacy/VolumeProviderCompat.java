@@ -20,10 +20,10 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import android.media.VolumeProvider;
 import android.os.Build;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handles requests to adjust or set the volume on a session. This is also used to push volume
@@ -55,11 +55,11 @@ public abstract class VolumeProviderCompat {
 
   private final int controlType;
   private final int maxVolume;
-  @Nullable private final String controlId;
+  private final @Nullable String controlId;
   private int currentVolume;
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
 
-  @Nullable private VolumeProvider volumeProviderFwk;
+  private @Nullable VolumeProvider volumeProviderFwk;
 
   /**
    * Create a new volume provider for handling volume events. You must specify the type of volume

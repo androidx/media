@@ -22,7 +22,6 @@ import android.companion.virtual.VirtualDevice;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -45,6 +44,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A sink that consumes audio data.
@@ -198,7 +198,7 @@ public interface AudioSink {
      * output channel {@code i} when preprocessing input buffers. After the map is applied the audio
      * data will have {@code outputChannels.length} channels.
      */
-    @Nullable public final ImmutableIntArray outputChannelMapping;
+    public final @Nullable ImmutableIntArray outputChannelMapping;
 
     /**
      * The {@link Timeline} of the playback this audio sink is configured for, or {@link
@@ -216,7 +216,7 @@ public interface AudioSink {
      * <p>Can be used together with the {@link Timeline} to identify the concrete item in the
      * playlist.
      */
-    @Nullable public final MediaPeriodId mediaPeriodId;
+    public final @Nullable MediaPeriodId mediaPeriodId;
 
     private AudioSinkConfig(Builder builder) {
       format = builder.format;
@@ -261,9 +261,9 @@ public interface AudioSink {
     public static final class Builder {
       private final Format format;
       private int preferredBufferSizeOverride;
-      @Nullable private ImmutableIntArray outputChannelMapping;
+      private @Nullable ImmutableIntArray outputChannelMapping;
       private Timeline timeline;
-      @Nullable private MediaPeriodId mediaPeriodId;
+      private @Nullable MediaPeriodId mediaPeriodId;
 
       /**
        * Creates a new builder.
@@ -698,7 +698,7 @@ public interface AudioSink {
    */
   @Deprecated
   default void configure(
-      Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+      Format inputFormat, int specifiedBufferSize, int @Nullable [] outputChannels)
       throws ConfigurationException {
     configure(
         new AudioSinkConfig.Builder(inputFormat)
@@ -800,12 +800,10 @@ public interface AudioSink {
    * Returns the audio attributes used for audio playback, or {@code null} if the sink does not use
    * audio attributes.
    */
-  @Nullable
-  AudioAttributes getAudioAttributes();
+  @Nullable AudioAttributes getAudioAttributes();
 
   /** Returns the AudioCapabilities of the sink, if supported by the sink implementation. */
-  @Nullable
-  default AudioCapabilities getAudioCapabilities() {
+  default @Nullable AudioCapabilities getAudioCapabilities() {
     return null;
   }
 

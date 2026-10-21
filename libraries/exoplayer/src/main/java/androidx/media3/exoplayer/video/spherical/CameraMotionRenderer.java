@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.video.spherical;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link Renderer} that parses the camera motion track. */
 @UnstableApi
@@ -42,7 +42,7 @@ public final class CameraMotionRenderer extends BaseRenderer {
   private final DecoderInputBuffer buffer;
   private final ParsableByteArray scratch;
 
-  @Nullable private CameraMotionListener listener;
+  private @Nullable CameraMotionListener listener;
   private long lastTimestampUs;
 
   public CameraMotionRenderer() {
@@ -103,7 +103,7 @@ public final class CameraMotionRenderer extends BaseRenderer {
       }
 
       buffer.flip();
-      @Nullable float[] rotation = parseMetadata(Util.castNonNull(buffer.data));
+      float @Nullable [] rotation = parseMetadata(Util.castNonNull(buffer.data));
       if (rotation == null) {
         continue;
       }
@@ -122,8 +122,7 @@ public final class CameraMotionRenderer extends BaseRenderer {
     return true;
   }
 
-  @Nullable
-  private float[] parseMetadata(ByteBuffer data) {
+  private float @Nullable [] parseMetadata(ByteBuffer data) {
     if (data.remaining() != 16) {
       return null;
     }

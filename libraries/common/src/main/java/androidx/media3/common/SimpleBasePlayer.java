@@ -33,7 +33,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -57,6 +56,7 @@ import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A base implementation for {@link Player} that reduces the number of methods to implement to a
@@ -108,7 +108,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private @PlayWhenReadyChangeReason int playWhenReadyChangeReason;
       private @Player.State int playbackState;
       private @PlaybackSuppressionReason int playbackSuppressionReason;
-      @Nullable private PlaybackException playerError;
+      private @Nullable PlaybackException playerError;
       private @RepeatMode int repeatMode;
       private boolean shuffleModeEnabled;
       private boolean isLoading;
@@ -129,17 +129,17 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private Size surfaceSize;
       private boolean newlyRenderedFirstFrame;
       private Metadata timedMetadata;
-      @Nullable private ImmutableList<MediaItemData> playlist;
+      private @Nullable ImmutableList<MediaItemData> playlist;
       private Timeline timeline;
-      @Nullable private Tracks currentTracks;
-      @Nullable private MediaMetadata currentMetadata;
+      private @Nullable Tracks currentTracks;
+      private @Nullable MediaMetadata currentMetadata;
       private MediaMetadata playlistMetadata;
       private int currentMediaItemIndex;
       private int currentAdGroupIndex;
       private int currentAdIndexInAdGroup;
-      @Nullable private Long contentPositionMs;
+      private @Nullable Long contentPositionMs;
       private PositionSupplier contentPositionMsSupplier;
-      @Nullable private Long adPositionMs;
+      private @Nullable Long adPositionMs;
       private PositionSupplier adPositionMsSupplier;
       private PositionSupplier contentBufferedPositionMsSupplier;
       private PositionSupplier adBufferedPositionMsSupplier;
@@ -861,7 +861,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     public final @PlaybackSuppressionReason int playbackSuppressionReason;
 
     /** The last error that caused playback to fail, or null if there was no error. */
-    @Nullable public final PlaybackException playerError;
+    public final @Nullable PlaybackException playerError;
 
     /** The {@link RepeatMode} used for playback. */
     public final @RepeatMode int repeatMode;
@@ -1382,9 +1382,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private Object uid;
       private Tracks tracks;
       private MediaItem mediaItem;
-      @Nullable private MediaMetadata mediaMetadata;
-      @Nullable private Object manifest;
-      @Nullable private MediaItem.LiveConfiguration liveConfiguration;
+      private @Nullable MediaMetadata mediaMetadata;
+      private @Nullable Object manifest;
+      private MediaItem.@Nullable LiveConfiguration liveConfiguration;
       private long presentationStartTimeMs;
       private long windowStartTimeMs;
       private long elapsedRealtimeEpochOffsetMs;
@@ -1518,7 +1518,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
        * @return This builder.
        */
       @CanIgnoreReturnValue
-      public Builder setLiveConfiguration(@Nullable MediaItem.LiveConfiguration liveConfiguration) {
+      public Builder setLiveConfiguration(MediaItem.@Nullable LiveConfiguration liveConfiguration) {
         this.liveConfiguration = liveConfiguration;
         return this;
       }
@@ -1709,13 +1709,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      * of the {@link MediaItem#mediaMetadata MediaItem} metadata and the metadata of the selected
      * {@link Format#metadata Formats}.
      */
-    @Nullable public final MediaMetadata mediaMetadata;
+    public final @Nullable MediaMetadata mediaMetadata;
 
     /** The manifest of the media item, or null if not applicable. */
-    @Nullable public final Object manifest;
+    public final @Nullable Object manifest;
 
     /** The active {@link MediaItem.LiveConfiguration}, or null if the media item is not live. */
-    @Nullable public final MediaItem.LiveConfiguration liveConfiguration;
+    public final MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
     /**
      * The start time of the presentation, in milliseconds since the Unix epoch, or {@link
@@ -2241,6 +2241,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
   private @MonotonicNonNull State state;
   private boolean released;
+  private boolean throwWhenCommandUnavailable;
 
   /**
    * Creates the base class.
@@ -2345,8 +2346,13 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     checkArgument(startIndex == C.INDEX_UNSET || startIndex >= 0);
     // Use a local copy to ensure the lambda below uses the current state value.
     State state = this.state;
-    if (!shouldHandleCommand(Player.COMMAND_CHANGE_MEDIA_ITEMS)
-        && (mediaItems.size() != 1 || !shouldHandleCommand(Player.COMMAND_SET_MEDIA_ITEM))) {
+    @Player.Command
+    int command =
+        mediaItems.size() == 1
+                && !state.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+            ? Player.COMMAND_SET_MEDIA_ITEM
+            : Player.COMMAND_CHANGE_MEDIA_ITEMS;
+    if (!shouldHandleCommand(command)) {
       return;
     }
     updateStateForPendingOperation(
@@ -2521,9 +2527,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     return state.playbackSuppressionReason;
   }
 
-  @Nullable
   @Override
-  public final PlaybackException getPlayerError() {
+  public final @Nullable PlaybackException getPlayerError() {
     verifyApplicationThreadAndInitState();
     return state.playerError;
   }
@@ -3670,9 +3675,31 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
   }
 
+  /**
+   * Sets whether calling a state-modifying player method when its corresponding {@link
+   * Player.Command} is not present in {@link State#availableCommands} throws an {@link
+   * IllegalStateException} instead of being ignored.
+   *
+   * @param throwWhenCommandUnavailable Whether to throw an {@link IllegalStateException} when a
+   *     required command is unavailable.
+   */
+  protected final void setThrowWhenCommandUnavailable(boolean throwWhenCommandUnavailable) {
+    this.throwWhenCommandUnavailable = throwWhenCommandUnavailable;
+  }
+
   @RequiresNonNull("state")
   private boolean shouldHandleCommand(@Player.Command int commandCode) {
-    return !released && state.availableCommands.contains(commandCode);
+    if (released) {
+      return false;
+    }
+    if (!state.availableCommands.contains(commandCode)) {
+      if (throwWhenCommandUnavailable) {
+        throw new IllegalStateException(
+            "Command " + commandCode + " is not available in availableCommands");
+      }
+      return false;
+    }
+    return true;
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated listener methods.
@@ -3729,8 +3756,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           });
     }
     if (mediaItemTransitionReason != C.INDEX_UNSET) {
-      @Nullable
-      MediaItem mediaItem =
+      @Nullable MediaItem mediaItem =
           newState.timeline.isEmpty()
               ? null
               : newState.timeline.getWindow(getCurrentMediaItemIndexInternal(newState), window)

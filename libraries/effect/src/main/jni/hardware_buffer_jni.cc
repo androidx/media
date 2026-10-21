@@ -5,6 +5,7 @@
 #include <android/hardware_buffer_jni.h>
 #include <android/log.h>
 
+#include <cstdint>
 #include <cstring>
 #endif  //  __ANDROID__
 #include <EGL/egl.h>
@@ -317,6 +318,15 @@ jboolean nativeCopyHardwareBufferToHardwareBuffer(JNIEnv* env,
   return JNI_TRUE;
 }
 
+jboolean nativeIsNv21(JNIEnv* env, jobject /* this */, jobject uBuffer,
+                      jobject vBuffer) {
+  const auto* uPtr =
+      static_cast<const uint8_t*>(env->GetDirectBufferAddress(uBuffer));
+  const auto* vPtr =
+      static_cast<const uint8_t*>(env->GetDirectBufferAddress(vBuffer));
+  return vPtr < uPtr;
+}
+
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
@@ -328,20 +338,15 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     s_AHardwareBuffer_describe = AHardwareBuffer_describe;
     s_AHardwareBuffer_lock = AHardwareBuffer_lock;
     s_AHardwareBuffer_unlock = AHardwareBuffer_unlock;
-  } else {
-    LOGE(
-        "AHardwareBuffer APIs are not available on this Android version (API < "
-        "26)");
-    return -1;
-  }
 
-  initializeEGLFunctions();
-  if (eglCreateImageKHR == nullptr ||
-      eglGetNativeClientBufferANDROID == nullptr ||
-      glEGLImageTargetTexture2DOES == nullptr ||
-      eglDestroyImageKHR == nullptr) {
-    LOGE("Failed to get addresses of GL/EGL functions.");
-    return -1;
+    initializeEGLFunctions();
+    if (eglCreateImageKHR == nullptr ||
+        eglGetNativeClientBufferANDROID == nullptr ||
+        glEGLImageTargetTexture2DOES == nullptr ||
+        eglDestroyImageKHR == nullptr) {
+      LOGE("Failed to get addresses of GL/EGL functions.");
+      return -1;
+    }
   }
 
   jclass clazz = env->FindClass("androidx/media3/effect/HardwareBufferJni");
@@ -363,6 +368,8 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
       {"nativeCopyHardwareBufferToHardwareBuffer",
        "(Landroid/hardware/HardwareBuffer;Landroid/hardware/HardwareBuffer;)Z",
        reinterpret_cast<void*>(nativeCopyHardwareBufferToHardwareBuffer)},
+      {"nativeIsNv21", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Z",
+       reinterpret_cast<void*>(nativeIsNv21)},
   };
   if (env->RegisterNatives(clazz, kMethods,
                            sizeof(kMethods) / sizeof(kMethods[0])) < 0) {

@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -35,7 +34,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manager that holds {@link ControllerInfo} of connected {@link MediaController controllers}.
@@ -46,7 +45,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * <p>All methods must be called on the application thread associated with the player.
  */
-/* package */ final class ConnectedControllersManager<T extends @NonNull Object> {
+/* package */ final class ConnectedControllersManager<T> {
 
   /** An asynchronous controller command function. */
   public interface AsyncCommand {
@@ -121,8 +120,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
-  @Nullable
-  public Player.Commands getAvailablePlayerCommands(ControllerInfo controllerInfo) {
+  public Player.@Nullable Commands getAvailablePlayerCommands(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -131,8 +129,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return null;
   }
 
-  @Nullable
-  public SessionCommands getAvailableSessionCommands(ControllerInfo controllerInfo) {
+  public @Nullable SessionCommands getAvailableSessionCommands(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -183,8 +180,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
-  @Nullable
-  public PlaybackException getPlaybackException(ControllerInfo controllerInfo) {
+  public @Nullable PlaybackException getPlaybackException(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -193,8 +189,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return null;
   }
 
-  @Nullable
-  public PlayerInfo getPlayerInfoForPlaybackException(ControllerInfo controllerInfo) {
+  public @Nullable PlayerInfo getPlayerInfoForPlaybackException(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -203,8 +198,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return null;
   }
 
-  @Nullable
-  public Player.Commands getPlayerCommandsBeforePlaybackException(ControllerInfo controllerInfo) {
+  public Player.@Nullable Commands getPlayerCommandsBeforePlaybackException(
+      ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
     if (record != null) {
@@ -265,8 +260,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    * @return sequenced future manager. Can be {@code null} if the controller was null or
    *     disconnected.
    */
-  @Nullable
-  public SequencedFutureManager getSequencedFutureManager(ControllerInfo controllerInfo) {
+  public @Nullable SequencedFutureManager getSequencedFutureManager(ControllerInfo controllerInfo) {
     verifyApplicationThread();
     @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
     return info != null ? info.sequencedFutureManager : null;
@@ -279,12 +273,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    * @return sequenced future manager. Can be {@code null} if the controller was null or
    *     disconnected.
    */
-  @Nullable
-  public SequencedFutureManager getSequencedFutureManager(T controllerKey) {
+  public @Nullable SequencedFutureManager getSequencedFutureManager(T controllerKey) {
     verifyApplicationThread();
     @Nullable ControllerInfo controllerInfo = getController(controllerKey);
-    @Nullable
-    ConnectedControllerRecord<T> info =
+    @Nullable ConnectedControllerRecord<T> info =
         controllerInfo != null ? controllerRecords.get(controllerInfo) : null;
     return info != null ? info.sequencedFutureManager : null;
   }
@@ -315,8 +307,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         && sessionImpl.getPlayerWrapper().getAvailableCommands().contains(commandCode);
   }
 
-  @Nullable
-  public ControllerInfo getController(T controllerKey) {
+  public @Nullable ControllerInfo getController(T controllerKey) {
     verifyApplicationThread();
     return controllerInfoMap.get(controllerKey);
   }
@@ -413,11 +404,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     private SessionCommands sessionCommands;
     private Player.Commands playerCommands;
-    @Nullable private Player.Commands playerCommandsBeforePlaybackException;
+    private Player.@Nullable Commands playerCommandsBeforePlaybackException;
     private boolean commandQueueIsFlushing;
     private Player.Commands commandQueuePlayerCommands;
-    @Nullable private PlaybackException playbackException;
-    @Nullable private PlayerInfo playerInfoForPlaybackException;
+    private @Nullable PlaybackException playbackException;
+    private @Nullable PlayerInfo playerInfoForPlaybackException;
     private Timeline lastSentTimeline;
     private Tracks lastSentTracks;
 

@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.dash;
 
 import android.os.SystemClock;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.dash.manifest.BaseUrl;
@@ -31,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Holds the state of {@link #exclude(BaseUrl, long) excluded} base URLs to be used to {@link
@@ -44,7 +44,7 @@ public final class BaseUrlExclusionList {
   private final Map<List<Pair<String, Integer>>, BaseUrl> selectionsTaken = new HashMap<>();
   private final Random random;
 
-  @Nullable private ImmutableList<String> serviceLocationSteeringPriority;
+  private @Nullable ImmutableList<String> serviceLocationSteeringPriority;
 
   /** Creates an instance. */
   public BaseUrlExclusionList() {
@@ -84,8 +84,7 @@ public final class BaseUrlExclusionList {
    * @param baseUrls The list of {@link BaseUrl base URLs} to select from.
    * @return The selected base URL after exclusion or null if all elements have been excluded.
    */
-  @Nullable
-  public BaseUrl selectBaseUrl(List<BaseUrl> baseUrls) {
+  public @Nullable BaseUrl selectBaseUrl(List<BaseUrl> baseUrls) {
     List<BaseUrl> includedBaseUrls = applyExclusions(baseUrls);
     if (includedBaseUrls.size() < 2) {
       return Iterables.getFirst(includedBaseUrls, /* defaultValue= */ null);
@@ -93,8 +92,8 @@ public final class BaseUrlExclusionList {
     // Sort by priority and service location to make the sort order of the candidates deterministic.
     includedBaseUrls.sort(BaseUrlExclusionList::compareBaseUrl);
 
-    @Nullable
-    ImmutableList<String> serviceLocationSteeringPriority = this.serviceLocationSteeringPriority;
+    @Nullable ImmutableList<String> serviceLocationSteeringPriority =
+        this.serviceLocationSteeringPriority;
     if (serviceLocationSteeringPriority != null) {
       // If there is a serviceLocationSteeringPriority, select the base URL based on it.
       for (int i = 0; i < serviceLocationSteeringPriority.size(); i++) {

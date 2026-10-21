@@ -19,11 +19,11 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link AudioProcessor} that handles mixing and scaling audio channels. Call {@link
@@ -57,8 +57,7 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor
     if (!AudioMixingUtil.canMix(inputAudioFormat)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
-    @Nullable
-    ChannelMixingMatrix channelMixingMatrix =
+    @Nullable ChannelMixingMatrix channelMixingMatrix =
         matrixByInputChannelCount.get(inputAudioFormat.channelCount);
     if (channelMixingMatrix == null) {
       throw new UnhandledAudioFormatException(

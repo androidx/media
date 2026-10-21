@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.hls.playlist;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -26,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Represents an HLS multivariant playlist. */
 @UnstableApi
@@ -63,22 +63,22 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
     public final Format format;
 
     /** The video rendition group referenced by this variant, or {@code null}. */
-    @Nullable public final String videoGroupId;
+    public final @Nullable String videoGroupId;
 
     /** The audio rendition group referenced by this variant, or {@code null}. */
-    @Nullable public final String audioGroupId;
+    public final @Nullable String audioGroupId;
 
     /** The subtitle rendition group referenced by this variant, or {@code null}. */
-    @Nullable public final String subtitleGroupId;
+    public final @Nullable String subtitleGroupId;
 
     /** The caption rendition group referenced by this variant, or {@code null}. */
-    @Nullable public final String captionGroupId;
+    public final @Nullable String captionGroupId;
 
     /** The identifier of the pathway that this variant belongs, or {@code null}. */
-    @Nullable public final String pathwayId;
+    public final @Nullable String pathwayId;
 
     /** The stable identifier for this variant, or {@code null}. */
-    @Nullable public final String stableVariantId;
+    public final @Nullable String stableVariantId;
 
     /**
      * @param url See {@link #url}.
@@ -147,7 +147,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
   public static final class Rendition {
 
     /** The rendition's url, or null if the tag does not have a URI attribute. */
-    @Nullable public final Uri url;
+    public final @Nullable Uri url;
 
     /** Format information associated with this rendition. */
     public final Format format;
@@ -159,7 +159,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
     public final String name;
 
     /** The stable identifier for this rendition, or {@code null}. * */
-    @Nullable public final String stableRenditionId;
+    public final @Nullable String stableRenditionId;
 
     /**
      * @param url See {@link #url}.
@@ -193,7 +193,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
      * or {@code null} which suggests that any available pathway can be used until the initial
      * Steering Manifest has been obtained.
      */
-    @Nullable public final String pathwayId;
+    public final @Nullable String pathwayId;
 
     /**
      * Creates a new instance.
@@ -229,14 +229,14 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
    * The format of the audio muxed in the variants. May be null if the playlist does not declare any
    * muxed audio.
    */
-  @Nullable public final Format muxedAudioFormat;
+  public final @Nullable Format muxedAudioFormat;
 
   /**
    * The format of the closed captions declared by the playlist. May be empty if the playlist
    * explicitly declares no captions are available, or null if the playlist does not declare any
    * captions information.
    */
-  @Nullable public final List<Format> muxedCaptionFormats;
+  public final @Nullable List<Format> muxedCaptionFormats;
 
   /** Contains variable definitions, as defined by the #EXT-X-DEFINE tag. */
   public final Map<String, String> variableDefinitions;
@@ -245,7 +245,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
   public final List<DrmInitData> sessionKeyDrmInitData;
 
   /** Content Steering information derived from #EXT-X-CONTENT-STEERING tag. */
-  @Nullable public final ContentSteeringInfo contentSteeringInfo;
+  public final @Nullable ContentSteeringInfo contentSteeringInfo;
 
   /**
    * @param baseUri See {@link #baseUri}.

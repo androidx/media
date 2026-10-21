@@ -17,7 +17,6 @@ package androidx.media3.extractor;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
@@ -28,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -49,8 +49,7 @@ public final class XmpMotionPhotoDescriptionParser {
    *     motion photo description.
    * @throws IOException If an error occurs reading data from the stream.
    */
-  @Nullable
-  public static MotionPhotoDescription parse(String xmpString) throws IOException {
+  public static @Nullable MotionPhotoDescription parse(String xmpString) throws IOException {
     try {
       return parseInternal(xmpString);
     } catch (XmlPullParserException | ParserException | NumberFormatException e) {
@@ -99,8 +98,7 @@ public final class XmpMotionPhotoDescriptionParser {
         "GCamera:MicroVideoOffset", // Micro Video V1b (legacy element naming)
       };
 
-  @Nullable
-  private static MotionPhotoDescription parseInternal(String xmpString)
+  private static @Nullable MotionPhotoDescription parseInternal(String xmpString)
       throws XmlPullParserException, IOException {
     XmlPullParserFactory xmlPullParserFactory = XmlPullParserFactory.newInstance();
     XmlPullParser xpp = xmlPullParserFactory.newPullParser();

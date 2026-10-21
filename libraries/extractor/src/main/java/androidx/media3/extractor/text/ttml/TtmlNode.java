@@ -22,7 +22,6 @@ import android.graphics.BitmapFactory;
 import android.text.SpannableStringBuilder;
 import android.util.Base64;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
 import java.util.ArrayList;
@@ -32,6 +31,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A package internal representation of TTML node. */
 /* package */ final class TtmlNode {
@@ -120,16 +120,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public static final String TEXT_EMPHASIS_MARK_FILLED = "filled";
   public static final String TEXT_EMPHASIS_MARK_OPEN = "open";
 
-  @Nullable public final String tag;
-  @Nullable public final String text;
+  public final @Nullable String tag;
+  public final @Nullable String text;
   public final boolean isTextNode;
   public final long startTimeUs;
   public final long endTimeUs;
-  @Nullable public final TtmlStyle style;
-  @Nullable private final String[] styleIds;
+  public final @Nullable TtmlStyle style;
+  private final String @Nullable [] styleIds;
   public final String regionId;
-  @Nullable public final String imageId;
-  @Nullable public final TtmlNode parent;
+  public final @Nullable String imageId;
+  public final @Nullable TtmlNode parent;
 
   private final HashMap<String, Integer> nodeStartsByRegion;
   private final HashMap<String, Integer> nodeEndsByRegion;
@@ -154,7 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long startTimeUs,
       long endTimeUs,
       @Nullable TtmlStyle style,
-      @Nullable String[] styleIds,
+      String @Nullable [] styleIds,
       String regionId,
       @Nullable String imageId,
       @Nullable TtmlNode parent) {
@@ -168,7 +168,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long startTimeUs,
       long endTimeUs,
       @Nullable TtmlStyle style,
-      @Nullable String[] styleIds,
+      String @Nullable [] styleIds,
       String regionId,
       @Nullable String imageId,
       @Nullable TtmlNode parent) {
@@ -241,8 +241,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  @Nullable
-  public String[] getStyleIds() {
+  public String @Nullable [] getStyleIds() {
     return styleIds;
   }
 

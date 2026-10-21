@@ -16,19 +16,19 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import android.media.MediaCodec;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
+import org.jspecify.annotations.Nullable;
 
 /** Thrown when a failure occurs in a {@link MediaCodec} decoder. */
 @UnstableApi
 public class MediaCodecDecoderException extends DecoderException {
 
   /** The {@link MediaCodecInfo} of the decoder that failed. Null if unknown. */
-  @Nullable public final MediaCodecInfo codecInfo;
+  public final @Nullable MediaCodecInfo codecInfo;
 
   /** An optional developer-readable diagnostic information string. May be null. */
-  @Nullable public final String diagnosticInfo;
+  public final @Nullable String diagnosticInfo;
 
   /** An optional error code reported by the codec. May be 0 if no error code could be obtained. */
   public final int errorCode;

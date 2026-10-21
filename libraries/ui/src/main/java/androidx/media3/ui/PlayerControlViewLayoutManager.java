@@ -27,9 +27,9 @@ import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.view.animation.LinearInterpolator;
-import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /* package */ final class PlayerControlViewLayoutManager {
   private static final long ANIMATION_INTERVAL_MS = 2_000;
@@ -50,17 +50,17 @@ import java.util.List;
 
   private final PlayerControlView playerControlView;
 
-  @Nullable private final View controlsBackground;
-  @Nullable private final ViewGroup topControls;
-  @Nullable private final ViewGroup centerControls;
-  @Nullable private final ViewGroup bottomBar;
-  @Nullable private final ViewGroup minimalControls;
-  @Nullable private final ViewGroup basicControls;
-  @Nullable private final ViewGroup extraControls;
-  @Nullable private final ViewGroup extraControlsScrollView;
-  @Nullable private final ViewGroup timeView;
-  @Nullable private final View timeBar;
-  @Nullable private final View overflowShowButton;
+  private final @Nullable View controlsBackground;
+  private final @Nullable ViewGroup topControls;
+  private final @Nullable ViewGroup centerControls;
+  private final @Nullable ViewGroup bottomBar;
+  private final @Nullable ViewGroup minimalControls;
+  private final @Nullable ViewGroup basicControls;
+  private final @Nullable ViewGroup extraControls;
+  private final @Nullable ViewGroup extraControlsScrollView;
+  private final @Nullable ViewGroup timeView;
+  private final @Nullable View timeBar;
+  private final @Nullable View overflowShowButton;
 
   private final AnimatorSet hideMainBarAnimator;
   private final AnimatorSet hideProgressBarAnimator;

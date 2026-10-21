@@ -15,11 +15,11 @@
  */
 package androidx.media3.transformer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for updating {@link ExportResult.Builder} instances. */
 /* package */ final class ExportResultUtil {

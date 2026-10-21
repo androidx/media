@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Ascii;
@@ -30,6 +29,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Defines common file type constants and helper methods. */
 @UnstableApi
@@ -189,8 +189,8 @@ public final class FileTypes {
   public static @FileTypes.Type int inferFileTypeFromResponseHeaders(
       Map<String, List<String>> responseHeaders) {
     @Nullable List<String> contentTypes = responseHeaders.get(HEADER_CONTENT_TYPE);
-    @Nullable
-    String mimeType = contentTypes == null || contentTypes.isEmpty() ? null : contentTypes.get(0);
+    @Nullable String mimeType =
+        contentTypes == null || contentTypes.isEmpty() ? null : contentTypes.get(0);
     return inferFileTypeFromMimeType(mimeType);
   }
 

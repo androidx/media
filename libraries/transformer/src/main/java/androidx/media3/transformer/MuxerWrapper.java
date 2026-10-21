@@ -35,7 +35,6 @@ import android.os.ParcelFileDescriptor;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -50,6 +49,7 @@ import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A wrapper around a media muxer.
@@ -147,13 +148,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private static final long MAX_TRACK_WRITE_AHEAD_US = Util.msToUs(500);
 
-  @Nullable private final String outputPath;
-  @Nullable private final ParcelFileDescriptor parcelFileDescriptor;
+  private final @Nullable String outputPath;
+  private final @Nullable ParcelFileDescriptor parcelFileDescriptor;
   private final Muxer.Factory muxerFactory;
   private final Listener listener;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
-  @Nullable private final Format appendVideoFormat;
+  private final @Nullable Format appendVideoFormat;
 
   private boolean isReady;
   private boolean isEnded;
@@ -276,9 +277,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @return The initialization data that captures both input formats, or {@code null} if both
    *     formats cannot be represented by the same initialization data.
    */
-  @Nullable
   @VisibleForTesting(otherwise = PRIVATE)
-  public static List<byte[]> getMostCompatibleInitializationData(
+  public static @Nullable List<byte[]> getMostCompatibleInitializationData(
       Format existingVideoTrackFormat, Format newVideoTrackFormat) {
     if (existingVideoTrackFormat.initializationDataEquals(newVideoTrackFormat)) {
       return existingVideoTrackFormat.initializationData;
@@ -386,6 +386,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         trackTypeToInfo.size() == 0,
         "The track count cannot be changed after adding track formats.");
     this.trackCount = trackCount;
+  }
+
+  /** Returns the {@link Muxer.Factory} used to create the underlying {@link Muxer}. */
+  public Muxer.Factory getMuxerFactory() {
+    return muxerFactory;
   }
 
   /** Returns whether the sample {@linkplain MimeTypes MIME type} is supported. */
@@ -736,17 +741,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     isReady = false;
-    if (muxer != null) {
-      if (muxer instanceof FrameworkMuxer && releaseReason == MUXER_RELEASE_REASON_CANCELLED) {
-        ((FrameworkMuxer) muxer).setSuppressReleaseException();
+    try {
+      if (muxer != null) {
+        if (muxer instanceof FrameworkMuxer && releaseReason == MUXER_RELEASE_REASON_CANCELLED) {
+          ((FrameworkMuxer) muxer).setSuppressReleaseException();
+        }
+        muxer.close();
       }
-      muxer.close();
-    } else if (parcelFileDescriptor != null) {
-      Util.closeQuietly(parcelFileDescriptor);
-    }
-    if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
-      // Make sure to only read the output file size after the muxer and underlying file are closed.
-      listener.onFileSizeBytesAvailable(getCurrentOutputSizeBytes());
+      if (releaseReason == MUXER_RELEASE_REASON_COMPLETED) {
+        // Make sure to only read the output file size after the muxer is closed so all data is
+        // flushed.
+        listener.onFileSizeBytesAvailable(getCurrentOutputSizeBytes());
+      }
+    } finally {
+      if (parcelFileDescriptor != null) {
+        Util.closeQuietly(parcelFileDescriptor);
+      }
     }
   }
 
@@ -793,7 +803,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void ensureMuxerInitialized() throws MuxerException {
     if (muxer == null) {
       if (parcelFileDescriptor != null) {
-        muxer = muxerFactory.create(parcelFileDescriptor);
+        try {
+          // The Muxer takes ownership of and closes the duplicated descriptor in muxer.close().
+          muxer = muxerFactory.create(parcelFileDescriptor.dup());
+        } catch (IOException e) {
+          throw new MuxerException("Error duplicating ParcelFileDescriptor", e);
+        }
       } else if (outputPath != null) {
         muxer = muxerFactory.create(outputPath);
       } else {
@@ -808,12 +823,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (outputPath != null) {
       long fileSize = new File(outputPath).length();
       return fileSize > 0 ? fileSize : C.LENGTH_UNSET;
+    } else if (parcelFileDescriptor != null) {
+      long fileSize = parcelFileDescriptor.getStatSize();
+      return fileSize > 0 ? fileSize : C.LENGTH_UNSET;
     }
     return C.LENGTH_UNSET;
   }
 
-  @Nullable
-  private static TrackInfo getTrackInfoWithMinTimeUs(SparseArray<TrackInfo> trackTypeToInfo) {
+  private static @Nullable TrackInfo getTrackInfoWithMinTimeUs(
+      SparseArray<TrackInfo> trackTypeToInfo) {
     if (trackTypeToInfo.size() == 0) {
       return null;
     }

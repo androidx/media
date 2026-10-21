@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -38,6 +37,7 @@ import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Retrieves information from a {@link MediaItem} without playback.
@@ -61,9 +61,9 @@ public final class MetadataRetriever implements AutoCloseable {
   /** Builder for {@link MetadataRetriever} instances. */
   public static final class Builder {
 
-    @Nullable private final Context context;
+    private final @Nullable Context context;
     private final MediaItem mediaItem;
-    @Nullable private MediaSource.Factory mediaSourceFactory;
+    private MediaSource.@Nullable Factory mediaSourceFactory;
     private Clock clock;
 
     /**

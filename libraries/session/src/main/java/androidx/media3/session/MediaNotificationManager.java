@@ -34,13 +34,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaNotification.Provider.NotificationChannelInfo;
 import androidx.media3.session.MediaSessionService.ShowNotificationForIdlePlayerMode;
@@ -57,6 +55,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages media notifications for a {@link MediaSessionService} and sets the service as
@@ -83,7 +82,7 @@ import java.util.concurrent.TimeoutException;
 
   private MediaNotification.Provider mediaNotificationProvider;
   private int totalNotificationCount;
-  @Nullable private MediaNotification mediaNotification;
+  private @Nullable MediaNotification mediaNotification;
   private boolean startedInForeground;
   private boolean isUserEngaged;
   private boolean isUserEngagedTimeoutEnabled;
@@ -191,7 +190,7 @@ import java.util.concurrent.TimeoutException;
    * @param session A session that needs notification update.
    * @param startInForegroundRequired Whether the service is required to start in the foreground.
    */
-  public ListenableFuture<@NullableType Void> updateNotification(
+  public ListenableFuture<@Nullable Void> updateNotification(
       MediaSession session, boolean startInForegroundRequired) {
     return CallbackToFutureAdapter.getFuture(
         completer -> {
@@ -399,8 +398,7 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  @Nullable
-  private MediaController getConnectedControllerForSession(MediaSession session) {
+  private @Nullable MediaController getConnectedControllerForSession(MediaSession session) {
     @Nullable ControllerInfo controllerInfo = controllerMap.get(session);
     if (controllerInfo == null || !controllerInfo.controllerFuture.isDone()) {
       return null;

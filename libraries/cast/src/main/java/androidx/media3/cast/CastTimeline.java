@@ -17,7 +17,6 @@ package androidx.media3.cast;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -30,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link Timeline} for Cast media queues. */
 /* package */ final class CastTimeline extends Timeline {
@@ -83,6 +83,7 @@ import java.util.UUID;
             /* durationUs= */ C.TIME_UNSET,
             /* defaultPositionUs= */ C.TIME_UNSET,
             /* isLive= */ false,
+            /* isSeekable= */ false,
             MediaItem.EMPTY,
             UNKNOWN_CONTENT_ID);
 
@@ -97,6 +98,9 @@ import java.util.UUID;
     /** Whether the item is live content, or {@code false} if unknown. */
     public final boolean isLive;
 
+    /** Whether the item is seekable. */
+    public final boolean isSeekable;
+
     /** The original media item that has been set or added to the playlist. */
     public final MediaItem mediaItem;
 
@@ -109,6 +113,7 @@ import java.util.UUID;
      * @param durationUs See {@link #durationsUs}.
      * @param defaultPositionUs See {@link #defaultPositionUs}.
      * @param isLive See {@link #isLive}.
+     * @param isSeekable See {@link #isSeekable}.
      * @param mediaItem See {@link #mediaItem}.
      * @param contentId See {@link #contentId}.
      */
@@ -116,11 +121,13 @@ import java.util.UUID;
         long durationUs,
         long defaultPositionUs,
         boolean isLive,
+        boolean isSeekable,
         MediaItem mediaItem,
         String contentId) {
       this.durationUs = durationUs;
       this.defaultPositionUs = defaultPositionUs;
       this.isLive = isLive;
+      this.isSeekable = isSeekable;
       this.mediaItem = mediaItem;
       this.contentId = contentId;
     }
@@ -132,6 +139,7 @@ import java.util.UUID;
      * @param defaultPositionUs The default start position in microseconds, or {@link C#TIME_UNSET}
      *     if unknown.
      * @param isLive Whether the item is live, or {@code false} if unknown.
+     * @param isSeekable Whether the item is seekable.
      * @param mediaItem The media item.
      * @param contentId The content ID.
      */
@@ -139,16 +147,18 @@ import java.util.UUID;
         long durationUs,
         long defaultPositionUs,
         boolean isLive,
+        boolean isSeekable,
         MediaItem mediaItem,
         String contentId) {
       if (durationUs == this.durationUs
           && defaultPositionUs == this.defaultPositionUs
           && isLive == this.isLive
+          && isSeekable == this.isSeekable
           && contentId.equals(this.contentId)
           && mediaItem.equals(this.mediaItem)) {
         return this;
       }
-      return new ItemData(durationUs, defaultPositionUs, isLive, mediaItem, contentId);
+      return new ItemData(durationUs, defaultPositionUs, isLive, isSeekable, mediaItem, contentId);
     }
   }
 
@@ -164,6 +174,7 @@ import java.util.UUID;
   private final long[] durationsUs;
   private final long[] defaultPositionsUs;
   private final boolean[] isLive;
+  private final boolean[] isSeekable;
 
   /**
    * Creates a Cast timeline from the given data.
@@ -178,6 +189,7 @@ import java.util.UUID;
     durationsUs = new long[itemCount];
     defaultPositionsUs = new long[itemCount];
     isLive = new boolean[itemCount];
+    isSeekable = new boolean[itemCount];
     ImmutableList.Builder<MediaItem> mediaItemsBuilder =
         ImmutableList.builderWithExpectedSize(itemCount);
     for (int i = 0; i < periodUids.size(); i++) {
@@ -191,6 +203,7 @@ import java.util.UUID;
       durationsUs[i] = data.durationUs;
       defaultPositionsUs[i] = data.defaultPositionUs == C.TIME_UNSET ? 0 : data.defaultPositionUs;
       isLive[i] = data.isLive;
+      isSeekable[i] = data.isSeekable;
     }
     mediaItems = mediaItemsBuilder.build();
   }
@@ -205,7 +218,6 @@ import java.util.UUID;
   @Override
   public Window getWindow(int windowIndex, Window window, long defaultPositionProjectionUs) {
     long durationUs = durationsUs[windowIndex];
-    boolean isDynamic = durationUs == C.TIME_UNSET;
     return window.set(
         /* uid= */ periodUids.get(windowIndex),
         /* mediaItem= */ mediaItems.get(windowIndex),
@@ -213,8 +225,8 @@ import java.util.UUID;
         /* presentationStartTimeMs= */ C.TIME_UNSET,
         /* windowStartTimeMs= */ C.TIME_UNSET,
         /* elapsedRealtimeEpochOffsetMs= */ C.TIME_UNSET,
-        /* isSeekable= */ !isDynamic,
-        isDynamic,
+        isSeekable[windowIndex],
+        /* isDynamic= */ isLive[windowIndex] || durationUs == C.TIME_UNSET,
         isLive[windowIndex] ? mediaItems.get(windowIndex).liveConfiguration : null,
         defaultPositionsUs[windowIndex],
         durationUs,
@@ -269,6 +281,7 @@ import java.util.UUID;
         && Arrays.equals(durationsUs, that.durationsUs)
         && Arrays.equals(defaultPositionsUs, that.defaultPositionsUs)
         && Arrays.equals(isLive, that.isLive)
+        && Arrays.equals(isSeekable, that.isSeekable)
         && mediaItems.equals(that.mediaItems);
   }
 
@@ -278,6 +291,7 @@ import java.util.UUID;
     result = 31 * result + Arrays.hashCode(durationsUs);
     result = 31 * result + Arrays.hashCode(defaultPositionsUs);
     result = 31 * result + Arrays.hashCode(isLive);
+    result = 31 * result + Arrays.hashCode(isSeekable);
     result = 31 * result + mediaItems.hashCode();
     return result;
   }

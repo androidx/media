@@ -336,6 +336,16 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     playerPrepared = false
   }
 
+  fun onWebGpuEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(webGpuEnabled = isEnabled),
+        isCompositionSet = false,
+      )
+    }
+    playerPrepared = false
+  }
+
   fun onGmsVideoEnhancementEnabledChanged(isEnabled: Boolean) {
     _uiState.update {
       it.copy(
@@ -1071,16 +1081,22 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   @RequiresApi(28)
   private fun createFrameProcessorFactory(): FrameProcessor.Factory {
-    val baseGlFactory =
-      DefaultGlFrameProcessor.Factory.Builder(/* context= */ getApplication()).build()
     val settings = uiState.value.outputSettingsState
+    val baseFactory =
+      if (settings.webGpuEnabled) {
+        // Experimental: WebGPUHardwareBufferEffectsPipeline does not yet apply video effects or
+        // rotation.
+        WebGPUHardwareBufferEffectsPipeline.Factory()
+      } else {
+        DefaultGlFrameProcessor.Factory.Builder(/* context= */ getApplication()).build()
+      }
     if (!settings.gmsVideoEnhancementEnabled) {
-      return baseGlFactory
+      return baseFactory
     }
     if (SDK_INT < 33) {
       throw UnsupportedOperationException(API_33_REQUIRED_GMS_VIDEO_ENHANCEMENT_MESSAGE)
     }
-    return EnhancementSessionDecorator.Builder(getApplication(), baseGlFactory)
+    return EnhancementSessionDecorator.Builder(getApplication(), baseFactory)
       .setTonemappingEnabled(settings.gmsTonemappingEnabled)
       .setDeblurAndDenoiseVideoEnabled(settings.gmsDeblurAndDenoiseEnabled)
       .setUpscaleVideoEnabled(settings.gmsUpscaleVideoEnabled)

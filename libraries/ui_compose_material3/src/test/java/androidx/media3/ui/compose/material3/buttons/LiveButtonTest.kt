@@ -17,8 +17,18 @@
 package androidx.media3.ui.compose.material3.buttons
 
 import android.os.SystemClock
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.Interaction
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -28,6 +38,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player.COMMAND_SEEK_TO_DEFAULT_POSITION
@@ -372,5 +383,117 @@ class LiveButtonTest {
     setContent { LiveButton(adPlayingPlayer, Modifier.testTag("liveButton")) }
 
     onNodeWithTag("liveButton").assertDoesNotExist()
+  }
+
+  @Test
+  fun liveButton_withCustomParameters_emitsInteractions() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(0L)
+        .setWindowStartTimeMs(0L)
+        .setElapsedRealtimeEpochOffsetMs(50_000L - SystemClock.elapsedRealtime())
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(50_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(10_000)
+    val interactions = mutableListOf<Interaction>()
+    setContent {
+      val interactionSource = remember { MutableInteractionSource() }
+      LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interactions.add(it) }
+      }
+      LiveButton(
+        player,
+        Modifier.testTag("liveButton"),
+        shape = RectangleShape,
+        elevation = ButtonDefaults.buttonElevation(),
+        border = BorderStroke(1.dp, Color.Red),
+        contentPadding = PaddingValues(4.dp),
+        interactionSource = interactionSource,
+      )
+    }
+
+    onNodeWithTag("liveButton").performClick()
+
+    assertThat(player.currentPosition).isEqualTo(50_000)
+    assertThat(interactions.filterIsInstance<PressInteraction.Release>()).isNotEmpty()
+  }
+
+  @Test
+  fun liveButton_customOnClick_runsCustomLogicAndSeeksToDefaultPosition() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(0L)
+        .setWindowStartTimeMs(0L)
+        .setElapsedRealtimeEpochOffsetMs(50_000L - SystemClock.elapsedRealtime())
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(50_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(10_000)
+    var customOnClickCalled = false
+    setContent {
+      LiveButton(
+        player,
+        Modifier.testTag("liveButton"),
+        onClick = {
+          customOnClickCalled = true
+          seekToDefaultPosition()
+        },
+      )
+    }
+
+    onNodeWithTag("liveButton").performClick()
+
+    assertThat(customOnClickCalled).isTrue()
+    assertThat(player.currentPosition).isEqualTo(50_000)
+  }
+
+  @Test
+  fun liveButton_customOnClickOverridingDefault_doesNotSeekToDefaultPosition() = runComposeUiTest {
+    val liveItem =
+      MediaItemData.Builder("LiveItem")
+        .setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+        .setPresentationStartTimeMs(0L)
+        .setWindowStartTimeMs(0L)
+        .setElapsedRealtimeEpochOffsetMs(50_000L - SystemClock.elapsedRealtime())
+        .setDefaultPositionUs(50_000_000L)
+        .setDurationUs(50_000_000L)
+        .setIsSeekable(true)
+        .build()
+    val player =
+      FakePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        bufferingDelayMs = 0,
+        playlist = listOf(liveItem),
+      )
+    player.setPosition(10_000)
+    var customOnClickCalled = false
+    setContent {
+      LiveButton(player, Modifier.testTag("liveButton"), onClick = { customOnClickCalled = true })
+    }
+
+    onNodeWithTag("liveButton").performClick()
+
+    assertThat(customOnClickCalled).isTrue()
+    assertThat(player.currentPosition).isEqualTo(10_000)
   }
 }

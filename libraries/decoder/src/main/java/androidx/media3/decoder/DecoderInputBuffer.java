@@ -18,7 +18,6 @@ package androidx.media3.decoder;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
@@ -29,6 +28,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Holds input for a decoder. */
 @UnstableApi
@@ -90,13 +90,13 @@ public class DecoderInputBuffer extends Buffer {
   public static final int BUFFER_REPLACEMENT_MODE_DIRECT = 2;
 
   /** The {@link Format}. */
-  @Nullable public Format format;
+  public @Nullable Format format;
 
   /** {@link CryptoInfo} for encrypted data. */
   public final CryptoInfo cryptoInfo;
 
   /** The buffer's data, or {@code null} if no data has been set. */
-  @Nullable public ByteBuffer data;
+  public @Nullable ByteBuffer data;
 
   // TODO: Remove this temporary signaling once end-of-stream propagation for clips using content
   // protection is fixed. See [Internal: b/153326944] for details.
@@ -113,7 +113,7 @@ public class DecoderInputBuffer extends Buffer {
    * Supplemental data related to the buffer, if {@link #hasSupplementalData()} returns true. If
    * present, the buffer is populated with supplemental data from position 0 to its limit.
    */
-  @Nullable public ByteBuffer supplementalData;
+  public @Nullable ByteBuffer supplementalData;
 
   private final @BufferReplacementMode int bufferReplacementMode;
   private final int paddingSize;

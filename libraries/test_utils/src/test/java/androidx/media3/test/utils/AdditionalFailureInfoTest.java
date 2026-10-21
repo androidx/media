@@ -18,9 +18,9 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import androidx.annotation.Nullable;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -147,7 +147,7 @@ public final class AdditionalFailureInfoTest {
    */
   private static class ExpectedException implements TestRule {
 
-    @Nullable private Consumer<Throwable> throwableAssertions;
+    private @Nullable Consumer<Throwable> throwableAssertions;
 
     /**
      * Provide a callback of assertions to execute on the caught exception.

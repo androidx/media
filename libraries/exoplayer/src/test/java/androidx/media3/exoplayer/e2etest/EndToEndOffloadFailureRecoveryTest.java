@@ -22,7 +22,6 @@ import static java.lang.Math.max;
 
 import android.content.Context;
 import android.media.AudioTrack;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -45,6 +44,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -202,7 +202,7 @@ public class EndToEndOffloadFailureRecoveryTest {
     protected boolean isOffloadMode;
 
     /** The {@link Format input format} for the audio sink. */
-    @Nullable protected Format inputFormat;
+    protected @Nullable Format inputFormat;
 
     public DumpingAudioSink(AudioSink sink) {
       super(sink);

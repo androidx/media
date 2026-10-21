@@ -22,7 +22,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -33,6 +32,7 @@ import com.google.common.primitives.ImmutableIntArray;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -49,7 +49,7 @@ public class SizeAvoidingBitmapLoaderTest {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private Context context;
-  @Nullable private MockWebServer mockWebServer;
+  private @Nullable MockWebServer mockWebServer;
 
   @Before
   public void setUp() {

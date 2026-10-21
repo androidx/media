@@ -31,7 +31,6 @@ import android.media.ImageWriter;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -45,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link FrameWriter} that outputs frames to a {@link SurfaceHolder}. */
 @ExperimentalApi // TODO: b/498176910 Remove once FrameWriter is production ready.
@@ -83,44 +83,38 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   private final Executor surfaceHolderExecutor;
 
   @GuardedBy("lock")
-  @Nullable
-  private SurfaceHolder surfaceHolder;
+  private @Nullable SurfaceHolder surfaceHolder;
 
   @GuardedBy("lock")
-  @Nullable
-  private Format currentFormat;
+  private @Nullable Format currentFormat;
 
   @GuardedBy("lock")
   private long currentUsageFlags;
 
   @GuardedBy("lock")
-  @Nullable
-  private ImageWriter imageWriter;
+  private @Nullable ImageWriter imageWriter;
 
   @GuardedBy("lock")
-  @Nullable
-  private Surface surface;
+  private @Nullable Surface surface;
 
   @GuardedBy("lock")
   private boolean isSurfaceChangeRequested;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable wakeupListener;
+  private @Nullable Runnable wakeupListener;
 
   // The last displayed HardwareBuffer. Retained across surface changes to allow showing the last
   // as soon as surfaceChanged is called.
   // Retaining this buffer incurs extra memory cost.
   @GuardedBy("lock")
-  @Nullable
-  private HardwareBuffer lastQueuedHardwareBuffer;
+  private @Nullable HardwareBuffer lastQueuedHardwareBuffer;
 
   private final Listener listener;
 
   private final Executor listenerExecutor;
 
-  @Nullable private final HardwareBufferPool hardwareBufferPool;
-  @Nullable private final HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
+  private final @Nullable HardwareBufferPool hardwareBufferPool;
+  private final @Nullable HardwareBufferNativeHelpers hardwareBufferNativeHelpers;
 
   /**
    * Creates a new instance that returns {@link HardwareBufferFrame}s that are directly dequeued
@@ -301,9 +295,8 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   }
 
   @Override
-  @Nullable
   // TODO: b/507446982 - Handle ImageWriter blocking.
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     synchronized (lock) {
       Format currentFormat = this.currentFormat;
       long currentUsageFlags = this.currentUsageFlags;
@@ -330,8 +323,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
 
   @RequiresApi(28)
   @GuardedBy("lock")
-  @Nullable
-  private AsyncFrame dequeueHardwareBufferFrame(
+  private @Nullable AsyncFrame dequeueHardwareBufferFrame(
       Format currentFormat,
       long currentUsageFlags,
       Executor wakeupExecutor,
@@ -358,8 +350,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
     // On API <33, create an intermediate frame with usage equal to the requested usage, that
     // can also be read by the CPU. This will be filled by the caller, then copied into the
     // buffer dequeued from ImageWriter via the JNI.
-    @Nullable
-    HardwareBufferWithFence bufferWithFence =
+    @Nullable HardwareBufferWithFence bufferWithFence =
         hardwareBufferPool.get(
             currentFormat,
             currentUsageFlags | Frame.USAGE_CPU_READ_OFTEN,

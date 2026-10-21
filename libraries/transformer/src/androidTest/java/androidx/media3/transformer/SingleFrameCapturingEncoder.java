@@ -27,12 +27,12 @@ import android.media.ImageReader;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Codec} that captures a single output video frame as a {@linkplain Bitmap}.
@@ -83,8 +83,7 @@ import java.util.concurrent.atomic.AtomicReference;
      * Returns the last captured {@linkplain Bitmap bitmap}, or {@code null} if no frame was
      * captured.
      */
-    @Nullable
-    /* package */ Bitmap getLastBitmap() {
+    /* package */ @Nullable Bitmap getLastBitmap() {
       @Nullable SingleFrameCapturingEncoder encoder = lastVideoEncoder.get();
       return encoder != null ? encoder.getLastBitmap() : null;
     }
@@ -95,7 +94,7 @@ import java.util.concurrent.atomic.AtomicReference;
   private final Format configurationFormat;
   private final ImageReader imageReader;
 
-  @Nullable private volatile Bitmap lastBitmap;
+  private volatile @Nullable Bitmap lastBitmap;
   private volatile boolean inputStreamEnded;
 
   /* package */ SingleFrameCapturingEncoder(Format configurationFormat) {
@@ -170,20 +169,17 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   @Override
-  @Nullable
-  public Format getOutputFormat() {
+  public @Nullable Format getOutputFormat() {
     return configurationFormat;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer() {
+  public @Nullable ByteBuffer getOutputBuffer() {
     return null;
   }
 
   @Override
-  @Nullable
-  public BufferInfo getOutputBufferInfo() {
+  public @Nullable BufferInfo getOutputBufferInfo() {
     return null;
   }
 
@@ -206,8 +202,7 @@ import java.util.concurrent.atomic.AtomicReference;
   /**
    * Returns the last captured {@linkplain Bitmap bitmap}, or {@code null} if no frame was captured.
    */
-  @Nullable
-  /* package */ Bitmap getLastBitmap() {
+  /* package */ @Nullable Bitmap getLastBitmap() {
     return lastBitmap;
   }
 

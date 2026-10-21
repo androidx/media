@@ -19,11 +19,11 @@ import static java.lang.Math.min;
 
 import android.media.MediaDataSource;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} for reading from a {@link MediaDataSource}.
@@ -36,7 +36,7 @@ public class MediaDataSourceAdapter extends BaseDataSource {
 
   private final MediaDataSource mediaDataSource;
 
-  @Nullable private Uri uri;
+  private @Nullable Uri uri;
   private long position;
   private long bytesRemaining;
   private boolean opened;
@@ -107,9 +107,8 @@ public class MediaDataSourceAdapter extends BaseDataSource {
     return bytesRead;
   }
 
-  @Nullable
   @Override
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

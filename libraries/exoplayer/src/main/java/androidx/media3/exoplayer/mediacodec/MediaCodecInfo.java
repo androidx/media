@@ -44,7 +44,6 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.os.Build;
 import android.util.Pair;
 import android.util.Range;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -54,7 +53,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -65,6 +63,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Information about a {@link MediaCodec} for a given MIME type. */
 @SuppressWarnings("InlinedApi")
@@ -79,8 +78,8 @@ public final class MediaCodecInfo {
    */
   public static final int MAX_SUPPORTED_INSTANCES_UNKNOWN = -1;
 
-  private static final Supplier<@NullableType Integer> VENDOR_API_LEVEL =
-      Suppliers.<@NullableType Integer>memoize(
+  private static final Supplier<@Nullable Integer> VENDOR_API_LEVEL =
+      Suppliers.<@Nullable Integer>memoize(
           () -> Ints.tryParse(Strings.nullToEmpty(Util.getSystemProperty("ro.vendor.api_level"))));
 
   /**
@@ -104,7 +103,7 @@ public final class MediaCodecInfo {
    * The capabilities of the decoder, like the profiles/levels it supports, or {@code null} if not
    * known.
    */
-  @Nullable public final CodecCapabilities capabilities;
+  public final @Nullable CodecCapabilities capabilities;
 
   /**
    * Whether the decoder supports seamless resolution switches.
@@ -532,11 +531,9 @@ public final class MediaCodecInfo {
 
       if (discardReasons == 0
           && Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
-        @Nullable
-        Pair<Integer, Integer> oldCodecProfileLevel =
+        @Nullable Pair<Integer, Integer> oldCodecProfileLevel =
             CodecSpecificDataUtil.getCodecProfileAndLevel(oldFormat);
-        @Nullable
-        Pair<Integer, Integer> newCodecProfileLevel =
+        @Nullable Pair<Integer, Integer> newCodecProfileLevel =
             CodecSpecificDataUtil.getCodecProfileAndLevel(newFormat);
         if (oldCodecProfileLevel == null
             || newCodecProfileLevel == null
@@ -572,11 +569,9 @@ public final class MediaCodecInfo {
       // Some audio formats allow adaptation without reconfiguration or flushing.
       if (discardReasons == 0
           && (mimeType.equals(MimeTypes.AUDIO_AAC) || mimeType.equals(MimeTypes.AUDIO_AC4))) {
-        @Nullable
-        Pair<Integer, Integer> oldCodecProfileLevel =
+        @Nullable Pair<Integer, Integer> oldCodecProfileLevel =
             CodecSpecificDataUtil.getCodecProfileAndLevel(oldFormat);
-        @Nullable
-        Pair<Integer, Integer> newCodecProfileLevel =
+        @Nullable Pair<Integer, Integer> newCodecProfileLevel =
             CodecSpecificDataUtil.getCodecProfileAndLevel(newFormat);
         if (oldCodecProfileLevel != null && newCodecProfileLevel != null) {
           int oldProfile = oldCodecProfileLevel.first;
@@ -738,8 +733,7 @@ public final class MediaCodecInfo {
    *     the {@link MediaCodec}'s width and height alignment requirements, or null if not a video
    *     codec.
    */
-  @Nullable
-  public Point alignVideoSize(int width, int height) {
+  public @Nullable Point alignVideoSize(int width, int height) {
     if (capabilities == null) {
       return null;
     }
@@ -763,8 +757,7 @@ public final class MediaCodecInfo {
    */
   @Deprecated
   @InlineMe(replacement = "this.alignVideoSize(width, height)")
-  @Nullable
-  public final Point alignVideoSizeV21(int width, int height) {
+  public final @Nullable Point alignVideoSizeV21(int width, int height) {
     return alignVideoSize(width, height);
   }
 
@@ -941,8 +934,8 @@ public final class MediaCodecInfo {
       if (!capabilities.areSizeAndRateSupported(width, height, floorFrameRate)) {
         return false;
       }
-      @Nullable
-      Range<Double> achievableFrameRates = capabilities.getAchievableFrameRatesFor(width, height);
+      @Nullable Range<Double> achievableFrameRates =
+          capabilities.getAchievableFrameRatesFor(width, height);
       if (achievableFrameRates == null) {
         return true;
       }

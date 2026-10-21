@@ -16,7 +16,6 @@
 package androidx.media3.docsamples.exoplayer;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -26,6 +25,7 @@ import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.HttpDataSource.HttpDataSourceException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.util.EventLogger;
+import org.jspecify.annotations.Nullable;
 
 /** Code snippets for listening to player events. */
 @SuppressWarnings({

@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.dash;
 
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -35,6 +34,7 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link ChunkSource} for DASH streams. */
 @UnstableApi
@@ -159,8 +159,7 @@ public interface DashChunkSource extends ChunkSource {
    * @return The selected {@link BaseUrl} of this {@link DashChunkSource}. Can be {@code null} if
    *     unknown or if no {@link BaseUrl} has been selected.
    */
-  @Nullable
-  default BaseUrl getSelectedBaseUrl() {
+  default @Nullable BaseUrl getSelectedBaseUrl() {
     return null;
   }
 }

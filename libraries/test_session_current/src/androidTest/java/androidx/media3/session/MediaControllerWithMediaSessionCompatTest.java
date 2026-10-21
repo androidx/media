@@ -66,7 +66,6 @@ import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.StyleSpan;
-import androidx.annotation.Nullable;
 import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -102,6 +101,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -2509,8 +2509,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 
-  @Nullable
-  private Bitmap getBitmapFromMetadata(MediaMetadata metadata) throws Exception {
+  private @Nullable Bitmap getBitmapFromMetadata(MediaMetadata metadata) throws Exception {
     @Nullable Bitmap bitmap = null;
     @Nullable ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.loadBitmapFromMetadata(metadata);
     if (bitmapFuture != null) {

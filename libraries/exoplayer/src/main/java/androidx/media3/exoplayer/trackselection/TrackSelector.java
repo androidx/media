@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -34,6 +33,7 @@ import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The component of an {@link ExoPlayer} responsible for selecting tracks to be consumed by each of
@@ -147,8 +147,8 @@ public abstract class TrackSelector {
     default void onRendererCapabilitiesChanged(Renderer renderer) {}
   }
 
-  @Nullable private InvalidationListener listener;
-  @Nullable private BandwidthMeter bandwidthMeter;
+  private @Nullable InvalidationListener listener;
+  private @Nullable BandwidthMeter bandwidthMeter;
 
   /**
    * Called by the player to initialize the selector.
@@ -258,8 +258,7 @@ public abstract class TrackSelector {
    * the renderer capabilities changes. May be {@code null} if the implementation does not listen to
    * the renderer capabilities changes.
    */
-  @Nullable
-  public RendererCapabilities.Listener getRendererCapabilitiesListener() {
+  public RendererCapabilities.@Nullable Listener getRendererCapabilitiesListener() {
     return null;
   }
 

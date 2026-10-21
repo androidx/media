@@ -23,7 +23,6 @@ import android.net.Uri;
 import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -69,6 +68,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A default {@link DashChunkSource} implementation. */
 @UnstableApi
@@ -190,18 +190,18 @@ public class DefaultDashChunkSource implements DashChunkSource {
   private final DataSource dataSource;
   private final long elapsedRealtimeOffsetMs;
   private final int maxSegmentsPerLoad;
-  @Nullable private final PlayerTrackEmsgHandler playerTrackEmsgHandler;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
-  @Nullable private final DashContentSteeringTracker contentSteeringTracker;
+  private final @Nullable PlayerTrackEmsgHandler playerTrackEmsgHandler;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
+  private final @Nullable DashContentSteeringTracker contentSteeringTracker;
 
   protected final RepresentationHolder[] representationHolders;
 
   private ExoTrackSelection trackSelection;
   private DashManifest manifest;
   private int periodIndex;
-  @Nullable private IOException fatalError;
+  private @Nullable IOException fatalError;
   private boolean missingLastSegment;
-  @Nullable private BaseUrl selectedBaseUrl;
+  private @Nullable BaseUrl selectedBaseUrl;
 
   /**
    * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, ChunkHolder)} method
@@ -274,8 +274,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
     representationHolders = new RepresentationHolder[trackSelection.length()];
     for (int i = 0; i < representationHolders.length; i++) {
       Representation representation = representations.get(trackSelection.getIndexInTrackGroup(i));
-      @Nullable
-      BaseUrl selectedBaseUrl = baseUrlExclusionList.selectBaseUrl(representation.baseUrls);
+      @Nullable BaseUrl selectedBaseUrl =
+          baseUrlExclusionList.selectBaseUrl(representation.baseUrls);
       representationHolders[i] =
           new RepresentationHolder(
               periodDurationUs,
@@ -341,8 +341,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
   }
 
   @Override
-  @Nullable
-  public BaseUrl getSelectedBaseUrl() {
+  public @Nullable BaseUrl getSelectedBaseUrl() {
     return selectedBaseUrl;
   }
 
@@ -435,8 +434,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
         playbackPositionUs, bufferedDurationUs, availableLiveDurationUs, queue, chunkIterators);
     int selectedTrackIndex = trackSelection.getSelectedIndex();
 
-    @Nullable
-    CmcdData.Factory cmcdDataFactory =
+    CmcdData.@Nullable Factory cmcdDataFactory =
         cmcdConfiguration == null
             ? null
             : new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
@@ -561,8 +559,8 @@ public class DefaultDashChunkSource implements DashChunkSource {
       // from the stream. If the manifest defines an index then the stream shouldn't, but in cases
       // where it does we should ignore it.
       if (representationHolder.segmentIndex == null) {
-        @Nullable
-        ChunkIndex chunkIndex = checkNotNull(representationHolder.chunkExtractor).getChunkIndex();
+        @Nullable ChunkIndex chunkIndex =
+            checkNotNull(representationHolder.chunkExtractor).getChunkIndex();
         if (chunkIndex != null) {
           representationHolders[trackIndex] =
               representationHolder.copyWithNewSegmentIndex(
@@ -607,8 +605,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
     int trackIndex = trackSelection.indexOf(chunk.trackFormat);
     RepresentationHolder representationHolder = representationHolders[trackIndex];
-    @Nullable
-    BaseUrl newBaseUrl =
+    @Nullable BaseUrl newBaseUrl =
         baseUrlExclusionList.selectBaseUrl(representationHolder.representation.baseUrls);
     if (newBaseUrl != null && !representationHolder.selectedBaseUrl.equals(newBaseUrl)) {
       // The base URL has changed since the failing chunk was created. Request a replacement chunk,
@@ -622,8 +619,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
         && !fallbackOptions.isFallbackAvailable(LoadErrorHandlingPolicy.FALLBACK_TYPE_LOCATION)) {
       return false;
     }
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     if (fallbackSelection == null || !fallbackOptions.isFallbackAvailable(fallbackSelection.type)) {
       // Policy indicated to not use any fallback or a fallback type that is not available.
@@ -783,7 +779,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       @Nullable Object trackSelectionData,
       @Nullable RangedUri initializationUri,
       @Nullable RangedUri indexUri,
-      @Nullable CmcdData.Factory cmcdDataFactory) {
+      CmcdData.@Nullable Factory cmcdDataFactory) {
     Representation representation = representationHolder.representation;
     RangedUri requestUri;
     if (initializationUri != null) {
@@ -833,7 +829,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       int maxSegmentCount,
       long seekTimeUs,
       long nowPeriodTimeUs,
-      @Nullable CmcdData.Factory cmcdDataFactory) {
+      CmcdData.@Nullable Factory cmcdDataFactory) {
     Representation representation = representationHolder.representation;
     long startTimeUs = representationHolder.getSegmentStartTimeUs(firstSegmentNum);
     RangedUri segmentUri = representationHolder.getSegmentUrl(firstSegmentNum);
@@ -853,8 +849,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
               /* httpRequestHeaders= */ ImmutableMap.of());
       if (cmcdDataFactory != null) {
         cmcdDataFactory.setChunkDurationUs(endTimeUs - startTimeUs);
-        @Nullable
-        Pair<String, String> nextObjectAndRangeRequest =
+        @Nullable Pair<String, String> nextObjectAndRangeRequest =
             getNextObjectAndRangeRequest(firstSegmentNum, segmentUri, representationHolder);
         if (nextObjectAndRangeRequest != null) {
           cmcdDataFactory
@@ -880,8 +875,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       int segmentCount = 1;
       for (int i = 1; i < maxSegmentCount; i++) {
         RangedUri nextSegmentUri = representationHolder.getSegmentUrl(firstSegmentNum + i);
-        @Nullable
-        RangedUri mergedSegmentUri =
+        @Nullable RangedUri mergedSegmentUri =
             segmentUri.attemptMerge(nextSegmentUri, representationHolder.selectedBaseUrl.url);
         if (mergedSegmentUri == null) {
           // Unable to merge segment fetches because the URIs do not merge.
@@ -910,8 +904,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
               /* httpRequestHeaders= */ ImmutableMap.of());
       if (cmcdDataFactory != null) {
         cmcdDataFactory.setChunkDurationUs(endTimeUs - startTimeUs);
-        @Nullable
-        Pair<String, String> nextObjectAndRangeRequest =
+        @Nullable Pair<String, String> nextObjectAndRangeRequest =
             getNextObjectAndRangeRequest(firstSegmentNum, segmentUri, representationHolder);
         if (nextObjectAndRangeRequest != null) {
           cmcdDataFactory
@@ -942,8 +935,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
     }
   }
 
-  @Nullable
-  private Pair<String, String> getNextObjectAndRangeRequest(
+  private @Nullable Pair<String, String> getNextObjectAndRangeRequest(
       long segmentNum, RangedUri segmentUri, RepresentationHolder representationHolder) {
     if (segmentNum + 1 >= representationHolder.getSegmentCount()) {
       return null;
@@ -962,8 +954,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
   private RepresentationHolder updateSelectedBaseUrl(int trackIndex) {
     RepresentationHolder representationHolder = representationHolders[trackIndex];
-    @Nullable
-    BaseUrl selectedBaseUrl =
+    @Nullable BaseUrl selectedBaseUrl =
         baseUrlExclusionList.selectBaseUrl(representationHolder.representation.baseUrls);
     if (selectedBaseUrl != null) {
       if (!selectedBaseUrl.equals(representationHolder.selectedBaseUrl)) {
@@ -982,7 +973,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
 
     private final RepresentationHolder representationHolder;
     private final long nowPeriodTimeUs;
-    @Nullable private final DashContentSteeringTracker contentSteeringTracker;
+    private final @Nullable DashContentSteeringTracker contentSteeringTracker;
 
     /**
      * Creates iterator.
@@ -1011,8 +1002,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       if (contentSteeringTracker == null) {
         return Integer.MAX_VALUE;
       }
-      @Nullable
-      ImmutableList<String> priorityList =
+      @Nullable ImmutableList<String> priorityList =
           contentSteeringTracker.getCurrentServiceLocationPriority();
       if (priorityList == null) {
         return Integer.MAX_VALUE;
@@ -1054,11 +1044,11 @@ public class DefaultDashChunkSource implements DashChunkSource {
   /** Holds information about a snapshot of a single {@link Representation}. */
   protected static final class RepresentationHolder {
 
-    @Nullable /* package */ final ChunkExtractor chunkExtractor;
+    /* package */ final @Nullable ChunkExtractor chunkExtractor;
 
     public final Representation representation;
     public final BaseUrl selectedBaseUrl;
-    @Nullable public final DashSegmentIndex segmentIndex;
+    public final @Nullable DashSegmentIndex segmentIndex;
 
     private final long periodDurationUs;
     private final long segmentNumShift;

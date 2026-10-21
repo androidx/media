@@ -16,7 +16,6 @@
 package androidx.media3.common.video;
 
 import android.hardware.HardwareBuffer;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
@@ -26,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** Default implementation of {@link HardwareBufferFrame}. */
 @RestrictTo(Scope.LIBRARY_GROUP)
@@ -40,7 +40,7 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     private Format format;
     private ImmutableMap<String, Object> metadata;
     private long contentTimeUs;
-    @Nullable private Object internalImage;
+    private @Nullable Object internalImage;
 
     /**
      * Creates a builder for {@link HardwareBufferFrame} instances without lifecycle management.
@@ -127,7 +127,7 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
   private final Format format;
   private final ImmutableMap<String, Object> metadata;
   private final long contentTimeUs;
-  @Nullable private final Object internalImage;
+  private final @Nullable Object internalImage;
   private final SharedStateReferenceCounter delegateCounter;
 
   /** Private constructor used by the builder. */
@@ -173,8 +173,7 @@ public final class DefaultHardwareBufferFrame implements HardwareBufferFrame, Re
     delegateCounter.release(releaseFence);
   }
 
-  @Nullable
-  public Object getInternalImage() {
+  public @Nullable Object getInternalImage() {
     return internalImage;
   }
 }

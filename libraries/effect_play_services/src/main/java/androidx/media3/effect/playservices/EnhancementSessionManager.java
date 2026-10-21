@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.Context;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import com.google.android.gms.common.api.Status;
@@ -34,6 +33,7 @@ import com.google.android.gms.media.effect.enhancement.EnhancementSessionCallbac
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages Google Play services {@link EnhancementClient} connection and {@link EnhancementSession}
@@ -67,8 +67,7 @@ import java.util.concurrent.Executor;
   private final Client client;
 
   @GuardedBy("lock")
-  @Nullable
-  private EnhancementSession session;
+  private @Nullable EnhancementSession session;
 
   @GuardedBy("lock")
   private boolean isInitialized;

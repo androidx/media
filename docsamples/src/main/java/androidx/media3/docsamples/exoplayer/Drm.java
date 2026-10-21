@@ -17,7 +17,6 @@ package androidx.media3.docsamples.exoplayer;
 
 import android.content.Context;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.C.CryptoType;
 import androidx.media3.common.Format;
@@ -28,6 +27,7 @@ import androidx.media3.exoplayer.drm.DrmSessionEventListener.EventDispatcher;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
+import org.jspecify.annotations.Nullable;
 
 /** Snippets for Digital rights management. */
 @SuppressWarnings({"unused", "CheckReturnValue", "PrivateConstructorForUtilityClass"})
@@ -39,9 +39,9 @@ public class Drm {
     @Override
     public void setPlayer(Looper playbackLooper, PlayerId playerId) {}
 
-    @Nullable
     @Override
-    public DrmSession acquireSession(@Nullable EventDispatcher eventDispatcher, Format format) {
+    public @Nullable DrmSession acquireSession(
+        @Nullable EventDispatcher eventDispatcher, Format format) {
       return null;
     }
 

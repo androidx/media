@@ -21,13 +21,13 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import java.util.IdentityHashMap;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Player} that forwards method calls to another {@link Player}. Applications can use this
@@ -255,9 +255,8 @@ public class ForwardingPlayer implements Player {
   }
 
   /** Calls {@link Player#getPlayerError()} on the delegate and returns the result. */
-  @Nullable
   @Override
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return player.getPlayerError();
   }
 
@@ -472,9 +471,8 @@ public class ForwardingPlayer implements Player {
   }
 
   /** Calls {@link Player#getCurrentManifest()} on the delegate and returns the result. */
-  @Nullable
   @Override
-  public Object getCurrentManifest() {
+  public @Nullable Object getCurrentManifest() {
     return player.getCurrentManifest();
   }
 
@@ -545,9 +543,8 @@ public class ForwardingPlayer implements Player {
   }
 
   /** Calls {@link Player#getCurrentMediaItem()} on the delegate and returns the result. */
-  @Nullable
   @Override
-  public MediaItem getCurrentMediaItem() {
+  public @Nullable MediaItem getCurrentMediaItem() {
     return player.getCurrentMediaItem();
   }
 

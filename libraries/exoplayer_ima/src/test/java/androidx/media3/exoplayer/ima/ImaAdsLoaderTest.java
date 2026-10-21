@@ -38,7 +38,6 @@ import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdOverlayInfo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
@@ -86,6 +85,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -1696,8 +1696,7 @@ public final class ImaAdsLoaderTest {
       }
 
       @Override
-      @Nullable
-      public Ad getAd() {
+      public @Nullable Ad getAd() {
         return ad;
       }
 

@@ -26,7 +26,6 @@ import android.net.Uri;
 import android.os.SystemClock;
 import android.util.Pair;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -71,6 +70,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Source of Hls (possibly adaptive) chunks. */
 /* package */ class HlsChunkSource {
@@ -83,13 +83,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     /** The chunk to be loaded next. */
-    @Nullable public Chunk chunk;
+    public @Nullable Chunk chunk;
 
     /** Indicates that the end of the stream has been reached. */
     public boolean endOfStream;
 
     /** Indicates that the chunk source is waiting for the referred playlist to be refreshed. */
-    @Nullable public Uri playlistUrl;
+    public @Nullable Uri playlistUrl;
 
     /** Clears the holder. */
     public void clear() {
@@ -139,19 +139,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final HlsRedundantGroup[] redundantGroups;
   private final Format[] redundantGroupFormats;
   private final HlsPlaylistTracker playlistTracker;
-  @Nullable private final HlsContentSteeringTracker contentSteeringTracker;
+  private final @Nullable HlsContentSteeringTracker contentSteeringTracker;
   private final TrackGroup trackGroup;
-  @Nullable private final List<Format> muxedCaptionFormats;
+  private final @Nullable List<Format> muxedCaptionFormats;
   private final FullSegmentEncryptionKeyCache keyCache;
   private final PlayerId playerId;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final long timestampAdjusterInitializationTimeoutMs;
 
   private boolean isPrimaryTimestampSource;
   private byte[] scratchSpace;
-  @Nullable private IOException fatalError;
-  @Nullable private Uri lastPlaylistErrorUrl;
-  @Nullable private Uri nextChunkStuckOnPlaylistUrl;
+  private @Nullable IOException fatalError;
+  private @Nullable Uri lastPlaylistErrorUrl;
+  private @Nullable Uri nextChunkStuckOnPlaylistUrl;
   private boolean independentSegments;
 
   // Note: The track group in the selection is typically *not* equal to trackGroup. This is due to
@@ -297,8 +297,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public long getAdjustedSeekPositionUs(long positionUs, SeekParameters seekParameters) {
     int selectedIndex = trackSelection.getSelectedIndex();
-    @Nullable
-    HlsMediaPlaylist mediaPlaylist =
+    @Nullable HlsMediaPlaylist mediaPlaylist =
         selectedIndex < redundantGroups.length && selectedIndex != C.INDEX_UNSET
             ? playlistTracker.getPlaylistSnapshot(
                 redundantGroups[trackSelection.getSelectedIndexInTrackGroup()]
@@ -474,8 +473,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int selectedTrackIndex = trackSelection.getSelectedIndexInTrackGroup();
     boolean switchingTrack = oldTrackIndex != selectedTrackIndex;
     Uri selectedPlaylistUrl = redundantGroups[selectedTrackIndex].getCurrentPlaylistUrl();
-    @Nullable
-    String pathwayIdForSelectedPlaylistUrl =
+    @Nullable String pathwayIdForSelectedPlaylistUrl =
         contentSteeringTracker != null && contentSteeringTracker.isActive()
             ? redundantGroups[selectedTrackIndex].getCurrentPathwayId()
             : null;
@@ -485,8 +483,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // Retry when playlist is refreshed.
       return;
     }
-    @Nullable
-    HlsMediaPlaylist playlist =
+    @Nullable HlsMediaPlaylist playlist =
         playlistTracker.getPlaylistSnapshot(selectedPlaylistUrl, /* isForPlayback= */ true);
     // playlistTracker snapshot is valid (checked by if() above), so playlist must be non-null.
     checkNotNull(playlist);
@@ -543,8 +540,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
 
-    @Nullable
-    SegmentBaseHolder segmentBaseHolder =
+    @Nullable SegmentBaseHolder segmentBaseHolder =
         getNextSegmentHolder(playlist, chunkMediaSequence, partIndex);
     if (segmentBaseHolder == null) {
       if (!playlist.hasEndTag) {
@@ -567,7 +563,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // We have a valid media segment, we can discard any playlist errors at this point.
     nextChunkStuckOnPlaylistUrl = null;
 
-    @Nullable CmcdData.Factory cmcdDataFactory = null;
+    CmcdData.@Nullable Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
       cmcdDataFactory =
           new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
@@ -605,8 +601,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     lastChunkRequestRealtimeMs = SystemClock.elapsedRealtime();
 
     // Check if the media segment or its initialization segment are fully encrypted.
-    @Nullable
-    Uri initSegmentKeyUri =
+    @Nullable Uri initSegmentKeyUri =
         getFullEncryptionKeyUri(playlist, segmentBaseHolder.segmentBase.initializationSegment);
     out.chunk =
         maybeCreateEncryptionChunkFor(
@@ -614,8 +609,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (out.chunk != null) {
       return;
     }
-    @Nullable
-    Uri mediaSegmentKeyUri = getFullEncryptionKeyUri(playlist, segmentBaseHolder.segmentBase);
+    @Nullable Uri mediaSegmentKeyUri =
+        getFullEncryptionKeyUri(playlist, segmentBaseHolder.segmentBase);
     out.chunk =
         maybeCreateEncryptionChunkFor(
             mediaSegmentKeyUri, selectedTrackIndex, /* isInitSegment= */ false, cmcdDataFactory);
@@ -627,7 +622,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean shouldSpliceIn =
         HlsMediaChunk.shouldSpliceIn(
             previous,
-            loadPositionUs,
             selectedPlaylistUrl,
             isIndependent,
             segmentBaseHolder,
@@ -674,8 +668,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return mediaPlaylist.hasIndependentSegments;
   }
 
-  @Nullable
-  private static SegmentBaseHolder getNextSegmentHolder(
+  private static @Nullable SegmentBaseHolder getNextSegmentHolder(
       HlsMediaPlaylist mediaPlaylist, long nextMediaSequence, int nextPartIndex) {
     int segmentIndexInPlaylist = (int) (nextMediaSequence - mediaPlaylist.mediaSequence);
     if (segmentIndexInPlaylist == mediaPlaylist.segments.size()) {
@@ -732,13 +725,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @return Whether a fallback has been successfully conducted.
    */
   public boolean onPlaylistError(
-      Uri playlistUrl, @Nullable LoadErrorHandlingPolicy.FallbackSelection fallbackSelection) {
+      Uri playlistUrl, LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection) {
     lastPlaylistErrorUrl = playlistUrl;
     if (fallbackSelection == null) {
       return false;
     }
-    @Nullable
-    HlsContentSteeringTracker contentSteeringTracker =
+    @Nullable HlsContentSteeringTracker contentSteeringTracker =
         (this.contentSteeringTracker != null && this.contentSteeringTracker.isActive())
             ? this.contentSteeringTracker
             : null;
@@ -786,12 +778,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @return Whether a fallback has been successfully conducted.
    */
   public boolean onChunkError(
-      Chunk chunk, @Nullable LoadErrorHandlingPolicy.FallbackSelection fallbackSelection) {
+      Chunk chunk, LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection) {
     if (fallbackSelection == null) {
       return false;
     }
-    @Nullable
-    HlsContentSteeringTracker contentSteeringTracker =
+    @Nullable HlsContentSteeringTracker contentSteeringTracker =
         (this.contentSteeringTracker != null && this.contentSteeringTracker.isActive())
             ? this.contentSteeringTracker
             : null;
@@ -847,8 +838,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         chunkIterators[i] = MediaChunkIterator.EMPTY;
         continue;
       }
-      @Nullable
-      HlsMediaPlaylist playlist =
+      @Nullable HlsMediaPlaylist playlist =
           playlistTracker.getPlaylistSnapshot(playlistUrl, /* isForPlayback= */ false);
       // Playlist snapshot is valid (checked by if() above) so playlist must be non-null.
       checkNotNull(playlist);
@@ -1167,8 +1157,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return true;
     }
     // Find segment/part data in playlist.
-    @Nullable
-    SegmentBaseHolder segmentBaseHolder = getNextSegmentHolder(playlist, mediaSequence, part);
+    @Nullable SegmentBaseHolder segmentBaseHolder =
+        getNextSegmentHolder(playlist, mediaSequence, part);
     if (segmentBaseHolder == null) {
       // Can't even resolve segment or part data, will be handled elsewhere.
       return false;
@@ -1198,17 +1188,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             : (mediaPlaylist.getEndTimeUs() - playlistTracker.getInitialStartTimeUs());
   }
 
-  @Nullable
-  private Chunk maybeCreateEncryptionChunkFor(
+  private @Nullable Chunk maybeCreateEncryptionChunkFor(
       @Nullable Uri keyUri,
       int selectedTrackIndex,
       boolean isInitSegment,
-      @Nullable CmcdData.Factory cmcdDataFactory) {
+      CmcdData.@Nullable Factory cmcdDataFactory) {
     if (keyUri == null) {
       return null;
     }
 
-    @Nullable byte[] encryptionKey = keyCache.remove(keyUri);
+    byte @Nullable [] encryptionKey = keyCache.remove(keyUri);
     if (encryptionKey != null) {
       // The key was present in the key cache. We re-insert it to prevent it from being evicted by
       // the following key addition. Note that removal of the key is necessary to affect the
@@ -1236,9 +1225,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         scratchSpace);
   }
 
-  @Nullable
-  private static Uri getFullEncryptionKeyUri(
-      HlsMediaPlaylist playlist, @Nullable HlsMediaPlaylist.SegmentBase segmentBase) {
+  private static @Nullable Uri getFullEncryptionKeyUri(
+      HlsMediaPlaylist playlist, HlsMediaPlaylist.@Nullable SegmentBase segmentBase) {
     if (segmentBase == null || segmentBase.fullSegmentEncryptionKeyUri == null) {
       return null;
     }
@@ -1319,8 +1307,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    @Nullable
-    public Object getSelectionData() {
+    public @Nullable Object getSelectionData() {
       return null;
     }
   }
@@ -1352,8 +1339,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     /** Return the result of this chunk, or null if loading is not complete. */
-    @Nullable
-    public byte[] getResult() {
+    public byte @Nullable [] getResult() {
       return result;
     }
   }

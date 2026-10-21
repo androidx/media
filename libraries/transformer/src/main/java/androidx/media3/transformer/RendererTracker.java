@@ -17,13 +17,13 @@ package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.util.HashSet;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Tracker for active media periods in the player.
@@ -43,12 +43,10 @@ import java.util.Set;
    */
   /* package */ interface TrackedRenderer extends Renderer {
     /** Returns the {@link MediaPeriodId} of the renderer, or null if unset. */
-    @Nullable
-    MediaPeriodId getTrackedMediaPeriodId();
+    @Nullable MediaPeriodId getTrackedMediaPeriodId();
 
     /** Returns the current {@link Timeline} containing the renderer's stream, or null if unset. */
-    @Nullable
-    Timeline getTrackedTimeline();
+    @Nullable Timeline getTrackedTimeline();
   }
 
   private final Set<TrackedRenderer> renderers = new HashSet<>();
@@ -79,8 +77,7 @@ import java.util.Set;
    * <p>The active renderer is the one associated with the earliest period in its current {@link
    * Timeline}.
    */
-  @Nullable
-  public Renderer getActiveRenderer() {
+  public @Nullable Renderer getActiveRenderer() {
     if (renderers.isEmpty()) {
       return null;
     }

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
@@ -42,6 +41,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /** Tracks the steering manifests. */
 @UnstableApi
@@ -81,16 +81,16 @@ public final class SteeringManifestTracker {
   private static final String RETRY_AFTER_HEADER = "Retry-After";
 
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
   private final Clock clock;
   private final SteeringManifestLoaderCallback steeringManifestLoaderCallback;
 
-  @Nullable private Uri steeringManifestUrl;
-  @Nullable private Callback callback;
-  @Nullable private MediaSourceEventListener.EventDispatcher eventDispatcher;
-  @Nullable private SteeringManifest steeringManifest;
-  @Nullable private HandlerWrapper handler;
-  @Nullable private Loader steeringManifestLoader;
+  private @Nullable Uri steeringManifestUrl;
+  private @Nullable Callback callback;
+  private MediaSourceEventListener.@Nullable EventDispatcher eventDispatcher;
+  private @Nullable SteeringManifest steeringManifest;
+  private @Nullable HandlerWrapper handler;
+  private @Nullable Loader steeringManifestLoader;
   private boolean hasStarted;
 
   /**

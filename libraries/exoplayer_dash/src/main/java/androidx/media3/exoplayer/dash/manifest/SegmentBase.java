@@ -19,7 +19,6 @@ import static androidx.media3.exoplayer.dash.DashSegmentIndex.INDEX_UNBOUNDED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -30,13 +29,14 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.jspecify.annotations.Nullable;
 
 /** An approximate representation of a SegmentBase manifest element. */
 @SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public abstract class SegmentBase {
 
-  @Nullable /* package */ final RangedUri initialization;
+  /* package */ final @Nullable RangedUri initialization;
   /* package */ final long timescale;
   /* package */ final long presentationTimeOffset;
 
@@ -61,8 +61,7 @@ public abstract class SegmentBase {
    * @param representation The {@link Representation} for which initialization data is required.
    * @return A {@link RangedUri} defining the location of the initialization data, or null.
    */
-  @Nullable
-  public RangedUri getInitialization(
+  public @Nullable RangedUri getInitialization(
       @UnderInitialization(Representation.class) Representation representation) {
     return initialization;
   }
@@ -113,8 +112,7 @@ public abstract class SegmentBase {
           /* indexLength= */ 0);
     }
 
-    @Nullable
-    public RangedUri getIndex() {
+    public @Nullable RangedUri getIndex() {
       return indexLength <= 0
           ? null
           : new RangedUri(/* referenceUri= */ null, indexStart, indexLength);
@@ -132,7 +130,7 @@ public abstract class SegmentBase {
 
     /* package */ final long startNumber;
     /* package */ final long duration;
-    @Nullable /* package */ final List<SegmentTimelineElement> segmentTimeline;
+    /* package */ final @Nullable List<SegmentTimelineElement> segmentTimeline;
     /* package */ final long timeShiftBufferDepthUs;
     /* package */ final long periodStartUnixTimeUs;
 
@@ -315,7 +313,7 @@ public abstract class SegmentBase {
   /** A {@link MultiSegmentBase} that uses a SegmentList to define its segments. */
   public static final class SegmentList extends MultiSegmentBase {
 
-    @Nullable /* package */ final List<RangedUri> mediaSegments;
+    /* package */ final @Nullable List<RangedUri> mediaSegments;
 
     /**
      * @param initialization A {@link RangedUri} corresponding to initialization data, if such data
@@ -395,8 +393,8 @@ public abstract class SegmentBase {
   /** A {@link MultiSegmentBase} that uses a SegmentTemplate to define its segments. */
   public static final class SegmentTemplate extends MultiSegmentBase {
 
-    @Nullable /* package */ final UrlTemplate initializationTemplate;
-    @Nullable /* package */ final UrlTemplate mediaTemplate;
+    /* package */ final @Nullable UrlTemplate initializationTemplate;
+    /* package */ final @Nullable UrlTemplate mediaTemplate;
     /* package */ final long endNumber;
 
     /**
@@ -455,8 +453,7 @@ public abstract class SegmentBase {
     }
 
     @Override
-    @Nullable
-    public RangedUri getInitialization(Representation representation) {
+    public @Nullable RangedUri getInitialization(Representation representation) {
       if (initializationTemplate != null) {
         String urlString =
             initializationTemplate.buildUri(

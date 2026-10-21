@@ -20,13 +20,13 @@ import static androidx.media3.common.C.RESULT_FORMAT_READ;
 import static androidx.media3.common.C.RESULT_NOTHING_READ;
 
 import android.util.LongSparseArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link SampleStream} wrapper that merges a sparse metadata {@link SampleStream} into the
@@ -57,7 +57,7 @@ import java.nio.ByteBuffer;
   private final LongSparseArray<byte[]> metadataCache;
   private final int maxCacheSize;
 
-  @Nullable private byte[] activeMetadata;
+  private byte @Nullable [] activeMetadata;
   private long lastMetadataPtsUs;
   private boolean metadataTrackInvalid;
   private boolean metadataStreamEnded;
@@ -116,7 +116,7 @@ import java.nio.ByteBuffer;
         && (readFlags & FLAG_PEEK) == 0
         && !metadataTrackInvalid) {
       populateMetadataCache(buffer.timeUs);
-      @Nullable byte[] metadata = findActiveMetadata(buffer.timeUs);
+      byte @Nullable [] metadata = findActiveMetadata(buffer.timeUs);
       if (metadata != null) {
         attachSupplementalData(buffer, metadata);
       }
@@ -222,10 +222,9 @@ import java.nio.ByteBuffer;
    * videoPtsUs}. Once found, it becomes the active metadata and is used for subsequent frames until
    * a newer metadata sample supersedes it.
    */
-  @Nullable
-  private byte[] findActiveMetadata(long videoPtsUs) {
+  private byte @Nullable [] findActiveMetadata(long videoPtsUs) {
     // Search the cache for the closest metadata sample with PTS <= videoPtsUs.
-    @Nullable byte[] bestMatch = null;
+    byte @Nullable [] bestMatch = null;
     for (int i = metadataCache.size() - 1; i >= 0; i--) {
       if (metadataCache.keyAt(i) <= videoPtsUs) {
         bestMatch = metadataCache.valueAt(i);

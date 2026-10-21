@@ -29,11 +29,11 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.media.AudioTrack;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import java.lang.reflect.Method;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps an {@link AudioTrack}, exposing a position based on {@link
@@ -146,7 +146,7 @@ import java.lang.reflect.Method;
   private long smoothedPlayheadOffsetUs;
   private long lastPlayheadSampleTimeUs;
 
-  @Nullable private Method getLatencyMethod;
+  private @Nullable Method getLatencyMethod;
   private long latencyUs;
 
   private long lastLatencySampleTimeUs;

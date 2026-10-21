@@ -25,14 +25,12 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BundleCollectionUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
@@ -43,12 +41,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A result to be used with {@link ListenableFuture} for asynchronous calls between {@link
  * MediaLibraryService.MediaLibrarySession} and {@link MediaBrowser}.
  */
-public final class LibraryResult<V extends @NullableType Object> {
+public final class LibraryResult<V extends @Nullable Object> {
 
   /** Result codes. */
   @Documented
@@ -156,15 +155,15 @@ public final class LibraryResult<V extends @NullableType Object> {
    * The value of this result. Will be {@code null} if {@link #resultCode} is not {@link
    * #RESULT_SUCCESS}.
    */
-  @Nullable public final V value;
+  public final @Nullable V value;
 
   private final @ValueType int valueType;
 
   /** The optional parameters. */
-  @Nullable public final MediaLibraryService.LibraryParams params;
+  public final MediaLibraryService.@Nullable LibraryParams params;
 
   /** The optional session error. */
-  @UnstableApi @Nullable public final SessionError sessionError;
+  @UnstableApi public final @Nullable SessionError sessionError;
 
   /** Creates an instance with {@link #resultCode}{@code ==}{@link #RESULT_SUCCESS}. */
   public static LibraryResult<Void> ofVoid() {
@@ -246,7 +245,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    * @param errorCode The error code.
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(@Code int errorCode) {
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(@Code int errorCode) {
     return ofError(new SessionError(errorCode, SessionError.DEFAULT_ERROR_MESSAGE, Bundle.EMPTY));
   }
 
@@ -263,7 +262,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    * @param params The optional parameters to describe the error.
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(
       @Code int errorCode, @Nullable LibraryParams params) {
     return new LibraryResult<>(
         /* resultCode= */ errorCode,
@@ -282,8 +281,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   @UnstableApi
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(
-      SessionError sessionError) {
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(SessionError sessionError) {
     return new LibraryResult<>(
         /* resultCode= */ sessionError.code,
         SystemClock.elapsedRealtime(),
@@ -303,7 +301,7 @@ public final class LibraryResult<V extends @NullableType Object> {
    */
   @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   @UnstableApi
-  public static <V extends @NullableType Object> LibraryResult<V> ofError(
+  public static <V extends @Nullable Object> LibraryResult<V> ofError(
       SessionError sessionError, LibraryParams params) {
     return new LibraryResult<>(
         /* resultCode= */ sessionError.code,
@@ -492,8 +490,7 @@ public final class LibraryResult<V extends @NullableType Object> {
     long completionTimeMs =
         bundle.getLong(FIELD_COMPLETION_TIME_MS, /* defaultValue= */ SystemClock.elapsedRealtime());
     @Nullable Bundle paramsBundle = bundle.getBundle(FIELD_PARAMS);
-    @Nullable
-    MediaLibraryService.LibraryParams params =
+    MediaLibraryService.@Nullable LibraryParams params =
         paramsBundle == null ? null : LibraryParams.fromBundle(paramsBundle);
     @Nullable SessionError sessionError = null;
     @Nullable Bundle sessionErrorBundle = bundle.getBundle(FIELD_SESSION_ERROR);

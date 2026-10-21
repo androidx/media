@@ -18,16 +18,15 @@ package androidx.media3.test.utils;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /** Assertion methods for {@link Timeline}. */
 @UnstableApi
@@ -54,8 +53,7 @@ public final class TimelineAsserts {
    * @param expectedWindowTags A list of expected window tags. If a tag is unknown or not important
    *     {@code null} can be passed to skip this window.
    */
-  public static void assertWindowTags(
-      Timeline timeline, @NullableType Object... expectedWindowTags) {
+  public static void assertWindowTags(Timeline timeline, @Nullable Object... expectedWindowTags) {
     Window window = new Window();
     assertThat(timeline.getWindowCount()).isEqualTo(expectedWindowTags.length);
     for (int i = 0; i < timeline.getWindowCount(); i++) {

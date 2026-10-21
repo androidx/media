@@ -15,9 +15,9 @@
  */
 package androidx.media3.container;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Dolby Vision configuration data. */
 @UnstableApi
@@ -60,8 +60,7 @@ public final class DolbyVisionConfig {
         codecsPrefix = null;
         break;
     }
-    @Nullable
-    String codecs =
+    @Nullable String codecs =
         codecsPrefix == null
             ? null
             : codecsPrefix
@@ -82,7 +81,7 @@ public final class DolbyVisionConfig {
    * The RFC 6381 codecs string, or {@code null} if the profile isn't recognized and so a codecs
    * string can't be constructed.
    */
-  @Nullable public final String codecs;
+  public final @Nullable String codecs;
 
   private DolbyVisionConfig(int profile, int level, @Nullable String codecs) {
     this.profile = profile;

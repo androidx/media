@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
@@ -30,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Reads and peeks FLAC stream metadata elements according to RFC 9639. */
 @UnstableApi
@@ -38,7 +38,7 @@ public final class FlacMetadataReader {
   /** Holds a {@link FlacStreamMetadata}. */
   public static final class FlacStreamMetadataHolder {
     /** The FLAC stream metadata. */
-    @Nullable public FlacStreamMetadata flacStreamMetadata;
+    public @Nullable FlacStreamMetadata flacStreamMetadata;
 
     public FlacStreamMetadataHolder(@Nullable FlacStreamMetadata flacStreamMetadata) {
       this.flacStreamMetadata = flacStreamMetadata;
@@ -60,16 +60,13 @@ public final class FlacMetadataReader {
    * @throws IOException If peeking from the input fails. In this case, there is no guarantee on the
    *     peek position.
    */
-  @Nullable
-  public static Metadata peekId3Metadata(
+  public static @Nullable Metadata peekId3Metadata(
       ExtractorInput input, boolean parseData, boolean ignoreArtwork) throws IOException {
-    @Nullable
-    Id3Decoder.FramePredicate id3FramePredicate =
+    Id3Decoder.@Nullable FramePredicate id3FramePredicate =
         !parseData
             ? Id3Decoder.NO_FRAMES_PREDICATE
             : (ignoreArtwork ? Id3Decoder.NO_ARTWORK_PREDICATE : null);
-    @Nullable
-    Metadata id3Metadata =
+    @Nullable Metadata id3Metadata =
         new Id3Peeker().peekId3Data(input, id3FramePredicate, /* maxTagPeekBytes= */ 0);
     return id3Metadata == null || id3Metadata.length() == 0 ? null : id3Metadata;
   }
@@ -102,8 +99,7 @@ public final class FlacMetadataReader {
    * @throws IOException If reading from the input fails. In this case, the read position is left
    *     unchanged and there is no guarantee on the peek position.
    */
-  @Nullable
-  public static Metadata readId3Metadata(
+  public static @Nullable Metadata readId3Metadata(
       ExtractorInput input, boolean parseData, boolean ignoreArtwork) throws IOException {
     input.resetPeekPosition();
     long startingPeekPosition = input.getPeekPosition();

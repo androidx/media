@@ -15,20 +15,20 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link TrackSelection} consisting of a single track. */
 @UnstableApi
 public final class FixedTrackSelection extends BaseTrackSelection {
 
   private final @C.SelectionReason int reason;
-  @Nullable private final Object data;
+  private final @Nullable Object data;
 
   /**
    * @param group The {@link TrackGroup}. Must not be null.
@@ -86,8 +86,7 @@ public final class FixedTrackSelection extends BaseTrackSelection {
   }
 
   @Override
-  @Nullable
-  public Object getSelectionData() {
+  public @Nullable Object getSelectionData() {
     return data;
   }
 }

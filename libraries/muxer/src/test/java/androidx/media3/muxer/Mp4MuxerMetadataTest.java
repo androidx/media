@@ -24,7 +24,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -44,6 +43,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -350,8 +350,7 @@ public class Mp4MuxerMetadataTest {
         context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_xmp.mp4"));
   }
 
-  @Nullable
-  private static <T extends Metadata.Entry> T findMetadataEntry(
+  private static <T extends Metadata.Entry> @Nullable T findMetadataEntry(
       Format format, Class<T> metadataClazz) {
     if (format.metadata == null) {
       return null;

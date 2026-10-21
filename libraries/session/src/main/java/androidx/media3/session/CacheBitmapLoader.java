@@ -19,13 +19,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link BitmapLoader} that caches the result of the last {@link #decodeBitmap(byte[])}, {@link
@@ -76,9 +76,8 @@ public final class CacheBitmapLoader implements BitmapLoader {
     return future;
   }
 
-  @Nullable
   @Override
-  public ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+  public @Nullable ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
     if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(metadata)) {
       return lastBitmapLoadRequest.getFuture();
     }
@@ -95,9 +94,9 @@ public final class CacheBitmapLoader implements BitmapLoader {
    * the bitmap is loaded from compressed data, or a URI, if the bitmap was loaded from a URI.
    */
   private static class BitmapLoadRequest {
-    @Nullable private final byte[] data;
-    @Nullable private final Uri uri;
-    @Nullable private final ListenableFuture<Bitmap> future;
+    private final byte @Nullable [] data;
+    private final @Nullable Uri uri;
+    private final @Nullable ListenableFuture<Bitmap> future;
 
     /** Creates load request for byte array. */
     private BitmapLoadRequest(byte[] data, ListenableFuture<Bitmap> future) {

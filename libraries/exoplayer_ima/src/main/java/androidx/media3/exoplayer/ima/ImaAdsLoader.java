@@ -27,7 +27,6 @@ import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
@@ -66,6 +65,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link AdsLoader} using the IMA SDK. All methods must be called on the main thread.
@@ -112,14 +112,14 @@ public final class ImaAdsLoader implements AdsLoader {
 
     private final Context context;
 
-    @Nullable private ImaSdkSettings imaSdkSettings;
-    @Nullable private AdErrorListener adErrorListener;
-    @Nullable private AdEventListener adEventListener;
-    @Nullable private VideoAdPlayer.VideoAdPlayerCallback videoAdPlayerCallback;
-    @Nullable private List<String> adMediaMimeTypes;
-    @Nullable private Set<UiElement> adUiElements;
-    @Nullable private Collection<CompanionAdSlot> companionAdSlots;
-    @Nullable private Boolean enableContinuousPlayback;
+    private @Nullable ImaSdkSettings imaSdkSettings;
+    private @Nullable AdErrorListener adErrorListener;
+    private @Nullable AdEventListener adEventListener;
+    private VideoAdPlayer.@Nullable VideoAdPlayerCallback videoAdPlayerCallback;
+    private @Nullable List<String> adMediaMimeTypes;
+    private @Nullable Set<UiElement> adUiElements;
+    private @Nullable Collection<CompanionAdSlot> companionAdSlots;
+    private @Nullable Boolean enableContinuousPlayback;
     private long adPreloadTimeoutMs;
     private int vastLoadTimeoutMs;
     private int mediaLoadTimeoutMs;
@@ -452,10 +452,10 @@ public final class ImaAdsLoader implements AdsLoader {
   private final Timeline.Window window;
 
   private boolean wasSetPlayerCalled;
-  @Nullable private Player nextPlayer;
+  private @Nullable Player nextPlayer;
   private List<String> supportedMimeTypes;
-  @Nullable private Player player;
-  @Nullable private AdTagLoader currentAdTagLoader;
+  private @Nullable Player player;
+  private @Nullable AdTagLoader currentAdTagLoader;
 
   private ImaAdsLoader(
       Context context, ImaUtil.Configuration configuration, ImaUtil.ImaFactory imaFactory) {
@@ -475,8 +475,7 @@ public final class ImaAdsLoader implements AdsLoader {
    * instance, or {@code null} if ads have not been requested yet.
    */
   @UnstableApi
-  @Nullable
-  public com.google.ads.interactivemedia.v3.api.AdsLoader getAdsLoader() {
+  public com.google.ads.interactivemedia.v3.api.@Nullable AdsLoader getAdsLoader() {
     return currentAdTagLoader != null ? currentAdTagLoader.getAdsLoader() : null;
   }
 
@@ -492,8 +491,7 @@ public final class ImaAdsLoader implements AdsLoader {
    * registration.
    */
   @UnstableApi
-  @Nullable
-  public AdDisplayContainer getAdDisplayContainer() {
+  public @Nullable AdDisplayContainer getAdDisplayContainer() {
     return currentAdTagLoader != null ? currentAdTagLoader.getAdDisplayContainer() : null;
   }
 
@@ -688,8 +686,7 @@ public final class ImaAdsLoader implements AdsLoader {
     }
   }
 
-  @Nullable
-  private AdTagLoader getCurrentAdTagLoader() {
+  private @Nullable AdTagLoader getCurrentAdTagLoader() {
     @Nullable Player player = this.player;
     if (player == null) {
       return null;

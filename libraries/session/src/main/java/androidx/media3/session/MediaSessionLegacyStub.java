@@ -69,7 +69,6 @@ import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
 import androidx.core.util.ObjectsCompat;
@@ -116,6 +115,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.Initialized;
+import org.jspecify.annotations.Nullable;
 
 // Getting the commands from MediaControllerCompat
 /* package */ class MediaSessionLegacyStub extends MediaSessionCompat.Callback {
@@ -140,23 +140,23 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final ControllerLegacyCbForBroadcast controllerLegacyCbForBroadcast;
   private final ConnectionTimeoutHandler connectionTimeoutHandler;
   private final boolean mayNeedButtonReservationWorkaroundForSeekbar;
-  @Nullable private final AndroidAutoConnectionStateObserver androidAutoObserver;
+  private final @Nullable AndroidAutoConnectionStateObserver androidAutoObserver;
   private final MediaSessionCompat sessionCompat;
-  @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
-  @Nullable private final ComponentName broadcastReceiverComponentName;
-  @Nullable private VolumeProviderCompat volumeProviderCompat;
+  private final @Nullable MediaButtonReceiver runtimeBroadcastReceiver;
+  private final @Nullable ComponentName broadcastReceiverComponentName;
+  private @Nullable VolumeProviderCompat volumeProviderCompat;
   private final boolean playIfSuppressed;
 
   private volatile long connectionTimeoutMs;
   private int sessionFlags;
-  @Nullable private LegacyError legacyError;
+  private @Nullable LegacyError legacyError;
   private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
   private Player.Commands availablePlayerCommands;
-  @Nullable private PlaybackException customPlaybackException;
-  @Nullable private Player.Commands playerCommandsForErrorState;
+  private @Nullable PlaybackException customPlaybackException;
+  private Player.@Nullable Commands playerCommandsForErrorState;
 
   @SuppressWarnings({
     "PendingIntentMutability", // We can't use SaferPendingIntent
@@ -317,7 +317,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   public void setPlaybackException(
       @Nullable PlaybackException playbackException,
-      @Nullable Player.Commands playerCommandsForErrorState) {
+      Player.@Nullable Commands playerCommandsForErrorState) {
     checkArgument(
         (playbackException == null && playerCommandsForErrorState == null)
             || (playbackException != null && playerCommandsForErrorState != null));
@@ -380,9 +380,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  @Nullable
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
-  private static ComponentName queryPackageManagerForMediaButtonReceiver(Context context) {
+  private static @Nullable ComponentName queryPackageManagerForMediaButtonReceiver(
+      Context context) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     queryIntent.setPackage(context.getPackageName());
@@ -402,8 +402,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
-  @Nullable
-  private MediaButtonReceiver initializeMediaButtonReceiver(Context context, Uri sessionUri) {
+  private @Nullable MediaButtonReceiver initializeMediaButtonReceiver(
+      Context context, Uri sessionUri) {
     if (SDK_INT >= 31) {
       if (broadcastReceiverComponentName != null) {
         Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
@@ -413,8 +413,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // Below API 26, media button events are sent to the receiver at runtime also. We always want
     // these to arrive at the service at runtime. release() then set the receiver for restart if
     // available.
-    @Nullable
-    ComponentName serviceComponentName =
+    @Nullable ComponentName serviceComponentName =
         getServiceComponentByAction(context, MediaLibraryService.SERVICE_INTERFACE);
     if (serviceComponentName == null) {
       serviceComponentName =
@@ -929,8 +928,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         /* sessionCommand= */ null,
         COMMAND_CODE_SESSION_SET_RATING,
         controller -> {
-          @Nullable
-          MediaItem currentItem =
+          @Nullable MediaItem currentItem =
               sessionImpl.getPlayerWrapper().getCurrentMediaItemWithCommandCheck();
           if (currentItem == null) {
             return;
@@ -1402,10 +1400,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     private MediaMetadata lastMediaMetadata;
     private String lastMediaId;
-    @Nullable private Uri lastMediaUri;
+    private @Nullable Uri lastMediaUri;
     private long lastDurationMs;
-    @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
-    @Nullable private Runnable pendingBitmapFuturesTask;
+    private @Nullable FutureCallback<Bitmap> pendingBitmapLoadCallback;
+    private @Nullable Runnable pendingBitmapFuturesTask;
     private ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> queueBitmapFutures;
 
     public ControllerLegacyCbForBroadcast() {
@@ -1668,7 +1666,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Reuse bitmap futures for identical artwork within this update and from the previous one.
       ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> newQueueBitmapFutures = new ArrayMap<>();
       for (int i = 0; i < mediaItemList.size(); i++) {
-        @Nullable byte[] artworkData = mediaItemList.get(i).mediaMetadata.artworkData;
+        byte @Nullable [] artworkData = mediaItemList.get(i).mediaMetadata.artworkData;
         if (artworkData == null) {
           continue;
         }
@@ -1715,7 +1713,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       List<QueueItem> queueItemList = new ArrayList<>();
       for (int i = 0; i < mediaItems.size(); i++) {
         MediaItem mediaItem = mediaItems.get(i);
-        @Nullable byte[] artworkData = mediaItem.mediaMetadata.artworkData;
+        byte @Nullable [] artworkData = mediaItem.mediaMetadata.artworkData;
         @Nullable Bitmap bitmap = null;
         if (artworkData != null) {
           try {
@@ -1808,8 +1806,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               : player.getDurationWithCommandCheck();
       String newMediaId =
           currentMediaItem != null ? currentMediaItem.mediaId : MediaItem.DEFAULT_MEDIA_ID;
-      @Nullable
-      Uri newMediaUri =
+      @Nullable Uri newMediaUri =
           currentMediaItem != null && currentMediaItem.requestMetadata.mediaUri != null
               ? currentMediaItem.requestMetadata.mediaUri
               : null;
@@ -1939,9 +1936,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return "Failed to load bitmap: " + throwable.getMessage();
   }
 
-  @Nullable
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
+  private static @Nullable ComponentName getServiceComponentByAction(
+      Context context, String action) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(action);
     queryIntent.setPackage(context.getPackageName());
@@ -1974,8 +1971,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           .build();
     }
     // The custom error from the session if present, or the actual error from the player, if any.
-    @Nullable
-    PlaybackException publicPlaybackException =
+    @Nullable PlaybackException publicPlaybackException =
         customPlaybackException != null ? customPlaybackException : player.getPlayerError();
     boolean canReadPositions =
         player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
@@ -2148,9 +2144,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  @Nullable
   @SuppressWarnings("deprecation") // Backwards compatibility with old volume commands
-  private static VolumeProviderCompat createVolumeProviderCompat(PlayerWrapper player) {
+  private static @Nullable VolumeProviderCompat createVolumeProviderCompat(PlayerWrapper player) {
     if (player.getDeviceInfo().playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
       return null;
     }
@@ -2278,7 +2273,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private static final class LegacyError {
     public final boolean isFatal;
     @PlaybackStateCompat.ErrorCode public final int code;
-    @Nullable public final String message;
+    public final @Nullable String message;
     public final Bundle extras;
 
     /** Creates an instance. */

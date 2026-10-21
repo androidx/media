@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -40,6 +39,7 @@ import java.lang.annotation.Target;
 import java.util.Arrays;
 import java.util.Collections;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Parses an ISO/IEC 14496-2 (MPEG-4 Part 2) or ITU-T Recommendation H.263 byte stream and extracts
@@ -63,14 +63,14 @@ public final class H263Reader implements ElementaryStreamReader {
       new float[] {1f, 1f, 12 / 11f, 10 / 11f, 16 / 11f, 40 / 33f, 1f};
   private static final int VIDEO_OBJECT_LAYER_SHAPE_RECTANGULAR = 0;
 
-  @Nullable private final UserDataReader userDataReader;
+  private final @Nullable UserDataReader userDataReader;
   private final String containerMimeType;
-  @Nullable private final ParsableByteArray userDataParsable;
+  private final @Nullable ParsableByteArray userDataParsable;
 
   // State that should be reset on seek.
   private final boolean[] prefixFlags;
   private final CsdBuffer csdBuffer;
-  @Nullable private final NalUnitTargetBuffer userData;
+  private final @Nullable NalUnitTargetBuffer userData;
   private H263Reader.@MonotonicNonNull SampleReader sampleReader;
   private long totalBytesWritten;
 

@@ -18,10 +18,10 @@ package androidx.media3.decoder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.jspecify.annotations.Nullable;
 
 /** Buffer for {@link SimpleDecoder} output. */
 @UnstableApi
@@ -29,7 +29,7 @@ public class SimpleDecoderOutputBuffer extends DecoderOutputBuffer {
 
   private final Owner<SimpleDecoderOutputBuffer> owner;
 
-  @Nullable public ByteBuffer data;
+  public @Nullable ByteBuffer data;
 
   public SimpleDecoderOutputBuffer(Owner<SimpleDecoderOutputBuffer> owner) {
     this.owner = owner;

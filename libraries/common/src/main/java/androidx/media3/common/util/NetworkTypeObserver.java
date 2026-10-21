@@ -32,7 +32,6 @@ import android.telephony.TelephonyCallback.DisplayInfoListener;
 import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -41,6 +40,7 @@ import java.lang.ref.WeakReference;
 import java.util.Iterator;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Observer for network type changes.
@@ -64,7 +64,7 @@ public final class NetworkTypeObserver {
     void onNetworkTypeChanged(@C.NetworkType int networkType);
   }
 
-  @Nullable private static NetworkTypeObserver staticInstance;
+  private static @Nullable NetworkTypeObserver staticInstance;
 
   private final Executor backgroundExecutor;
   private final CopyOnWriteArrayList<ListenerHolder> listeners;
@@ -187,8 +187,7 @@ public final class NetworkTypeObserver {
   @SuppressWarnings("deprecation") // Using deprecated NetworkInfo for compatibility to older APIs
   private static @C.NetworkType int getNetworkTypeFromConnectivityManager(Context context) {
     NetworkInfo networkInfo;
-    @Nullable
-    ConnectivityManager connectivityManager =
+    @Nullable ConnectivityManager connectivityManager =
         (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     if (connectivityManager == null) {
       return C.NETWORK_TYPE_UNKNOWN;

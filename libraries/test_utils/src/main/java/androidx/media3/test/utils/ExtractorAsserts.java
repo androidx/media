@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -39,6 +38,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterValuesProvide
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Assertion methods for {@link Extractor}. */
 @UnstableApi
@@ -147,7 +147,7 @@ public final class ExtractorAsserts {
      *   <li>Dumps: {@code extractordumps/$mediapath}
      * </ul>
      */
-    @Nullable public final String dumpFilesPrefix;
+    public final @Nullable String dumpFilesPrefix;
 
     /**
      * Controls how consecutive formats with no intervening samples are handled. If true, only the
@@ -164,7 +164,7 @@ public final class ExtractorAsserts {
 
     /** Builder for {@link AssertionConfig} instances. */
     public static class Builder {
-      @Nullable private String dumpFilesPrefix;
+      private @Nullable String dumpFilesPrefix;
       private boolean deduplicateConsecutiveFormats;
 
       @CanIgnoreReturnValue

@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor.metadata.vorbis;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Ascii;
 import com.google.common.primitives.Ints;
+import org.jspecify.annotations.Nullable;
 
 /** A vorbis comment, extracted from a FLAC or Ogg file. */
 @UnstableApi

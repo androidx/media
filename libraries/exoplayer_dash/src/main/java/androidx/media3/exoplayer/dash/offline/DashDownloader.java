@@ -17,10 +17,8 @@ package androidx.media3.exoplayer.dash.offline;
 
 import static androidx.media3.common.util.Util.castNonNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -49,6 +47,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A downloader for DASH streams.
@@ -330,19 +329,18 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
     return new Segment(startTimeUs, dataSpec);
   }
 
-  @Nullable
-  private DashSegmentIndex getSegmentIndex(
+  private @Nullable DashSegmentIndex getSegmentIndex(
       DataSource dataSource, int trackType, Representation representation, boolean removing)
       throws IOException, InterruptedException {
     DashSegmentIndex index = representation.getIndex();
     if (index != null) {
       return index;
     }
-    Supplier<RunnableFutureTask<@NullableType ChunkIndex, ?>> runnable =
+    Supplier<RunnableFutureTask<@Nullable ChunkIndex, ?>> runnable =
         () ->
-            new RunnableFutureTask<@NullableType ChunkIndex, IOException>() {
+            new RunnableFutureTask<@Nullable ChunkIndex, IOException>() {
               @Override
-              protected @NullableType ChunkIndex doWork() throws IOException {
+              protected @Nullable ChunkIndex doWork() throws IOException {
                 return DashUtil.loadChunkIndex(dataSource, trackType, representation);
               }
             };

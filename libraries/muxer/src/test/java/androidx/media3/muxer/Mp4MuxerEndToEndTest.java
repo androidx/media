@@ -25,6 +25,10 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
+import static androidx.media3.test.utils.AssetInfo.IT35_MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.VP9_MP4_ASSET;
 import static androidx.media3.test.utils.TestUtil.buildDoubleTestSamples;
 import static androidx.media3.test.utils.TestUtil.buildFloatTestSamples;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
@@ -75,12 +79,6 @@ import org.robolectric.RobolectricTestParameterInjector;
 public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
-
-  private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
-  private static final String AV1_MP4 = "sample_av1.mp4";
-  private static final String VP9_MP4 = "bbb_800x640_768kbps_30fps_vp9.mp4";
-  private static final String IT35_MP4 = "sample_with_it35_track.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
@@ -248,7 +246,7 @@ public class Mp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           mp4Muxer,
-          MP4_FILE_ASSET_DIRECTORY + AV1_MP4,
+          MP4_ASSET_AV1_VIDEO.uri,
           /* removeInitializationData= */ true,
           /* removeAudioSampleFlags= */ false);
     }
@@ -257,7 +255,9 @@ public class Mp4MuxerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
     DumpFileAsserts.assertOutput(
-        context, fakeExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(AV1_MP4));
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedMp4DumpFilePath(MP4_ASSET_AV1_VIDEO.uri));
   }
 
   @Test
@@ -272,7 +272,7 @@ public class Mp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           mp4Muxer,
-          MP4_FILE_ASSET_DIRECTORY + VP9_MP4,
+          VP9_MP4_ASSET.uri,
           /* removeInitializationData= */ true,
           /* removeAudioSampleFlags= */ false);
     }
@@ -283,7 +283,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedMp4DumpFilePath(VP9_MP4 + "_without_csd"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath(VP9_MP4_ASSET.uri + "_without_csd"));
   }
 
   @Test
@@ -295,7 +295,7 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, mp4Muxer, MP4_FILE_ASSET_DIRECTORY + IT35_MP4);
+      feedInputDataToMuxer(context, mp4Muxer, IT35_MP4_ASSET.uri);
       mp4Muxer.addTrackReference(
           /* trackId= */ 1,
           Mp4Muxer.TRACK_REFERENCE_TYPE_CDSC,
@@ -307,7 +307,7 @@ public class Mp4MuxerEndToEndTest {
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
 
     DumpFileAsserts.assertOutput(
-        context, fakeExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(IT35_MP4));
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(IT35_MP4_ASSET.uri));
   }
 
   @Test
@@ -318,7 +318,7 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, mp4Muxer, MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4);
+      feedInputDataToMuxer(context, mp4Muxer, MP4_ASSET_720P_4_SECOND_HDR10.uri);
 
       // Muxer not closed.
 
@@ -333,7 +333,7 @@ public class Mp4MuxerEndToEndTest {
       DumpFileAsserts.assertOutput(
           context,
           fakeExtractorOutput,
-          MuxerTestUtil.getExpectedMp4DumpFilePath("partial_" + H265_HDR10_MP4));
+          MuxerTestUtil.getExpectedMp4DumpFilePath("partial_" + MP4_ASSET_720P_4_SECOND_HDR10.uri));
     }
   }
 
@@ -1074,8 +1074,7 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(
-          context, mp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4));
+      feedInputDataToMuxer(context, mp4Muxer, MP4_ASSET_720P_4_SECOND_HDR10.uri);
     }
 
     FakeExtractorOutput fakeExtractorOutput =
@@ -1084,7 +1083,8 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedMp4DumpFilePath("sample_batching_disabled_" + H265_HDR10_MP4));
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "sample_batching_disabled_" + MP4_ASSET_720P_4_SECOND_HDR10.uri));
   }
 
   @Test
@@ -1101,8 +1101,7 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(
-          context, mp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4));
+      feedInputDataToMuxer(context, mp4Muxer, MP4_ASSET_720P_4_SECOND_HDR10.uri);
     }
 
     FakeExtractorOutput fakeExtractorOutput =
@@ -1112,7 +1111,8 @@ public class Mp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedMp4DumpFilePath(
-            "sample_batching_and_attempt_streamable_output_disabled_" + H265_HDR10_MP4));
+            "sample_batching_and_attempt_streamable_output_disabled_"
+                + MP4_ASSET_720P_4_SECOND_HDR10.uri));
   }
 
   @Test
@@ -1284,7 +1284,7 @@ public class Mp4MuxerEndToEndTest {
       // Add the T.35 metadata track.
       int t35TrackId = muxer.addTrack(t35Format);
       // Feed primary video/audio tracks from an existing asset.
-      feedInputDataToMuxer(context, muxer, MP4_FILE_ASSET_DIRECTORY + AV1_MP4);
+      feedInputDataToMuxer(context, muxer, MP4_ASSET_AV1_VIDEO.uri);
       // Write fake T.35 metadata samples.
       for (int i = 0; i < 5; i++) {
         muxer.writeSampleData(
@@ -1327,7 +1327,7 @@ public class Mp4MuxerEndToEndTest {
       // Add the T.35 metadata track.
       int t35TrackId = muxer.addTrack(t35Format);
       // Feed primary video/audio tracks from an existing asset.
-      feedInputDataToMuxer(context, muxer, MP4_FILE_ASSET_DIRECTORY + AV1_MP4);
+      feedInputDataToMuxer(context, muxer, MP4_ASSET_AV1_VIDEO.uri);
       // Write fake T.35 metadata samples.
       for (int i = 0; i < 5; i++) {
         muxer.writeSampleData(

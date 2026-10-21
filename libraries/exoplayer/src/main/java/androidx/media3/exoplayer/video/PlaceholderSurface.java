@@ -27,7 +27,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.EGLSurfaceTexture;
 import androidx.media3.common.util.EGLSurfaceTexture.SecureMode;
 import androidx.media3.common.util.GlUtil;
@@ -36,6 +35,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.InlineMe;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A placeholder {@link Surface}. */
 @UnstableApi
@@ -143,9 +143,9 @@ public final class PlaceholderSurface extends Surface {
 
     private @MonotonicNonNull EGLSurfaceTexture eglSurfaceTexture;
     private @MonotonicNonNull Handler handler;
-    @Nullable private Error initError;
-    @Nullable private RuntimeException initException;
-    @Nullable private PlaceholderSurface surface;
+    private @Nullable Error initError;
+    private @Nullable RuntimeException initException;
+    private @Nullable PlaceholderSurface surface;
 
     public PlaceholderSurfaceThread() {
       super("ExoPlayer:PlaceholderSurface");

@@ -23,6 +23,7 @@ import android.graphics.Typeface;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.TextDirectionHeuristics;
 import android.text.style.AlignmentSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
@@ -66,7 +67,7 @@ public class BidiUtilsTest {
   @Test
   public void wrapText_plainText_wrapsEachLineWithUnicodeWrap() {
     String input = "להתראות.\nשלום\nשלום!";
-    CharSequence wrapped = BidiUtils.wrapText(input);
+    CharSequence wrapped = BidiUtils.wrapText(input, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     String[] lines = Util.split(wrapped.toString(), "\n");
 
@@ -95,7 +96,7 @@ public class BidiUtilsTest {
   @Test
   public void wrapText_plainText_wrapsEachLineWithUnicodeWrap_crlf() {
     String input = "נסיון\r\nבחלונות";
-    CharSequence wrapped = BidiUtils.wrapText(input);
+    CharSequence wrapped = BidiUtils.wrapText(input, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     String[] lines = Util.split(wrapped.toString(), "\n");
 
@@ -116,7 +117,7 @@ public class BidiUtilsTest {
     StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
     builder.setSpan(boldSpan, 0, 7, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    CharSequence wrapped = BidiUtils.wrapText(builder);
+    CharSequence wrapped = BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     // BiDi control characters (\u200E\u202B before and \u202C\u200E after) are added to each RTL
     // line, so the start index increments by 2 (start of first line) and end index increments by 6
@@ -130,7 +131,7 @@ public class BidiUtilsTest {
     StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
     builder.setSpan(boldSpan, 0, 8, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    CharSequence wrapped = BidiUtils.wrapText(builder);
+    CharSequence wrapped = BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     // BiDi control characters are added (2 before and 2 after each line) and \r is removed.
     // Start index increments by 2.
@@ -146,7 +147,8 @@ public class BidiUtilsTest {
     builder.setSpan(new StyleSpan(Typeface.BOLD), 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     builder.setSpan(new UnderlineSpan(), 6, 11, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    Spanned wrapped = (Spanned) BidiUtils.wrapText(builder);
+    Spanned wrapped =
+        (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     assertThat(wrapped.toString()).isEqualTo("Hello مرحبا\u200E");
     assertThat(wrapped).hasBoldSpanBetween(0, 5);
@@ -163,7 +165,8 @@ public class BidiUtilsTest {
     builder.setSpan(new StyleSpan(Typeface.BOLD), 8, 13, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     builder.setSpan(new UnderlineSpan(), 14, 19, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    Spanned wrapped = (Spanned) BidiUtils.wrapText(builder);
+    Spanned wrapped =
+        (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     assertThat(wrapped.toString()).isEqualTo("\u200E\u2067مرحبا\u2069 Hello\nWorld");
     assertThat(wrapped).hasBoldSpanBetween(9, 14);
@@ -179,7 +182,8 @@ public class BidiUtilsTest {
     builder.setSpan(new StyleSpan(Typeface.BOLD), 6, 11, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     builder.setSpan(new UnderlineSpan(), 12, 17, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    Spanned wrapped = (Spanned) BidiUtils.wrapText(builder);
+    Spanned wrapped =
+        (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     assertThat(wrapped.toString()).isEqualTo("\u200E\u202Bمرحبا Hello\u202C\u200E\nWorld");
     assertThat(wrapped).hasBoldSpanBetween(8, 13);
@@ -192,7 +196,8 @@ public class BidiUtilsTest {
     builder.setSpan(new StyleSpan(Typeface.BOLD), 0, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
     builder.setSpan(new UnderlineSpan(), 7, 11, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    Spanned wrapped = (Spanned) BidiUtils.wrapText(builder);
+    Spanned wrapped =
+        (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     assertThat(wrapped.toString())
         .isEqualTo("\u200E\u202Bשלום\u202C\u200E\n\n\u200E\u202Bעולם\u202C\u200E");
@@ -213,7 +218,8 @@ public class BidiUtilsTest {
       builder.setSpan(new StyleSpan(Typeface.BOLD), 1, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
       builder.setSpan(new UnderlineSpan(), 8, 12, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-      Spanned wrapped = (Spanned) BidiUtils.wrapText(builder);
+      Spanned wrapped =
+          (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
       assertThat(wrapped.toString())
           .isEqualTo("\u200E\u202B\u202Bשלום\u202C\u202C\u200E\n\n\u200E\u202Bעולם\u202C\u200E");
@@ -234,7 +240,8 @@ public class BidiUtilsTest {
     builder.setSpan(secondParagraphSpan, 6, 10, Spanned.SPAN_PARAGRAPH);
     builder.setSpan(fullTextSpan, 0, 10, Spanned.SPAN_PARAGRAPH);
 
-    Spanned wrapped = (Spanned) BidiUtils.wrapText(builder);
+    Spanned wrapped =
+        (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.FIRSTSTRONG_LTR);
 
     assertThat(wrapped)
         .hasAlignmentSpanBetween(0, 9)
@@ -248,5 +255,18 @@ public class BidiUtilsTest {
         .hasAlignmentSpanBetween(0, wrapped.length())
         .withAlignment(Layout.Alignment.ALIGN_CENTER)
         .andFlags(Spanned.SPAN_PARAGRAPH);
+  }
+
+  @Test
+  public void wrapText_withLtrHeuristic_wrapsRtlLinesWithLrmMarksOnly() {
+    SpannableStringBuilder builder = new SpannableStringBuilder("!اركضي\r\n؟ماذا");
+    builder.setSpan(new StyleSpan(Typeface.BOLD), 0, 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    builder.setSpan(new UnderlineSpan(), 8, 13, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    Spanned wrapped = (Spanned) BidiUtils.wrapText(builder, TextDirectionHeuristics.LTR);
+
+    assertThat(wrapped.toString()).isEqualTo("\u200E!اركضي\u200E\n\u200E؟ماذا\u200E");
+    assertThat(wrapped).hasBoldSpanBetween(1, 7);
+    assertThat(wrapped).hasUnderlineSpanBetween(10, 15);
   }
 }

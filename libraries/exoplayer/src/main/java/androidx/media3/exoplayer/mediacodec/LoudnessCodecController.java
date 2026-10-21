@@ -21,11 +21,11 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import android.media.LoudnessCodecController.OnLoudnessCodecUpdateListener;
 import android.media.MediaCodec;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import java.util.HashSet;
 import java.util.Iterator;
+import org.jspecify.annotations.Nullable;
 
 /** Wrapper class for the platform {@link android.media.LoudnessCodecController}. */
 @RequiresApi(35)
@@ -50,7 +50,7 @@ public final class LoudnessCodecController {
   private final HashSet<MediaCodec> mediaCodecs;
   private final LoudnessParameterUpdateListener updateListener;
 
-  @Nullable private android.media.LoudnessCodecController loudnessCodecController;
+  private android.media.@Nullable LoudnessCodecController loudnessCodecController;
 
   /** Creates the loudness controller. */
   public LoudnessCodecController() {

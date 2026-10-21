@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ fun rememberTrackSelectionParametersState(player: Player?): TrackSelectionParame
  * @property canSetTrackSelectionParameters Whether [Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS]
  *   is available on the player.
  */
+@Stable
 @UnstableApi
 class TrackSelectionParametersState(private val player: Player?) {
 

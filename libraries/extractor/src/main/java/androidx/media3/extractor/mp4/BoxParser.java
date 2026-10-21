@@ -24,7 +24,6 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -36,7 +35,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -47,6 +45,7 @@ import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.LeafBox;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.AacUtil;
@@ -75,6 +74,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for parsing MP4 format box payloads according to ISO/IEC 14496-12. */
 @SuppressWarnings("ConstantField")
@@ -171,7 +171,7 @@ public final class BoxParser {
       @Nullable DrmInitData drmInitData,
       boolean ignoreEditLists,
       boolean isQuickTime,
-      Function<@NullableType Track, @NullableType Track> modifyTrackFunction,
+      Function<@Nullable Track, @Nullable Track> modifyTrackFunction,
       boolean omitTrackSampleTable)
       throws ParserException {
     List<TrackSampleTable> trackSampleTables = new ArrayList<>();
@@ -180,8 +180,7 @@ public final class BoxParser {
       if (atom.type != Mp4Box.TYPE_trak) {
         continue;
       }
-      @Nullable
-      Track track =
+      @Nullable Track track =
           modifyTrackFunction.apply(
               parseTrak(
                   atom,
@@ -271,8 +270,7 @@ public final class BoxParser {
    * @param meta The metadata box to decode.
    * @return Parsed metadata, or null.
    */
-  @Nullable
-  public static Metadata parseMdtaFromMeta(Mp4Box.ContainerBox meta) {
+  public static @Nullable Metadata parseMdtaFromMeta(Mp4Box.ContainerBox meta) {
     @Nullable LeafBox hdlrAtom = meta.getLeafBoxOfType(Mp4Box.TYPE_hdlr);
     @Nullable LeafBox keysAtom = meta.getLeafBoxOfType(Mp4Box.TYPE_keys);
     @Nullable LeafBox ilstAtom = meta.getLeafBoxOfType(Mp4Box.TYPE_ilst);
@@ -306,8 +304,7 @@ public final class BoxParser {
       int keyIndex = ilst.readInt() - 1;
       if (keyIndex >= 0 && keyIndex < keyNames.length) {
         String key = keyNames[keyIndex];
-        @Nullable
-        Metadata.Entry entry =
+        Metadata.@Nullable Entry entry =
             MetadataUtil.parseMdtaMetadataEntryFromIlst(ilst, atomPosition + atomSize, key);
         if (entry != null) {
           entries.add(entry);
@@ -357,8 +354,7 @@ public final class BoxParser {
    * @return A {@link Track} instance, or {@code null} if the track's type isn't supported.
    * @throws ParserException Thrown if the trak box can't be parsed.
    */
-  @Nullable
-  public static Track parseTrak(
+  public static @Nullable Track parseTrak(
       Mp4Box.ContainerBox trak,
       LeafBox mvhd,
       long duration,
@@ -401,9 +397,11 @@ public final class BoxParser {
     StsdData stsdData = parseStsd(stsd.data, tkhdData, mdhdData.language, drmInitData, isQuickTime);
 
     int chapterTrackId = C.INDEX_UNSET;
-    @Nullable Mp4Box.ContainerBox tref = trak.getContainerBoxOfType(Mp4Box.TYPE_tref);
+    @Nullable Mp4TrackReferenceData cdscTrackReference = null;
+    @Nullable Mp4TrackReferenceData rndrTrackReference = null;
+    Mp4Box.@Nullable ContainerBox tref = trak.getContainerBoxOfType(Mp4Box.TYPE_tref);
     if (tref != null) {
-      @Nullable Mp4Box.LeafBox chap = tref.getLeafBoxOfType(Mp4Box.TYPE_chap);
+      Mp4Box.@Nullable LeafBox chap = tref.getLeafBoxOfType(Mp4Box.TYPE_chap);
       if (chap != null) {
         ParsableByteArray chapData = chap.data;
         chapData.setPosition(Mp4Box.HEADER_SIZE);
@@ -411,12 +409,20 @@ public final class BoxParser {
           chapterTrackId = chapData.readInt();
         }
       }
+      Mp4Box.@Nullable LeafBox cdsc = tref.getLeafBoxOfType(Mp4Box.TYPE_cdsc);
+      if (cdsc != null) {
+        cdscTrackReference = parseTrackReference(cdsc);
+      }
+      Mp4Box.@Nullable LeafBox rndr = tref.getLeafBoxOfType(Mp4Box.TYPE_rndr);
+      if (rndr != null) {
+        rndrTrackReference = parseTrackReference(rndr);
+      }
     }
 
     @Nullable ImmutableLongArray editListDurations = null;
     @Nullable ImmutableLongArray editListMediaTimes = null;
     if (!ignoreEditLists) {
-      @Nullable Mp4Box.ContainerBox edtsAtom = trak.getContainerBoxOfType(Mp4Box.TYPE_edts);
+      Mp4Box.@Nullable ContainerBox edtsAtom = trak.getContainerBoxOfType(Mp4Box.TYPE_edts);
       if (edtsAtom != null) {
         @Nullable Pair<ImmutableLongArray, ImmutableLongArray> edtsData = parseEdts(edtsAtom);
         if (edtsData != null) {
@@ -428,21 +434,30 @@ public final class BoxParser {
     if (stsdData.format == null) {
       return null;
     }
-    Format format;
+    Format stsdFormat = stsdData.format;
+    List<Metadata.Entry> additionalMetadataEntries = new ArrayList<>();
     if (tkhdData.alternateGroup != 0) {
-      Mp4AlternateGroupData alternateGroupEntry =
-          new Mp4AlternateGroupData(tkhdData.alternateGroup);
+      additionalMetadataEntries.add(new Mp4AlternateGroupData(tkhdData.alternateGroup));
+    }
+    if (cdscTrackReference != null) {
+      additionalMetadataEntries.add(cdscTrackReference);
+    }
+    if (rndrTrackReference != null) {
+      additionalMetadataEntries.add(rndrTrackReference);
+    }
+    Format format;
+    if (!additionalMetadataEntries.isEmpty()) {
+      Metadata additionalMetadata = new Metadata(additionalMetadataEntries);
       format =
-          stsdData
-              .format
+          stsdFormat
               .buildUpon()
               .setMetadata(
-                  stsdData.format.metadata != null
-                      ? stsdData.format.metadata.copyWithAppendedEntries(alternateGroupEntry)
-                      : new Metadata(alternateGroupEntry))
+                  stsdFormat.metadata != null
+                      ? stsdFormat.metadata.copyWithAppendedEntriesFrom(additionalMetadata)
+                      : additionalMetadata)
               .build();
     } else {
-      format = stsdData.format;
+      format = stsdFormat;
     }
     boolean shouldBeExposed = !Objects.equals(format.sampleMimeType, MimeTypes.TEXT_UNKNOWN);
     return new Track.Builder()
@@ -999,8 +1014,8 @@ public final class BoxParser {
         editedOffsets.length);
   }
 
-  @Nullable
-  private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit, boolean ignoreArtwork) {
+  private static @Nullable Metadata parseUdtaMeta(
+      ParsableByteArray meta, int limit, boolean ignoreArtwork) {
     meta.skipBytes(Mp4Box.HEADER_SIZE);
     maybeSkipRemainingMetaBoxHeaderBytes(meta);
     while (meta.getPosition() < limit) {
@@ -1016,12 +1031,12 @@ public final class BoxParser {
     return null;
   }
 
-  @Nullable
-  private static Metadata parseIlst(ParsableByteArray ilst, int limit, boolean ignoreArtwork) {
+  private static @Nullable Metadata parseIlst(
+      ParsableByteArray ilst, int limit, boolean ignoreArtwork) {
     ilst.skipBytes(Mp4Box.HEADER_SIZE);
     ArrayList<Metadata.Entry> entries = new ArrayList<>();
     while (ilst.getPosition() < limit) {
-      @Nullable Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, ignoreArtwork);
+      Metadata.@Nullable Entry entry = MetadataUtil.parseIlstElement(ilst, ignoreArtwork);
       if (entry != null) {
         entries.add(entry);
       }
@@ -1034,8 +1049,7 @@ public final class BoxParser {
 
   /** Parses the location metadata from the xyz atom. */
   @VisibleForTesting
-  @Nullable
-  /* package */ static Metadata parseXyz(ParsableByteArray xyzBox) {
+  /* package */ static @Nullable Metadata parseXyz(ParsableByteArray xyzBox) {
     int length = xyzBox.readShort();
     xyzBox.skipBytes(2); // language code.
     String location = xyzBox.readString(length);
@@ -1062,8 +1076,7 @@ public final class BoxParser {
   }
 
   /** Parses the Nero chapters from the chpl atom. */
-  @Nullable
-  /* package */ static Metadata parseChpl(ParsableByteArray chplData) {
+  /* package */ static @Nullable Metadata parseChpl(ParsableByteArray chplData) {
     try {
       chplData.skipBytes(5); // 1 byte version + 3 bytes flags + 1 byte reserved.
       int chapterCount = chplData.readInt();
@@ -1162,6 +1175,29 @@ public final class BoxParser {
   }
 
   /**
+   * Parses a {@code TrackReferenceTypeBox} child of a {@code tref} box (defined in ISO/IEC 14496-12
+   * section 8.3.3).
+   *
+   * @param trefTypeBox The leaf box containing the track reference type and referenced track IDs.
+   * @return The parsed {@link Mp4TrackReferenceData}, or {@code null} if the box contains no track
+   *     IDs.
+   */
+  @VisibleForTesting
+  /* package */ static @Nullable Mp4TrackReferenceData parseTrackReference(LeafBox trefTypeBox) {
+    ParsableByteArray data = trefTypeBox.data;
+    data.setPosition(Mp4Box.HEADER_SIZE);
+    ImmutableList.Builder<Integer> trackIds = new ImmutableList.Builder<>();
+    while (data.bytesLeft() >= 4) {
+      trackIds.add(data.readInt());
+    }
+    ImmutableList<Integer> referencedTrackIds = trackIds.build();
+    if (referencedTrackIds.isEmpty()) {
+      return null;
+    }
+    return new Mp4TrackReferenceData(trefTypeBox.type, referencedTrackIds);
+  }
+
+  /**
    * Parses an hdlr atom.
    *
    * @param hdlr The hdlr atom to decode.
@@ -1231,8 +1267,7 @@ public final class BoxParser {
     return new MdhdData(timescale, mediaDurationUs, language);
   }
 
-  @Nullable
-  private static String getLanguageFromCode(int languageCode) {
+  private static @Nullable String getLanguageFromCode(int languageCode) {
     char[] chars = {
       (char) (((languageCode >> 10) & 0x1F) + 0x60),
       (char) (((languageCode >> 5) & 0x1F) + 0x60),
@@ -1496,8 +1531,7 @@ public final class BoxParser {
 
     int childPosition = parent.getPosition();
     if (atomType == Mp4Box.TYPE_encv) {
-      @Nullable
-      Pair<Integer, TrackEncryptionBox> sampleEntryEncryptionData =
+      @Nullable Pair<Integer, TrackEncryptionBox> sampleEntryEncryptionData =
           parseSampleEntryEncryptionData(parent, position, size);
       if (sampleEntryEncryptionData != null) {
         atomType = sampleEntryEncryptionData.first;
@@ -1523,13 +1557,13 @@ public final class BoxParser {
 
     @Nullable List<byte[]> initializationData = null;
     @Nullable String codecs = null;
-    @Nullable byte[] projectionData = null;
+    byte @Nullable [] projectionData = null;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
     @Nullable EsdsData esdsData = null;
     @Nullable BtrtData btrtData = null;
     int maxNumReorderSamples = Format.NO_VALUE;
     int maxSubLayers = Format.NO_VALUE;
-    @Nullable NalUnitUtil.H265VpsData vpsData = null;
+    NalUnitUtil.@Nullable H265VpsData vpsData = null;
     int decodedWidth = Format.NO_VALUE;
     int decodedHeight = Format.NO_VALUE;
 
@@ -1764,7 +1798,7 @@ public final class BoxParser {
         ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
         esdsData = parseEsdsFromParent(parent, childStartPosition);
         mimeType = esdsData.mimeType;
-        @Nullable byte[] initializationDataBytes = esdsData.initializationData;
+        byte @Nullable [] initializationDataBytes = esdsData.initializationData;
         if (initializationDataBytes != null) {
           initializationData = ImmutableList.of(initializationDataBytes);
         }
@@ -2024,8 +2058,7 @@ public final class BoxParser {
    *
    * <p>Non-{@code mebx} tracks are returned unchanged.
    */
-  @Nullable
-  /* package */ static Track maybeConvertMebxTrackToIt35(Track track) {
+  /* package */ static @Nullable Track maybeConvertMebxTrackToIt35(Track track) {
     if (!Objects.equals(track.format.sampleMimeType, MimeTypes.APPLICATION_MEBX)) {
       return track;
     }
@@ -2034,7 +2067,7 @@ public final class BoxParser {
     }
     ParsableByteArray data = new ParsableByteArray(track.format.initializationData.get(0));
     int matchedKeyId = C.INDEX_UNSET;
-    @Nullable byte[] matchedIdentifier = null;
+    byte @Nullable [] matchedIdentifier = null;
     // Each entry in 'keys' is a MetadataKeyBox: [size (4B)][local_key_id (4B)][child boxes...].
     while (data.bytesLeft() >= Mp4Box.HEADER_SIZE) {
       int keyBoxStart = data.getPosition();
@@ -2045,7 +2078,7 @@ public final class BoxParser {
       }
       int keyBoxEnd = keyBoxStart + keyBoxSize;
       boolean hasIt35Keyd = false;
-      @Nullable byte[] setuIdentifier = null;
+      byte @Nullable [] setuIdentifier = null;
       while (data.getPosition() + Mp4Box.HEADER_SIZE <= keyBoxEnd) {
         int childStart = data.getPosition();
         int childSize = data.readInt();
@@ -2138,8 +2171,7 @@ public final class BoxParser {
    * @return Pair of edit list durations and edit list media times, or {@code null} if they are not
    *     present.
    */
-  @Nullable
-  private static Pair<ImmutableLongArray, ImmutableLongArray> parseEdts(
+  private static @Nullable Pair<ImmutableLongArray, ImmutableLongArray> parseEdts(
       Mp4Box.ContainerBox edtsAtom) {
     @Nullable LeafBox elstAtom = edtsAtom.getLeafBoxOfType(Mp4Box.TYPE_elst);
     if (elstAtom == null) {
@@ -2257,8 +2289,7 @@ public final class BoxParser {
 
     int childPosition = parent.getPosition();
     if (atomType == Mp4Box.TYPE_enca) {
-      @Nullable
-      Pair<Integer, TrackEncryptionBox> sampleEntryEncryptionData =
+      @Nullable Pair<Integer, TrackEncryptionBox> sampleEntryEncryptionData =
           parseSampleEntryEncryptionData(parent, position, size);
       if (sampleEntryEncryptionData != null) {
         atomType = sampleEntryEncryptionData.first;
@@ -2383,7 +2414,7 @@ public final class BoxParser {
         if (esdsAtomPosition != C.INDEX_UNSET) {
           esdsData = parseEsdsFromParent(parent, esdsAtomPosition);
           mimeType = esdsData.mimeType;
-          @Nullable byte[] initializationDataBytes = esdsData.initializationData;
+          byte @Nullable [] initializationDataBytes = esdsData.initializationData;
           if (initializationDataBytes != null) {
             if (MimeTypes.AUDIO_VORBIS.equals(mimeType)) {
               initializationData =
@@ -2651,8 +2682,7 @@ public final class BoxParser {
    * Returns stereo video playback related meta data from the vexu box. See
    * https://developer.apple.com/av-foundation/Stereo-Video-ISOBMFF-Extensions.pdf for ref.
    */
-  @Nullable
-  /* package */ static VexuData parseVideoExtendedUsageBox(
+  /* package */ static @Nullable VexuData parseVideoExtendedUsageBox(
       ParsableByteArray parent, int position, int size) throws ParserException {
     parent.setPosition(position + Mp4Box.HEADER_SIZE);
     int childPosition = parent.getPosition();
@@ -2670,9 +2700,8 @@ public final class BoxParser {
     return eyesData == null ? null : new VexuData(eyesData);
   }
 
-  @Nullable
-  private static EyesData parseStereoViewBox(ParsableByteArray parent, int position, int size)
-      throws ParserException {
+  private static @Nullable EyesData parseStereoViewBox(
+      ParsableByteArray parent, int position, int size) throws ParserException {
     parent.setPosition(position + Mp4Box.HEADER_SIZE);
     int childPosition = parent.getPosition();
     while (childPosition - position < size) {
@@ -2699,8 +2728,7 @@ public final class BoxParser {
    * unencrypted atom type and a {@link TrackEncryptionBox}. Null is returned if no common
    * encryption sinf atom was present.
    */
-  @Nullable
-  private static Pair<Integer, TrackEncryptionBox> parseSampleEntryEncryptionData(
+  private static @Nullable Pair<Integer, TrackEncryptionBox> parseSampleEntryEncryptionData(
       ParsableByteArray parent, int position, int size) throws ParserException {
     int childPosition = parent.getPosition();
     while (childPosition - position < size) {
@@ -2709,8 +2737,7 @@ public final class BoxParser {
       ExtractorUtil.checkContainerInput(childAtomSize > 0, "childAtomSize must be positive");
       int childAtomType = parent.readInt();
       if (childAtomType == Mp4Box.TYPE_sinf) {
-        @Nullable
-        Pair<Integer, TrackEncryptionBox> result =
+        @Nullable Pair<Integer, TrackEncryptionBox> result =
             parseCommonEncryptionSinfFromParent(parent, childPosition, childAtomSize);
         if (result != null) {
           return result;
@@ -2721,9 +2748,9 @@ public final class BoxParser {
     return null;
   }
 
-  @Nullable
-  /* package */ static Pair<Integer, TrackEncryptionBox> parseCommonEncryptionSinfFromParent(
-      ParsableByteArray parent, int position, int size) throws ParserException {
+  /* package */ static @Nullable Pair<Integer, TrackEncryptionBox>
+      parseCommonEncryptionSinfFromParent(ParsableByteArray parent, int position, int size)
+          throws ParserException {
     int childPosition = position + Mp4Box.HEADER_SIZE;
     int schemeInformationBoxPosition = C.INDEX_UNSET;
     int schemeInformationBoxSize = 0;
@@ -2753,8 +2780,7 @@ public final class BoxParser {
       ExtractorUtil.checkContainerInput(dataFormat != null, "frma atom is mandatory");
       ExtractorUtil.checkContainerInput(
           schemeInformationBoxPosition != C.INDEX_UNSET, "schi atom is mandatory");
-      @Nullable
-      TrackEncryptionBox encryptionBox =
+      @Nullable TrackEncryptionBox encryptionBox =
           parseSchiFromParent(
               parent, schemeInformationBoxPosition, schemeInformationBoxSize, schemeType);
       ExtractorUtil.checkContainerInput(encryptionBox != null, "tenc atom is mandatory");
@@ -2764,8 +2790,7 @@ public final class BoxParser {
     }
   }
 
-  @Nullable
-  private static TrackEncryptionBox parseSchiFromParent(
+  private static @Nullable TrackEncryptionBox parseSchiFromParent(
       ParsableByteArray parent, int position, int size, String schemeType) {
     int childPosition = position + Mp4Box.HEADER_SIZE;
     while (childPosition - position < size) {
@@ -2810,8 +2835,8 @@ public final class BoxParser {
   }
 
   /** Parses the proj box from sv3d box, as specified by https://github.com/google/spatial-media. */
-  @Nullable
-  private static byte[] parseProjFromParent(ParsableByteArray parent, int position, int size) {
+  private static byte @Nullable [] parseProjFromParent(
+      ParsableByteArray parent, int position, int size) {
     int childPosition = position + Mp4Box.HEADER_SIZE;
     while (childPosition - position < size) {
       parent.setPosition(childPosition);
@@ -2938,7 +2963,7 @@ public final class BoxParser {
 
     public final TrackEncryptionBox[] trackEncryptionBoxes;
 
-    @Nullable public Format format;
+    public @Nullable Format format;
     public int nalUnitLengthFieldLength;
     public @Track.Transformation int requiredSampleTransformation;
 
@@ -2950,14 +2975,14 @@ public final class BoxParser {
 
   /** Data parsed from an esds box. */
   private static final class EsdsData {
-    private final @NullableType String mimeType;
-    private final byte @NullableType [] initializationData;
+    private final @Nullable String mimeType;
+    private final byte @Nullable [] initializationData;
     private final long bitrate;
     private final long peakBitrate;
 
     public EsdsData(
-        @NullableType String mimeType,
-        byte @NullableType [] initializationData,
+        @Nullable String mimeType,
+        byte @Nullable [] initializationData,
         long bitrate,
         long peakBitrate) {
       this.mimeType = mimeType;
@@ -3004,7 +3029,7 @@ public final class BoxParser {
   private static final class MdhdData {
     private final long timescale;
     private final long mediaDurationUs;
-    @Nullable private final String language;
+    private final @Nullable String language;
 
     public MdhdData(long timescale, long mediaDurationUs, @Nullable String language) {
       this.timescale = timescale;
@@ -3015,7 +3040,7 @@ public final class BoxParser {
 
   /** Data parsed from vexu box. */
   /* package */ static final class VexuData {
-    @Nullable private final EyesData eyesData;
+    private final @Nullable EyesData eyesData;
 
     public VexuData(EyesData eyesData) {
       this.eyesData = eyesData;

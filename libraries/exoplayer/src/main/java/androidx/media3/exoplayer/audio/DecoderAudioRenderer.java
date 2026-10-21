@@ -32,7 +32,6 @@ import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -72,6 +71,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Decodes and renders audio using a {@link Decoder}.
@@ -160,12 +160,12 @@ public abstract class DecoderAudioRenderer<
 
   private boolean firstStreamSampleRead;
 
-  @Nullable private T decoder;
+  private @Nullable T decoder;
 
-  @Nullable private DecoderInputBuffer inputBuffer;
-  @Nullable private SimpleDecoderOutputBuffer outputBuffer;
-  @Nullable private DrmSession decoderDrmSession;
-  @Nullable private DrmSession sourceDrmSession;
+  private @Nullable DecoderInputBuffer inputBuffer;
+  private @Nullable SimpleDecoderOutputBuffer outputBuffer;
+  private @Nullable DrmSession decoderDrmSession;
+  private @Nullable DrmSession sourceDrmSession;
 
   private @ReinitializationState int decoderReinitializationState;
   private boolean decoderReceivedBuffers;
@@ -187,7 +187,7 @@ public abstract class DecoderAudioRenderer<
   private long firstNotReadyTimeMs;
   private boolean hasBeenReady;
 
-  @Nullable private Renderer.WakeupListener wakeupListener;
+  private Renderer.@Nullable WakeupListener wakeupListener;
   private @MonotonicNonNull Executor playbackThreadExecutor;
 
   public DecoderAudioRenderer() {
@@ -257,8 +257,7 @@ public abstract class DecoderAudioRenderer<
   }
 
   @Override
-  @Nullable
-  public MediaClock getMediaClock() {
+  public @Nullable MediaClock getMediaClock() {
     return this;
   }
 
@@ -436,8 +435,7 @@ public abstract class DecoderAudioRenderer<
    * @param decoder The decoder.
    */
   @ForOverride
-  @Nullable
-  protected ImmutableIntArray getChannelMapping(T decoder) {
+  protected @Nullable ImmutableIntArray getChannelMapping(T decoder) {
     return null;
   }
 

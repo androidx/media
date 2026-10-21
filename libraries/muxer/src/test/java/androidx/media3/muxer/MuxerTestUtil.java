@@ -73,19 +73,27 @@ import java.util.Objects;
           0x00, 0x01, 0x68, 0xeb, 0xe3, 0xc4, 0x48, 0x00, 0x00, 0x01, 0x65, 0x88, 0x84, 0x00, 0x2b,
           0xff, 0xfe, 0xf5, 0xdb, 0xf3, 0x2c, 0xae, 0x4a, 0x43, 0xff);
 
+  private static final String MEDIA_ASSET_DIRECTORY = "asset:///media/";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "muxerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
 
   public static String getExpectedDumpFilePath(String originalFileName) {
-    return DUMP_FILE_OUTPUT_DIRECTORY + '/' + originalFileName + '.' + DUMP_FILE_EXTENSION;
+    return DUMP_FILE_OUTPUT_DIRECTORY
+        + '/'
+        + originalFileName.replaceFirst("^" + MEDIA_ASSET_DIRECTORY, "")
+        + '.'
+        + DUMP_FILE_EXTENSION;
   }
 
   public static String getSubstitutedPath(String originalAssetPath, String newSubDir) {
-    return originalAssetPath.replaceFirst("[^/]+/", newSubDir + "/");
+    return originalAssetPath
+        .replaceFirst("^" + MEDIA_ASSET_DIRECTORY, "")
+        .replaceFirst("[^/]+/", newSubDir + "/");
   }
 
   public static String getExpectedMp4DumpFilePath(String mp4FileName) {
-    return getExpectedDumpFilePath(MP4 + '/' + mp4FileName);
+    return getExpectedDumpFilePath(
+        MP4 + '/' + mp4FileName.replace(MEDIA_ASSET_DIRECTORY + MP4 + '/', ""));
   }
 
   public static Pair<ByteBuffer, BufferInfo> getFakeSampleAndSampleInfo(

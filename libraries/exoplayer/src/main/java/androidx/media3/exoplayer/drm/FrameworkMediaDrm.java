@@ -32,7 +32,6 @@ import android.media.metrics.LogSessionId;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
@@ -54,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExoMediaDrm} implementation that wraps the framework {@link MediaDrm}. */
 public final class FrameworkMediaDrm implements ExoMediaDrm {
@@ -127,7 +127,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   @UnstableApi
   @Override
-  public void setOnEventListener(@Nullable ExoMediaDrm.OnEventListener listener) {
+  public void setOnEventListener(ExoMediaDrm.@Nullable OnEventListener listener) {
     mediaDrm.setOnEventListener(
         listener == null
             ? null
@@ -138,7 +138,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public void setOnKeyStatusChangeListener(
-      @Nullable ExoMediaDrm.OnKeyStatusChangeListener listener) {
+      ExoMediaDrm.@Nullable OnKeyStatusChangeListener listener) {
     mediaDrm.setOnKeyStatusChangeListener(
         listener == null
             ? null
@@ -237,8 +237,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   @UnstableApi
   @Override
-  @Nullable
-  public byte[] provideKeyResponse(byte[] scope, byte[] response)
+  public byte @Nullable [] provideKeyResponse(byte[] scope, byte[] response)
       throws NotProvisionedException, DeniedByServerException {
     if (C.CLEARKEY_UUID.equals(uuid)) {
       response = ClearKeyUtil.adjustResponseData(response);
@@ -336,8 +335,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   @UnstableApi
   @Override
-  @Nullable
-  public PersistableBundle getMetrics() {
+  public @Nullable PersistableBundle getMetrics() {
     if (SDK_INT < 28) {
       return null;
     }

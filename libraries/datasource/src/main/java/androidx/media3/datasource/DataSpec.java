@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
@@ -33,6 +32,7 @@ import java.lang.annotation.Target;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Defines a region of data in a resource. */
 @UnstableApi
@@ -49,17 +49,17 @@ public final class DataSpec {
    */
   public static final class Builder {
 
-    @Nullable private Uri uri;
+    private @Nullable Uri uri;
     private long uriPositionOffset;
-    @Nullable private String location;
+    private @Nullable String location;
     private @HttpMethod int httpMethod;
-    @Nullable private byte[] httpBody;
+    private byte @Nullable [] httpBody;
     private Map<String, String> httpRequestHeaders;
     private long position;
     private long length;
-    @Nullable private String key;
+    private @Nullable String key;
     private @Flags int flags;
-    @Nullable private Object customData;
+    private @Nullable Object customData;
 
     /** Creates a new instance with default values. */
     public Builder() {
@@ -154,7 +154,7 @@ public final class DataSpec {
      * @return The builder.
      */
     @CanIgnoreReturnValue
-    public Builder setHttpBody(@Nullable byte[] httpBody) {
+    public Builder setHttpBody(byte @Nullable [] httpBody) {
       this.httpBody = httpBody;
       return this;
     }
@@ -366,7 +366,7 @@ public final class DataSpec {
    * from which the resource is loaded, or {@code null} if the location is not known or not
    * applicable.
    */
-  @Nullable public final String location;
+  public final @Nullable String location;
 
   /**
    * The HTTP method to use when requesting the data. This value will be ignored by non-HTTP {@link
@@ -378,7 +378,7 @@ public final class DataSpec {
    * The HTTP request body, null otherwise. If the body is non-null, then {@code httpBody.length}
    * will be non-zero.
    */
-  @Nullable public final byte[] httpBody;
+  public final byte @Nullable [] httpBody;
 
   /**
    * Additional HTTP headers to use when requesting the data.
@@ -421,7 +421,7 @@ public final class DataSpec {
    * A key that uniquely identifies the resource. Used for cache indexing. May be null if the data
    * spec is not intended to be used in conjunction with a cache.
    */
-  @Nullable public final String key;
+  public final @Nullable String key;
 
   /** Request {@link Flags flags}. */
   public final @Flags int flags;
@@ -432,7 +432,7 @@ public final class DataSpec {
    * <p>This field is intended for advanced use cases in which applications require the ability to
    * attach custom data to {@link DataSpec} instances. The custom data should be immutable.
    */
-  @Nullable public final Object customData;
+  public final @Nullable Object customData;
 
   /**
    * Constructs an instance.
@@ -484,7 +484,7 @@ public final class DataSpec {
       long uriPositionOffset,
       @Nullable String location,
       @HttpMethod int httpMethod,
-      @Nullable byte[] httpBody,
+      byte @Nullable [] httpBody,
       Map<String, String> httpRequestHeaders,
       long position,
       long length,

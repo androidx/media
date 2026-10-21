@@ -24,15 +24,14 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.os.Bundle;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class containing media specific {@link androidx.core.app.NotificationCompat.Style styles} that
@@ -92,9 +91,8 @@ public class MediaStyleNotificationHelper {
      * @param notification The notification to extract a {@link MediaSession} from.
      * @return The {@link SessionToken} in the {@code notification} if it contains, null otherwise.
      */
-    @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public static SessionToken getSessionToken(Notification notification) {
+    public static @Nullable SessionToken getSessionToken(Notification notification) {
       Bundle extras = androidx.core.app.NotificationCompat.getExtras(notification);
       if (extras == null) {
         return null;
@@ -113,10 +111,10 @@ public class MediaStyleNotificationHelper {
 
     /* package */ final MediaSession session;
 
-    /* package */ int @NullableType [] actionsToShowInCompact;
+    /* package */ int @Nullable [] actionsToShowInCompact;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
     /* package */ int remoteDeviceIconRes;
-    @Nullable /* package */ PendingIntent remoteDeviceIntent;
+    /* package */ @Nullable PendingIntent remoteDeviceIntent;
 
     /**
      * Creates a new instance with a {@link MediaSession} to this Notification to provide additional

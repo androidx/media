@@ -26,7 +26,6 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.util.Rational;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
@@ -45,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Combines multiple sequences of {@link AsyncFrame}s into one sequence of {@link
@@ -84,13 +84,13 @@ import java.util.function.Consumer;
   private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
 
-  @Nullable private final Rational frameRate;
+  private final @Nullable Rational frameRate;
 
   private volatile boolean isEnded;
   private volatile boolean isClosed;
   // Index of the next virtual reference tick, or C.INDEX_UNSET if awaiting initial frame.
   private volatile long nextVirtualFrameIndex;
-  @Nullable private volatile AsyncFrame cachedVirtualFrame;
+  private volatile @Nullable AsyncFrame cachedVirtualFrame;
   private volatile long cachedVirtualFrameIndex;
 
   /**
@@ -333,8 +333,7 @@ import java.util.function.Consumer;
    * @return The next reference frame, or {@code null} if awaiting input data, or {@link
    *     TransformerUtil#END_OF_STREAM_ASYNC_FRAME} if all active sequences have fully completed.
    */
-  @Nullable
-  private AsyncFrame getNextReferenceFrame() {
+  private @Nullable AsyncFrame getNextReferenceFrame() {
     if (frameRate != null) {
       if (isAllSequencesEndedAndEmpty()) {
         return END_OF_STREAM_ASYNC_FRAME;
@@ -358,8 +357,7 @@ import java.util.function.Consumer;
     }
   }
 
-  @Nullable
-  private AsyncFrame getOrGenerateVirtualFrame() {
+  private @Nullable AsyncFrame getOrGenerateVirtualFrame() {
     if (isClosed || frameRate == null) {
       return null;
     }
@@ -431,8 +429,7 @@ import java.util.function.Consumer;
    * Finds matching frames from the input queues for the given reference frame. Returns null if any
    * active queue is not yet at or past the reference frame's timestamp and is not yet ended.
    */
-  @Nullable
-  private ImmutableList<AsyncFrame> findMatchingFrames(AsyncFrame referenceFrame) {
+  private @Nullable ImmutableList<AsyncFrame> findMatchingFrames(AsyncFrame referenceFrame) {
     ImmutableList.Builder<AsyncFrame> matchesBuilder = ImmutableList.builder();
     // In virtual-reference mode, align all physical sequences (index 0+).
     // In physical-reference mode (Sequence 0), only match secondary sequences (index 1+).
@@ -545,8 +542,7 @@ import java.util.function.Consumer;
      * @return The best matching frame from this queue, or null if no suitable frame is currently
      *     available.
      */
-    @Nullable
-    private AsyncFrame getMatchingFrame(AsyncFrame targetFrame) {
+    private @Nullable AsyncFrame getMatchingFrame(AsyncFrame targetFrame) {
       long targetTimeUs = targetFrame.frame.getContentTimeUs();
       if (frames.isEmpty()) {
         return null;

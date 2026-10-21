@@ -18,9 +18,9 @@ package androidx.media3.container;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.FloatRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores MP4 location data.

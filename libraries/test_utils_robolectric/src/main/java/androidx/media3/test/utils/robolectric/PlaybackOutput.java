@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MediaMetadata.MediaType;
@@ -53,6 +52,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class to capture output from a playback test.
@@ -63,7 +63,7 @@ import java.util.List;
 @UnstableApi
 public final class PlaybackOutput implements Dumper.Dumpable {
 
-  @Nullable private final CapturingRenderersFactory capturingRenderersFactory;
+  private final @Nullable CapturingRenderersFactory capturingRenderersFactory;
 
   private final CapturingImageOutput capturingImageOutput;
   private final List<Metadata> metadatas;
@@ -242,8 +242,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     dumper.endBlock();
   }
 
-  @Nullable
-  private static String pictureTypeString(@Nullable @PictureType Integer pictureType) {
+  private static @Nullable String pictureTypeString(@PictureType @Nullable Integer pictureType) {
     if (pictureType == null) {
       return null;
     }
@@ -295,8 +294,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     }
   }
 
-  @Nullable
-  private static String mediaTypeString(@Nullable @MediaType Integer mediaType) {
+  private static @Nullable String mediaTypeString(@MediaType @Nullable Integer mediaType) {
     if (mediaType == null) {
       return null;
     }
@@ -378,8 +376,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     }
   }
 
-  @Nullable
-  private static String ratingString(@Nullable Rating rating) {
+  private static @Nullable String ratingString(@Nullable Rating rating) {
     if (rating == null) {
       return null;
     }

@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} that supports multiple URI schemes. The supported schemes are:
@@ -66,7 +66,7 @@ public final class DefaultDataSource implements DataSource {
 
     private final Context context;
     private final DataSource.Factory baseDataSourceFactory;
-    @Nullable private TransferListener transferListener;
+    private @Nullable TransferListener transferListener;
 
     /**
      * Creates an instance.
@@ -139,15 +139,15 @@ public final class DefaultDataSource implements DataSource {
   private final DataSource baseDataSource;
 
   // Lazily initialized.
-  @Nullable private DataSource fileDataSource;
-  @Nullable private DataSource assetDataSource;
-  @Nullable private DataSource contentDataSource;
-  @Nullable private DataSource rtmpDataSource;
-  @Nullable private DataSource udpDataSource;
-  @Nullable private DataSource dataSchemeDataSource;
-  @Nullable private DataSource rawResourceDataSource;
+  private @Nullable DataSource fileDataSource;
+  private @Nullable DataSource assetDataSource;
+  private @Nullable DataSource contentDataSource;
+  private @Nullable DataSource rtmpDataSource;
+  private @Nullable DataSource udpDataSource;
+  private @Nullable DataSource dataSchemeDataSource;
+  private @Nullable DataSource rawResourceDataSource;
 
-  @Nullable private DataSource dataSource;
+  private @Nullable DataSource dataSource;
 
   /**
    * Constructs a new instance, optionally configured to follow cross-protocol redirects.
@@ -285,8 +285,7 @@ public final class DefaultDataSource implements DataSource {
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return dataSource == null ? null : dataSource.getUri();
   }
 

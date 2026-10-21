@@ -15,7 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
@@ -30,6 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link FrameWriter} implementation for testing. */
 @RequiresApi(26)
@@ -42,13 +42,13 @@ public class FakeFrameWriter implements FrameWriter {
   public final CountDownLatch eosLatch;
   public final CountDownLatch dequeueAttemptedLatch;
 
-  @Nullable public volatile Format configuredFormat;
+  public volatile @Nullable Format configuredFormat;
   public volatile CountDownLatch frameLatch;
 
   private final Queue<AsyncFrame> availableFrames;
 
-  @Nullable private volatile Executor wakeupExecutor;
-  @Nullable private volatile Runnable wakeupListener;
+  private volatile @Nullable Executor wakeupExecutor;
+  private volatile @Nullable Runnable wakeupListener;
 
   /** Creates a new instance. */
   public FakeFrameWriter() {
@@ -68,8 +68,7 @@ public class FakeFrameWriter implements FrameWriter {
   }
 
   @Override
-  @Nullable
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     this.wakeupExecutor = wakeupExecutor;
     this.wakeupListener = wakeupListener;
     dequeueAttemptedLatch.countDown();

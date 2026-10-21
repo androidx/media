@@ -40,7 +40,6 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaMetadata;
@@ -56,6 +55,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1504,9 +1504,8 @@ public class DefaultMediaNotificationProviderTest {
 
   /** A test service for unit tests. */
   private static final class TestService extends MediaLibraryService {
-    @Nullable
     @Override
-    public MediaLibrarySession onGetSession(MediaSession.ControllerInfo controllerInfo) {
+    public @Nullable MediaLibrarySession onGetSession(MediaSession.ControllerInfo controllerInfo) {
       return null;
     }
   }

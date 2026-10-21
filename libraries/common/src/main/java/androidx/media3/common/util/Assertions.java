@@ -17,11 +17,11 @@ package androidx.media3.common.util;
 
 import android.os.Looper;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.InlineMe;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Provides methods for asserting the truth of expressions and properties. */
 @UnstableApi

@@ -25,7 +25,6 @@ import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Handler;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.GlUtil;
@@ -40,6 +39,7 @@ import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
 import javax.microedition.khronos.opengles.GL10;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link GLSurfaceView} that creates a GL context (optionally for protected content) and passes
@@ -77,9 +77,9 @@ public final class VideoProcessingGLSurfaceView extends GLSurfaceView {
   private final VideoRenderer renderer;
   private final Handler mainHandler;
 
-  @Nullable private SurfaceTexture surfaceTexture;
-  @Nullable private Surface surface;
-  @Nullable private ExoPlayer player;
+  private @Nullable SurfaceTexture surfaceTexture;
+  private @Nullable Surface surface;
+  private @Nullable ExoPlayer player;
 
   /**
    * Creates a new instance. Pass {@code true} for {@code requireSecureContext} if the {@link
@@ -222,7 +222,7 @@ public final class VideoProcessingGLSurfaceView extends GLSurfaceView {
     private final float[] transformMatrix;
 
     private int texture;
-    @Nullable private SurfaceTexture surfaceTexture;
+    private @Nullable SurfaceTexture surfaceTexture;
 
     private boolean initialized;
     private int width;

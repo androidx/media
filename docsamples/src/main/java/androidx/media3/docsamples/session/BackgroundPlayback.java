@@ -23,7 +23,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.content.Intent;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -44,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import org.jspecify.annotations.Nullable;
 
 /** Snippets for background-playback.md. */
 @SuppressWarnings({"unused", "CheckReturnValue"})

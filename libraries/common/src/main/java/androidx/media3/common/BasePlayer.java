@@ -18,12 +18,12 @@ package androidx.media3.common;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Abstract base {@link Player} which implements common implementation independent methods. */
 @UnstableApi
@@ -288,8 +288,7 @@ public abstract class BasePlayer implements Player {
   }
 
   @Override
-  @Nullable
-  public final MediaItem getCurrentMediaItem() {
+  public final @Nullable MediaItem getCurrentMediaItem() {
     Timeline timeline = getCurrentTimeline();
     return timeline.isEmpty()
         ? null
@@ -307,8 +306,7 @@ public abstract class BasePlayer implements Player {
   }
 
   @Override
-  @Nullable
-  public final Object getCurrentManifest() {
+  public final @Nullable Object getCurrentManifest() {
     Timeline timeline = getCurrentTimeline();
     return timeline.isEmpty()
         ? null

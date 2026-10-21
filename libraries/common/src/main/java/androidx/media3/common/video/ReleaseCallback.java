@@ -15,9 +15,9 @@
  */
 package androidx.media3.common.video;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
+import org.jspecify.annotations.Nullable;
 
 /** A callback invoked when a reference-counted resource is fully released. */
 @RestrictTo(Scope.LIBRARY_GROUP)

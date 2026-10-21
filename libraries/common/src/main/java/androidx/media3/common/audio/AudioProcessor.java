@@ -17,7 +17,6 @@ package androidx.media3.common.audio;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
@@ -28,6 +27,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Interface for audio processors, which take audio data as input and transform it, potentially
@@ -143,7 +143,7 @@ public interface AudioProcessor {
     public static final class Builder {
       private long positionOffsetUs;
       private Timeline timeline;
-      @Nullable private Object periodUid;
+      private @Nullable Object periodUid;
 
       /** Creates a new builder. */
       public Builder() {
@@ -245,7 +245,7 @@ public interface AudioProcessor {
      * change due to updates to the media structure. In that case, the value will not be updated
      * until the next call to {@link #flush(StreamMetadata)}.
      */
-    @Nullable public final Object periodUid;
+    public final @Nullable Object periodUid;
 
     /**
      * @deprecated Use {@link Builder} instead.

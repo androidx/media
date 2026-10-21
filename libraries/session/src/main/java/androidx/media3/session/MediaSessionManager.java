@@ -29,10 +29,8 @@ import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides support for interacting with media sessions.
@@ -264,8 +263,7 @@ public final class MediaSessionManager {
    * @return A {@link ListenableFuture} for the {@link SessionToken}, or a future that resolves to
    *     {@code null} if no session is receiving key events or if the API is not supported.
    */
-  public static ListenableFuture<@NullableType SessionToken> getMediaKeyEventSession(
-      Context context) {
+  public static ListenableFuture<@Nullable SessionToken> getMediaKeyEventSession(Context context) {
     if (SDK_INT < 33) {
       return immediateFuture(null);
     }
@@ -277,8 +275,8 @@ public final class MediaSessionManager {
       return immediateFuture(null);
     }
     @SuppressWarnings("unchecked")
-    ListenableFuture<@NullableType SessionToken> result =
-        (ListenableFuture<@NullableType SessionToken>)
+    ListenableFuture<@Nullable SessionToken> result =
+        (ListenableFuture<@Nullable SessionToken>)
             (ListenableFuture<?>)
                 SessionToken.createSessionToken(applicationContext, platformToken);
     return result;
@@ -297,7 +295,7 @@ public final class MediaSessionManager {
 
   private static ListenableFuture<List<SessionToken>> convertFuturesToTokens(
       List<ListenableFuture<SessionToken>> tokenFutures) {
-    ListenableFuture<List<@NullableType SessionToken>> listFuture =
+    ListenableFuture<List<@Nullable SessionToken>> listFuture =
         Futures.successfulAsList(tokenFutures);
     return Futures.transform(
         listFuture,
@@ -337,9 +335,8 @@ public final class MediaSessionManager {
   private static final class Api37 {
     private Api37() {}
 
-    @Nullable
     @SuppressWarnings("nullness")
-    private static ListenableFuture<List<SessionToken>> getActiveSessionsForPackage(
+    private static @Nullable ListenableFuture<List<SessionToken>> getActiveSessionsForPackage(
         Context context,
         android.media.session.MediaSessionManager platformManager,
         String packageName,

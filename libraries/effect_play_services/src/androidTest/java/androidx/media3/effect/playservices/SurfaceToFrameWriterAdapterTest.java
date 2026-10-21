@@ -25,7 +25,6 @@ import android.media.ImageWriter;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
@@ -39,6 +38,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,7 +60,7 @@ public final class SurfaceToFrameWriterAdapterTest {
   private Handler handler;
   private TestListener testListener;
   private SurfaceToFrameWriterAdapter writer;
-  @Nullable private ImageWriter testProducerWriter;
+  private @Nullable ImageWriter testProducerWriter;
 
   @Before
   public void setUp() {

@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -34,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An immutable class to represent the current {@link Timeline} backed by {@linkplain QueueItem
@@ -58,7 +58,7 @@ import java.util.UUID;
   /* package */ static final String FAKE_ITEM_UID = "fake";
 
   private final ImmutableList<QueuedMediaItem> queuedMediaItems;
-  @Nullable private final QueuedMediaItem fakeQueuedMediaItem;
+  private final @Nullable QueuedMediaItem fakeQueuedMediaItem;
 
   private QueueTimeline(
       ImmutableList<QueuedMediaItem> queuedMediaItems,
@@ -222,8 +222,7 @@ import java.util.UUID;
     return false;
   }
 
-  @Nullable
-  public MediaItem getMediaItemAt(int mediaItemIndex) {
+  public @Nullable MediaItem getMediaItemAt(int mediaItemIndex) {
     return mediaItemIndex >= getWindowCount() ? null : getQueuedMediaItem(mediaItemIndex).mediaItem;
   }
 

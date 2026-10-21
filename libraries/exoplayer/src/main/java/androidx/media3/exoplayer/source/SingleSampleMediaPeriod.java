@@ -17,13 +17,11 @@ package androidx.media3.exoplayer.source;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
@@ -46,6 +44,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MediaPeriod} with a single sample. */
 /* package */ final class SingleSampleMediaPeriod
@@ -58,7 +57,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final DataSpec dataSpec;
   private final DataSource.Factory dataSourceFactory;
-  @Nullable private final TransferListener transferListener;
+  private final @Nullable TransferListener transferListener;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final EventDispatcher eventDispatcher;
   private final TrackGroupArray tracks;
@@ -121,9 +120,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs) {
     for (int i = 0; i < selections.length; i++) {
@@ -430,7 +429,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private final StatsDataSource dataSource;
 
-    @Nullable private byte[] sampleData;
+    private byte @Nullable [] sampleData;
 
     public SourceLoadable(DataSpec dataSpec, DataSource dataSource) {
       this.loadTaskId = LoadEventInfo.getNewId();

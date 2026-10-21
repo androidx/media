@@ -17,10 +17,10 @@ package androidx.media3.extractor.metadata;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Label;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A generic, format-agnostic implementation of the {@link Chapter} interface. */
 /* package */ final class ChapterImpl implements Chapter {
@@ -28,7 +28,7 @@ import java.util.Objects;
   private final long startTimeMs;
   private final long endTimeMs;
   private final boolean isHidden;
-  @Nullable private final Label title;
+  private final @Nullable Label title;
 
   /**
    * Creates an instance.
@@ -62,9 +62,8 @@ import java.util.Objects;
     return isHidden;
   }
 
-  @Nullable
   @Override
-  public Label getTitle() {
+  public @Nullable Label getTitle() {
     return title;
   }
 

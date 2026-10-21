@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -37,6 +36,7 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Sample transformer that flattens SEF slow motion videos in H.264/AVC and H.265/HEVC format using
@@ -68,7 +68,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final byte[] scratch;
 
   /** The SEF slow motion configuration of the input. */
-  @Nullable private final SlowMotionData slowMotionData;
+  private final @Nullable SlowMotionData slowMotionData;
 
   /** The MIME type of video data stored in input buffers. */
   private final String mimeType;
@@ -95,13 +95,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * The {@link SegmentInfo} describing the current slow motion segment, or null if the current
    * frame is not in such a segment.
    */
-  @Nullable private SegmentInfo currentSegmentInfo;
+  private @Nullable SegmentInfo currentSegmentInfo;
 
   /**
    * The {@link SegmentInfo} describing the slow motion segment following (not including) the
    * current frame, or null if there is no such segment.
    */
-  @Nullable private SegmentInfo nextSegmentInfo;
+  private @Nullable SegmentInfo nextSegmentInfo;
 
   /**
    * The time delta to be added to the output timestamps before scaling to take the slow motion
@@ -301,8 +301,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return metadataInfo;
     }
     metadataInfo.slowMotionData = slowMotionData;
-    @Nullable
-    SmtaMetadataEntry smtaMetadataEntry = metadata.getFirstEntryOfType(SmtaMetadataEntry.class);
+    @Nullable SmtaMetadataEntry smtaMetadataEntry =
+        metadata.getFirstEntryOfType(SmtaMetadataEntry.class);
     if (smtaMetadataEntry != null) {
       metadataInfo.captureFrameRate = smtaMetadataEntry.captureFrameRate;
       metadataInfo.inputMaxLayer = smtaMetadataEntry.svcTemporalLayerCount - 1;
@@ -355,7 +355,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     public int normalSpeedMaxLayer;
 
     /** The input {@link SlowMotionData}. */
-    @Nullable public SlowMotionData slowMotionData;
+    public @Nullable SlowMotionData slowMotionData;
 
     public MetadataInfo() {
       captureFrameRate = C.RATE_UNSET;

@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
@@ -45,6 +44,7 @@ import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a group of {@linkplain Variant variants} or {@linkplain Rendition renditions} that are
@@ -416,13 +416,13 @@ public final class HlsRedundantGroup {
      * Rendition renditions}, then this field is the {@link Rendition#stableRenditionId} of the
      * renditions.
      */
-    @Nullable public final String stableId;
+    public final @Nullable String stableId;
 
     /**
      * The {@linkplain Rendition#name name} of the {@linkplain Rendition grouped renditions}. This
      * can be {@code null} if unknown or the {@link GroupKey} groups {@linkplain Variant variants}.
      */
-    @Nullable public final String name;
+    public final @Nullable String name;
 
     /**
      * Creates a {@link GroupKey}.
@@ -569,8 +569,7 @@ public final class HlsRedundantGroup {
    * Returns the playlist url associated with the given {@code pathwayId}, or {@code null} if the
    * given {@code pathwayId} doesn't exist in this {@link HlsRedundantGroup}.
    */
-  @Nullable
-  public Uri getPlaylistUrl(String pathwayId) {
+  public @Nullable Uri getPlaylistUrl(String pathwayId) {
     return pathwayIdToPlaylistUrl.get(pathwayId);
   }
 

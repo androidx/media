@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
@@ -29,6 +28,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Encapsulates information describing an MP4 track. */
 @UnstableApi
@@ -43,12 +43,12 @@ public final class Track {
     private long movieTimescale;
     private long durationUs;
     private long mediaDurationUs;
-    @Nullable private Format format;
+    private @Nullable Format format;
     private @Transformation int sampleTransformation;
-    @Nullable private TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
+    private TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes;
     private int nalUnitLengthFieldLength;
-    @Nullable private ImmutableLongArray editListDurations;
-    @Nullable private ImmutableLongArray editListMediaTimes;
+    private @Nullable ImmutableLongArray editListDurations;
+    private @Nullable ImmutableLongArray editListMediaTimes;
     private boolean shouldBeExposed;
     private int chapterTrackId;
     private int mebxKeyId;
@@ -187,7 +187,7 @@ public final class Track {
      */
     @CanIgnoreReturnValue
     public Builder setSampleDescriptionEncryptionBoxes(
-        @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes) {
+        TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes) {
       this.sampleDescriptionEncryptionBoxes =
           sampleDescriptionEncryptionBoxes == null
               ? null
@@ -338,13 +338,13 @@ public final class Track {
    * Durations of edit list segments in the {@linkplain #movieTimescale movie timescale}, or {@code
    * null} if there is no edit list.
    */
-  @Nullable public final ImmutableLongArray editListDurations;
+  public final @Nullable ImmutableLongArray editListDurations;
 
   /**
    * Media times for edit list segments in the {@linkplain #timescale track timescale}, or {@code
    * null} if there is no edit list.
    */
-  @Nullable public final ImmutableLongArray editListMediaTimes;
+  public final @Nullable ImmutableLongArray editListMediaTimes;
 
   /**
    * The length in bytes of the NALUnitLength field in each sample. 0 for tracks that don't use
@@ -364,7 +364,7 @@ public final class Track {
    */
   /* package */ final int mebxKeyId;
 
-  @Nullable private final TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
+  private final TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes;
 
   private Track(Builder builder) {
     this.id = builder.id;
@@ -397,10 +397,10 @@ public final class Track {
       long mediaDurationUs,
       Format format,
       @Transformation int sampleTransformation,
-      @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes,
+      TrackEncryptionBox @Nullable [] sampleDescriptionEncryptionBoxes,
       int nalUnitLengthFieldLength,
-      @Nullable long[] editListDurations,
-      @Nullable long[] editListMediaTimes,
+      long @Nullable [] editListDurations,
+      long @Nullable [] editListMediaTimes,
       boolean shouldBeExposed,
       int chapterTrackId) {
     this.id = id;
@@ -435,8 +435,8 @@ public final class Track {
    * @return The {@link TrackEncryptionBox} for the given sample description index. Maybe null if no
    *     such entry exists.
    */
-  @Nullable
-  public TrackEncryptionBox getSampleDescriptionEncryptionBox(int sampleDescriptionIndex) {
+  public @Nullable TrackEncryptionBox getSampleDescriptionEncryptionBox(
+      int sampleDescriptionIndex) {
     return sampleDescriptionEncryptionBoxes == null
         ? null
         : sampleDescriptionEncryptionBoxes[sampleDescriptionIndex];

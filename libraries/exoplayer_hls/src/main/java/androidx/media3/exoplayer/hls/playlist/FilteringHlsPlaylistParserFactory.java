@@ -15,12 +15,12 @@
  */
 package androidx.media3.exoplayer.hls.playlist;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.offline.FilteringManifestParser;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link HlsPlaylistParserFactory} that includes only the streams identified by the given stream

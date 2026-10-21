@@ -45,14 +45,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.common.util.BitmapLoader
+import androidx.media3.test.utils.FakeBitmapLoader
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.state.MotionPhotoState
 import androidx.media3.ui.compose.state.rememberMotionPhotoState
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -155,7 +153,7 @@ class MotionPhotoTest {
         state = state,
         contentDescription = PHOTO_CONTENT_DESCRIPTION,
         modifier = Modifier.size(100.dp),
-        bitmapLoader = FailingBitmapLoader(),
+        bitmapLoader = FakeBitmapLoader(IOException("Load failure")),
         placeholder = null,
         error = errorPainter,
       )
@@ -391,26 +389,6 @@ class MotionPhotoTest {
     val file = tempFolder.newFile("motion_photo.png")
     file.writeBytes(stream.toByteArray())
     return Uri.fromFile(file)
-  }
-
-  private class FakeBitmapLoader(private val future: ListenableFuture<Bitmap>) : BitmapLoader {
-    constructor(bitmap: Bitmap) : this(Futures.immediateFuture(bitmap))
-
-    override fun supportsMimeType(mimeType: String): Boolean = true
-
-    override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = future
-
-    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> = future
-  }
-
-  private class FailingBitmapLoader : BitmapLoader {
-    override fun supportsMimeType(mimeType: String): Boolean = true
-
-    override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-      Futures.immediateFailedFuture(IOException("Decode failure"))
-
-    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
-      Futures.immediateFailedFuture(IOException("Load failure"))
   }
 
   private class TestPainter : Painter() {

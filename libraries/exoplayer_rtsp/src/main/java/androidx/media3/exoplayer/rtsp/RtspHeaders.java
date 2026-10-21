@@ -16,7 +16,6 @@
 
 package androidx.media3.exoplayer.rtsp;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * RTSP message headers.
@@ -202,8 +202,7 @@ import java.util.Map;
    * Returns the most recent header value mapped to the argument, {@code null} if the header name is
    * not recorded.
    */
-  @Nullable
-  public String get(String headerName) {
+  public @Nullable String get(String headerName) {
     ImmutableList<String> headerValues = values(headerName);
     if (headerValues.isEmpty()) {
       return null;

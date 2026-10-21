@@ -16,13 +16,13 @@
 package androidx.media3.exoplayer.offline;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A manifest parser that includes only the streams identified by the given stream keys.
@@ -33,7 +33,7 @@ import java.util.List;
 public final class FilteringManifestParser<T extends FilterableManifest<T>> implements Parser<T> {
 
   private final Parser<? extends T> parser;
-  @Nullable private final List<StreamKey> streamKeys;
+  private final @Nullable List<StreamKey> streamKeys;
 
   /**
    * @param parser A parser for the manifest that will be filtered.

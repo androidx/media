@@ -30,9 +30,7 @@ import android.os.Bundle;
 import androidx.annotation.CheckResult;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.math.LongMath;
@@ -45,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents ad group times and information on the state and URIs of ads within each ad group.
@@ -83,10 +82,10 @@ public final class AdPlaybackState {
     /**
      * @deprecated Use {@link #mediaItems} instead.
      */
-    @Deprecated public final @NullableType Uri[] uris;
+    @Deprecated public final @Nullable Uri[] uris;
 
     /** The {@link MediaItem} instances for each ad in the ad group, or null if not yet known. */
-    public final @NullableType MediaItem[] mediaItems;
+    public final @Nullable MediaItem[] mediaItems;
 
     /** The state of each ad in the ad group. */
     public final @AdState int[] states;
@@ -95,10 +94,10 @@ public final class AdPlaybackState {
     public final long[] durationsUs;
 
     /** The optional IDs of the ads. */
-    public final @NullableType String[] ids;
+    public final @Nullable String[] ids;
 
     /** The skip information for each ad in the ad group. */
-    public final @NullableType SkipInfo[] skipInfos;
+    public final @Nullable SkipInfo[] skipInfos;
 
     /**
      * The offset in microseconds which should be added to the content stream when resuming playback
@@ -139,12 +138,12 @@ public final class AdPlaybackState {
         int count,
         int originalCount,
         @AdState int[] states,
-        @NullableType MediaItem[] mediaItems,
+        @Nullable MediaItem[] mediaItems,
         long[] durationsUs,
         long contentResumeOffsetUs,
         boolean isServerSideInserted,
-        @NullableType String[] ids,
-        @NullableType SkipInfo[] skipInfos,
+        @Nullable String[] ids,
+        @Nullable SkipInfo[] skipInfos,
         boolean isPlaceholder) {
       checkArgument(states.length == mediaItems.length);
       checkArgument(states.length == skipInfos.length);
@@ -294,9 +293,9 @@ public final class AdPlaybackState {
     public AdGroup withAdCount(int count) {
       @AdState int[] states = copyStatesWithSpaceForAdCount(this.states, count);
       long[] durationsUs = copyDurationsUsWithSpaceForAdCount(this.durationsUs, count);
-      @NullableType MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, count);
-      @NullableType String[] ids = Arrays.copyOf(this.ids, count);
-      @NullableType SkipInfo[] skipInfos = copySkipInfosWithSpaceForAdCount(this.skipInfos, count);
+      @Nullable MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, count);
+      @Nullable String[] ids = Arrays.copyOf(this.ids, count);
+      @Nullable SkipInfo[] skipInfos = copySkipInfosWithSpaceForAdCount(this.skipInfos, count);
       return new AdGroup(
           timeUs,
           count,
@@ -331,14 +330,12 @@ public final class AdPlaybackState {
           this.durationsUs.length == states.length
               ? this.durationsUs
               : copyDurationsUsWithSpaceForAdCount(this.durationsUs, states.length);
-      @NullableType MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, states.length);
+      @Nullable MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, states.length);
       mediaItems[index] = mediaItem;
       states[index] = AD_STATE_AVAILABLE;
-      @NullableType
-      String[] ids =
+      @Nullable String[] ids =
           this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
-      @NullableType
-      SkipInfo[] skipInfos =
+      @Nullable SkipInfo[] skipInfos =
           this.skipInfos.length == states.length
               ? this.skipInfos
               : copySkipInfosWithSpaceForAdCount(this.skipInfos, states.length);
@@ -376,17 +373,14 @@ public final class AdPlaybackState {
           this.durationsUs.length == states.length
               ? this.durationsUs
               : copyDurationsUsWithSpaceForAdCount(this.durationsUs, states.length);
-      @NullableType
-      MediaItem[] mediaItems =
+      @Nullable MediaItem[] mediaItems =
           this.mediaItems.length == states.length
               ? this.mediaItems
               : Arrays.copyOf(this.mediaItems, states.length);
-      @NullableType
-      String[] ids =
+      @Nullable String[] ids =
           this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
       states[index] = state;
-      @NullableType
-      SkipInfo[] skipInfos =
+      @Nullable SkipInfo[] skipInfos =
           this.skipInfos.length == states.length
               ? this.skipInfos
               : copySkipInfosWithSpaceForAdCount(this.skipInfos, states.length);
@@ -434,12 +428,11 @@ public final class AdPlaybackState {
           this.durationsUs.length == states.length
               ? this.durationsUs
               : copyDurationsUsWithSpaceForAdCount(this.durationsUs, states.length);
-      @NullableType
-      MediaItem[] mediaItems =
+      @Nullable MediaItem[] mediaItems =
           this.mediaItems.length == states.length
               ? this.mediaItems
               : Arrays.copyOf(this.mediaItems, states.length);
-      @NullableType String[] ids = Arrays.copyOf(this.ids, states.length);
+      @Nullable String[] ids = Arrays.copyOf(this.ids, states.length);
       ids[index] = adId;
       return new AdGroup(
           timeUs,
@@ -463,16 +456,14 @@ public final class AdPlaybackState {
           this.durationsUs.length == states.length
               ? this.durationsUs
               : copyDurationsUsWithSpaceForAdCount(this.durationsUs, states.length);
-      @NullableType
-      MediaItem[] mediaItems =
+      @Nullable MediaItem[] mediaItems =
           this.mediaItems.length == states.length
               ? this.mediaItems
               : Arrays.copyOf(this.mediaItems, states.length);
-      @NullableType
-      String[] ids =
+      @Nullable String[] ids =
           this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
-      @NullableType
-      SkipInfo[] skipInfos = copySkipInfosWithSpaceForAdCount(this.skipInfos, states.length);
+      @Nullable SkipInfo[] skipInfos =
+          copySkipInfosWithSpaceForAdCount(this.skipInfos, states.length);
       skipInfos[index] = skipInfo;
       return new AdGroup(
           timeUs,
@@ -545,13 +536,13 @@ public final class AdPlaybackState {
     public AdGroup withLastAdRemoved() {
       int newCount = states.length - 1;
       @AdState int[] newStates = Arrays.copyOf(states, newCount);
-      @NullableType MediaItem[] newMediaItems = Arrays.copyOf(mediaItems, newCount);
+      @Nullable MediaItem[] newMediaItems = Arrays.copyOf(mediaItems, newCount);
       long[] newDurationsUs = durationsUs;
       if (durationsUs.length > newCount) {
         newDurationsUs = Arrays.copyOf(durationsUs, newCount);
       }
-      @NullableType String[] newIds = Arrays.copyOf(ids, newCount);
-      @NullableType SkipInfo[] newSkipInfos = Arrays.copyOf(skipInfos, newCount);
+      @Nullable String[] newIds = Arrays.copyOf(ids, newCount);
+      @Nullable SkipInfo[] newSkipInfos = Arrays.copyOf(skipInfos, newCount);
       return new AdGroup(
           timeUs,
           newCount,
@@ -764,8 +755,8 @@ public final class AdPlaybackState {
     }
 
     @CheckResult
-    private static @NullableType SkipInfo[] copySkipInfosWithSpaceForAdCount(
-        @NullableType SkipInfo[] skipInfos, int count) {
+    private static @Nullable SkipInfo[] copySkipInfosWithSpaceForAdCount(
+        @Nullable SkipInfo[] skipInfos, int count) {
       int oldSkipInfoCount = skipInfos.length;
       int newSkipInfoCount = max(count, oldSkipInfoCount);
       skipInfos = Arrays.copyOf(skipInfos, newSkipInfoCount);
@@ -807,8 +798,7 @@ public final class AdPlaybackState {
       bundle.putLong(FIELD_TIME_US, timeUs);
       bundle.putInt(FIELD_COUNT, count);
       bundle.putInt(FIELD_ORIGINAL_COUNT, originalCount);
-      bundle.putParcelableArrayList(
-          FIELD_URIS, new ArrayList<@NullableType Uri>(Arrays.asList(uris)));
+      bundle.putParcelableArrayList(FIELD_URIS, new ArrayList<@Nullable Uri>(Arrays.asList(uris)));
       bundle.putParcelableArrayList(FIELD_MEDIA_ITEMS, getMediaItemsArrayBundles(interfaceVersion));
       bundle.putIntArray(FIELD_STATES, states);
       bundle.putLongArray(FIELD_DURATIONS_US, durationsUs);
@@ -841,19 +831,15 @@ public final class AdPlaybackState {
       long timeUs = bundle.getLong(FIELD_TIME_US);
       int count = bundle.getInt(FIELD_COUNT);
       int originalCount = bundle.getInt(FIELD_ORIGINAL_COUNT);
-      @Nullable ArrayList<@NullableType Uri> uriList = bundle.getParcelableArrayList(FIELD_URIS);
-      @Nullable
-      ArrayList<@NullableType Bundle> mediaItemBundleList =
+      @Nullable ArrayList<@Nullable Uri> uriList = bundle.getParcelableArrayList(FIELD_URIS);
+      @Nullable ArrayList<@Nullable Bundle> mediaItemBundleList =
           bundle.getParcelableArrayList(FIELD_MEDIA_ITEMS);
-      @Nullable
-      @AdState
-      int[] states = bundle.getIntArray(FIELD_STATES);
-      @Nullable long[] durationsUs = bundle.getLongArray(FIELD_DURATIONS_US);
+      @AdState int @Nullable [] states = bundle.getIntArray(FIELD_STATES);
+      long @Nullable [] durationsUs = bundle.getLongArray(FIELD_DURATIONS_US);
       long contentResumeOffsetUs = bundle.getLong(FIELD_CONTENT_RESUME_OFFSET_US);
       boolean isServerSideInserted = bundle.getBoolean(FIELD_IS_SERVER_SIDE_INSERTED);
       @Nullable ArrayList<String> ids = bundle.getStringArrayList(FIELD_IDS);
-      @Nullable
-      ArrayList<@NullableType Bundle> skipInfoBundleList =
+      @Nullable ArrayList<@Nullable Bundle> skipInfoBundleList =
           bundle.getParcelableArrayList(FIELD_SKIP_INFOS);
       boolean isPlaceholder = bundle.getBoolean(FIELD_IS_PLACEHOLDER);
       return new AdGroup(
@@ -872,16 +858,16 @@ public final class AdPlaybackState {
           isPlaceholder);
     }
 
-    private ArrayList<@NullableType Bundle> getSkipInfoArrayBundles() {
-      ArrayList<@NullableType Bundle> bundles = new ArrayList<>();
+    private ArrayList<@Nullable Bundle> getSkipInfoArrayBundles() {
+      ArrayList<@Nullable Bundle> bundles = new ArrayList<>();
       for (@Nullable SkipInfo skipInfo : skipInfos) {
         bundles.add(skipInfo == null ? null : skipInfo.toBundle());
       }
       return bundles;
     }
 
-    private ArrayList<@NullableType Bundle> getMediaItemsArrayBundles(int interfaceVersion) {
-      ArrayList<@NullableType Bundle> bundles = new ArrayList<>();
+    private ArrayList<@Nullable Bundle> getMediaItemsArrayBundles(int interfaceVersion) {
+      ArrayList<@Nullable Bundle> bundles = new ArrayList<>();
       for (@Nullable MediaItem mediaItem : mediaItems) {
         bundles.add(
             mediaItem == null
@@ -891,12 +877,12 @@ public final class AdPlaybackState {
       return bundles;
     }
 
-    private static @NullableType MediaItem[] getMediaItemsFromBundleArrays(
-        @Nullable ArrayList<@NullableType Bundle> mediaItemBundleList,
-        @Nullable ArrayList<@NullableType Uri> uriList,
+    private static @Nullable MediaItem[] getMediaItemsFromBundleArrays(
+        @Nullable ArrayList<@Nullable Bundle> mediaItemBundleList,
+        @Nullable ArrayList<@Nullable Uri> uriList,
         int interfaceVersion) {
       if (mediaItemBundleList != null) {
-        @NullableType MediaItem[] mediaItems = new MediaItem[mediaItemBundleList.size()];
+        @Nullable MediaItem[] mediaItems = new MediaItem[mediaItemBundleList.size()];
         for (int i = 0; i < mediaItemBundleList.size(); i++) {
           @Nullable Bundle mediaItemBundle = mediaItemBundleList.get(i);
           mediaItems[i] =
@@ -906,7 +892,7 @@ public final class AdPlaybackState {
         }
         return mediaItems;
       } else if (uriList != null) {
-        @NullableType MediaItem[] mediaItems = new MediaItem[uriList.size()];
+        @Nullable MediaItem[] mediaItems = new MediaItem[uriList.size()];
         for (int i = 0; i < uriList.size(); i++) {
           @Nullable Uri uri = uriList.get(i);
           mediaItems[i] = uri == null ? null : MediaItem.fromUri(uri);
@@ -917,9 +903,9 @@ public final class AdPlaybackState {
       }
     }
 
-    private static @NullableType SkipInfo[] getSkipInfosFromBundleArrays(
-        List<@NullableType Bundle> skipInfoBundleList) {
-      @NullableType SkipInfo[] skipInfos = new SkipInfo[skipInfoBundleList.size()];
+    private static @Nullable SkipInfo[] getSkipInfosFromBundleArrays(
+        List<@Nullable Bundle> skipInfoBundleList) {
+      @Nullable SkipInfo[] skipInfos = new SkipInfo[skipInfoBundleList.size()];
       for (int i = 0; i < skipInfoBundleList.size(); i++) {
         @Nullable Bundle skipInfoBundle = skipInfoBundleList.get(i);
         skipInfos[i] = skipInfoBundle == null ? null : SkipInfo.fromBundle(skipInfoBundle);
@@ -986,7 +972,7 @@ public final class AdPlaybackState {
     public final long skipDurationUs;
 
     /** The identifier for the label to be displayed in the UI, or null if unset. */
-    @Nullable public final String labelId;
+    public final @Nullable String labelId;
 
     /** Creates an instance. */
     public SkipInfo(long skipOffsetUs, long skipDurationUs, @Nullable String labelId) {
@@ -1058,7 +1044,7 @@ public final class AdPlaybackState {
   /**
    * The opaque identifier for ads with which this instance is associated, or {@code null} if unset.
    */
-  @Nullable public final Object adsId;
+  public final @Nullable Object adsId;
 
   /** The number of ad groups. */
   public final int adGroupCount;
@@ -1916,7 +1902,7 @@ public final class AdPlaybackState {
    */
   public static AdPlaybackState fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable ArrayList<Bundle> adGroupBundleList = bundle.getParcelableArrayList(FIELD_AD_GROUPS);
-    @Nullable AdGroup[] adGroups;
+    AdGroup @Nullable [] adGroups;
     if (adGroupBundleList == null) {
       adGroups = new AdGroup[0];
     } else {

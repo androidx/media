@@ -28,7 +28,6 @@ import static java.lang.Math.min;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.SparseIntArray;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.DrmInitData;
@@ -38,7 +37,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.HttpDataSource;
@@ -91,6 +89,7 @@ import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Loads {@link HlsMediaChunk}s obtained from a {@link HlsChunkSource}, and provides {@link
@@ -141,7 +140,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final Callback callback;
   private final HlsChunkSource chunkSource;
   private final Allocator allocator;
-  @Nullable private final Format muxedAudioFormat;
+  private final @Nullable Format muxedAudioFormat;
   private final DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -158,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final ArrayList<HlsSampleStream> hlsSampleStreams;
   private final Map<String, DrmInitData> overridingDrmInitData;
 
-  @Nullable private Chunk loadingChunk;
+  private @Nullable Chunk loadingChunk;
   private HlsSampleQueue[] sampleQueues;
   private int[] sampleQueueTrackIds;
   private Set<Integer> sampleQueueMappingDoneByType;
@@ -170,7 +169,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private boolean prepared;
   private int enabledTrackGroupCount;
   private @MonotonicNonNull Format upstreamTrackFormat;
-  @Nullable private Format downstreamTrackFormat;
+  private @Nullable Format downstreamTrackFormat;
   private boolean released;
 
   // Tracks are complicated in HLS. See documentation of buildTracksFromSampleStreams for details.
@@ -194,8 +193,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   // Accessed only by the loading thread.
   private boolean tracksEnded;
   private long sampleOffsetUs;
-  @Nullable private DrmInitData drmInitData;
-  @Nullable private HlsMediaChunk sourceChunk;
+  private @Nullable DrmInitData drmInitData;
+  private @Nullable HlsMediaChunk sourceChunk;
 
   /**
    * @param uid A identifier for this sample stream wrapper. Identifiers must be unique within the
@@ -363,9 +362,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *     part of the track selection.
    */
   public boolean selectTracks(
-      @NullableType ExoTrackSelection[] selections,
+      @Nullable ExoTrackSelection[] selections,
       boolean[] mayRetainStreamFlags,
-      @NullableType SampleStream[] streams,
+      @Nullable SampleStream[] streams,
       boolean[] streamResetFlags,
       long positionUs,
       boolean forceReset) {
@@ -520,10 +519,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (chunkSource.hasIndependentSegments()) {
       for (int i = 0; i < mediaChunks.size(); i++) {
         HlsMediaChunk mediaChunk = mediaChunks.get(i);
+        if (mediaChunk.shouldSpliceIn()) {
+          // A spliced-in chunk potentially removed sample metadata from previous chunks.
+          seekToMediaChunk = null;
+          continue;
+        }
         long mediaChunkStartTimeUs = mediaChunk.startTimeUs;
-        if (mediaChunkStartTimeUs == positionUs) {
+        if (seekToMediaChunk == null && mediaChunkStartTimeUs == positionUs) {
           seekToMediaChunk = mediaChunk;
-          break;
         }
       }
     }
@@ -615,7 +618,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // Return early if the chunk source doesn't deliver chunks for the failing playlist.
       return false;
     }
-    @Nullable LoadErrorHandlingPolicy.FallbackSelection fallbackSelection = null;
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection = null;
     if (!forceRetry) {
       LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
           chunkSource.createFallbackOptions(playlistUrl);
@@ -1122,8 +1125,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadErrorAction loadErrorAction;
     LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
         chunkSource.createFallbackOptions(loadable);
-    @Nullable
-    LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
+    LoadErrorHandlingPolicy.@Nullable FallbackSelection fallbackSelection =
         loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     boolean exclusionSucceeded = chunkSource.onChunkError(loadable, fallbackSelection);
 
@@ -1132,7 +1134,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         HlsMediaChunk removed = mediaChunks.remove(mediaChunks.size() - 1);
         checkState(removed == loadable);
         if (mediaChunks.isEmpty()) {
-          pendingResetPositionUs = lastSeekPositionUs;
+          pendingResetPositionUs = max(lastSeekPositionUs, removed.startTimeUs);
         } else {
           getLast(mediaChunks).invalidateExtractor();
         }
@@ -1279,8 +1281,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param type The type of the track, must be one of {@link #MAPPABLE_TYPES}.
    * @return The mapped {@link TrackOutput}, or null if it's not been created yet.
    */
-  @Nullable
-  private TrackOutput getMappedTrackOutput(int id, int type) {
+  private @Nullable TrackOutput getMappedTrackOutput(int id, int type) {
     checkArgument(MAPPABLE_TYPES.contains(type));
     int sampleQueueIndex = sampleQueueIndicesByType.get(type, C.INDEX_UNSET);
     if (sampleQueueIndex == C.INDEX_UNSET) {
@@ -1408,7 +1409,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   // Internal methods.
 
-  private void updateSampleStreams(@NullableType SampleStream[] streams) {
+  private void updateSampleStreams(@Nullable SampleStream[] streams) {
     hlsSampleStreams.clear();
     for (@Nullable SampleStream stream : streams) {
       if (stream != null) {
@@ -1555,8 +1556,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int primaryExtractorTrackIndex = C.INDEX_UNSET;
     int extractorTrackCount = sampleQueues.length;
     for (int i = 0; i < extractorTrackCount; i++) {
-      @Nullable
-      String sampleMimeType = checkNotNull(sampleQueues[i].getUpstreamFormat()).sampleMimeType;
+      @Nullable String sampleMimeType =
+          checkNotNull(sampleQueues[i].getUpstreamFormat()).sampleMimeType;
       int trackType;
       if (MimeTypes.isVideo(sampleMimeType)) {
         trackType = C.TRACK_TYPE_VIDEO;
@@ -1610,8 +1611,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         trackGroups[i] = new TrackGroup(uid, formats);
         primaryTrackGroupIndex = i;
       } else {
-        @Nullable
-        Format playlistFormat =
+        @Nullable Format playlistFormat =
             primaryExtractorTrackType == C.TRACK_TYPE_VIDEO
                     && MimeTypes.isAudio(sampleFormat.sampleMimeType)
                 ? muxedAudioFormat
@@ -1852,7 +1852,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // private long maxAllowedSampleTimeUs;
 
     private final Map<String, DrmInitData> overridingDrmInitData;
-    @Nullable private DrmInitData drmInitData;
+    private @Nullable DrmInitData drmInitData;
 
     private HlsSampleQueue(
         Allocator allocator,
@@ -1886,11 +1886,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @SuppressWarnings("ReferenceEquality")
     @Override
     public Format getAdjustedUpstreamFormat(Format format) {
-      @Nullable
-      DrmInitData drmInitData = this.drmInitData != null ? this.drmInitData : format.drmInitData;
+      @Nullable DrmInitData drmInitData =
+          this.drmInitData != null ? this.drmInitData : format.drmInitData;
       if (drmInitData != null) {
-        @Nullable
-        DrmInitData overridingDrmInitData = this.overridingDrmInitData.get(drmInitData.schemeType);
+        @Nullable DrmInitData overridingDrmInitData =
+            this.overridingDrmInitData.get(drmInitData.schemeType);
         if (overridingDrmInitData != null) {
           drmInitData = overridingDrmInitData;
         }
@@ -1906,8 +1906,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
      * Strips the private timestamp frame from metadata, if present. See:
      * https://github.com/google/ExoPlayer/issues/5063
      */
-    @Nullable
-    private Metadata getAdjustedMetadata(@Nullable Metadata metadata) {
+    private @Nullable Metadata getAdjustedMetadata(@Nullable Metadata metadata) {
       if (metadata == null) {
         return null;
       }

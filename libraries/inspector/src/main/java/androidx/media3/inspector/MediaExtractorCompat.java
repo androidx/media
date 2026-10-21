@@ -29,7 +29,6 @@ import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.PersistableBundle;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -62,6 +61,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A drop-in replacement for {@link MediaExtractor} that provides similar functionality, based on
@@ -445,8 +445,7 @@ public final class MediaExtractorCompat {
    * @return The {@link DrmInitData} in the content, or {@code null} if no recognizable DRM format
    *     is found.
    */
-  @Nullable
-  public DrmInitData getDrmInitData() {
+  public @Nullable DrmInitData getDrmInitData() {
     return delegate.getDrmInitData();
   }
 
@@ -486,8 +485,7 @@ public final class MediaExtractorCompat {
    *     scheme, and the byte array contains the scheme-specific data. Returns {@code null} if no
    *     PSSH data exists.
    */
-  @Nullable
-  public Map<UUID, byte[]> getPsshInfo() {
+  public @Nullable Map<UUID, byte[]> getPsshInfo() {
     return delegate.getPsshInfo();
   }
 
@@ -504,9 +502,9 @@ public final class MediaExtractorCompat {
 
     private static final DataSource.Factory FACTORY = MediaExtractorDataSource::new;
 
-    @Nullable private DataSource fileDataSource;
-    @Nullable private DataSource httpDataSource;
-    @Nullable private DataSource currentDataSource;
+    private @Nullable DataSource fileDataSource;
+    private @Nullable DataSource httpDataSource;
+    private @Nullable DataSource currentDataSource;
 
     @Override
     public void addTransferListener(TransferListener transferListener) {
@@ -544,8 +542,7 @@ public final class MediaExtractorCompat {
     }
 
     @Override
-    @Nullable
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return currentDataSource == null ? null : currentDataSource.getUri();
     }
 

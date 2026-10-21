@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
@@ -42,6 +41,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides some specific MP4 metadata about an mp4 file such as the duration, last sync sample
@@ -74,10 +74,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public final boolean isFirstVideoSampleAfterTimeUsSyncSample;
 
   /** The video {@link Format} or {@code null} if there is no video track. */
-  @Nullable public final Format videoFormat;
+  public final @Nullable Format videoFormat;
 
   /** The audio {@link Format} or {@code null} if there is no audio track. */
-  @Nullable public final Format audioFormat;
+  public final @Nullable Format audioFormat;
 
   private Mp4Info(
       long durationUs,
@@ -225,7 +225,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public int videoTrackId;
     public int audioTrackId;
     public boolean seekMapInitialized;
-    @Nullable public TrackAwareSeekMap seekMap;
+    public @Nullable TrackAwareSeekMap seekMap;
 
     final Map<Integer, TrackOutputImpl> trackTypeToTrackOutput;
 

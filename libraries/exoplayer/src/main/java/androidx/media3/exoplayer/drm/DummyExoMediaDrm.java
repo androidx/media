@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.drm;
 
 import android.media.MediaDrmException;
 import android.os.PersistableBundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.util.UnstableApi;
@@ -26,6 +25,7 @@ import androidx.media3.decoder.CryptoConfig;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExoMediaDrm} that does not support any protection schemes. */
 @UnstableApi
@@ -72,8 +72,7 @@ public final class DummyExoMediaDrm implements ExoMediaDrm {
   }
 
   @Override
-  @Nullable
-  public byte[] provideKeyResponse(byte[] scope, byte[] response) {
+  public byte @Nullable [] provideKeyResponse(byte[] scope, byte[] response) {
     // Should not be invoked. No session should exist.
     throw new IllegalStateException();
   }
@@ -119,8 +118,7 @@ public final class DummyExoMediaDrm implements ExoMediaDrm {
   }
 
   @Override
-  @Nullable
-  public PersistableBundle getMetrics() {
+  public @Nullable PersistableBundle getMetrics() {
     return null;
   }
 

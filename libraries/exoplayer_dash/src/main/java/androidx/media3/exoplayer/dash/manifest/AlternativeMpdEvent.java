@@ -20,7 +20,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +30,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** An Alternative MPD Insertion or Replacement event, as defined by ISO/IEC 23009-1 clause 5.16. */
 @UnstableApi
@@ -47,7 +47,7 @@ public final class AlternativeMpdEvent {
     private long durationUs;
     private Uri uri;
     private long earliestResolutionTimeOffsetUs;
-    @Nullable private String serviceDescriptionId;
+    private @Nullable String serviceDescriptionId;
     private long maxDurationUs;
     private boolean executeOnce;
     private @NoJumpMode int noJump;
@@ -308,7 +308,7 @@ public final class AlternativeMpdEvent {
   public final long earliestResolutionTimeOffsetUs;
 
   /** The {@code @serviceDescriptionId}, or null if absent. */
-  @Nullable public final String serviceDescriptionId;
+  public final @Nullable String serviceDescriptionId;
 
   /** APDmax in microseconds, or {@link C#TIME_UNSET} if unbounded. Zero disables the event. */
   public final long maxDurationUs;

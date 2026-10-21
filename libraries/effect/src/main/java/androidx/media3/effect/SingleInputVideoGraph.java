@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -41,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link VideoGraph} that handles one input stream. */
 @UnstableApi
@@ -54,8 +54,8 @@ public class SingleInputVideoGraph implements VideoGraph {
   private final Executor listenerExecutor;
   private final boolean renderFramesAutomatically;
 
-  @Nullable private VideoFrameProcessor videoFrameProcessor;
-  @Nullable private SurfaceInfo outputSurfaceInfo;
+  private @Nullable VideoFrameProcessor videoFrameProcessor;
+  private @Nullable SurfaceInfo outputSurfaceInfo;
   private ImmutableList<Effect> compositionEffects;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;

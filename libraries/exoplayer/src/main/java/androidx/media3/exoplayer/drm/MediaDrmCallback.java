@@ -15,13 +15,13 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Performs {@link ExoMediaDrm} key and provisioning requests. */
 @UnstableApi
@@ -35,7 +35,7 @@ public interface MediaDrmCallback {
 
       private final byte[] data;
 
-      @Nullable private LoadEventInfo loadEventInfo;
+      private @Nullable LoadEventInfo loadEventInfo;
 
       /** Constructs an instance. */
       public Builder(byte[] data) {
@@ -59,7 +59,7 @@ public interface MediaDrmCallback {
     public final byte[] data;
 
     /** The optional load info associated with this response. */
-    @Nullable public final LoadEventInfo loadEventInfo;
+    public final @Nullable LoadEventInfo loadEventInfo;
 
     /** Constructs an instance. */
     public Response(byte[] data) {

@@ -15,12 +15,12 @@
  */
 package androidx.media3.transformer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.transformer.Composition.HdrMode;
 import java.util.Objects;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A test only class for holding the details of what fallbacks were applied during a test export.
@@ -32,11 +32,11 @@ import org.json.JSONObject;
   public final int originalOutputHeight;
   public final int fallbackOutputHeight;
 
-  @Nullable public final String originalAudioMimeType;
-  @Nullable public final String fallbackAudioMimeType;
+  public final @Nullable String originalAudioMimeType;
+  public final @Nullable String fallbackAudioMimeType;
 
-  @Nullable public final String originalVideoMimeType;
-  @Nullable public final String fallbackVideoMimeType;
+  public final @Nullable String originalVideoMimeType;
+  public final @Nullable String fallbackVideoMimeType;
 
   public final @HdrMode int originalHdrMode;
   public final @HdrMode int fallbackHdrMode;

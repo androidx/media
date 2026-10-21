@@ -17,7 +17,6 @@ package androidx.media3.effect;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -27,6 +26,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
+import org.jspecify.annotations.Nullable;
 
 /** Holds {@code capacity} textures, to re-use textures. */
 /* package */ final class TexturePool {
@@ -114,8 +114,7 @@ import java.util.Iterator;
   }
 
   /** Returns the {@link GlTextureInfo} that is most recently {@linkplain #useTexture used}. */
-  @Nullable
-  public GlTextureInfo getMostRecentlyUsedTexture() {
+  public @Nullable GlTextureInfo getMostRecentlyUsedTexture() {
     if (inUseTextures.isEmpty()) {
       return null;
     }

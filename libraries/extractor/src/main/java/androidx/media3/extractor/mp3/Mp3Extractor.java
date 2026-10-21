@@ -21,7 +21,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -57,6 +56,7 @@ import java.math.RoundingMode;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts data from the MP3 container format. */
 @UnstableApi
@@ -180,8 +180,8 @@ public final class Mp3Extractor implements Extractor {
 
   private int synchronizedHeaderData;
 
-  @Nullable private Metadata id3Metadata;
-  @Nullable private Metadata xingMetadata;
+  private @Nullable Metadata id3Metadata;
+  private @Nullable Metadata xingMetadata;
   private long basisTimeUs;
   private long samplesRead;
   private long firstSamplePosition;
@@ -588,8 +588,7 @@ public final class Mp3Extractor implements Extractor {
    * @throws IOException Thrown if there was an error reading from the stream. Not expected if the
    *     next two frames were already peeked during synchronization.
    */
-  @Nullable
-  private Seeker maybeReadSeekFrame(ExtractorInput input) throws IOException {
+  private @Nullable Seeker maybeReadSeekFrame(ExtractorInput input) throws IOException {
     ParsableByteArray frame = new ParsableByteArray(synchronizedHeader.frameSize);
     input.peekFully(frame.getData(), 0, synchronizedHeader.frameSize);
     int xingBase =
@@ -658,8 +657,7 @@ public final class Mp3Extractor implements Extractor {
    * @return A {@link Seeker} if the {@link XingFrame} contains enough info to seek, or {@code null}
    *     otherwise.
    */
-  @Nullable
-  private Seeker getConstantBitrateSeeker(
+  private @Nullable Seeker getConstantBitrateSeeker(
       long infoFramePosition, XingFrame infoFrame, long fallbackStreamLength) {
     long durationUs = infoFrame.computeDurationUs();
     if (durationUs == C.TIME_UNSET) {
@@ -753,8 +751,7 @@ public final class Mp3Extractor implements Extractor {
     return SEEK_HEADER_UNSET;
   }
 
-  @Nullable
-  private static MlltSeeker maybeHandleSeekMetadata(
+  private static @Nullable MlltSeeker maybeHandleSeekMetadata(
       @Nullable Metadata metadata, long firstFramePosition) {
     if (metadata == null) {
       return null;

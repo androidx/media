@@ -22,7 +22,6 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
@@ -34,6 +33,7 @@ import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -134,7 +134,7 @@ public class Mp4PlaybackTest {
 
   private static final class Sample {
     private final String filename;
-    @Nullable private final String subtitleLanguageToSelect;
+    private final @Nullable String subtitleLanguageToSelect;
     private final boolean hasBitmapSubtitles;
 
     private Sample(

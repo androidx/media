@@ -32,7 +32,6 @@ import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -40,7 +39,6 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.TrackSelectionParameters;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +53,7 @@ import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A button for a {@link SessionCommand} or {@link Player.Command} that can be displayed by
@@ -513,15 +512,15 @@ public final class CommandButton {
 
     private final @Icon int icon;
 
-    @Nullable private SessionCommand sessionCommand;
+    private @Nullable SessionCommand sessionCommand;
     private @Player.Command int playerCommand;
     @DrawableRes private int iconResId;
-    @Nullable private Uri iconUri;
+    private @Nullable Uri iconUri;
     private CharSequence displayName;
     private Bundle extras;
     private boolean enabled;
-    @Nullable private ImmutableIntArray slots;
-    @Nullable private Object parameter;
+    private @Nullable ImmutableIntArray slots;
+    private @Nullable Object parameter;
 
     /**
      * @deprecated Use {@link #Builder(int)} instead to define the {@link Icon} for this button. A
@@ -828,8 +827,8 @@ public final class CommandButton {
     public static final class Builder {
 
       private final SparseIntArray maxButtonsPerSlot;
-      private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
-      private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+      private final SparseArray<Player.@Nullable Commands> allowedPlayerCommandsPerSlot;
+      private final SparseArray<@Nullable SessionCommands> allowedSessionCommandsPerSlot;
       private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
       private boolean buildCalled;
 
@@ -879,7 +878,7 @@ public final class CommandButton {
        */
       @CanIgnoreReturnValue
       public Builder setAllowedPlayerCommandsForSlot(
-          @Slot int slot, @Nullable Player.Commands allowedPlayerCommands) {
+          @Slot int slot, Player.@Nullable Commands allowedPlayerCommands) {
         allowedPlayerCommandsPerSlot.put(slot, allowedPlayerCommands);
         return this;
       }
@@ -930,8 +929,8 @@ public final class CommandButton {
     }
 
     private final SparseIntArray maxButtonsPerSlot;
-    private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
-    private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+    private final SparseArray<Player.@Nullable Commands> allowedPlayerCommandsPerSlot;
+    private final SparseArray<@Nullable SessionCommands> allowedSessionCommandsPerSlot;
     private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
 
     private DisplayConstraints(Builder builder) {
@@ -1050,7 +1049,7 @@ public final class CommandButton {
       }
       boolean canReserveSlot;
       if (button.playerCommand != Player.COMMAND_INVALID) {
-        @Nullable Player.Commands allowedCommands = allowedPlayerCommandsPerSlot.get(slot);
+        Player.@Nullable Commands allowedCommands = allowedPlayerCommandsPerSlot.get(slot);
         canReserveSlot = allowedCommands == null || allowedCommands.contains(button.playerCommand);
       } else if (checkNotNull(button.sessionCommand).commandCode == COMMAND_CODE_CUSTOM) {
         canReserveSlot = areCustomCommandsAllowedPerSlot.get(slot, /* valueIfKeyNotFound= */ true);
@@ -1200,7 +1199,7 @@ public final class CommandButton {
   }
 
   /** The session command of the button. Will be {@code null} if {@link #playerCommand} is set. */
-  @Nullable public final SessionCommand sessionCommand;
+  public final @Nullable SessionCommand sessionCommand;
 
   /**
    * The {@link Player.Command} command of the button. Will be {@link Player#COMMAND_INVALID} if
@@ -1233,7 +1232,7 @@ public final class CommandButton {
    * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
    * capable of loading the content or resource {@link Uri}.
    */
-  @Nullable public final Uri iconUri;
+  public final @Nullable Uri iconUri;
 
   /**
    * The display name of the button. Can be empty if the command is predefined and a custom name
@@ -1273,7 +1272,7 @@ public final class CommandButton {
    * The optional parameter needed to execute the action associated with this button via {@link
    * #executeAction(MediaController)}.
    */
-  @UnstableApi @Nullable public final Object parameter;
+  @UnstableApi public final @Nullable Object parameter;
 
   private CommandButton(
       @Nullable SessionCommand sessionCommand,
@@ -1761,8 +1760,7 @@ public final class CommandButton {
   @UnstableApi
   public static CommandButton fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable Bundle sessionCommandBundle = bundle.getBundle(FIELD_SESSION_COMMAND);
-    @Nullable
-    SessionCommand sessionCommand =
+    @Nullable SessionCommand sessionCommand =
         sessionCommandBundle == null ? null : SessionCommand.fromBundle(sessionCommandBundle);
     @Player.Command
     int playerCommand =
@@ -1776,13 +1774,10 @@ public final class CommandButton {
         interfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
     @Nullable Uri iconUri = bundle.getParcelable(FIELD_ICON_URI);
     @Icon int icon = bundle.getInt(FIELD_ICON, /* defaultValue= */ ICON_UNDEFINED);
-    @Nullable
-    @Slot
-    int[] slots = bundle.getIntArray(FIELD_SLOTS);
+    @Slot int @Nullable [] slots = bundle.getIntArray(FIELD_SLOTS);
     Builder builder = new Builder(icon, iconResId);
     if (sessionCommand != null) {
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               bundle,
               FIELD_PARAMETER,
@@ -1791,8 +1786,7 @@ public final class CommandButton {
       builder.setSessionCommand(sessionCommand, parameter);
     }
     if (playerCommand != Player.COMMAND_INVALID) {
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               bundle,
               FIELD_PARAMETER,
@@ -2166,8 +2160,7 @@ public final class CommandButton {
       int playerCommand =
           getPredefinedCustomCommandCode(
               customCommand.customAction, CUSTOM_COMMAND_PLAYER_COMMAND_PREFIX);
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               customCommand.customExtras,
               CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
@@ -2181,8 +2174,7 @@ public final class CommandButton {
       int sessionCommand =
           getPredefinedCustomCommandCode(
               customCommand.customAction, CUSTOM_COMMAND_SESSION_COMMAND_PREFIX);
-      @Nullable
-      Object parameter =
+      @Nullable Object parameter =
           getParameterFromBundle(
               customCommand.customExtras,
               CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
@@ -2238,8 +2230,7 @@ public final class CommandButton {
     }
   }
 
-  @Nullable
-  private static Object verifyParameterType(
+  private static @Nullable Object verifyParameterType(
       @Nullable Object parameter, @ParameterType int parameterType) {
     if (parameter == null) {
       return null;
@@ -2320,8 +2311,7 @@ public final class CommandButton {
     }
   }
 
-  @Nullable
-  private static Object getParameterFromBundle(
+  private static @Nullable Object getParameterFromBundle(
       Bundle bundle, String bundleKey, @ParameterType int parameterType, int interfaceVersion) {
     if (!bundle.containsKey(bundleKey)) {
       return null;

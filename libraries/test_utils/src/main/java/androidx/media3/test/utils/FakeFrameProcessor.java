@@ -15,9 +15,9 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
@@ -30,6 +30,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 
 /** A fake {@link FrameProcessor} implementation. */
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.
@@ -38,11 +39,26 @@ public class FakeFrameProcessor implements FrameProcessor {
   /** A fake {@link FrameProcessor.Listener} implementation for tests. */
   public static class Listener implements FrameProcessor.Listener {
 
+    private static final long DEFAULT_FENCE_TIMEOUT_MS = 10_000;
+
     public final List<Frame> processedFrames;
     public final AtomicReference<VideoFrameProcessingException> error;
 
-    /** Creates a new instance. */
+    private final long fenceTimeoutMs;
+
+    /** Creates a new instance with a default fence timeout of 10 seconds. */
     public Listener() {
+      this(DEFAULT_FENCE_TIMEOUT_MS);
+    }
+
+    /**
+     * Creates a new instance.
+     *
+     * @param fenceTimeoutMs The timeout in milliseconds when awaiting {@code onCompleteFence} in
+     *     {@link #onFrameProcessed}.
+     */
+    public Listener(long fenceTimeoutMs) {
+      this.fenceTimeoutMs = fenceTimeoutMs;
       processedFrames = new CopyOnWriteArrayList<>();
       error = new AtomicReference<>();
     }
@@ -58,7 +74,11 @@ public class FakeFrameProcessor implements FrameProcessor {
     @Override
     public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
       if (onCompleteFence != null) {
-        onCompleteFence.close();
+        try {
+          checkState(onCompleteFence.awaitMs(fenceTimeoutMs), "Fence wait timeout");
+        } finally {
+          onCompleteFence.close();
+        }
       }
       processedFrames.add(frame);
     }
@@ -67,7 +87,7 @@ public class FakeFrameProcessor implements FrameProcessor {
   /** A factory for {@link FakeFrameProcessor} implementations. */
   public static class Factory implements FrameProcessor.Factory {
 
-    @Nullable public FakeFrameProcessor createdProcessor;
+    public @Nullable FakeFrameProcessor createdProcessor;
 
     private final boolean shouldCompleteIncomingFrames;
 
@@ -126,8 +146,7 @@ public class FakeFrameProcessor implements FrameProcessor {
     if (!configured && !frames.isEmpty()) {
       output.configure(frames.get(0).frame.getFormat(), /* usage= */ 0);
       configured = true;
-      @Nullable
-      AsyncFrame placeholderFrame =
+      @Nullable AsyncFrame placeholderFrame =
           output.dequeueInputFrame(directExecutor(), /* wakeupListener= */ () -> {});
       if (placeholderFrame != null) {
         if (placeholderFrame.acquireFence != null) {

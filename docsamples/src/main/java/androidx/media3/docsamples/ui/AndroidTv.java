@@ -18,8 +18,8 @@ package androidx.media3.docsamples.ui;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.KeyEvent;
-import androidx.annotation.Nullable;
 import androidx.media3.ui.PlayerView;
+import org.jspecify.annotations.Nullable;
 
 /** Snippets for androidtv.md. */
 @SuppressWarnings({"unused", "InstantiationOfAbstractClass"})

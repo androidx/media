@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -31,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for HTTP. */
 @UnstableApi
@@ -53,8 +53,7 @@ public final class HttpUtil {
    * @return The corresponding range header, or {@code null} if a header is unnecessary because the
    *     whole resource is being requested.
    */
-  @Nullable
-  public static String buildRangeRequestHeader(long position, long length) {
+  public static @Nullable String buildRangeRequestHeader(long position, long length) {
     if (position == 0 && length == C.LENGTH_UNSET) {
       return null;
     }

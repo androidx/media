@@ -20,7 +20,6 @@ import static androidx.media3.test.utils.FakeMultiPeriodLiveTimeline.PERIOD_DURA
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem.LiveConfiguration;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
 import androidx.media3.test.utils.FakeMultiPeriodLiveTimeline;
@@ -29,6 +28,7 @@ import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.TimelineAsserts;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

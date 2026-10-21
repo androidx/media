@@ -24,7 +24,6 @@ import android.media.AudioManager;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.ConditionVariable;
@@ -35,6 +34,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Compatibility layer for {@link AudioManager} with fallbacks for older Android versions. */
 @UnstableApi
@@ -93,8 +93,7 @@ public final class AudioManagerCompat {
       AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
 
   @SuppressWarnings("NonFinalStaticField") // Lazily initialized under class lock
-  @Nullable
-  private static AudioManager audioManager;
+  private static @Nullable AudioManager audioManager;
 
   @SuppressWarnings("NonFinalStaticField") // Lazily initialized under class lock
   private static @MonotonicNonNull Context applicationContext;

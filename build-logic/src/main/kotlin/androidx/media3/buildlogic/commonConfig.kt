@@ -55,7 +55,6 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
           "jsr305", // E.g. javax.annotation.meta.When.MAYBE
           "errorprone-annotations",
           "checkerframework-qual",
-          "kotlin-annotations-jvm", // E.g. MigrationStatus.STRICT
           "j2objc-annotations", // E.g. j2objc.annotations.ReflectionSupport.Level.FULL
           "animal-sniffer-annotations",
         )
@@ -99,6 +98,10 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
     compilerOptions {
       freeCompilerArgs.add("-Xannotation-default-target=param-property")
       freeCompilerArgs.add("-Xwarning-level=OPT_IN_USAGE:error")
+      // TODO: b/575756481 - Remove once kotlinGradlePlugin is upgraded to 2.3.0+.
+      // play-services-cast-framework 23.0.0 bundles internal .kotlin_module files compiled with
+      // Kotlin 2.4.0 metadata, which is incompatible with Kotlin 2.2.0's metadata version check.
+      freeCompilerArgs.add("-Xskip-metadata-version-check")
     }
   }
 

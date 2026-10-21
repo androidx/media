@@ -48,6 +48,9 @@ import androidx.mediarouter.media.MediaTransferReceiver
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that displays a media route
  * button.
  *
+ * ![MediaRouteButton
+ * image](https://developer.android.com/images/reference/androidx/media3/cast/media-route-button.svg)
+ *
  * Clicking the button displays the route chooser dialog for transferring media or the route
  * controller dialog to control the remote playback. The default behavior prioritizes launching the
  * system's route chooser / controller dialog if available and falls back to an in-app dialog

@@ -18,18 +18,17 @@ package androidx.media3.extractor.metadata;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link MetadataDecoder} base class that validates input buffers. */
 @UnstableApi
 public abstract class SimpleMetadataDecoder implements MetadataDecoder {
 
   @Override
-  @Nullable
-  public final Metadata decode(MetadataInputBuffer inputBuffer) {
+  public final @Nullable Metadata decode(MetadataInputBuffer inputBuffer) {
     ByteBuffer buffer = checkNotNull(inputBuffer.data);
     checkArgument(buffer.position() == 0 && buffer.hasArray() && buffer.arrayOffset() == 0);
     return decode(inputBuffer, buffer);
@@ -46,6 +45,5 @@ public abstract class SimpleMetadataDecoder implements MetadataDecoder {
    *     {@code 0} respectively.
    * @return The decoded metadata object, or {@code null} if the metadata could not be decoded.
    */
-  @Nullable
-  protected abstract Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer);
+  protected abstract @Nullable Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer);
 }

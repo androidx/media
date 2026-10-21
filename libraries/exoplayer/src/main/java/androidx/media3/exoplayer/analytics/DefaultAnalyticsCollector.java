@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.os.Looper;
 import android.util.SparseArray;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -65,6 +64,7 @@ import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Data collector that forwards analytics events to {@link AnalyticsListener AnalyticsListeners}.
@@ -953,8 +953,8 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
       eventPositionMs =
           timeline.isEmpty() ? 0 : timeline.getWindow(windowIndex, window).getDefaultPositionMs();
     }
-    @Nullable
-    MediaPeriodId currentMediaPeriodId = mediaPeriodQueueTracker.getCurrentPlayerMediaPeriod();
+    @Nullable MediaPeriodId currentMediaPeriodId =
+        mediaPeriodQueueTracker.getCurrentPlayerMediaPeriod();
     return new EventTime(
         realtimeMs,
         timeline,
@@ -979,8 +979,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
 
   private EventTime generateEventTime(@Nullable MediaPeriodId mediaPeriodId) {
     checkNotNull(player);
-    @Nullable
-    Timeline knownTimeline =
+    @Nullable Timeline knownTimeline =
         mediaPeriodId == null
             ? null
             : mediaPeriodQueueTracker.getMediaPeriodIdTimeline(mediaPeriodId);
@@ -1042,7 +1041,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
 
     private ImmutableList<MediaPeriodId> mediaPeriodQueue;
     private ImmutableMap<MediaPeriodId, Timeline> mediaPeriodTimelines;
-    @Nullable private MediaPeriodId currentPlayerMediaPeriod;
+    private @Nullable MediaPeriodId currentPlayerMediaPeriod;
     private @MonotonicNonNull MediaPeriodId playingMediaPeriod;
     private @MonotonicNonNull MediaPeriodId readingMediaPeriod;
 
@@ -1058,8 +1057,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null if no matching media period has been created yet.
      */
-    @Nullable
-    public MediaPeriodId getCurrentPlayerMediaPeriod() {
+    public @Nullable MediaPeriodId getCurrentPlayerMediaPeriod() {
       return currentPlayerMediaPeriod;
     }
 
@@ -1069,8 +1067,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null, if no media period has been created yet.
      */
-    @Nullable
-    public MediaPeriodId getPlayingMediaPeriod() {
+    public @Nullable MediaPeriodId getPlayingMediaPeriod() {
       return playingMediaPeriod;
     }
 
@@ -1080,8 +1077,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null, if no media period has been created yet.
      */
-    @Nullable
-    public MediaPeriodId getReadingMediaPeriod() {
+    public @Nullable MediaPeriodId getReadingMediaPeriod() {
       return readingMediaPeriod;
     }
 
@@ -1091,8 +1087,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      *
      * <p>May be null, if no media period is active yet.
      */
-    @Nullable
-    public MediaPeriodId getLoadingMediaPeriod() {
+    public @Nullable MediaPeriodId getLoadingMediaPeriod() {
       return mediaPeriodQueue.isEmpty() ? null : Iterables.getLast(mediaPeriodQueue);
     }
 
@@ -1100,8 +1095,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
      * Returns the most recent {@link Timeline} for the given {@link MediaPeriodId}, or null if no
      * timeline is available.
      */
-    @Nullable
-    public Timeline getMediaPeriodIdTimeline(MediaPeriodId mediaPeriodId) {
+    public @Nullable Timeline getMediaPeriodIdTimeline(MediaPeriodId mediaPeriodId) {
       return mediaPeriodTimelines.get(mediaPeriodId);
     }
 
@@ -1189,16 +1183,14 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
           || mediaPeriodId.nextAdGroupIndex < period.getAdGroupCount();
     }
 
-    @Nullable
-    private static MediaPeriodId findCurrentPlayerMediaPeriodInQueue(
+    private static @Nullable MediaPeriodId findCurrentPlayerMediaPeriodInQueue(
         Player player,
         ImmutableList<MediaPeriodId> mediaPeriodQueue,
         @Nullable MediaPeriodId playingMediaPeriod,
         Period period) {
       Timeline playerTimeline = player.getCurrentTimeline();
       int playerPeriodIndex = player.getCurrentPeriodIndex();
-      @Nullable
-      Object playerPeriodUid =
+      @Nullable Object playerPeriodUid =
           playerTimeline.isEmpty() ? null : playerTimeline.getUidOfPeriod(playerPeriodIndex);
       int playerNextAdGroupIndex =
           player.isPlayingAd() || playerTimeline.isEmpty()

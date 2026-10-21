@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
@@ -57,6 +56,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link HttpDataSource} that delegates to Square's {@link Call.Factory}.
@@ -77,10 +77,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     private final RequestProperties defaultRequestProperties;
     private final Call.Factory callFactory;
 
-    @Nullable private String userAgent;
-    @Nullable private TransferListener transferListener;
-    @Nullable private CacheControl cacheControl;
-    @Nullable private Predicate<String> contentTypePredicate;
+    private @Nullable String userAgent;
+    private @Nullable TransferListener transferListener;
+    private @Nullable CacheControl cacheControl;
+    private @Nullable Predicate<String> contentTypePredicate;
 
     /**
      * Creates an instance.
@@ -183,14 +183,14 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   private final Call.Factory callFactory;
   private final RequestProperties requestProperties;
 
-  @Nullable private final String userAgent;
-  @Nullable private final CacheControl cacheControl;
-  @Nullable private final RequestProperties defaultRequestProperties;
-  @Nullable private final Predicate<String> contentTypePredicate;
+  private final @Nullable String userAgent;
+  private final @Nullable CacheControl cacheControl;
+  private final @Nullable RequestProperties defaultRequestProperties;
+  private final @Nullable Predicate<String> contentTypePredicate;
 
-  @Nullable private DataSpec dataSpec;
-  @Nullable private Response response;
-  @Nullable private InputStream responseByteStream;
+  private @Nullable DataSpec dataSpec;
+  private @Nullable Response response;
+  private @Nullable InputStream responseByteStream;
   private boolean connectionEstablished;
   private long bytesToRead;
   private long bytesRead;
@@ -212,8 +212,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     if (response != null) {
       return Uri.parse(response.request().url().toString());
     } else if (dataSpec != null) {
@@ -300,8 +299,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       }
       Map<String, List<String>> headers = response.headers().toMultimap();
       closeConnectionQuietly();
-      @Nullable
-      IOException cause =
+      @Nullable IOException cause =
           responseCode == 416
               ? new DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
               : null;

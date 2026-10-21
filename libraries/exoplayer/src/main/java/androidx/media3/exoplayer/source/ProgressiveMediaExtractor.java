@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.source;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.util.UnstableApi;
@@ -27,6 +26,7 @@ import androidx.media3.extractor.PositionHolder;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Extracts the contents of a container file from a progressive media stream. */
 @UnstableApi
@@ -108,8 +108,7 @@ public interface ProgressiveMediaExtractor {
    * @return The name, or {@code null} if the underlying infrastructure has not been determined yet
    *     or if providing a name is not supported.
    */
-  @Nullable
-  default String getUnderlyingImplementationName() {
+  default @Nullable String getUnderlyingImplementationName() {
     return null;
   }
 }

@@ -32,7 +32,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -46,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * {@link GlShaderProgram} that renders to a {@link SurfaceView} provided by {@link
@@ -57,9 +57,9 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
 
   private final Context context;
   private final DebugViewProvider debugViewProvider;
-  @Nullable private SurfaceView debugSurfaceView;
-  @Nullable private DefaultShaderProgram defaultShaderProgram;
-  @Nullable private SurfaceViewWrapper debugSurfaceViewWrapper;
+  private @Nullable SurfaceView debugSurfaceView;
+  private @Nullable DefaultShaderProgram defaultShaderProgram;
+  private @Nullable SurfaceViewWrapper debugSurfaceViewWrapper;
 
   private final ColorInfo outputColorInfo;
   private InputListener inputListener;
@@ -162,8 +162,7 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
       outputWidth = inputWidth;
       outputHeight = inputHeight;
     }
-    @Nullable
-    SurfaceView debugSurfaceView =
+    @Nullable SurfaceView debugSurfaceView =
         debugViewProvider.getDebugPreviewSurfaceView(outputWidth, outputHeight);
     if (debugSurfaceView != null && !Objects.equals(this.debugSurfaceView, debugSurfaceView)) {
       debugSurfaceViewWrapper =
@@ -200,12 +199,10 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
     private final EGLContext eglContext;
 
     @GuardedBy("this")
-    @Nullable
-    private Surface surface;
+    private @Nullable Surface surface;
 
     @GuardedBy("this")
-    @Nullable
-    private EGLSurface eglSurface;
+    private @Nullable EGLSurface eglSurface;
 
     private int width;
     private int height;

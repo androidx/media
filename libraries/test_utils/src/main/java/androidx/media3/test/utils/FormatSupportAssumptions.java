@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.content.Context;
 import android.media.MediaCodecInfo;
 import android.os.Build;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
@@ -36,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import org.json.JSONException;
+import org.jspecify.annotations.Nullable;
 import org.junit.AssumptionViolatedException;
 
 /**
@@ -157,8 +157,7 @@ public class FormatSupportAssumptions {
     return findDecoderForFormat(context, format) != null && !deviceNeedsDisable8kWorkaround(format);
   }
 
-  @Nullable
-  private static String findDecoderForFormat(Context context, Format format)
+  private static @Nullable String findDecoderForFormat(Context context, Format format)
       throws MediaCodecUtil.DecoderQueryException {
     checkNotNull(format.sampleMimeType);
     List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =

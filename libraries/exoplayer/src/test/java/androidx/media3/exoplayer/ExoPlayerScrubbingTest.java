@@ -47,7 +47,6 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
@@ -93,6 +92,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1244,9 +1244,8 @@ public final class ExoPlayerScrubbingTest {
       inputBufferQueuedCount.incrementAndGet();
     }
 
-    @Nullable
     @Override
-    public ByteBuffer getOutputBuffer(int index) {
+    public @Nullable ByteBuffer getOutputBuffer(int index) {
       ByteBuffer result = super.getOutputBuffer(index);
       outputBufferDequeuedCount.incrementAndGet();
       return result;

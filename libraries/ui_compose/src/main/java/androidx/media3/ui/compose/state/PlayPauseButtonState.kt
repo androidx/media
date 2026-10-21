@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.annotation.IntDef
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +69,7 @@ fun rememberPlayPauseButtonState(
  * @param displayMode The [@DisplayMode][DisplayMode] specifying when to show buffering, replay, or
  *   retry.
  */
+@Stable
 @UnstableApi
 class PlayPauseButtonState(
   private val player: Player?,

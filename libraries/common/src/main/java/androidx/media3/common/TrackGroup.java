@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.CheckResult;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -29,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An immutable group of tracks available within a media stream. All tracks in a group present the

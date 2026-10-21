@@ -20,7 +20,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
@@ -38,6 +37,7 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract {@link Player} implementation that throws {@link UnsupportedOperationException} from
@@ -72,8 +72,7 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     throw new UnsupportedOperationException();
   }
 

@@ -30,7 +30,6 @@ import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -77,6 +76,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -295,8 +295,7 @@ public class DefaultDashChunkSourceTest {
     DefaultLoadErrorHandlingPolicy loadErrorHandlingPolicy =
         new DefaultLoadErrorHandlingPolicy() {
           @Override
-          @Nullable
-          public FallbackSelection getFallbackSelectionFor(
+          public @Nullable FallbackSelection getFallbackSelectionFor(
               FallbackOptions fallbackOptions, LoadErrorInfo loadErrorInfo) {
             // Never exclude, neither tracks nor locations.
             return null;

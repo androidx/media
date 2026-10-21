@@ -18,12 +18,12 @@ package androidx.media3.exoplayer.rtsp;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.rtsp.RtspMessageUtil.checkManifestExpression;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represent the timing (RTSP Normal Playback Time format) of an RTSP session.

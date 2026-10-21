@@ -18,11 +18,11 @@ package androidx.media3.common.util;
 import static java.lang.Math.max;
 
 import android.os.Message;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A utility class to detect whether a {@link Player} is stuck.
@@ -144,7 +144,7 @@ public final class StuckPlayerDetector {
 
     private final int stuckBufferingTimeoutMs;
 
-    @Nullable private Object periodUid;
+    private @Nullable Object periodUid;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private long bufferedPositionInPeriodMs;
@@ -168,8 +168,7 @@ public final class StuckPlayerDetector {
         return;
       }
       Timeline timeline = player.getCurrentTimeline();
-      @Nullable
-      Object periodUid =
+      @Nullable Object periodUid =
           timeline.isEmpty() ? null : timeline.getUidOfPeriod(player.getCurrentPeriodIndex());
       int adGroupIndex = player.getCurrentAdGroupIndex();
       int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
@@ -214,7 +213,7 @@ public final class StuckPlayerDetector {
 
     private final int stuckPlayingTimeoutMs;
 
-    @Nullable private Object periodUid;
+    private @Nullable Object periodUid;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private long currentPositionInPeriodMs;
@@ -235,8 +234,7 @@ public final class StuckPlayerDetector {
         return;
       }
       Timeline timeline = player.getCurrentTimeline();
-      @Nullable
-      Object periodUid =
+      @Nullable Object periodUid =
           timeline.isEmpty() ? null : timeline.getUidOfPeriod(player.getCurrentPeriodIndex());
       int adGroupIndex = player.getCurrentAdGroupIndex();
       int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
@@ -275,7 +273,7 @@ public final class StuckPlayerDetector {
 
     private final int stuckPlayingNotEndingTimeoutMs;
 
-    @Nullable private Object periodUid;
+    private @Nullable Object periodUid;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private boolean isPlayingAndReachedDuration;
@@ -287,8 +285,7 @@ public final class StuckPlayerDetector {
 
     public void update() {
       Timeline timeline = player.getCurrentTimeline();
-      @Nullable
-      Object periodUid =
+      @Nullable Object periodUid =
           timeline.isEmpty() ? null : timeline.getUidOfPeriod(player.getCurrentPeriodIndex());
       int adGroupIndex = player.getCurrentAdGroupIndex();
       int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();

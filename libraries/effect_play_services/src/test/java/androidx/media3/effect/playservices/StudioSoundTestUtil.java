@@ -17,7 +17,6 @@ package androidx.media3.effect.playservices;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import com.google.android.gms.media.effect.studiosound.AudioFormat;
 import com.google.android.gms.media.effect.studiosound.ProcessingResult;
 import com.google.android.gms.media.effect.studiosound.StudioSoundCallback;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Utilities and fakes for {@link StudioSoundAudioProcessor} tests. */
 /* package */ final class StudioSoundTestUtil {
@@ -55,7 +55,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final AudioFormat audioFormat;
     private final ByteBuffer inputBuffer;
 
-    @Nullable private StudioSoundCallback callback;
+    private @Nullable StudioSoundCallback callback;
     private @MonotonicNonNull Executor listenerExecutor;
 
     FakeStudioSoundSession(AudioFormat audioFormat) {
@@ -73,9 +73,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return audioFormat;
     }
 
-    @Nullable
     @Override
-    public ByteBuffer dequeueInputBuffer() {
+    public @Nullable ByteBuffer dequeueInputBuffer() {
       return inputBuffer;
     }
 
@@ -117,8 +116,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       implements StudioSoundAudioProcessor.Client {
     /* package */ Task<StudioSoundSession> createSessionTask;
     /* package */ final AtomicBoolean createSessionCalled;
-    @Nullable /* package */ StudioSoundSessionCallback savedSessionCallback;
-    @Nullable /* package */ StudioSoundOptions lastOptions;
+    /* package */ @Nullable StudioSoundSessionCallback savedSessionCallback;
+    /* package */ @Nullable StudioSoundOptions lastOptions;
 
     FakeStudioSoundClient() {
       createSessionTask = Tasks.forCanceled();

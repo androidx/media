@@ -38,7 +38,6 @@ import android.text.style.StyleSpan;
 import android.text.style.TypefaceSpan;
 import android.text.style.UnderlineSpan;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
@@ -65,6 +64,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Parser for WebVTT cues. (https://w3c.github.io/webvtt/#cues) */
 @UnstableApi
@@ -197,8 +197,8 @@ public final class WebvttCueParser {
    * @param styles List of styles defined by the CSS style blocks preceding the cues.
    * @return The parsed cue info, or null if no valid cue was found.
    */
-  @Nullable
-  public static WebvttCueInfo parseCue(ParsableByteArray webvttData, List<WebvttCssStyle> styles) {
+  public static @Nullable WebvttCueInfo parseCue(
+      ParsableByteArray webvttData, List<WebvttCssStyle> styles) {
     @Nullable String firstLine = webvttData.readLine();
     if (firstLine == null) {
       return null;
@@ -335,8 +335,7 @@ public final class WebvttCueParser {
 
   // Internal methods
 
-  @Nullable
-  private static WebvttCueInfo parseCue(
+  private static @Nullable WebvttCueInfo parseCue(
       @Nullable String id,
       Matcher cueHeaderMatcher,
       ParsableByteArray webvttData,
@@ -881,8 +880,8 @@ public final class WebvttCueParser {
       }
     }
 
-    @Nullable
-    private static Layout.Alignment convertTextAlignment(@TextAlignment int textAlignment) {
+    private static Layout.@Nullable Alignment convertTextAlignment(
+        @TextAlignment int textAlignment) {
       switch (textAlignment) {
         case TEXT_ALIGNMENT_START:
         case TEXT_ALIGNMENT_LEFT:

@@ -24,7 +24,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player.Commands;
@@ -35,7 +34,7 @@ import androidx.media3.session.PlayerInfo.BundlingExclusions;
 import com.google.common.collect.ImmutableList;
 import java.lang.ref.WeakReference;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /* package */ class MediaControllerStub extends IMediaController.Stub {
 
@@ -397,8 +396,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     controller.clear();
   }
 
-  private <T extends @NonNull Object> void setControllerFutureResult(
-      int sequenceNum, T futureResult) {
+  private <T> void setControllerFutureResult(int sequenceNum, T futureResult) {
     long token = Binder.clearCallingIdentity();
     try {
       @Nullable MediaControllerImplBase controller = this.controller.get();

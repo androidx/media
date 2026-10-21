@@ -18,10 +18,10 @@ package androidx.media3.common;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A label for a {@link Format}. */
 @UnstableApi
@@ -30,7 +30,7 @@ public class Label {
    * The language of this label, as an IETF BCP 47 conformant tag, or null if unknown or not
    * applicable.
    */
-  @Nullable public final String language;
+  public final @Nullable String language;
 
   /** The value for this label. */
   public final String value;

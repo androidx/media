@@ -19,11 +19,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link TextOverlay} that is backed by a {@link Canvas}.
@@ -35,7 +35,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public abstract class CanvasOverlay extends BitmapOverlay {
   private final boolean useInputFrameSize;
 
-  @Nullable private Bitmap lastBitmap;
+  private @Nullable Bitmap lastBitmap;
   private @MonotonicNonNull Canvas lastCanvas;
   private volatile int width;
   private volatile int height;

@@ -28,7 +28,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
@@ -48,6 +47,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link Renderer} implementation for images. */
 @UnstableApi
@@ -106,15 +106,15 @@ public class ImageRenderer extends BaseRenderer {
   private long largestQueuedPresentationTimeUs;
   private @ReinitializationState int decoderReinitializationState;
   private @C.FirstFrameState int firstFrameState;
-  @Nullable private Format inputFormat;
-  @Nullable private ImageDecoder decoder;
-  @Nullable private DecoderInputBuffer inputBuffer;
+  private @Nullable Format inputFormat;
+  private @Nullable ImageDecoder decoder;
+  private @Nullable DecoderInputBuffer inputBuffer;
   private ImageOutput imageOutput;
-  @Nullable private ImageMetadataListener imageMetadataListener;
-  @Nullable private Bitmap outputBitmap;
+  private @Nullable ImageMetadataListener imageMetadataListener;
+  private @Nullable Bitmap outputBitmap;
   private boolean readyToOutputTiles;
-  @Nullable private TileInfo tileInfo;
-  @Nullable private TileInfo nextTileInfo;
+  private @Nullable TileInfo tileInfo;
+  private @Nullable TileInfo nextTileInfo;
   private int currentTileIndex;
   private boolean codecNeedsInitialization;
 
@@ -279,8 +279,8 @@ public class ImageRenderer extends BaseRenderer {
       throws ExoPlaybackException {
     switch (messageType) {
       case MSG_SET_IMAGE_OUTPUT:
-        @Nullable
-        ImageOutput imageOutput = message instanceof ImageOutput ? (ImageOutput) message : null;
+        @Nullable ImageOutput imageOutput =
+            message instanceof ImageOutput ? (ImageOutput) message : null;
         setImageOutput(imageOutput);
         break;
       case MSG_SET_IMAGE_METADATA_LISTENER:

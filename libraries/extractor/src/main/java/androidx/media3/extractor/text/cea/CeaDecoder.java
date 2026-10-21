@@ -18,7 +18,6 @@ package androidx.media3.extractor.text.cea;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
@@ -28,6 +27,7 @@ import androidx.media3.extractor.text.SubtitleDecoderException;
 import androidx.media3.extractor.text.SubtitleInputBuffer;
 import androidx.media3.extractor.text.SubtitleOutputBuffer;
 import java.util.ArrayDeque;
+import org.jspecify.annotations.Nullable;
 
 /** Base class for subtitle parsers for CEA captions. */
 /* package */ abstract class CeaDecoder implements SubtitleDecoder {
@@ -39,7 +39,7 @@ import java.util.ArrayDeque;
   private final ArrayDeque<SubtitleOutputBuffer> availableOutputBuffers;
   private final ArrayDeque<CeaInputBuffer> queuedInputBuffers;
 
-  @Nullable private CeaInputBuffer dequeuedInputBuffer;
+  private @Nullable CeaInputBuffer dequeuedInputBuffer;
   private long playbackPositionUs;
   private long queuedInputBufferCount;
   private long outputStartTimeUs;
@@ -72,8 +72,7 @@ import java.util.ArrayDeque;
   }
 
   @Override
-  @Nullable
-  public SubtitleInputBuffer dequeueInputBuffer() throws SubtitleDecoderException {
+  public @Nullable SubtitleInputBuffer dequeueInputBuffer() throws SubtitleDecoderException {
     checkState(dequeuedInputBuffer == null);
     if (availableInputBuffers.isEmpty()) {
       return null;
@@ -100,8 +99,7 @@ import java.util.ArrayDeque;
   }
 
   @Override
-  @Nullable
-  public SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
+  public @Nullable SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
     if (availableOutputBuffers.isEmpty()) {
       return null;
     }
@@ -175,8 +173,7 @@ import java.util.ArrayDeque;
    */
   protected abstract void decode(SubtitleInputBuffer inputBuffer);
 
-  @Nullable
-  protected final SubtitleOutputBuffer getAvailableOutputBuffer() {
+  protected final @Nullable SubtitleOutputBuffer getAvailableOutputBuffer() {
     return availableOutputBuffers.pollFirst();
   }
 

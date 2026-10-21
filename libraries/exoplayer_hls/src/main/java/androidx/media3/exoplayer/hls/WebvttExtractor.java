@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.hls;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -41,6 +40,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A special purpose extractor for WebVTT content in HLS.
@@ -58,7 +58,7 @@ public final class WebvttExtractor implements Extractor {
   private static final int HEADER_MIN_LENGTH = 6 /* "WEBVTT" */;
   private static final int HEADER_MAX_LENGTH = 3 /* optional Byte Order Mark */ + HEADER_MIN_LENGTH;
 
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final TimestampAdjuster timestampAdjuster;
   private final ParsableByteArray sampleDataWrapper;
   private final SubtitleParser.Factory subtitleParserFactory;

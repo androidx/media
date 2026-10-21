@@ -20,12 +20,12 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.ContentValues;
 import android.net.Uri;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Represents the output destination for a Transformer export. */
 @UnstableApi
@@ -42,9 +42,9 @@ public final class TransformerOutput {
   /* package */ static final int TYPE_MEDIA_STORE = 2;
 
   /* package */ final @OutputType int outputType;
-  @Nullable /* package */ final String path;
-  @Nullable /* package */ final Uri collectionUri;
-  @Nullable /* package */ final ContentValues contentValues;
+  /* package */ final @Nullable String path;
+  /* package */ final @Nullable Uri collectionUri;
+  /* package */ final @Nullable ContentValues contentValues;
 
   /**
    * Creates a {@link TransformerOutput} targeting a local file path.

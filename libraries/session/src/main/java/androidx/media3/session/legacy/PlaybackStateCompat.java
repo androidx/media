@@ -28,13 +28,13 @@ import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.LongDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Playback state for a {@link MediaSessionCompat}. This includes a state like {@link
@@ -534,13 +534,13 @@ public final class PlaybackStateCompat implements Parcelable {
   final float speed;
   final long actions;
   final int errorCode;
-  @Nullable final CharSequence errorMessage;
+  final @Nullable CharSequence errorMessage;
   final long updateTime;
   List<PlaybackStateCompat.CustomAction> customActions;
   final long activeItemId;
-  @Nullable final Bundle extras;
+  final @Nullable Bundle extras;
 
-  @Nullable private PlaybackState stateFwk;
+  private @Nullable PlaybackState stateFwk;
 
   PlaybackStateCompat(
       int state,
@@ -761,8 +761,7 @@ public final class PlaybackStateCompat implements Parcelable {
    *
    * @see #getErrorCode()
    */
-  @Nullable
-  public CharSequence getErrorMessage() {
+  public @Nullable CharSequence getErrorMessage() {
     return errorMessage;
   }
 
@@ -782,8 +781,7 @@ public final class PlaybackStateCompat implements Parcelable {
    *
    * @return The extras for this state or null.
    */
-  @Nullable
-  public Bundle getExtras() {
+  public @Nullable Bundle getExtras() {
     return extras;
   }
 
@@ -793,8 +791,7 @@ public final class PlaybackStateCompat implements Parcelable {
    * @param stateFwk A {@link android.media.session.PlaybackState} object, or null if none.
    * @return An equivalent {@link PlaybackStateCompat} object, or null if none.
    */
-  @Nullable
-  public static PlaybackStateCompat fromPlaybackState(@Nullable PlaybackState stateFwk) {
+  public static @Nullable PlaybackStateCompat fromPlaybackState(@Nullable PlaybackState stateFwk) {
     if (stateFwk != null) {
       List<PlaybackState.CustomAction> customActionFwks = stateFwk.getCustomActions();
       List<PlaybackStateCompat.CustomAction> customActions = null;
@@ -877,9 +874,9 @@ public final class PlaybackStateCompat implements Parcelable {
     private final String action;
     private final CharSequence name;
     private final int icon;
-    @Nullable private final Bundle extras;
+    private final @Nullable Bundle extras;
 
-    @Nullable private PlaybackState.CustomAction customActionFwk;
+    private PlaybackState.@Nullable CustomAction customActionFwk;
 
     /** Use {@link PlaybackStateCompat.CustomAction.Builder#build()}. */
     CustomAction(String action, CharSequence name, int icon, @Nullable Bundle extras) {
@@ -938,8 +935,7 @@ public final class PlaybackStateCompat implements Parcelable {
      *     null if none.
      */
     @SuppressWarnings("argument.type.incompatible") // setExtras not annotated as nullable
-    @Nullable
-    public Object getCustomAction() {
+    public @Nullable Object getCustomAction() {
       if (customActionFwk != null) {
         return customActionFwk;
       }
@@ -998,8 +994,7 @@ public final class PlaybackStateCompat implements Parcelable {
      *
      * @return Optional arguments for the {@link CustomAction}.
      */
-    @Nullable
-    public Bundle getExtras() {
+    public @Nullable Bundle getExtras() {
       return extras;
     }
 
@@ -1013,7 +1008,7 @@ public final class PlaybackStateCompat implements Parcelable {
       private final String action;
       private final CharSequence name;
       private final int icon;
-      @Nullable private Bundle extras;
+      private @Nullable Bundle extras;
 
       /**
        * Creates a {@link CustomAction} builder with the id, name, and icon set.
@@ -1075,10 +1070,10 @@ public final class PlaybackStateCompat implements Parcelable {
     private float rate;
     private long actions;
     private int errorCode;
-    @Nullable private CharSequence errorMessage;
+    private @Nullable CharSequence errorMessage;
     private long updateTime;
     private long activeItemId = MediaSessionCompat.QueueItem.UNKNOWN_ID;
-    @Nullable private Bundle extras;
+    private @Nullable Bundle extras;
 
     /** Create an empty Builder. */
     public Builder() {}

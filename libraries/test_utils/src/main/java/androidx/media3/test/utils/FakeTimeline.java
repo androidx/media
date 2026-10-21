@@ -24,7 +24,6 @@ import static java.lang.Math.min;
 
 import android.net.Uri;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -41,6 +40,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Fake {@link Timeline} which can be setup to return custom {@link TimelineWindowDefinition}s. */
 @UnstableApi
@@ -61,8 +61,8 @@ public final class FakeTimeline extends Timeline {
       private long defaultPositionUs;
       private long windowStartTimeUs;
       private long windowPositionInFirstPeriodUs;
-      @Nullable private List<AdPlaybackState> adPlaybackStates;
-      @Nullable private MediaItem mediaItem;
+      private @Nullable List<AdPlaybackState> adPlaybackStates;
+      private @Nullable MediaItem mediaItem;
 
       /** Create a new instance. */
       public Builder() {

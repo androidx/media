@@ -125,6 +125,11 @@ public final class GlslShaderCompilationTest {
         R.raw.vertex_shader_transformation_es2,
         R.raw.color_conversions_es2,
         R.raw.fragment_shader_yuv_planar_es2);
+    compileGlProgram(
+        compiledResIds,
+        R.raw.vertex_shader_transformation_es2,
+        R.raw.color_conversions_es2,
+        R.raw.fragment_shader_yuv_semi_planar_es2);
 
     // Standalone ES3 vertex and fragment shaders.
     compileGlProgram(

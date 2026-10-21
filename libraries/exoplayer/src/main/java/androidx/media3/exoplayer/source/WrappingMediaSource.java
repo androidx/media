@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
@@ -23,6 +22,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract {@link MediaSource} wrapping a single child {@link MediaSource}.
@@ -79,9 +79,8 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
     prepareChildSource();
   }
 
-  @Nullable
   @Override
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     return mediaSource.getInitialTimeline();
   }
 
@@ -184,9 +183,8 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
     return windowIndex;
   }
 
-  @Nullable
   @Override
-  protected final MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected final @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Void childSourceId, MediaPeriodId mediaPeriodId) {
     return getMediaPeriodIdForChildMediaPeriodId(mediaPeriodId);
   }
@@ -200,8 +198,8 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
    * @return The corresponding {@link MediaPeriodId} in the wrapping source. Null if no
    *     corresponding media period id can be determined.
    */
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(MediaPeriodId mediaPeriodId) {
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+      MediaPeriodId mediaPeriodId) {
     return mediaPeriodId;
   }
 

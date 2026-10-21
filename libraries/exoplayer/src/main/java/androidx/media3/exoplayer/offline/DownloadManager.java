@@ -37,7 +37,6 @@ import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.CheckResult;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -58,6 +57,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages downloads.
@@ -995,9 +995,8 @@ public final class DownloadManager {
       }
     }
 
-    @Nullable
     @CheckResult
-    private Task syncQueuedDownload(@Nullable Task activeTask, Download download) {
+    private @Nullable Task syncQueuedDownload(@Nullable Task activeTask, Download download) {
       if (activeTask != null) {
         // We have a task, which must be a download task. If the download state is queued we need to
         // cancel it and start a new one, since a new request has been merged into the download.
@@ -1238,8 +1237,7 @@ public final class DownloadManager {
       return download;
     }
 
-    @Nullable
-    private Download getDownload(String id, boolean loadFromIndex) {
+    private @Nullable Download getDownload(String id, boolean loadFromIndex) {
       int index = getDownloadIndex(id);
       if (index != C.INDEX_UNSET) {
         return downloads.get(index);
@@ -1290,9 +1288,9 @@ public final class DownloadManager {
     private final boolean isRemove;
     private final int minRetryCount;
 
-    @Nullable private volatile InternalHandler internalHandler;
+    private volatile @Nullable InternalHandler internalHandler;
     private volatile boolean isCanceled;
-    @Nullable private Exception finalException;
+    private @Nullable Exception finalException;
 
     private long contentLength;
 
@@ -1397,7 +1395,7 @@ public final class DownloadManager {
     public final Download download;
     public final boolean isRemove;
     public final List<Download> downloads;
-    @Nullable public final Exception finalException;
+    public final @Nullable Exception finalException;
 
     public DownloadUpdate(
         Download download,

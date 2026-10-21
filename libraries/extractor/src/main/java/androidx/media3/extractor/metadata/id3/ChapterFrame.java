@@ -17,13 +17,13 @@ package androidx.media3.extractor.metadata.id3;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Label;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.Chapter;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Chapter information ID3 frame. */
 @UnstableApi
@@ -34,7 +34,7 @@ public final class ChapterFrame extends Id3Frame implements Chapter {
   public final String chapterId;
   public final int startTimeMs;
   public final int endTimeMs;
-  @Nullable private final Label title;
+  private final @Nullable Label title;
 
   /** The byte offset of the start of the chapter, or {@link C#INDEX_UNSET} if not set. */
   public final long startOffset;
@@ -91,13 +91,11 @@ public final class ChapterFrame extends Id3Frame implements Chapter {
   }
 
   @Override
-  @Nullable
-  public Label getTitle() {
+  public @Nullable Label getTitle() {
     return title;
   }
 
-  @Nullable
-  private static String findTitle(Id3Frame[] subFrames) {
+  private static @Nullable String findTitle(Id3Frame[] subFrames) {
     for (Id3Frame frame : subFrames) {
       if (frame instanceof TextInformationFrame
           && ((TextInformationFrame) frame).id.equals("TIT2")) {

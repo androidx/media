@@ -57,7 +57,6 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
-import androidx.annotation.Nullable;
 import androidx.collection.ArraySet;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
@@ -106,7 +105,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 
 // TODO: b/138091975 - Don't ignore future return values if feasible.
 // TODO: b/78934030 - Add missing nullness checks to this class.
@@ -133,11 +132,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private final Handler fallbackPlaybackInfoUpdateHandler;
   private final boolean allowDeviceVolumeCommandsForLocalPlayback;
 
-  @Nullable private SessionToken connectedToken;
-  @Nullable private SessionServiceConnection serviceConnection;
+  private @Nullable SessionToken connectedToken;
+  private @Nullable SessionServiceConnection serviceConnection;
   private boolean released;
   private PlayerInfo playerInfo;
-  @Nullable private PendingIntent sessionActivity;
+  private @Nullable PendingIntent sessionActivity;
   private ImmutableList<CommandButton> customLayoutOriginal;
   private ImmutableList<CommandButton> mediaButtonPreferencesOriginal;
   private ImmutableList<CommandButton> resolvedMediaButtonPreferences;
@@ -147,15 +146,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private Commands playerCommandsFromSession;
   private Commands playerCommandsFromPlayer;
   private Commands intersectedPlayerCommands;
-  @Nullable private Surface videoSurface;
-  @Nullable private SurfaceHolder videoSurfaceHolder;
-  @Nullable private TextureView videoTextureView;
+  private @Nullable Surface videoSurface;
+  private @Nullable SurfaceHolder videoSurfaceHolder;
+  private @Nullable TextureView videoTextureView;
   private Size surfaceSize;
-  @Nullable private IMediaSession iSession;
-  @Nullable private android.media.session.MediaController platformController;
+  private @Nullable IMediaSession iSession;
+  private android.media.session.@Nullable MediaController platformController;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
-  @Nullable private PlayerInfo pendingPlayerInfo;
+  private @Nullable PlayerInfo pendingPlayerInfo;
   private Bundle sessionExtras;
 
   public MediaControllerImplBase(
@@ -324,8 +323,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  @Nullable
-  public SessionToken getConnectedToken() {
+  public @Nullable SessionToken getConnectedToken() {
     return connectedToken;
   }
 
@@ -597,8 +595,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return playerInfo.playerError;
   }
 
@@ -1090,9 +1087,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     PlayerInfo newPlayerInfo =
         maskPlayerInfoForAddedItems(
             playerInfo, index, mediaItems, getCurrentPosition(), getContentPosition());
-    @Nullable
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason =
+    @Nullable Integer mediaItemTransitionReason =
         playerInfo.timeline.isEmpty() ? Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED : null;
     updatePlayerInfo(
         newPlayerInfo,
@@ -2180,8 +2176,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  @Nullable
-  public MediaBrowserCompat getBrowserCompat() {
+  public @Nullable MediaBrowserCompat getBrowserCompat() {
     return null;
   }
 
@@ -2489,10 +2484,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   private void updatePlayerInfo(
       PlayerInfo newPlayerInfo,
-      @Nullable @Player.TimelineChangeReason Integer timelineChangeReason,
-      @Nullable @Player.PlayWhenReadyChangeReason Integer playWhenReadyChangeReason,
-      @Nullable @Player.DiscontinuityReason Integer positionDiscontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.TimelineChangeReason @Nullable Integer timelineChangeReason,
+      @Player.PlayWhenReadyChangeReason @Nullable Integer playWhenReadyChangeReason,
+      @Player.DiscontinuityReason @Nullable Integer positionDiscontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
     // Assign player info immediately such that all getters return the right values, but keep
     // snapshot of previous and new states so that listener invocations are triggered correctly.
     PlayerInfo oldPlayerInfo = this.playerInfo;
@@ -2511,10 +2506,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private void notifyPlayerInfoListenersWithReasons(
       PlayerInfo oldPlayerInfo,
       PlayerInfo newPlayerInfo,
-      @Nullable @Player.TimelineChangeReason Integer timelineChangeReason,
-      @Nullable @Player.PlayWhenReadyChangeReason Integer playWhenReadyChangeReason,
-      @Nullable @Player.DiscontinuityReason Integer positionDiscontinuityReason,
-      @Nullable @Player.MediaItemTransitionReason Integer mediaItemTransitionReason) {
+      @Player.TimelineChangeReason @Nullable Integer timelineChangeReason,
+      @Player.PlayWhenReadyChangeReason @Nullable Integer playWhenReadyChangeReason,
+      @Player.DiscontinuityReason @Nullable Integer positionDiscontinuityReason,
+      @Player.MediaItemTransitionReason @Nullable Integer mediaItemTransitionReason) {
 
     if (timelineChangeReason != null) {
       listeners.queueEvent(
@@ -2745,8 +2740,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   /** Returns session interface if the controller can send the predefined command. */
-  @Nullable
-  IMediaSession getSessionInterfaceWithSessionCommandIfAble(
+  @Nullable IMediaSession getSessionInterfaceWithSessionCommandIfAble(
       @SessionCommand.CommandCode int commandCode) {
     checkArgument(commandCode != SessionCommand.COMMAND_CODE_CUSTOM);
     if (!sessionCommands.contains(commandCode)) {
@@ -2757,8 +2751,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   /** Returns session interface if the controller can send the custom command. */
-  @Nullable
-  IMediaSession getSessionInterfaceWithSessionCommandIfAble(SessionCommand command) {
+  @Nullable IMediaSession getSessionInterfaceWithSessionCommandIfAble(SessionCommand command) {
     checkArgument(command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM);
     if (!sessionCommands.contains(command)
         && !CommandButton.isPredefinedCustomCommandButtonCode(command.customAction)) {
@@ -2779,7 +2772,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     updateSessionPositionInfoIfNeeded(sessionPositionInfo);
   }
 
-  <T extends @NonNull Object> void setFutureResult(int seq, T futureResult) {
+  <T> void setFutureResult(int seq, T futureResult) {
     // Don't set the future result on the application looper so that the result can be obtained by a
     // blocking future.get() on the application looper. But post a message to remove the pending
     // masking operation on the application looper to ensure it's executed in order with other
@@ -2929,8 +2922,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (!isConnected()) {
       return;
     }
-    @Nullable
-    ProgressListener progressListener =
+    @Nullable ProgressListener progressListener =
         pendingCustomActionProgressListeners.get(customActionFutureSequence);
     if (progressListener != null) {
       progressListener.onProgress(getInstance(), command, args, progressData);
@@ -2979,9 +2971,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     boolean seekOrNonEmptyTimeline =
         finalPlayerInfo.discontinuityReason == DISCONTINUITY_REASON_SEEK
             || (!oldPlayerInfo.timeline.isEmpty() && !finalPlayerInfo.timeline.isEmpty());
-    @Nullable
     @Player.DiscontinuityReason
-    Integer positionDiscontinuityReason =
+    @Nullable Integer positionDiscontinuityReason =
         (seekOrNonEmptyTimeline
                 && (!oldPlayerInfo.oldPositionInfo.equals(finalPlayerInfo.oldPositionInfo)
                     || !oldPlayerInfo.newPositionInfo.equals(finalPlayerInfo.newPositionInfo)))
@@ -2990,9 +2981,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     boolean areMediaItemsEqual =
         Objects.equals(oldPlayerInfo.getCurrentMediaItem(), finalPlayerInfo.getCurrentMediaItem());
-    @Nullable
     @Player.MediaItemTransitionReason
-    Integer mediaItemTransitionReason =
+    @Nullable Integer mediaItemTransitionReason =
         !areMediaItemsEqual ? finalPlayerInfo.mediaItemTransitionReason : null;
     if (areMediaItemsEqual
         && positionDiscontinuityReason != null
@@ -3012,16 +3002,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       }
     }
 
-    @Nullable
     @Player.TimelineChangeReason
-    Integer timelineChangeReason =
+    @Nullable Integer timelineChangeReason =
         !oldPlayerInfo.timeline.equals(finalPlayerInfo.timeline)
             ? finalPlayerInfo.timelineChangeReason
             : null;
 
-    @Nullable
     @Player.PlayWhenReadyChangeReason
-    Integer playWhenReadyChangeReason =
+    @Nullable Integer playWhenReadyChangeReason =
         oldPlayerInfo.playWhenReadyChangeReason != finalPlayerInfo.playWhenReadyChangeReason
                 || oldPlayerInfo.playWhenReady != finalPlayerInfo.playWhenReady
             ? finalPlayerInfo.playWhenReadyChangeReason
@@ -3444,8 +3432,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return playerInfo;
   }
 
-  @Nullable
-  private PeriodInfo getPeriodInfo(Timeline timeline, int windowIndex, long windowPositionMs) {
+  private @Nullable PeriodInfo getPeriodInfo(
+      Timeline timeline, int windowIndex, long windowPositionMs) {
     if (timeline.isEmpty()) {
       return null;
     }
@@ -3460,8 +3448,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     return getPeriodInfo(timeline, window, period, windowIndex, Util.msToUs(windowPositionMs));
   }
 
-  @Nullable
-  private static PeriodInfo getPeriodInfo(
+  private static @Nullable PeriodInfo getPeriodInfo(
       Timeline timeline, Window window, Period period, int windowIndex, long windowPositionUs) {
     checkElementIndex(windowIndex, timeline.getWindowCount());
     timeline.getWindow(windowIndex, window);

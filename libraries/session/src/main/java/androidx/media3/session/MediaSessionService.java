@@ -44,7 +44,6 @@ import android.util.Pair;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
 import androidx.core.content.ContextCompat;
@@ -52,7 +51,6 @@ import androidx.lifecycle.LifecycleService;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -74,6 +72,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Superclass to be extended by services hosting {@link MediaSession media sessions}.
@@ -273,7 +272,7 @@ public abstract class MediaSessionService extends LifecycleService {
 
   private final Object lock;
   private final Handler mainHandler;
-  @Nullable private MediaSessionServiceStub stub;
+  private @Nullable MediaSessionServiceStub stub;
   private @MonotonicNonNull MediaNotificationManager mediaNotificationManager;
   private @MonotonicNonNull DefaultActionFactory actionFactory;
 
@@ -281,8 +280,7 @@ public abstract class MediaSessionService extends LifecycleService {
   private final Map<String, MediaSession> sessions;
 
   @GuardedBy("lock")
-  @Nullable
-  private Listener listener;
+  private @Nullable Listener listener;
 
   private boolean defaultMethodCalled;
   private boolean initialStartIntentProcessed;
@@ -353,8 +351,7 @@ public abstract class MediaSessionService extends LifecycleService {
    * @see MediaSession.Builder
    * @see #getSessions()
    */
-  @Nullable
-  public abstract MediaSession onGetSession(ControllerInfo controllerInfo);
+  public abstract @Nullable MediaSession onGetSession(ControllerInfo controllerInfo);
 
   /**
    * Adds a {@link MediaSession} to this service. This is not necessary for most media apps. See <a
@@ -438,8 +435,7 @@ public abstract class MediaSessionService extends LifecycleService {
     }
   }
 
-  @Nullable
-  /* package */ MediaSession getSessionByUri(Uri sessionUri) {
+  /* package */ @Nullable MediaSession getSessionByUri(Uri sessionUri) {
     synchronized (lock) {
       for (MediaSession session : sessions.values()) {
         if (Objects.equals(session.getImpl().getUri(), sessionUri)) {
@@ -486,8 +482,7 @@ public abstract class MediaSessionService extends LifecycleService {
    */
   @CallSuper
   @Override
-  @Nullable
-  public IBinder onBind(@Nullable Intent intent) {
+  public @Nullable IBinder onBind(@Nullable Intent intent) {
     // Casting to satisfy the nullness annotation of the super class. The Intent should not be null,
     // but we check anyway to avoid crashing. We also can't remove the annotation as it's part of
     // the stable API surface.
@@ -878,7 +873,7 @@ public abstract class MediaSessionService extends LifecycleService {
    * @return A future that completes when the notification has been updated.
    */
   @UnstableApi
-  public ListenableFuture<@NullableType Void> onUpdateNotificationAsync(
+  public ListenableFuture<@Nullable Void> onUpdateNotificationAsync(
       MediaSession session, boolean startInForegroundRequired) {
     onUpdateNotification(session, startInForegroundRequired);
     return defaultMethodCalled
@@ -950,7 +945,7 @@ public abstract class MediaSessionService extends LifecycleService {
   /* package */ void onForegroundServiceStartNotAllowedException() {
     mainHandler.post(
         () -> {
-          @Nullable MediaSessionService.Listener serviceListener = getListener();
+          MediaSessionService.@Nullable Listener serviceListener = getListener();
           if (serviceListener != null) {
             serviceListener.onForegroundServiceStartNotAllowedException();
           }
@@ -962,7 +957,7 @@ public abstract class MediaSessionService extends LifecycleService {
   }
 
   private MediaNotificationManager getMediaNotificationManager(
-      @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
+      MediaNotification.@Nullable Provider initialMediaNotificationProvider) {
     if (mediaNotificationManager == null) {
       if (initialMediaNotificationProvider == null) {
         checkNotNull(getBaseContext(), "Accessing service context before onCreate()");
@@ -985,8 +980,7 @@ public abstract class MediaSessionService extends LifecycleService {
     return actionFactory;
   }
 
-  @Nullable
-  private Listener getListener() {
+  private @Nullable Listener getListener() {
     synchronized (lock) {
       return this.listener;
     }

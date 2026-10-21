@@ -19,13 +19,11 @@ import static androidx.media3.common.util.Util.percentFloat;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.PriorityTaskManager.PriorityTooLowException;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -49,6 +47,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Base class for multi segment stream downloaders.
@@ -140,7 +139,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private final CacheDataSource.Factory cacheDataSourceFactory;
   private final Cache cache;
   private final CacheKeyFactory cacheKeyFactory;
-  @Nullable private final PriorityTaskManager priorityTaskManager;
+  private final @Nullable PriorityTaskManager priorityTaskManager;
   private final Executor executor;
   private final long maxMergedSegmentStartTimeDiffUs;
 
@@ -266,8 +265,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       }
 
       // Download the segments.
-      @Nullable
-      ProgressNotifier progressNotifier =
+      @Nullable ProgressNotifier progressNotifier =
           progressListener != null
               ? new ProgressNotifier(
                   progressListener,
@@ -439,7 +437,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    * @throws InterruptedException If the thread on which the method is called is interrupted.
    * @throws IOException If an error occurs during execution.
    */
-  protected final <T extends @NullableType Object> T execute(
+  protected final <T extends @Nullable Object> T execute(
       Supplier<RunnableFutureTask<T, ?>> runnable, boolean removing)
       throws InterruptedException, IOException {
     if (removing) {
@@ -508,7 +506,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     return new DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
   }
 
-  private <T extends @NullableType Object> void addActiveRunnable(RunnableFutureTask<T, ?> runnable)
+  private <T extends @Nullable Object> void addActiveRunnable(RunnableFutureTask<T, ?> runnable)
       throws InterruptedException {
     synchronized (activeRunnables) {
       if (isCanceled) {
@@ -573,7 +571,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     public final Segment segment;
     public final CacheDataSource dataSource;
-    @Nullable private final ProgressNotifier progressNotifier;
+    private final @Nullable ProgressNotifier progressNotifier;
     public final byte[] temporaryBuffer;
     private final CacheWriter cacheWriter;
 

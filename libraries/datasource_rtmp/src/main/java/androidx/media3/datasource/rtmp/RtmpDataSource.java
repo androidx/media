@@ -18,7 +18,6 @@ package androidx.media3.datasource.rtmp;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
@@ -30,6 +29,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.antmedia.rtmp_client.RtmpClient;
 import io.antmedia.rtmp_client.RtmpClient.RtmpIOException;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 
 /** A Real-Time Messaging Protocol (RTMP) {@link DataSource}. */
 @UnstableApi
@@ -42,7 +42,7 @@ public final class RtmpDataSource extends BaseDataSource {
   /** {@link DataSource.Factory} for {@link RtmpDataSource} instances. */
   public static final class Factory implements DataSource.Factory {
 
-    @Nullable private TransferListener transferListener;
+    private @Nullable TransferListener transferListener;
 
     /**
      * Sets the {@link TransferListener} that will be used.
@@ -70,8 +70,8 @@ public final class RtmpDataSource extends BaseDataSource {
     }
   }
 
-  @Nullable private RtmpClient rtmpClient;
-  @Nullable private Uri uri;
+  private @Nullable RtmpClient rtmpClient;
+  private @Nullable Uri uri;
 
   public RtmpDataSource() {
     super(/* isNetwork= */ true);
@@ -111,8 +111,7 @@ public final class RtmpDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 }

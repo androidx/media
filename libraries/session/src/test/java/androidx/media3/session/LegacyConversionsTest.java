@@ -47,7 +47,6 @@ import android.service.media.MediaBrowserService;
 import android.text.SpannableString;
 import android.text.SpannedString;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.HeartRating;
@@ -76,6 +75,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -438,8 +438,8 @@ public final class LegacyConversionsTest {
             "testZZZ", /* durationMs= */ 10_000L, /* useSpannableString= */ true);
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
-    @Nullable
-    ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.loadBitmapFromMetadata(testMediaMetadata);
+    @Nullable ListenableFuture<Bitmap> bitmapFuture =
+        bitmapLoader.loadBitmapFromMetadata(testMediaMetadata);
     if (bitmapFuture != null) {
       testArtworkBitmap = bitmapFuture.get(10, SECONDS);
     }
@@ -522,8 +522,8 @@ public final class LegacyConversionsTest {
             "testZZZ", /* durationMs= */ C.TIME_UNSET, /* useSpannableString= */ true);
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
-    @Nullable
-    ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.loadBitmapFromMetadata(testMediaMetadata);
+    @Nullable ListenableFuture<Bitmap> bitmapFuture =
+        bitmapLoader.loadBitmapFromMetadata(testMediaMetadata);
     if (bitmapFuture != null) {
       testArtworkBitmap = bitmapFuture.get(10, SECONDS);
     }

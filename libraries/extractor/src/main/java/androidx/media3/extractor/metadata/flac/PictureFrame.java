@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.flac;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -23,6 +22,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** A picture parsed from a Vorbis Comment or a FLAC picture block. */
 @UnstableApi

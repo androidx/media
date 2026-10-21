@@ -17,12 +17,12 @@ package androidx.media3.common.util;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import androidx.annotation.Nullable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link RunnableFuture} that supports additional uninterruptible operations to query whether
@@ -32,17 +32,17 @@ import java.util.concurrent.TimeoutException;
  * @param <E> The type of any {@link ExecutionException} cause.
  */
 @UnstableApi
-public abstract class RunnableFutureTask<R extends @NullableType Object, E extends Exception>
+public abstract class RunnableFutureTask<R extends @Nullable Object, E extends Exception>
     implements RunnableFuture<R> {
 
   private final ConditionVariable started;
   private final ConditionVariable finished;
   private final Object cancelLock;
 
-  @Nullable private Exception exception;
-  @Nullable private R result;
+  private @Nullable Exception exception;
+  private @Nullable R result;
 
-  @Nullable private Thread workThread;
+  private @Nullable Thread workThread;
   private boolean canceled;
 
   protected RunnableFutureTask() {
@@ -64,14 +64,12 @@ public abstract class RunnableFutureTask<R extends @NullableType Object, E exten
   // Future implementation.
 
   @Override
-  @UnknownNull
   public final R get() throws ExecutionException, InterruptedException {
     finished.block();
     return getResult();
   }
 
   @Override
-  @UnknownNull
   public final R get(long timeout, TimeUnit unit)
       throws ExecutionException, InterruptedException, TimeoutException {
     long timeoutMs = MILLISECONDS.convert(timeout, unit);
@@ -147,7 +145,6 @@ public abstract class RunnableFutureTask<R extends @NullableType Object, E exten
    * @return The computed result.
    * @throws E If an error occurred.
    */
-  @UnknownNull
   protected abstract R doWork() throws E;
 
   /**
@@ -164,7 +161,6 @@ public abstract class RunnableFutureTask<R extends @NullableType Object, E exten
   // The return value is guaranteed to be non-null if and only if R is a non-null type, but there's
   // no way to assert this. Suppress the warning instead.
   @SuppressWarnings("nullness:return")
-  @UnknownNull
   private R getResult() throws ExecutionException {
     if (canceled) {
       throw new CancellationException();

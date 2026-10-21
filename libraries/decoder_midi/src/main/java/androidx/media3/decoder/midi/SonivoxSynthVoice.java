@@ -18,7 +18,6 @@ package androidx.media3.decoder.midi;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.decoder.midi.SonivoxWaveData.Envelope;
 import androidx.media3.decoder.midi.SonivoxWaveData.WavetableRegion;
 import com.jsyn.data.ShortSample;
@@ -35,6 +34,7 @@ import com.jsyn.unitgen.VariableRateMonoReader;
 import com.jsyn.unitgen.WhiteNoise;
 import com.softsynth.math.AudioMath;
 import com.softsynth.shared.time.TimeStamp;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Synthesizer voice with a wavetable oscillator. Modulates the amplitude and filter using DAHDSR
@@ -65,7 +65,7 @@ import com.softsynth.shared.time.TimeStamp;
   private int waveOffset;
   private int waveSize;
   private int presetIndex;
-  @Nullable private WavetableRegion region;
+  private @Nullable WavetableRegion region;
 
   /** Creates a new instance with the supplied wave table data. */
   public SonivoxSynthVoice(short[] waveData) {
@@ -196,8 +196,7 @@ import com.softsynth.shared.time.TimeStamp;
     }
   }
 
-  @Nullable
-  private WavetableRegion selectRegionByNoteNumber(
+  private @Nullable WavetableRegion selectRegionByNoteNumber(
       @Nullable WavetableRegion region, int noteNumber, TimeStamp timeStamp) {
     if ((region == null) || !region.isNoteInRange(noteNumber)) {
       int regionIndex = SonivoxWaveData.getProgramRegion(presetIndex);

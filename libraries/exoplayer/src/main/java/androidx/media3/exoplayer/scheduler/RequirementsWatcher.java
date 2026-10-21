@@ -27,9 +27,9 @@ import android.net.NetworkCapabilities;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Watches whether the {@link Requirements} are met and notifies the {@link Listener} on changes.
@@ -59,10 +59,10 @@ public final class RequirementsWatcher {
   private final Requirements requirements;
   private final Handler handler;
 
-  @Nullable private DeviceStatusChangeReceiver receiver;
+  private @Nullable DeviceStatusChangeReceiver receiver;
 
   private @Requirements.RequirementFlags int notMetRequirements;
-  @Nullable private NetworkCallback networkCallback;
+  private @Nullable NetworkCallback networkCallback;
 
   /**
    * @param context Any context.

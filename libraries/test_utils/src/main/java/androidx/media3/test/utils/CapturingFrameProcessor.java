@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ExperimentalApi;
@@ -33,6 +32,7 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link FrameProcessor} that delegates to an underlying {@link FrameProcessor} and records
@@ -46,8 +46,8 @@ public class CapturingFrameProcessor implements FrameProcessor {
   public static class Factory implements FrameProcessor.Factory {
 
     private final FrameProcessor.Factory underlyingFactory;
-    @Nullable private final Consumer<List<AsyncFrame>> onQueueListener;
-    @Nullable private volatile CapturingFrameProcessor createdProcessor;
+    private final @Nullable Consumer<List<AsyncFrame>> onQueueListener;
+    private volatile @Nullable CapturingFrameProcessor createdProcessor;
 
     /**
      * Creates a new instance.
@@ -83,8 +83,7 @@ public class CapturingFrameProcessor implements FrameProcessor {
     }
 
     /** Returns the created {@link CapturingFrameProcessor} instance. */
-    @Nullable
-    public CapturingFrameProcessor getCreatedProcessor() {
+    public @Nullable CapturingFrameProcessor getCreatedProcessor() {
       return createdProcessor;
     }
   }
@@ -157,7 +156,7 @@ public class CapturingFrameProcessor implements FrameProcessor {
   }
 
   private final FrameProcessor underlyingProcessor;
-  @Nullable private final Consumer<List<AsyncFrame>> onQueueListener;
+  private final @Nullable Consumer<List<AsyncFrame>> onQueueListener;
 
   /** All the frames and EOS events queued to this {@link FrameProcessor}. */
   private final CopyOnWriteArrayList<Event> queuedEvents;

@@ -18,7 +18,6 @@ package androidx.media3.extractor.text.pgs;
 import static java.lang.Math.min;
 
 import android.graphics.Bitmap;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
@@ -32,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.zip.Inflater;
+import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for PGS subtitles. */
 @UnstableApi
@@ -52,7 +52,7 @@ public final class PgsParser implements SubtitleParser {
   private final ParsableByteArray buffer;
   private final ParsableByteArray inflatedBuffer;
   private final CueBuilder cueBuilder;
-  @Nullable private Inflater inflater;
+  private @Nullable Inflater inflater;
 
   public PgsParser() {
     buffer = new ParsableByteArray();
@@ -92,8 +92,7 @@ public final class PgsParser implements SubtitleParser {
         new CuesWithTiming(cues, /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET));
   }
 
-  @Nullable
-  private static Cue readNextSection(ParsableByteArray buffer, CueBuilder cueBuilder) {
+  private static @Nullable Cue readNextSection(ParsableByteArray buffer, CueBuilder cueBuilder) {
     int limit = buffer.limit();
     int sectionType = buffer.readUnsignedByte();
     int sectionLength = buffer.readUnsignedShort();
@@ -214,8 +213,7 @@ public final class PgsParser implements SubtitleParser {
       bitmapY = buffer.readUnsignedShort();
     }
 
-    @Nullable
-    public Cue build() {
+    public @Nullable Cue build() {
       if (planeWidth == 0
           || planeHeight == 0
           || bitmapWidth == 0

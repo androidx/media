@@ -17,7 +17,6 @@ package androidx.media3.extractor.ts;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -27,6 +26,7 @@ import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Consumes user data, outputting contained CEA-608/708 messages to a {@link TrackOutput}. */
 /* package */ final class UserDataReader {

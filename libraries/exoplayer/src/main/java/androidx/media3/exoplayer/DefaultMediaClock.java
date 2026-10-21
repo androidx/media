@@ -18,10 +18,10 @@ package androidx.media3.exoplayer;
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default {@link MediaClock} which uses a renderer media clock and falls back to a {@link
@@ -44,8 +44,8 @@ import androidx.media3.common.util.Clock;
   private final StandaloneMediaClock standaloneClock;
   private final PlaybackParametersListener listener;
 
-  @Nullable private Renderer rendererClockSource;
-  @Nullable private MediaClock rendererClock;
+  private @Nullable Renderer rendererClockSource;
+  private @Nullable MediaClock rendererClock;
   private boolean isUsingStandaloneClock;
   private boolean standaloneClockIsStarted;
 

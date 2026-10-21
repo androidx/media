@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -58,6 +57,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -1629,7 +1629,7 @@ public final class PreloadMediaPeriodTest {
           @Override
           protected FakeSampleStream createSampleStream(
               Allocator allocator,
-              @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
               DrmSessionManager drmSessionManager,
               DrmSessionEventListener.EventDispatcher drmEventDispatcher,
               Format initialFormat,

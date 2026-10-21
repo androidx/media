@@ -16,19 +16,15 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.effect.FrameProcessorUtils.RGBA_8888_BYTES_PER_PIXEL;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888ImageBuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -39,12 +35,9 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorSpace;
 import android.graphics.Matrix;
-import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.opengl.GLES20;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -55,26 +48,12 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.video.AsyncFrame;
-import androidx.media3.common.video.DefaultHardwareBufferFrame;
-import androidx.media3.common.video.DefaultImagePlanesFrame;
-import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
-import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameWriter;
-import androidx.media3.common.video.HardwareBufferFrame;
-import androidx.media3.common.video.ImagePlanesFrame;
-import androidx.media3.common.video.ImagePlanesFrame.Plane;
-import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
-import androidx.media3.test.utils.BitmapPixelTestUtil.ImageBuffer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import java.nio.ByteBuffer;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -114,12 +93,10 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   private @MonotonicNonNull BitmapSavingFrameWriter frameWriter;
   private @MonotonicNonNull ForwardingHardwareBufferJniWrapper fakeJniWrapper;
   private @MonotonicNonNull FrameWriterGlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
-  private final List<Bitmap> actualBitmaps;
 
   public FrameWriterGlTextureFrameConsumerTest() {
     testName = new TestName();
     context = getApplicationContext();
-    actualBitmaps = new CopyOnWriteArrayList<>();
   }
 
   @Before
@@ -181,6 +158,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             })
         .get();
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(1);
     assertThat(fakeJniWrapper.destroyEglImageCount).isEqualTo(1);
     Bitmap outputBitmap = actualBitmaps.get(0);
@@ -222,6 +200,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             })
         .get();
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(2);
     assertThat(fakeJniWrapper.destroyEglImageCount).isEqualTo(2);
     Bitmap outputBitmap1 = actualBitmaps.get(0);
@@ -241,98 +220,96 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 29)
-  public void queue_whenFrameWriterHasNoCapacity_notifiesWakeupListener() throws Exception {
+  public void queue_whenFrameWriterHasNoCapacity_returnsFalseAndDoesNotWriteFrame()
+      throws Exception {
     setUpHardwareBufferFrameConsumer();
-    Bitmap inputBitmap1 = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
-    Bitmap inputBitmap2 = inputBitmap1.copy(Bitmap.Config.ARGB_8888, /* isMutable= */ true);
-    new Canvas(inputBitmap2).drawColor(Color.BLUE);
-
-    // Queue first frame successfully.
+    // BitmapSavingFrameWriter has capacity for 1 frame; dequeuing without queuing back exhausts it.
+    Format format = new Format.Builder().setWidth(BITMAP_WIDTH).setHeight(BITMAP_HEIGHT).build();
     glExecutorService
         .submit(
             () -> {
-              try {
-                GlTextureFrame inputFrame1 =
-                    createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
+              frameWriter.configure(format, /* usage= */ 0);
+              @SuppressWarnings("UnnamedVariable") // TODO(b/561916275): Remove when issue is fixed.
+              AsyncFrame unused =
+                  checkNotNull(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
             })
         .get();
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
-    assertThat(actualBitmaps).hasSize(1);
-    assertThat(fakeJniWrapper.destroyEglImageCount).isEqualTo(1);
+    boolean queueResult =
+        glExecutorService
+            .submit(
+                () ->
+                    frameWriterGlTextureFrameConsumer.queue(
+                        createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000),
+                        directExecutor(),
+                        /* wakeupListener= */ () -> {}))
+            .get();
 
-    // Set frameWriter capacity to false, try queueing second frame and fail.
-    frameWriter.setCapacity(false);
-    List<Boolean> wakeupNotified = new CopyOnWriteArrayList<>();
-    AtomicReference<GlTextureFrame> inputFrame2 = new AtomicReference<>();
+    assertThat(queueResult).isFalse();
+    assertThat(frameWriter.outputBitmaps).isEmpty();
+  }
 
-    glExecutorService
-        .submit(
-            () -> {
-              try {
-                inputFrame2.set(createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000));
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame2.get(),
-                            directExecutor(),
-                            /* wakeupListener= */ () -> wakeupNotified.add(true)))
-                    .isFalse();
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-            })
-        .get();
-
-    assertThat(actualBitmaps).hasSize(1);
-    assertThat(wakeupNotified).isEmpty();
-    assertThat(fakeJniWrapper.destroyEglImageCount).isEqualTo(1);
-
-    // Restore capacity, verify wakeupListener is called, and queue second frame again succeeds.
-    frameWriter.setCapacity(true);
-    assertThat(wakeupNotified).containsExactly(true);
+  @Test
+  @SdkSuppress(minSdkVersion = 29)
+  public void queue_retriedOnWakeupWhenFrameWriterRegainsCapacity_copiesPixelsCorrectly()
+      throws Exception {
+    setUpHardwareBufferFrameConsumer();
+    // BitmapSavingFrameWriter has capacity for 1 frame; dequeuing without queuing back exhausts it.
+    Format format = new Format.Builder().setWidth(BITMAP_WIDTH).setHeight(BITMAP_HEIGHT).build();
+    AsyncFrame dequeuedFrame =
+        glExecutorService
+            .submit(
+                () -> {
+                  frameWriter.configure(format, /* usage= */ 0);
+                  return checkNotNull(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+                })
+            .get();
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
+    SettableFuture<Boolean> retryQueueResult = SettableFuture.create();
 
     glExecutorService
         .submit(
             () -> {
-              try {
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame2.get(), directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
+              GlTextureFrame frame =
+                  createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000);
+              boolean queued =
+                  frameWriterGlTextureFrameConsumer.queue(
+                      frame,
+                      directExecutor(),
+                      /* wakeupListener= */ () ->
+                          retryQueueResult.setFuture(
+                              glExecutorService.submit(
+                                  () ->
+                                      frameWriterGlTextureFrameConsumer.queue(
+                                          frame,
+                                          directExecutor(),
+                                          /* wakeupListener= */ () -> {}))));
+              frameWriter.queueInputFrame(dequeuedFrame.frame, /* writeCompleteFence= */ null);
+              return queued;
             })
         .get();
 
+    assertThat(retryQueueResult.get(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(2);
-    assertThat(fakeJniWrapper.destroyEglImageCount).isEqualTo(2);
-    Bitmap outputBitmap1 = actualBitmaps.get(0);
-    assertThat(outputBitmap1).isNotNull();
+    Bitmap outputBitmap = actualBitmaps.get(1);
+    assertThat(outputBitmap).isNotNull();
     assertThat(
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-                inputBitmap1, outputBitmap1, testName.getMethodName() + "_frame1"))
-        .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
-
-    Bitmap outputBitmap2 = actualBitmaps.get(1);
-    assertThat(outputBitmap2).isNotNull();
-    assertThat(
-            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-                inputBitmap2, outputBitmap2, testName.getMethodName() + "_frame2"))
+                inputBitmap, outputBitmap, testName.getMethodName()))
         .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_portraitFrameWhenPortraitUnsupported_rotatesToLandscape() throws Exception {
-    setUpHardwareBufferFrameConsumer();
-    frameWriter.supportsPortrait = false;
+    fakeJniWrapper = new ForwardingHardwareBufferJniWrapper();
+    frameWriter =
+        BitmapSavingFrameWriter.createForHardwareBuffer(
+            /* info= */ (format, usage) -> format.width >= format.height, TIMEOUT_MS);
+    frameWriterGlTextureFrameConsumer =
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
     Bitmap landscapeBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
     Matrix matrix = new Matrix();
     matrix.postRotate(90);
@@ -375,13 +352,13 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             })
         .get(TIMEOUT_MS, MILLISECONDS);
 
-    Bitmap outputBitmap = actualBitmaps.get(0);
+    Bitmap outputBitmap = frameWriter.outputBitmaps.get(0);
     assertThat(
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, outputBitmap, testName.getMethodName()))
         .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
 
-    Format configuredFrameWriterFormat = checkNotNull(frameWriter.configuredFormat);
+    Format configuredFrameWriterFormat = frameWriter.configuredFormat;
     assertThat(configuredFrameWriterFormat.width).isEqualTo(BITMAP_WIDTH);
     assertThat(configuredFrameWriterFormat.height).isEqualTo(BITMAP_HEIGHT);
     assertThat(configuredFrameWriterFormat.rotationDegrees).isEqualTo(270);
@@ -436,6 +413,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .get();
 
     // Frame 1: 1920x1080
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     Bitmap outputBitmap1 = actualBitmaps.get(0);
     assertThat(
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -502,6 +480,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .get();
 
     // Frame 1: 1080x1920 (portrait)
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     Bitmap outputBitmap1 = actualBitmaps.get(0);
     assertThat(
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -525,8 +504,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             createSolidGrayGlTextureFrame(
                 /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
 
-    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
-        .isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
     assertThat(actualBitmaps).hasSize(1);
     assertBitmapIsSolidGray(
         actualBitmaps.get(0),
@@ -542,8 +521,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         () ->
             createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR));
 
-    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
-        .isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
     assertThat(actualBitmaps).hasSize(1);
     assertBitmapIsSolidGray(
         actualBitmaps.get(0),
@@ -558,8 +537,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_SRGB));
 
-    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
-        .isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
     assertThat(actualBitmaps).hasSize(1);
     assertBitmapIsSolidGray(
         actualBitmaps.get(0), /* expectedComponent= */ 0.5f * 255, testName.getMethodName());
@@ -572,8 +551,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
 
-    assertThat(checkNotNull(frameWriter.configuredFormat).colorInfo)
-        .isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
     assertThat(actualBitmaps).hasSize(1);
     assertBitmapIsSolidGray(
         actualBitmaps.get(0), /* expectedComponent= */ 0.5f * 255, testName.getMethodName());
@@ -590,6 +569,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(2);
     assertBitmapIsSolidGray(
         actualBitmaps.get(0),
@@ -641,6 +621,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
                 /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
                 DefaultGlFrameProcessor.BT2020_LINEAR));
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertBitmapIsSolidGray(
         actualBitmaps.get(0),
         /* expectedComponent= */ DIFFUSE_WHITE_HLG * 255,
@@ -655,7 +636,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_imagePlanesFrame_copiesPixelsCorrectly() throws Exception {
-    frameWriter = new ImagePlanesBitmapSavingFrameWriter(actualBitmaps);
+    frameWriter = BitmapSavingFrameWriter.createForImagePlanes(TIMEOUT_MS);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(
             context, frameWriter, /* hardwareBufferJniWrapper= */ null);
@@ -663,6 +644,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(1);
     assertThat(
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -673,8 +655,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   public void queue_imagePlanesFrameWithBufferOffset_copiesPixelsCorrectly() throws Exception {
     frameWriter =
-        new ImagePlanesBitmapSavingFrameWriter(
-            actualBitmaps, /* rgbaRowPaddingBytes= */ 0, /* rgbaBufferPositionOffset= */ 12);
+        BitmapSavingFrameWriter.createForImagePlanes(
+            TIMEOUT_MS, /* rgbaRowPaddingBytes= */ 0, /* rgbaBufferPositionOffset= */ 12);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(
             context, frameWriter, /* hardwareBufferJniWrapper= */ null);
@@ -682,6 +664,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(1);
     assertThat(
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -693,8 +676,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   public void queue_imagePlanesFrameWithRowPaddingAndBufferOffset_copiesPixelsCorrectly()
       throws Exception {
     frameWriter =
-        new ImagePlanesBitmapSavingFrameWriter(
-            actualBitmaps, /* rgbaRowPaddingBytes= */ 16, /* rgbaBufferPositionOffset= */ 12);
+        BitmapSavingFrameWriter.createForImagePlanes(
+            TIMEOUT_MS, /* rgbaRowPaddingBytes= */ 16, /* rgbaBufferPositionOffset= */ 12);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(
             context, frameWriter, /* hardwareBufferJniWrapper= */ null);
@@ -702,6 +685,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
 
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(actualBitmaps).hasSize(1);
     assertThat(
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -712,7 +696,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @RequiresApi(29)
   private void setUpHardwareBufferFrameConsumer() {
     fakeJniWrapper = new ForwardingHardwareBufferJniWrapper();
-    frameWriter = new HardwareBufferBitmapSavingFrameWriter(actualBitmaps);
+    frameWriter = BitmapSavingFrameWriter.createForHardwareBuffer(TIMEOUT_MS);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
   }
@@ -867,187 +851,6 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     public boolean nativeCopyHardwareBufferToHardwareBuffer(
         HardwareBuffer srcHb, HardwareBuffer dstHb) {
       return delegate.nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb);
-    }
-  }
-
-  private abstract static class BitmapSavingFrameWriter implements FrameWriter {
-
-    @Nullable Format configuredFormat;
-
-    private final List<Bitmap> outputBitmaps;
-    private boolean hasCapacity;
-    @Nullable private Runnable pendingWakeupListener;
-    @Nullable private Executor pendingWakeupExecutor;
-    private boolean supportsPortrait;
-
-    BitmapSavingFrameWriter(List<Bitmap> outputBitmaps) {
-      this.outputBitmaps = outputBitmaps;
-      supportsPortrait = true;
-      hasCapacity = true;
-    }
-
-    final void setCapacity(boolean hasCapacity) {
-      this.hasCapacity = hasCapacity;
-      if (hasCapacity && pendingWakeupListener != null && pendingWakeupExecutor != null) {
-        pendingWakeupExecutor.execute(pendingWakeupListener);
-        pendingWakeupListener = null;
-        pendingWakeupExecutor = null;
-      }
-    }
-
-    @Override
-    public final Info getInfo() {
-      // Rejects rotation degree if portrait is not supported, this mirrors
-      // DefaultEncoderFactory.
-      return (format, usage) ->
-          format.rotationDegrees == 0 && (supportsPortrait || format.width >= format.height);
-    }
-
-    @Override
-    public void configure(Format format, long usage) {
-      this.configuredFormat = format;
-    }
-
-    @Override
-    @Nullable
-    public final AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
-      if (!hasCapacity) {
-        pendingWakeupListener = wakeupListener;
-        pendingWakeupExecutor = wakeupExecutor;
-        return null;
-      }
-      return new AsyncFrame(createFrame(), /* acquireFence= */ null);
-    }
-
-    @Override
-    public final void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
-      try {
-        if (writeCompleteFence != null) {
-          checkState(writeCompleteFence.awaitMs(500), "Fence wait timeout");
-          writeCompleteFence.close();
-        }
-        outputBitmaps.add(createBitmap(frame));
-      } catch (RuntimeException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    @Override
-    public final void signalEndOfStream() {}
-
-    @Override
-    public void close() {}
-
-    /** Creates a writable {@link Frame} for the configured format. */
-    abstract Frame createFrame();
-
-    /** Creates a {@link Bitmap} from the rendered {@code frame}. */
-    abstract Bitmap createBitmap(Frame frame);
-  }
-
-  @RequiresApi(29)
-  private static final class HardwareBufferBitmapSavingFrameWriter extends BitmapSavingFrameWriter {
-
-    @Nullable private HardwareBuffer hardwareBuffer;
-
-    HardwareBufferBitmapSavingFrameWriter(List<Bitmap> outputBitmaps) {
-      super(outputBitmaps);
-    }
-
-    @Override
-    public void configure(Format format, long usage) {
-      super.configure(format, usage);
-      if (hardwareBuffer == null
-          || hardwareBuffer.getWidth() != format.width
-          || hardwareBuffer.getHeight() != format.height) {
-        if (hardwareBuffer != null) {
-          hardwareBuffer.close();
-        }
-        hardwareBuffer =
-            HardwareBuffer.create(
-                format.width,
-                format.height,
-                HardwareBuffer.RGBA_8888,
-                /* layers= */ 1,
-                HardwareBuffer.USAGE_CPU_READ_OFTEN
-                    | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
-                    | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
-      }
-    }
-
-    @Override
-    Frame createFrame() {
-      return new DefaultHardwareBufferFrame.Builder(checkNotNull(hardwareBuffer)).build();
-    }
-
-    @Override
-    Bitmap createBitmap(Frame frame) {
-      checkArgument(frame instanceof HardwareBufferFrame);
-      HardwareBuffer hardwareBuffer = ((HardwareBufferFrame) frame).getHardwareBuffer();
-      Bitmap hardwareBitmap =
-          Bitmap.wrapHardwareBuffer(hardwareBuffer, ColorSpace.get(ColorSpace.Named.SRGB));
-      return checkNotNull(hardwareBitmap).copy(Bitmap.Config.ARGB_8888, /* isMutable= */ false);
-    }
-
-    @Override
-    public void close() {
-      if (hardwareBuffer != null) {
-        hardwareBuffer.close();
-      }
-    }
-  }
-
-  /**
-   * A {@link BitmapSavingFrameWriter} backed by {@link ImagePlanesFrame} instances.
-   *
-   * <p>Only {@link PixelFormat#RGBA_8888} (or {@link Format#NO_VALUE}, which defaults to {@link
-   * PixelFormat#RGBA_8888}) is supported.
-   */
-  private static final class ImagePlanesBitmapSavingFrameWriter extends BitmapSavingFrameWriter {
-
-    private final int rgbaRowPaddingBytes;
-    private final int rgbaBufferPositionOffset;
-
-    ImagePlanesBitmapSavingFrameWriter(List<Bitmap> outputBitmaps) {
-      this(outputBitmaps, /* rgbaRowPaddingBytes= */ 0, /* rgbaBufferPositionOffset= */ 0);
-    }
-
-    ImagePlanesBitmapSavingFrameWriter(
-        List<Bitmap> outputBitmaps, int rgbaRowPaddingBytes, int rgbaBufferPositionOffset) {
-      super(outputBitmaps);
-      this.rgbaRowPaddingBytes = rgbaRowPaddingBytes;
-      this.rgbaBufferPositionOffset = rgbaBufferPositionOffset;
-    }
-
-    @Override
-    Frame createFrame() {
-      Format format = checkNotNull(configuredFormat);
-      checkState(
-          format.pixelFormat == PixelFormat.RGBA_8888 || format.pixelFormat == Format.NO_VALUE);
-      int rowStride = format.width * RGBA_8888_BYTES_PER_PIXEL + rgbaRowPaddingBytes;
-      ByteBuffer buffer =
-          ByteBuffer.allocateDirect(rgbaBufferPositionOffset + rowStride * format.height);
-      buffer.position(rgbaBufferPositionOffset);
-      Plane plane =
-          new DefaultPlane(buffer, rowStride, /* pixelStride= */ RGBA_8888_BYTES_PER_PIXEL);
-      return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
-    }
-
-    @Override
-    Bitmap createBitmap(Frame frame) {
-      checkArgument(frame instanceof ImagePlanesFrame);
-      ImagePlanesFrame imagePlanesFrame = (ImagePlanesFrame) frame;
-      Format format = imagePlanesFrame.getFormat();
-      checkArgument(
-          format.pixelFormat == PixelFormat.RGBA_8888 || format.pixelFormat == Format.NO_VALUE);
-      Plane plane = imagePlanesFrame.getPlanes().get(0);
-      return createArgb8888BitmapFromRgba8888ImageBuffer(
-          new ImageBuffer(
-              plane.getBuffer().slice(),
-              format.width,
-              format.height,
-              plane.getRowStride(),
-              plane.getPixelStride()));
     }
   }
 }

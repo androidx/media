@@ -24,7 +24,6 @@ import android.graphics.ColorSpace;
 import android.media.MediaCodec;
 import android.view.SurfaceView;
 import android.widget.ImageView;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -33,7 +32,6 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.Presentation;
@@ -49,6 +47,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts decoded frames from {@link MediaItem}.
@@ -90,8 +89,8 @@ public final class FrameExtractor implements AutoCloseable {
     private MediaCodecSelector mediaCodecSelector;
     private boolean extractHdrFrames;
     private boolean enableUltraHdr;
-    @Nullable private GlObjectsProvider glObjectsProvider;
-    @Nullable private MediaSource.Factory mediaSourceFactory;
+    private @Nullable GlObjectsProvider glObjectsProvider;
+    private MediaSource.@Nullable Factory mediaSourceFactory;
 
     /**
      * Creates a new instance.
@@ -250,8 +249,8 @@ public final class FrameExtractor implements AutoCloseable {
   private final MediaCodecSelector mediaCodecSelector;
   private final boolean extractHdrFrames;
   private final boolean enableUltraHdr;
-  @Nullable private final GlObjectsProvider glObjectsProvider;
-  @Nullable private MediaSource.Factory mediaSourceFactory;
+  private final @Nullable GlObjectsProvider glObjectsProvider;
+  private MediaSource.@Nullable Factory mediaSourceFactory;
   private final AtomicBoolean released;
 
   private FrameExtractor(Builder builder) {
@@ -354,7 +353,7 @@ public final class FrameExtractor implements AutoCloseable {
   }
 
   @VisibleForTesting
-  /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
+  /* package */ ListenableFuture<@Nullable DecoderCounters> getDecoderCounters() {
     return FrameExtractorInternal.getInstance().getDecoderCounters();
   }
 }

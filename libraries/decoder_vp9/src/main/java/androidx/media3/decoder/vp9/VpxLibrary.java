@@ -15,11 +15,11 @@
  */
 package androidx.media3.decoder.vp9;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi
@@ -62,8 +62,7 @@ public final class VpxLibrary {
   }
 
   /** Returns the version of the underlying library if available, or null otherwise. */
-  @Nullable
-  public static String getVersion() {
+  public static @Nullable String getVersion() {
     return isAvailable() ? vpxGetVersion() : null;
   }
 
@@ -71,8 +70,7 @@ public final class VpxLibrary {
    * Returns the configuration string with which the underlying library was built if available, or
    * null otherwise.
    */
-  @Nullable
-  public static String getBuildConfig() {
+  public static @Nullable String getBuildConfig() {
     return isAvailable() ? vpxGetBuildConfig() : null;
   }
 

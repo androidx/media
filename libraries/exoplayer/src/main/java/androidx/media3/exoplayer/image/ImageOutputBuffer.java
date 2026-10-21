@@ -17,16 +17,16 @@ package androidx.media3.exoplayer.image;
 
 import android.graphics.Bitmap;
 import androidx.annotation.CallSuper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderOutputBuffer;
+import org.jspecify.annotations.Nullable;
 
 /** Output buffer for {@link ImageDecoder} instances. */
 @UnstableApi
 public abstract class ImageOutputBuffer extends DecoderOutputBuffer {
 
   /** The decoded {@link Bitmap}. */
-  @Nullable public Bitmap bitmap;
+  public @Nullable Bitmap bitmap;
 
   @Override
   @CallSuper

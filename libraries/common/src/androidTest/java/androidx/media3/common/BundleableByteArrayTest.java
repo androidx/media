@@ -31,10 +31,10 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.util.concurrent.SettableFuture;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -195,7 +195,7 @@ public final class BundleableByteArrayTest {
         @Override
         protected boolean onTransact(int code, Parcel data, @Nullable Parcel reply, int flags) {
           Bundle dataBundle = checkNotNull(data.readBundle());
-          @Nullable byte[] byteArray = checkNotNull(BundleableByteArray.fromBundle(dataBundle));
+          byte @Nullable [] byteArray = checkNotNull(BundleableByteArray.fromBundle(dataBundle));
           Bundle replyBundle = new BundleableByteArray(byteArray).toBundle();
           checkNotNull(reply).writeBundle(replyBundle);
           return true;

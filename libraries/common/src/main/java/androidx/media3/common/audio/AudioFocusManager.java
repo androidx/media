@@ -30,7 +30,6 @@ import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -45,6 +44,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manages requesting and responding to changes in audio focus.
@@ -131,8 +131,8 @@ public final class AudioFocusManager {
 
   private final Supplier<AudioManager> audioManager;
   private final Handler eventHandler;
-  @Nullable private PlayerControl playerControl;
-  @Nullable private AudioAttributes audioAttributes;
+  private @Nullable PlayerControl playerControl;
+  private @Nullable AudioAttributes audioAttributes;
 
   private @AudioFocusState int audioFocusState;
   private @AudioManagerCompat.AudioFocusGain int focusGainToRequest;

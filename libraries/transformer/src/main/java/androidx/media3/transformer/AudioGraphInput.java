@@ -30,7 +30,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -53,6 +52,7 @@ import java.nio.ByteOrder;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Processes a single sequential stream of PCM audio samples.
@@ -233,8 +233,7 @@ import java.util.concurrent.atomic.AtomicLong;
    * <p>Should only be called by the input thread.
    */
   @Override
-  @Nullable
-  public DecoderInputBuffer getInputBuffer() {
+  public @Nullable DecoderInputBuffer getInputBuffer() {
     checkState(!isReleased);
     if (inputBlocked || !pendingMediaItemChanges.isEmpty()) {
       return null;
@@ -671,7 +670,7 @@ import java.util.concurrent.atomic.AtomicLong;
   private static final class MediaItemChange {
     public final EditedMediaItem editedMediaItem;
     public final long durationUs;
-    @Nullable public final Format format;
+    public final @Nullable Format format;
     public final boolean isLast;
     public final long positionOffsetUs;
 

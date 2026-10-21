@@ -15,9 +15,11 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
+import static androidx.media3.transformer.AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -27,13 +29,19 @@ import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
+import androidx.media3.test.utils.CapturingFrameProcessor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -47,7 +55,7 @@ import org.junit.runner.RunWith;
  * Instrumentation tests for {@link CompositionPlayer} when the {@link EditedMediaItemSequence} has
  * gaps.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class CompositionPlayerGapsTest {
   private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
   private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
@@ -65,11 +73,17 @@ public final class CompositionPlayerGapsTest {
           .build();
 
   @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
+
+  @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
 
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
   private final Context context = ApplicationProvider.getApplicationContext();
+
+  @TestParameter(valuesProvider = UseDefaultGlFrameProcessorProvider.class)
+  private boolean useDefaultGlFrameProcessor;
 
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
   private @MonotonicNonNull SurfaceView surfaceView;
@@ -128,11 +142,10 @@ public final class CompositionPlayerGapsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
           endedFuture.setFuture(
               futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
@@ -190,11 +203,10 @@ public final class CompositionPlayerGapsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
           endedFuture.setFuture(
               futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
@@ -252,11 +264,10 @@ public final class CompositionPlayerGapsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
           endedFuture.setFuture(
               futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
@@ -314,11 +325,10 @@ public final class CompositionPlayerGapsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
           endedFuture.setFuture(
               futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
@@ -377,11 +387,10 @@ public final class CompositionPlayerGapsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
           endedFuture.setFuture(
               futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
@@ -440,11 +449,10 @@ public final class CompositionPlayerGapsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(videoFrameMetadataListener);
           endedFuture.setFuture(
               futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
           compositionPlayer.setComposition(composition);
@@ -462,5 +470,47 @@ public final class CompositionPlayerGapsTest {
 
     assertThat(incorrectFrameDimensionsInAudioOnlyItem.get()).isFalse();
     assertThat(oneByOneFramesInAudioOnlyItemCount.get()).isTrue();
+  }
+
+  private CompositionPlayer createCompositionPlayer(
+      VideoFrameMetadataListener videoFrameMetadataListener) {
+    if (useDefaultGlFrameProcessor && SDK_INT >= HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
+      FrameProcessor.Factory frameProcessorFactory =
+          new CapturingFrameProcessor.Factory(
+              glFrameProcessorTestRule.createDefaultGlFrameProcessorFactory(context),
+              /* onQueueListener= */ frames -> {
+                Frame frame = frames.get(0).frame;
+                // In the FrameProcessor pipeline, CompositionPlayer invokes
+                // videoFrameMetadataListener from SurfaceHolderFrameWriter, which is configured
+                // once using the first frame's Format and therefore does not report the 16x16
+                // input Format for gaps that follow a video item. Forward the queued input Frame's
+                // Format here so the tests can verify the 16x16 gap Format entering
+                // FrameProcessor.
+                videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+                    frame.getContentTimeUs(),
+                    /* releaseTimeNs= */ C.TIME_UNSET,
+                    frame.getFormat(),
+                    /* mediaFormat= */ null);
+              });
+      return glFrameProcessorTestRule
+          .createCompositionPlayerBuilder(context)
+          .setFrameProcessorFactory(frameProcessorFactory)
+          .build();
+    }
+    CompositionPlayer player = new CompositionPlayer.Builder(context).build();
+    player.setVideoFrameMetadataListener(videoFrameMetadataListener);
+    return player;
+  }
+
+  private static final class UseDefaultGlFrameProcessorProvider
+      extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<Boolean> provideValues(TestParameterValuesProvider.Context context) {
+      // Provide true only on supported SDK levels to avoid triggering the AssumeSdkInt lint check.
+      if (SDK_INT >= HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK) {
+        return ImmutableList.of(false, true);
+      }
+      return ImmutableList.of(false);
+    }
   }
 }

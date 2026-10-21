@@ -16,11 +16,9 @@
 package androidx.media3.exoplayer.trackselection;
 
 import android.os.SystemClock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
@@ -28,6 +26,7 @@ import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import java.util.List;
 import java.util.Random;
+import org.jspecify.annotations.Nullable;
 
 /** An {@link ExoTrackSelection} whose selected track is updated randomly. */
 @UnstableApi
@@ -50,8 +49,8 @@ public final class RandomTrackSelection extends BaseTrackSelection {
     }
 
     @Override
-    public @NullableType ExoTrackSelection[] createTrackSelections(
-        @NullableType Definition[] definitions,
+    public @Nullable ExoTrackSelection[] createTrackSelections(
+        @Nullable Definition[] definitions,
         BandwidthMeter bandwidthMeter,
         MediaPeriodId mediaPeriodId,
         Timeline timeline) {
@@ -122,8 +121,7 @@ public final class RandomTrackSelection extends BaseTrackSelection {
   }
 
   @Override
-  @Nullable
-  public Object getSelectionData() {
+  public @Nullable Object getSelectionData() {
     return null;
   }
 }

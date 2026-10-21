@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.os.ParcelFileDescriptor;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
@@ -39,6 +38,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Locale;
+import org.jspecify.annotations.Nullable;
 
 /** {@link Muxer} implementation that uses a {@link FragmentedMp4Muxer}. */
 @UnstableApi

@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.drm;
 
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for Widevine. */
 @UnstableApi
@@ -40,8 +40,7 @@ public final class WidevineUtil {
    * @return A {@link Pair} consisting of the remaining license and playback durations in seconds,
    *     or null if called before the session has been opened or after it's been released.
    */
-  @Nullable
-  public static Pair<Long, Long> getLicenseDurationRemainingSec(DrmSession drmSession) {
+  public static @Nullable Pair<Long, Long> getLicenseDurationRemainingSec(DrmSession drmSession) {
     Map<String, String> keyStatus = drmSession.queryKeyStatus();
     if (keyStatus == null) {
       return null;

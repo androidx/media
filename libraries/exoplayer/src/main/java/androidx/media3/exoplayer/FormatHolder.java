@@ -15,20 +15,20 @@
  */
 package androidx.media3.exoplayer;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.DrmSession;
+import org.jspecify.annotations.Nullable;
 
 /** Holds a {@link Format}. */
 @UnstableApi
 public final class FormatHolder {
 
   /** An accompanying context for decrypting samples in the format. */
-  @Nullable public DrmSession drmSession;
+  public @Nullable DrmSession drmSession;
 
   /** The held {@link Format}. */
-  @Nullable public Format format;
+  public @Nullable Format format;
 
   /** Clears the holder. */
   public void clear() {

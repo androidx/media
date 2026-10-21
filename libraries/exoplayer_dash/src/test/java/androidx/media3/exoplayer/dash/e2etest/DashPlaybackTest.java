@@ -35,7 +35,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -99,6 +98,7 @@ import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import org.jspecify.annotations.Nullable;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1230,8 +1230,8 @@ public final class DashPlaybackTest {
 
   private static final class AnalyticsListenerImpl implements AnalyticsListener {
 
-    @Nullable private LoadEventInfo loadErrorEventInfo;
-    @Nullable private IOException loadError;
+    private @Nullable LoadEventInfo loadErrorEventInfo;
+    private @Nullable IOException loadError;
 
     @Override
     public void onLoadError(
@@ -1349,9 +1349,8 @@ public final class DashPlaybackTest {
       return dataSource.open(dataSpec);
     }
 
-    @Nullable
     @Override
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return dataSource.getUri();
     }
 

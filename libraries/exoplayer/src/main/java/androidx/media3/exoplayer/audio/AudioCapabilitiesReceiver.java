@@ -28,7 +28,6 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.audio.AudioManagerCompat;
@@ -38,6 +37,7 @@ import androidx.media3.exoplayer.util.SpatializerWrapper;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Receives broadcast events indicating changes to the device's audio capabilities, notifying a
@@ -62,11 +62,11 @@ public final class AudioCapabilitiesReceiver {
   private final Handler handler;
   @VisibleForTesting final android.media.AudioDeviceCallback audioDeviceCallback;
   private final BroadcastReceiver hdmiAudioPlugBroadcastReceiver;
-  @Nullable private final ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
-  @Nullable private SpatializerWrapper spatializer;
+  private final @Nullable ExternalSurroundSoundSettingObserver externalSurroundSoundSettingObserver;
+  private @Nullable SpatializerWrapper spatializer;
 
-  @Nullable private AudioCapabilities audioCapabilities;
-  @Nullable private AudioDeviceInfo routedDevice;
+  private @Nullable AudioCapabilities audioCapabilities;
+  private @Nullable AudioDeviceInfo routedDevice;
   private AudioAttributes audioAttributes;
   private boolean registered;
 

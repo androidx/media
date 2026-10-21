@@ -16,7 +16,6 @@
 package androidx.media3.cast;
 
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.Status;
 import com.google.common.base.Preconditions;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for Cast integration. */
 /* package */ final class CastUtils {
@@ -225,8 +225,7 @@ import com.google.common.base.Preconditions;
    * if the track type is not one of {@link C#TRACK_TYPE_AUDIO}, {@link C#TRACK_TYPE_TEXT}, or
    * {@link C#TRACK_TYPE_VIDEO}, which are the types supported by the Cast SDK.
    */
-  @Nullable
-  private static String getUnknownMimeTypeForTrackType(@TrackType int media3TrackType) {
+  private static @Nullable String getUnknownMimeTypeForTrackType(@TrackType int media3TrackType) {
     switch (media3TrackType) {
       case C.TRACK_TYPE_AUDIO:
         return MimeTypes.AUDIO_UNKNOWN;

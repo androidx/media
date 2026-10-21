@@ -91,7 +91,6 @@ import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -162,9 +161,9 @@ import java.util.zip.Inflater;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.jspecify.annotations.Nullable;
 
 /** Miscellaneous utility methods. */
 public final class Util {
@@ -221,7 +220,7 @@ public final class Util {
   private static final int ZLIB_INFLATE_HEADER = 0x78;
 
   // Replacement map of ISO language codes used for normalization.
-  @Nullable private static HashMap<String, String> languageTagReplacementMap;
+  private static @Nullable HashMap<String, String> languageTagReplacementMap;
 
   private Util() {}
 
@@ -281,8 +280,7 @@ public final class Util {
    * @return The first sticky intent found that matches {@code filter}, or null if there are none.
    */
   @UnstableApi
-  @Nullable
-  public static Intent registerReceiverNotExported(
+  public static @Nullable Intent registerReceiverNotExported(
       Context context, @Nullable BroadcastReceiver receiver, IntentFilter filter) {
     if (Build.VERSION.SDK_INT < 33) {
       return context.registerReceiver(receiver, filter);
@@ -300,8 +298,7 @@ public final class Util {
    * @return The result of the called method.
    */
   @UnstableApi
-  @Nullable
-  public static ComponentName startForegroundService(Context context, Intent intent) {
+  public static @Nullable ComponentName startForegroundService(Context context, Intent intent) {
     if (Build.VERSION.SDK_INT >= 26) {
       return context.startForegroundService(intent);
     } else {
@@ -455,8 +452,7 @@ public final class Util {
       String filePath = new File(uriPath).getCanonicalPath();
       String internalAppDirectoryPath = activity.getFilesDir().getCanonicalPath();
       @Nullable File externalAppDirectory = activity.getExternalFilesDir(/* type= */ null);
-      @Nullable
-      String externalAppDirectoryPath =
+      @Nullable String externalAppDirectoryPath =
           externalAppDirectory == null ? null : externalAppDirectory.getCanonicalPath();
       return filePath.startsWith(internalAppDirectoryPath)
           || (externalAppDirectoryPath != null && filePath.startsWith(externalAppDirectoryPath));
@@ -608,7 +604,7 @@ public final class Util {
    * @return True if the array contains an object equal to the item being searched for.
    */
   @UnstableApi
-  public static boolean contains(@NullableType Object[] items, @Nullable Object item) {
+  public static boolean contains(@Nullable Object[] items, @Nullable Object item) {
     for (Object arrayItem : items) {
       if (Objects.equals(arrayItem, item)) {
         return true;
@@ -688,7 +684,7 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull("#1")
-  public static <T> T[] castNonNullTypeArray(@NullableType T[] value) {
+  public static <T> T[] castNonNullTypeArray(@Nullable T[] value) {
     return value;
   }
 
@@ -732,7 +728,7 @@ public final class Util {
    */
   @UnstableApi
   public static <T> T[] nullSafeArrayAppend(T[] original, T newElement) {
-    @NullableType T[] result = Arrays.copyOf(original, original.length + 1);
+    @Nullable T[] result = Arrays.copyOf(original, original.length + 1);
     result[original.length] = newElement;
     return castNonNullTypeArray(result);
   }
@@ -797,7 +793,7 @@ public final class Util {
    */
   @UnstableApi
   public static Handler createHandlerForCurrentLooper(
-      @Nullable Handler.@UnknownInitialization Callback callback) {
+      Handler.@Nullable @UnknownInitialization Callback callback) {
     return createHandler(checkNotNull(Looper.myLooper()), callback);
   }
 
@@ -828,7 +824,7 @@ public final class Util {
    */
   @UnstableApi
   public static Handler createHandlerForCurrentOrMainLooper(
-      @Nullable Handler.@UnknownInitialization Callback callback) {
+      Handler.@Nullable @UnknownInitialization Callback callback) {
     return createHandler(getCurrentOrMainLooper(), callback);
   }
 
@@ -847,7 +843,7 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings({"nullness:argument", "nullness:return"})
   public static Handler createHandler(
-      Looper looper, @Nullable Handler.@UnknownInitialization Callback callback) {
+      Looper looper, Handler.@Nullable @UnknownInitialization Callback callback) {
     return new Handler(looper, callback);
   }
 
@@ -948,7 +944,7 @@ public final class Util {
    * @return A {@link ListenableFuture} for the transformed result.
    */
   @UnstableApi
-  public static <T extends @NullableType Object, U extends @NullableType Object>
+  public static <T extends @Nullable Object, U extends @Nullable Object>
       ListenableFuture<T> transformFutureAsync(
           ListenableFuture<U> future, AsyncFunction<U, T> transformFunction) {
     // This is a simplified copy of Guava's Futures.transformAsync.
@@ -2306,8 +2302,8 @@ public final class Util {
    *     trackType}. If this ends up empty, or {@code codecs} is null, returns null.
    */
   @UnstableApi
-  @Nullable
-  public static String getCodecsOfType(@Nullable String codecs, @C.TrackType int trackType) {
+  public static @Nullable String getCodecsOfType(
+      @Nullable String codecs, @C.TrackType int trackType) {
     String[] codecArray = splitCodecs(codecs);
     if (codecArray.length == 0) {
       return null;
@@ -2341,8 +2337,7 @@ public final class Util {
    * @return The {@link ColorInfo} for specific Dolby Vision codecs and profiles and otherwise null.
    */
   @UnstableApi
-  @Nullable
-  public static ColorInfo getColorInfoForDolbyVision(
+  public static @Nullable ColorInfo getColorInfoForDolbyVision(
       @Nullable String codecs,
       @Nullable String supplementalCodecs,
       @Nullable String supplementalProfiles) {
@@ -2397,8 +2392,8 @@ public final class Util {
    *     If this ends up empty, or {@code codecs} is null, returns null.
    */
   @UnstableApi
-  @Nullable
-  public static String getCodecsWithoutType(@Nullable String codecs, @C.TrackType int trackType) {
+  public static @Nullable String getCodecsWithoutType(
+      @Nullable String codecs, @C.TrackType int trackType) {
     String[] codecArray = splitCodecs(codecs);
     if (codecArray.length == 0) {
       return null;
@@ -3010,8 +3005,7 @@ public final class Util {
    *     "clearkey"}.
    * @return The derived {@link UUID}, or {@code null} if one could not be derived.
    */
-  @Nullable
-  public static UUID getDrmUuid(String drmScheme) {
+  public static @Nullable UUID getDrmUuid(String drmScheme) {
     switch (Ascii.toLowerCase(drmScheme)) {
       case "widevine":
         return C.WIDEVINE_UUID;
@@ -3183,8 +3177,7 @@ public final class Util {
    * Returns the MIME type corresponding to the given adaptive {@link ContentType}, or {@code null}
    * if the content type is not adaptive.
    */
-  @Nullable
-  public static String getAdaptiveMimeTypeForContentType(@ContentType int contentType) {
+  public static @Nullable String getAdaptiveMimeTypeForContentType(@ContentType int contentType) {
     switch (contentType) {
       case C.CONTENT_TYPE_DASH:
         return MimeTypes.APPLICATION_MPD;
@@ -3329,8 +3322,7 @@ public final class Util {
    *     fileName seems invalid.
    */
   @UnstableApi
-  @Nullable
-  public static String unescapeFileName(String fileName) {
+  public static @Nullable String unescapeFileName(String fileName) {
     int length = fileName.length();
     int percentCharacterCount = 0;
     for (int i = 0; i < length; i++) {
@@ -3542,8 +3534,7 @@ public final class Util {
   @UnstableApi
   public static String getCountryCode(@Nullable Context context) {
     if (context != null) {
-      @Nullable
-      TelephonyManager telephonyManager =
+      @Nullable TelephonyManager telephonyManager =
           (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
       if (telephonyManager != null) {
         String countryCode = telephonyManager.getNetworkCountryIso();
@@ -3659,8 +3650,7 @@ public final class Util {
   @UnstableApi
   public static boolean isTv(Context context) {
     // See https://developer.android.com/training/tv/start/hardware.html#runtime-check.
-    @Nullable
-    UiModeManager uiModeManager =
+    @Nullable UiModeManager uiModeManager =
         (UiModeManager) context.getApplicationContext().getSystemService(UI_MODE_SERVICE);
     return uiModeManager != null
         && uiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
@@ -3703,8 +3693,7 @@ public final class Util {
   @UnstableApi
   public static Point getCurrentDisplayModeSize(Context context) {
     @Nullable Display defaultDisplay = null;
-    @Nullable
-    DisplayManager displayManager =
+    @Nullable DisplayManager displayManager =
         (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
     // We don't expect displayManager to ever be null, so this check is just precautionary.
     if (displayManager != null) {
@@ -3747,8 +3736,7 @@ public final class Util {
       //
       // From API level 28, Treble may prevent the system from writing sys.display-size, so we check
       // vendor.display-size instead.
-      @Nullable
-      String displaySize =
+      @Nullable String displaySize =
           Build.VERSION.SDK_INT < 28
               ? getSystemProperty("sys.display-size")
               : getSystemProperty("vendor.display-size");
@@ -4006,8 +3994,7 @@ public final class Util {
    * @param newFromIndex The new from index.
    */
   @UnstableApi
-  public static <T extends @NonNull Object> void moveItems(
-      List<T> items, int fromIndex, int toIndex, int newFromIndex) {
+  public static <T> void moveItems(List<T> items, int fromIndex, int toIndex, int newFromIndex) {
     ArrayDeque<T> removedItems = new ArrayDeque<>();
     int removedItemsLength = toIndex - fromIndex;
     for (int i = removedItemsLength - 1; i >= 0; i--) {
@@ -4370,10 +4357,9 @@ public final class Util {
    * @param bundle The {@link Bundle} to verify, or null.
    * @return The same {@link Bundle}, or null if the verification failed or the parameter is null.
    */
-  @Nullable
   @CheckReturnValue
   @UnstableApi
-  public static Bundle convertToNullIfInvalid(@Nullable Bundle bundle) {
+  public static @Nullable Bundle convertToNullIfInvalid(@Nullable Bundle bundle) {
     if (bundle == null) {
       return null;
     }
@@ -4395,9 +4381,8 @@ public final class Util {
    *
    * @param name The name of the system property.
    */
-  @Nullable
   @UnstableApi
-  public static String getSystemProperty(String name) {
+  public static @Nullable String getSystemProperty(String name) {
     try {
       @SuppressLint("PrivateApi")
       Class<?> systemProperties = Class.forName("android.os.SystemProperties");

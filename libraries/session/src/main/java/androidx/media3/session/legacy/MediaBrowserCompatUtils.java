@@ -19,8 +19,8 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+import org.jspecify.annotations.Nullable;
 
 /** */
 @RestrictTo(LIBRARY)

@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * Sonic audio stream processor for time/pitch stretching.
@@ -553,7 +552,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   /** Interface that exposes sample format-specific operations to {@link Sonic}. */
-  private interface SonicImpl<T extends @NonNull Object> {
+  private interface SonicImpl<T> {
 
     /** Returns the number of bytes in a sample. */
     int bytesPerSample();

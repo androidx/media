@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
@@ -29,6 +28,7 @@ import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import java.util.ArrayList;
 import java.util.HashSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Base {@link MediaSource} implementation to handle parallel reuse and to keep a list of {@link
@@ -45,10 +45,10 @@ public abstract class BaseMediaSource implements MediaSource {
   private final MediaSourceEventListener.EventDispatcher eventDispatcher;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
 
-  @Nullable private Looper looper;
-  @Nullable private Timeline timeline;
-  @Nullable private PlayerId playerId;
-  @Nullable private BandwidthMeter bandwidthMeter;
+  private @Nullable Looper looper;
+  private @Nullable Timeline timeline;
+  private @Nullable PlayerId playerId;
+  private @Nullable BandwidthMeter bandwidthMeter;
 
   public BaseMediaSource() {
     mediaSourceCallers = new ArrayList<>(/* initialCapacity= */ 1);

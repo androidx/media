@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -30,6 +29,7 @@ import androidx.media3.extractor.text.SubtitleParser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extracts samples and track {@link Format Formats} from chunks.
@@ -105,8 +105,7 @@ public interface ChunkExtractor {
      * @param playerId The {@link PlayerId} of the player using this chunk extractor.
      * @return A new {@link ChunkExtractor} instance, or null if not applicable.
      */
-    @Nullable
-    ChunkExtractor createProgressiveMediaExtractor(
+    @Nullable ChunkExtractor createProgressiveMediaExtractor(
         @C.TrackType int primaryTrackType,
         Format representationFormat,
         boolean enableEventMessageTrack,
@@ -135,15 +134,13 @@ public interface ChunkExtractor {
    * Returns the {@link ChunkIndex} most recently obtained from the chunks, or null if a {@link
    * ChunkIndex} has not been obtained.
    */
-  @Nullable
-  ChunkIndex getChunkIndex();
+  @Nullable ChunkIndex getChunkIndex();
 
   /**
    * Returns the sample {@link Format}s for the tracks identified by the extractor, or null if the
    * extractor has not finished identifying tracks.
    */
-  @Nullable
-  Format[] getSampleFormats();
+  Format @Nullable [] getSampleFormats();
 
   /**
    * Initializes the wrapper to output to {@link TrackOutput}s provided by the specified {@link

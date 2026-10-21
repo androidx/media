@@ -21,11 +21,11 @@ import android.app.PendingIntent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.text.TextUtils;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.ui.PlayerNotificationManager.BitmapCallback;
 import androidx.media3.ui.PlayerNotificationManager.MediaDescriptionAdapter;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Default implementation of {@link MediaDescriptionAdapter}.
@@ -36,7 +36,7 @@ import androidx.media3.ui.PlayerNotificationManager.MediaDescriptionAdapter;
 @UnstableApi
 public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAdapter {
 
-  @Nullable private final PendingIntent pendingIntent;
+  private final @Nullable PendingIntent pendingIntent;
 
   /**
    * Creates a default {@link MediaDescriptionAdapter}.
@@ -62,15 +62,13 @@ public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAda
     return title != null ? title : "";
   }
 
-  @Nullable
   @Override
-  public PendingIntent createCurrentContentIntent(Player player) {
+  public @Nullable PendingIntent createCurrentContentIntent(Player player) {
     return pendingIntent;
   }
 
-  @Nullable
   @Override
-  public CharSequence getCurrentContentText(Player player) {
+  public @Nullable CharSequence getCurrentContentText(Player player) {
     if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
       return null;
     }
@@ -82,13 +80,12 @@ public final class DefaultMediaDescriptionAdapter implements MediaDescriptionAda
     return player.getMediaMetadata().albumArtist;
   }
 
-  @Nullable
   @Override
-  public Bitmap getCurrentLargeIcon(Player player, BitmapCallback callback) {
+  public @Nullable Bitmap getCurrentLargeIcon(Player player, BitmapCallback callback) {
     if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
       return null;
     }
-    @Nullable byte[] data = player.getMediaMetadata().artworkData;
+    byte @Nullable [] data = player.getMediaMetadata().artworkData;
     if (data == null) {
       return null;
     }

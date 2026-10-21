@@ -36,7 +36,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -76,6 +75,7 @@ import java.util.function.Consumer;
 import org.checkerframework.checker.initialization.qual.NotOnlyInitialized;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A controller that interacts with a {@link MediaSession}, a {@link MediaSessionService} hosting a
@@ -801,8 +801,7 @@ public class MediaController implements Player {
    * controller is created with the token for {@link MediaSessionService}, this will return a token
    * for the {@link MediaSession} in the service.
    */
-  @Nullable
-  public final SessionToken getConnectedToken() {
+  public final @Nullable SessionToken getConnectedToken() {
     return isConnected() ? impl.getConnectedToken() : null;
   }
 
@@ -952,14 +951,12 @@ public class MediaController implements Player {
   }
 
   /** Returns an intent for launching UI associated with the session if exists, or {@code null}. */
-  @Nullable
-  public final PendingIntent getSessionActivity() {
+  public final @Nullable PendingIntent getSessionActivity() {
     return isConnected() ? impl.getSessionActivity() : null;
   }
 
   @Override
-  @Nullable
-  public final PlaybackException getPlayerError() {
+  public final @Nullable PlaybackException getPlayerError() {
     verifyApplicationThread();
     return isConnected() ? impl.getPlayerError() : null;
   }
@@ -1400,8 +1397,7 @@ public class MediaController implements Player {
   /** Returns {@code null}. */
   @UnstableApi
   @Override
-  @Nullable
-  public final Object getCurrentManifest() {
+  public final @Nullable Object getCurrentManifest() {
     return null;
   }
 
@@ -1684,8 +1680,7 @@ public class MediaController implements Player {
   }
 
   @Override
-  @Nullable
-  public final MediaItem getCurrentMediaItem() {
+  public final @Nullable MediaItem getCurrentMediaItem() {
     Timeline timeline = getCurrentTimeline();
     return timeline.isEmpty()
         ? null
@@ -2433,9 +2428,8 @@ public class MediaController implements Player {
   }
 
   /** Returns the binder object used to connect to the session. */
-  @Nullable
   @VisibleForTesting(otherwise = NONE)
-  /* package */ final IMediaController getBinder() {
+  /* package */ final @Nullable IMediaController getBinder() {
     return impl.getBinder();
   }
 
@@ -2457,8 +2451,7 @@ public class MediaController implements Player {
 
     void removeListener(Player.Listener listener);
 
-    @Nullable
-    SessionToken getConnectedToken();
+    @Nullable SessionToken getConnectedToken();
 
     boolean isConnected();
 
@@ -2490,11 +2483,9 @@ public class MediaController implements Player {
 
     void seekForward();
 
-    @Nullable
-    PendingIntent getSessionActivity();
+    @Nullable PendingIntent getSessionActivity();
 
-    @Nullable
-    PlaybackException getPlayerError();
+    @Nullable PlaybackException getPlayerError();
 
     long getDuration();
 
@@ -2701,10 +2692,8 @@ public class MediaController implements Player {
     // Internally used methods
     Context getContext();
 
-    @Nullable
-    MediaBrowserCompat getBrowserCompat();
+    @Nullable MediaBrowserCompat getBrowserCompat();
 
-    @Nullable
-    IMediaController getBinder();
+    @Nullable IMediaController getBinder();
   }
 }

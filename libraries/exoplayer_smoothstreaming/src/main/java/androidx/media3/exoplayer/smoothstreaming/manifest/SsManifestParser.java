@@ -21,7 +21,6 @@ import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
@@ -29,7 +28,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest.ProtectionElement;
@@ -45,6 +43,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -104,8 +103,8 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
     private final String baseUri;
     private final String tag;
 
-    @Nullable private final ElementParser parent;
-    private final List<Pair<String, @NullableType Object>> normalizedAttributes;
+    private final @Nullable ElementParser parent;
+    private final List<Pair<String, @Nullable Object>> normalizedAttributes;
 
     public ElementParser(@Nullable ElementParser parent, String baseUri, String tag) {
       this.parent = parent;
@@ -202,8 +201,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
      * @param key The name of the attribute.
      * @return The stashed value, or null if the attribute was not found.
      */
-    @Nullable
-    protected final Object getNormalizedAttribute(String key) {
+    protected final @Nullable Object getNormalizedAttribute(String key) {
       for (int i = 0; i < normalizedAttributes.size(); i++) {
         Pair<String, Object> pair = normalizedAttributes.get(i);
         if (pair.first.equals(key)) {
@@ -350,7 +348,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
     private long dvrWindowLength;
     private int lookAheadCount;
     private boolean isLive;
-    @Nullable private ProtectionElement protectionElement;
+    private @Nullable ProtectionElement protectionElement;
 
     public SmoothStreamingMediaParser(ElementParser parent, String baseUri) {
       super(parent, baseUri, TAG);
@@ -765,7 +763,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
       ArrayList<byte[]> csd = new ArrayList<>();
       if (!TextUtils.isEmpty(codecSpecificDataString)) {
         byte[] codecPrivateData = Util.getBytesFromHexString(codecSpecificDataString);
-        @Nullable byte[][] split = CodecSpecificDataUtil.splitNalUnits(codecPrivateData);
+        byte @Nullable [][] split = CodecSpecificDataUtil.splitNalUnits(codecPrivateData);
         if (split == null) {
           csd.add(codecPrivateData);
         } else {
@@ -775,8 +773,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
       return csd;
     }
 
-    @Nullable
-    private static String fourCCToMimeType(String fourCC) {
+    private static @Nullable String fourCCToMimeType(String fourCC) {
       if (fourCC.equalsIgnoreCase("H264")
           || fourCC.equalsIgnoreCase("X264")
           || fourCC.equalsIgnoreCase("AVC1")

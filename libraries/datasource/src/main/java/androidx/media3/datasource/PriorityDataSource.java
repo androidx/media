@@ -18,13 +18,13 @@ package androidx.media3.datasource;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link DataSource} that can be used as part of a task registered with a {@link
@@ -110,8 +110,7 @@ public final class PriorityDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return upstream.getUri();
   }
 

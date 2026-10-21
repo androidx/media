@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Looper;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.annotation.Size;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -46,6 +45,7 @@ import androidx.media3.test.utils.ActionSchedule.PlayerRunnable;
 import androidx.media3.test.utils.ActionSchedule.PlayerTarget;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Base class for actions to perform during playback tests. */
 @UnstableApi
@@ -54,7 +54,7 @@ public abstract class Action {
   @Size(max = 23)
   private final String tag;
 
-  @Nullable private final String description;
+  private final @Nullable String description;
 
   /**
    * @param tag A tag to use for logging.
@@ -128,7 +128,7 @@ public abstract class Action {
   /** Calls {@link Player#seekTo(long)} or {@link Player#seekTo(int, long)}. */
   public static final class Seek extends Action {
 
-    @Nullable private final Integer mediaItemIndex;
+    private final @Nullable Integer mediaItemIndex;
     private final long positionMs;
     private final boolean catchIllegalSeekException;
 
@@ -732,7 +732,7 @@ public abstract class Action {
   /** Waits for {@link Player.Listener#onTimelineChanged(Timeline, int)}. */
   public static final class WaitForTimelineChanged extends Action {
 
-    @Nullable private final Timeline expectedTimeline;
+    private final @Nullable Timeline expectedTimeline;
     private final boolean ignoreExpectedReason;
     private final @Player.TimelineChangeReason int expectedReason;
 

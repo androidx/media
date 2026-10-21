@@ -29,7 +29,6 @@ import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.provider.Settings;
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
@@ -39,6 +38,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link Player.Listener} that launches a system dialog in response to {@link
@@ -112,7 +112,7 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
   private final long autoResumeTimeoutAfterUnsuitableOutputSuppressionMs;
   private final Clock clock;
 
-  @Nullable private final WakeLock wakeLock;
+  private final @Nullable WakeLock wakeLock;
 
   private long unsuitableOutputPlaybackSuppressionStartRealtimeMs;
 

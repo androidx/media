@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
@@ -52,6 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** An HLS {@link MediaChunk}. */
 /* package */ final class HlsMediaChunk extends MediaChunk {
@@ -102,12 +102,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       TimestampAdjusterProvider timestampAdjusterProvider,
       long timestampAdjusterInitializationTimeoutMs,
       @Nullable HlsMediaChunk previousChunk,
-      @Nullable byte[] mediaSegmentKey,
-      @Nullable byte[] initSegmentKey,
+      byte @Nullable [] mediaSegmentKey,
+      byte @Nullable [] initSegmentKey,
       boolean shouldSpliceIn,
       boolean isIndependent,
       PlayerId playerId,
-      @Nullable CmcdData.Factory cmcdDataFactory) {
+      CmcdData.@Nullable Factory cmcdDataFactory) {
     // Media segment.
     HlsMediaPlaylist.SegmentBase mediaSegment = segmentBaseHolder.segmentBase;
     DataSpec dataSpec =
@@ -123,8 +123,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     boolean mediaSegmentEncrypted = mediaSegmentKey != null;
-    @Nullable
-    byte[] mediaSegmentIv =
+    byte @Nullable [] mediaSegmentIv =
         mediaSegmentEncrypted
             ? getEncryptionIvArray(checkNotNull(mediaSegment.encryptionIV))
             : null;
@@ -137,8 +136,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @Nullable DataSource initDataSource = null;
     if (initSegment != null) {
       initSegmentEncrypted = initSegmentKey != null;
-      @Nullable
-      byte[] initSegmentIv =
+      byte @Nullable [] initSegmentIv =
           initSegmentEncrypted
               ? getEncryptionIvArray(checkNotNull(initSegment.encryptionIV))
               : null;
@@ -227,8 +225,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *
    * @param previousChunk The previous existing media chunk, or null if the new chunk is the first
    *     in the queue.
-   * @param bufferedPositionUs The position in the sample stream in microseconds since the start of
-   *     the period up to which data is already buffered.
    * @param playlistUrl The URL of the playlist from which the new chunk will be obtained.
    * @param isIndependent Whether the new chunk is independent (i.e, starts with a keyframe).
    * @param segmentBaseHolder The {@link HlsChunkSource.SegmentBaseHolder} with information about
@@ -238,7 +234,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   public static boolean shouldSpliceIn(
       @Nullable HlsMediaChunk previousChunk,
-      long bufferedPositionUs,
       Uri playlistUrl,
       boolean isIndependent,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
@@ -256,7 +251,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // non-overlapping segments to avoid the splice.
     long segmentStartTimeInPeriodUs =
         startOfPlaylistInPeriodUs + segmentBaseHolder.segmentBase.relativeStartTimeUs;
-    return !isIndependent || segmentStartTimeInPeriodUs < bufferedPositionUs;
+    long previousChunkEndTimeUs =
+        previousChunk.isPublished()
+            ? previousChunk.getPublishedEndTimeUs()
+            : previousChunk.endTimeUs;
+    return !isIndependent || segmentStartTimeInPeriodUs < previousChunkEndTimeUs;
   }
 
   public static final String PRIV_TIMESTAMP_FRAME_OWNER =
@@ -279,16 +278,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /** The part index or {@link C#INDEX_UNSET} if the chunk is a full segment */
   public final int partIndex;
 
-  @Nullable private final DataSource initDataSource;
-  @Nullable private final DataSpec initDataSpec;
-  @Nullable private final HlsMediaChunkExtractor previousExtractor;
+  private final @Nullable DataSource initDataSource;
+  private final @Nullable DataSpec initDataSpec;
+  private final @Nullable HlsMediaChunkExtractor previousExtractor;
 
   private final boolean isPrimaryTimestampSource;
   private final boolean hasGapTag;
   private final TimestampAdjuster timestampAdjuster;
   private final HlsExtractorFactory extractorFactory;
-  @Nullable private final List<Format> muxedCaptionFormats;
-  @Nullable private final DrmInitData drmInitData;
+  private final @Nullable List<Format> muxedCaptionFormats;
+  private final @Nullable DrmInitData drmInitData;
   private final Id3Decoder id3Decoder;
   private final ParsableByteArray scratchId3Data;
   private final boolean mediaSegmentEncrypted;
@@ -647,8 +646,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (metadata == null) {
       return C.TIME_UNSET;
     }
-    @Nullable
-    PrivFrame privFrame =
+    @Nullable PrivFrame privFrame =
         metadata.getFirstMatchingEntry(
             PrivFrame.class, frame -> frame.owner.equals(HlsMediaChunk.PRIV_TIMESTAMP_FRAME_OWNER));
     if (privFrame == null) {
@@ -692,8 +690,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   private static DataSource buildDataSource(
       DataSource dataSource,
-      @Nullable byte[] fullSegmentEncryptionKey,
-      @Nullable byte[] encryptionIv) {
+      byte @Nullable [] fullSegmentEncryptionKey,
+      byte @Nullable [] encryptionIv) {
     if (fullSegmentEncryptionKey != null) {
       checkNotNull(encryptionIv);
       return new Aes128DataSource(dataSource, fullSegmentEncryptionKey, encryptionIv);

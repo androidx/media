@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
@@ -27,6 +26,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for parsing MPEG-H frames, which are access units in MPEG-H bitstreams. */
 /* package */ final class MpeghUtil {
@@ -184,7 +184,7 @@ import java.lang.annotation.Target;
    * @throws ParserException if a valid {@link Mpegh3daConfig} cannot be parsed.
    */
   public static Mpegh3daConfig parseMpegh3daConfig(ParsableBitArray data) throws ParserException {
-    @Nullable byte[] compatibleProfileLevelSet = null;
+    byte @Nullable [] compatibleProfileLevelSet = null;
     int profileLevelIndication = data.readBits(8);
 
     int usacSamplingFrequency;
@@ -718,13 +718,13 @@ import java.lang.annotation.Target;
      * A list of MPEG-H 3D audio profile-level set that are compatible with the current
      * configuration.
      */
-    @Nullable public final byte[] compatibleProfileLevelSet;
+    public final byte @Nullable [] compatibleProfileLevelSet;
 
     private Mpegh3daConfig(
         int profileLevelIndication,
         int samplingFrequency,
         int standardFrameLength,
-        @Nullable byte[] compatibleProfileLevelSet) {
+        byte @Nullable [] compatibleProfileLevelSet) {
       this.profileLevelIndication = profileLevelIndication;
       this.samplingFrequency = samplingFrequency;
       this.standardFrameLength = standardFrameLength;

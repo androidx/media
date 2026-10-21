@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -38,6 +37,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods used in transmux-transcode exports. */
 /* package */ final class TransmuxTranscodeHelper {
@@ -55,7 +55,7 @@ import java.util.Set;
     public final ImmutableList<Pair<Integer, Long>> firstMediaItemIndexAndOffsetInfo;
 
     /** The video {@link Format} or {@code null} if there is no video track. */
-    @Nullable public final Format videoFormat;
+    public final @Nullable Format videoFormat;
 
     public ResumeMetadata(
         long lastSyncSampleTimestampUs,
@@ -196,8 +196,7 @@ import java.util.Set;
     Composition.Builder compositionBuilder = composition.buildUpon();
     ImmutableList<EditedMediaItemSequence> editedMediaItemSequenceList = composition.sequences;
     List<EditedMediaItemSequence> newEditedMediaItemSequenceList = new ArrayList<>();
-    @Nullable
-    List<Pair<Integer, Long>> firstMediaItemIndexAndOffsetInfo =
+    @Nullable List<Pair<Integer, Long>> firstMediaItemIndexAndOffsetInfo =
         resumeMetadata != null ? resumeMetadata.firstMediaItemIndexAndOffsetInfo : null;
 
     for (int sequenceIndex = 0;

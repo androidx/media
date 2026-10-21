@@ -24,7 +24,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.view.LayoutInflater;
 import android.view.View;
-import androidx.annotation.Nullable;
 import androidx.annotation.StyleRes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -42,6 +41,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Builder for a dialog with a {@link TrackSelectionView}. */
 @UnstableApi
@@ -68,10 +68,10 @@ public final class TrackSelectionDialogBuilder {
   private boolean allowAdaptiveSelections;
   private boolean allowMultipleOverrides;
   private boolean showDisableOption;
-  @Nullable private TrackNameProvider trackNameProvider;
+  private @Nullable TrackNameProvider trackNameProvider;
   private boolean isDisabled;
   private ImmutableMap<TrackGroup, TrackSelectionOverride> overrides;
-  @Nullable private Comparator<Format> trackFormatComparator;
+  private @Nullable Comparator<Format> trackFormatComparator;
 
   /**
    * Creates a builder for a track selection dialog.
@@ -268,8 +268,7 @@ public final class TrackSelectionDialogBuilder {
 
   // Reflection calls can't verify null safety of return values or parameters.
   @SuppressWarnings("nullness:argument")
-  @Nullable
-  private Dialog buildForAndroidX() {
+  private @Nullable Dialog buildForAndroidX() {
     try {
       // This method uses reflection to avoid a dependency on AndroidX appcompat that adds 800KB to
       // the APK size even with shrinking. See https://issuetracker.google.com/161514204.

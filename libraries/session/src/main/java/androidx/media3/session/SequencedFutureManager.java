@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -27,7 +26,7 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manager for {@link SequencedFuture} that contains sequence numbers to be shared across processes.
@@ -44,12 +43,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private final ArrayMap<Integer, SequencedFuture<?>> seqToFutureMap;
 
   @GuardedBy("lock")
-  @Nullable
-  private Runnable pendingLazyReleaseCallback;
+  private @Nullable Runnable pendingLazyReleaseCallback;
 
   @GuardedBy("lock")
-  @Nullable
-  private Handler releaseCallbackHandler;
+  private @Nullable Handler releaseCallbackHandler;
 
   @GuardedBy("lock")
   private boolean isReleased;
@@ -77,7 +74,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    *
    * @return AbstractFuture with sequence number
    */
-  public <T extends @NonNull Object> SequencedFuture<T> createSequencedFuture(T resultWhenClosed) {
+  public <T> SequencedFuture<T> createSequencedFuture(T resultWhenClosed) {
     synchronized (lock) {
       int seq = obtainNextSequenceNumber();
       SequencedFuture<T> result = SequencedFuture.create(seq, resultWhenClosed);
@@ -98,7 +95,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    * @param result result to set
    */
   @SuppressWarnings("unchecked")
-  public <T extends @NonNull Object> void setFutureResult(int seq, T result) {
+  public <T> void setFutureResult(int seq, T result) {
     synchronized (lock) {
       @Nullable SequencedFuture<?> future = seqToFutureMap.remove(seq);
       if (future != null) {
@@ -149,7 +146,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
-  public static final class SequencedFuture<T extends @NonNull Object> extends AbstractFuture<T> {
+  public static final class SequencedFuture<T> extends AbstractFuture<T> {
 
     private final int sequenceNumber;
     private final T resultWhenClosed;
@@ -177,8 +174,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     /** Creates a new instance that can be completed or cancelled by a later method call. */
-    public static <T extends @NonNull Object> SequencedFuture<T> create(
-        int seq, T resultWhenClosed) {
+    public static <T> SequencedFuture<T> create(int seq, T resultWhenClosed) {
       return new SequencedFuture<>(seq, resultWhenClosed);
     }
   }

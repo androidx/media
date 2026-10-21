@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.audio;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessorChain;
 import androidx.media3.common.audio.BaseAudioProcessor;
@@ -30,6 +29,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Audio processor that outputs its input unmodified and also outputs its input to a given sink.
@@ -131,7 +131,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
     private int sampleRateHz;
     private int channelCount;
     private @C.PcmEncoding int encoding;
-    @Nullable private RandomAccessFile randomAccessFile;
+    private @Nullable RandomAccessFile randomAccessFile;
     private int counter;
     private int bytesWritten;
 

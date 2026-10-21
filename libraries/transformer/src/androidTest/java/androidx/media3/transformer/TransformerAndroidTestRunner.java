@@ -27,13 +27,11 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
@@ -53,6 +51,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.json.JSONObject;
+import org.jspecify.annotations.Nullable;
 
 /** An android instrumentation test runner for {@link Transformer}. */
 public final class TransformerAndroidTestRunner {
@@ -67,7 +66,7 @@ public final class TransformerAndroidTestRunner {
     private final Transformer transformer;
     private boolean requestCalculateSsim;
     private int timeoutSeconds;
-    @Nullable private Map<String, Object> inputValues;
+    private @Nullable Map<String, Object> inputValues;
 
     /**
      * Creates a {@link Builder}.
@@ -142,7 +141,7 @@ public final class TransformerAndroidTestRunner {
   private final Transformer transformer;
   private final int timeoutSeconds;
   private final boolean requestCalculateSsim;
-  @Nullable private final Map<String, Object> inputValues;
+  private final @Nullable Map<String, Object> inputValues;
 
   private TransformerAndroidTestRunner(
       Context context,
@@ -313,10 +312,9 @@ public final class TransformerAndroidTestRunner {
     }
     checkNetworkAccessForMediaInput(context, mediaInput);
 
-    AtomicReference<@NullableType FallbackDetails> fallbackDetailsReference =
-        new AtomicReference<>();
-    AtomicReference<@NullableType Exception> unexpectedExceptionReference = new AtomicReference<>();
-    AtomicReference<@NullableType ExportResult> exportResultReference = new AtomicReference<>();
+    AtomicReference<@Nullable FallbackDetails> fallbackDetailsReference = new AtomicReference<>();
+    AtomicReference<@Nullable Exception> unexpectedExceptionReference = new AtomicReference<>();
+    AtomicReference<@Nullable ExportResult> exportResultReference = new AtomicReference<>();
     CountDownLatch countDownLatch = new CountDownLatch(1);
     long startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
 
@@ -368,7 +366,7 @@ public final class TransformerAndroidTestRunner {
    */
   private void awaitTransformerCompletion(
       CountDownLatch countDownLatch,
-      AtomicReference<@NullableType Exception> unexpectedExceptionReference)
+      AtomicReference<@Nullable Exception> unexpectedExceptionReference)
       throws InterruptedException, TimeoutException {
 
     // Block here until timeout reached or latch is counted down.
@@ -465,8 +463,8 @@ public final class TransformerAndroidTestRunner {
    * signal the latch upon completion or error.
    */
   private static Listener createTransformerListener(
-      AtomicReference<@NullableType ExportResult> exportResultReference,
-      AtomicReference<@NullableType FallbackDetails> fallbackDetailsReference,
+      AtomicReference<@Nullable ExportResult> exportResultReference,
+      AtomicReference<@Nullable FallbackDetails> fallbackDetailsReference,
       CountDownLatch countDownLatch) {
     return new Listener() {
       @Override

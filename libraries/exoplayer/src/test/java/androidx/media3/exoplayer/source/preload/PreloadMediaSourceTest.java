@@ -35,7 +35,6 @@ import android.net.Uri;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -89,6 +88,7 @@ import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -113,7 +113,7 @@ public final class PreloadMediaSourceTest {
   private RenderersFactory renderersFactory;
   private MediaItem mediaItem;
   @Mock private PreloadMediaSource.PreloadControl mockPreloadControl;
-  @Nullable private PreloadMediaSource preloadMediaSource;
+  private @Nullable PreloadMediaSource preloadMediaSource;
 
   @Before
   public void setUp() {
@@ -648,7 +648,7 @@ public final class PreloadMediaSourceTest {
                   @Override
                   protected FakeSampleStream createSampleStream(
                       Allocator allocator,
-                      @Nullable MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                      MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
                       DrmSessionManager drmSessionManager,
                       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
                       Format initialFormat,

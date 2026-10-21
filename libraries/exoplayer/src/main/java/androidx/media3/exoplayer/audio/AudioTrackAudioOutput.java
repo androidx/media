@@ -31,7 +31,6 @@ import android.media.PlaybackParams;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
@@ -50,6 +49,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link AudioOutput} that wraps an {@link AudioTrack}. */
 public final class AudioTrackAudioOutput implements AudioOutput {
@@ -86,8 +86,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   @SuppressWarnings("NonFinalStaticField") // Intentional statically shared mutable state
   @GuardedBy("releaseExecutorLock")
-  @Nullable
-  private static ScheduledExecutorService releaseExecutor;
+  private static @Nullable ScheduledExecutorService releaseExecutor;
 
   @GuardedBy("releaseExecutorLock")
   private static int pendingReleaseCount;
@@ -95,19 +94,19 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private final AudioTrack audioTrack;
   private final OutputConfig config;
   private final float maxPlaybackSpeed;
-  @Nullable private final CapabilityChangeListener capabilityChangeListener;
-  @Nullable private OnRoutingChangedListener onRoutingChangedListener;
+  private final @Nullable CapabilityChangeListener capabilityChangeListener;
+  private @Nullable OnRoutingChangedListener onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final boolean isOutputPcm;
   private final int pcmFrameSize;
-  @Nullable private final StreamEventCallbackV29 offloadStreamEventCallbackV29;
+  private final @Nullable StreamEventCallbackV29 offloadStreamEventCallbackV29;
   private final ListenerSet<Listener> listeners;
 
   private boolean hasBeenStopped;
   private long writtenPcmBytes;
   private long writtenEncodedFrames;
   private long lastTunnelingAvSyncPresentationTimeUs;
-  @Nullable private ByteBuffer avSyncHeader;
+  private @Nullable ByteBuffer avSyncHeader;
   private int bytesUntilNextAvSync;
   private int framesPerEncodedSample;
   private int lastUnderrunCount;
@@ -616,7 +615,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     private final CapabilityChangeListener capabilityChangeListener;
     private final Handler playbackThreadHandler;
 
-    @Nullable private AudioRouting.OnRoutingChangedListener listener;
+    private AudioRouting.@Nullable OnRoutingChangedListener listener;
 
     private OnRoutingChangedListener(
         AudioTrack audioTrack, CapabilityChangeListener capabilityChangeListener) {

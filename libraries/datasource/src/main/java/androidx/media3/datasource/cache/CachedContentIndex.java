@@ -28,11 +28,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.util.AtomicFile;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.database.DatabaseProvider;
@@ -64,6 +62,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Maintains the index of cached content. */
 /* package */ class CachedContentIndex {
@@ -91,7 +90,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * <p>When the index is next stored (id -> null) entries are removed, making the ids eligible for
    * reuse.
    */
-  private final SparseArray<@NullableType String> idToKey;
+  private final SparseArray<@Nullable String> idToKey;
 
   /**
    * Tracks ids for which (id -> null) entries are present in idToKey, so that they can be removed
@@ -103,7 +102,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final SparseBooleanArray newIds;
 
   private Storage storage;
-  @Nullable private Storage previousStorage;
+  private @Nullable Storage previousStorage;
 
   /** Returns whether the file is an index file. */
   public static boolean isIndexFile(String fileName) {
@@ -158,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public CachedContentIndex(
       @Nullable DatabaseProvider databaseProvider,
       @Nullable File legacyStorageDir,
-      @Nullable byte[] legacyStorageSecretKey,
+      byte @Nullable [] legacyStorageSecretKey,
       boolean legacyStorageEncrypt,
       boolean preferLegacyStorage) {
     checkState(databaseProvider != null || legacyStorageDir != null);
@@ -166,11 +165,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     idToKey = new SparseArray<>();
     removedIds = new SparseBooleanArray();
     newIds = new SparseBooleanArray();
-    @Nullable
-    Storage databaseStorage =
+    @Nullable Storage databaseStorage =
         databaseProvider != null ? new DatabaseStorage(databaseProvider) : null;
-    @Nullable
-    Storage legacyStorage =
+    @Nullable Storage legacyStorage =
         legacyStorageDir != null
             ? new LegacyStorage(
                 new File(legacyStorageDir, FILE_NAME_ATOMIC),
@@ -250,8 +247,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * @param key The cache key of the resource.
    */
-  @Nullable
-  public CachedContent get(String key) {
+  public @Nullable CachedContent get(String key) {
     return keyToContent.get(key);
   }
 
@@ -271,8 +267,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /** Returns the key which has the given id assigned, or {@code null} if no such key exists. */
-  @Nullable
-  public String getKeyForId(int id) {
+  public @Nullable String getKeyForId(int id) {
     return idToKey.get(id);
   }
 
@@ -352,7 +347,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * returns the smallest unused non-negative integer.
    */
   @VisibleForTesting
-  /* package */ static int getNewId(SparseArray<@NullableType String> idToKey) {
+  /* package */ static int getNewId(SparseArray<@Nullable String> idToKey) {
     int size = idToKey.size();
     int id = size == 0 ? 0 : (idToKey.keyAt(size - 1) + 1);
     if (id < 0) { // In case if we pass max int value.
@@ -450,7 +445,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * @param idToKey The id to key map to populate with persisted data.
      * @throws IOException If an error occurs loading the index.
      */
-    void load(HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey)
+    void load(HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey)
         throws IOException;
 
     /**
@@ -497,15 +492,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private static final int FLAG_ENCRYPTED_INDEX = 1;
 
     private final boolean encrypt;
-    @Nullable private final Cipher cipher;
-    @Nullable private final SecretKeySpec secretKeySpec;
-    @Nullable private final SecureRandom random;
+    private final @Nullable Cipher cipher;
+    private final @Nullable SecretKeySpec secretKeySpec;
+    private final @Nullable SecureRandom random;
     private final AtomicFile atomicFile;
 
     private boolean changed;
-    @Nullable private ReusableBufferedOutputStream bufferedOutputStream;
+    private @Nullable ReusableBufferedOutputStream bufferedOutputStream;
 
-    public LegacyStorage(File file, @Nullable byte[] secretKey, boolean encrypt) {
+    public LegacyStorage(File file, byte @Nullable [] secretKey, boolean encrypt) {
       checkState(secretKey != null || !encrypt);
       @Nullable Cipher cipher = null;
       @Nullable SecretKeySpec secretKeySpec = null;
@@ -544,7 +539,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void load(
-        HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey) {
+        HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey) {
       checkState(!changed);
       if (!readFile(content, idToKey)) {
         content.clear();
@@ -578,7 +573,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private boolean readFile(
-        HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey) {
+        HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey) {
       if (!atomicFile.exists()) {
         return true;
       }
@@ -759,7 +754,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             + " BLOB NOT NULL)";
 
     private final DatabaseProvider databaseProvider;
-    private final SparseArray<@NullableType CachedContent> pendingUpdates;
+    private final SparseArray<@Nullable CachedContent> pendingUpdates;
 
     private @MonotonicNonNull String hexUid;
     private @MonotonicNonNull String tableName;
@@ -800,8 +795,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public void load(
-        HashMap<String, CachedContent> content, SparseArray<@NullableType String> idToKey)
+    public void load(HashMap<String, CachedContent> content, SparseArray<@Nullable String> idToKey)
         throws IOException {
       checkState(pendingUpdates.size() == 0);
       try {

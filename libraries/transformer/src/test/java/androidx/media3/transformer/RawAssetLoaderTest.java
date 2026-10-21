@@ -19,7 +19,6 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -29,6 +28,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -205,8 +205,8 @@ public class RawAssetLoaderTest {
   }
 
   private static class FakeAssetLoaderListener implements AssetLoader.Listener {
-    @Nullable private final SampleConsumer audioSampleConsumer;
-    @Nullable private final SampleConsumer videoSampleConsumer;
+    private final @Nullable SampleConsumer audioSampleConsumer;
+    private final @Nullable SampleConsumer videoSampleConsumer;
 
     public FakeAssetLoaderListener(
         @Nullable SampleConsumer audioSampleConsumer,
@@ -227,9 +227,8 @@ public class RawAssetLoaderTest {
       return true;
     }
 
-    @Nullable
     @Override
-    public SampleConsumer onOutputFormat(Format format) {
+    public @Nullable SampleConsumer onOutputFormat(Format format) {
       return MimeTypes.isVideo(format.sampleMimeType) ? videoSampleConsumer : audioSampleConsumer;
     }
 

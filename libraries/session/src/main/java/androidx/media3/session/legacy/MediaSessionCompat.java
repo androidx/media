@@ -52,12 +52,10 @@ import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.versionedparcelable.ParcelUtils;
 import androidx.versionedparcelable.VersionedParcelable;
@@ -70,6 +68,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Allows interaction with media controllers, volume keys, media buttons, and transport controls.
@@ -564,8 +563,7 @@ public class MediaSessionCompat {
    *
    * @return The underlying {@link android.media.session.MediaSession} object, or null if none.
    */
-  @Nullable
-  public Object getMediaSession() {
+  public @Nullable Object getMediaSession() {
     return impl.getMediaSession();
   }
 
@@ -581,8 +579,7 @@ public class MediaSessionCompat {
    * @see MediaSessionManager.RemoteUserInfo#LEGACY_CONTROLLER
    * @see MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo)
    */
-  @Nullable
-  public final RemoteUserInfo getCurrentControllerInfo() {
+  public final @Nullable RemoteUserInfo getCurrentControllerInfo() {
     return impl.getCurrentControllerInfo();
   }
 
@@ -593,9 +590,8 @@ public class MediaSessionCompat {
     }
   }
 
-  @Nullable
   @SuppressWarnings("WeakerAccess") /* synthetic access */
-  static PlaybackStateCompat getStateWithUpdatedPosition(
+  static @Nullable PlaybackStateCompat getStateWithUpdatedPosition(
       @Nullable PlaybackStateCompat state, @Nullable MediaMetadataCompat metadata) {
     if (state == null || state.getPosition() == PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN) {
       return state;
@@ -642,9 +638,8 @@ public class MediaSessionCompat {
     @GuardedBy("lock")
     WeakReference<MediaSessionImpl> sessionImpl;
 
-    @Nullable
     @GuardedBy("lock")
-    private CallbackHandler callbackHandler;
+    private @Nullable CallbackHandler callbackHandler;
 
     public Callback() {
       callbackFwk = new MediaSessionCallback();
@@ -1326,8 +1321,7 @@ public class MediaSessionCompat {
       // Returns the MediaSessionImplBase if this callback is still set by the session.
       // This prevent callback methods to be called after session is release() or
       // callback is changed.
-      @Nullable
-      private MediaSessionImplBase getSessionImplIfCallbackIsSet() {
+      private @Nullable MediaSessionImplBase getSessionImplIfCallbackIsSet() {
         MediaSessionImplBase sessionImpl;
         synchronized (lock) {
           sessionImpl = (MediaSessionImplBase) Callback.this.sessionImpl.get();
@@ -1367,13 +1361,11 @@ public class MediaSessionCompat {
     private final Object lock = new Object();
     private final MediaSession.Token inner;
 
-    @Nullable
     @GuardedBy("lock")
-    private IMediaSession extraBinder;
+    private @Nullable IMediaSession extraBinder;
 
-    @Nullable
     @GuardedBy("lock")
-    private VersionedParcelable session2Token;
+    private @Nullable VersionedParcelable session2Token;
 
     Token(MediaSession.Token inner) {
       this(inner, /* extraBinder= */ null);
@@ -1453,8 +1445,7 @@ public class MediaSessionCompat {
       return inner;
     }
 
-    @Nullable
-    /* package */ IMediaSession getExtraBinder() {
+    /* package */ @Nullable IMediaSession getExtraBinder() {
       synchronized (lock) {
         return extraBinder;
       }
@@ -1467,8 +1458,7 @@ public class MediaSessionCompat {
     }
 
     /** */
-    @Nullable
-    public VersionedParcelable getSession2Token() {
+    public @Nullable VersionedParcelable getSession2Token() {
       synchronized (lock) {
         return session2Token;
       }
@@ -1505,8 +1495,7 @@ public class MediaSessionCompat {
      * @param tokenBundle The {@link Bundle} of this token.
      * @return A compat Token for use with {@link MediaControllerCompat}.
      */
-    @Nullable
-    public static Token fromBundle(@Nullable Bundle tokenBundle) {
+    public static @Nullable Token fromBundle(@Nullable Bundle tokenBundle) {
       if (tokenBundle == null) {
         return null;
       }
@@ -1547,7 +1536,7 @@ public class MediaSessionCompat {
     private final MediaDescriptionCompat description;
     private final long id;
 
-    @Nullable private MediaSession.QueueItem itemFwk;
+    private MediaSession.@Nullable QueueItem itemFwk;
 
     /**
      * Creates a new {@link MediaSessionCompat.QueueItem}.
@@ -1561,7 +1550,7 @@ public class MediaSessionCompat {
     }
 
     private QueueItem(
-        @Nullable MediaSession.QueueItem queueItem, MediaDescriptionCompat description, long id) {
+        MediaSession.@Nullable QueueItem queueItem, MediaDescriptionCompat description, long id) {
       if (id == UNKNOWN_ID) {
         throw new IllegalArgumentException("Id cannot be QueueItem.UNKNOWN_ID");
       }
@@ -1632,8 +1621,7 @@ public class MediaSessionCompat {
      * @param itemList A list of {@link android.media.session.MediaSession.QueueItem} objects.
      * @return An equivalent list of {@link QueueItem} objects, or null if none.
      */
-    @Nullable
-    public static List<QueueItem> fromQueueItemList(
+    public static @Nullable List<QueueItem> fromQueueItemList(
         @Nullable List<MediaSession.QueueItem> itemList) {
       if (itemList == null) {
         return null;
@@ -1722,8 +1710,7 @@ public class MediaSessionCompat {
 
     void setPlaybackState(PlaybackStateCompat state);
 
-    @Nullable
-    PlaybackStateCompat getPlaybackState();
+    @Nullable PlaybackStateCompat getPlaybackState();
 
     void setMetadata(@Nullable MediaMetadataCompat metadata);
 
@@ -1743,19 +1730,15 @@ public class MediaSessionCompat {
 
     void setExtras(@Nullable Bundle extras);
 
-    @Nullable
-    Object getMediaSession();
+    @Nullable Object getMediaSession();
 
-    @Nullable
-    String getCallingPackage();
+    @Nullable String getCallingPackage();
 
-    @Nullable
-    RemoteUserInfo getCurrentControllerInfo();
+    @Nullable RemoteUserInfo getCurrentControllerInfo();
 
     void setCurrentControllerInfo(@Nullable RemoteUserInfo remoteUserInfo);
 
-    @Nullable
-    Callback getCallback();
+    @Nullable Callback getCallback();
   }
 
   static class MediaSessionImplBase implements MediaSessionImpl {
@@ -1776,17 +1759,14 @@ public class MediaSessionCompat {
     @PlaybackStateCompat.RepeatMode int repeatMode;
     @PlaybackStateCompat.ShuffleMode int shuffleMode;
 
-    @Nullable
     @GuardedBy("lock")
-    Callback callback;
+    @Nullable Callback callback;
 
-    @Nullable
     @GuardedBy("lock")
-    RegistrationCallbackHandler registrationCallbackHandler;
+    @Nullable RegistrationCallbackHandler registrationCallbackHandler;
 
-    @Nullable
     @GuardedBy("lock")
-    RemoteUserInfo remoteUserInfo;
+    @Nullable RemoteUserInfo remoteUserInfo;
 
     // Sharing this in constructor
     @SuppressWarnings({
@@ -1905,9 +1885,8 @@ public class MediaSessionCompat {
       sessionFwk.setPlaybackState(state.getPlaybackState());
     }
 
-    @Nullable
     @Override
-    public PlaybackStateCompat getPlaybackState() {
+    public @Nullable PlaybackStateCompat getPlaybackState() {
       return playbackState;
     }
 
@@ -1994,9 +1973,8 @@ public class MediaSessionCompat {
       sessionFwk.setExtras(extras);
     }
 
-    @Nullable
     @Override
-    public Object getMediaSession() {
+    public @Nullable Object getMediaSession() {
       return sessionFwk;
     }
 
@@ -2007,9 +1985,8 @@ public class MediaSessionCompat {
       }
     }
 
-    @Nullable
     @Override
-    public String getCallingPackage() {
+    public @Nullable String getCallingPackage() {
       try {
         Method getCallingPackageMethod = sessionFwk.getClass().getMethod("getCallingPackage");
         return (String) getCallingPackageMethod.invoke(sessionFwk);
@@ -2019,17 +1996,15 @@ public class MediaSessionCompat {
       return null;
     }
 
-    @Nullable
     @Override
-    public RemoteUserInfo getCurrentControllerInfo() {
+    public @Nullable RemoteUserInfo getCurrentControllerInfo() {
       synchronized (lock) {
         return remoteUserInfo;
       }
     }
 
-    @Nullable
     @Override
-    public Callback getCallback() {
+    public @Nullable Callback getCallback() {
       synchronized (lock) {
         return callback;
       }
@@ -2037,7 +2012,7 @@ public class MediaSessionCompat {
 
     private static class ExtraSession extends IMediaSession.Stub {
 
-      private final WeakReference<@NullableType MediaSessionImplBase> mediaSessionImplRef;
+      private final WeakReference<@Nullable MediaSessionImplBase> mediaSessionImplRef;
 
       ExtraSession(MediaSessionImplBase mediaSessionImpl) {
         mediaSessionImplRef = new WeakReference<>(mediaSessionImpl);
@@ -2085,18 +2060,16 @@ public class MediaSessionCompat {
         }
       }
 
-      @Nullable
       @Override
-      public Bundle getSessionInfo() {
+      public @Nullable Bundle getSessionInfo() {
         MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null && mediaSessionImpl.sessionInfo != null
             ? new Bundle(mediaSessionImpl.sessionInfo)
             : null;
       }
 
-      @Nullable
       @Override
-      public PlaybackStateCompat getPlaybackState() {
+      public @Nullable PlaybackStateCompat getPlaybackState() {
         MediaSessionImplBase mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl != null) {
           return getStateWithUpdatedPosition(
@@ -2147,9 +2120,8 @@ public class MediaSessionCompat {
       // No-op. {@link MediaSession#getCurrentControllerInfo} would work.
     }
 
-    @Nullable
     @Override
-    public final RemoteUserInfo getCurrentControllerInfo() {
+    public final @Nullable RemoteUserInfo getCurrentControllerInfo() {
       android.media.session.MediaSessionManager.RemoteUserInfo info =
           sessionFwk.getCurrentControllerInfo();
       return new RemoteUserInfo(info);

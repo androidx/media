@@ -18,10 +18,10 @@ package androidx.media3.datasource;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -107,8 +107,7 @@ public class BaseDataSourceTest {
     }
 
     @Override
-    @Nullable
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       throw new UnsupportedOperationException();
     }
 

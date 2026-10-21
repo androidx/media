@@ -29,7 +29,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -47,6 +46,7 @@ import androidx.media3.common.video.ReleaseCallback;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -56,6 +56,7 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /** An adaptor between a sequence player and a {@link Consumer} of {@link AsyncFrame} instances. */
 /* package */ final class HardwareBufferFrameReader {
@@ -97,15 +98,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Composition composition;
   private final int sequenceIndex;
   private final Consumer<AsyncFrame> frameConsumer;
-  private final ImageReaderAdapter imageReader;
+  private final int defaultSurfacePixelFormat;
+  private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
   private final Listener listener;
+  private final HandlerWrapper listenerHandler;
+  private final Handler playbackHandler;
   private final Executor playbackExecutor;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /**
    * Information about frames that are waiting to be output.
    *
-   * <p>At most one frame from {@link #queueFrameViaSurface} can be pending at a time.
+   * <p>At most one frame from {@link InputSurface#queueFrame} can be pending at a time.
    *
    * <p>Multiple frames from {@link #outputBitmap} can be pending.
    */
@@ -114,13 +118,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final List<RendererWakeupListener> rendererWakeupListenerList;
 
-  private @MonotonicNonNull Surface imageReaderSurface;
+  /** All {@linkplain InputSurface input surfaces}. */
+  @GuardedBy("this")
+  private final List<InputSurface> inputSurfaces;
 
-  @Nullable private Format lastFormat;
+  private @Nullable Format lastFormat;
   private @MonotonicNonNull Format lastAdjustedFormat;
 
   private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-  @Nullable private BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
+  private @Nullable BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /** The number of frames that are currently in use by the downstream consumer. */
@@ -134,10 +140,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param sequenceIndex The index of the {@link EditedMediaItemSequence} in the composition.
    * @param frameConsumer The downstream consumer of frames.
    * @param playbackLooper The looper associated with the playback thread.
-   * @param defaultSurfacePixelFormat The default pixel format used by the {@linkplain #getSurface()
-   *     surface}. Some producers override this format, but the behavior is device-specific.
+   * @param defaultSurfacePixelFormat The default pixel format used by the {@linkplain InputSurface
+   *     input surfaces}. Some producers override this format, but the behavior is device-specific.
    * @param imageReaderAdapterFactory The {@link ImageReaderAdapter.Factory} used to create the
-   *     internal {@link ImageReaderAdapter}.
+   *     internal {@link ImageReaderAdapter} instances.
    * @param listener The listener.
    * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
    * @param hardwareBufferJniWrapper A {@link HardwareBufferJniWrapper} used to convert software
@@ -156,81 +162,31 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     this.frameConsumer = frameConsumer;
+    this.defaultSurfacePixelFormat = defaultSurfacePixelFormat;
+    this.imageReaderAdapterFactory = imageReaderAdapterFactory;
     this.listener = listener;
+    this.listenerHandler = listenerHandler;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
-    // The width and height are sensible defaults for tests and are typically ignored when writing
-    // from MediaCodec.
-    this.imageReader =
-        imageReaderAdapterFactory.create(
-            /* width= */ 640,
-            /* height= */ 360,
-            defaultSurfacePixelFormat,
-            /* maxImages= */ CAPACITY,
-            /* usage= */ SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0);
-    Handler playbackHandler = new Handler(playbackLooper);
+    playbackHandler = new Handler(playbackLooper);
     playbackExecutor =
         new HandlerExecutor(playbackHandler, e -> listenerHandler.post(() -> listener.onError(e)));
     rendererWakeupListenerList = new ArrayList<>();
     pendingFrameInfo = new ArrayDeque<>();
-    imageReader.setOnImageAvailableListener(
-        reader -> {
-          try {
-            pollImage();
-          } catch (RuntimeException e) {
-            listenerHandler.post(() -> listener.onError(e));
-          }
-        },
-        playbackHandler);
-  }
-
-  /** Returns a Surface which can be used to produce frames into. */
-  Surface getSurface() {
-    if (imageReaderSurface == null) {
-      imageReaderSurface = imageReader.getSurface();
-    }
-    return imageReaderSurface;
+    inputSurfaces = new ArrayList<>();
   }
 
   /**
-   * Returns whether the frame reader can accept another frame from the sequence player via the
-   * {@linkplain #getSurface() input surface}.
-   */
-  boolean canAcceptFrameViaSurface() {
-    // Prior to API 29 MediaCodec drops frames when outputting to a Surface. Do not allow multiple
-    // frames to be pending over the ImageReader Surface simultaneously. See
-    // https://developer.android.com/reference/android/media/MediaCodec#using-an-output-surface
-    // Even after API 29, some devices still drop frames on the Surface. See
-    // https://github.com/androidx/media/blob/7cc1056f840ce226598d3b990d4a6f7cd17e2831/libraries/common/src/main/java/androidx/media3/common/util/Util.java#L3651
-    synchronized (this) {
-      if (!pendingFrameInfo.isEmpty()) {
-        return false;
-      }
-      return framesInUse < CAPACITY;
-    }
-  }
-
-  /**
-   * Signals that a frame will be sent via the {@linkplain #getSurface() input surface}.
+   * Creates a new {@link InputSurface}, which can be used to produce frames into.
    *
-   * <p>This method must be called prior to {@linkplain android.media.MediaCodec#releaseOutputBuffer
-   * releasing} the frame to the {@linkplain #getSurface() input surface}.
-   *
-   * @param presentationTimeUs The presentation time of the frame relative to the start of the media
-   *     item it belongs to, in microseconds.
-   * @param sequenceOffsetUs The offset to add to {@code presentationTimeUs} to compute the
-   *     sequence-relative presentation time, in microseconds. This is typically the cumulative
-   *     duration of all preceding media items in the sequence.
-   * @param indexOfItem The position of the edited media item in the sequence.
-   * @param format The {@link Format} of the edited media item.
+   * <p>Frames from all input surfaces are forwarded downstream in the order they are queued. Using
+   * a separate input surface per producer means the producers never need to hand over a surface.
    */
-  void queueFrameViaSurface(
-      long presentationTimeUs, long sequenceOffsetUs, int indexOfItem, Format format) {
+  InputSurface createInputSurface() {
     synchronized (this) {
-      pendingFrameInfo.add(
-          FrameInfo.createForSurface(
-              presentationTimeUs, sequenceOffsetUs, indexOfItem, getAdjustedFormat(format)));
+      InputSurface inputSurface = new InputSurface();
+      inputSurfaces.add(inputSurface);
+      return inputSurface;
     }
-    imageReader.notifyFrameQueued(presentationTimeUs);
   }
 
   /**
@@ -268,7 +224,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Tries to read a frame from the {@linkplain #getSurface() input surface}. Forwards the frame
+   * Tries to read a frame from the {@linkplain InputSurface input surfaces}. Forwards the frame
    * downstream, if a new frame was available.
    */
   void pollImage() {
@@ -276,7 +232,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (framesInUse >= CAPACITY) {
         return;
       }
-      ImageAdapter image = imageReader.acquireNextImage();
+      @Nullable ImageAdapter image = null;
+      for (int i = 0; i < inputSurfaces.size(); i++) {
+        image = inputSurfaces.get(i).imageReader.acquireNextImage();
+        if (image != null) {
+          break;
+        }
+      }
       if (image == null) {
         return;
       }
@@ -359,10 +321,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Releases any resources. */
   void release() {
-    if (imageReaderSurface != null) {
-      imageReaderSurface.release();
+    synchronized (this) {
+      ImmutableList<InputSurface> inputSurfacesToRelease = ImmutableList.copyOf(inputSurfaces);
+      for (int i = 0; i < inputSurfacesToRelease.size(); i++) {
+        inputSurfacesToRelease.get(i).release();
+      }
     }
-    imageReader.close();
     if (SDK_INT >= 26 && bitmapToHardwareBufferConverter != null) {
       bitmapToHardwareBufferConverter.close();
       bitmapToHardwareBufferConverter = null;
@@ -446,8 +410,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         format);
   }
 
-  @Nullable
-  private BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
+  private @Nullable BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
     if (SDK_INT >= 26 && bitmapToHardwareBufferConverter == null) {
       bitmapToHardwareBufferConverter =
           new BitmapToHardwareBufferConverter(
@@ -572,6 +535,92 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return ColorInfo.SRGB_BT709_FULL;
   }
 
+  /** A {@link Surface} that a single producer, such as a decoder, renders frames into. */
+  /* package */ final class InputSurface {
+    private final ImageReaderAdapter imageReader;
+    private @Nullable Surface surface;
+
+    private InputSurface() {
+      // The width and height are sensible defaults for tests and are typically ignored when
+      // writing from MediaCodec.
+      imageReader =
+          imageReaderAdapterFactory.create(
+              /* width= */ 640,
+              /* height= */ 360,
+              defaultSurfacePixelFormat,
+              /* maxImages= */ CAPACITY,
+              /* usage= */ SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0);
+      imageReader.setOnImageAvailableListener(
+          reader -> {
+            try {
+              pollImage();
+            } catch (RuntimeException e) {
+              listenerHandler.post(() -> listener.onError(e));
+            }
+          },
+          playbackHandler);
+    }
+
+    /** Returns the {@link Surface} to render frames into. */
+    Surface getSurface() {
+      if (surface == null) {
+        surface = imageReader.getSurface();
+      }
+      return surface;
+    }
+
+    /** Returns whether the frame reader can accept another frame via this input surface. */
+    boolean canAcceptFrame() {
+      // Prior to API 29 MediaCodec drops frames when outputting to a Surface. Do not allow multiple
+      // frames to be pending over the ImageReader Surface simultaneously. See
+      // https://developer.android.com/reference/android/media/MediaCodec#using-an-output-surface
+      // Even after API 29, some devices still drop frames on the Surface. See
+      // https://github.com/androidx/media/blob/7cc1056f840ce226598d3b990d4a6f7cd17e2831/libraries/common/src/main/java/androidx/media3/common/util/Util.java#L3651
+      synchronized (HardwareBufferFrameReader.this) {
+        if (!pendingFrameInfo.isEmpty()) {
+          return false;
+        }
+        return framesInUse < CAPACITY;
+      }
+    }
+
+    /**
+     * Signals that a frame will be sent via this input surface.
+     *
+     * <p>This method must be called prior to {@linkplain
+     * android.media.MediaCodec#releaseOutputBuffer releasing} the frame to the {@linkplain
+     * #getSurface() surface}.
+     *
+     * @param presentationTimeUs The presentation time of the frame relative to the start of the
+     *     media item it belongs to, in microseconds.
+     * @param sequenceOffsetUs The offset to add to {@code presentationTimeUs} to compute the
+     *     sequence-relative presentation time, in microseconds. This is typically the cumulative
+     *     duration of all preceding media items in the sequence.
+     * @param indexOfItem The position of the edited media item in the sequence.
+     * @param format The {@link Format} of the edited media item.
+     */
+    void queueFrame(
+        long presentationTimeUs, long sequenceOffsetUs, int indexOfItem, Format format) {
+      synchronized (HardwareBufferFrameReader.this) {
+        pendingFrameInfo.add(
+            FrameInfo.createForSurface(
+                presentationTimeUs, sequenceOffsetUs, indexOfItem, getAdjustedFormat(format)));
+      }
+      imageReader.notifyFrameQueued(presentationTimeUs);
+    }
+
+    /** Releases this input surface. */
+    void release() {
+      synchronized (HardwareBufferFrameReader.this) {
+        inputSurfaces.remove(this);
+      }
+      if (surface != null) {
+        surface.release();
+      }
+      imageReader.close();
+    }
+  }
+
   private static final class FrameInfo {
 
     /** A {@link FrameInfo} marking that the sequence has ended. */
@@ -588,13 +637,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
      * #getSurface()}.
      */
-    @Nullable final Bitmap bitmap;
+    final @Nullable Bitmap bitmap;
 
     /**
      * The pending frame timestamps, or {@code null} if the frame will be output via {@link
      * #getSurface()}.
      */
-    @Nullable final TimestampIterator timestampIterator;
+    final @Nullable TimestampIterator timestampIterator;
 
     final Format format;
     final long itemPresentationTimeUs;

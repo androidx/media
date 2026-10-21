@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.source.chunk;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
@@ -30,6 +29,7 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.upstream.Loader.Loadable;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract base class for {@link Loadable} implementations that load chunks of data required for
@@ -61,7 +61,7 @@ public abstract class Chunk implements Loadable {
    * Optional data associated with the selection of the track to which this chunk belongs. Null if
    * the chunk does not belong to a track, or if there is no associated track selection data.
    */
-  @Nullable public final Object trackSelectionData;
+  public final @Nullable Object trackSelectionData;
 
   /**
    * The start time of the media contained by the chunk, or {@link C#TIME_UNSET} if the data being
@@ -79,7 +79,7 @@ public abstract class Chunk implements Loadable {
    * The ID of the steered pathway from which data is being loaded, or {@code null} if not
    * applicable.
    */
-  @Nullable public final String steeredPathwayId;
+  public final @Nullable String steeredPathwayId;
 
   protected final StatsDataSource dataSource;
 

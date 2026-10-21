@@ -16,7 +16,6 @@
 package androidx.media3.datasource.cache;
 
 import android.net.Uri;
-import androidx.annotation.Nullable;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.FakeDataSet;
@@ -26,6 +25,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
@@ -89,8 +89,7 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
   }
 
   @Override
-  @Nullable
-  protected DataSource getTransferListenerDataSource() {
+  protected @Nullable DataSource getTransferListenerDataSource() {
     return upstreamDataSource;
   }
 }

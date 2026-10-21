@@ -24,7 +24,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
 import android.media.MediaFormat;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -33,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Helper class containing utility methods for managing {@link MediaFormat} instances. */
 @UnstableApi
@@ -260,7 +260,7 @@ public final class MediaFormatUtil {
    * @param key The key to set.
    * @param value The byte array that will be wrapped to obtain the value.
    */
-  public static void maybeSetByteBuffer(MediaFormat format, String key, @Nullable byte[] value) {
+  public static void maybeSetByteBuffer(MediaFormat format, String key, byte @Nullable [] value) {
     if (value != null) {
       format.setByteBuffer(key, ByteBuffer.wrap(value));
     }
@@ -285,8 +285,7 @@ public final class MediaFormatUtil {
    * Creates and returns a {@code ColorInfo}, if a valid instance is described in the {@link
    * MediaFormat}.
    */
-  @Nullable
-  public static ColorInfo getColorInfo(MediaFormat mediaFormat) {
+  public static @Nullable ColorInfo getColorInfo(MediaFormat mediaFormat) {
     int colorSpace =
         getInteger(
             mediaFormat, MediaFormat.KEY_COLOR_STANDARD, /* defaultValue= */ Format.NO_VALUE);
@@ -295,10 +294,9 @@ public final class MediaFormatUtil {
     int colorTransfer =
         getInteger(
             mediaFormat, MediaFormat.KEY_COLOR_TRANSFER, /* defaultValue= */ Format.NO_VALUE);
-    @Nullable
-    ByteBuffer hdrStaticInfoByteBuffer = mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
-    @Nullable
-    byte[] hdrStaticInfo =
+    @Nullable ByteBuffer hdrStaticInfoByteBuffer =
+        mediaFormat.getByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO);
+    byte @Nullable [] hdrStaticInfo =
         hdrStaticInfoByteBuffer != null ? getArray(hdrStaticInfoByteBuffer) : null;
     // Some devices may produce invalid values from MediaFormat#getInteger.
     // See b/239435670 for more information.
@@ -390,9 +388,8 @@ public final class MediaFormatUtil {
    *
    * <p>For H263 and Dolby Vision formats, builds a codec string using profile and level.
    */
-  @Nullable
   @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
-  private static String getCodecString(MediaFormat mediaFormat) {
+  private static @Nullable String getCodecString(MediaFormat mediaFormat) {
     // Add H263 profile and level to codec string as per RFC 6381.
     if (Objects.equals(mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_H263)
         && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
@@ -467,8 +464,7 @@ public final class MediaFormatUtil {
   }
 
   /** Returns the time lapse capture FPS from the given {@link MediaFormat} if it was set. */
-  @Nullable
-  public static Integer getTimeLapseFrameRate(MediaFormat format) {
+  public static @Nullable Integer getTimeLapseFrameRate(MediaFormat format) {
     if (format.containsKey("time-lapse-enable")
         && format.getInteger("time-lapse-enable") > 0
         && format.containsKey("time-lapse-fps")) {

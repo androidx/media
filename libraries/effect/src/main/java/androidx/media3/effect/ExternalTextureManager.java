@@ -29,7 +29,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
@@ -44,6 +43,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Forwards externally produced frames that become available via a {@link SurfaceTexture} to an
@@ -95,16 +95,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean currentInputStreamEnded;
 
   // The frame that is sent downstream and is not done processing yet.
-  @Nullable private FrameInfo currentFrame;
-  @Nullable private FrameInfo lastRegisteredFrame;
+  private @Nullable FrameInfo currentFrame;
+  private @Nullable FrameInfo lastRegisteredFrame;
   private boolean automaticReregistration;
 
-  @Nullable private Future<?> forceSignalEndOfStreamFuture;
+  private @Nullable Future<?> forceSignalEndOfStreamFuture;
   // Set and cleared by releaseAllRegisteredFrames() on the calling thread, read on the GL thread.
-  @Nullable private volatile CountDownLatch releaseAllFramesLatch;
+  private volatile @Nullable CountDownLatch releaseAllFramesLatch;
 
   private volatile boolean shouldRejectIncomingFrames;
-  @Nullable private volatile RuntimeException releaseAllFramesException;
+  private volatile @Nullable RuntimeException releaseAllFramesException;
 
   /**
    * Creates a new instance. The caller's thread must have a current GL context.

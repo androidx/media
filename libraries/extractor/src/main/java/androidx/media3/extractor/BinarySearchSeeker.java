@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -28,6 +27,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A seeker that supports seeking within a stream by searching for the target frame using binary
@@ -95,7 +95,7 @@ public abstract class BinarySearchSeeker {
 
   protected final BinarySearchSeekMap seekMap;
   protected final TimestampSeeker timestampSeeker;
-  @Nullable protected SeekOperationParams seekOperationParams;
+  protected @Nullable SeekOperationParams seekOperationParams;
 
   private final int minimumSearchRange;
 

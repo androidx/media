@@ -29,7 +29,6 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -47,6 +46,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.LegacyPlayerControlView;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** Activity that demonstrates use of {@link SurfaceControl} with ExoPlayer. */
 public final class MainActivity extends Activity {
@@ -62,14 +62,14 @@ public final class MainActivity extends Activity {
   private static final String OWNER_EXTRA = "owner";
 
   private boolean isOwner;
-  @Nullable private LegacyPlayerControlView playerControlView;
-  @Nullable private SurfaceView fullscreenView;
-  @Nullable private SurfaceView nonFullscreenView;
-  @Nullable private SurfaceView currentOutputView;
+  private @Nullable LegacyPlayerControlView playerControlView;
+  private @Nullable SurfaceView fullscreenView;
+  private @Nullable SurfaceView nonFullscreenView;
+  private @Nullable SurfaceView currentOutputView;
 
-  @Nullable private static ExoPlayer player;
-  @Nullable private static SurfaceControl surfaceControl;
-  @Nullable private static Surface videoSurface;
+  private static @Nullable ExoPlayer player;
+  private static @Nullable SurfaceControl surfaceControl;
+  private static @Nullable Surface videoSurface;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
