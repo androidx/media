@@ -35,6 +35,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
+import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -651,27 +652,44 @@ public final class DashPlaybackTest {
   @Test
   public void cea608_twoChannelsDeclaredReversed_selectEnglish_rendersChannel1Once()
       throws Exception {
-    String singleChannelDump = playCea608AndDump("asset:///media/dash/cea608/manifest.mpd", "en");
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
+    String singleChannelDump =
+        playCea608AndDump(
+            "asset:///media/dash/cea608/manifest.mpd", "en", /* analyticsListener= */ null);
     String dump =
-        playCea608AndDump("asset:///media/dash/cea608_two_channels_reversed/manifest.mpd", "en");
+        playCea608AndDump(
+            "asset:///media/dash/cea608_two_channels_reversed/manifest.mpd",
+            "en",
+            analyticsListener);
 
     assertThat(countOccurrences(singleChannelDump, "text = First subtitle")).isGreaterThan(0);
     assertThat(countOccurrences(dump, "text = First subtitle"))
         .isEqualTo(countOccurrences(singleChannelDump, "text = First subtitle"));
     assertThat(countOccurrences(dump, "text = Second subtitle"))
         .isEqualTo(countOccurrences(singleChannelDump, "text = Second subtitle"));
+    assertThat(analyticsListener.downstreamTextFormat).isNotNull();
+    assertThat(analyticsListener.downstreamTextFormat.language).isEqualTo("en");
+    assertThat(analyticsListener.downstreamTextFormat.accessibilityChannel).isEqualTo(1);
   }
 
   @Test
   public void cea608_twoChannelsDeclared_selectSpanish_rendersNothingFromChannel1()
       throws Exception {
-    String dump = playCea608AndDump("asset:///media/dash/cea608_two_channels/manifest.mpd", "es");
+    String dump =
+        playCea608AndDump(
+            "asset:///media/dash/cea608_two_channels/manifest.mpd",
+            "es",
+            /* analyticsListener= */ null);
 
     assertThat(dump).doesNotContain("text = First subtitle");
     assertThat(dump).doesNotContain("text = Second subtitle");
   }
 
-  private String playCea608AndDump(String uri, String preferredTextLanguage) throws Exception {
+  private String playCea608AndDump(
+      String uri,
+      String preferredTextLanguage,
+      @Nullable AnalyticsListener analyticsListener)
+      throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
@@ -680,6 +698,9 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
             .build();
+    if (analyticsListener != null) {
+      player.addAnalyticsListener(analyticsListener);
+    }
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
@@ -1321,6 +1342,7 @@ public final class DashPlaybackTest {
 
     private @Nullable LoadEventInfo loadErrorEventInfo;
     private @Nullable IOException loadError;
+    private @Nullable Format downstreamTextFormat;
 
     @Override
     public void onLoadError(
@@ -1331,6 +1353,13 @@ public final class DashPlaybackTest {
         boolean wasCanceled) {
       this.loadErrorEventInfo = loadEventInfo;
       this.loadError = error;
+    }
+
+    @Override
+    public void onDownstreamFormatChanged(EventTime eventTime, MediaLoadData mediaLoadData) {
+      if (mediaLoadData.trackType == C.TRACK_TYPE_TEXT) {
+        this.downstreamTextFormat = mediaLoadData.trackFormat;
+      }
     }
   }
 
