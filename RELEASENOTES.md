@@ -21,6 +21,11 @@
         (e.g., `CompositeMediaSource<Void?>`).
     *   Verify in `AdsMediaSource` that `AdPlaybackState.removedAdGroupCount`
         does not decrease across `AdPlaybackState` updates.
+    *   Fix an issue where transitioning between media periods that use
+        different renderers could prematurely enable the incoming renderer
+        before the outgoing renderer finished rendering (for example, throwing
+        `IllegalStateException` ("Multiple renderer media clocks enabled."))
+        when `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

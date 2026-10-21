@@ -68,6 +68,7 @@ import static java.util.Arrays.stream;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -15039,9 +15040,10 @@ public final class ExoPlayerTest {
           }
         };
 
-    Flags.disableFlag(Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION);
     ExoPlayer player =
-        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory))
+            .build();
     Format formatA =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_AAC)
@@ -15078,6 +15080,258 @@ public final class ExoPlayerTest {
 
     verify(listenerA, never()).onAudioSinkError(any());
     verify(listenerB).onAudioSinkError(any());
+  }
+
+  @Test
+  public void
+      play_periodTransitionToSubsequentMediaClockRendererWhileOutgoingStillRendering_playsToEnd()
+          throws Exception {
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    FakeMediaClockRenderer aacRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_AAC, /* waitForStreamEndPositionBeforeEnding= */ true);
+    FakeMediaClockRenderer opusRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_OPUS, /* waitForStreamEndPositionBeforeEnding= */ true);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(aacRenderer, opusRenderer))
+            .build();
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(500_000).build());
+    MediaSource sourceA =
+        new FakeMediaSource.Builder()
+            .setTimeline(periodTimeline)
+            .setTrackDataFactory(
+                (unusedFormat, unusedMediaPeriodId) ->
+                    ImmutableList.of(
+                        oneByteSample(
+                            TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US
+                                + 300_000,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM))
+            .setFormats(formatAac)
+            .build();
+    MediaSource sourceB = new FakeMediaSource(periodTimeline, formatOpus);
+    player.setMediaSources(ImmutableList.of(sourceA, sourceB));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus);
+  }
+
+  @Test
+  public void play_periodTransitionToEarlierIndexedMediaClockRenderer_playsToEnd()
+      throws Exception {
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    FakeMediaClockRenderer opusRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_OPUS, /* waitForStreamEndPositionBeforeEnding= */ false);
+    FakeMediaClockRenderer aacRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_AAC, /* waitForStreamEndPositionBeforeEnding= */ false);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(opusRenderer, aacRenderer))
+            .build();
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(100_000).build());
+    MediaSource sourceA = new FakeMediaSource(periodTimeline, formatAac);
+    MediaSource sourceB = new FakeMediaSource(periodTimeline, formatOpus);
+    player.setMediaSources(ImmutableList.of(sourceA, sourceB));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus);
+  }
+
+  @Test
+  public void
+      play_fastRendererAdvancingTwoPeriodsAhead_doesNotBlockEnablingRendererOnIntermediatePeriod()
+          throws Exception {
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    FakeRenderer videoRenderer =
+        createDelayedEndVideoRenderer(MimeTypes.VIDEO_H264, /* streamDurationUs= */ 500_000);
+    FakeMediaClockRenderer aacRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_AAC, /* waitForStreamEndPositionBeforeEnding= */ true);
+    FakeMediaClockRenderer opusRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_OPUS, /* waitForStreamEndPositionBeforeEnding= */ true);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, aacRenderer, opusRenderer))
+            .build();
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(500_000).build());
+    MediaSource source1 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatAac);
+    MediaSource source2 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatOpus);
+    MediaSource source3 = new FakeMediaSource(periodTimeline, formatOpus);
+    player.setMediaSources(ImmutableList.of(source1, source2, source3));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoRenderer.getFormatsRead())
+        .containsExactly(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.VIDEO_FORMAT);
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus, formatOpus);
+  }
+
+  @Test
+  public void play_periodTransitionAcrossThreePeriodsWithAlternatingMediaClockRenderers_playsToEnd()
+      throws Exception {
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeMediaClockRenderer aacRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_AAC, /* waitForStreamEndPositionBeforeEnding= */ true);
+    FakeMediaClockRenderer opusRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_OPUS, /* waitForStreamEndPositionBeforeEnding= */ true);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, aacRenderer, opusRenderer))
+            .build();
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(500_000).build());
+    MediaSource source1 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatAac);
+    MediaSource source2 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatOpus);
+    MediaSource source3 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatAac);
+    player.setMediaSources(ImmutableList.of(source1, source2, source3));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoRenderer.getFormatsRead())
+        .containsExactly(
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.VIDEO_FORMAT);
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac, formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus);
+  }
+
+  @Test
+  public void
+      play_periodTransitionWithPrerollWhileOtherRendererStillReadingFirstPeriod_reEnablesRendererEarly()
+          throws Exception {
+    assumeTrue(perStreamMediaProgressionEnabled);
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(100_000).build());
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource mediaSource2 =
+        createFakeMediaSourceWithInitialDiscontinuity(
+            periodTimeline, ExoPlayerTestRunner.AUDIO_FORMAT);
+    AtomicBoolean allowVideoToProcessBuffer = new AtomicBoolean(false);
+    AtomicBoolean audioReEnabledForPeriod2WhileVideoStillReadingPeriod1 = new AtomicBoolean(false);
+    FakeRenderer videoRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
+            return allowVideoToProcessBuffer.get()
+                && super.shouldProcessBuffer(bufferTimeUs, playbackPositionUs);
+          }
+        };
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+              throws ExoPlaybackException {
+            super.onEnabled(joining, mayRenderStartOfStream);
+            if (enabledCount == 2 && !videoRenderer.hasReadStreamToEnd()) {
+              audioReEnabledForPeriod2WhileVideoStillReadingPeriod1.set(true);
+            }
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(videoRenderer, audioRenderer))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+
+    player.prepare();
+    player.play();
+    advance(player)
+        .untilBackgroundThreadCondition(audioReEnabledForPeriod2WhileVideoStillReadingPeriod1::get);
+    allowVideoToProcessBuffer.set(true);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(audioReEnabledForPeriod2WhileVideoStillReadingPeriod1.get()).isTrue();
+    assertThat(audioRenderer.enabledCount).isEqualTo(2);
   }
 
   @Test
@@ -15266,6 +15520,122 @@ public final class ExoPlayerTest {
     assertThat(audioStreamChangedCount.get()).isEqualTo(3);
     assertThat(audioStateDuringPeriod1).isEqualTo(Renderer.STATE_ENABLED);
     assertThat(audioStateDuringPeriod2).isEqualTo(Renderer.STATE_STARTED);
+  }
+
+  @Test
+  public void
+      play_periodTransitionWithPrerollOnBothStreamsWhileVideoStillRenderingFirstPeriod_reEnablesAudioEarly()
+          throws Exception {
+    assumeTrue(perStreamMediaProgressionEnabled);
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(100_000).build());
+    FakeMediaSource mediaSource1 =
+        new FakeMediaSource(
+            periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    FakeMediaSource mediaSource2 =
+        createFakeMediaSourceWithInitialDiscontinuity(
+            periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    FakeRenderer videoRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          public boolean isEnded() {
+            return super.isEnded() && allowVideoEndOfStream.get();
+          }
+        };
+    FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(videoRenderer, audioRenderer))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> audioRenderer.enabledCount == 2);
+    int videoEnabledCountWhenAudioReEnabled = videoRenderer.enabledCount;
+    allowVideoEndOfStream.set(true);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoEnabledCountWhenAudioReEnabled).isEqualTo(1);
+    assertThat(videoRenderer.enabledCount).isEqualTo(2);
+    assertThat(audioRenderer.enabledCount).isEqualTo(2);
+  }
+
+  @Test
+  public void
+      play_periodTransitionToAudioOnlyPeriodWhileVideoStillRenderingFirstPeriod_enablesIncomingAudioRendererEarly()
+          throws Exception {
+    assumeTrue(perStreamMediaProgressionEnabled);
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(100_000).build());
+    FakeMediaSource mediaSource1 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatAac);
+    FakeMediaSource mediaSource2 = new FakeMediaSource(periodTimeline, formatOpus);
+    AtomicBoolean allowVideoEndOfStream = new AtomicBoolean(false);
+    FakeRenderer videoRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          public boolean isEnded() {
+            return super.isEnded() && allowVideoEndOfStream.get();
+          }
+        };
+    FakeRenderer aacRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          public @Capabilities int supportsFormat(Format format) {
+            return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_AAC)
+                ? RendererCapabilities.create(C.FORMAT_HANDLED)
+                : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+          }
+        };
+    FakeRenderer opusRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          public @Capabilities int supportsFormat(Format format) {
+            return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_OPUS)
+                ? RendererCapabilities.create(C.FORMAT_HANDLED)
+                : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setRenderers(videoRenderer, aacRenderer, opusRenderer))
+            .build();
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> opusRenderer.enabledCount == 1);
+    @Renderer.State int videoStateWhenOpusEnabled = videoRenderer.getState();
+    boolean videoHasReadStreamToEndWhenOpusEnabled = videoRenderer.hasReadStreamToEnd();
+    @Renderer.State int aacStateWhenOpusEnabled = aacRenderer.getState();
+    allowVideoEndOfStream.set(true);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(videoStateWhenOpusEnabled).isEqualTo(Renderer.STATE_STARTED);
+    assertThat(videoHasReadStreamToEndWhenOpusEnabled).isTrue();
+    assertThat(aacStateWhenOpusEnabled).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(opusRenderer.enabledCount).isEqualTo(1);
+    assertThat(videoRenderer.getFormatsRead()).containsExactly(ExoPlayerTestRunner.VIDEO_FORMAT);
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus);
   }
 
   @Test
@@ -16509,6 +16879,124 @@ public final class ExoPlayerTest {
       @Player.Command int... additionalCommands) {
     return createWithDefaultCommands(
         /* isTimelineEmpty= */ false, /* allowDeviceVolumeControl= */ false, additionalCommands);
+  }
+
+  private static FakeMediaClockRenderer createMediaClockAudioRenderer(
+      String supportedMimeType, boolean waitForStreamEndPositionBeforeEnding) {
+    return new FakeMediaClockRenderer(C.TRACK_TYPE_AUDIO) {
+      private long positionUs;
+      private long streamEndPositionUs;
+      private PlaybackParameters playbackParameters = PlaybackParameters.DEFAULT;
+
+      @Override
+      public @Capabilities int supportsFormat(Format format) {
+        return Objects.equals(format.sampleMimeType, supportedMimeType)
+            ? RendererCapabilities.create(C.FORMAT_HANDLED)
+            : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+      }
+
+      @Override
+      protected void onPositionReset(
+          long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+          throws ExoPlaybackException {
+        super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+        this.positionUs = positionUs;
+      }
+
+      @Override
+      protected void onStreamChanged(
+          Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId)
+          throws ExoPlaybackException {
+        super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+        streamEndPositionUs = startPositionUs + 500_000;
+      }
+
+      @Override
+      public long getPositionUs() {
+        if (getState() == STATE_STARTED) {
+          positionUs += 20_000;
+        }
+        return positionUs;
+      }
+
+      @Override
+      public boolean isEnded() {
+        return super.isEnded()
+            && (!waitForStreamEndPositionBeforeEnding || positionUs >= streamEndPositionUs);
+      }
+
+      @Override
+      public void setPlaybackParameters(PlaybackParameters playbackParameters) {
+        this.playbackParameters = playbackParameters;
+      }
+
+      @Override
+      public PlaybackParameters getPlaybackParameters() {
+        return playbackParameters;
+      }
+    };
+  }
+
+  private static FakeRenderer createDelayedEndVideoRenderer(
+      String supportedMimeType, long streamDurationUs) {
+    return new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+      private long currentPositionUs;
+      private long streamEndPositionUs;
+
+      @Override
+      public @Capabilities int supportsFormat(Format format) {
+        return Objects.equals(format.sampleMimeType, supportedMimeType)
+            ? RendererCapabilities.create(C.FORMAT_HANDLED)
+            : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+      }
+
+      @Override
+      protected void onStreamChanged(
+          Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId)
+          throws ExoPlaybackException {
+        super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+        streamEndPositionUs = startPositionUs + streamDurationUs;
+      }
+
+      @Override
+      public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+        currentPositionUs = positionUs;
+        super.render(positionUs, elapsedRealtimeUs);
+      }
+
+      @Override
+      public boolean isEnded() {
+        return super.isEnded() && currentPositionUs >= streamEndPositionUs;
+      }
+    };
+  }
+
+  private static FakeMediaSource createFakeMediaSourceWithInitialDiscontinuity(
+      Timeline timeline, Format... formats) {
+    return new FakeMediaSource(timeline, formats) {
+      @Override
+      protected MediaPeriod createMediaPeriod(
+          MediaPeriodId id,
+          TrackGroupArray trackGroupArray,
+          Allocator allocator,
+          MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+          DrmSessionManager drmSessionManager,
+          DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+          @Nullable TransferListener transferListener) {
+        FakeMediaPeriod mediaPeriod =
+            (FakeMediaPeriod)
+                super.createMediaPeriod(
+                    id,
+                    trackGroupArray,
+                    allocator,
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    transferListener);
+        mediaPeriod.setDiscontinuityPositionUs(0);
+        return mediaPeriod;
+      }
+    };
   }
 
   // Internal classes.
