@@ -53,7 +53,10 @@ import java.util.function.Consumer;
         GlTextureFrameConsumer downstreamConsumer);
   }
 
-  /** Draws multiple input frames onto one output texture using a GL program. */
+  /**
+   * Draws multiple input {@linkplain GlTextureFrame frames} onto one output {@link GlTextureInfo}
+   * using a GL program.
+   */
   interface CompositorGlProgram {
 
     /** A factory for {@link CompositorGlProgram} instances. */
@@ -65,11 +68,11 @@ import java.util.function.Consumer;
     /**
      * Draws the input frames onto the output texture.
      *
-     * @param framesToComposite The {@linkplain GlCompositionFrame input frames} to composite.
+     * @param framesToComposite The {@linkplain GlTextureFrame input frames} to composite.
      * @param outputTexture The {@link GlTextureInfo} to draw onto.
      * @throws VideoFrameProcessingException If an error occurs during frame processing.
      */
-    void drawFrame(List<GlCompositionFrame> framesToComposite, GlTextureInfo outputTexture)
+    void drawFrame(List<GlTextureFrame> framesToComposite, GlTextureInfo outputTexture)
         throws GlException, VideoFrameProcessingException;
 
     /** Releases all associated resources. */

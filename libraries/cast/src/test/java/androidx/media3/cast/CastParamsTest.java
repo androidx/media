@@ -51,9 +51,11 @@ public final class CastParamsTest {
     assertThat(castParams.getReceiverApplicationId()).isNull();
     assertThat(castParams.getRemoteToLocalEnabled()).isNull();
     assertThat(castParams.getShowSystemOutputSwitcherOnCastButtonClick()).isNull();
+    assertThat(castParams.getSystemOutputSwitcherEnabled()).isNull();
     assertThat(modifier.getReceiverApplicationId()).isNull();
     assertThat(modifier.getRemoteToLocalEnabled()).isNull();
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isTrue();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isTrue();
   }
 
   @Test
@@ -65,6 +67,7 @@ public final class CastParamsTest {
     CastOptions.Modifier modifier = castParams.toCastOptionsModifier(context);
 
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isFalse();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isFalse();
   }
 
   @Test
@@ -74,6 +77,7 @@ public final class CastParamsTest {
     CastOptions.Modifier modifier = castParams.toCastOptionsModifier(/* context= */ null);
 
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isFalse();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isFalse();
   }
 
   @Test
@@ -83,6 +87,7 @@ public final class CastParamsTest {
     CastOptions.Modifier modifier = castParams.toCastOptionsModifier(context);
 
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isTrue();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isTrue();
   }
 
   @Test
@@ -93,6 +98,7 @@ public final class CastParamsTest {
     CastOptions.Modifier modifier = castParams.toCastOptionsModifier(context);
 
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isFalse();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isTrue();
   }
 
   @Test
@@ -105,6 +111,24 @@ public final class CastParamsTest {
     CastOptions.Modifier modifier = castParams.toCastOptionsModifier(context);
 
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isTrue();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isTrue();
+  }
+
+  @Test
+  public void
+      toCastOptionsModifier_withSystemOutputSwitcherDisabled_overridesShowOnCastButtonClickTrue() {
+    CastParams castParams =
+        new CastParams.Builder()
+            .setSystemOutputSwitcherEnabled(false)
+            .setShowSystemOutputSwitcherOnCastButtonClick(true)
+            .build();
+
+    CastOptions.Modifier modifier = castParams.toCastOptionsModifier(context);
+
+    assertThat(castParams.getSystemOutputSwitcherEnabled()).isFalse();
+    assertThat(castParams.getShowSystemOutputSwitcherOnCastButtonClick()).isTrue();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isFalse();
+    assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isFalse();
   }
 
   @Test
@@ -113,11 +137,15 @@ public final class CastParamsTest {
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
     CastParams castParams =
-        new CastParams.Builder().setShowSystemOutputSwitcherOnCastButtonClick(true).build();
+        new CastParams.Builder()
+            .setSystemOutputSwitcherEnabled(true)
+            .setShowSystemOutputSwitcherOnCastButtonClick(true)
+            .build();
 
     CastOptions.Modifier modifier = castParams.toCastOptionsModifier(context);
 
     assertThat(modifier.getShowSystemOutputSwitcherOnCastIconClick()).isNull();
+    assertThat(modifier.getConfiguredSessionTransferEnabled()).isNull();
   }
 
   @Test

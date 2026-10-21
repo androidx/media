@@ -96,6 +96,7 @@ import android.util.Rational;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -138,6 +139,7 @@ import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
@@ -181,6 +183,7 @@ public class TransformerEndToEndTest {
   private static final int MIN_BLANK_FRAME_OUTPUT_HEIGHT = 240;
   private static final int TEST_TIMEOUT_MS = 10_000;
   private final Context context = ApplicationProvider.getApplicationContext();
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
   @Rule public final TestName testName = new TestName();
 
   private String testId;
@@ -2384,6 +2387,41 @@ public class TransformerEndToEndTest {
         testId,
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
         /* outputFormat= */ null);
+    Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
+    // Analysis must be added to item effects because composition effects are not applied to single
+    // input video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(
+                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+            .setRemoveAudio(true)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    assertThat(videoFramesSeen.get()).isEqualTo(932);
+    // Confirm no data was written to file.
+    assertThat(result.exportResult.videoFrameCount).isEqualTo(0);
+    assertThat(result.exportResult.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void analyze_videoWithImageReaderPlaceholderSurface_rendersAndDrainsFrames()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
+        /* outputFormat= */ null);
+    Flags.enableFlag(Flags.FLAG_IMAGE_READER_PLACEHOLDER_SURFACE);
     Transformer transformer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
     AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
     // Analysis must be added to item effects because composition effects are not applied to single

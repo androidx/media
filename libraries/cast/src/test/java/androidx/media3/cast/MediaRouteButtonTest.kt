@@ -15,7 +15,13 @@
  */
 package androidx.media3.cast
 
+import android.app.Application
+import android.content.ComponentName
 import android.content.Context
+import android.content.IntentFilter
+import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.view.ContextThemeWrapper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +33,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.media3.cast.test.R as TestR
 import androidx.mediarouter.media.MediaRouteSelector
+import androidx.mediarouter.media.MediaRouter
+import androidx.mediarouter.media.MediaRouterParams
 import androidx.mediarouter.testing.MediaRouterTestHelper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -50,7 +58,11 @@ import org.mockito.Mock
 import org.mockito.Mockito.`when` as whenever
 import org.mockito.junit.MockitoJUnit
 import org.mockito.junit.MockitoRule
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
+
+import org.junit.Ignore
 
 /** Unit test for [MediaRouteButton]. */
 @RunWith(AndroidJUnit4::class)
@@ -293,5 +305,77 @@ class MediaRouteButtonTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.isPickerVisible).isFalse()
+  }
+
+  @Ignore("Fails on gradle until Robolectric is updated to 4.17+: b/112049705")
+  @Test
+  @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
+  fun mediaRouteButton_clickWithOutputSwitcherAndMediaTransferEnabled_launchesOutputSwitcher() {
+    cast = Cast.getSingletonInstance(mockCastContext)
+    registerSystemOutputSwitcherReceiver()
+    MediaRouter.getInstance(context).routerParams =
+      MediaRouterParams.Builder()
+        .setOutputSwitcherEnabled(true)
+        .setMediaTransferReceiverEnabled(true)
+        .build()
+    val buttonContentDescription = context.getString(R.string.media_route_button_disconnected)
+    val state = MediaRouteButtonState()
+    composeTestRule.setContent { MediaRouteButton(state = state) }
+
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).performClick()
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isPickerVisible).isFalse()
+    assertThat(ShadowDialog.getLatestDialog()).isNull()
+    val broadcastIntents = shadowOf(context as Application).broadcastIntents
+    assertThat(broadcastIntents.map { it.action })
+      .contains("com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG")
+  }
+
+  @Test
+  @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
+  fun mediaRouteButton_clickWithOutputSwitcherEnabledAndMediaTransferDisabled_showsInAppDialog() {
+    cast = Cast.getSingletonInstance(mockCastContext)
+    registerSystemOutputSwitcherReceiver()
+    MediaRouter.getInstance(context).routerParams =
+      MediaRouterParams.Builder()
+        .setOutputSwitcherEnabled(true)
+        .setMediaTransferReceiverEnabled(false)
+        .build()
+    val buttonContentDescription = context.getString(R.string.media_route_button_disconnected)
+    val state = MediaRouteButtonState()
+    composeTestRule.setContent { MediaRouteButton(state = state) }
+
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).performClick()
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isPickerVisible).isTrue()
+    val dialog = ShadowDialog.getLatestDialog()
+    assertThat(dialog).isNotNull()
+    assertThat(shadowOf(context as Application).broadcastIntents).isEmpty()
+    dialog.dismiss()
+    composeTestRule.waitForIdle()
+  }
+
+  private fun registerSystemOutputSwitcherReceiver() {
+    val shadowPackageManager = shadowOf(context.packageManager)
+    val componentName =
+      ComponentName("com.android.systemui", "com.android.systemui.MediaOutputDialogReceiver")
+    val applicationInfo =
+      ApplicationInfo().apply {
+        packageName = "com.android.systemui"
+        flags = ApplicationInfo.FLAG_SYSTEM
+      }
+    val activityInfo =
+      ActivityInfo().apply {
+        packageName = componentName.packageName
+        name = componentName.className
+        this.applicationInfo = applicationInfo
+      }
+    shadowPackageManager.addOrUpdateReceiver(activityInfo)
+    shadowPackageManager.addIntentFilterForReceiver(
+      componentName,
+      IntentFilter("com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG"),
+    )
   }
 }

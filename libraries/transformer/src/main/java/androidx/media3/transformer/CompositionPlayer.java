@@ -1568,15 +1568,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       if (frameAggregator != null) {
         frameAggregator.close();
       }
-      // Flush the primary sequence to reset the state of the release control when a new Composition
-      // is set.
-      checkNotNull(videoPacketReleaseControl).flush(/* sequenceIndex= */ 0);
       frameAggregator =
           new FrameAggregator(
               composition.sequences.size(),
               composition.videoFrameAggregationParameters.frameRate,
-              videoPacketReleaseControl::queue,
-              videoPacketReleaseControl::flush);
+              checkNotNull(videoPacketReleaseControl)::queue,
+              checkNotNull(videoPacketReleaseControl)::flush);
     }
 
     prepareCompositionPlayerInternal();

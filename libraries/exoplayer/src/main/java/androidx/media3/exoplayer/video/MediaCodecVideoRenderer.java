@@ -244,7 +244,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
   private @MonotonicNonNull List<Effect> videoEffects;
   private @Nullable Surface displaySurface;
-  private @Nullable PlaceholderSurface placeholderSurface;
+  private @Nullable PlaceholderSurfaceInterface placeholderSurface;
   private Size outputResolution;
   private boolean haveReportedFirstFrameRenderedForCurrentSurface;
   private @C.VideoScalingMode int scalingMode;
@@ -2463,14 +2463,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return null;
     } else {
       checkState(shouldUsePlaceholderSurface(codecInfo));
-      if (placeholderSurface != null && placeholderSurface.secure != codecInfo.secure) {
+      if (placeholderSurface != null && placeholderSurface.isSecure() != codecInfo.secure) {
         // We can't re-use the current placeholder surface instance with the new decoder.
         releasePlaceholderSurface();
       }
       if (placeholderSurface == null) {
-        placeholderSurface = PlaceholderSurface.newInstance(context, codecInfo.secure);
+        placeholderSurface = PlaceholderSurfaceInterface.newInstance(context, codecInfo.secure);
       }
-      return placeholderSurface;
+      return placeholderSurface.getSurface();
     }
   }
 
@@ -2481,7 +2481,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
     return !tunneling
         && !codecNeedsSetOutputSurfaceWorkaround(codecInfo.name)
-        && (!codecInfo.secure || PlaceholderSurface.isSecureSupported(context));
+        && (!codecInfo.secure || PlaceholderSurfaceInterface.isSecureSupported(context));
   }
 
   private void releasePlaceholderSurface() {

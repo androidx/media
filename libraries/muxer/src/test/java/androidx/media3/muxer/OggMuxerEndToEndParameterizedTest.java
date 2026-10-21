@@ -17,6 +17,8 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static androidx.media3.test.utils.AssetInfo.OPUS_OGG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.VORBIS_OGG_ASSET;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
@@ -42,14 +44,9 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end parameterized tests for {@link OggMuxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class OggMuxerEndToEndParameterizedTest {
-  private static final String OPUS_OGG = "ogg/bbb_6ch_8kHz_opus.ogg";
-  private static final String VORBIS_OGG = "ogg/bbb_1ch_16kHz_q10_vorbis.ogg";
-
-  public static final String MEDIA_FILE_ASSET_DIRECTORY = "asset:///media/";
-
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of(OPUS_OGG, VORBIS_OGG);
+    return ImmutableList.of(OPUS_OGG_ASSET.uri, VORBIS_OGG_ASSET.uri);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;
@@ -74,7 +71,7 @@ public final class OggMuxerEndToEndParameterizedTest {
   public void createOggFile_fromInputFileSampleData_matchesExpected() throws Exception {
     try (OggMuxer oggMuxer =
         new OggMuxer.Builder(outputStream.getChannel()).setVendorString("Media3 Muxer").build()) {
-      feedInputDataToMuxer(context, oggMuxer, MEDIA_FILE_ASSET_DIRECTORY + checkNotNull(inputFile));
+      feedInputDataToMuxer(context, oggMuxer, checkNotNull(inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =

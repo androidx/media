@@ -40,6 +40,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
@@ -314,14 +315,14 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     long outputPresentationTimestampUs = primaryInputFrame.timedGlTextureInfo.presentationTimeUs;
     outputTextureTimestamps.add(outputPresentationTimestampUs);
 
-    ImmutableList.Builder<GlCompositionFrame> glProgramInput = new ImmutableList.Builder<>();
+    ImmutableList.Builder<InputFrameInfo> glProgramInput = new ImmutableList.Builder<>();
     for (int i = 0; i < framesToComposite.size(); i++) {
       glProgramInput.add(
-          new GlCompositionFrame(
+          new InputFrameInfo(
               framesToComposite.get(i).timedGlTextureInfo.glTextureInfo,
               framesToComposite.get(i).overlaySettings));
     }
-    compositorGlProgram.drawFrame(glProgramInput.build(), outputTexture);
+    compositorGlProgram.drawFrameWithInputFrameInfos(glProgramInput.build(), outputTexture);
 
     long syncObject = GlUtil.createGlSyncFence();
     syncObjects.add(syncObject);

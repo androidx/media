@@ -565,5 +565,7 @@ public final class CastTest {
     assertThat(actual.getRemoteToLocalEnabled()).isEqualTo(expected.getRemoteToLocalEnabled());
     assertThat(actual.getShowSystemOutputSwitcherOnCastIconClick())
         .isEqualTo(expected.getShowSystemOutputSwitcherOnCastIconClick());
+    assertThat(actual.getConfiguredSessionTransferEnabled())
+        .isEqualTo(expected.getConfiguredSessionTransferEnabled());
   }
 }

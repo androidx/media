@@ -53,6 +53,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.FileDescriptorDataSource;
 import androidx.media3.datasource.MediaDataSourceAdapter;
+import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
@@ -598,14 +599,16 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void populatePlatformCryptoInfoParameters(MediaCodec.CryptoInfo info) {
-    MediaCodec.CryptoInfo platformCryptoInfo =
-        checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo).getFrameworkCryptoInfo();
+    CryptoInfo cryptoInfo = checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo);
+    MediaCodec.CryptoInfo platformCryptoInfo = cryptoInfo.getFrameworkCryptoInfo();
     info.numSubSamples = platformCryptoInfo.numSubSamples;
     info.numBytesOfClearData = platformCryptoInfo.numBytesOfClearData;
     info.numBytesOfEncryptedData = platformCryptoInfo.numBytesOfEncryptedData;
     info.key = platformCryptoInfo.key;
     info.iv = platformCryptoInfo.iv;
     info.mode = platformCryptoInfo.mode;
+    info.setPattern(
+        new MediaCodec.CryptoInfo.Pattern(cryptoInfo.encryptedBlocks, cryptoInfo.clearBlocks));
   }
 
   /** Sets the {@link LogSessionId} for MediaExtractorCompat. */

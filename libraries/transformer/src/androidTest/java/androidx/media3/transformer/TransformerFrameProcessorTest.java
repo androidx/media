@@ -24,12 +24,10 @@ import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsS
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.ExperimentalAnalyzerModeFactory.buildAnalyzer;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
-import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -45,6 +43,7 @@ import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.media3.test.utils.CapturingFrameProcessor;
+import androidx.media3.test.utils.FakeBitmapLoader;
 import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.media3.test.utils.FakeHardwareBufferJniWrapper;
 import androidx.test.core.app.ApplicationProvider;
@@ -52,7 +51,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
@@ -143,23 +141,7 @@ public class TransformerFrameProcessorTest {
       throws Exception {
     AtomicInteger receivedFormat = new AtomicInteger();
     // Create a fake BitmapLoader that strictly outputs a true 10-bit SDR/HDR bitmap.
-    BitmapLoader fakeBitmapLoader =
-        new BitmapLoader() {
-          @Override
-          public boolean supportsMimeType(String mimeType) {
-            return true;
-          }
-
-          @Override
-          public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
-            return immediateFuture(Bitmap.createBitmap(1, 1, RGBA_1010102));
-          }
-
-          @Override
-          public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
-            return immediateFuture(Bitmap.createBitmap(1, 1, RGBA_1010102));
-          }
-        };
+    BitmapLoader fakeBitmapLoader = new FakeBitmapLoader(Bitmap.createBitmap(1, 1, RGBA_1010102));
     FakeFrameProcessor.Factory fakeFrameProcessorFactory =
         new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true);
     FrameProcessor.Factory interceptingFactory =

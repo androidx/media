@@ -527,5 +527,15 @@ public final class ExtractorAsserts {
         extractor.seek(0, 0);
       }
     }
+    // Reading again after the end of input must be a no-op.
+    while (true) {
+      try {
+        assertThat(extractor.read(input, seekPositionHolder))
+            .isEqualTo(Extractor.RESULT_END_OF_INPUT);
+        break;
+      } catch (SimulatedIOException e) {
+        // Retry.
+      }
+    }
   }
 }

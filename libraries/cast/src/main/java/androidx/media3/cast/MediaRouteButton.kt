@@ -16,9 +16,7 @@
 package androidx.media3.cast
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
-import android.os.Build
 import android.util.TypedValue
 import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
@@ -42,7 +40,6 @@ import androidx.mediarouter.app.MediaRouteControllerDialog
 import androidx.mediarouter.app.SystemOutputSwitcherDialogController
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter.RouteInfo
-import androidx.mediarouter.media.MediaTransferReceiver
 
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that displays a media route
@@ -103,8 +100,11 @@ fun MediaRouteButton(
   MediaRouteButtonContainer {
     IconButton(
       onClick = {
+        val routerParams = mediaRouter.routerParams
         val isOutputSwitcherEnabled =
-          (mediaRouter.routerParams?.isOutputSwitcherEnabled ?: false) && isMediaTransferEnabled()
+          routerParams != null &&
+            routerParams.isOutputSwitcherEnabled &&
+            routerParams.isMediaTransferReceiverEnabled
         val outputSwitcherLaunched =
           isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)
         // If the system output switcher was launched we don't show the media route dialogs.
@@ -127,20 +127,6 @@ private fun MediaRouterState.MediaRouteDialog(onDismissRequest: () -> Unit) {
   } else {
     MediaRouteChooserDialog(onDismissRequest)
   }
-}
-
-private fun MediaRouterState.isMediaTransferEnabled(): Boolean {
-  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-    return false
-  }
-  val queryIntent = Intent(context, MediaTransferReceiver::class.java)
-  queryIntent.setPackage(context.packageName)
-  val pm = context.packageManager
-  val resolveInfos = pm.queryBroadcastReceivers(queryIntent, 0)
-  val isMediaTransferDeclared = resolveInfos.isNotEmpty()
-  val routerParams = mediaRouter.routerParams
-  return isMediaTransferDeclared &&
-    (routerParams == null || routerParams.isMediaTransferReceiverEnabled)
 }
 
 @Composable

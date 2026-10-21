@@ -108,7 +108,9 @@ public interface Extractor {
    * position in the stream reached by the returning call. If the extractor requires data to be
    * provided from a different position, then that position is set in {@code seekPosition} and
    * {@link #RESULT_SEEK} is returned. If the extractor reached the end of the data provided by the
-   * {@link ExtractorInput}, then {@link #RESULT_END_OF_INPUT} is returned.
+   * {@link ExtractorInput}, then {@link #RESULT_END_OF_INPUT} is returned. Subsequent calls must
+   * return {@link #RESULT_END_OF_INPUT} again without outputting anything, until {@link #seek(long,
+   * long)} is called.
    *
    * <p>When this method throws an {@link IOException}, extraction may continue by providing an
    * {@link ExtractorInput} with an unchanged {@link ExtractorInput#getPosition() read position} to

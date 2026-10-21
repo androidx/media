@@ -120,11 +120,11 @@ import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -146,6 +146,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.MediaCodecInfoBuilder;
@@ -155,7 +156,7 @@ import org.robolectric.shadows.ShadowMediaCodec;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit test for {@link MediaCodecVideoRenderer}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class MediaCodecVideoRendererTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
@@ -458,7 +459,9 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
-  public void isReady_withoutSurfaceAfterSkippingLateBuffer_returnsFalse() throws Exception {
+  public void isReady_withoutSurfaceAfterSkippingLateBuffer_returnsFalse(
+      @TestParameter boolean useImageReaderPlaceholderSurface) throws Exception {
+    setImageReaderPlaceholderSurfaceEnabled(useImageReaderPlaceholderSurface);
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
@@ -532,8 +535,9 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
-  public void isReady_withoutSurfaceAfterDroppingDueToVeryLateBuffer_returnsFalse()
-      throws Exception {
+  public void isReady_withoutSurfaceAfterDroppingDueToVeryLateBuffer_returnsFalse(
+      @TestParameter boolean useImageReaderPlaceholderSurface) throws Exception {
+    setImageReaderPlaceholderSurfaceEnabled(useImageReaderPlaceholderSurface);
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
@@ -606,7 +610,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_earlyWithoutSurfaceAndStarted_skipsBuffer() throws Exception {
+  public void render_earlyWithoutSurfaceAndStarted_skipsBuffer(
+      @TestParameter boolean useImageReaderPlaceholderSurface) throws Exception {
+    setImageReaderPlaceholderSurfaceEnabled(useImageReaderPlaceholderSurface);
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -647,7 +653,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_earlyWithoutSurfaceAndNotStarted_doesNotSkipBuffer() throws Exception {
+  public void render_earlyWithoutSurfaceAndNotStarted_doesNotSkipBuffer(
+      @TestParameter boolean useImageReaderPlaceholderSurface) throws Exception {
+    setImageReaderPlaceholderSurfaceEnabled(useImageReaderPlaceholderSurface);
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -829,8 +837,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_withNewSurfaceAndAlreadyReadyWithPlaceholder_canRenderFirstFrameImmediately()
-      throws Exception {
+  public void render_withNewSurfaceAndAlreadyReadyWithPlaceholder_canRenderFirstFrameImmediately(
+      @TestParameter boolean useImageReaderPlaceholderSurface) throws Exception {
+    setImageReaderPlaceholderSurfaceEnabled(useImageReaderPlaceholderSurface);
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -6826,9 +6835,9 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when timeout is fixed.
-  public void
-      getDurationToProgressUs_withDropToKeyFrameWithoutOutputSurface_returnsDefaultDuration()
-          throws Exception {
+  public void getDurationToProgressUs_withDropToKeyFrameWithoutOutputSurface_returnsDefaultDuration(
+      @TestParameter boolean useImageReaderPlaceholderSurface) throws Exception {
+    setImageReaderPlaceholderSurfaceEnabled(useImageReaderPlaceholderSurface);
     // Remove surface from MediaCodecVideoRenderer.
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, null);
     FakeSampleStream fakeSampleStream =
@@ -7994,6 +8003,18 @@ public class MediaCodecVideoRendererTest {
     assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(2); // 100, 200
     assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(3); // 0, 300, 400
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
+  }
+
+  // setUp() attaches a non-null display Surface to mediaCodecVideoRenderer, so most tests in this
+  // class never instantiate a PlaceholderSurfaceInterface. Only the tests that run without an
+  // output surface are parameterized with useImageReaderPlaceholderSurface to avoid doubling the
+  // runtime of the entire test suite across all SDK levels (and @BindFlag only targets fields).
+  private static void setImageReaderPlaceholderSurfaceEnabled(boolean enabled) {
+    if (enabled) {
+      Flags.enableFlag(Flags.FLAG_IMAGE_READER_PLACEHOLDER_SURFACE);
+    } else {
+      Flags.disableFlag(Flags.FLAG_IMAGE_READER_PLACEHOLDER_SURFACE);
+    }
   }
 
   @CanIgnoreReturnValue
