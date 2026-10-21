@@ -175,11 +175,16 @@ internal constructor(
       if (_config == value) {
         return
       }
+      val previousConfig = _config
       _config = value
       player?.let { currentPlayer ->
         syncRepeatMode(currentPlayer)
-        if (currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping) {
-          showPhoto = true
+        when {
+          currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping && !_showPhoto ->
+            showPhoto = true
+          _showPhoto &&
+            previousConfig.resumeVideoFromPreviousPosition &&
+            !_config.resumeVideoFromPreviousPosition -> seekToStartPosition(currentPlayer)
         }
       }
     }
@@ -288,15 +293,24 @@ internal constructor(
       currentPlayer.prepare()
     }
 
+    val shouldRewind =
+      !_config.resumeVideoFromPreviousPosition ||
+        (!_showPhoto && currentPlayer.playbackState == Player.STATE_ENDED)
+    if (shouldRewind) {
+      seekToStartPosition(currentPlayer)
+    }
+    if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+      currentPlayer.playWhenReady = !_showPhoto
+    }
+  }
+
+  private fun seekToStartPosition(currentPlayer: Player) {
     if (
       currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
         currentPlayer.currentMediaItem != null &&
         currentPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
     ) {
       currentPlayer.seekToDefaultPosition()
-    }
-    if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
-      currentPlayer.playWhenReady = !_showPhoto
     }
   }
 
@@ -314,25 +328,42 @@ internal constructor(
  *   still photo when playback reaches the end. If the [Player] supports neither
  *   [Player.COMMAND_SET_REPEAT_MODE] nor [Player.COMMAND_SEEK_TO_DEFAULT_POSITION], playback
  *   returns to the still photo instead of looping.
+ * @property resumeVideoFromPreviousPosition Whether resuming motion playback should continue from
+ *   the paused position rather than rewinding to the start position when returning to the still
+ *   photo.
  */
 // TODO(b/544627271): Add playback boundaries (`startBoundary`, `startPositionOffsetMs`,
 // `endBoundary`, `endPositionOffsetMs`), custom key photo frame anchor timestamp
-// (`customImageAnchorTimestampMs`), resume behavior (`resumeVideoFromPreviousPosition`), and other
-// presets in follow-up CLs.
+// (`customImageAnchorTimestampMs`), crossfade duration (`transitionDurationMs`), and other presets
+// in follow-up CLs.
 @Immutable
 @RestrictTo(LIBRARY_GROUP)
-class MotionPhotoConfig(val isLooping: Boolean = false) {
+class MotionPhotoConfig(
+  val isLooping: Boolean = false,
+  val resumeVideoFromPreviousPosition: Boolean = false,
+) {
   /** Returns a copy of this [MotionPhotoConfig] with the given properties updated. */
-  fun copy(isLooping: Boolean = this.isLooping): MotionPhotoConfig =
-    MotionPhotoConfig(isLooping = isLooping)
+  fun copy(
+    isLooping: Boolean = this.isLooping,
+    resumeVideoFromPreviousPosition: Boolean = this.resumeVideoFromPreviousPosition,
+  ): MotionPhotoConfig =
+    MotionPhotoConfig(
+      isLooping = isLooping,
+      resumeVideoFromPreviousPosition = resumeVideoFromPreviousPosition,
+    )
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is MotionPhotoConfig) return false
-    return isLooping == other.isLooping
+    return isLooping == other.isLooping &&
+      resumeVideoFromPreviousPosition == other.resumeVideoFromPreviousPosition
   }
 
-  override fun hashCode(): Int = isLooping.hashCode()
+  override fun hashCode(): Int {
+    var result = isLooping.hashCode()
+    result = 31 * result + resumeVideoFromPreviousPosition.hashCode()
+    return result
+  }
 
   companion object {
     /** Default configuration instance that plays motion once and returns to the still photo. */

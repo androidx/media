@@ -20,6 +20,7 @@ import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -30,7 +31,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,6 +52,11 @@ import androidx.media3.ui.compose.state.rememberMotionPhotoState
 
 private val PRESETS =
   listOf("Default" to MotionPhotoConfig.DEFAULT, "Loop" to MotionPhotoConfig.LOOP)
+
+private enum class ConfigMode {
+  PRESETS,
+  CUSTOM,
+}
 
 /**
  * Screen for displaying and interacting with a Motion Photo in the Compose demo.
@@ -77,6 +86,8 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
+  var configMode by remember(motionPhotoState) { mutableStateOf<ConfigMode?>(null) }
+
   Box(
     modifier =
       modifier
@@ -95,15 +106,68 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
       bitmapLoader = bitmapLoader,
     )
 
-    Row(
+    Column(
       modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      for ((label, config) in PRESETS) {
+      when (configMode) {
+        ConfigMode.PRESETS -> {
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((label, config) in PRESETS) {
+              FilterChip(
+                selected = motionPhotoState.config == config,
+                onClick = { motionPhotoState.config = config },
+                label = { Text(label) },
+              )
+            }
+          }
+        }
+        ConfigMode.CUSTOM -> {
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+              selected = motionPhotoState.config.isLooping,
+              onClick = {
+                motionPhotoState.config =
+                  motionPhotoState.config.copy(isLooping = !motionPhotoState.config.isLooping)
+              },
+              label = { Text("Loop motion") },
+            )
+            FilterChip(
+              selected = motionPhotoState.config.resumeVideoFromPreviousPosition,
+              onClick = {
+                motionPhotoState.config =
+                  motionPhotoState.config.copy(
+                    resumeVideoFromPreviousPosition =
+                      !motionPhotoState.config.resumeVideoFromPreviousPosition
+                  )
+              },
+              label = { Text("Resume from paused motion") },
+            )
+          }
+        }
+        null -> {}
+      }
+      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(
-          selected = motionPhotoState.config == config,
-          onClick = { motionPhotoState.config = config },
-          label = { Text(label) },
+          selected = configMode == ConfigMode.PRESETS,
+          onClick = {
+            if (configMode != ConfigMode.PRESETS) {
+              configMode = ConfigMode.PRESETS
+              motionPhotoState.config = MotionPhotoConfig.DEFAULT
+            }
+          },
+          label = { Text("Presets") },
+        )
+        FilterChip(
+          selected = configMode == ConfigMode.CUSTOM,
+          onClick = {
+            if (configMode != ConfigMode.CUSTOM) {
+              configMode = ConfigMode.CUSTOM
+              motionPhotoState.config = MotionPhotoConfig.DEFAULT
+            }
+          },
+          label = { Text("Custom") },
         )
       }
     }

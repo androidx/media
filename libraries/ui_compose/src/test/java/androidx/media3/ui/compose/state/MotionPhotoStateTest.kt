@@ -689,16 +689,135 @@ class MotionPhotoStateTest {
   }
 
   @Test
+  fun showPhoto_withResumeVideoFromPreviousPosition_pausesAndResumesWithoutRewindingAndRestartsAfterEnded() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      player.setMediaItem(testMediaItem)
+      player.prepare()
+      player.setPosition(250L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialConfig = MotionPhotoConfig(resumeVideoFromPreviousPosition = true),
+          )
+      }
+      waitForIdle()
+      // Initial bind with resumeVideoFromPreviousPosition = true preserves existing position.
+      assertThat(player.currentPosition).isEqualTo(250L)
+
+      state.showPhoto = false
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(player.currentPosition).isAtLeast(250L)
+      assertThat(player.playWhenReady).isTrue()
+
+      player.setPosition(400L)
+      state.showPhoto = true
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(player.currentPosition).isAtLeast(400L)
+
+      state.showPhoto = false
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isTrue()
+      assertThat(player.currentPosition).isAtLeast(400L)
+
+      // Reaching STATE_ENDED returns to photo; subsequent play trigger rewinds to 0L to restart.
+      player.setPlaybackState(Player.STATE_ENDED)
+      waitForIdle()
+      assertThat(state.showPhoto).isTrue()
+
+      state.showPhoto = false
+      waitForIdle()
+
+      assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun config_whenResumeVideoFromPreviousPositionDisabledWhileShowingPhoto_rewindsToDefaultPosition() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig = MotionPhotoConfig(resumeVideoFromPreviousPosition = true),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+
+      player.setPosition(350L)
+      state.showPhoto = true
+      waitForIdle()
+      assertThat(player.currentPosition).isAtLeast(350L)
+
+      // Disabling resumeVideoFromPreviousPosition while showing the photo rewinds the player.
+      state.config = state.config.copy(resumeVideoFromPreviousPosition = false)
+      waitForIdle()
+
+      assertThat(player.currentPosition).isEqualTo(0L)
+    }
+
+  @Test
+  fun config_whenResumeVideoFromPreviousPositionDisabledWhilePlayingMotion_doesNotRewindOrInterruptPlayback() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig = MotionPhotoConfig(resumeVideoFromPreviousPosition = true),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      player.setPosition(350L)
+
+      state.config = state.config.copy(resumeVideoFromPreviousPosition = false)
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+      assertThat(player.currentPosition).isAtLeast(350L)
+    }
+
+  @Test
   fun motionPhotoConfig_copyAndPresets_hasExpectedPropertiesAndEquality() {
     val defaultConfig = MotionPhotoConfig.DEFAULT
     assertThat(defaultConfig.isLooping).isFalse()
-    assertThat(defaultConfig).isEqualTo(MotionPhotoConfig(isLooping = false))
-    assertThat(defaultConfig.hashCode()).isEqualTo(MotionPhotoConfig(isLooping = false).hashCode())
+    assertThat(defaultConfig.resumeVideoFromPreviousPosition).isFalse()
+    assertThat(defaultConfig).isEqualTo(MotionPhotoConfig())
+    assertThat(defaultConfig.hashCode()).isEqualTo(MotionPhotoConfig().hashCode())
 
     val loopConfig = MotionPhotoConfig.LOOP
     assertThat(loopConfig.isLooping).isTrue()
+    assertThat(loopConfig.resumeVideoFromPreviousPosition).isFalse()
     assertThat(loopConfig).isEqualTo(defaultConfig.copy(isLooping = true))
     assertThat(loopConfig).isNotEqualTo(defaultConfig)
     assertThat(loopConfig.copy(isLooping = false)).isEqualTo(defaultConfig)
+
+    val customConfig = defaultConfig.copy(resumeVideoFromPreviousPosition = true)
+    assertThat(customConfig.isLooping).isFalse()
+    assertThat(customConfig.resumeVideoFromPreviousPosition).isTrue()
+    assertThat(customConfig).isNotEqualTo(defaultConfig)
+    assertThat(customConfig.hashCode())
+      .isEqualTo(MotionPhotoConfig(resumeVideoFromPreviousPosition = true).hashCode())
   }
 }
