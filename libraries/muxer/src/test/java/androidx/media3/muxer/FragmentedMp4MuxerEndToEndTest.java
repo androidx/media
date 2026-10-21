@@ -21,6 +21,10 @@ import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
+import static androidx.media3.test.utils.AssetInfo.AUDIO_ONLY_MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.H264_MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_VIDEO;
 import static androidx.media3.test.utils.TestUtil.buildDoubleTestSamples;
 import static androidx.media3.test.utils.TestUtil.buildFloatTestSamples;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
@@ -61,13 +65,6 @@ import org.robolectric.RobolectricTestParameterInjector;
 /** End to end instrumentation tests for {@link FragmentedMp4Muxer}. */
 @RunWith(RobolectricTestParameterInjector.class)
 public class FragmentedMp4MuxerEndToEndTest {
-  private static final String H264_MP4 = "mp4/sample_no_bframes.mp4";
-  private static final String H265_HDR10_MP4 = "mp4/hdr10-720p.mp4";
-  private static final String AV1_MP4 = "mp4/sample_av1.mp4";
-  private static final String AUDIO_ONLY_MP4 = "mp4/sample_audio_only_15s.mp4";
-
-  public static final String MEDIA_ASSET_DIRECTORY = "asset:///media/";
-
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -83,7 +80,7 @@ public class FragmentedMp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + H265_HDR10_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, MP4_ASSET_720P_4_SECOND_HDR10.uri);
     }
 
     DumpableMp4Box dumpableMp4Box =
@@ -93,7 +90,7 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         dumpableMp4Box,
         MuxerTestUtil.getExpectedDumpFilePath(
-            MuxerTestUtil.getSubstitutedPath(H265_HDR10_MP4, MuxerTestUtil.MP4)
+            MuxerTestUtil.getSubstitutedPath(MP4_ASSET_720P_4_SECOND_HDR10.uri, MuxerTestUtil.MP4)
                 + "_fragmented_box_structure"));
   }
 
@@ -178,7 +175,7 @@ public class FragmentedMp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + AUDIO_ONLY_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, AUDIO_ONLY_MP4_ASSET.uri);
     }
 
     DumpableMp4Box dumpableMp4Box =
@@ -189,7 +186,7 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         dumpableMp4Box,
         MuxerTestUtil.getExpectedDumpFilePath(
-            MuxerTestUtil.getSubstitutedPath(AUDIO_ONLY_MP4, MuxerTestUtil.MP4)
+            MuxerTestUtil.getSubstitutedPath(AUDIO_ONLY_MP4_ASSET.uri, MuxerTestUtil.MP4)
                 + "_fragmented_box_structure"));
   }
 
@@ -206,7 +203,7 @@ public class FragmentedMp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           fragmentedMp4Muxer,
-          MEDIA_ASSET_DIRECTORY + AV1_MP4,
+          MP4_ASSET_AV1_VIDEO.uri,
           /* removeInitializationData= */ true,
           /* removeAudioSampleFlags= */ false);
     }
@@ -219,7 +216,8 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            MuxerTestUtil.getSubstitutedPath(AV1_MP4, MuxerTestUtil.MP4) + "_fragmented"));
+            MuxerTestUtil.getSubstitutedPath(MP4_ASSET_AV1_VIDEO.uri, MuxerTestUtil.MP4)
+                + "_fragmented"));
   }
 
   @Test
@@ -236,7 +234,7 @@ public class FragmentedMp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           fragmentedMp4Muxer,
-          MEDIA_ASSET_DIRECTORY + H264_MP4,
+          H264_MP4_ASSET.uri,
           /* removeInitializationData= */ false,
           /* removeAudioSampleFlags= */ true);
     }
@@ -250,7 +248,8 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            MuxerTestUtil.getSubstitutedPath(H264_MP4, MuxerTestUtil.MP4) + "_fragmented"));
+            MuxerTestUtil.getSubstitutedPath(H264_MP4_ASSET.uri, MuxerTestUtil.MP4)
+                + "_fragmented"));
   }
 
   @Test
@@ -336,7 +335,7 @@ public class FragmentedMp4MuxerEndToEndTest {
 
     try (FragmentedMp4Muxer fragmentedMp4Muxer =
         new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + H264_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, H264_MP4_ASSET.uri);
     }
 
     FragmentedMp4Extractor extractor =
@@ -359,7 +358,7 @@ public class FragmentedMp4MuxerEndToEndTest {
 
     try (FragmentedMp4Muxer fragmentedMp4Muxer =
         new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + H264_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, H264_MP4_ASSET.uri);
     }
 
     FragmentedMp4Extractor extractor =
@@ -470,8 +469,8 @@ public class FragmentedMp4MuxerEndToEndTest {
 
     try (FragmentedMp4Muxer fragmentedMp4Muxer =
         new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + H264_MP4);
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, MEDIA_ASSET_DIRECTORY + AUDIO_ONLY_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, H264_MP4_ASSET.uri);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, AUDIO_ONLY_MP4_ASSET.uri);
     }
 
     FragmentedMp4Extractor extractor =
