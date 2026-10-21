@@ -506,6 +506,10 @@ public class MatroskaExtractor implements Extractor {
   private boolean seekForCues;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
+  private long secondarySeekHeadPosition = C.INDEX_UNSET;
+  private boolean seekForSecondarySeekHead;
+  private long seekPositionAfterReadingSecondarySeekHead = C.INDEX_UNSET;
+  private boolean readSecondarySeekHead;
   private long tracksContentPosition = C.INDEX_UNSET;
   private boolean seekForTracks;
   private long seekPositionAfterReadingTracks = C.INDEX_UNSET;
@@ -659,6 +663,7 @@ public class MatroskaExtractor implements Extractor {
       continueReading = reader.read(input);
       if (continueReading
           && (maybeSeekForTracks(seekPosition, input.getPosition())
+              || maybeSeekForSecondarySeekHead(seekPosition, input.getPosition())
               || maybeSeekForCues(seekPosition, input.getPosition()))) {
         return Extractor.RESULT_SEEK;
       }
@@ -906,6 +911,11 @@ public class MatroskaExtractor implements Extractor {
           durationUs = scaleTimecodeToUs(durationTimecode);
         }
         break;
+      case ID_SEEK_HEAD:
+        if (seekPositionAfterReadingSecondarySeekHead != C.INDEX_UNSET) {
+          readSecondarySeekHead = true;
+        }
+        break;
       case ID_SEEK:
         if (seekEntryId == UNSET_ENTRY_ID || seekEntryPosition == C.INDEX_UNSET) {
           throw ParserException.createForMalformedContainer(
@@ -915,6 +925,8 @@ public class MatroskaExtractor implements Extractor {
           cuesContentPosition = seekEntryPosition;
         } else if (seekEntryId == ID_TRACKS) {
           tracksContentPosition = seekEntryPosition;
+        } else if (seekEntryId == ID_SEEK_HEAD && cuesContentPosition == C.INDEX_UNSET) {
+          secondarySeekHeadPosition = seekEntryPosition;
         }
         break;
       case ID_CUES:
@@ -1079,7 +1091,10 @@ public class MatroskaExtractor implements Extractor {
         // If we're not going to seek for cues, or we have already processed them, output the
         // formats immediately.
         boolean maybeSendFormatsEarly =
-            !seekForCuesEnabled || cuesContentPosition == C.INDEX_UNSET || sentSeekMap;
+            !seekForCuesEnabled
+                || (cuesContentPosition == C.INDEX_UNSET
+                    && (secondarySeekHeadPosition == C.INDEX_UNSET || readSecondarySeekHead))
+                || sentSeekMap;
 
         for (int i = 0; i < tracks.size(); i++) {
           Track trackItem = tracks.valueAt(i);
@@ -2182,6 +2197,21 @@ public class MatroskaExtractor implements Extractor {
     return bytesWritten;
   }
 
+  private boolean maybeSeekForSecondarySeekHead(PositionHolder seekPosition, long currentPosition) {
+    if (seekForSecondarySeekHead) {
+      seekPositionAfterReadingSecondarySeekHead = currentPosition;
+      seekPosition.position = secondarySeekHeadPosition;
+      seekForSecondarySeekHead = false;
+      return true;
+    }
+    if (readSecondarySeekHead && seekPositionAfterReadingSecondarySeekHead != C.INDEX_UNSET) {
+      seekPosition.position = seekPositionAfterReadingSecondarySeekHead;
+      seekPositionAfterReadingSecondarySeekHead = C.INDEX_UNSET;
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Updates the position of the holder to Cues element's position if the extractor configuration
    * permits use of master seek entry. After building Cues sets the holder's position back to where
@@ -2302,6 +2332,11 @@ public class MatroskaExtractor implements Extractor {
     if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
       // We know where the Cues element is located. Seek to request it.
       seekForCues = true;
+    } else if (seekForCuesEnabled
+        && secondarySeekHeadPosition != C.INDEX_UNSET
+        && !readSecondarySeekHead) {
+      // We know where the secondary SeekHead is located. Seek to read it for cues.
+      seekForSecondarySeekHead = true;
     } else {
       // We don't know where the Cues element is located. It's most likely omitted. Allow
       // playback, but disable seeking.
