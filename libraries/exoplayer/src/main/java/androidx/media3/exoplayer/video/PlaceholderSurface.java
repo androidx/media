@@ -33,13 +33,12 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import com.google.errorprone.annotations.InlineMe;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /** A placeholder {@link Surface}. */
 @UnstableApi
-public final class PlaceholderSurface extends Surface {
+public final class PlaceholderSurface extends Surface implements PlaceholderSurfaceInterface {
 
   private static final String TAG = "PlaceholderSurface";
 
@@ -53,12 +52,14 @@ public final class PlaceholderSurface extends Surface {
   private boolean threadReleased;
 
   /**
-   * Returns whether the device supports secure placeholder surfaces.
-   *
-   * @param context Any {@link Context}.
-   * @return Whether the device supports secure placeholder surfaces.
+   * @deprecated Use {@link PlaceholderSurfaceInterface#isSecureSupported(Context)} instead.
    */
+  @Deprecated
   public static synchronized boolean isSecureSupported(Context context) {
+    return isSecureSupportedInternal(context);
+  }
+
+  /* package */ static synchronized boolean isSecureSupportedInternal(Context context) {
     if (!secureModeInitialized) {
       secureMode = getSecureMode(context);
       secureModeInitialized = true;
@@ -67,28 +68,23 @@ public final class PlaceholderSurface extends Surface {
   }
 
   /**
-   * @deprecated Use {@link #newInstance(Context, boolean)} instead.
+   * @deprecated Use {@link PlaceholderSurfaceInterface#newInstance(Context, boolean)} instead.
    */
-  @InlineMe(
-      replacement = "PlaceholderSurface.newInstance(context, secure)",
-      imports = "androidx.media3.exoplayer.video.PlaceholderSurface")
   @Deprecated
   public static PlaceholderSurface newInstanceV17(Context context, boolean secure) {
-    return newInstance(context, secure);
+    return newInstanceInternal(context, secure);
   }
 
   /**
-   * Returns a newly created placeholder surface. The surface must be released by calling {@link
-   * #release} when it's no longer required.
-   *
-   * @param context Any {@link Context}.
-   * @param secure Whether a secure surface is required. Must only be requested if {@link
-   *     #isSecureSupported(Context)} returns {@code true}.
-   * @throws IllegalStateException If a secure surface is requested on a device for which {@link
-   *     #isSecureSupported(Context)} returns {@code false}.
+   * @deprecated Use {@link PlaceholderSurfaceInterface#newInstance(Context, boolean)} instead.
    */
+  @Deprecated
   public static PlaceholderSurface newInstance(Context context, boolean secure) {
-    checkState(!secure || isSecureSupported(context));
+    return newInstanceInternal(context, secure);
+  }
+
+  /* package */ static PlaceholderSurface newInstanceInternal(Context context, boolean secure) {
+    checkState(!secure || isSecureSupportedInternal(context));
     PlaceholderSurfaceThread thread = new PlaceholderSurfaceThread();
     return thread.init(secure ? secureMode : SECURE_MODE_NONE);
   }
@@ -98,6 +94,16 @@ public final class PlaceholderSurface extends Surface {
     super(surfaceTexture);
     this.thread = thread;
     this.secure = secure;
+  }
+
+  @Override
+  public Surface getSurface() {
+    return this;
+  }
+
+  @Override
+  public boolean isSecure() {
+    return secure;
   }
 
   @Override
