@@ -15,6 +15,7 @@
  */
 package androidx.media3.inspector;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.CENC_TYPE_cenc;
 import static androidx.media3.common.C.WIDEVINE_UUID;
 import static com.google.common.truth.Truth.assertThat;
@@ -375,6 +376,11 @@ public class MediaExtractorContractTest {
       assertThat(cryptoInfo.key).isEqualTo(WIDEVINE_KEY_ID_FOR_SAMPLE_FRAGMENTED_MP4.toArray());
       assertThat(cryptoInfo.iv)
           .isEqualTo(buildInitializationVector(expectedInitializationVectorSuffixes[i]));
+      // CryptoInfo.getPattern() was added in API 31.
+      if (SDK_INT >= 31) {
+        assertThat(cryptoInfo.getPattern().getEncryptBlocks()).isEqualTo(0);
+        assertThat(cryptoInfo.getPattern().getSkipBlocks()).isEqualTo(0);
+      }
       long sampleSize = mediaExtractorProxy.getSampleSize();
       assertThat(sampleSize).isEqualTo(expectedClearBytes[i] + expectedEncryptedBytes[i]);
       assertThat(

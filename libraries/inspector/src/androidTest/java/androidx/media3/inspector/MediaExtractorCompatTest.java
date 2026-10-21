@@ -56,6 +56,7 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
+import androidx.media3.test.utils.ImmutableByteArray;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -103,6 +104,8 @@ public class MediaExtractorCompatTest {
       new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
   private static final Format PLACEHOLDER_FORMAT_VIDEO =
       new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+  private static final ImmutableByteArray ENCRYPTED_SAMPLE_INITIALIZATION_VECTOR =
+      ImmutableByteArray.ofUnsigned(7, 6, 5, 4, 3, 2, 1, 0, 7, 6, 5, 4, 3, 2, 1, 0);
 
   private FakeExtractor fakeExtractor;
   private SeekMap fakeSeekMap;
@@ -1091,14 +1094,7 @@ public class MediaExtractorCompatTest {
             /* encryptedBlocks= */ 0,
             /* clearBlocks= */ 0);
     byte[] sampleData = new byte[] {0, 1, 2};
-    byte[] initializationVector = new byte[] {7, 6, 5, 4, 3, 2, 1, 0, 7, 6, 5, 4, 3, 2, 1, 0};
-    byte[] encryptedSampleData =
-        Bytes.concat(
-            new byte[] {
-              0x10, // subsampleEncryption = false (1 bit), ivSize = 16 (7 bits).
-            },
-            initializationVector,
-            sampleData);
+    byte[] encryptedSampleData = buildEncryptedSampleData(sampleData);
     TrackOutput[] outputs = new TrackOutput[1];
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
@@ -1131,7 +1127,7 @@ public class MediaExtractorCompatTest {
     assertThat(platformCryptoInfo.numBytesOfEncryptedData).hasLength(1);
     assertThat(platformCryptoInfo.numBytesOfEncryptedData[0]).isEqualTo(sampleData.length);
     assertThat(platformCryptoInfo.key).isEqualTo(cryptoData.encryptionKey);
-    assertThat(platformCryptoInfo.iv).isEqualTo(initializationVector);
+    assertThat(platformCryptoInfo.iv).isEqualTo(ENCRYPTED_SAMPLE_INITIALIZATION_VECTOR.toArray());
     assertThat(platformCryptoInfo.mode).isEqualTo(cryptoData.cryptoMode);
     // Verify sample data and flags.
     assertThat(mediaExtractorCompat.getSampleFlags())
@@ -1142,6 +1138,47 @@ public class MediaExtractorCompatTest {
     for (int i = 0; i < buffer.remaining(); i++) {
       assertThat(buffer.get()).isEqualTo(sampleData[i]);
     }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void getSampleCryptoInfo_forSampleWithEncryptionPattern_populatesPattern()
+      throws IOException {
+    TrackOutput.CryptoData cryptoData =
+        new TrackOutput.CryptoData(
+            /* cryptoMode= */ C.CRYPTO_MODE_AES_CBC,
+            /* encryptionKey= */ new byte[] {5, 6, 7, 8},
+            /* encryptedBlocks= */ 1,
+            /* clearBlocks= */ 9);
+    byte[] encryptedSampleData = buildEncryptedSampleData(new byte[] {0, 1, 2});
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], encryptedSampleData);
+          outputs[0].sampleMetadata(
+              /* timeUs= */ 0,
+              C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_ENCRYPTED,
+              /* size= */ encryptedSampleData.length,
+              /* offset= */ 0,
+              cryptoData);
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+    MediaCodec.CryptoInfo platformCryptoInfo = new MediaCodec.CryptoInfo();
+
+    assertThat(mediaExtractorCompat.getSampleCryptoInfo(platformCryptoInfo)).isTrue();
+
+    assertThat(platformCryptoInfo.mode).isEqualTo(MediaCodec.CRYPTO_MODE_AES_CBC);
+    assertThat(platformCryptoInfo.getPattern().getEncryptBlocks()).isEqualTo(1);
+    assertThat(platformCryptoInfo.getPattern().getSkipBlocks()).isEqualTo(9);
   }
 
   @Test
@@ -1256,6 +1293,15 @@ public class MediaExtractorCompatTest {
   private static void outputSample(TrackOutput trackOutput, long timeUs, int size, int offset) {
     trackOutput.sampleMetadata(
         timeUs, C.BUFFER_FLAG_KEY_FRAME, size, offset, /* cryptoData= */ null);
+  }
+
+  private static byte[] buildEncryptedSampleData(byte[] sampleData) {
+    return Bytes.concat(
+        new byte[] {
+          0x10, // subsampleEncryption = false (1 bit), ivSize = 16 (7 bits).
+        },
+        ENCRYPTED_SAMPLE_INITIALIZATION_VECTOR.toArray(),
+        sampleData);
   }
 
   /**
