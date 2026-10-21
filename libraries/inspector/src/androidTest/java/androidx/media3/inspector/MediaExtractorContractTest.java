@@ -77,6 +77,12 @@ public class MediaExtractorContractTest {
 
   private static final String AUTHORITY = "androidx.media3.inspector.test.AssetContentProvider";
 
+  /** The default key ID for the "media/drm/sample_fragmented_widevine.mp4" test asset. */
+  private static final ImmutableByteArray WIDEVINE_KEY_ID_FOR_SAMPLE_FRAGMENTED_MP4 =
+      ImmutableByteArray.ofUnsigned(
+          0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x01);
+
   /** The PSSH data payload for the "media/drm/sample_fragmented_widevine.mp4" test asset. */
   private static final ImmutableByteArray WIDEVINE_PSSH_DATA_FOR_SAMPLE_FRAGMENTED_MP4 =
       ImmutableByteArray.ofUnsigned(
@@ -338,6 +344,48 @@ public class MediaExtractorContractTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void getSampleCryptoInfoAndSampleSize_forEncryptedSamples_returnExpectedValues()
+      throws IOException {
+    try (AssetFileDescriptor afd =
+        context.getAssets().openFd("media/drm/sample_fragmented_widevine.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+    mediaExtractorProxy.selectTrack(0);
+    int[] expectedFlags = {
+      MediaExtractor.SAMPLE_FLAG_SYNC | MediaExtractor.SAMPLE_FLAG_ENCRYPTED,
+      MediaExtractor.SAMPLE_FLAG_ENCRYPTED,
+      MediaExtractor.SAMPLE_FLAG_ENCRYPTED,
+      MediaExtractor.SAMPLE_FLAG_ENCRYPTED
+    };
+    int[] expectedClearBytes = {790, 100, 111, 101};
+    int[] expectedEncryptedBytes = {37280, 8240, 1184, 368};
+    int[] expectedInitializationVectorSuffixes = {0x0000, 0x091A, 0x0B1D, 0x0B67};
+
+    for (int i = 0; i < expectedFlags.length; i++) {
+      MediaCodec.CryptoInfo cryptoInfo = new MediaCodec.CryptoInfo();
+      assertThat(mediaExtractorProxy.getSampleCryptoInfo(cryptoInfo)).isTrue();
+      assertThat(mediaExtractorProxy.getSampleFlags()).isEqualTo(expectedFlags[i]);
+      assertThat(cryptoInfo.mode).isEqualTo(MediaCodec.CRYPTO_MODE_AES_CTR);
+      assertThat(cryptoInfo.numSubSamples).isEqualTo(1);
+      assertThat(cryptoInfo.numBytesOfClearData).asList().containsExactly(expectedClearBytes[i]);
+      assertThat(cryptoInfo.numBytesOfEncryptedData)
+          .asList()
+          .containsExactly(expectedEncryptedBytes[i]);
+      assertThat(cryptoInfo.key).isEqualTo(WIDEVINE_KEY_ID_FOR_SAMPLE_FRAGMENTED_MP4.toArray());
+      assertThat(cryptoInfo.iv)
+          .isEqualTo(buildInitializationVector(expectedInitializationVectorSuffixes[i]));
+      long sampleSize = mediaExtractorProxy.getSampleSize();
+      assertThat(sampleSize).isEqualTo(expectedClearBytes[i] + expectedEncryptedBytes[i]);
+      assertThat(
+              mediaExtractorProxy.readSampleData(
+                  ByteBuffer.allocate((int) sampleSize), /* offset= */ 0))
+          .isEqualTo(sampleSize);
+      assertThat(mediaExtractorProxy.advance()).isTrue();
+    }
+  }
+
+  @Test
   @SdkSuppress(minSdkVersion = 26)
   public void getMetrics_withMp4DataSource_returnsExpectedMetricsBundle() throws IOException {
     AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4");
@@ -351,6 +399,14 @@ public class MediaExtractorContractTest {
     assertThat(bundle.getString(MediaExtractor.MetricsConstants.MIME_TYPE))
         .isEqualTo(MimeTypes.VIDEO_MP4);
     assertThat(bundle.getInt(MediaExtractor.MetricsConstants.TRACKS)).isEqualTo(2);
+  }
+
+  private static byte[] buildInitializationVector(int suffix) {
+    byte[] initializationVector = new byte[16];
+    initializationVector[0] = 0x20;
+    initializationVector[14] = (byte) (suffix >> 8);
+    initializationVector[15] = (byte) suffix;
+    return initializationVector;
   }
 
   private static class FrameworkMediaExtractorProxy implements MediaExtractorProxy {

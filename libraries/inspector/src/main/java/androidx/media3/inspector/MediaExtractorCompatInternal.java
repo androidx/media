@@ -551,9 +551,8 @@ import org.jspecify.annotations.Nullable;
       return -1;
     }
     peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
-    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementEnabled.data);
-    int sampleSize = buffer.position();
-    buffer.position(0);
+    int sampleSize = checkNotNull(sampleHolderWithBufferReplacementEnabled.data).position();
+    sampleHolderWithBufferReplacementEnabled.clear();
     return sampleSize;
   }
 
@@ -594,6 +593,7 @@ import org.jspecify.annotations.Nullable;
     }
     peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
     populatePlatformCryptoInfoParameters(info);
+    sampleHolderWithBufferReplacementEnabled.clear();
     return true;
   }
 
