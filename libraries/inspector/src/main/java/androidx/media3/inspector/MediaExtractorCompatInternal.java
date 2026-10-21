@@ -525,8 +525,8 @@ import org.jspecify.annotations.Nullable;
       return -1;
     }
     // The platform media extractor implementation ignores the buffer's input position and limit.
-    buffer.position(offset);
     buffer.limit(buffer.capacity());
+    buffer.position(offset);
     sampleHolderWithBufferReplacementDisabled.data = buffer;
     peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
     buffer.flip();

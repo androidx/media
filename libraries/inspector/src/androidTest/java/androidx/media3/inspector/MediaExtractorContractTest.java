@@ -407,6 +407,25 @@ public class MediaExtractorContractTest {
     assertThat(bundle.getInt(MediaExtractor.MetricsConstants.TRACKS)).isEqualTo(2);
   }
 
+  @Test
+  public void readSampleData_withOffsetBeyondBufferLimit_ignoresBufferPositionAndLimit()
+      throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+    mediaExtractorProxy.selectTrack(0);
+    int firstVideoSampleSize = 36_692;
+    ByteBuffer buffer = ByteBuffer.allocate(firstVideoSampleSize + 8);
+    buffer.position(3);
+    buffer.limit(5);
+
+    int sampleSize = mediaExtractorProxy.readSampleData(buffer, /* offset= */ 8);
+
+    assertThat(sampleSize).isEqualTo(firstVideoSampleSize);
+    assertThat(buffer.position()).isEqualTo(8);
+    assertThat(buffer.limit()).isEqualTo(8 + firstVideoSampleSize);
+  }
+
   private static byte[] buildInitializationVector(int suffix) {
     byte[] initializationVector = new byte[16];
     initializationVector[0] = 0x20;
