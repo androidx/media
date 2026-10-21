@@ -93,6 +93,11 @@
         ([#3462](https://github.com/androidx/media/issues/3462)).
     *   Update `com.google.android.gms:play-services-cast-framework` dependency
         to `23.0.0`.
+    *   Add `CastParams.Builder.setSystemOutputSwitcherEnabled(boolean)` to
+        configure whether Cast devices appear in the system output switcher
+        without requiring `MediaTransferReceiver` to be declared in
+        `AndroidManifest.xml`, and enable the system output switcher by default
+        for apps targeting API 37+ on devices running API 37+.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo
