@@ -81,6 +81,8 @@
         ([#3362](https://github.com/androidx/media/issues/3362)).
     *   Fix `IllegalStateException` when seeking to the start of a buffered
         segment after an adaptive track switch.
+    *   Fix several playback issues when switching pathways with HLS Content
+        Steering ([#3465](https://github.com/androidx/media/issues/3465)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

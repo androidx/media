@@ -51,6 +51,7 @@ import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.HashMap;
@@ -219,7 +220,7 @@ public final class DefaultHlsPlaylistTracker
     initialStartTimeUs = C.TIME_UNSET;
     initialPlaylistLoader.release();
     initialPlaylistLoader = null;
-    for (RedundantGroupBundle bundle : redundantGroupBundles.values()) {
+    for (RedundantGroupBundle bundle : ImmutableSet.copyOf(redundantGroupBundles.values())) {
       bundle.release();
     }
     playlistRefreshHandler.removeCallbacksAndMessages(null);
@@ -554,7 +555,7 @@ public final class DefaultHlsPlaylistTracker
     }
     redundantGroupBundle.setActiveForPlayback(url, true);
     @Nullable HlsMediaPlaylist playlistSnapshot = redundantGroupBundle.getPlaylistSnapshot(url);
-    if (playlistSnapshot != null && !playlistSnapshot.hasEndTag) {
+    if (playlistSnapshot == null || !playlistSnapshot.hasEndTag) {
       // For playlist that doesn't contain an end tag, we should trigger another load for it, as
       // the snapshot for it may be stale and it can keep refreshing as an active playlist.
       redundantGroupBundle.loadPlaylist(url, true);
@@ -891,13 +892,16 @@ public final class DefaultHlsPlaylistTracker
         Uri oldPlaylistUrl = redundantGroup.getCurrentPlaylistUrl();
         redundantGroup.setCurrentPathwayId(newPathwayId);
         Uri newPlaylistUrl = redundantGroup.getCurrentPlaylistUrl();
-        if (oldPlaylistUrl.equals(primaryMediaPlaylistUrl)) {
-          maybeSetPrimaryUrl(newPlaylistUrl, shouldDeferUpdatingPrimaryUrl);
+        if (!oldPlaylistUrl.equals(newPlaylistUrl)) {
+          if (oldPlaylistUrl.equals(primaryMediaPlaylistUrl)) {
+            maybeSetPrimaryUrl(newPlaylistUrl, shouldDeferUpdatingPrimaryUrl);
+          }
+          MediaPlaylistBundle oldPlaylistBundle = checkNotNull(playlistBundles.get(oldPlaylistUrl));
+          if (oldPlaylistBundle.isActiveForPlayback()) {
+            oldPlaylistBundle.setActiveForPlayback(false);
+            maybeActivateForPlayback(newPlaylistUrl);
+          }
         }
-        MediaPlaylistBundle oldPlaylistBundle = checkNotNull(playlistBundles.get(oldPlaylistUrl));
-        MediaPlaylistBundle newPlaylistBundle = checkNotNull(playlistBundles.get(newPlaylistUrl));
-        newPlaylistBundle.setActiveForPlayback(oldPlaylistBundle.isActiveForPlayback());
-        oldPlaylistBundle.setActiveForPlayback(false);
         return true;
       }
       return false;
@@ -1372,7 +1376,8 @@ public final class DefaultHlsPlaylistTracker
       boolean shouldDeferUpdatingPrimaryUrl =
           (previousPathwayExcludeDurationMs == C.TIME_UNSET
               && primaryMediaPlaylistSnapshot == null);
-      for (RedundantGroupBundle redundantGroupBundle : redundantGroupBundles.values()) {
+      for (RedundantGroupBundle redundantGroupBundle :
+          ImmutableSet.copyOf(redundantGroupBundles.values())) {
         @Nullable Uri currentPlaylistUrlToExclude =
             previousPathwayExcludeDurationMs != C.TIME_UNSET
                 ? redundantGroupBundle.redundantGroup.getCurrentPlaylistUrl()
