@@ -71,6 +71,8 @@
         retain partially buffered samples without discarding or splicing, or
         reset the load position to an outdated seek position
         ([#3362](https://github.com/androidx/media/issues/3362)).
+    *   Fix `IllegalStateException` when seeking to the start of a buffered
+        segment after an adaptive track switch.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

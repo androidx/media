@@ -519,10 +519,14 @@ import org.jspecify.annotations.Nullable;
     if (chunkSource.hasIndependentSegments()) {
       for (int i = 0; i < mediaChunks.size(); i++) {
         HlsMediaChunk mediaChunk = mediaChunks.get(i);
+        if (mediaChunk.shouldSpliceIn()) {
+          // A spliced-in chunk potentially removed sample metadata from previous chunks.
+          seekToMediaChunk = null;
+          continue;
+        }
         long mediaChunkStartTimeUs = mediaChunk.startTimeUs;
-        if (mediaChunkStartTimeUs == positionUs) {
+        if (seekToMediaChunk == null && mediaChunkStartTimeUs == positionUs) {
           seekToMediaChunk = mediaChunk;
-          break;
         }
       }
     }
