@@ -191,6 +191,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
+    private boolean asyncAudioCodecInitializationEnabled;
     private boolean built;
 
     /**
@@ -467,6 +468,28 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
+     * Sets whether the player's audio decoders are created on a background thread instead of the
+     * playback thread, so that video is decoded while they are being created (shorter time to the
+     * first frame after {@link CompositionPlayer#prepare()} or a composition change). Only affects
+     * the players built by this builder.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param asyncAudioCodecInitializationEnabled Whether to create audio decoders on a background
+     *     thread.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi
+    public Builder experimentalSetAsyncAudioCodecInitializationEnabled(
+        boolean asyncAudioCodecInitializationEnabled) {
+      this.asyncAudioCodecInitializationEnabled = asyncAudioCodecInitializationEnabled;
+      return this;
+    }
+
+    /**
      * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor} instances
      * that are used to process {@link androidx.media3.common.video.HardwareBufferFrame}s.
      *
@@ -630,6 +653,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final LoadControl loadControl;
   private final boolean enableReplayableCache;
   private final long lateThresholdToDropInputUs;
+  private final boolean asyncAudioCodecInitializationEnabled;
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
   private final @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl;
@@ -711,6 +735,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     loadControl = builder.loadControlSupplier.get();
     this.enableReplayableCache = builder.enableReplayableCache;
     lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
+    asyncAudioCodecInitializationEnabled = builder.asyncAudioCodecInitializationEnabled;
     imageReaderAdapterFactory = builder.imageReaderAdapterFactorySupplier.get();
     sequencePlayerAnalyticsListener = builder.sequencePlayerAnalyticsListener;
     frameTimingEvaluator = builder.frameTimingEvaluator;
@@ -1692,6 +1717,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               videoPrewarmingEnabled,
               lateThresholdToDropInputUs);
     }
+    // Before the holder builds its player, which creates the renderers.
+    renderersFactory.setAsyncAudioCodecInitializationEnabled(asyncAudioCodecInitializationEnabled);
     SequencePlayerHolder playerHolder =
         new SequencePlayerHolder(
             context,
