@@ -220,8 +220,29 @@ public class ChunkSampleStream<T extends ChunkSource>
    * @return The {@link EmbeddedSampleStream} for the embedded track.
    */
   public EmbeddedSampleStream selectEmbeddedTrack(long positionUs, @C.TrackType int trackType) {
+    return selectEmbeddedTrack(positionUs, trackType, /* indexAmongTracksOfType= */ 0);
+  }
+
+  /**
+   * Selects the embedded track, returning a new {@link EmbeddedSampleStream} from which the track's
+   * samples can be consumed. {@link EmbeddedSampleStream#release()} must be called on the returned
+   * stream when the track is no longer required, and before calling this method again to obtain
+   * another stream for the same track.
+   *
+   * @param positionUs The current playback position in microseconds.
+   * @param trackType The type of the embedded track to enable.
+   * @param indexAmongTracksOfType The index of the track to enable among the embedded tracks of the
+   *     given {@code trackType}, in the order the embedded tracks were passed to the constructor.
+   * @return The {@link EmbeddedSampleStream} for the embedded track.
+   */
+  public EmbeddedSampleStream selectEmbeddedTrack(
+      long positionUs, int trackType, int indexAmongTracksOfType) {
+    int tracksOfTypeSeen = 0;
     for (int i = 0; i < embeddedSampleQueues.length; i++) {
       if (embeddedTrackTypes[i] == trackType) {
+        if (tracksOfTypeSeen++ != indexAmongTracksOfType) {
+          continue;
+        }
         checkState(!embeddedTracksSelected[i]);
         embeddedTracksSelected[i] = true;
         embeddedSampleQueues[i].seekTo(positionUs, /* allowTimeBeyondBuffer= */ true);

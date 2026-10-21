@@ -587,11 +587,30 @@ import org.jspecify.annotations.Nullable;
           } else {
             streams[i] =
                 ((ChunkSampleStream) streams[primaryStreamIndex])
-                    .selectEmbeddedTrack(positionUs, trackGroupInfo.trackType);
+                    .selectEmbeddedTrack(
+                        positionUs,
+                        trackGroupInfo.trackType,
+                        getIndexAmongEmbeddedTracksOfType(trackGroupIndex, trackGroupInfo));
           }
         }
       }
     }
+  }
+
+  /**
+   * Returns the index of the embedded track represented by the given track group, among the
+   * embedded tracks of the same type belonging to the same primary track group.
+   */
+  private int getIndexAmongEmbeddedTracksOfType(
+      int embeddedTrackGroupIndex, TrackGroupInfo embeddedTrackGroupInfo) {
+    if (embeddedTrackGroupInfo.trackType != C.TRACK_TYPE_TEXT) {
+      // There is at most one embedded track of any other type (the EMSG track).
+      return 0;
+    }
+    TrackGroupInfo primaryTrackGroupInfo =
+        trackGroupInfos[embeddedTrackGroupInfo.primaryTrackGroupIndex];
+    return embeddedTrackGroupIndex
+        - primaryTrackGroupInfo.embeddedClosedCaptionTrackGroupStartIndex;
   }
 
   private int getPrimaryStreamIndex(int embeddedStreamIndex, int[] streamIndexToTrackGroupIndex) {
