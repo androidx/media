@@ -294,7 +294,10 @@ public final class FlacExtractor implements Extractor {
       if (!foundEndOfInput) {
         buffer.setLimit(currentLimit + bytesRead);
       } else if (buffer.bytesLeft() == 0) {
-        outputSampleMetadata();
+        if (currentFrameBytesWritten > 0) {
+          outputSampleMetadata();
+          currentFrameBytesWritten = 0;
+        }
         return Extractor.RESULT_END_OF_INPUT;
       }
     }
