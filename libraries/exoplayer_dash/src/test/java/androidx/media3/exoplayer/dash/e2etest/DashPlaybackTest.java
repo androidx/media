@@ -675,14 +675,16 @@ public final class DashPlaybackTest {
   @Test
   public void cea608_twoChannelsDeclared_selectSpanish_rendersNothingFromChannel1()
       throws Exception {
+    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
     String dump =
         playCea608AndDump(
-            "asset:///media/dash/cea608_two_channels/manifest.mpd",
-            "es",
-            /* analyticsListener= */ null);
+            "asset:///media/dash/cea608_two_channels/manifest.mpd", "es", analyticsListener);
 
     assertThat(dump).doesNotContain("text = First subtitle");
     assertThat(dump).doesNotContain("text = Second subtitle");
+    assertThat(analyticsListener.downstreamTextFormat).isNotNull();
+    assertThat(analyticsListener.downstreamTextFormat.language).isEqualTo("es");
+    assertThat(analyticsListener.downstreamTextFormat.accessibilityChannel).isEqualTo(2);
   }
 
   private String playCea608AndDump(
