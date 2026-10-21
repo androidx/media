@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -455,7 +456,8 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     maybeUpdateSourceInfo();
   }
 
-  private static int checkValidAdPlaybackStateUpdate(
+  @CanIgnoreReturnValue
+  /* package */ static int checkValidAdPlaybackStateUpdate(
       AdPlaybackState oldAdPlaybackState, AdPlaybackState newAdPlaybackState) {
     checkState(
         oldAdPlaybackState.endsWithLivePostrollPlaceHolder()
