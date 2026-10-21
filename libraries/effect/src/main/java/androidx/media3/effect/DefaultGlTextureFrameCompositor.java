@@ -182,18 +182,10 @@ import org.jspecify.annotations.Nullable;
         (VideoCompositorSettings)
             checkNotNull(primaryInputFrame.getMetadata().get(KEY_COMPOSITOR_SETTINGS));
 
-    ImmutableList.Builder<GlCompositionFrame> compositorInput = new ImmutableList.Builder<>();
     ImmutableList.Builder<Size> inputSizes = new ImmutableList.Builder<>();
     long outputPresentationTimeUs = primaryInputFrame.presentationTimeUs;
     for (int i = 0; i < frames.size(); i++) {
-      GlTextureFrame frame = frames.get(i);
-      GlTextureInfo textureInfo = frame.glTextureInfo;
-      int sequenceIndex =
-          (int) checkNotNull(frame.getMetadata().get(KEY_COMPOSITION_SEQUENCE_INDEX));
-      compositorInput.add(
-          new GlCompositionFrame(
-              textureInfo,
-              videoCompositorSettings.getOverlaySettings(sequenceIndex, outputPresentationTimeUs)));
+      GlTextureInfo textureInfo = frames.get(i).glTextureInfo;
       inputSizes.add(new Size(textureInfo.width, textureInfo.height));
     }
 
@@ -203,7 +195,7 @@ import org.jspecify.annotations.Nullable;
       outputTexturePool.ensureConfigured(
           glObjectsProvider, outputSize.getWidth(), outputSize.getHeight());
       outputTexture = outputTexturePool.useTexture();
-      checkNotNull(compositorGlProgram).drawFrame(compositorInput.build(), outputTexture);
+      checkNotNull(compositorGlProgram).drawFrame(frames, outputTexture);
 
       GlTextureFrame outputGlTextureFrame =
           new GlTextureFrame.Builder(

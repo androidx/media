@@ -360,7 +360,7 @@ public final class GlFrameProcessorTestUtil {
   }
 
   public static final class FakeCompositorGlProgram implements CompositorGlProgram {
-    public final List<List<GlCompositionFrame>> drawnFramePackets;
+    public final List<List<GlTextureFrame>> drawnFramePackets;
     public @Nullable VideoFrameProcessingException exceptionToThrow;
     public GlUtil.@Nullable GlException glExceptionToThrow;
 
@@ -369,7 +369,7 @@ public final class GlFrameProcessorTestUtil {
     }
 
     @Override
-    public void drawFrame(List<GlCompositionFrame> inputFrameInfos, GlTextureInfo outputTexture)
+    public void drawFrame(List<GlTextureFrame> framesToComposite, GlTextureInfo outputTexture)
         throws GlUtil.GlException, VideoFrameProcessingException {
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
@@ -377,7 +377,7 @@ public final class GlFrameProcessorTestUtil {
       if (glExceptionToThrow != null) {
         throw glExceptionToThrow;
       }
-      drawnFramePackets.add(ImmutableList.copyOf(inputFrameInfos));
+      drawnFramePackets.add(ImmutableList.copyOf(framesToComposite));
     }
 
     @Override

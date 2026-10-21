@@ -20,6 +20,7 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
 import static androidx.media3.effect.EffectsTestUtil.createFocusedEglContextWithFallback;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromGlTexture;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer;
@@ -71,6 +72,8 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/original_hlg10.png";
   private static final String ORIGINAL_SDR_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/original.png";
+  private static final String INCREASE_BRIGHTNESS_SDR_PNG_ASSET_PATH =
+      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/increase_brightness.png";
 
   @Rule public final TestName testName = new TestName();
 
@@ -185,15 +188,16 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 33)
-  public void composite_twoHdrSequences_withOpaqueOverlay_outputsCorrectTexture() throws Exception {
+  public void composite_twoHdrSequencesWithOpaqueOverlay_outputsCorrectTexture() throws Exception {
     Format hlgFormat = new Format.Builder().setColorInfo(BT2020_HLG).build();
     assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
 
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
     int width = hlgBitmap.getWidth();
     int height = hlgBitmap.getHeight();
+    Bitmap backgroundBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGBA_F16);
     int texId0 = createGlTextureFromBitmap(hlgBitmap);
-    int texId1 = createGlTextureFromBitmap(hlgBitmap);
+    int texId1 = createGlTextureFromBitmap(backgroundBitmap);
     texturesToDelete.add(texId0);
     texturesToDelete.add(texId1);
 
@@ -295,14 +299,16 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
   }
 
   @Test
-  public void composite_twoSdrSequences_withOpaqueOverlay_outputsCorrectTexture() throws Exception {
+  public void composite_twoSdrSequencesWithOpaqueOverlay_outputsCorrectTexture() throws Exception {
     Format sdrFormat = new Format.Builder().setColorInfo(BT709_SRGB).build();
 
     Bitmap sdrBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_SDR_PNG_ASSET_PATH);
+    Bitmap backgroundBitmap =
+        readBitmapUnpremultipliedAlpha(INCREASE_BRIGHTNESS_SDR_PNG_ASSET_PATH);
     int width = sdrBitmap.getWidth();
     int height = sdrBitmap.getHeight();
     int texId0 = createGlTextureFromBitmap(sdrBitmap);
-    int texId1 = createGlTextureFromBitmap(sdrBitmap);
+    int texId1 = createGlTextureFromBitmap(backgroundBitmap);
     texturesToDelete.add(texId0);
     texturesToDelete.add(texId1);
 
@@ -398,6 +404,108 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
 
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     assertBitmapsAreSimilar(sdrBitmap, actualBitmap, PSNR_THRESHOLD);
+
+    outputFrame.release(/* releaseFence= */ null);
+    compositor.close();
+  }
+
+  @Test
+  public void composite_twoSdrSequencesWithTransparentOverlay_outputsBackgroundTexture()
+      throws Exception {
+    Bitmap foregroundBitmap =
+        readBitmapUnpremultipliedAlpha(INCREASE_BRIGHTNESS_SDR_PNG_ASSET_PATH);
+    Bitmap backgroundBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_SDR_PNG_ASSET_PATH);
+    int width = foregroundBitmap.getWidth();
+    int height = foregroundBitmap.getHeight();
+    Format sdrFormat =
+        new Format.Builder().setColorInfo(BT709_SRGB).setWidth(width).setHeight(height).build();
+    int texId0 = createGlTextureFromBitmap(foregroundBitmap);
+    int texId1 = createGlTextureFromBitmap(backgroundBitmap);
+    texturesToDelete.add(texId0);
+    texturesToDelete.add(texId1);
+    long framePresentationTimeUs = 1_000_000L;
+
+    VideoCompositorSettings compositorSettings =
+        new VideoCompositorSettings() {
+          @Override
+          public Size getOutputSize(List<Size> inputSizes) {
+            return inputSizes.get(0);
+          }
+
+          @Override
+          public OverlaySettings getOverlaySettings(int inputId, long presentationTimeUs) {
+            // Make the foreground (sequence 0) fully transparent, so that the output matches the
+            // background (sequence 1). Checking against a non-zero timestamp verifies that the
+            // settings are queried at the frames' presentation time.
+            if (inputId == 0 && presentationTimeUs == framePresentationTimeUs) {
+              return new StaticOverlaySettings.Builder().setAlphaScale(0f).build();
+            }
+            return new StaticOverlaySettings.Builder().build();
+          }
+        };
+
+    GlTextureFrame frame0 =
+        new GlTextureFrame.Builder(
+                new GlTextureInfo(
+                    texId0, /* fboId= */ C.INDEX_UNSET, /* rboId= */ C.INDEX_UNSET, width, height),
+                directExecutor(),
+                /* releaseTextureCallback= */ unused -> {})
+            .setPresentationTimeUs(framePresentationTimeUs)
+            .setFormat(sdrFormat)
+            .setMetadata(
+                ImmutableMap.of(
+                    KEY_COMPOSITION_SEQUENCE_INDEX, 0, KEY_COMPOSITOR_SETTINGS, compositorSettings))
+            .build();
+
+    GlTextureFrame frame1 =
+        new GlTextureFrame.Builder(
+                new GlTextureInfo(
+                    texId1, /* fboId= */ C.INDEX_UNSET, /* rboId= */ C.INDEX_UNSET, width, height),
+                directExecutor(),
+                /* releaseTextureCallback= */ unused -> {})
+            .setPresentationTimeUs(framePresentationTimeUs)
+            .setFormat(sdrFormat)
+            .setMetadata(ImmutableMap.of(KEY_COMPOSITION_SEQUENCE_INDEX, 1))
+            .build();
+
+    AtomicReference<GlTextureFrame> outputFrameRef = new AtomicReference<>();
+    GlTextureFrameConsumer downstreamConsumer =
+        new GlTextureFrameConsumer() {
+          @Override
+          public boolean queue(
+              GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener) {
+            outputFrameRef.set(frame);
+            return true;
+          }
+
+          @Override
+          public void signalEndOfStream() {}
+
+          @Override
+          public void close() {}
+        };
+
+    GlTextureFrameCompositor compositor =
+        new DefaultGlTextureFrameCompositor.Factory(new DefaultCompositorGlProgram.Factory(context))
+            .create(
+                glObjectsProvider,
+                BT709_SRGB,
+                /* errorConsumer= */ exception -> {
+                  throw new AssertionError(exception);
+                },
+                directExecutor(),
+                downstreamConsumer);
+
+    assertThat(
+            compositor.queue(
+                ImmutableList.of(frame0, frame1), directExecutor(), /* wakeupListener= */ () -> {}))
+        .isTrue();
+
+    GlTextureFrame outputFrame = checkNotNull(outputFrameRef.get());
+    assertThat(outputFrame.format.colorInfo).isEqualTo(BT709_SRGB);
+
+    Bitmap actualBitmap = createArgb8888BitmapFromGlTexture(outputFrame.glTextureInfo);
+    assertBitmapsAreSimilar(backgroundBitmap, actualBitmap, PSNR_THRESHOLD);
 
     outputFrame.release(/* releaseFence= */ null);
     compositor.close();
