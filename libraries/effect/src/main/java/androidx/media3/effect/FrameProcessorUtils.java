@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
+import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
@@ -211,7 +212,12 @@ public final class FrameProcessorUtils {
   public static void releaseEglImageTexture(
       EglImageTextureWrapper eglImageTextureWrapper, HardwareBufferJniWrapper jniWrapper)
       throws GlException {
-    long eglDisplay = GlUtil.getDefaultEglDisplay().getNativeHandle();
+    EGLDisplay currentEglDisplay = EGL14.eglGetCurrentDisplay();
+    long eglDisplay =
+        (currentEglDisplay != null && !currentEglDisplay.equals(EGL14.EGL_NO_DISPLAY)
+                ? currentEglDisplay
+                : GlUtil.getDefaultEglDisplay())
+            .getNativeHandle();
     if (eglImageTextureWrapper.fboId != C.INDEX_UNSET) {
       GlUtil.deleteFbo(eglImageTextureWrapper.fboId);
     }
