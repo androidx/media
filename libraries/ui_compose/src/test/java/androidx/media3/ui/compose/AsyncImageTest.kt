@@ -39,6 +39,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import androidx.media3.common.util.BitmapLoader
 import androidx.media3.test.utils.FakeBitmapLoader
+import androidx.media3.test.utils.UriOnlyBitmapLoader
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -47,6 +48,7 @@ import com.google.common.util.concurrent.SettableFuture
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -306,7 +308,7 @@ class AsyncImageTest {
 
   @Test
   fun asyncImage_customBitmapLoaderFails_showsErrorPainter() = runComposeUiTest {
-    val loader = FakeBitmapLoader(Futures.immediateFailedFuture(RuntimeException("Failed to load")))
+    val loader = FakeBitmapLoader(RuntimeException("Failed to load"))
 
     setContent {
       AsyncImage(
@@ -370,7 +372,13 @@ class AsyncImageTest {
 
   @Test
   fun asyncImage_sourceChanges_showsPlaceholderWhileLoading() = runComposeUiTest {
-    val loader = FakeBitmapLoader(createBitmap(IMAGE_SIZE_PX, IMAGE_SIZE_PX))
+    val loader = UriOnlyBitmapLoader { uri ->
+      when (uri) {
+        FIRST_URI -> Futures.immediateFuture(createBitmap(IMAGE_SIZE_PX, IMAGE_SIZE_PX))
+        SECOND_URI -> SettableFuture.create()
+        else -> Futures.immediateFailedFuture(IOException("Not found"))
+      }
+    }
     var source by mutableStateOf(ImageSource.Uri(FIRST_URI))
     setContent {
       AsyncImage(
@@ -384,7 +392,6 @@ class AsyncImageTest {
     }
     assertDisplayedSizePx(IMAGE_SIZE_PX)
 
-    loader.result = SettableFuture.create()
     source = ImageSource.Uri(SECOND_URI)
 
     assertDisplayedSizePx(PLACEHOLDER_SIZE_PX)
@@ -393,7 +400,14 @@ class AsyncImageTest {
   @Test
   fun asyncImage_sourceChangesWithKeepPreviousWhileLoading_showsPreviousImageUntilLoaded() =
     runComposeUiTest {
-      val loader = FakeBitmapLoader(createBitmap(IMAGE_SIZE_PX, IMAGE_SIZE_PX))
+      val secondImage = SettableFuture.create<Bitmap>()
+      val loader = UriOnlyBitmapLoader { uri ->
+        when (uri) {
+          FIRST_URI -> Futures.immediateFuture(createBitmap(IMAGE_SIZE_PX, IMAGE_SIZE_PX))
+          SECOND_URI -> secondImage
+          else -> Futures.immediateFailedFuture(IOException("Not found"))
+        }
+      }
       var source by mutableStateOf(ImageSource.Uri(FIRST_URI))
       setContent {
         AsyncImage(
@@ -408,8 +422,6 @@ class AsyncImageTest {
       }
       assertDisplayedSizePx(IMAGE_SIZE_PX)
 
-      val secondImage = SettableFuture.create<Bitmap>()
-      loader.result = secondImage
       source = ImageSource.Uri(SECOND_URI)
       waitForIdle()
       val sizeWhileLoading = displayedSizePx()
@@ -422,7 +434,14 @@ class AsyncImageTest {
   @Test
   fun asyncImage_keepPreviousWhileLoadingChangesToFalseWhileLoading_showsPlaceholderUntilLoaded() =
     runComposeUiTest {
-      val loader = FakeBitmapLoader(createBitmap(IMAGE_SIZE_PX, IMAGE_SIZE_PX))
+      val secondImage = SettableFuture.create<Bitmap>()
+      val loader = UriOnlyBitmapLoader { uri ->
+        when (uri) {
+          FIRST_URI -> Futures.immediateFuture(createBitmap(IMAGE_SIZE_PX, IMAGE_SIZE_PX))
+          SECOND_URI -> secondImage
+          else -> Futures.immediateFailedFuture(IOException("Not found"))
+        }
+      }
       var source by mutableStateOf(ImageSource.Uri(FIRST_URI))
       var keepPreviousWhileLoading by mutableStateOf(true)
       setContent {
@@ -437,8 +456,6 @@ class AsyncImageTest {
         )
       }
       assertDisplayedSizePx(IMAGE_SIZE_PX)
-      val secondImage = SettableFuture.create<Bitmap>()
-      loader.result = secondImage
       source = ImageSource.Uri(SECOND_URI)
       waitForIdle()
       val sizeWhileLoadingWithKeepPrevious = displayedSizePx()
@@ -456,8 +473,14 @@ class AsyncImageTest {
   @Test
   fun asyncImage_sourceChangesWithKeepPreviousWhileLoadingAfterError_keepsErrorUntilLoaded() =
     runComposeUiTest {
-      val loader =
-        FakeBitmapLoader(Futures.immediateFailedFuture(RuntimeException("Failed to load")))
+      val secondImage = SettableFuture.create<Bitmap>()
+      val loader = UriOnlyBitmapLoader { uri ->
+        when (uri) {
+          FIRST_URI -> Futures.immediateFailedFuture(RuntimeException("Failed to load"))
+          SECOND_URI -> secondImage
+          else -> Futures.immediateFailedFuture(IOException("Not found"))
+        }
+      }
       var source by mutableStateOf(ImageSource.Uri(FIRST_URI))
       setContent {
         AsyncImage(
@@ -472,8 +495,6 @@ class AsyncImageTest {
       }
       assertDisplayedSizePx(ERROR_SIZE_PX)
 
-      val secondImage = SettableFuture.create<Bitmap>()
-      loader.result = secondImage
       source = ImageSource.Uri(SECOND_URI)
       waitForIdle()
       val sizeWhileLoading = displayedSizePx()

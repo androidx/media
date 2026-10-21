@@ -43,7 +43,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.common.util.BitmapLoader
+import androidx.media3.test.utils.BytesOnlyBitmapLoader
+import androidx.media3.test.utils.FakeBitmapLoader
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -53,7 +54,6 @@ import coil.request.ImageRequest
 import coil.size.Size
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -180,21 +180,12 @@ class ArtworkTest {
       FakePlayer(
         playlist = listOf(MediaItemData.Builder(mediaItem.mediaId).setMediaItem(mediaItem).build())
       )
-    val customLoader =
-      object : BitmapLoader {
-        override fun supportsMimeType(mimeType: String): Boolean = true
-
-        override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-          throw UnsupportedOperationException()
-
-        override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
-          Futures.immediateFuture(createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX))
-      }
+    val bitmapLoader = FakeBitmapLoader(createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX))
 
     setContent {
       Artwork(
         player = player,
-        bitmapLoader = customLoader,
+        bitmapLoader = bitmapLoader,
         placeholder = placeholder,
         error = error,
         fallback = fallback,
@@ -203,6 +194,8 @@ class ArtworkTest {
     }
 
     assertDisplayedSizePx(ARTWORK_SIZE_PX)
+    assertThat(bitmapLoader.loadBitmapCallCount).isEqualTo(1)
+    assertThat(bitmapLoader.decodeBitmapCallCount).isEqualTo(0)
   }
 
   @Test
@@ -220,21 +213,12 @@ class ArtworkTest {
       FakePlayer(
         playlist = listOf(MediaItemData.Builder(mediaItem.mediaId).setMediaItem(mediaItem).build())
       )
-    val failingLoader =
-      object : BitmapLoader {
-        override fun supportsMimeType(mimeType: String): Boolean = true
-
-        override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-          Futures.immediateFailedFuture(RuntimeException("Failed to load"))
-
-        override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
-          throw UnsupportedOperationException()
-      }
+    val bitmapLoader = FakeBitmapLoader(RuntimeException("Failed to load"))
 
     setContent {
       Artwork(
         player = player,
-        bitmapLoader = failingLoader,
+        bitmapLoader = bitmapLoader,
         placeholder = placeholder,
         error = error,
         fallback = fallback,
@@ -252,21 +236,12 @@ class ArtworkTest {
         .setArtworkData(byteArrayOf(1, 2, 3), MediaMetadata.PICTURE_TYPE_FRONT_COVER)
         .setArtworkUri("https://example.com/image.png".toUri())
         .build()
-    val customLoader =
-      object : BitmapLoader {
-        override fun supportsMimeType(mimeType: String): Boolean = true
-
-        override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-          Futures.immediateFuture(createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX))
-
-        override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
-          Futures.immediateFuture(createBitmap(OTHER_ARTWORK_SIZE_PX, OTHER_ARTWORK_SIZE_PX))
-      }
+    val bitmapLoader = FakeBitmapLoader(createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX))
 
     setContent {
       Artwork(
         metadata = mediaMetadata,
-        bitmapLoader = customLoader,
+        bitmapLoader = bitmapLoader,
         placeholder = placeholder,
         error = error,
         fallback = fallback,
@@ -275,6 +250,8 @@ class ArtworkTest {
     }
 
     assertDisplayedSizePx(ARTWORK_SIZE_PX)
+    assertThat(bitmapLoader.decodeBitmapCallCount).isEqualTo(1)
+    assertThat(bitmapLoader.loadBitmapCallCount).isEqualTo(0)
   }
 
   @Test
@@ -282,20 +259,13 @@ class ArtworkTest {
     runComposeUiTest {
       val firstArtworkData = byteArrayOf(1)
       val secondArtwork = SettableFuture.create<Bitmap>()
-      val customLoader =
-        object : BitmapLoader {
-          override fun supportsMimeType(mimeType: String): Boolean = true
-
-          override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-            if (data.contentEquals(firstArtworkData)) {
-              Futures.immediateFuture(createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX))
-            } else {
-              secondArtwork
-            }
-
-          override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
-            throw UnsupportedOperationException()
+      val bitmapLoader = BytesOnlyBitmapLoader { data ->
+        if (data.contentEquals(firstArtworkData)) {
+          Futures.immediateFuture(createBitmap(ARTWORK_SIZE_PX, ARTWORK_SIZE_PX))
+        } else {
+          secondArtwork
         }
+      }
       var mediaMetadata by
         mutableStateOf(
           MediaMetadata.Builder()
@@ -305,7 +275,7 @@ class ArtworkTest {
       setContent {
         Artwork(
           metadata = mediaMetadata,
-          bitmapLoader = customLoader,
+          bitmapLoader = bitmapLoader,
           placeholder = placeholder,
           error = error,
           fallback = fallback,
