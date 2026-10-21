@@ -2977,8 +2977,22 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void maybeUpdateReadingPeriods() throws ExoPlaybackException {
+    @Nullable MediaPeriodHolder oldLatestReadingPeriod = queue.getLatestReadingPeriod();
     for (int i = 0; i < renderers.length; i++) {
       maybeUpdateReadingPeriod(i);
+    }
+    @Nullable MediaPeriodHolder newLatestReadingPeriod = queue.getLatestReadingPeriod();
+    if (oldLatestReadingPeriod != null
+        && newLatestReadingPeriod != null
+        && !newLatestReadingPeriod.equals(oldLatestReadingPeriod)) {
+      // Only update the playback speed settings when the latest reading period advances.
+      updatePlaybackSpeedSettingsForNewPeriod(
+          /* newTimeline= */ playbackInfo.timeline,
+          /* newPeriodId= */ newLatestReadingPeriod.info.id,
+          /* oldTimeline= */ playbackInfo.timeline,
+          /* oldPeriodId= */ oldLatestReadingPeriod.info.id,
+          /* positionForTargetOffsetOverrideUs= */ C.TIME_UNSET,
+          /* forceSetTargetOffsetOverride= */ false);
     }
   }
 
@@ -3050,23 +3064,9 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    boolean wasOldReadingPeriodLatest =
-        Objects.equals(readingPeriodHolder, queue.getLatestReadingPeriod());
-    MediaPeriodHolder oldReadingPeriodHolder = readingPeriodHolder;
     TrackSelectorResult oldTrackSelectorResult = readingPeriodHolder.getTrackSelectorResult();
     readingPeriodHolder = queue.advanceReadingPeriod(index);
     TrackSelectorResult newTrackSelectorResult = readingPeriodHolder.getTrackSelectorResult();
-
-    if (wasOldReadingPeriodLatest) {
-      // Only update the playback speed settings if advancing to reading period for its first time.
-      updatePlaybackSpeedSettingsForNewPeriod(
-          /* newTimeline= */ playbackInfo.timeline,
-          /* newPeriodId= */ readingPeriodHolder.info.id,
-          /* oldTimeline= */ playbackInfo.timeline,
-          /* oldPeriodId= */ oldReadingPeriodHolder.info.id,
-          /* positionForTargetOffsetOverrideUs= */ C.TIME_UNSET,
-          /* forceSetTargetOffsetOverride= */ false);
-    }
 
     renderer.maybeSetOldStreamToFinal(
         oldTrackSelectorResult,

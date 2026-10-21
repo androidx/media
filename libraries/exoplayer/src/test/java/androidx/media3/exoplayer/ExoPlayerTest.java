@@ -15639,6 +15639,71 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void
+      play_adTransitionReducingPlaybackSpeedWithEarlierIndexedMediaClockRenderer_playsToEnd()
+          throws Exception {
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    FakeMediaClockRenderer opusRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_OPUS, /* waitForStreamEndPositionBeforeEnding= */ false);
+    FakeMediaClockRenderer aacRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_AAC, /* waitForStreamEndPositionBeforeEnding= */ false);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(opusRenderer, aacRenderer))
+            .build();
+    Timeline contentTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(16 * C.MICROS_PER_SECOND)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 0)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://google.com/ad"))
+            .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs...= */ 500_000);
+    Timeline adTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(500_000)
+                .setWindowPositionInFirstPeriodUs(0)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    MediaSource source1 = new FakeMediaSource(contentTimeline, formatAac);
+    MediaSource source2 = new FakeMediaSource(adTimeline, formatOpus);
+    player.setMediaSources(ImmutableList.of(source1, source2));
+    player.setPlaybackSpeed(2.0f);
+
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> !opusRenderer.getFormatsRead().isEmpty());
+    long positionWhenAdRendererEnabledMs = player.getCurrentPosition();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(positionWhenAdRendererEnabledMs).isLessThan(6_000);
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus, formatOpus);
+  }
+
+  @Test
   public void play_withNonPreparedSecondPeriodAndThirdPeriod_doesNotSkipSecondPeriodWhenPrepared()
       throws Exception {
     Timeline periodTimeline =

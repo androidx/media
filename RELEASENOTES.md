@@ -26,6 +26,9 @@
         before the outgoing renderer finished rendering (for example, throwing
         `IllegalStateException` ("Multiple renderer media clocks enabled."))
         when `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix an issue where transitioning to an ad at a custom playback speed
+        could delay advancing all renderers to the ad period when
+        `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
