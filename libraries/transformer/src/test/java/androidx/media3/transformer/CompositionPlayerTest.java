@@ -54,6 +54,7 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -75,7 +76,9 @@ import android.view.Surface;
 import android.view.TextureView;
 import androidx.media3.common.C;
 import androidx.media3.common.Flags;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -3400,6 +3403,342 @@ public class CompositionPlayerTest {
       }
     }
     assertThat(secondarySequenceFrameCount).isGreaterThan(10);
+  }
+
+  @Test
+  public void playback_withFrameProcessorAndGapAtStartInAudioVideoSequence_queuesExpectedFrames()
+      throws Exception {
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                    .addGap(/* durationUs= */ 1_000_000L)
+                    .addItem(videoItem)
+                    .addItem(videoItem)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(
+            30, MP4_SIMPLE_ASSET.videoFrameCount, MP4_SIMPLE_ASSET.videoFrameCount),
+        /* expectedItemIsGap= */ ImmutableList.of(true, false, false));
+  }
+
+  @Test
+  public void playback_withFrameProcessorAndGapInMiddleInAudioVideoSequence_queuesExpectedFrames()
+      throws Exception {
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                    .addItem(videoItem)
+                    .addGap(/* durationUs= */ 1_000_000L)
+                    .addItem(videoItem)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(
+            MP4_SIMPLE_ASSET.videoFrameCount, 30, MP4_SIMPLE_ASSET.videoFrameCount),
+        /* expectedItemIsGap= */ ImmutableList.of(false, true, false));
+  }
+
+  @Test
+  public void playback_withFrameProcessorAndGapAtEndInAudioVideoSequence_queuesExpectedFrames()
+      throws Exception {
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                    .addItem(videoItem)
+                    .addItem(videoItem)
+                    .addGap(/* durationUs= */ 1_000_000L)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(
+            MP4_SIMPLE_ASSET.videoFrameCount, MP4_SIMPLE_ASSET.videoFrameCount, 30),
+        /* expectedItemIsGap= */ ImmutableList.of(false, false, true));
+  }
+
+  @Test
+  public void
+      playback_withFrameProcessorAndAudioOnlyItemAtStartInAudioVideoSequence_queuesExpectedFrames()
+          throws Exception {
+    EditedMediaItem audioOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                    .addItem(audioOnlyItem)
+                    .addItem(videoItem)
+                    .addItem(videoItem)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(
+            30, MP4_SIMPLE_ASSET.videoFrameCount, MP4_SIMPLE_ASSET.videoFrameCount),
+        /* expectedItemIsGap= */ ImmutableList.of(true, false, false));
+  }
+
+  @Test
+  public void
+      playback_withFrameProcessorAndAudioOnlyItemInMiddleInAudioVideoSequence_queuesExpectedFrames()
+          throws Exception {
+    EditedMediaItem audioOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                    .addItem(videoItem)
+                    .addItem(audioOnlyItem)
+                    .addItem(videoItem)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(
+            MP4_SIMPLE_ASSET.videoFrameCount, 30, MP4_SIMPLE_ASSET.videoFrameCount),
+        /* expectedItemIsGap= */ ImmutableList.of(false, true, false));
+  }
+
+  @Test
+  public void
+      playback_withFrameProcessorAndAudioOnlyItemAtEndInAudioVideoSequence_queuesExpectedFrames()
+          throws Exception {
+    EditedMediaItem audioOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem videoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                    .addItem(videoItem)
+                    .addItem(videoItem)
+                    .addItem(audioOnlyItem)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(
+            MP4_SIMPLE_ASSET.videoFrameCount, MP4_SIMPLE_ASSET.videoFrameCount, 30),
+        /* expectedItemIsGap= */ ImmutableList.of(false, false, true));
+  }
+
+  @Test
+  public void playback_withFrameProcessorAndGapInVideoOnlySequence_queuesExpectedFrames()
+      throws Exception {
+    EditedMediaItem videoOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .setRemoveAudio(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+                    .addGap(/* durationUs= */ 1_000_000L)
+                    .addItem(videoOnlyItem)
+                    .build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    assertPrimarySequenceFrames(
+        frameProcessor,
+        /* expectedItemFrameCounts= */ ImmutableList.of(30, MP4_SIMPLE_ASSET.videoFrameCount),
+        /* expectedItemIsGap= */ ImmutableList.of(true, false));
+  }
+
+  @Test
+  public void playback_withFrameProcessorAndGapInSecondarySequence_queuesExpectedFrames()
+      throws Exception {
+    EditedMediaItem primaryVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    EditedMediaItemSequence primarySequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(primaryVideoItem));
+    EditedMediaItemSequence secondarySequence =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+            .addGap(/* durationUs= */ 500_000L)
+            .addItem(getImageItem())
+            .build();
+    Composition composition = new Composition.Builder(primarySequence, secondarySequence).build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    assertThat(frameProcessor.isEnded()).isTrue();
+    ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    // All primary video frames + EOS.
+    assertThat(events).hasSize(MP4_SIMPLE_ASSET.videoFrameCount + 1);
+    int secondaryGapFrames = 0;
+    int secondaryImageFrames = 0;
+    for (int i = 0; i < events.size() - 1; i++) {
+      FramesEvent framesEvent = (FramesEvent) events.get(i);
+      assertWithMessage("frameIndex=%s", i).that(framesEvent.frames).hasSize(2);
+      Frame secondaryFrame = framesEvent.frames.get(1).frame;
+      assertWithMessage("frameIndex=%s", i)
+          .that(secondaryFrame)
+          .isInstanceOf(HardwareBufferFrame.class);
+      ImmutableMap<String, Object> metadata = secondaryFrame.getMetadata();
+      assertWithMessage("frameIndex=%s", i)
+          .that(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX))
+          .isEqualTo(1);
+      int itemIndex = (int) metadata.get(Composition.KEY_COMPOSITION_ITEM_INDEX);
+      Format format = secondaryFrame.getFormat();
+      if (secondaryFrame.getContentTimeUs() < 500_000L) {
+        secondaryGapFrames++;
+        assertWithMessage("frameIndex=%s", i).that(itemIndex).isEqualTo(0);
+        assertWithMessage("frameIndex=%s", i)
+            .that(format.sampleMimeType)
+            .isEqualTo(MimeTypes.IMAGE_RAW);
+        assertWithMessage("frameIndex=%s", i).that(format.width).isEqualTo(16);
+        assertWithMessage("frameIndex=%s", i).that(format.height).isEqualTo(16);
+      } else {
+        secondaryImageFrames++;
+        assertWithMessage("frameIndex=%s", i).that(itemIndex).isEqualTo(1);
+        assertWithMessage("frameIndex=%s", i)
+            .that(format.sampleMimeType)
+            .isEqualTo(MimeTypes.IMAGE_RAW);
+        assertWithMessage("frameIndex=%s", i).that(format.width).isGreaterThan(16);
+        assertWithMessage("frameIndex=%s", i).that(format.height).isGreaterThan(16);
+      }
+    }
+    assertThat(secondaryGapFrames).isGreaterThan(0);
+    assertThat(secondaryImageFrames).isGreaterThan(0);
+  }
+
+  private static void assertPrimarySequenceFrames(
+      CapturingFrameProcessor frameProcessor,
+      ImmutableList<Integer> expectedItemFrameCounts,
+      ImmutableList<Boolean> expectedItemIsGap) {
+    ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    int totalExpectedFrames = expectedItemFrameCounts.stream().mapToInt(Integer::intValue).sum();
+    // All frames + 1 EOS event.
+    assertThat(events).hasSize(totalExpectedFrames + 1);
+    int eventIndex = 0;
+    for (int itemIndex = 0; itemIndex < expectedItemFrameCounts.size(); itemIndex++) {
+      int itemFrameCount = expectedItemFrameCounts.get(itemIndex);
+      boolean isGap = expectedItemIsGap.get(itemIndex);
+      for (int i = 0; i < itemFrameCount; i++) {
+        FramesEvent framesEvent = (FramesEvent) events.get(eventIndex++);
+        assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+            .that(framesEvent.frames)
+            .hasSize(1);
+        Frame frame = framesEvent.frames.get(0).frame;
+        assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+            .that(frame)
+            .isInstanceOf(HardwareBufferFrame.class);
+        ImmutableMap<String, Object> metadata = frame.getMetadata();
+        assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+            .that(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX))
+            .isEqualTo(0);
+        assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+            .that(metadata.get(Composition.KEY_COMPOSITION_ITEM_INDEX))
+            .isEqualTo(itemIndex);
+        Format format = frame.getFormat();
+        if (isGap) {
+          assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+              .that(format.sampleMimeType)
+              .isEqualTo(MimeTypes.IMAGE_RAW);
+          assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+              .that(format.width)
+              .isEqualTo(16);
+          assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+              .that(format.height)
+              .isEqualTo(16);
+        } else {
+          assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+              .that(format.width)
+              .isEqualTo(MP4_SIMPLE_ASSET.videoFormat.width);
+          assertWithMessage("itemIndex=%s, frameIndex=%s", itemIndex, i)
+              .that(format.height)
+              .isEqualTo(MP4_SIMPLE_ASSET.videoFormat.height);
+        }
+      }
+    }
   }
 
   /**
