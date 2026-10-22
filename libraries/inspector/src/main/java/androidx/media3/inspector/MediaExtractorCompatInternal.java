@@ -786,6 +786,9 @@ import org.jspecify.annotations.Nullable;
    */
   @EnsuresNonNullIf(expression = "sampleMetadataQueue.peekFirst()", result = true)
   private boolean advanceToSampleOrEndOfInput() {
+    if (selectedTrackIndices.isEmpty()) {
+      return false;
+    }
     try {
       maybeResolvePendingSeek();
     } catch (IOException e) {

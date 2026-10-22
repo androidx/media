@@ -298,14 +298,13 @@ public class MediaExtractorCompatTest {
 
   @Test
   public void getSampleTimeAndSize_withOutOfMemoryError_producesEndOfInput() throws IOException {
-    // This boolean guarantees that this test remains useful. The throwing read action is being
-    // called as a result of an implementation detail (trying to parse a container file with no
-    // tracks) that could change in the future. Counting on this implementation detail simplifies
-    // the test.
+    // Ensures the end of input is caused by the error and not by a missing read.
     AtomicBoolean outOfMemoryErrorWasThrown = new AtomicBoolean(false);
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
           extractorOutput.endTracks();
+          output.format(PLACEHOLDER_FORMAT_VIDEO);
           return Extractor.RESULT_CONTINUE;
         });
     fakeExtractor.addReadAction(
@@ -314,6 +313,8 @@ public class MediaExtractorCompatTest {
           throw new OutOfMemoryError();
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
     assertThat(outOfMemoryErrorWasThrown.get()).isTrue();

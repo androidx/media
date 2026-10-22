@@ -470,6 +470,25 @@ public class MediaExtractorContractTest {
     assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(32_000);
   }
 
+  @Test
+  public void sampleGetters_withNoTrackSelected_returnNoSampleAndKeepSamples() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    assertThat(mediaExtractorProxy.getSampleTrackIndex()).isEqualTo(-1);
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorProxy.getSampleFlags()).isEqualTo(-1);
+    assertThat(mediaExtractorProxy.readSampleData(ByteBuffer.allocate(1), /* offset= */ 0))
+        .isEqualTo(-1);
+    assertThat(mediaExtractorProxy.advance()).isFalse();
+
+    mediaExtractorProxy.selectTrack(0);
+
+    assertThat(mediaExtractorProxy.getSampleTrackIndex()).isEqualTo(0);
+    assertThat(mediaExtractorProxy.getSampleFlags()).isEqualTo(MediaExtractor.SAMPLE_FLAG_SYNC);
+  }
+
   private static byte[] buildInitializationVector(int suffix) {
     byte[] initializationVector = new byte[16];
     initializationVector[0] = 0x20;
