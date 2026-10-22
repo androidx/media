@@ -15,6 +15,9 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.Player;
@@ -33,6 +36,7 @@ import org.jspecify.annotations.Nullable;
 public final class FakeAdsLoader implements AdsLoader {
 
   public final Map<Object, EventListener> eventListeners;
+  private final Map<Object, AdPlaybackState> initialAdPlaybackStates;
 
   public @Nullable Player player;
   public int @ContentType [] supportedContentTypes;
@@ -41,6 +45,23 @@ public final class FakeAdsLoader implements AdsLoader {
   public FakeAdsLoader() {
     supportedContentTypes = new int[0];
     eventListeners = new HashMap<>();
+    initialAdPlaybackStates = new HashMap<>();
+  }
+
+  /**
+   * Pre-registers the initial {@link AdPlaybackState} to publish when {@link #start} is called for
+   * {@code adsId}.
+   *
+   * @throws IllegalArgumentException If {@code initialAdPlaybackState.adsId} does not equal {@code
+   *     adsId}.
+   */
+  public void setInitialAdPlaybackState(Object adsId, AdPlaybackState initialAdPlaybackState) {
+    checkArgument(
+        adsId.equals(initialAdPlaybackState.adsId),
+        "initialAdPlaybackState.adsId (%s) must equal adsId (%s)",
+        initialAdPlaybackState.adsId,
+        adsId);
+    initialAdPlaybackStates.put(adsId, initialAdPlaybackState);
   }
 
   @Override
@@ -61,6 +82,10 @@ public final class FakeAdsLoader implements AdsLoader {
       AdViewProvider adViewProvider,
       EventListener eventListener) {
     this.eventListeners.put(adsId, eventListener);
+    @Nullable AdPlaybackState initialState = initialAdPlaybackStates.get(adsId);
+    if (initialState != null) {
+      eventListener.onAdPlaybackState(initialState);
+    }
   }
 
   @Override
