@@ -29,6 +29,8 @@
     *   Fix an issue where transitioning to an ad at a custom playback speed
         could delay advancing all renderers to the ad period when
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix issues with pre-warming renderers during media period transitions
+        and track reselections.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

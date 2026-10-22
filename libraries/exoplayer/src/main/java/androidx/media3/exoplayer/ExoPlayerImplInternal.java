@@ -2421,6 +2421,19 @@ import org.jspecify.annotations.Nullable;
     prewarmingMediaPeriodDiscontinuity = C.TIME_UNSET;
   }
 
+  private boolean isPeriodPrewarming(MediaPeriodHolder periodHolder) {
+    if (!hasSecondaryRenderers) {
+      return false;
+    }
+    for (int i = 0; i < renderers.length; i++) {
+      if (Objects.equals(queue.getPrewarmingPeriod(i), periodHolder)
+          && renderers[i].isPrewarmingPeriod(periodHolder)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private boolean isRendererPrewarmingMediaPeriod(int rendererIndex, MediaPeriodId mediaPeriodId) {
     if (queue.getPrewarmingPeriod(rendererIndex) == null
         || !queue.getPrewarmingPeriod(rendererIndex).info.id.equals(mediaPeriodId)) {
@@ -2453,6 +2466,7 @@ import org.jspecify.annotations.Nullable;
     float playbackSpeed = mediaClock.getPlaybackParameters().speed;
     // Reselect tracks on each period in turn, until the selection changes.
     MediaPeriodHolder periodHolder = queue.getPlayingPeriod();
+    @Nullable MediaPeriodHolder previousPeriodHolder = null;
     MediaPeriodHolder readingPeriodHolder = queue.getLatestReadingPeriod();
     boolean selectionsChangedForReadPeriod = true;
     TrackSelectorResult newTrackSelectorResult;
@@ -2477,6 +2491,7 @@ import org.jspecify.annotations.Nullable;
         // The track reselection didn't affect any period that has been read.
         selectionsChangedForReadPeriod = false;
       }
+      previousPeriodHolder = periodHolder;
       periodHolder = periodHolder.getNext();
     }
 
@@ -2532,26 +2547,18 @@ import org.jspecify.annotations.Nullable;
       enableRenderers(rendererWasEnabledFlags, /* startPositionUs= */ rendererPositionUs);
       setAllRenderersToCorrectState(playingPeriodHolder);
     } else {
-      // Release and re-prepare/buffer periods after the one whose selection changed.
-      queue.removeAfter(periodHolder);
-      if (periodHolder.prepared) {
+      boolean isPeriodPrewarming = isPeriodPrewarming(periodHolder);
+      // Release and re-prepare/buffer periods after the one whose selection changed, or including
+      // the period itself if a prewarming renderer has already started reading from it.
+      @MediaPeriodQueue.UpdatePeriodQueueResult
+      int removeAfterResult =
+          queue.removeAfter(isPeriodPrewarming ? checkNotNull(previousPeriodHolder) : periodHolder);
+      if ((removeAfterResult & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD) != 0) {
+        disableAndResetPrewarmingRenderers();
+      }
+      if (!isPeriodPrewarming && periodHolder.prepared) {
         long loadingPeriodPositionUs =
             max(periodHolder.info.startPositionUs, periodHolder.toPeriodTime(rendererPositionUs));
-        if (hasSecondaryRenderers) {
-          for (int i = 0; i < renderers.length; i++) {
-            if (Objects.equals(queue.getPrewarmingPeriod(i), periodHolder)
-                && renderers[i].isPrewarmingPeriod(periodHolder)) {
-              // If renderers are enabled early and track reselection is on the enabled-early period
-              // then there is a need to disable those renderers. Must be done prior to call to
-              // applyTrackSelection.
-              // TODO: Only disable pre-warming renderers for those whose streams will be changed by
-              // track reselection. Will require allowing partial
-              // maybePrewarmRenderersForNextPeriod.
-              disableAndResetPrewarmingRenderers();
-              break;
-            }
-          }
-        }
         periodHolder.applyTrackSelection(newTrackSelectorResult, loadingPeriodPositionUs, false);
       }
     }
@@ -2881,13 +2888,18 @@ import org.jspecify.annotations.Nullable;
         || !prewarmingPeriodHolder.getNext().prepared) {
       return;
     }
+    boolean hasEnabledPrewarmingRendererInNextPeriod = false;
     for (int i = 0; i < renderers.length; i++) {
-      if (renderers[i].hasSecondary()
-          && (prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(i)
-              || !renderers[i].isRendererEnabled())
-          && !prewarmingPeriodHolder.isRendererInCorrectState(i)) {
-        return;
+      if (renderers[i].hasSecondary()) {
+        if (!canAdvancePrewarmingPeriod(i, prewarmingPeriodHolder)) {
+          return;
+        }
+        hasEnabledPrewarmingRendererInNextPeriod |=
+            prewarmingPeriodHolder.getNext().getTrackSelectorResult().isRendererEnabled(i);
       }
+    }
+    if (!hasEnabledPrewarmingRendererInNextPeriod) {
+      return;
     }
 
     // Only start pre-warming if under the threshold to advance the reading period.
@@ -2909,11 +2921,10 @@ import org.jspecify.annotations.Nullable;
     if (prewarmingPeriodHolder == null
         || !prewarmingPeriodHolder.prepared
         || !Objects.equals(prewarmingPeriodHolder, queue.getReadingPeriod(index))
-        || ((prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(index)
-                || !renderers[index].isRendererEnabled())
-            && !prewarmingPeriodHolder.isRendererInCorrectState(index))
         || prewarmingPeriodHolder.getNext() == null
-        || !prewarmingPeriodHolder.getNext().prepared) {
+        || !prewarmingPeriodHolder.getNext().prepared
+        || !prewarmingPeriodHolder.getNext().getTrackSelectorResult().isRendererEnabled(index)
+        || !canAdvancePrewarmingPeriod(index, prewarmingPeriodHolder)) {
       return;
     }
 
@@ -2927,23 +2938,19 @@ import org.jspecify.annotations.Nullable;
     maybePrewarmRenderer(index);
   }
 
+  private boolean canAdvancePrewarmingPeriod(int index, MediaPeriodHolder prewarmingPeriodHolder) {
+    return prewarmingPeriodHolder.isRendererInCorrectState(index)
+        || (!prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(index)
+            && renderers[index].isRendererEnabled());
+  }
+
   private void maybePrewarmRenderers() throws ExoPlaybackException {
     @Nullable MediaPeriodHolder prewarmingPeriod = queue.getEarliestPrewarmingPeriod();
     if (prewarmingPeriod == null) {
       return;
     }
-    TrackSelectorResult trackSelectorResult = prewarmingPeriod.getTrackSelectorResult();
     for (int i = 0; i < renderers.length; i++) {
-      if (trackSelectorResult.isRendererEnabled(i)
-          && renderers[i].hasSecondary()
-          && !renderers[i].isPrewarming()) {
-        renderers[i].startPrewarming();
-        enableRenderer(
-            prewarmingPeriod,
-            /* rendererIndex= */ i,
-            /* wasRendererEnabled= */ false,
-            prewarmingPeriod.getStartPositionRendererTime());
-      }
+      maybePrewarmRenderer(i);
     }
     // Handle any media period discontinuities.
     if (areRenderersPrewarming()) {
@@ -3023,11 +3030,10 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    if (!isRendererPrewarming(index)
-        && !renderer.isReadingFromPeriod(readingPeriodHolder)
+    if (!renderer.isReadingFromPeriod(readingPeriodHolder)
         && !haveAllRenderersFinishedReading(readingPeriodHolder)) {
-      // If renderer is not reading from current period nor prewarming then don't advance reading
-      // period unless all renderers have finished reading from the current period.
+      // If renderer is not reading from current period then don't advance reading period unless all
+      // renderers have finished reading from the current period.
       return;
     }
 

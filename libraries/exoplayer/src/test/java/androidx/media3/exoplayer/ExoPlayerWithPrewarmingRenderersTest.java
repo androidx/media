@@ -83,6 +83,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
@@ -620,7 +621,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             new FakeBlockingMediaSource(timeline, videoFormat1),
             new FakeMediaSource(timeline, videoFormat1, videoFormat2)));
     player.prepare();
-
     // Play until the second renderer has been enabled and reading period has not advanced.
     advance(player).untilState(Player.STATE_READY);
     player.play();
@@ -629,6 +629,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream videoStream1 = videoRenderer.getStream();
     SampleStream secondaryVideoStream1 = secondaryVideoRenderer.getStream();
+
     // Set max bitrate to trigger track reselection.
     player.setTrackSelectionParameters(
         player
@@ -636,6 +637,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .buildUpon()
             .setMaxVideoBitrate(videoFormat2.averageBitrate)
             .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
     advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
@@ -647,6 +649,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     assertThat(videoState1).isEqualTo(Renderer.STATE_STARTED);
     assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_ENABLED);
     assertThat(videoStream1).isEqualTo(videoStream2);
+    assertThat(secondaryVideoStream2).isNotNull();
     assertThat(secondaryVideoStream1).isNotEqualTo(secondaryVideoStream2);
   }
 
@@ -663,6 +666,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .build();
     Renderer videoRenderer = player.getRenderer(/* index= */ 0);
     Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Renderer audioRenderer = player.getRenderer(/* index= */ 1);
     Format videoFormat1 =
         ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(800_000).build();
     Format videoFormat2 =
@@ -675,7 +679,6 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             new FakeBlockingMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
             new FakeMediaSource(timeline, videoFormat1, videoFormat2)));
     player.prepare();
-
     // Play until the second renderer has been enabled and reading period has not advanced.
     advance(player).untilState(Player.STATE_READY);
     player.play();
@@ -683,6 +686,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     @Renderer.State int videoState1 = videoRenderer.getState();
     @Renderer.State int secondaryVideoState1 = secondaryVideoRenderer.getState();
     SampleStream videoStream1 = videoRenderer.getStream();
+    SampleStream audioStream1 = audioRenderer.getStream();
+
     // Set max bitrate to trigger track reselection.
     player.setTrackSelectionParameters(
         player
@@ -691,12 +696,165 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             .setMaxVideoBitrate(videoFormat2.averageBitrate)
             .build());
     advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player)
+        .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
+    advance(player).untilPendingCommandsAreFullyHandled();
     SampleStream videoStream2 = videoRenderer.getStream();
+    SampleStream audioStream2 = audioRenderer.getStream();
     player.release();
 
     assertThat(videoState1).isEqualTo(Renderer.STATE_ENABLED);
     assertThat(secondaryVideoState1).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(audioStream1).isEqualTo(audioStream2);
+    assertThat(videoStream2).isNotNull();
     assertThat(videoStream1).isNotEqualTo(videoStream2);
+  }
+
+  @Test
+  public void
+      setTrackSelectionParameters_enablingTrackOnNextPeriodAfterPreviouslyDisabled_prewarmsRendererOnNextPeriod()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    Format videoFormat1 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(500_000).build();
+    Format videoFormat2 =
+        ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(1_000_000).build();
+    DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setMaxVideoBitrate(videoFormat1.averageBitrate)
+            .setExceedVideoConstraintsIfNecessary(/* exceedVideoConstraintsIfNecessary= */ false));
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setTrackSelector(trackSelector)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    Timeline timeline = new FakeTimeline();
+    FakeBlockingMediaSource firstSource =
+        new FakeBlockingMediaSource(timeline, videoFormat1, ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource secondSource =
+        new FakeMediaSource(timeline, videoFormat2, ExoPlayerTestRunner.AUDIO_FORMAT);
+    player.setMediaSources(ImmutableList.of(firstSource, secondSource));
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    @Renderer.State int initialSecondaryVideoState = secondaryVideoRenderer.getState();
+
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setMaxVideoBitrate(videoFormat2.averageBitrate)
+            .build());
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    @Renderer.State int secondaryVideoStateAfterReselection = secondaryVideoRenderer.getState();
+    firstSource.unblockReads();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(initialSecondaryVideoState).isEqualTo(Renderer.STATE_DISABLED);
+    assertThat(secondaryVideoStateAfterReselection).isEqualTo(Renderer.STATE_ENABLED);
+  }
+
+  @Test
+  public void
+      play_errorByPrewarmingSecondaryRendererOnThirdPeriodAfterSecondPeriodWithoutTrack_recoversWithoutRemovingSecondPeriod()
+          throws Exception {
+    Format formatAac =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatOpus =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    AtomicBoolean shouldSecondaryThrow = new AtomicBoolean(true);
+    FakeRenderer videoPrimaryRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeRenderer videoSecondaryRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+            if (shouldSecondaryThrow.getAndSet(false)) {
+              throw createRendererException(
+                  new IllegalStateException(),
+                  ExoPlayerTestRunner.VIDEO_FORMAT,
+                  PlaybackException.ERROR_CODE_DECODING_FAILED);
+            }
+            super.render(positionUs, elapsedRealtimeUs);
+          }
+        };
+    FakeMediaClockRenderer aacRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_AAC, /* waitForStreamEndPositionBeforeEnding= */ true);
+    FakeMediaClockRenderer opusRenderer =
+        createMediaClockAudioRenderer(
+            MimeTypes.AUDIO_OPUS, /* waitForStreamEndPositionBeforeEnding= */ true);
+    RenderersFactory renderersFactory =
+        new RenderersFactory() {
+          @Override
+          public Renderer[] createRenderers(
+              Handler eventHandler,
+              VideoRendererEventListener videoRendererEventListener,
+              AudioRendererEventListener audioRendererEventListener,
+              TextOutput textRendererOutput,
+              MetadataOutput metadataRendererOutput) {
+            return new Renderer[] {videoPrimaryRenderer, aacRenderer, opusRenderer};
+          }
+
+          @Override
+          public @Nullable Renderer createSecondaryRenderer(
+              Renderer renderer,
+              Handler eventHandler,
+              VideoRendererEventListener videoRendererEventListener,
+              AudioRendererEventListener audioRendererEventListener,
+              TextOutput textRendererOutput,
+              MetadataOutput metadataRendererOutput) {
+            return Objects.equals(renderer, videoPrimaryRenderer) ? videoSecondaryRenderer : null;
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    Timeline periodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(500_000).build());
+    AtomicInteger secondSourceCreatePeriodCount = new AtomicInteger();
+    MediaSource source1 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatAac);
+    MediaSource source2 =
+        new FakeMediaSource(periodTimeline, formatOpus) {
+          @Override
+          public MediaPeriod createPeriod(
+              MediaPeriodId id, Allocator allocator, long startPositionUs) {
+            secondSourceCreatePeriodCount.incrementAndGet();
+            return super.createPeriod(id, allocator, startPositionUs);
+          }
+        };
+    MediaSource source3 =
+        new FakeMediaSource(periodTimeline, ExoPlayerTestRunner.VIDEO_FORMAT, formatOpus);
+    player.setMediaSources(ImmutableList.of(source1, source2, source3));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(shouldSecondaryThrow.get()).isFalse();
+    assertThat(secondSourceCreatePeriodCount.get()).isEqualTo(1);
+    assertThat(videoPrimaryRenderer.getFormatsRead())
+        .containsExactly(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.VIDEO_FORMAT);
+    assertThat(aacRenderer.getFormatsRead()).containsExactly(formatAac);
+    assertThat(opusRenderer.getFormatsRead()).containsExactly(formatOpus, formatOpus);
   }
 
   @Test
@@ -2974,8 +3132,15 @@ public class ExoPlayerWithPrewarmingRenderersTest {
   /** {@link FakeMediaSource} that prevents any reading of samples off the sample queue. */
   private static final class FakeBlockingMediaSource extends FakeMediaSource {
 
-    public FakeBlockingMediaSource(Timeline timeline, Format format) {
-      super(timeline, format);
+    private final AtomicBoolean blockReads;
+
+    FakeBlockingMediaSource(Timeline timeline, Format... formats) {
+      super(timeline, formats);
+      blockReads = new AtomicBoolean(true);
+    }
+
+    void unblockReads() {
+      blockReads.set(false);
     }
 
     @Override
@@ -3021,7 +3186,10 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             @Override
             public int readData(
                 FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
-              return C.RESULT_NOTHING_READ;
+              if (blockReads.get()) {
+                return C.RESULT_NOTHING_READ;
+              }
+              return super.readData(formatHolder, buffer, readFlags);
             }
           };
         }
