@@ -119,6 +119,7 @@ import org.jspecify.annotations.Nullable;
   private @Nullable DataSource currentDataSource;
   private @Nullable FileDescriptor duplicatedFileDescriptor;
   private @Nullable SeekPoint pendingSeek;
+  private boolean hasReachedEndOfInput;
 
   private @Nullable SeekMap seekMap;
   private boolean tracksEnded;
@@ -370,6 +371,8 @@ import org.jspecify.annotations.Nullable;
           throw ParserException.createForMalformedContainer(message, /* cause= */ error);
         } else if (result == Extractor.RESULT_SEEK) {
           reopenCurrentDataSource(positionHolder.position);
+        } else if (result == Extractor.RESULT_END_OF_INPUT) {
+          hasReachedEndOfInput = true;
         }
       }
     } catch (Exception | OutOfMemoryError e) {
@@ -498,6 +501,7 @@ import org.jspecify.annotations.Nullable;
       sampleQueues.valueAt(i).reset();
     }
     pendingSeek = seekPoint;
+    hasReachedEndOfInput = false;
   }
 
   /**
@@ -796,7 +800,6 @@ import org.jspecify.annotations.Nullable;
       return false;
     }
 
-    boolean seenEndOfInput = false;
     while (true) {
       if (!sampleMetadataQueue.isEmpty()) {
         // By default, tracks are unselected.
@@ -807,19 +810,19 @@ import org.jspecify.annotations.Nullable;
           // There is a queued sample, but its track is unselected. We skip the sample.
           skipOneSample();
         }
-      } else if (!seenEndOfInput) {
+      } else if (!hasReachedEndOfInput) {
         // There are no queued samples for the selected tracks, but we can feed more data to the
         // extractor and see if more samples are produced.
         try {
           @ReadResult int result = progressiveMediaExtractor.read(positionHolder);
           if (result == Extractor.RESULT_END_OF_INPUT) {
-            seenEndOfInput = true;
+            hasReachedEndOfInput = true;
           } else if (result == Extractor.RESULT_SEEK) {
             reopenCurrentDataSource(positionHolder.position);
           }
         } catch (Exception | OutOfMemoryError e) {
           Log.w(TAG, "Treating exception as the end of input.", e);
-          seenEndOfInput = true;
+          hasReachedEndOfInput = true;
         }
       } else {
         // No queued samples for selected tracks, and we've parsed all the file. Nothing else to do.

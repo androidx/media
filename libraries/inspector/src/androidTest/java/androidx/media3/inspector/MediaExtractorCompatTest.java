@@ -396,6 +396,71 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  public void advance_afterEndOfInput_stopsReadingUntilSeek() throws IOException {
+    fakeExtractor.setSeekStrategy(fakeExtractor::rewindReadActions);
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 0);
+          outputSample(outputs[0], /* timeUs= */ 7, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    fakeExtractor.addReadAction(MediaExtractorCompatTest::assertionFailureReadAction);
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+
+    mediaExtractorCompat.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+  }
+
+  @Test
+  public void advance_afterReadError_stopsReadingUntilSeek() throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          throw new IOException();
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 0);
+          outputSample(outputs[0], /* timeUs= */ 7, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    fakeExtractor.addReadAction(MediaExtractorCompatTest::assertionFailureReadAction);
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+
+    mediaExtractorCompat.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+  }
+
+  @Test
   public void readSampleData_usesOffsetArgumentInsteadOfBufferPosition() throws IOException {
     byte[] sampleData =
         new byte[] {
@@ -1348,7 +1413,7 @@ public class MediaExtractorCompatTest {
    * A functional interface for the {@link Extractor#read(ExtractorInput, PositionHolder)} method.
    */
   private interface ExtractorReadAction {
-    int read(ExtractorInput input, PositionHolder position);
+    int read(ExtractorInput input, PositionHolder position) throws IOException;
   }
 
   /** A functional interface for the {@link Extractor#seek(long, long)} method. */
