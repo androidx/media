@@ -83,11 +83,13 @@ import org.jspecify.annotations.Nullable;
   private final RendererCapabilities[] rendererCapabilities;
   private final TrackSelector trackSelector;
   private final MediaSourceList mediaSourceList;
+  private final boolean enableStreamPrerollFlags;
 
   private @Nullable MediaPeriodHolder next;
   private TrackGroupArray trackGroups;
   private TrackSelectorResult trackSelectorResult;
   private long rendererPositionOffsetUs;
+  private boolean usesStreamPrerollFlags;
 
   /**
    * Creates a new holder with information required to play it as part of a timeline.
@@ -100,6 +102,9 @@ import org.jspecify.annotations.Nullable;
    * @param info Information used to identify this media period in its timeline period.
    * @param emptyTrackSelectorResult A {@link TrackSelectorResult} with empty selections for each
    *     renderer.
+   * @param targetPreloadBufferDurationUs The target preload buffer duration, in microseconds.
+   * @param enableStreamPrerollFlags Whether stream preroll flags should be enabled if supported by
+   *     the media period.
    */
   public MediaPeriodHolder(
       RendererCapabilities[] rendererCapabilities,
@@ -110,7 +115,7 @@ import org.jspecify.annotations.Nullable;
       MediaPeriodInfo info,
       TrackSelectorResult emptyTrackSelectorResult,
       long targetPreloadBufferDurationUs,
-      boolean usesStreamPrerollFlags) {
+      boolean enableStreamPrerollFlags) {
     this.rendererCapabilities = rendererCapabilities;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
@@ -118,15 +123,13 @@ import org.jspecify.annotations.Nullable;
     this.uid = info.id.periodUid;
     this.info = info;
     this.targetPreloadBufferDurationUs = targetPreloadBufferDurationUs;
+    this.enableStreamPrerollFlags = enableStreamPrerollFlags;
     this.trackGroups = TrackGroupArray.EMPTY;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
     renderersInCorrectState = new boolean[rendererCapabilities.length];
     mayRetainStreamFlags = new boolean[rendererCapabilities.length];
     mediaPeriod = mediaSourceList.createPeriod(info.id, allocator, info.startPositionUs);
-    if (usesStreamPrerollFlags) {
-      mediaPeriod.setUsesStreamPrerollFlags();
-    }
   }
 
   /**
@@ -212,6 +215,10 @@ import org.jspecify.annotations.Nullable;
       throws ExoPlaybackException {
     prepared = true;
     Arrays.fill(renderersInCorrectState, false);
+    usesStreamPrerollFlags = enableStreamPrerollFlags && mediaPeriod.supportsStreamPrerollFlags();
+    if (usesStreamPrerollFlags) {
+      mediaPeriod.setUsesStreamPrerollFlags();
+    }
     trackGroups = mediaPeriod.getTrackGroups();
     TrackSelectorResult selectorResult = selectTracks(playbackSpeed, timeline, playWhenReady);
     long requestedStartPositionUs = info.startPositionUs;
@@ -503,6 +510,10 @@ import org.jspecify.annotations.Nullable;
 
   public boolean isRendererInCorrectState(int index) {
     return renderersInCorrectState[index];
+  }
+
+  public boolean usesStreamPrerollFlags() {
+    return usesStreamPrerollFlags;
   }
 
   /* package */ interface Factory {

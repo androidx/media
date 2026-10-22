@@ -31,6 +31,11 @@
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
     *   Fix issues with pre-warming renderers during media period transitions
         and track reselections.
+    *   Add `MediaPeriod.supportsStreamPrerollFlags()` (defaulting to `false`)
+        so that custom `MediaPeriod` implementations can opt in to reporting
+        initial discontinuities via `SampleStream.getFlags()`, falling back to
+        `MediaPeriod.readDiscontinuity()` when not supported and
+        `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

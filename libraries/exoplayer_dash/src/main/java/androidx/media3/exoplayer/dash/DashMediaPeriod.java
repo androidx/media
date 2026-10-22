@@ -388,6 +388,17 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void setUsesStreamPrerollFlags() {
     this.usesStreamPrerollFlags = true;
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      sampleStream.setUsesStreamPrerollFlags();
+    }
+    if (readingSuppressedWaitingForInitialDiscontinuity) {
+      setSuppressReadOnAllStreams(false);
+    }
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
   }
 
   @Override

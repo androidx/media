@@ -416,7 +416,7 @@ import org.jspecify.annotations.Nullable;
         mediaPeriodInfo,
         emptyTrackSelectorResult,
         preloadConfiguration.targetPreloadDurationUs,
-        /* usesStreamPrerollFlags= */ perStreamMediaProgressionEnabled);
+        /* enableStreamPrerollFlags= */ perStreamMediaProgressionEnabled);
   }
 
   public void experimentalSetForegroundModeTimeoutMs(long setForegroundModeTimeoutMs) {
@@ -2864,11 +2864,26 @@ import org.jspecify.annotations.Nullable;
         || isPrewarmingDisabledUntilNextTransition) {
       return;
     }
+    boolean anyAdvanced = false;
     for (int i = 0; i < renderers.length; i++) {
-      if (!renderers[i].hasSecondary()) {
-        continue;
+      if (renderers[i].hasSecondary()) {
+        anyAdvanced |= maybeAdvancePrewarmingPeriod(i);
       }
-      maybeUpdatePrewarmingPeriod(i);
+    }
+    if (!anyAdvanced) {
+      return;
+    }
+    @Nullable MediaPeriodHolder prewarmingPeriod = null;
+    for (int i = 0; i < renderers.length; i++) {
+      if (!Objects.equals(queue.getPrewarmingPeriod(i), queue.getReadingPeriod(i))
+          && maybePrewarmRenderer(i)) {
+        // When a period does not use stream preroll flags, !isSafeToAdvancePerStream ensures all
+        // renderers prewarm the same period together.
+        prewarmingPeriod = queue.getPrewarmingPeriod(i);
+      }
+    }
+    if (prewarmingPeriod != null && !prewarmingPeriod.usesStreamPrerollFlags()) {
+      maybeHandlePrewarmingPeriodDiscontinuity(prewarmingPeriod);
     }
   }
 
@@ -2883,22 +2898,9 @@ import org.jspecify.annotations.Nullable;
     @Nullable MediaPeriodHolder prewarmingPeriodHolder = queue.getEarliestPrewarmingPeriod();
     if (prewarmingPeriodHolder == null
         || !prewarmingPeriodHolder.prepared
-        || !Objects.equals(prewarmingPeriodHolder, queue.getEarliestReadingPeriod())
         || prewarmingPeriodHolder.getNext() == null
-        || !prewarmingPeriodHolder.getNext().prepared) {
-      return;
-    }
-    boolean hasEnabledPrewarmingRendererInNextPeriod = false;
-    for (int i = 0; i < renderers.length; i++) {
-      if (renderers[i].hasSecondary()) {
-        if (!canAdvancePrewarmingPeriod(i, prewarmingPeriodHolder)) {
-          return;
-        }
-        hasEnabledPrewarmingRendererInNextPeriod |=
-            prewarmingPeriodHolder.getNext().getTrackSelectorResult().isRendererEnabled(i);
-      }
-    }
-    if (!hasEnabledPrewarmingRendererInNextPeriod) {
+        || !prewarmingPeriodHolder.getNext().prepared
+        || !canAdvancePrewarmingPeriodSynchronously(prewarmingPeriodHolder)) {
       return;
     }
 
@@ -2912,10 +2914,16 @@ import org.jspecify.annotations.Nullable;
     maybePrewarmRenderers();
   }
 
-  private void maybeUpdatePrewarmingPeriod(int index) throws ExoPlaybackException {
+  /**
+   * Advances the prewarming period for the renderer at {@code index} if ready.
+   *
+   * @param index The renderer index.
+   * @return Whether the prewarming period was advanced.
+   */
+  private boolean maybeAdvancePrewarmingPeriod(int index) {
     // TODO: Add limit as to not enable waiting renderer too early
     if (renderers[index].isPrewarming()) {
-      return;
+      return false;
     }
     @Nullable MediaPeriodHolder prewarmingPeriodHolder = queue.getPrewarmingPeriod(index);
     if (prewarmingPeriodHolder == null
@@ -2924,24 +2932,46 @@ import org.jspecify.annotations.Nullable;
         || prewarmingPeriodHolder.getNext() == null
         || !prewarmingPeriodHolder.getNext().prepared
         || !prewarmingPeriodHolder.getNext().getTrackSelectorResult().isRendererEnabled(index)
-        || !canAdvancePrewarmingPeriod(index, prewarmingPeriodHolder)) {
-      return;
+        || !(isSafeToAdvancePerStream(prewarmingPeriodHolder)
+            ? canAdvancePrewarmingPeriod(index, prewarmingPeriodHolder)
+            : canAdvancePrewarmingPeriodSynchronously(prewarmingPeriodHolder))) {
+      return false;
     }
 
     // Only start pre-warming if under the threshold to advance the reading period.
     long durationToNextMediaPeriodUs = getDurationToMediaPeriodUs(prewarmingPeriodHolder.getNext());
     if (durationToNextMediaPeriodUs > DURATION_TO_ADVANCE_READING_THRESHOLD_US) {
-      return;
+      return false;
     }
 
     queue.advancePrewarmingPeriod(index);
-    maybePrewarmRenderer(index);
+    return true;
   }
 
   private boolean canAdvancePrewarmingPeriod(int index, MediaPeriodHolder prewarmingPeriodHolder) {
-    return prewarmingPeriodHolder.isRendererInCorrectState(index)
-        || (!prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(index)
-            && renderers[index].isRendererEnabled());
+    return !renderers[index].isPrewarming()
+        && (prewarmingPeriodHolder.isRendererInCorrectState(index)
+            || (!prewarmingPeriodHolder.getTrackSelectorResult().isRendererEnabled(index)
+                && renderers[index].isRendererEnabled()));
+  }
+
+  private boolean canAdvancePrewarmingPeriodSynchronously(
+      MediaPeriodHolder prewarmingPeriodHolder) {
+    if (!Objects.equals(prewarmingPeriodHolder, queue.getEarliestReadingPeriod())) {
+      return false;
+    }
+    MediaPeriodHolder nextPeriodHolder = checkNotNull(prewarmingPeriodHolder.getNext());
+    boolean hasEnabledPrewarmingRendererInNextPeriod = false;
+    for (int i = 0; i < renderers.length; i++) {
+      if (renderers[i].hasSecondary()) {
+        if (!canAdvancePrewarmingPeriod(i, prewarmingPeriodHolder)) {
+          return false;
+        }
+        hasEnabledPrewarmingRendererInNextPeriod |=
+            nextPeriodHolder.getTrackSelectorResult().isRendererEnabled(i);
+      }
+    }
+    return hasEnabledPrewarmingRendererInNextPeriod;
   }
 
   private void maybePrewarmRenderers() throws ExoPlaybackException {
@@ -2949,26 +2979,26 @@ import org.jspecify.annotations.Nullable;
     if (prewarmingPeriod == null) {
       return;
     }
+    boolean anyRendererPrewarming = false;
     for (int i = 0; i < renderers.length; i++) {
-      maybePrewarmRenderer(i);
+      anyRendererPrewarming |= maybePrewarmRenderer(i);
     }
     // Handle any media period discontinuities.
-    if (areRenderersPrewarming()) {
-      prewarmingMediaPeriodDiscontinuity = prewarmingPeriod.mediaPeriod.readDiscontinuity();
-      if (!prewarmingPeriod.isFullyBuffered()) {
-        // The discontinuity caused the period to not be fully buffered. Continue loading from
-        // this period again and discard all other periods we already started loading.
-        queue.removeAfter(prewarmingPeriod);
-        handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
-        maybeContinueLoading();
-      }
+    if (anyRendererPrewarming) {
+      maybeHandlePrewarmingPeriodDiscontinuity(prewarmingPeriod);
     }
   }
 
-  private void maybePrewarmRenderer(int index) throws ExoPlaybackException {
+  /**
+   * Starts prewarming the renderer at {@code index} on its prewarming period if enabled.
+   *
+   * @param index The renderer index.
+   * @return Whether the renderer started prewarming.
+   */
+  private boolean maybePrewarmRenderer(int index) throws ExoPlaybackException {
     @Nullable MediaPeriodHolder prewarmingPeriod = queue.getPrewarmingPeriod(index);
     if (prewarmingPeriod == null) {
-      return;
+      return false;
     }
     TrackSelectorResult trackSelectorResult = prewarmingPeriod.getTrackSelectorResult();
     if (trackSelectorResult.isRendererEnabled(index)
@@ -2980,6 +3010,19 @@ import org.jspecify.annotations.Nullable;
           /* rendererIndex= */ index,
           /* wasRendererEnabled= */ false,
           prewarmingPeriod.getStartPositionRendererTime());
+      return true;
+    }
+    return false;
+  }
+
+  private void maybeHandlePrewarmingPeriodDiscontinuity(MediaPeriodHolder prewarmingPeriod) {
+    prewarmingMediaPeriodDiscontinuity = prewarmingPeriod.mediaPeriod.readDiscontinuity();
+    if (!prewarmingPeriod.isFullyBuffered()) {
+      // The discontinuity caused the period to not be fully buffered. Continue loading from
+      // this period again and discard all other periods we already started loading.
+      queue.removeAfter(prewarmingPeriod);
+      handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
+      maybeContinueLoading();
     }
   }
 
@@ -3000,6 +3043,9 @@ import org.jspecify.annotations.Nullable;
           /* oldPeriodId= */ oldLatestReadingPeriod.info.id,
           /* positionForTargetOffsetOverrideUs= */ C.TIME_UNSET,
           /* forceSetTargetOffsetOverride= */ false);
+      if (!newLatestReadingPeriod.usesStreamPrerollFlags()) {
+        boolean unused = maybeHandleDiscontinuityAndSetStreamsFinal(newLatestReadingPeriod);
+      }
     }
   }
 
@@ -3144,6 +3190,21 @@ import org.jspecify.annotations.Nullable;
         /* positionForTargetOffsetOverrideUs= */ C.TIME_UNSET,
         /* forceSetTargetOffsetOverride= */ false);
 
+    if (maybeHandleDiscontinuityAndSetStreamsFinal(readingPeriodHolder)) {
+      return;
+    }
+
+    for (RendererHolder renderer : renderers) {
+      renderer.maybeSetOldStreamToFinal(
+          oldTrackSelectorResult,
+          newTrackSelectorResult,
+          readingPeriodHolder.getStartPositionRendererTime());
+    }
+  }
+
+  private boolean maybeHandleDiscontinuityAndSetStreamsFinal(
+      MediaPeriodHolder readingPeriodHolder) {
+    TrackSelectorResult newTrackSelectorResult = readingPeriodHolder.getTrackSelectorResult();
     if (readingPeriodHolder.prepared
         && ((hasSecondaryRenderers && prewarmingMediaPeriodDiscontinuity != C.TIME_UNSET)
             || readingPeriodHolder.mediaPeriod.readDiscontinuity() != C.TIME_UNSET)) {
@@ -3180,21 +3241,18 @@ import org.jspecify.annotations.Nullable;
           handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
           maybeContinueLoading();
         }
-        return;
+        return true;
       }
     }
-
-    for (RendererHolder renderer : renderers) {
-      renderer.maybeSetOldStreamToFinal(
-          oldTrackSelectorResult,
-          newTrackSelectorResult,
-          readingPeriodHolder.getStartPositionRendererTime());
-    }
+    return false;
   }
 
   private boolean isSafeToAdvancePerStream(MediaPeriodHolder current) {
     MediaPeriodHolder next = checkNotNull(current.getNext());
     if (current.info.id.isAd() != next.info.id.isAd()) {
+      return false;
+    }
+    if (!next.usesStreamPrerollFlags()) {
       return false;
     }
 
@@ -3251,7 +3309,8 @@ import org.jspecify.annotations.Nullable;
     }
     RendererHolder renderer = renderers[index];
     TrackSelectorResult newTrackSelectorResult = readingPeriod.getTrackSelectorResult();
-    if (newTrackSelectorResult.isRendererEnabled(index)
+    if (readingPeriod.usesStreamPrerollFlags()
+        && newTrackSelectorResult.isRendererEnabled(index)
         && renderer.isRendererEnabled()
         && !isRendererPrewarming(index)
         && !renderer.isReadingFromPeriod(readingPeriod)) {
@@ -3501,7 +3560,8 @@ import org.jspecify.annotations.Nullable;
       return false;
     }
     for (RendererHolder renderer : renderers) {
-      if (!renderer.hasFinishedReadingFromPeriod(readingPeriodHolder)) {
+      if (!renderer.hasFinishedReadingFromPeriod(readingPeriodHolder)
+          || renderer.isPrewarmingPeriod(readingPeriodHolder)) {
         return false;
       }
     }

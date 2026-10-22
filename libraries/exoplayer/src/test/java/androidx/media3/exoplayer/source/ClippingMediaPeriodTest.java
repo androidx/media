@@ -369,7 +369,7 @@ public class ClippingMediaPeriodTest {
     return new FakeMediaPeriod(
         trackGroups,
         new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-        /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(),
+        /* trackDataFactory= */ (format, mediaPeriodId) -> ImmutableList.of(END_OF_STREAM_ITEM),
         new MediaSourceEventListener.EventDispatcher()
             .withParameters(
                 /* windowIndex= */ 0, new MediaSource.MediaPeriodId(/* periodUid= */ new Object())),
@@ -451,15 +451,14 @@ public class ClippingMediaPeriodTest {
             /* enableInitialDiscontinuity= */ true,
             /* startUs= */ 0,
             /* endUs= */ C.TIME_END_OF_SOURCE);
-
     SampleStream[] sampleStreams =
         prepareMediaPeriodAndSelectTracks(
             clippingMediaPeriod, /* preparePositionUs= */ 0, trackGroups);
-
-    assertThat(sampleStreams[0].getFlags()).isEqualTo(0);
+    int initialFlags = sampleStreams[0].getFlags();
 
     clippingMediaPeriod.updateClipping(/* startUs= */ 0, /* endUs= */ 500);
 
+    assertThat(initialFlags).isEqualTo(0);
     assertThat(sampleStreams[0].getFlags()).isEqualTo(SampleStream.FLAG_STRICT_DURATION);
   }
 
@@ -501,7 +500,6 @@ public class ClippingMediaPeriodTest {
             };
           }
         };
-
     ClippingMediaPeriod clippingMediaPeriod =
         new ClippingMediaPeriod(
             mediaPeriod,
@@ -554,7 +552,6 @@ public class ClippingMediaPeriodTest {
             };
           }
         };
-
     ClippingMediaPeriod clippingMediaPeriod =
         new ClippingMediaPeriod(
             mediaPeriod,
@@ -611,7 +608,6 @@ public class ClippingMediaPeriodTest {
             };
           }
         };
-
     ClippingMediaPeriod clippingMediaPeriod =
         new ClippingMediaPeriod(
             mediaPeriod,
@@ -626,5 +622,244 @@ public class ClippingMediaPeriodTest {
     // The clip sets a non-zero start position, so it introduces preroll and overrides the child's
     // FLAG_MAYBE_HAS_PREROLL with FLAG_HAS_PREROLL.
     assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+  }
+
+  @Test
+  public void setUsesStreamPrerollFlags_afterSelectTracks_clearsInitialDiscontinuity()
+      throws Exception {
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            getFakeMediaPeriod(trackGroups),
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    boolean unused =
+        clippingMediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(250).build());
+
+    boolean isReadyBefore = sampleStreams[0].isReady();
+    clippingMediaPeriod.setUsesStreamPrerollFlags();
+
+    assertThat(isReadyBefore).isFalse();
+    assertThat(sampleStreams[0].isReady()).isTrue();
+    assertThat(clippingMediaPeriod.supportsStreamPrerollFlags()).isTrue();
+    assertThat(clippingMediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+  }
+
+  @Test
+  public void selectTracks_calledAgainAfterSetUsesStreamPrerollFlags_preservesPrerollFlags()
+      throws Exception {
+    TrackGroup secondVideoTrackGroup = new TrackGroup(VIDEO_FORMAT);
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP, secondVideoTrackGroup);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            getFakeMediaPeriod(trackGroups),
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+    AtomicBoolean periodPrepared = new AtomicBoolean();
+    clippingMediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            periodPrepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 250);
+    RobolectricUtil.runMainLooperUntil(periodPrepared::get);
+    SampleStream[] sampleStreams = new SampleStream[2];
+    ExoTrackSelection[] initialSelections =
+        new ExoTrackSelection[] {new FixedTrackSelection(VIDEO_TRACK_GROUP, /* track= */ 0), null};
+    clippingMediaPeriod.selectTracks(
+        initialSelections,
+        /* mayRetainStreamFlags= */ new boolean[2],
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 250);
+    boolean unused =
+        clippingMediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(250).build());
+
+    clippingMediaPeriod.selectTracks(
+        initialSelections,
+        /* mayRetainStreamFlags= */ new boolean[] {true, false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 250);
+    boolean isReadyBeforeSetUsesStreamPrerollFlags = sampleStreams[0].isReady();
+    clippingMediaPeriod.setUsesStreamPrerollFlags();
+    ExoTrackSelection[] updatedSelections =
+        new ExoTrackSelection[] {
+          initialSelections[0], new FixedTrackSelection(secondVideoTrackGroup, /* track= */ 0)
+        };
+    clippingMediaPeriod.selectTracks(
+        updatedSelections,
+        /* mayRetainStreamFlags= */ new boolean[] {true, false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 250);
+    int firstStreamFlagsBeforeDiscontinuity = sampleStreams[0].getFlags();
+    int secondStreamFlagsBeforeDiscontinuity = sampleStreams[1].getFlags();
+    long discontinuityUs = clippingMediaPeriod.readDiscontinuity();
+    clippingMediaPeriod.selectTracks(
+        updatedSelections,
+        /* mayRetainStreamFlags= */ new boolean[] {false, false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 350);
+
+    assertThat(isReadyBeforeSetUsesStreamPrerollFlags).isFalse();
+    assertThat(firstStreamFlagsBeforeDiscontinuity)
+        .isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+    assertThat(secondStreamFlagsBeforeDiscontinuity)
+        .isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+    assertThat(discontinuityUs).isEqualTo(C.TIME_UNSET);
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+  }
+
+  @Test
+  public void
+      selectTracks_withRetainedStreamAfterReadDiscontinuity_doesNotReportInitialDiscontinuity()
+          throws Exception {
+    TrackGroup secondVideoTrackGroup = new TrackGroup(VIDEO_FORMAT);
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP, secondVideoTrackGroup);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            getFakeMediaPeriod(trackGroups),
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+    AtomicBoolean periodPrepared = new AtomicBoolean();
+    clippingMediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            periodPrepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 250);
+    RobolectricUtil.runMainLooperUntil(periodPrepared::get);
+    SampleStream[] sampleStreams = new SampleStream[2];
+    ExoTrackSelection[] initialSelections =
+        new ExoTrackSelection[] {new FixedTrackSelection(VIDEO_TRACK_GROUP, /* track= */ 0), null};
+    clippingMediaPeriod.selectTracks(
+        initialSelections,
+        /* mayRetainStreamFlags= */ new boolean[2],
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 250);
+    long initialDiscontinuityUs = clippingMediaPeriod.readDiscontinuity();
+
+    ExoTrackSelection[] updatedSelections =
+        new ExoTrackSelection[] {
+          initialSelections[0], new FixedTrackSelection(secondVideoTrackGroup, /* track= */ 0)
+        };
+    clippingMediaPeriod.selectTracks(
+        updatedSelections,
+        /* mayRetainStreamFlags= */ new boolean[] {true, false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 350);
+    boolean unused =
+        clippingMediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(350).build());
+    long discontinuityAfterReselectionUs = clippingMediaPeriod.readDiscontinuity();
+
+    assertThat(initialDiscontinuityUs).isEqualTo(250);
+    assertThat(discontinuityAfterReselectionUs).isEqualTo(C.TIME_UNSET);
+    assertThat(sampleStreams[0].isReady()).isTrue();
+    assertThat(sampleStreams[1].isReady()).isTrue();
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+  }
+
+  @Test
+  public void selectTracks_withRetainedStreamAfterInitialSeek_doesNotReportInitialDiscontinuity()
+      throws Exception {
+    TrackGroup secondVideoTrackGroup = new TrackGroup(VIDEO_FORMAT);
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP, secondVideoTrackGroup);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            getFakeMediaPeriod(trackGroups),
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+    AtomicBoolean periodPrepared = new AtomicBoolean();
+    clippingMediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            periodPrepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 250);
+    RobolectricUtil.runMainLooperUntil(periodPrepared::get);
+    SampleStream[] sampleStreams = new SampleStream[2];
+    ExoTrackSelection[] initialSelections =
+        new ExoTrackSelection[] {new FixedTrackSelection(VIDEO_TRACK_GROUP, /* track= */ 0), null};
+    clippingMediaPeriod.selectTracks(
+        initialSelections,
+        /* mayRetainStreamFlags= */ new boolean[2],
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 250);
+    long unusedSeekPositionUs = clippingMediaPeriod.seekToUs(350);
+
+    ExoTrackSelection[] updatedSelections =
+        new ExoTrackSelection[] {
+          initialSelections[0], new FixedTrackSelection(secondVideoTrackGroup, /* track= */ 0)
+        };
+    clippingMediaPeriod.selectTracks(
+        updatedSelections,
+        /* mayRetainStreamFlags= */ new boolean[] {true, false},
+        sampleStreams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 350);
+    boolean unused =
+        clippingMediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(350).build());
+    long discontinuityAfterReselectionUs = clippingMediaPeriod.readDiscontinuity();
+
+    assertThat(discontinuityAfterReselectionUs).isEqualTo(C.TIME_UNSET);
+    assertThat(sampleStreams[0].isReady()).isTrue();
+    assertThat(sampleStreams[1].isReady()).isTrue();
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+  }
+
+  @Test
+  public void
+      supportsStreamPrerollFlags_whenWrappedPeriodDoesNotSupportStreamPrerollFlags_returnsFalse()
+          throws Exception {
+    TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP);
+    FakeMediaPeriod mediaPeriod = getFakeMediaPeriod(trackGroups);
+    mediaPeriod.setSupportsStreamPrerollFlags(false);
+    ClippingMediaPeriod clippingMediaPeriod =
+        new ClippingMediaPeriod(
+            mediaPeriod,
+            /* enableInitialDiscontinuity= */ true,
+            /* startUs= */ 250,
+            /* endUs= */ 500);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+
+    boolean supportsStreamPrerollFlags = clippingMediaPeriod.supportsStreamPrerollFlags();
+
+    assertThat(supportsStreamPrerollFlags).isFalse();
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
   }
 }

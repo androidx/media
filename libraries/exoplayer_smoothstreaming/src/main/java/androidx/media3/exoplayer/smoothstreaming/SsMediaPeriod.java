@@ -213,6 +213,11 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
+  }
+
+  @Override
   public long readDiscontinuity() {
     return C.TIME_UNSET;
   }

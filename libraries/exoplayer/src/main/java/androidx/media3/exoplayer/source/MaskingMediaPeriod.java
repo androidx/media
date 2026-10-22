@@ -67,7 +67,6 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   private @Nullable PrepareListener listener;
   private boolean notifiedPrepareError;
   private long preparePositionOverrideUs;
-  private boolean usesStreamPrerollFlags;
 
   /**
    * Creates a new masking media period. The media source must be set via {@link
@@ -131,9 +130,6 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
   public void createPeriod(MediaPeriodId id) {
     long preparePositionUs = getPreparePositionWithOverride(this.preparePositionUs);
     mediaPeriod = checkNotNull(mediaSource).createPeriod(id, allocator, preparePositionUs);
-    if (usesStreamPrerollFlags) {
-      mediaPeriod.setUsesStreamPrerollFlags();
-    }
     if (callback != null) {
       mediaPeriod.prepare(/* callback= */ this, preparePositionUs);
     }
@@ -206,10 +202,12 @@ public final class MaskingMediaPeriod implements MediaPeriod, MediaPeriod.Callba
 
   @Override
   public void setUsesStreamPrerollFlags() {
-    this.usesStreamPrerollFlags = true;
-    if (mediaPeriod != null) {
-      mediaPeriod.setUsesStreamPrerollFlags();
-    }
+    castNonNull(mediaPeriod).setUsesStreamPrerollFlags();
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return castNonNull(mediaPeriod).supportsStreamPrerollFlags();
   }
 
   @Override

@@ -2019,6 +2019,170 @@ public class ExoPlayerWithPrewarmingRenderersTest {
 
   @Test
   public void
+      play_withSecondaryVideoRendererAndCustomMediaPeriodInitialDiscontinuity_readsDiscontinuityDuringPrewarming()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock))
+            .build();
+    Renderer secondaryVideoRenderer = player.getSecondaryRenderer(/* index= */ 0);
+    FakeRenderer audioRenderer = (FakeRenderer) player.getRenderer(/* index= */ 1);
+    Format opusAudioFormat =
+        ExoPlayerTestRunner.AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .build();
+    AtomicBoolean hasReadSecondPeriodDiscontinuity = new AtomicBoolean(false);
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(
+                new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, opusAudioFormat),
+            new FakeMediaSource(
+                new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, opusAudioFormat) {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                FakeMediaPeriod mediaPeriod =
+                    new FakeMediaPeriod(
+                        trackGroupArray,
+                        allocator,
+                        FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(0),
+                        mediaSourceEventDispatcher,
+                        drmSessionManager,
+                        drmEventDispatcher,
+                        /* deferOnPrepared= */ false) {
+                      @Override
+                      public long readDiscontinuity() {
+                        if (hasReadSecondPeriodDiscontinuity.compareAndSet(false, true)) {
+                          return 100;
+                        }
+                        return C.TIME_UNSET;
+                      }
+                    };
+                mediaPeriod.setSupportsStreamPrerollFlags(false);
+                return mediaPeriod;
+              }
+            }));
+
+    player.prepare();
+    player.play();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
+    boolean discontinuityReadWhenPrewarmingEnabled = hasReadSecondPeriodDiscontinuity.get();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(discontinuityReadWhenPrewarmingEnabled).isTrue();
+    assertThat(audioRenderer.enabledCount).isEqualTo(2);
+  }
+
+  @Test
+  public void
+      play_withStaggeredSecondaryRenderersBeforeNonPrerollPeriod_synchronizesPrewarmingAcrossRenderers()
+          throws Exception {
+    Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setClock(fakeClock)
+            .setRenderersFactory(
+                new FakeRenderersFactorySupportingSecondaryVideoRenderer(fakeClock) {
+                  @Override
+                  public @Nullable Renderer createSecondaryRenderer(
+                      Renderer renderer,
+                      Handler eventHandler,
+                      VideoRendererEventListener videoRendererEventListener,
+                      AudioRendererEventListener audioRendererEventListener,
+                      TextOutput textRendererOutput,
+                      MetadataOutput metadataRendererOutput) {
+                    if (renderer instanceof FakeAudioRenderer) {
+                      return new FakeAudioRenderer(
+                          clock.createHandler(eventHandler.getLooper(), /* callback= */ null),
+                          audioRendererEventListener);
+                    }
+                    return super.createSecondaryRenderer(
+                        renderer,
+                        eventHandler,
+                        videoRendererEventListener,
+                        audioRendererEventListener,
+                        textRendererOutput,
+                        metadataRendererOutput);
+                  }
+                })
+            .build();
+    Renderer primaryVideoRenderer = player.getRenderer(/* index= */ 0);
+    Renderer primaryAudioRenderer = player.getRenderer(/* index= */ 1);
+    Renderer secondaryAudioRenderer = player.getSecondaryRenderer(/* index= */ 1);
+    AtomicBoolean hasReadThirdPeriodDiscontinuity = new AtomicBoolean(false);
+    AtomicBoolean bothRenderersPrewarmingWhenDiscontinuityRead = new AtomicBoolean(false);
+    Timeline shortPeriodTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(50_000).build());
+    player.setMediaSources(
+        ImmutableList.of(
+            new FakeMediaSource(
+                shortPeriodTimeline,
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(shortPeriodTimeline, ExoPlayerTestRunner.AUDIO_FORMAT),
+            new FakeMediaSource(
+                shortPeriodTimeline,
+                ExoPlayerTestRunner.VIDEO_FORMAT,
+                ExoPlayerTestRunner.AUDIO_FORMAT) {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                FakeMediaPeriod mediaPeriod =
+                    new FakeMediaPeriod(
+                        trackGroupArray,
+                        allocator,
+                        FakeMediaPeriod.TrackDataFactory.singleSampleWithTimeUs(0),
+                        mediaSourceEventDispatcher,
+                        drmSessionManager,
+                        drmEventDispatcher,
+                        /* deferOnPrepared= */ false) {
+                      @Override
+                      public long readDiscontinuity() {
+                        if (hasReadThirdPeriodDiscontinuity.compareAndSet(false, true)) {
+                          bothRenderersPrewarmingWhenDiscontinuityRead.set(
+                              primaryVideoRenderer.getState() == Renderer.STATE_ENABLED
+                                  && primaryAudioRenderer.getState() == Renderer.STATE_ENABLED
+                                  && secondaryAudioRenderer.getState() == Renderer.STATE_STARTED);
+                          return 100;
+                        }
+                        return C.TIME_UNSET;
+                      }
+                    };
+                mediaPeriod.setSupportsStreamPrerollFlags(false);
+                return mediaPeriod;
+              }
+            }));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(hasReadThirdPeriodDiscontinuity.get()).isTrue();
+    assertThat(bothRenderersPrewarmingWhenDiscontinuityRead.get()).isTrue();
+  }
+
+  @Test
+  public void
       positionDiscontinuity_inPlayingPeriodWithSecondaryRendererPrewarming_disablesAndResetsPrewarmingRenderer()
           throws Exception {
     Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);

@@ -257,6 +257,11 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
+    public boolean supportsStreamPrerollFlags() {
+      return mediaPeriod.supportsStreamPrerollFlags();
+    }
+
+    @Override
     public long readDiscontinuity() {
       return getAdjustedPeriodTimeUs(
           mediaPeriod.readDiscontinuity(), speedProviderMapper, clipStartUs);

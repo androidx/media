@@ -213,6 +213,11 @@ public class FakeAdaptiveMediaPeriod
   }
 
   @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
+  }
+
+  @Override
   public long readDiscontinuity() {
     assertThat(prepared).isTrue();
     return C.TIME_UNSET;

@@ -15982,6 +15982,92 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void
+      play_periodTransitionWithSecondPeriodInitialDiscontinuity_resetsRenderersAtTransitionInsteadOfAfter()
+          throws Exception {
+    AtomicInteger audioStreamChangedCount = new AtomicInteger(0);
+    AtomicInteger audioStreamChangedCountWhileVideoReadingFirstPeriod = new AtomicInteger(-1);
+    AtomicInteger videoPositionResetCount = new AtomicInteger(0);
+    AtomicInteger audioPositionResetCount = new AtomicInteger(0);
+    FakeRenderer audioRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          protected void onStreamChanged(
+              Format[] formats, long startPositionUs, long offsetUs, MediaPeriodId mediaPeriodId)
+              throws ExoPlaybackException {
+            super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+            audioStreamChangedCount.incrementAndGet();
+          }
+
+          @Override
+          protected void onPositionReset(
+              long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+              throws ExoPlaybackException {
+            super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+            if (getState() == STATE_STARTED) {
+              audioPositionResetCount.incrementAndGet();
+            }
+          }
+        };
+    FakeRenderer videoRenderer =
+        new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+          @Override
+          protected boolean shouldProcessBuffer(long bufferTimeUs, long playbackPositionUs) {
+            if (!audioRenderer.hasReadStreamToEnd()) {
+              return false;
+            }
+            audioStreamChangedCountWhileVideoReadingFirstPeriod.compareAndSet(
+                -1, audioStreamChangedCount.get());
+            return true;
+          }
+
+          @Override
+          protected void onPositionReset(
+              long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+              throws ExoPlaybackException {
+            super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+            if (getState() == STATE_STARTED) {
+              videoPositionResetCount.incrementAndGet();
+            }
+          }
+        };
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setRenderers(videoRenderer, audioRenderer))
+            .build();
+    MediaSource mediaSource1 =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    MediaSource mediaSource2 =
+        new FakeMediaSource(
+            new FakeTimeline(),
+            ExoPlayerTestRunner.VIDEO_FORMAT,
+            ExoPlayerTestRunner.AUDIO_FORMAT) {
+          @Override
+          public MediaPeriod createPeriod(
+              MediaPeriodId id, Allocator allocator, long startPositionUs) {
+            FakeMediaPeriod mediaPeriod =
+                (FakeMediaPeriod) super.createPeriod(id, allocator, startPositionUs);
+            mediaPeriod.setSupportsStreamPrerollFlags(false);
+            mediaPeriod.setDiscontinuityPositionUs(0);
+            return mediaPeriod;
+          }
+        };
+    player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
+
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(audioStreamChangedCountWhileVideoReadingFirstPeriod.get()).isEqualTo(1);
+    assertThat(videoRenderer.enabledCount).isEqualTo(2);
+    assertThat(audioRenderer.enabledCount).isEqualTo(2);
+    assertThat(videoPositionResetCount.get()).isEqualTo(0);
+    assertThat(audioPositionResetCount.get()).isEqualTo(0);
+  }
+
+  @Test
   public void multipleAudioSessionIdChangesOnAudioRenderer_propagatesToRenderersAndListener()
       throws Exception {
     ArrayList<Integer> configuredAudioSessionIdsOnAudioRenderer = new ArrayList<>();
@@ -17389,6 +17475,11 @@ public final class ExoPlayerTest {
     @Override
     public void setUsesStreamPrerollFlags() {
       mediaPeriod.setUsesStreamPrerollFlags();
+    }
+
+    @Override
+    public boolean supportsStreamPrerollFlags() {
+      return mediaPeriod.supportsStreamPrerollFlags();
     }
 
     @Override

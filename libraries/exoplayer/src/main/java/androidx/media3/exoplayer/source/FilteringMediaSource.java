@@ -137,6 +137,11 @@ public class FilteringMediaSource extends WrappingMediaSource {
     }
 
     @Override
+    public boolean supportsStreamPrerollFlags() {
+      return mediaPeriod.supportsStreamPrerollFlags();
+    }
+
+    @Override
     public long readDiscontinuity() {
       return mediaPeriod.readDiscontinuity();
     }

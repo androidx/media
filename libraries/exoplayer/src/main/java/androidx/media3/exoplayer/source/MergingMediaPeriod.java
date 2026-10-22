@@ -231,6 +231,16 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
+  public boolean supportsStreamPrerollFlags() {
+    for (MediaPeriod period : periods) {
+      if (!period.supportsStreamPrerollFlags()) {
+        return false;
+      }
+    }
+    return periods.length > 0;
+  }
+
+  @Override
   public long readDiscontinuity() {
     long discontinuityUs = C.TIME_UNSET;
     for (MediaPeriod period : enabledPeriods) {

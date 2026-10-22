@@ -231,6 +231,11 @@ public final class SilenceMediaSource extends BaseMediaSource {
     public void discardBuffer(long positionUs, boolean toKeyframe) {}
 
     @Override
+    public boolean supportsStreamPrerollFlags() {
+      return true;
+    }
+
+    @Override
     public long readDiscontinuity() {
       return C.TIME_UNSET;
     }

@@ -983,6 +983,10 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       actualMediaPeriod.setUsesStreamPrerollFlags();
     }
 
+    private boolean supportsStreamPrerollFlags() {
+      return actualMediaPeriod.supportsStreamPrerollFlags();
+    }
+
     private long getStreamPositionUsWithNotYetStartedHandling(
         MediaPeriodImpl mediaPeriod, long positionUs) {
       if (positionUs < mediaPeriod.lastStartPositionUs) {
@@ -1237,6 +1241,11 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     @Override
     public void setUsesStreamPrerollFlags() {
       sharedPeriod.setUsesStreamPrerollFlags();
+    }
+
+    @Override
+    public boolean supportsStreamPrerollFlags() {
+      return sharedPeriod.supportsStreamPrerollFlags();
     }
 
     @Override

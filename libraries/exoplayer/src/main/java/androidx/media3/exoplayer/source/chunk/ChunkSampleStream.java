@@ -695,7 +695,9 @@ public class ChunkSampleStream<T extends ChunkSource>
           for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
             embeddedSampleQueue.setStartTimeUs(pendingResetPositionUs);
           }
-          hasInitialDiscontinuity = needToEvaluateInitialDiscontinuity;
+          if (needToEvaluateInitialDiscontinuity) {
+            hasInitialDiscontinuity = true;
+          }
         }
         // Once we started loading the first media chunk, no more initial discontinuities can be
         // reported.
