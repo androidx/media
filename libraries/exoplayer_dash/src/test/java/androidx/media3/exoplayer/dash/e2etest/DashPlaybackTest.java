@@ -20,9 +20,11 @@ import static androidx.media3.test.utils.WebServerDispatcher.getRequestPath;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -41,6 +43,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.AssetDataSource;
@@ -619,9 +622,11 @@ public final class DashPlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
   }
 
-  // Two CEA-608 channels declared in the manifest must not change the output of the first one.
+  // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
+  //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
+  //  actually only has data for one of them (CC1).
   @Test
-  public void cea608_twoChannelsDeclared_firstChannelOutputUnchanged() throws Exception {
+  public void cea608_twoChannelsDeclared_englishSelected() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
@@ -632,6 +637,8 @@ public final class DashPlaybackTest {
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
+    AnalyticsListener analyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(analyticsListener);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     DefaultTrackSelector trackSelector =
@@ -645,53 +652,27 @@ public final class DashPlaybackTest {
     player.release();
     surface.release();
 
+    // Assert the output matches a stream that only declares CC1.
     DumpFileAsserts.assertOutput(
         applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
+    ArgumentCaptor<MediaLoadData> downstreamFormats = ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(analyticsListener, atLeastOnce())
+        .onDownstreamFormatChanged(any(), downstreamFormats.capture());
+    Format downstreamTextFormat =
+        downstreamFormats.getAllValues().stream()
+            .filter(m -> m.trackType == C.TRACK_TYPE_TEXT)
+            .map(m -> m.trackFormat)
+            .collect(onlyElement());
+    assertThat(downstreamTextFormat.language).isEqualTo("en");
+    assertThat(downstreamTextFormat.accessibilityChannel).isEqualTo(1);
   }
 
+  // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
+  //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
+  //  actually only has data for one of them (CC1). That means this test, which selectes CC2, can
+  //  currently only assert that no subtitles are output.
   @Test
-  public void cea608_twoChannelsDeclaredReversed_selectEnglish_rendersChannel1Once()
-      throws Exception {
-    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
-    String singleChannelDump =
-        playCea608AndDump(
-            "asset:///media/dash/cea608/manifest.mpd", "en", /* analyticsListener= */ null);
-    String dump =
-        playCea608AndDump(
-            "asset:///media/dash/cea608_two_channels_reversed/manifest.mpd",
-            "en",
-            analyticsListener);
-
-    assertThat(countOccurrences(singleChannelDump, "text = First subtitle")).isGreaterThan(0);
-    assertThat(countOccurrences(dump, "text = First subtitle"))
-        .isEqualTo(countOccurrences(singleChannelDump, "text = First subtitle"));
-    assertThat(countOccurrences(dump, "text = Second subtitle"))
-        .isEqualTo(countOccurrences(singleChannelDump, "text = Second subtitle"));
-    assertThat(analyticsListener.downstreamTextFormat).isNotNull();
-    assertThat(analyticsListener.downstreamTextFormat.language).isEqualTo("en");
-    assertThat(analyticsListener.downstreamTextFormat.accessibilityChannel).isEqualTo(1);
-  }
-
-  @Test
-  public void cea608_twoChannelsDeclared_selectSpanish_rendersNothingFromChannel1()
-      throws Exception {
-    AnalyticsListenerImpl analyticsListener = new AnalyticsListenerImpl();
-    String dump =
-        playCea608AndDump(
-            "asset:///media/dash/cea608_two_channels/manifest.mpd", "es", analyticsListener);
-
-    assertThat(dump).doesNotContain("text = First subtitle");
-    assertThat(dump).doesNotContain("text = Second subtitle");
-    assertThat(analyticsListener.downstreamTextFormat).isNotNull();
-    assertThat(analyticsListener.downstreamTextFormat.language).isEqualTo("es");
-    assertThat(analyticsListener.downstreamTextFormat.accessibilityChannel).isEqualTo(2);
-  }
-
-  private String playCea608AndDump(
-      String uri,
-      String preferredTextLanguage,
-      @Nullable AnalyticsListener analyticsListener)
-      throws Exception {
+  public void cea608_twoChannelsDeclared_spanishSelected() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
@@ -700,34 +681,83 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
             .build();
-    if (analyticsListener != null) {
-      player.addAnalyticsListener(analyticsListener);
-    }
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    AnalyticsListener analyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(analyticsListener);
+
     DefaultTrackSelector trackSelector =
         checkNotNull((DefaultTrackSelector) player.getTrackSelector());
-    trackSelector.setParameters(
-        trackSelector.buildUponParameters().setPreferredTextLanguage(preferredTextLanguage));
-    player.setMediaItem(MediaItem.fromUri(uri));
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("es"));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/dash/cea608_two_channels/manifest.mpd"));
     player.prepare();
     advance(player).untilFullyBuffered();
     player.play();
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
-    androidx.media3.test.utils.Dumper dumper = new androidx.media3.test.utils.Dumper();
-    playbackOutput.dump(dumper);
-    return dumper.toString();
+
+    // TODO(b/576567383): Assert the actual output when we can use a test stream with real CC2 data.
+    ArgumentCaptor<CueGroup> cueGroups = ArgumentCaptor.forClass(CueGroup.class);
+    verify(analyticsListener, atLeast(0)).onCues(any(), cueGroups.capture());
+    assertThat(cueGroups.getAllValues().stream().flatMap(cueGroup -> cueGroup.cues.stream()))
+        .isEmpty();
+    ArgumentCaptor<MediaLoadData> downstreamFormats = ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(analyticsListener, atLeastOnce())
+        .onDownstreamFormatChanged(any(), downstreamFormats.capture());
+    Format downstreamTextFormat =
+        downstreamFormats.getAllValues().stream()
+            .filter(m -> m.trackType == C.TRACK_TYPE_TEXT)
+            .map(m -> m.trackFormat)
+            .collect(onlyElement());
+    assertThat(downstreamTextFormat.language).isEqualTo("es");
+    assertThat(downstreamTextFormat.accessibilityChannel).isEqualTo(2);
   }
 
-  private static int countOccurrences(String haystack, String needle) {
-    int count = 0;
-    for (int i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + 1)) {
-      count++;
-    }
-    return count;
+  // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
+  //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
+  //  actually only has data for one of them (CC1).
+  @Test
+  public void cea608_twoChannelsDeclaredReversed_englishSelected() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    AnalyticsListener analyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(analyticsListener);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    DefaultTrackSelector trackSelector =
+        checkNotNull((DefaultTrackSelector) player.getTrackSelector());
+    trackSelector.setParameters(trackSelector.buildUponParameters().setPreferredTextLanguage("en"));
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/cea608_two_channels_reversed/manifest.mpd"));
+    player.prepare();
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    // Assert the output matches a stream that only declares CC1.
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
+    ArgumentCaptor<MediaLoadData> downstreamFormats = ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(analyticsListener, atLeastOnce())
+        .onDownstreamFormatChanged(any(), downstreamFormats.capture());
+    Format downstreamTextFormat =
+        downstreamFormats.getAllValues().stream()
+            .filter(m -> m.trackType == C.TRACK_TYPE_TEXT)
+            .map(m -> m.trackFormat)
+            .collect(onlyElement());
+    assertThat(downstreamTextFormat.language).isEqualTo("en");
+    assertThat(downstreamTextFormat.accessibilityChannel).isEqualTo(1);
   }
 
   // https://github.com/google/ExoPlayer/issues/8710
@@ -1344,7 +1374,6 @@ public final class DashPlaybackTest {
 
     private @Nullable LoadEventInfo loadErrorEventInfo;
     private @Nullable IOException loadError;
-    private @Nullable Format downstreamTextFormat;
 
     @Override
     public void onLoadError(
@@ -1355,13 +1384,6 @@ public final class DashPlaybackTest {
         boolean wasCanceled) {
       this.loadErrorEventInfo = loadEventInfo;
       this.loadError = error;
-    }
-
-    @Override
-    public void onDownstreamFormatChanged(EventTime eventTime, MediaLoadData mediaLoadData) {
-      if (mediaLoadData.trackType == C.TRACK_TYPE_TEXT) {
-        this.downstreamTextFormat = mediaLoadData.trackFormat;
-      }
     }
   }
 
