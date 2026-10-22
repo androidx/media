@@ -114,7 +114,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long maxTrackDurationUs;
   private int nextTrackId;
   private long lastVideoSampleTimeUs;
-  private boolean videoSamplesOutOfOrder;
+  private boolean videoSamplesMayBeReordered;
 
   /**
    * Creates an instance.
@@ -157,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     tracks.add(track);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       videoTrack = track;
-      videoSamplesOutOfOrder = format.maxNumReorderSamples != 0;
+      videoSamplesMayBeReordered = format.maxNumReorderSamples != 0;
     }
     return track;
   }
@@ -173,9 +173,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
     }
     if (fragmentsBetweenKeyFramesEnabled && track.equals(videoTrack) && !isSampleEmpty) {
+      // Format.maxNumReorderSamples is declared by the caller and isn't guaranteed to be accurate.
+      // If samples arrive out of order, fall back to starting fragments only at key frames.
       if (lastVideoSampleTimeUs != C.TIME_UNSET
           && bufferInfo.presentationTimeUs < lastVideoSampleTimeUs) {
-        videoSamplesOutOfOrder = true;
+        videoSamplesMayBeReordered = true;
       }
       lastVideoSampleTimeUs = bufferInfo.presentationTimeUs;
     }
@@ -305,7 +307,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (track.equals(videoTrack)
           && track.hadKeyframe
           && ((nextSampleBufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) > 0
-              || canEndFragmentBeforeNonKeyFrame(nextSampleBufferInfo))) {
+              || shouldAllowFragmentStartAtNonKeyFrame(nextSampleBufferInfo))) {
         BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
         BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
         return lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs
@@ -318,13 +320,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // LINT.ThenChange(:mfra_indexing_logic)
   }
 
-  /** Returns whether a fragment can end before a non-key video sample. */
-  private boolean canEndFragmentBeforeNonKeyFrame(BufferInfo nextSampleBufferInfo) {
-    if (!fragmentsBetweenKeyFramesEnabled || videoSamplesOutOfOrder) {
+  /** Returns whether a new fragment may start at the given non-key video sample. */
+  private boolean shouldAllowFragmentStartAtNonKeyFrame(BufferInfo nextSampleBufferInfo) {
+    if (!fragmentsBetweenKeyFramesEnabled || videoSamplesMayBeReordered) {
       return false;
     }
     BufferInfo lastPendingSample =
         checkNotNull(checkNotNull(videoTrack).pendingSamplesBufferInfo.peekLast());
+    // Only start a new fragment at a timestamp strictly after the last pending sample, so that
+    // samples with the same timestamp stay in the same fragment.
     return nextSampleBufferInfo.presentationTimeUs > lastPendingSample.presentationTimeUs;
   }
 
