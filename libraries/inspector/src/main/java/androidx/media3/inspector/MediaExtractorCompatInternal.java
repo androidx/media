@@ -458,7 +458,7 @@ import org.jspecify.annotations.Nullable;
    * mode}.
    */
   /* package */ void seekTo(long timeUs, @MediaExtractorCompat.SeekMode int mode) {
-    if (seekMap == null) {
+    if (seekMap == null || selectedTrackIndices.isEmpty()) {
       return;
     }
 

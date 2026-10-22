@@ -445,6 +445,18 @@ public class MediaExtractorContractTest {
         IllegalArgumentException.class, () -> mediaExtractorProxy.getTrackFormat(trackCount));
   }
 
+  @Test
+  public void seekTo_withNoTrackSelected_isNoOp() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample_ac3.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    mediaExtractorProxy.seekTo(/* timeUs= */ 128_000, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC);
+    mediaExtractorProxy.selectTrack(0);
+
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(0);
+  }
+
   private static byte[] buildInitializationVector(int suffix) {
     byte[] initializationVector = new byte[16];
     initializationVector[0] = 0x20;
