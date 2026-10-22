@@ -457,6 +457,19 @@ public class MediaExtractorContractTest {
     assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(0);
   }
 
+  @Test
+  public void seekTo_withClosestSyncAtMidpoint_seeksToLaterSyncSample() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample_ac3.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+    mediaExtractorProxy.selectTrack(0);
+
+    // Sync samples in track 0 are at 0, 32_000, 64_000, ... us.
+    mediaExtractorProxy.seekTo(/* timeUs= */ 16_000, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
+
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(32_000);
+  }
+
   private static byte[] buildInitializationVector(int suffix) {
     byte[] initializationVector = new byte[16];
     initializationVector[0] = 0x20;

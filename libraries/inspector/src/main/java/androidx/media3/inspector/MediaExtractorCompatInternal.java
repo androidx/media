@@ -478,7 +478,8 @@ import org.jspecify.annotations.Nullable;
     switch (mode) {
       case SEEK_TO_CLOSEST_SYNC:
         seekPoint =
-            Math.abs(timeUs - seekPoints.second.timeUs) < Math.abs(timeUs - seekPoints.first.timeUs)
+            Math.abs(timeUs - seekPoints.second.timeUs)
+                    <= Math.abs(timeUs - seekPoints.first.timeUs)
                 ? seekPoints.second
                 : seekPoints.first;
         break;
