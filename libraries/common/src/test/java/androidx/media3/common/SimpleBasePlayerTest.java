@@ -2380,6 +2380,67 @@ public class SimpleBasePlayerTest {
     assertThat(callForwarded.get()).isFalse();
   }
 
+  @Test
+  public void
+      setPlayWhenReady_withoutAvailableCommandAndThrowWhenCommandUnavailable_throwsIllegalStateException() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder().addAllCommands().remove(Player.COMMAND_PLAY_PAUSE).build())
+            .build();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          {
+            setThrowWhenCommandUnavailable(true);
+          }
+
+          @Override
+          protected State getState() {
+            return state;
+          }
+        };
+
+    assertThrows(IllegalStateException.class, () -> player.setPlayWhenReady(true));
+  }
+
+  @Test
+  public void
+      setPlayWhenReady_afterReleaseWithoutAvailableCommandAndThrowWhenCommandUnavailable_isNotForwarded() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder().addAllCommands().remove(Player.COMMAND_PLAY_PAUSE).build())
+            .build();
+    AtomicBoolean callForwarded = new AtomicBoolean();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          {
+            setThrowWhenCommandUnavailable(true);
+          }
+
+          @Override
+          protected State getState() {
+            return state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleRelease() {
+            return Futures.immediateVoidFuture();
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
+            callForwarded.set(true);
+            return Futures.immediateVoidFuture();
+          }
+        };
+    player.release();
+
+    player.setPlayWhenReady(true);
+
+    assertThat(callForwarded.get()).isFalse();
+  }
+
   @SuppressWarnings("deprecation") // Verifying deprecated listener call.
   @Test
   public void prepare_immediateHandling_updatesStateAndInformsListeners() {
@@ -7472,6 +7533,100 @@ public class SimpleBasePlayerTest {
             new MediaItem.Builder().setMediaId("2").build()));
 
     assertThat(callForwarded.get()).isFalse();
+  }
+
+  @Test
+  public void
+      setMediaItems_withJustSetMediaItemCommandForSingleItemPlaylistAndThrowWhenCommandUnavailable_isForwarded() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder()
+                    .addAllCommands()
+                    .remove(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+                    .build())
+            .build();
+    AtomicBoolean callForwarded = new AtomicBoolean();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          {
+            setThrowWhenCommandUnavailable(true);
+          }
+
+          @Override
+          protected State getState() {
+            return state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetMediaItems(
+              List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
+            callForwarded.set(true);
+            return Futures.immediateVoidFuture();
+          }
+        };
+
+    player.setMediaItems(ImmutableList.of(new MediaItem.Builder().setMediaId("new").build()));
+
+    assertThat(callForwarded.get()).isTrue();
+  }
+
+  @Test
+  public void
+      setMediaItems_withoutAvailableCommandForSingleItemPlaylistAndThrowWhenCommandUnavailable_throwsIllegalStateException() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder()
+                    .addAllCommands()
+                    .removeAll(Player.COMMAND_CHANGE_MEDIA_ITEMS, Player.COMMAND_SET_MEDIA_ITEM)
+                    .build())
+            .build();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          {
+            setThrowWhenCommandUnavailable(true);
+          }
+
+          @Override
+          protected State getState() {
+            return state;
+          }
+        };
+    ImmutableList<MediaItem> mediaItems =
+        ImmutableList.of(new MediaItem.Builder().setMediaId("new").build());
+
+    assertThrows(IllegalStateException.class, () -> player.setMediaItems(mediaItems));
+  }
+
+  @Test
+  public void
+      setMediaItems_withoutAvailableCommandForMultiItemPlaylistAndThrowWhenCommandUnavailable_throwsIllegalStateException() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder()
+                    .addAllCommands()
+                    .remove(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+                    .build())
+            .build();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          {
+            setThrowWhenCommandUnavailable(true);
+          }
+
+          @Override
+          protected State getState() {
+            return state;
+          }
+        };
+    ImmutableList<MediaItem> mediaItems =
+        ImmutableList.of(
+            new MediaItem.Builder().setMediaId("1").build(),
+            new MediaItem.Builder().setMediaId("2").build());
+
+    assertThrows(IllegalStateException.class, () -> player.setMediaItems(mediaItems));
   }
 
   @Test

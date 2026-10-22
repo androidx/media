@@ -89,8 +89,8 @@ import org.jspecify.annotations.Nullable;
   };
 
   private int stereoMode;
-  @Nullable private MeshData leftMeshData;
-  @Nullable private MeshData rightMeshData;
+  private @Nullable MeshData leftMeshData;
+  private @Nullable MeshData rightMeshData;
   private @MonotonicNonNull GlProgram program;
 
   // Program related GL items. These are only valid if Program is valid.

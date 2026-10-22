@@ -121,7 +121,7 @@ public final class PreCacheHelper {
     private final RenderersFactory renderersFactory;
     private TrackSelectionParameters trackSelectionParameters;
     private Executor downloadExecutor;
-    @Nullable private Listener listener;
+    private @Nullable Listener listener;
 
     /**
      * Creates a {@link Factory}.
@@ -285,10 +285,10 @@ public final class PreCacheHelper {
   private final MediaSource.@Nullable Factory testMediaSourceFactory;
   private final DownloadHelper.Factory downloadHelperFactory;
   private final DownloaderFactory downloaderFactory;
-  @Nullable private final Listener listener;
+  private final @Nullable Listener listener;
   private final Handler preCacheHandler;
   private final Handler applicationHandler;
-  @Nullable private DownloadCallback currentDownloadCallback;
+  private @Nullable DownloadCallback currentDownloadCallback;
 
   /* package */ PreCacheHelper(
       MediaItem mediaItem,
@@ -434,13 +434,13 @@ public final class PreCacheHelper {
     private final Object lock;
     private final long startPositionMs;
     private final long durationMs;
-    @Nullable private final ReleasableExecutorSupplier releasableExecutorSupplier;
+    private final @Nullable ReleasableExecutorSupplier releasableExecutorSupplier;
     private final DownloadHelper downloadHelper;
 
     private boolean isPreparationOngoing;
-    @Nullable private DownloadRequest pendingDownloadRequest;
-    @Nullable private Downloader downloader;
-    @Nullable private Task downloaderTask;
+    private @Nullable DownloadRequest pendingDownloadRequest;
+    private @Nullable Downloader downloader;
+    private @Nullable Task downloaderTask;
 
     @GuardedBy("lock")
     private boolean isCanceled;
@@ -595,9 +595,9 @@ public final class PreCacheHelper {
     private final boolean isRemove;
     private final int minRetryCount;
 
-    @Nullable private DownloadCallback downloadCallback;
+    private @Nullable DownloadCallback downloadCallback;
     private volatile boolean isCanceled;
-    @Nullable private volatile IOException finalException;
+    private volatile @Nullable IOException finalException;
     private volatile long contentLength;
     private volatile long bytesDownloaded;
     private volatile float percentDownloaded;

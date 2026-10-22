@@ -159,10 +159,10 @@ public final class Cea708Decoder extends CeaDecoder {
   private final CueInfoBuilder[] cueInfoBuilders;
 
   private CueInfoBuilder currentCueInfoBuilder;
-  @Nullable private List<Cue> cues;
-  @Nullable private List<Cue> lastCues;
+  private @Nullable List<Cue> cues;
+  private @Nullable List<Cue> lastCues;
 
-  @Nullable private DtvCcPacket currentDtvCcPacket;
+  private @Nullable DtvCcPacket currentDtvCcPacket;
   private int currentWindow;
 
   /**
@@ -1278,8 +1278,7 @@ public final class Cea708Decoder extends CeaDecoder {
       return new SpannableString(spannableStringBuilder);
     }
 
-    @Nullable
-    public Cea708CueInfo build() {
+    public @Nullable Cea708CueInfo build() {
       if (isEmpty()) {
         // The cue is empty.
         return null;

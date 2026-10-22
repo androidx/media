@@ -58,7 +58,7 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
 
   private @MonotonicNonNull Listener listener;
   private Timeline currentTimeline;
-  @Nullable private String currentSessionId;
+  private @Nullable String currentSessionId;
   private long lastRemovedCurrentWindowSequenceNumber;
 
   /**
@@ -222,8 +222,7 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
   }
 
   @Override
-  @Nullable
-  public synchronized String getActiveSessionId() {
+  public synchronized @Nullable String getActiveSessionId() {
     return currentSessionId;
   }
 

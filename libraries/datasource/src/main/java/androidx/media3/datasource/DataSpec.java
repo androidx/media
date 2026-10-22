@@ -49,17 +49,17 @@ public final class DataSpec {
    */
   public static final class Builder {
 
-    @Nullable private Uri uri;
+    private @Nullable Uri uri;
     private long uriPositionOffset;
-    @Nullable private String location;
+    private @Nullable String location;
     private @HttpMethod int httpMethod;
     private byte @Nullable [] httpBody;
     private Map<String, String> httpRequestHeaders;
     private long position;
     private long length;
-    @Nullable private String key;
+    private @Nullable String key;
     private @Flags int flags;
-    @Nullable private Object customData;
+    private @Nullable Object customData;
 
     /** Creates a new instance with default values. */
     public Builder() {
@@ -366,7 +366,7 @@ public final class DataSpec {
    * from which the resource is loaded, or {@code null} if the location is not known or not
    * applicable.
    */
-  @Nullable public final String location;
+  public final @Nullable String location;
 
   /**
    * The HTTP method to use when requesting the data. This value will be ignored by non-HTTP {@link
@@ -421,7 +421,7 @@ public final class DataSpec {
    * A key that uniquely identifies the resource. Used for cache indexing. May be null if the data
    * spec is not intended to be used in conjunction with a cache.
    */
-  @Nullable public final String key;
+  public final @Nullable String key;
 
   /** Request {@link Flags flags}. */
   public final @Flags int flags;
@@ -432,7 +432,7 @@ public final class DataSpec {
    * <p>This field is intended for advanced use cases in which applications require the ability to
    * attach custom data to {@link DataSpec} instances. The custom data should be immutable.
    */
-  @Nullable public final Object customData;
+  public final @Nullable Object customData;
 
   /**
    * Constructs an instance.

@@ -30,8 +30,7 @@ import org.jspecify.annotations.Nullable;
 @RequiresApi(26)
 public final class GlFrameProcessorTestUtil {
   /** Releases the GL resources on the GL thread, returns the thrown exception during release. */
-  @Nullable
-  public static Exception closeTestingGlResources(
+  public static @Nullable Exception closeTestingGlResources(
       ExecutorService glExecutorService, GlObjectsProvider glObjectsProvider, long timeoutMs) {
     AtomicReference<@Nullable Exception> releaseException = new AtomicReference<>();
     try {

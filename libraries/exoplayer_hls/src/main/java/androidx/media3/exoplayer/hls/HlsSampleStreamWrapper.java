@@ -140,7 +140,7 @@ import org.jspecify.annotations.Nullable;
   private final Callback callback;
   private final HlsChunkSource chunkSource;
   private final Allocator allocator;
-  @Nullable private final Format muxedAudioFormat;
+  private final @Nullable Format muxedAudioFormat;
   private final DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -157,7 +157,7 @@ import org.jspecify.annotations.Nullable;
   private final ArrayList<HlsSampleStream> hlsSampleStreams;
   private final Map<String, DrmInitData> overridingDrmInitData;
 
-  @Nullable private Chunk loadingChunk;
+  private @Nullable Chunk loadingChunk;
   private HlsSampleQueue[] sampleQueues;
   private int[] sampleQueueTrackIds;
   private Set<Integer> sampleQueueMappingDoneByType;
@@ -169,7 +169,7 @@ import org.jspecify.annotations.Nullable;
   private boolean prepared;
   private int enabledTrackGroupCount;
   private @MonotonicNonNull Format upstreamTrackFormat;
-  @Nullable private Format downstreamTrackFormat;
+  private @Nullable Format downstreamTrackFormat;
   private boolean released;
 
   // Tracks are complicated in HLS. See documentation of buildTracksFromSampleStreams for details.
@@ -193,8 +193,8 @@ import org.jspecify.annotations.Nullable;
   // Accessed only by the loading thread.
   private boolean tracksEnded;
   private long sampleOffsetUs;
-  @Nullable private DrmInitData drmInitData;
-  @Nullable private HlsMediaChunk sourceChunk;
+  private @Nullable DrmInitData drmInitData;
+  private @Nullable HlsMediaChunk sourceChunk;
 
   /**
    * @param uid A identifier for this sample stream wrapper. Identifiers must be unique within the
@@ -519,10 +519,14 @@ import org.jspecify.annotations.Nullable;
     if (chunkSource.hasIndependentSegments()) {
       for (int i = 0; i < mediaChunks.size(); i++) {
         HlsMediaChunk mediaChunk = mediaChunks.get(i);
+        if (mediaChunk.shouldSpliceIn()) {
+          // A spliced-in chunk potentially removed sample metadata from previous chunks.
+          seekToMediaChunk = null;
+          continue;
+        }
         long mediaChunkStartTimeUs = mediaChunk.startTimeUs;
-        if (mediaChunkStartTimeUs == positionUs) {
+        if (seekToMediaChunk == null && mediaChunkStartTimeUs == positionUs) {
           seekToMediaChunk = mediaChunk;
-          break;
         }
       }
     }
@@ -1277,8 +1281,7 @@ import org.jspecify.annotations.Nullable;
    * @param type The type of the track, must be one of {@link #MAPPABLE_TYPES}.
    * @return The mapped {@link TrackOutput}, or null if it's not been created yet.
    */
-  @Nullable
-  private TrackOutput getMappedTrackOutput(int id, int type) {
+  private @Nullable TrackOutput getMappedTrackOutput(int id, int type) {
     checkArgument(MAPPABLE_TYPES.contains(type));
     int sampleQueueIndex = sampleQueueIndicesByType.get(type, C.INDEX_UNSET);
     if (sampleQueueIndex == C.INDEX_UNSET) {
@@ -1849,7 +1852,7 @@ import org.jspecify.annotations.Nullable;
     // private long maxAllowedSampleTimeUs;
 
     private final Map<String, DrmInitData> overridingDrmInitData;
-    @Nullable private DrmInitData drmInitData;
+    private @Nullable DrmInitData drmInitData;
 
     private HlsSampleQueue(
         Allocator allocator,
@@ -1903,8 +1906,7 @@ import org.jspecify.annotations.Nullable;
      * Strips the private timestamp frame from metadata, if present. See:
      * https://github.com/google/ExoPlayer/issues/5063
      */
-    @Nullable
-    private Metadata getAdjustedMetadata(@Nullable Metadata metadata) {
+    private @Nullable Metadata getAdjustedMetadata(@Nullable Metadata metadata) {
       if (metadata == null) {
         return null;
       }

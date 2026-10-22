@@ -2190,8 +2190,8 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns profile and level of dolby vision */
-  @Nullable
-  /* package */ static Pair<Integer, Integer> getDolbyVisionProfileAndLevel(Format format) {
+  /* package */ static @Nullable Pair<Integer, Integer> getDolbyVisionProfileAndLevel(
+      Format format) {
     if (format.codecs == null) {
       return null;
     }

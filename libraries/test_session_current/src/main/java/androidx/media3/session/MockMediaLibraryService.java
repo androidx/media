@@ -142,8 +142,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
   private static boolean assertLibraryParams;
 
   @GuardedBy("MockMediaLibraryService.class")
-  @Nullable
-  private static LibraryParams expectedParams;
+  private static @Nullable LibraryParams expectedParams;
 
   private static byte @Nullable [] testArtworkData;
   private final AtomicInteger boundControllerCount;

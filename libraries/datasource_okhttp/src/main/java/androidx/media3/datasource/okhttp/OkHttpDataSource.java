@@ -77,10 +77,10 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     private final RequestProperties defaultRequestProperties;
     private final Call.Factory callFactory;
 
-    @Nullable private String userAgent;
-    @Nullable private TransferListener transferListener;
-    @Nullable private CacheControl cacheControl;
-    @Nullable private Predicate<String> contentTypePredicate;
+    private @Nullable String userAgent;
+    private @Nullable TransferListener transferListener;
+    private @Nullable CacheControl cacheControl;
+    private @Nullable Predicate<String> contentTypePredicate;
 
     /**
      * Creates an instance.
@@ -183,14 +183,14 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   private final Call.Factory callFactory;
   private final RequestProperties requestProperties;
 
-  @Nullable private final String userAgent;
-  @Nullable private final CacheControl cacheControl;
-  @Nullable private final RequestProperties defaultRequestProperties;
-  @Nullable private final Predicate<String> contentTypePredicate;
+  private final @Nullable String userAgent;
+  private final @Nullable CacheControl cacheControl;
+  private final @Nullable RequestProperties defaultRequestProperties;
+  private final @Nullable Predicate<String> contentTypePredicate;
 
-  @Nullable private DataSpec dataSpec;
-  @Nullable private Response response;
-  @Nullable private InputStream responseByteStream;
+  private @Nullable DataSpec dataSpec;
+  private @Nullable Response response;
+  private @Nullable InputStream responseByteStream;
   private boolean connectionEstablished;
   private long bytesToRead;
   private long bytesRead;
@@ -212,8 +212,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     if (response != null) {
       return Uri.parse(response.request().url().toString());
     } else if (dataSpec != null) {

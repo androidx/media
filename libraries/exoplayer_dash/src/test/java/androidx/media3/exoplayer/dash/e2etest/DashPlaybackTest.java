@@ -1230,8 +1230,8 @@ public final class DashPlaybackTest {
 
   private static final class AnalyticsListenerImpl implements AnalyticsListener {
 
-    @Nullable private LoadEventInfo loadErrorEventInfo;
-    @Nullable private IOException loadError;
+    private @Nullable LoadEventInfo loadErrorEventInfo;
+    private @Nullable IOException loadError;
 
     @Override
     public void onLoadError(
@@ -1349,9 +1349,8 @@ public final class DashPlaybackTest {
       return dataSource.open(dataSpec);
     }
 
-    @Nullable
     @Override
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return dataSource.getUri();
     }
 

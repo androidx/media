@@ -335,8 +335,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
 
   @UnstableApi
   @Override
-  @Nullable
-  public PersistableBundle getMetrics() {
+  public @Nullable PersistableBundle getMetrics() {
     if (SDK_INT < 28) {
       return null;
     }

@@ -53,12 +53,12 @@ public class TestExoPlayerBuilder {
   private LoadControl loadControl;
   private BandwidthMeter bandwidthMeter;
   private Renderer @Nullable [] renderers;
-  @Nullable private RenderersFactory renderersFactory;
+  private @Nullable RenderersFactory renderersFactory;
   private MediaSource.@Nullable Factory mediaSourceFactory;
   private boolean useLazyPreparation;
   private @MonotonicNonNull Looper looper;
-  @Nullable private Looper playbackLooper;
-  @Nullable private SuitableOutputChecker suitableOutputChecker;
+  private @Nullable Looper playbackLooper;
+  private @Nullable SuitableOutputChecker suitableOutputChecker;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
   private long maxSeekToPreviousPositionMs;
@@ -218,8 +218,7 @@ public class TestExoPlayerBuilder {
    * Returns the {@link RenderersFactory} that has been set with {@link #setRenderersFactory} or
    * null if no factory has been explicitly set.
    */
-  @Nullable
-  public RenderersFactory getRenderersFactory() {
+  public @Nullable RenderersFactory getRenderersFactory() {
     return renderersFactory;
   }
 
@@ -289,8 +288,7 @@ public class TestExoPlayerBuilder {
    * Returns the {@link Looper} that will be used by the player, or null if no {@link Looper} has
    * been set yet and no default is available.
    */
-  @Nullable
-  public Looper getLooper() {
+  public @Nullable Looper getLooper() {
     return looper;
   }
 
@@ -298,8 +296,7 @@ public class TestExoPlayerBuilder {
    * Returns the {@link Looper} that will be used for playback, or null if no {@link Looper} has
    * been set yet and no default is available.
    */
-  @Nullable
-  public Looper getPlaybackLooper() {
+  public @Nullable Looper getPlaybackLooper() {
     return playbackLooper;
   }
 

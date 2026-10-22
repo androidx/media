@@ -73,7 +73,7 @@ import org.jspecify.annotations.Nullable;
   private final Map<HardwareBufferFrame, EglImageTextureWrapper> activeEglImageTextureWrappers;
   private final Map<HardwareBufferFrame, Integer> activeGainmapTextures;
 
-  @Nullable private GlTextureCopier glTextureCopier;
+  private @Nullable GlTextureCopier glTextureCopier;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private final float[] textureTransformMatrix;
 
@@ -294,8 +294,7 @@ import org.jspecify.annotations.Nullable;
     runAllAndAccumulateExceptions(actions.toArray(new ThrowingRunnable<?>[0]));
   }
 
-  @Nullable
-  private static Object getInternalFrame(HardwareBufferFrame hardwareBufferFrame) {
+  private static @Nullable Object getInternalFrame(HardwareBufferFrame hardwareBufferFrame) {
     if (hardwareBufferFrame instanceof DefaultHardwareBufferFrame) {
       return ((DefaultHardwareBufferFrame) hardwareBufferFrame).getInternalImage();
     }

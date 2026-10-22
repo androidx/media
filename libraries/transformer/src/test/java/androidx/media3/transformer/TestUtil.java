@@ -381,7 +381,7 @@ public final class TestUtil {
    */
   public static final class FakeImageAdapter implements ImageAdapter {
     private final long timestampNs;
-    @Nullable private final HardwareBuffer hardwareBuffer;
+    private final @Nullable HardwareBuffer hardwareBuffer;
 
     public FakeImageAdapter(long timestampNs, @Nullable HardwareBuffer hardwareBuffer) {
       this.timestampNs = timestampNs;
@@ -394,14 +394,12 @@ public final class TestUtil {
     }
 
     @Override
-    @Nullable
-    public HardwareBuffer getHardwareBuffer() {
+    public @Nullable HardwareBuffer getHardwareBuffer() {
       return hardwareBuffer;
     }
 
     @Override
-    @Nullable
-    public Image getInternalImage() {
+    public @Nullable Image getInternalImage() {
       return null;
     }
 
@@ -422,10 +420,10 @@ public final class TestUtil {
    */
   public static final class FakeImageReaderAdapter implements ImageReaderAdapter {
     private final Queue<ImageAdapter> images;
-    @Nullable private Consumer<ImageReaderAdapter> listener;
-    @Nullable private Handler handler;
-    @Nullable private SurfaceTexture surfaceTexture;
-    @Nullable private Surface surface;
+    private @Nullable Consumer<ImageReaderAdapter> listener;
+    private @Nullable Handler handler;
+    private @Nullable SurfaceTexture surfaceTexture;
+    private @Nullable Surface surface;
     private boolean isClosed;
 
     public FakeImageReaderAdapter() {
@@ -433,8 +431,7 @@ public final class TestUtil {
     }
 
     @Override
-    @Nullable
-    public ImageAdapter acquireNextImage() {
+    public @Nullable ImageAdapter acquireNextImage() {
       return images.poll();
     }
 

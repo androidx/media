@@ -89,7 +89,7 @@ public final class FrameExtractor implements AutoCloseable {
     private MediaCodecSelector mediaCodecSelector;
     private boolean extractHdrFrames;
     private boolean enableUltraHdr;
-    @Nullable private GlObjectsProvider glObjectsProvider;
+    private @Nullable GlObjectsProvider glObjectsProvider;
     private MediaSource.@Nullable Factory mediaSourceFactory;
 
     /**
@@ -249,7 +249,7 @@ public final class FrameExtractor implements AutoCloseable {
   private final MediaCodecSelector mediaCodecSelector;
   private final boolean extractHdrFrames;
   private final boolean enableUltraHdr;
-  @Nullable private final GlObjectsProvider glObjectsProvider;
+  private final @Nullable GlObjectsProvider glObjectsProvider;
   private MediaSource.@Nullable Factory mediaSourceFactory;
   private final AtomicBoolean released;
 

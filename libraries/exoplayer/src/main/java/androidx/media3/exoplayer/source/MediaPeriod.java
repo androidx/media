@@ -180,11 +180,24 @@ public interface MediaPeriod extends SequenceableLoader {
    * streams contain initial discontinuities at the start of the period rather than using {@link
    * #readDiscontinuity()}.
    *
-   * <p>If invoked then {@link #readDiscontinuity()} should only report discontinuities that occur
-   * during playback, not any initial discontinuities at the start of the period.
+   * <p>This method is only called after the period has been prepared and if {@link
+   * #supportsStreamPrerollFlags()} returns {@code true}. If invoked then {@link
+   * #readDiscontinuity()} should only report discontinuities that occur during playback, not any
+   * initial discontinuities at the start of the period.
    */
-  @ExperimentalApi // TODO: b/510217604 - Remove this method.
+  @ExperimentalApi // TODO(b/510217604): Remove this method.
   default void setUsesStreamPrerollFlags() {}
+
+  /**
+   * Returns whether this media period supports reporting initial discontinuities via {@link
+   * SampleStream#getFlags()}.
+   *
+   * <p>This method is only called after the period has been prepared.
+   */
+  @ExperimentalApi // TODO(b/510217604): Remove this method.
+  default boolean supportsStreamPrerollFlags() {
+    return false;
+  }
 
   /**
    * Attempts to seek to the specified position in microseconds.

@@ -217,7 +217,7 @@ public final class GlEncoderFrameWriterTest {
 
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements GlEncoderFrameWriter.Listener {
-    @Nullable private VideoFrameProcessingException exception;
+    private @Nullable VideoFrameProcessingException exception;
 
     @Override
     public void onEndOfStream() {}
@@ -234,7 +234,7 @@ public final class GlEncoderFrameWriterTest {
     private final List<Format> checkedFormats = new ArrayList<>();
     private final List<Format> createdFormats = new ArrayList<>();
     private boolean isSupportedToReturn;
-    @Nullable private ExportException exceptionToThrow;
+    private @Nullable ExportException exceptionToThrow;
 
     private void setIsSupportedToReturn(boolean isSupported) {
       this.isSupportedToReturn = isSupported;

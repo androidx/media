@@ -80,8 +80,8 @@ import org.jspecify.annotations.Nullable;
   private final AtomicReference<@Nullable Thread> callingThread;
 
   private boolean hasCapacity;
-  @Nullable private Runnable pendingWakeupListener;
-  @Nullable private Executor pendingWakeupExecutor;
+  private @Nullable Runnable pendingWakeupListener;
+  private @Nullable Executor pendingWakeupExecutor;
 
   /**
    * Creates an instance backed by a {@link HardwareBufferFrame}.
@@ -164,8 +164,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+  public @Nullable AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     verifyCallingThread();
     checkState(
         configuredFormat.width != Format.NO_VALUE && configuredFormat.height != Format.NO_VALUE,
@@ -245,7 +244,7 @@ import org.jspecify.annotations.Nullable;
   @RequiresApi(29)
   private static final class HardwareBufferFrameBackend implements FrameBackend {
 
-    @Nullable private HardwareBuffer hardwareBuffer;
+    private @Nullable HardwareBuffer hardwareBuffer;
 
     @Override
     public boolean isFormatSupported(Format format) {

@@ -16,6 +16,10 @@
 
 package androidx.media3.ui.compose.material3
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -98,9 +102,9 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
  * @param artwork Optional composable slot to render artwork for the current media item.
- * @param showControls Whether the default controls should be visible. False by default, so that the
- *   video isn't occluded. Toggle it, for example, when the user taps the player. Custom control
- *   slots should manage their own visibility.
+ * @param showControls Whether [topControls], [centerControls] and [bottomControls], including
+ *   custom ones, should be visible. False by default, so that the video isn't occluded. Toggle it,
+ *   for example, when the user taps the player.
  * @param topControls A composable aligned with [Alignment.TopCenter].
  * @param centerControls A composable aligned with [Alignment.Center].
  * @param bottomControls A composable aligned with [Alignment.BottomCenter].
@@ -128,14 +132,12 @@ fun Player(
   },
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.() -> Unit)? = {
-    PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
+    PlayerDefaults.TopControls(player, Modifier.fillMaxWidth())
   },
   centerControls: (@Composable BoxScope.() -> Unit)? = {
-    PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+    PlayerDefaults.CenterControls(player, Modifier.fillMaxWidth())
   },
-  bottomControls: (@Composable BoxScope.() -> Unit)? = {
-    PlayerDefaults.BottomControls(player, showControls)
-  },
+  bottomControls: (@Composable BoxScope.() -> Unit)? = { PlayerDefaults.BottomControls(player) },
   errorOverlay: (@Composable BoxScope.() -> Unit)? = { PlayerDefaults.ErrorOverlay(player) },
 ) {
   PlayerImpl(
@@ -176,19 +178,21 @@ private fun PlayerImpl(
   },
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.() -> Unit)? = {
-    PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
+    PlayerDefaults.TopControls(player, Modifier.fillMaxWidth())
   },
   centerControls: (@Composable BoxScope.() -> Unit)? = {
-    PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+    PlayerDefaults.CenterControls(player, Modifier.fillMaxWidth())
   },
-  bottomControls: (@Composable BoxScope.() -> Unit)? = {
-    PlayerDefaults.BottomControls(player, showControls)
-  },
+  bottomControls: (@Composable BoxScope.() -> Unit)? = { PlayerDefaults.BottomControls(player) },
   errorOverlay: (@Composable BoxScope.() -> Unit)? = { PlayerDefaults.ErrorOverlay(player) },
 ) {
   val topControlsFocus = remember { FocusRequester() }
   val centerControlsFocus = remember { FocusRequester() }
   val bottomControlsFocus = remember { FocusRequester() }
+  val controlsTransition = updateTransition(showControls, label = "PlayerControls")
+  val isVisible = { visible: Boolean -> visible }
+  val enter = fadeIn(PlayerTokens.ControlsFadeSpec)
+  val exit = fadeOut(PlayerTokens.ControlsFadeSpec)
 
   Box(modifier) {
     ContentFrame(
@@ -210,33 +214,50 @@ private fun PlayerImpl(
       errorOverlay?.invoke(this)
     }
 
-    // this = BoxScope of a container-Box
-    Box(
-      Modifier.align(Alignment.TopCenter)
-        .focusRequester(topControlsFocus)
-        .focusProperties { next = centerControlsFocus }
-        .focusGroup()
+    controlsTransition.AnimatedVisibility(
+      visible = isVisible,
+      modifier = Modifier.align(Alignment.TopCenter),
+      enter = enter,
+      exit = exit,
     ) {
-      topControls?.invoke(this)
+      Box(
+        Modifier.focusRequester(topControlsFocus)
+          .focusProperties { next = centerControlsFocus }
+          .focusGroup()
+      ) {
+        topControls?.invoke(this)
+      }
     }
-    Box(
-      Modifier.align(Alignment.Center)
-        .focusRequester(centerControlsFocus)
-        .focusProperties {
-          previous = topControlsFocus // Enables 'Shift + Tab' traversal
-          next = bottomControlsFocus
-        }
-        .focusGroup()
+    controlsTransition.AnimatedVisibility(
+      visible = isVisible,
+      modifier = Modifier.align(Alignment.Center),
+      enter = enter,
+      exit = exit,
     ) {
-      centerControls?.invoke(this)
+      Box(
+        Modifier.focusRequester(centerControlsFocus)
+          .focusProperties {
+            previous = topControlsFocus // Enables 'Shift + Tab' traversal
+            next = bottomControlsFocus
+          }
+          .focusGroup()
+      ) {
+        centerControls?.invoke(this)
+      }
     }
-    Box(
-      Modifier.align(Alignment.BottomCenter)
-        .focusRequester(bottomControlsFocus)
-        .focusProperties { previous = centerControlsFocus }
-        .focusGroup()
+    controlsTransition.AnimatedVisibility(
+      visible = isVisible,
+      modifier = Modifier.align(Alignment.BottomCenter),
+      enter = enter,
+      exit = exit,
     ) {
-      bottomControls?.invoke(this)
+      Box(
+        Modifier.focusRequester(bottomControlsFocus)
+          .focusProperties { previous = centerControlsFocus }
+          .focusGroup()
+      ) {
+        bottomControls?.invoke(this)
+      }
     }
   }
 }

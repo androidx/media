@@ -72,10 +72,10 @@ import org.jspecify.annotations.Nullable;
 
   private final Context context;
   private final FrameWriter frameWriter;
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private ColorConversionShaderProgram colorConversionShaderProgram;
-  @Nullable private GlTextureInfo intermediateTexture;
+  private @Nullable ColorConversionShaderProgram colorConversionShaderProgram;
+  private @Nullable GlTextureInfo intermediateTexture;
   private @MonotonicNonNull ByteBuffer rgbaReadbackBuffer;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull Size inputSize;

@@ -1290,8 +1290,7 @@ public class MediaSessionServiceTest {
             .build());
   }
 
-  @Nullable
-  private Notification getNotification(int notificationId) {
+  private @Nullable Notification getNotification(int notificationId) {
     StatusBarNotification[] activeNotifications =
         context.getSystemService(NotificationManager.class).getActiveNotifications();
     for (StatusBarNotification notification : activeNotifications) {

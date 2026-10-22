@@ -40,8 +40,7 @@ import org.jspecify.annotations.Nullable;
    * @return A {@link XingSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
-  @Nullable
-  public static XingSeeker create(XingFrame xingFrame, long position, long streamLength) {
+  public static @Nullable XingSeeker create(XingFrame xingFrame, long position, long streamLength) {
     long durationUs = xingFrame.computeDurationUs();
     if (durationUs == C.TIME_UNSET) {
       return null;

@@ -57,9 +57,9 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
 
   private final Context context;
   private final DebugViewProvider debugViewProvider;
-  @Nullable private SurfaceView debugSurfaceView;
-  @Nullable private DefaultShaderProgram defaultShaderProgram;
-  @Nullable private SurfaceViewWrapper debugSurfaceViewWrapper;
+  private @Nullable SurfaceView debugSurfaceView;
+  private @Nullable DefaultShaderProgram defaultShaderProgram;
+  private @Nullable SurfaceViewWrapper debugSurfaceViewWrapper;
 
   private final ColorInfo outputColorInfo;
   private InputListener inputListener;
@@ -199,12 +199,10 @@ public final class DebugViewShaderProgram implements GlShaderProgram {
     private final EGLContext eglContext;
 
     @GuardedBy("this")
-    @Nullable
-    private Surface surface;
+    private @Nullable Surface surface;
 
     @GuardedBy("this")
-    @Nullable
-    private EGLSurface eglSurface;
+    private @Nullable EGLSurface eglSurface;
 
     private int width;
     private int height;

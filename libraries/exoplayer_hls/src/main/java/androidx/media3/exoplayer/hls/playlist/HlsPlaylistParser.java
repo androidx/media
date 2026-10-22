@@ -312,7 +312,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final String DATERANGE_CLASS_INTERSTITIALS = "com.apple.hls.interstitial";
 
   private final HlsMultivariantPlaylist multivariantPlaylist;
-  @Nullable private final HlsMediaPlaylist previousMediaPlaylist;
+  private final @Nullable HlsMediaPlaylist previousMediaPlaylist;
 
   /**
    * Creates an instance where media playlists are parsed without inheriting attributes from a
@@ -442,8 +442,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
    * <p>{@code SDR} covers several transfer characteristics, so only {@code PQ} and {@code HLG} are
    * mapped.
    */
-  @Nullable
-  private static ColorInfo getColorInfoForVideoRange(@Nullable String videoRange) {
+  private static @Nullable ColorInfo getColorInfoForVideoRange(@Nullable String videoRange) {
     if (videoRange == null) {
       return null;
     }
@@ -831,8 +830,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         contentSteeringInfo);
   }
 
-  @Nullable
-  private static Variant getVariantWithAudioGroup(ArrayList<Variant> variants, String groupId) {
+  private static @Nullable Variant getVariantWithAudioGroup(
+      ArrayList<Variant> variants, String groupId) {
     for (int i = 0; i < variants.size(); i++) {
       Variant variant = variants.get(i);
       if (groupId.equals(variant.audioGroupId)) {
@@ -842,8 +841,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return null;
   }
 
-  @Nullable
-  private static Variant getVariantWithVideoGroup(ArrayList<Variant> variants, String groupId) {
+  private static @Nullable Variant getVariantWithVideoGroup(
+      ArrayList<Variant> variants, String groupId) {
     for (int i = 0; i < variants.size(); i++) {
       Variant variant = variants.get(i);
       if (groupId.equals(variant.videoGroupId)) {
@@ -853,8 +852,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return null;
   }
 
-  @Nullable
-  private static Variant getVariantWithSubtitleGroup(ArrayList<Variant> variants, String groupId) {
+  private static @Nullable Variant getVariantWithSubtitleGroup(
+      ArrayList<Variant> variants, String groupId) {
     for (int i = 0; i < variants.size(); i++) {
       Variant variant = variants.get(i);
       if (groupId.equals(variant.subtitleGroupId)) {
@@ -1572,8 +1571,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return new DrmInitData(encryptionScheme, playlistSchemeDatas);
   }
 
-  @Nullable
-  private static String getSegmentEncryptionIV(
+  private static @Nullable String getSegmentEncryptionIV(
       long segmentMediaSequence,
       @Nullable String fullSegmentEncryptionKeyUri,
       @Nullable String fullSegmentEncryptionIV) {
@@ -1623,8 +1621,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return roleFlags;
   }
 
-  @Nullable
-  private static SchemeData parseDrmSchemeData(
+  private static @Nullable SchemeData parseDrmSchemeData(
       String line,
       String keyFormat,
       Map<String, String> variableDefinitions,
@@ -1744,8 +1741,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     }
   }
 
-  @Nullable
-  private static String parseOptionalStringAttr(
+  private static @Nullable String parseOptionalStringAttr(
       String line,
       Pattern pattern,
       Map<String, String> variableDefinitions,
@@ -1850,7 +1846,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     private final BufferedReader reader;
     private final Queue<String> extraLines;
 
-    @Nullable private String next;
+    private @Nullable String next;
 
     public LineIterator(Queue<String> extraLines, BufferedReader reader) {
       this.extraLines = extraLines;

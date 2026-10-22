@@ -268,7 +268,7 @@ public final class HevcConfig {
    *
    * <p>See {@link Format#codecs}.
    */
-  @Nullable public final String codecs;
+  public final @Nullable String codecs;
 
   /** The parsed representation of VPS data or {@code null} if not available. */
   public final NalUnitUtil.@Nullable H265VpsData vpsData;

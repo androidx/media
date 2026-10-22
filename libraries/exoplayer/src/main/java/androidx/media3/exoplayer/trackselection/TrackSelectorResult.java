@@ -48,7 +48,7 @@ public final class TrackSelectorResult {
    * An opaque object that will be returned to {@link TrackSelector#onSelectionActivated(Object)}
    * should the selections be activated.
    */
-  @Nullable public final Object info;
+  public final @Nullable Object info;
 
   /**
    * @param rendererConfigurations A {@link RendererConfiguration} for each renderer. A null entry

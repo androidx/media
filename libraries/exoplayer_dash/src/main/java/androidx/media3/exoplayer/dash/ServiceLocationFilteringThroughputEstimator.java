@@ -33,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 /* package */ final class ServiceLocationFilteringThroughputEstimator implements TransferListener {
 
-  @Nullable private final TransferListener delegateTransferListener;
+  private final @Nullable TransferListener delegateTransferListener;
   private final ConcurrentHashMap<String, BandwidthEstimator> estimatorsByServiceLocation;
 
   private volatile boolean throughputEstimateStopped;

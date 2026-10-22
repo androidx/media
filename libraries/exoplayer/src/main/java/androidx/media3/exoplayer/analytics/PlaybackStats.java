@@ -88,7 +88,7 @@ public final class PlaybackStats {
     public final EventTime eventTime;
 
     /** The format that started being used, or {@code null} if no format was used. */
-    @Nullable public final Format format;
+    public final @Nullable Format format;
 
     /**
      * Creates a new timed format event.

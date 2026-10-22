@@ -66,7 +66,7 @@ public final class TransformerAndroidTestRunner {
     private final Transformer transformer;
     private boolean requestCalculateSsim;
     private int timeoutSeconds;
-    @Nullable private Map<String, Object> inputValues;
+    private @Nullable Map<String, Object> inputValues;
 
     /**
      * Creates a {@link Builder}.
@@ -141,7 +141,7 @@ public final class TransformerAndroidTestRunner {
   private final Transformer transformer;
   private final int timeoutSeconds;
   private final boolean requestCalculateSsim;
-  @Nullable private final Map<String, Object> inputValues;
+  private final @Nullable Map<String, Object> inputValues;
 
   private TransformerAndroidTestRunner(
       Context context,

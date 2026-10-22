@@ -123,13 +123,14 @@ public class FakeMediaPeriod implements MediaPeriod {
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final long fakePreparationLoadTaskId;
 
-  @Nullable private Handler playerHandler;
-  @Nullable private Callback prepareCallback;
+  private @Nullable Handler playerHandler;
+  private @Nullable Callback prepareCallback;
 
   private boolean deferOnPrepared;
   private boolean prepared;
   private long seekOffsetUs;
   private long pendingDiscontinuityUs;
+  private boolean supportsStreamPrerollFlags;
   private boolean usesStreamPrerollFlags;
   private long lastSeekPositionUs;
 
@@ -260,7 +261,16 @@ public class FakeMediaPeriod implements MediaPeriod {
     this.drmEventDispatcher = drmEventDispatcher;
     sampleStreams = Sets.newIdentityHashSet();
     pendingDiscontinuityUs = C.TIME_UNSET;
+    supportsStreamPrerollFlags = true;
     fakePreparationLoadTaskId = LoadEventInfo.getNewId();
+  }
+
+  /**
+   * Sets whether this period returns {@code true} from {@link #supportsStreamPrerollFlags()}.
+   * Defaults to {@code true}.
+   */
+  public void setSupportsStreamPrerollFlags(boolean supportsStreamPrerollFlags) {
+    this.supportsStreamPrerollFlags = supportsStreamPrerollFlags;
   }
 
   /**
@@ -367,7 +377,7 @@ public class FakeMediaPeriod implements MediaPeriod {
                 drmEventDispatcher,
                 selection.getSelectedFormat(),
                 sampleStreamItems);
-        if (pendingDiscontinuityUs != C.TIME_UNSET) {
+        if (supportsStreamPrerollFlags && pendingDiscontinuityUs != C.TIME_UNSET) {
           sampleStream.setFlags(SampleStream.FLAG_HAS_PREROLL);
         }
         sampleStreams.add(sampleStream);
@@ -395,7 +405,16 @@ public class FakeMediaPeriod implements MediaPeriod {
 
   @Override
   public void setUsesStreamPrerollFlags() {
+    checkState(supportsStreamPrerollFlags);
     this.usesStreamPrerollFlags = true;
+    if (!sampleStreams.isEmpty()) {
+      pendingDiscontinuityUs = C.TIME_UNSET;
+    }
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return supportsStreamPrerollFlags;
   }
 
   @Override

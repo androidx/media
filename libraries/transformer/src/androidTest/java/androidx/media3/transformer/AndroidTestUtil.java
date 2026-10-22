@@ -163,7 +163,7 @@ public final class AndroidTestUtil {
 
     private final VideoGraph.Factory singleInputVideoGraphFactory;
 
-    @Nullable private ColorInfo outputColorInfo;
+    private @Nullable ColorInfo outputColorInfo;
 
     public TestVideoGraphFactory() {
       singleInputVideoGraphFactory = new SingleInputVideoGraph.Factory();
@@ -223,8 +223,7 @@ public final class AndroidTestUtil {
       return singleInputVideoGraphFactory.supportsMultipleInputs();
     }
 
-    @Nullable
-    public ColorInfo getOutputColorInfo() {
+    public @Nullable ColorInfo getOutputColorInfo() {
       return outputColorInfo;
     }
   }

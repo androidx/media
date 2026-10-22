@@ -50,7 +50,7 @@ import org.jspecify.annotations.Nullable;
   private int sampleDataStart;
   private int sampleDataEnd;
   private byte[] sampleData;
-  @Nullable private SubtitleParser currentSubtitleParser;
+  private @Nullable SubtitleParser currentSubtitleParser;
   private @MonotonicNonNull Format currentFormat;
   private boolean shouldSuppressParsingErrors;
 

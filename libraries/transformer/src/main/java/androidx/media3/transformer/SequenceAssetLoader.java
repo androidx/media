@@ -310,9 +310,8 @@ import org.jspecify.annotations.Nullable;
     return decodeOutput;
   }
 
-  @Nullable
   @Override
-  public SampleConsumer onOutputFormat(Format format) throws ExportException {
+  public @Nullable SampleConsumer onOutputFormat(Format format) throws ExportException {
     @C.TrackType int trackType = getProcessedTrackType(format.sampleMimeType);
     DebugTraceUtil.logEvent(
         COMPONENT_ASSET_LOADER,
@@ -523,9 +522,8 @@ import org.jspecify.annotations.Nullable;
       this.trackType = trackType;
     }
 
-    @Nullable
     @Override
-    public DecoderInputBuffer getInputBuffer() {
+    public @Nullable DecoderInputBuffer getInputBuffer() {
       checkState(trackType == C.TRACK_TYPE_AUDIO || !decodeVideo);
       return sampleConsumer.getInputBuffer();
     }

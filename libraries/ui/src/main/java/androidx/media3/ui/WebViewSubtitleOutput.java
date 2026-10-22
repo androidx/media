@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkState;
 import android.content.Context;
 import android.graphics.Color;
 import android.text.Layout;
+import android.text.TextDirectionHeuristic;
 import android.util.AttributeSet;
 import android.util.Base64;
 import android.util.DisplayMetrics;
@@ -116,7 +117,8 @@ import org.jspecify.annotations.Nullable;
       SubtitleStyle style,
       float textSize,
       @Cue.TextSizeType int textSizeType,
-      float bottomPaddingFraction) {
+      float bottomPaddingFraction,
+      TextDirectionHeuristic textDirectionHeuristic) {
     this.style = style;
     this.defaultTextSize = textSize;
     this.defaultTextSizeType = textSizeType;
@@ -140,7 +142,8 @@ import org.jspecify.annotations.Nullable;
       // position info will be used when we get non-empty cue data in a future update() call.
       updateWebView();
     }
-    canvasSubtitleOutput.update(bitmapCues, style, textSize, textSizeType, bottomPaddingFraction);
+    canvasSubtitleOutput.update(
+        bitmapCues, style, textSize, textSizeType, bottomPaddingFraction, textDirectionHeuristic);
     // Invalidate to trigger canvasSubtitleOutput to draw.
     invalidate();
   }

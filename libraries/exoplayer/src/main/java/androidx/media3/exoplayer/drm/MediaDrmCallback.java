@@ -35,7 +35,7 @@ public interface MediaDrmCallback {
 
       private final byte[] data;
 
-      @Nullable private LoadEventInfo loadEventInfo;
+      private @Nullable LoadEventInfo loadEventInfo;
 
       /** Constructs an instance. */
       public Builder(byte[] data) {
@@ -59,7 +59,7 @@ public interface MediaDrmCallback {
     public final byte[] data;
 
     /** The optional load info associated with this response. */
-    @Nullable public final LoadEventInfo loadEventInfo;
+    public final @Nullable LoadEventInfo loadEventInfo;
 
     /** Constructs an instance. */
     public Response(byte[] data) {

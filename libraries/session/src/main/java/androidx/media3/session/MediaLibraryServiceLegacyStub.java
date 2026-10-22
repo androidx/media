@@ -78,8 +78,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public BrowserRoot onGetRoot(
+  public @Nullable BrowserRoot onGetRoot(
       @Nullable String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
     @Nullable BrowserRoot browserRoot = super.onGetRoot(clientPackageName, clientUid, rootHints);
     if (browserRoot == null) {
@@ -593,7 +592,7 @@ import org.jspecify.annotations.Nullable;
     public final ControllerInfo controller;
     public final RemoteUserInfo remoteUserInfo;
     public final String query;
-    @Nullable public final Bundle extras;
+    public final @Nullable Bundle extras;
     public final Result<List<MediaBrowserCompat.MediaItem>> result;
 
     public SearchRequest(
@@ -723,7 +722,7 @@ import org.jspecify.annotations.Nullable;
 
     private final MediaLibrarySessionImpl session;
     private final Result<Bundle> result;
-    @Nullable private ListenableFuture<SessionResult> future;
+    private @Nullable ListenableFuture<SessionResult> future;
 
     public ProgressReporter(MediaLibrarySessionImpl session, Result<Bundle> result) {
       this.session = session;

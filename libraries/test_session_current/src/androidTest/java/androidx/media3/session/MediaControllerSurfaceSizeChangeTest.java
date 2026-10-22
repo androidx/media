@@ -143,8 +143,8 @@ public class MediaControllerSurfaceSizeChangeTest {
   private SurfaceActivity activity;
   private RemoteMediaSession remoteSession;
 
-  @Nullable private View viewForPrecondition;
-  @Nullable private View viewForAction;
+  private @Nullable View viewForPrecondition;
+  private @Nullable View viewForAction;
   private int expectedWidthFromCallback;
   private int expectedHeightFromCallback;
 

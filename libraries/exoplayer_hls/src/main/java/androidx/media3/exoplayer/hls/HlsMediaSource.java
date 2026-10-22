@@ -107,7 +107,7 @@ public final class HlsMediaSource extends BaseMediaSource
 
     private final HlsDataSourceFactory hlsDataSourceFactory;
 
-    @Nullable private HlsExtractorFactory extractorFactory;
+    private @Nullable HlsExtractorFactory extractorFactory;
     private SubtitleParser.@Nullable Factory subtitleParserFactoryOverride;
     private boolean parseSubtitlesDuringExtraction;
     private HlsPlaylistParserFactory playlistParserFactory;
@@ -116,7 +116,7 @@ public final class HlsMediaSource extends BaseMediaSource
     private CmcdConfiguration.@Nullable Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     private boolean allowChunklessPreparation;
     private @MetadataType int metadataType;
@@ -449,7 +449,7 @@ public final class HlsMediaSource extends BaseMediaSource
   private final HlsExtractorFactory extractorFactory;
   private final HlsDataSourceFactory dataSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final boolean allowChunklessPreparation;
@@ -458,10 +458,10 @@ public final class HlsMediaSource extends BaseMediaSource
   private final HlsPlaylistTracker playlistTracker;
   private final long elapsedRealTimeOffsetMs;
   private final long timestampAdjusterInitializationTimeoutMs;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private MediaItem.LiveConfiguration liveConfiguration;
-  @Nullable private TransferListener mediaTransferListener;
+  private @Nullable TransferListener mediaTransferListener;
 
   @GuardedBy("this")
   private MediaItem mediaItem;

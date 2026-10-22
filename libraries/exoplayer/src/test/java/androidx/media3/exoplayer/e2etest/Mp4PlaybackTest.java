@@ -134,7 +134,7 @@ public class Mp4PlaybackTest {
 
   private static final class Sample {
     private final String filename;
-    @Nullable private final String subtitleLanguageToSelect;
+    private final @Nullable String subtitleLanguageToSelect;
     private final boolean hasBitmapSubtitles;
 
     private Sample(

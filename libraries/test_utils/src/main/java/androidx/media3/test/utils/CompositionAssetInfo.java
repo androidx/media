@@ -226,8 +226,7 @@ public final class CompositionAssetInfo {
   }
 
   /** All {@link Format} that needs to be encoded for this {@link Composition}. */
-  @Nullable
-  public Format getVideoEncoderInputFormat() {
+  public @Nullable Format getVideoEncoderInputFormat() {
     // The first asset is currently used to configure the encoder.
     EditedMediaItemAssetInfo firstAsset = sequences.get(0).assets.get(0);
     Format format = firstAsset.videoFormat;

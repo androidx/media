@@ -149,6 +149,13 @@ public final class MediaPeriodQueueTest {
     rendererCapabilities = new RendererCapabilities[0];
     trackSelector = mock(TrackSelector.class);
     allocator = mock(Allocator.class);
+    playbackInfo =
+        PlaybackInfo.createDummy(
+            new TrackSelectorResult(
+                new RendererConfiguration[0],
+                new ExoTrackSelection[0],
+                Tracks.EMPTY,
+                /* info= */ null));
     fakeMediaSources = new ArrayList<>();
   }
 
@@ -941,6 +948,94 @@ public final class MediaPeriodQueueTest {
         /* isLastInWindow= */ true,
         /* isFinal= */ true,
         /* nextAdGroupIndex= */ C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
+      getNextMediaPeriodInfo_inMultiPeriodWindowWithRemovedAdGroups_returnsCorrectMediaPeriodInfo() {
+    Object windowUid = new Object();
+    AdPlaybackState firstPeriodAdPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), FIRST_AD_START_TIME_US)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, AD_MEDIA_ITEM)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, AD_DURATION_US);
+    AdPlaybackState secondPeriodAdPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), FIRST_AD_START_TIME_US)
+            .withRemovedAdGroupCount(1);
+    setupTimelines(
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(windowUid)
+                .setDurationUs(2 * CONTENT_DURATION_US)
+                .setAdPlaybackStates(
+                    ImmutableList.of(firstPeriodAdPlaybackState, secondPeriodAdPlaybackState))
+                .build()));
+    advance(); // Enqueue content before midroll in period 0.
+    advance(); // Enqueue midroll ad in period 0.
+    advance(); // Enqueue content after midroll in period 0 (requestedContentPositionUs != UNSET).
+    // Remove all ad groups in period 0 as well before transitioning to period 1.
+    AdPlaybackState removedFirstPeriodAdPlaybackState =
+        firstPeriodAdPlaybackState
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withRemovedAdGroupCount(1);
+    fakeMediaSources
+        .get(0)
+        .setNewSourceInfo(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setPeriodCount(2)
+                    .setUid(windowUid)
+                    .setDurationUs(2 * CONTENT_DURATION_US)
+                    .setAdPlaybackStates(
+                        ImmutableList.of(
+                            removedFirstPeriodAdPlaybackState, secondPeriodAdPlaybackState))
+                    .build()));
+    shadowOf(Looper.getMainLooper()).idle();
+    playbackInfo = playbackInfo.copyWithTimeline(mediaSourceList.createTimeline());
+
+    assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
+        /* periodUid= */ playbackInfo.timeline.getUidOfPeriod(/* periodIndex= */ 1),
+        /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
+        /* requestedContentPositionUs= */ 0,
+        /* durationUs= */ CONTENT_DURATION_US,
+        /* isFollowedByTransitionToSameStream= */ false,
+        /* isLastInPeriod= */ true,
+        /* isLastInWindow= */ true,
+        /* isFinal= */ true,
+        /* nextAdGroupIndex= */ C.INDEX_UNSET);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAds_withRemovedAdGroupAndLivePostrollPlaceholder_doesNotSkipPeriod() {
+    Object windowUid = new Object();
+    AdPlaybackState firstPeriodAdPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 0)
+            .withIsServerSideInserted(/* adGroupIndex= */ 0, /* isServerSideInserted= */ true)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)
+            .withRemovedAdGroupCount(1);
+    FakeTimeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(windowUid)
+                .setDurationUs(0)
+                .setWindowPositionInFirstPeriodUs(0)
+                .setAdPlaybackStates(
+                    ImmutableList.of(firstPeriodAdPlaybackState, AdPlaybackState.NONE))
+                .build());
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAds(
+            timeline, /* periodUid= */ new Pair<>(windowUid, 0), /* positionUs= */ 0);
+
+    assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowUid, 0));
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(C.INDEX_UNSET);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(C.INDEX_UNSET);
   }
 
   @Test
@@ -1966,6 +2061,52 @@ public final class MediaPeriodQueueTest {
 
   @Test
   public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_afterSeekToNewWindowAndClear_reusesWindowSequenceNumber() {
+    setupTimelines(new FakeTimeline(), new FakeTimeline());
+    enqueueNext(); // Enqueue period of window 0 (windowSequenceNumber = 0).
+    Object secondPeriodUid = playbackInfo.timeline.getUidOfPeriod(1);
+
+    // Resolve periodId for seeking to window 1 while window 0 is still playing in the queue.
+    MediaPeriodId seekPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            secondPeriodUid,
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
+    // Simulate seekToPeriodPosition clearing the queue and updating playbackInfo.periodId before
+    // the new period is enqueued.
+    mediaPeriodQueue.clear();
+    playbackInfo =
+        playbackInfo.copyWithNewPosition(
+            seekPeriodId,
+            /* positionUs= */ 0,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            /* discontinuityStartPositionUs= */ 0,
+            /* totalBufferedDurationUs= */ 0,
+            SystemClock.elapsedRealtime(),
+            /* trackGroups= */ null,
+            /* trackSelectorResult= */ null,
+            /* staticMetadata= */ ImmutableList.of());
+
+    // Simulate a timeline refresh resolving the position again before MSG_DO_SOME_WORK enqueues
+    // the new period.
+    MediaPeriodId refreshedPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            secondPeriodUid,
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
+
+    assertThat(seekPeriodId.windowSequenceNumber).isEqualTo(1);
+    assertThat(refreshedPeriodId).isEqualTo(seekPeriodId);
+  }
+
+  @Test
+  public void
       resolveMediaPeriodIdForAdsAfterPeriodPositionChange_fromAvailableAdAndWithoutEnforceAdPlayback_skipsAd() {
     setupAdTimeline(/* adGroupTimesUs...= */ 0);
     setAdGroupLoaded(/* adGroupIndex= */ 0);
@@ -2677,8 +2818,7 @@ public final class MediaPeriodQueueTest {
             /* staticMetadata= */ ImmutableList.of());
   }
 
-  @Nullable
-  private MediaPeriodInfo getNextMediaPeriodInfo() {
+  private @Nullable MediaPeriodInfo getNextMediaPeriodInfo() {
     return mediaPeriodQueue.getNextMediaPeriodInfo(/* rendererPositionUs= */ 0, playbackInfo);
   }
 

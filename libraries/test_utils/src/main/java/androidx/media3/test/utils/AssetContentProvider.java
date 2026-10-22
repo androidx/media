@@ -68,8 +68,8 @@ public final class AssetContentProvider extends ContentProvider
   }
 
   @Override
-  @Nullable
-  public AssetFileDescriptor openAssetFile(Uri uri, String mode) throws FileNotFoundException {
+  public @Nullable AssetFileDescriptor openAssetFile(Uri uri, String mode)
+      throws FileNotFoundException {
     if (uri.getPath() == null) {
       return null;
     }

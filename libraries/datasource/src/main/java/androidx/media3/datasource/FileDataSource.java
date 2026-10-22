@@ -72,7 +72,7 @@ public final class FileDataSource extends BaseDataSource {
   /** {@link DataSource.Factory} for {@link FileDataSource} instances. */
   public static final class Factory implements DataSource.Factory {
 
-    @Nullable private TransferListener listener;
+    private @Nullable TransferListener listener;
 
     /**
      * Sets a {@link TransferListener} for {@link FileDataSource} instances created by this factory.
@@ -96,8 +96,8 @@ public final class FileDataSource extends BaseDataSource {
     }
   }
 
-  @Nullable private RandomAccessFile file;
-  @Nullable private Uri uri;
+  private @Nullable RandomAccessFile file;
+  private @Nullable Uri uri;
   private long bytesRemaining;
   private boolean opened;
 
@@ -155,8 +155,7 @@ public final class FileDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

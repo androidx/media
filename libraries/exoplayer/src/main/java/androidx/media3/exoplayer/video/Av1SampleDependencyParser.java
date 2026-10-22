@@ -64,7 +64,7 @@ public final class Av1SampleDependencyParser {
    */
   private final ByteBuffer delayedKeyFrameTruncatedSample;
 
-  @Nullable private SequenceHeader sequenceHeader;
+  private @Nullable SequenceHeader sequenceHeader;
 
   public Av1SampleDependencyParser() {
     delayedKeyFrameTruncatedSample = ByteBuffer.allocateDirect(MAX_BYTES_FROM_KEYFRAME_TO_READ);

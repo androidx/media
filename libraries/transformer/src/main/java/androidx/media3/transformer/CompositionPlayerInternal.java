@@ -92,7 +92,7 @@ import org.jspecify.annotations.Nullable;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
-  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+  private final @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   private int droppedFrames;
   private long droppedFrameAccumulationStartTimeMs;
@@ -303,6 +303,11 @@ import org.jspecify.annotations.Nullable;
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
     playbackVideoGraphWrapper.setIsInputSdrToneMapped(
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+      // Flush the primary sequence to reset the state of the release control when a new Composition
+      // is set.
+      videoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    }
   }
 
   private void releaseInternal(ConditionVariable conditionVariable) {

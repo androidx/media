@@ -108,8 +108,7 @@ public interface ProgressiveMediaExtractor {
    * @return The name, or {@code null} if the underlying infrastructure has not been determined yet
    *     or if providing a name is not supported.
    */
-  @Nullable
-  default String getUnderlyingImplementationName() {
+  default @Nullable String getUnderlyingImplementationName() {
     return null;
   }
 }

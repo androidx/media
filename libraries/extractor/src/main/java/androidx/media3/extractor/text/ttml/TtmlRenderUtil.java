@@ -47,8 +47,7 @@ import org.jspecify.annotations.Nullable;
 
   private static final String TAG = "TtmlRenderUtil";
 
-  @Nullable
-  public static TtmlStyle resolveStyle(
+  public static @Nullable TtmlStyle resolveStyle(
       @Nullable TtmlStyle style,
       String @Nullable [] styleIds,
       Map<String, TtmlStyle> globalStyles) {
@@ -251,8 +250,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private static TtmlNode findRubyTextNode(
+  private static @Nullable TtmlNode findRubyTextNode(
       TtmlNode rubyContainerNode, Map<String, TtmlStyle> globalStyles) {
     Deque<TtmlNode> childNodesStack = new ArrayDeque<>();
     childNodesStack.push(rubyContainerNode);
@@ -271,8 +269,7 @@ import org.jspecify.annotations.Nullable;
     return null;
   }
 
-  @Nullable
-  private static TtmlNode findRubyContainerNode(
+  private static @Nullable TtmlNode findRubyContainerNode(
       @Nullable TtmlNode node, Map<String, TtmlStyle> globalStyles) {
     while (node != null) {
       @Nullable TtmlStyle style = resolveStyle(node.style, node.getStyleIds(), globalStyles);

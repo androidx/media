@@ -140,8 +140,8 @@ public class MediaCodecAudioRendererTest {
   private MediaCodecAudioRenderer mediaCodecAudioRenderer;
   private DefaultMediaCodecAdapterFactory codecAdapterFactory;
   private MediaCodecSelector mediaCodecSelector;
-  @Nullable private HandlerThread callbackThread;
-  @Nullable private HandlerThread queueingThread;
+  private @Nullable HandlerThread callbackThread;
+  private @Nullable HandlerThread queueingThread;
 
   @Mock private AudioSink audioSink;
   @Mock private AudioRendererEventListener audioRendererEventListener;

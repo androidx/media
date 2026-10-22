@@ -47,7 +47,7 @@ public final class AlternativeMpdEvent {
     private long durationUs;
     private Uri uri;
     private long earliestResolutionTimeOffsetUs;
-    @Nullable private String serviceDescriptionId;
+    private @Nullable String serviceDescriptionId;
     private long maxDurationUs;
     private boolean executeOnce;
     private @NoJumpMode int noJump;
@@ -308,7 +308,7 @@ public final class AlternativeMpdEvent {
   public final long earliestResolutionTimeOffsetUs;
 
   /** The {@code @serviceDescriptionId}, or null if absent. */
-  @Nullable public final String serviceDescriptionId;
+  public final @Nullable String serviceDescriptionId;
 
   /** APDmax in microseconds, or {@link C#TIME_UNSET} if unbounded. Zero disables the event. */
   public final long maxDurationUs;

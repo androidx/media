@@ -46,8 +46,8 @@ public class CapturingFrameProcessor implements FrameProcessor {
   public static class Factory implements FrameProcessor.Factory {
 
     private final FrameProcessor.Factory underlyingFactory;
-    @Nullable private final Consumer<List<AsyncFrame>> onQueueListener;
-    @Nullable private volatile CapturingFrameProcessor createdProcessor;
+    private final @Nullable Consumer<List<AsyncFrame>> onQueueListener;
+    private volatile @Nullable CapturingFrameProcessor createdProcessor;
 
     /**
      * Creates a new instance.
@@ -83,8 +83,7 @@ public class CapturingFrameProcessor implements FrameProcessor {
     }
 
     /** Returns the created {@link CapturingFrameProcessor} instance. */
-    @Nullable
-    public CapturingFrameProcessor getCreatedProcessor() {
+    public @Nullable CapturingFrameProcessor getCreatedProcessor() {
       return createdProcessor;
     }
   }
@@ -157,7 +156,7 @@ public class CapturingFrameProcessor implements FrameProcessor {
   }
 
   private final FrameProcessor underlyingProcessor;
-  @Nullable private final Consumer<List<AsyncFrame>> onQueueListener;
+  private final @Nullable Consumer<List<AsyncFrame>> onQueueListener;
 
   /** All the frames and EOS events queued to this {@link FrameProcessor}. */
   private final CopyOnWriteArrayList<Event> queuedEvents;

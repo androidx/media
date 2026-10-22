@@ -145,7 +145,7 @@ import org.jspecify.annotations.Nullable;
   private static final class SystemMessage implements Message {
 
     private android.os.@Nullable Message message;
-    @Nullable private SystemHandlerWrapper handler;
+    private @Nullable SystemHandlerWrapper handler;
 
     @CanIgnoreReturnValue
     public SystemMessage setMessage(android.os.Message message, SystemHandlerWrapper handler) {

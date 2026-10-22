@@ -109,7 +109,7 @@ public final class ExternallyLoadedImageDecoder implements ImageDecoder {
   private final DecoderInputBuffer inputBuffer;
   private final ImageOutputBuffer outputBuffer;
 
-  @Nullable private ListenableFuture<Bitmap> pendingDecode;
+  private @Nullable ListenableFuture<Bitmap> pendingDecode;
   private long pendingDecodeTimeUs;
   private boolean pendingEndOfStream;
 
@@ -135,9 +135,8 @@ public final class ExternallyLoadedImageDecoder implements ImageDecoder {
     // Intentionally unused to render images that start earlier than the intended start time.
   }
 
-  @Nullable
   @Override
-  public DecoderInputBuffer dequeueInputBuffer() {
+  public @Nullable DecoderInputBuffer dequeueInputBuffer() {
     return pendingDecode == null ? inputBuffer : null;
   }
 
@@ -162,9 +161,8 @@ public final class ExternallyLoadedImageDecoder implements ImageDecoder {
     inputBuffer.clear();
   }
 
-  @Nullable
   @Override
-  public ImageOutputBuffer dequeueOutputBuffer() throws ImageDecoderException {
+  public @Nullable ImageOutputBuffer dequeueOutputBuffer() throws ImageDecoderException {
     if (pendingEndOfStream) {
       outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
       pendingEndOfStream = false;

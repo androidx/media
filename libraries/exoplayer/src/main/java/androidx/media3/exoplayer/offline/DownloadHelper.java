@@ -115,10 +115,10 @@ public final class DownloadHelper {
   /** A factory of {@link DownloadHelper}. */
   public static final class Factory {
     private DataSource.@Nullable Factory dataSourceFactory;
-    @Nullable private RenderersFactory renderersFactory;
+    private @Nullable RenderersFactory renderersFactory;
     private TrackSelectionParameters trackSelectionParameters;
-    @Nullable private DrmSessionManager drmSessionManager;
-    @Nullable private Supplier<ReleasableExecutor> loadExecutorSupplier;
+    private @Nullable DrmSessionManager drmSessionManager;
+    private @Nullable Supplier<ReleasableExecutor> loadExecutorSupplier;
     private boolean debugLoggingEnabled;
 
     /** Creates a {@link Factory}. */
@@ -488,7 +488,7 @@ public final class DownloadHelper {
   private static final String TAG = "DownloadHelper";
 
   private final MediaItem.LocalConfiguration localConfiguration;
-  @Nullable private final MediaSource mediaSource;
+  private final @Nullable MediaSource mediaSource;
   private final @Mode int mode;
   private final DefaultTrackSelector trackSelector;
   private final RendererCapabilitiesList rendererCapabilities;
@@ -596,8 +596,7 @@ public final class DownloadHelper {
    * Returns the manifest, or null if no manifest is loaded. Must not be called until {@link
    * Callback#onPrepared(DownloadHelper, boolean)} is triggered.
    */
-  @Nullable
-  public Object getManifest() {
+  public @Nullable Object getManifest() {
     if (mode == MODE_NOT_PREPARE) {
       return null;
     }
@@ -1476,8 +1475,7 @@ public final class DownloadHelper {
     }
 
     @Override
-    @Nullable
-    public Object getSelectionData() {
+    public @Nullable Object getSelectionData() {
       return null;
     }
 

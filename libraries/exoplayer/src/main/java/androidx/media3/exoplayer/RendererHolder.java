@@ -56,14 +56,14 @@ import org.jspecify.annotations.Nullable;
   private final Renderer primaryRenderer;
   // Index of renderer in renderer list held by the {@link Player}.
   private final int index;
-  @Nullable private final Renderer secondaryRenderer;
+  private final @Nullable Renderer secondaryRenderer;
   private @RendererPrewarmingState int prewarmingState;
   private boolean primaryRequiresReset;
   private boolean secondaryRequiresReset;
   private boolean primaryMayRenderStartOfStream;
   private boolean secondaryMayRenderStartOfStream;
-  @Nullable private SampleStream primaryEnabledSampleStream;
-  @Nullable private SampleStream secondaryEnabledSampleStream;
+  private @Nullable SampleStream primaryEnabledSampleStream;
+  private @Nullable SampleStream secondaryEnabledSampleStream;
 
   public RendererHolder(Renderer renderer, @Nullable Renderer secondaryRenderer, int index) {
     this.primaryRenderer = renderer;
@@ -993,8 +993,7 @@ import org.jspecify.annotations.Nullable;
    * @return {@link Renderer} enabled on the {@link MediaPeriodHolder period} or {@code null} if the
    *     renderer is not enabled on the provided period.
    */
-  @Nullable
-  private Renderer getRendererReadingFromPeriod(@Nullable MediaPeriodHolder period) {
+  private @Nullable Renderer getRendererReadingFromPeriod(@Nullable MediaPeriodHolder period) {
     if (period == null || period.sampleStreams[index] == null) {
       return null;
     }

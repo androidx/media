@@ -84,7 +84,7 @@ import org.jspecify.annotations.Nullable;
 
     private @MonotonicNonNull MediaRouter2 router;
     private @MonotonicNonNull RouteCallback routeCallback;
-    @Nullable private ControllerCallback controllerCallback;
+    private @Nullable ControllerCallback controllerCallback;
     private @MonotonicNonNull BackgroundThreadStateHandler<Boolean> isSuitableForPlaybackState;
 
     @SuppressLint("ThreadSafe") // Handler is thread-safe, but not annotated.
@@ -171,7 +171,7 @@ import org.jspecify.annotations.Nullable;
 
   private static final class ImplBase implements SuitableOutputChecker {
 
-    @Nullable private AudioManager audioManager;
+    private @Nullable AudioManager audioManager;
     private @MonotonicNonNull AudioDeviceCallback audioDeviceCallback;
     private @MonotonicNonNull BackgroundThreadStateHandler<Boolean> isSuitableForPlaybackState;
 

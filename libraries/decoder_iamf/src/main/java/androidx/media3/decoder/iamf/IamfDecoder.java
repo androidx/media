@@ -172,8 +172,7 @@ public final class IamfDecoder
   }
 
   @Override
-  @Nullable
-  protected IamfDecoderException decode(
+  protected @Nullable IamfDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       @Status int resetResult = iamfReset(nativeDecoderPointer);

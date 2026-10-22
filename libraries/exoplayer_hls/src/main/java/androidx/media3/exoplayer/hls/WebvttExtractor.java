@@ -58,7 +58,7 @@ public final class WebvttExtractor implements Extractor {
   private static final int HEADER_MIN_LENGTH = 6 /* "WEBVTT" */;
   private static final int HEADER_MAX_LENGTH = 3 /* optional Byte Order Mark */ + HEADER_MIN_LENGTH;
 
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final TimestampAdjuster timestampAdjuster;
   private final ParsableByteArray sampleDataWrapper;
   private final SubtitleParser.Factory subtitleParserFactory;

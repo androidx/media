@@ -233,8 +233,7 @@ import org.jspecify.annotations.Nullable;
    * <p>Should only be called by the input thread.
    */
   @Override
-  @Nullable
-  public DecoderInputBuffer getInputBuffer() {
+  public @Nullable DecoderInputBuffer getInputBuffer() {
     checkState(!isReleased);
     if (inputBlocked || !pendingMediaItemChanges.isEmpty()) {
       return null;
@@ -671,7 +670,7 @@ import org.jspecify.annotations.Nullable;
   private static final class MediaItemChange {
     public final EditedMediaItem editedMediaItem;
     public final long durationUs;
-    @Nullable public final Format format;
+    public final @Nullable Format format;
     public final boolean isLast;
     public final long positionOffsetUs;
 

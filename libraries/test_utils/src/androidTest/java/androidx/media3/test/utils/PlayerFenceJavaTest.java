@@ -56,7 +56,7 @@ public final class PlayerFenceJavaTest {
       MediaItem.fromUri("asset:///media/mp3/play-trimmed.mp3");
   private static final MediaItem MP4_ITEM = MediaItem.fromUri("asset:///media/mp4/sample.mp4");
 
-  @Nullable private Player player;
+  private @Nullable Player player;
 
   @After
   public void releasePlayer() {

@@ -242,6 +242,19 @@ struct PictureAllocatorData {
   jobject direct_byte_buffer;
 };
 
+// Unrefs a Dav1dPicture on scope exit; clearing the picture makes unref a
+// no-op.
+class ScopedDav1dPictureUnref {
+ public:
+  explicit ScopedDav1dPictureUnref(Dav1dPicture* picture) : picture_(picture) {}
+  ScopedDav1dPictureUnref(const ScopedDav1dPictureUnref&) = delete;
+  ScopedDav1dPictureUnref& operator=(const ScopedDav1dPictureUnref&) = delete;
+  ~ScopedDav1dPictureUnref() { dav1d_picture_unref(picture_); }
+
+ private:
+  Dav1dPicture* const picture_;
+};
+
 struct JniContext {
   ~JniContext() {
     if (native_window) {
@@ -974,14 +987,11 @@ jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
 
-  auto cleanup_dav1d_picture = [](Dav1dPicture* picture) {
-    dav1d_picture_unref(picture);
-    delete picture;
-  };
-  std::unique_ptr<Dav1dPicture, decltype(cleanup_dav1d_picture)> dav1d_picture(
-      new Dav1dPicture(), cleanup_dav1d_picture);
+  Dav1dPicture decoded_picture = {};
+  // Unrefs decoded_picture on every return path.
+  ScopedDav1dPictureUnref decoded_picture_unref(&decoded_picture);
   int libdav1d_status_code =
-      dav1d_get_picture(context->decoder, dav1d_picture.get());
+      dav1d_get_picture(context->decoder, &decoded_picture);
   {
     std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
         context->state_mutex);
@@ -995,7 +1005,7 @@ jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
     return kStatusEagain;
   }
   const UserDataCookie* returned_user_data =
-      reinterpret_cast<const UserDataCookie*>(dav1d_picture->m.user_data.data);
+      reinterpret_cast<const UserDataCookie*>(decoded_picture.m.user_data.data);
   env->CallVoidMethod(jOutputBuffer, context->set_flags_method,
                       returned_user_data->flags);
   if (ClearPendingException(env)) {
@@ -1015,7 +1025,7 @@ jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
     context->jni_status_code = kJniStatusBufferInitError;
     return kStatusError;
   }
-  int bpc = dav1d_picture->p.bpc;
+  int bpc = decoded_picture.p.bpc;
   if (bpc != 8 && bpc != 10) {
     std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
         context->state_mutex);
@@ -1024,8 +1034,8 @@ jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
   }
   if (bpc == 10 && returned_user_data->output_mode == kOutputModeSurfaceYuv) {
     // The current P010 rendering in dav1dRenderFrame assumes I420 or I400.
-    if (dav1d_picture->p.layout != DAV1D_PIXEL_LAYOUT_I420 &&
-        dav1d_picture->p.layout != DAV1D_PIXEL_LAYOUT_I400) {
+    if (decoded_picture.p.layout != DAV1D_PIXEL_LAYOUT_I420 &&
+        decoded_picture.p.layout != DAV1D_PIXEL_LAYOUT_I400) {
       std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
           context->state_mutex);
       context->jni_status_code = kJniStatusUnsupportedPixelLayoutError;
@@ -1043,22 +1053,22 @@ jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
     if (context->use_custom_allocator) {
       PictureAllocatorData* allocator_data =
           reinterpret_cast<PictureAllocatorData*>(
-              dav1d_picture->allocator_data);
+              decoded_picture.allocator_data);
       env->SetObjectField(jOutputBuffer, context->data_field,
                           allocator_data->direct_byte_buffer);
       init_result = env->CallBooleanMethod(
           jOutputBuffer, context->init_for_offset_frames_method,
-          allocator_data->offset, dav1d_picture->p.w, dav1d_picture->p.h,
-          dav1d_picture->stride[kPlaneY], dav1d_picture->stride[kPlaneU],
-          GetColorSpace(dav1d_picture->seq_hdr->pri),
+          allocator_data->offset, decoded_picture.p.w, decoded_picture.p.h,
+          decoded_picture.stride[kPlaneY], decoded_picture.stride[kPlaneU],
+          GetColorSpace(decoded_picture.seq_hdr->pri),
           allocator_data->aligned_height);
       CleanUpAllocatorData(jContext, env);
     } else {
       init_result = env->CallBooleanMethod(
-          jOutputBuffer, context->init_for_yuv_frame_method, dav1d_picture->p.w,
-          dav1d_picture->p.h, dav1d_picture->stride[kPlaneY],
-          dav1d_picture->stride[kPlaneU],
-          GetColorSpace(dav1d_picture->seq_hdr->pri));
+          jOutputBuffer, context->init_for_yuv_frame_method,
+          decoded_picture.p.w, decoded_picture.p.h,
+          decoded_picture.stride[kPlaneY], decoded_picture.stride[kPlaneU],
+          GetColorSpace(decoded_picture.seq_hdr->pri));
     }
     if (!init_result) {
       std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
@@ -1085,24 +1095,35 @@ jint dav1dGetFrame(JNIEnv* env, jobject thiz, jlong jContext,
         LOGE("Failed to get direct buffer address for output data.");
         return kStatusError;
       }
-      CopyFrameToDataBuffer(dav1d_picture.get(), data);
+      CopyFrameToDataBuffer(&decoded_picture, data);
     }
   } else if (returned_user_data->output_mode == kOutputModeSurfaceYuv) {
-    // Dav1dPicture is cleaned up as part of dav1dReleaseFrame.
-    Dav1dPicture* dav1d_picture_raw_ptr = dav1d_picture.release();
-    env->SetLongField(jOutputBuffer, context->decoder_private_field,
-                      (uint64_t)dav1d_picture_raw_ptr);
+    // Initialize the Java buffer before allocating the native picture and
+    // setting the native pointer, to avoid a heap allocation and dangling
+    // pointers on failure.
+    env->CallVoidMethod(jOutputBuffer, context->init_for_private_frame_method,
+                        decoded_picture.p.w, decoded_picture.p.h);
     if (ClearPendingException(env)) {
-      // If an exception occurred, the long field might not have been set.
-      // To avoid leaking dav1d_picture_raw_ptr, we unref it here.
-      dav1d_picture_unref(dav1d_picture_raw_ptr);
-      delete dav1d_picture_raw_ptr;
       context->jni_status_code = kJniStatusBufferInitError;
       return kStatusError;
     }
-    env->CallVoidMethod(jOutputBuffer, context->init_for_private_frame_method,
-                        dav1d_picture_raw_ptr->p.w, dav1d_picture_raw_ptr->p.h);
+    // Dav1dPicture is cleaned up as part of dav1dRenderFrame or
+    // dav1dReleaseFrame.
+    Dav1dPicture* const dav1d_picture_ptr =
+        new (std::nothrow) Dav1dPicture(decoded_picture);
+    if (dav1d_picture_ptr == nullptr) {
+      LOGE("Failed to allocate Dav1dPicture.");
+      context->jni_status_code = kJniStatusOutOfMemory;
+      return kStatusError;
+    }
+    // Transfer the picture reference to the heap copy. Clearing the stack copy
+    // makes decoded_picture_unref a no-op.
+    decoded_picture = {};
+    env->SetLongField(jOutputBuffer, context->decoder_private_field,
+                      reinterpret_cast<jlong>(dav1d_picture_ptr));
     if (ClearPendingException(env)) {
+      dav1d_picture_unref(dav1d_picture_ptr);
+      delete dav1d_picture_ptr;
       context->jni_status_code = kJniStatusBufferInitError;
       return kStatusError;
     }
@@ -1225,7 +1246,18 @@ jint dav1dRenderFrame(JNIEnv* env, jobject thiz, jlong jContext,
                     y_copy_height);
   }
 
-  if (ANativeWindow_unlockAndPost(context->native_window)) {
+  const int32_t unlock_result =
+      ANativeWindow_unlockAndPost(context->native_window);
+
+  // Release the picture after unlocking the native window to limit the time
+  // the surface buffer is held. Always release it, even if unlocking failed,
+  // so that the picture is not leaked.
+  env->SetLongField(jOutputBuffer, context->decoder_private_field, 0);
+  ClearPendingException(env);
+  dav1d_picture_unref(dav1d_picture);
+  delete dav1d_picture;
+
+  if (unlock_result) {
     context->jni_status_code = kJniStatusANativeWindowError;
     LOGE("Failed to unlock and post native window.");
     return kStatusError;

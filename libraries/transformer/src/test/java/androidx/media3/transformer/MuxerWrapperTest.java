@@ -26,6 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.os.ParcelFileDescriptor;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -38,6 +39,7 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -86,7 +88,7 @@ public class MuxerWrapperTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public final TestName testName = new TestName();
 
-  @Nullable private MuxerWrapper muxerWrapper;
+  private @Nullable MuxerWrapper muxerWrapper;
 
   @After
   public void tearDown() throws MuxerException {
@@ -845,7 +847,41 @@ public class MuxerWrapperTest {
     assertThat(muxerWrapper.getTrackFormat(C.TRACK_TYPE_AUDIO)).isEqualTo(formatWithMetadata);
   }
 
+  @Test
+  public void
+      finishWritingAndMaybeRelease_completedWithParcelFileDescriptor_reportsFileSizeAndClosesPfd()
+          throws Exception {
+    File outputFile = temporaryFolder.newFile("output.mp4");
+    ParcelFileDescriptor pfd =
+        ParcelFileDescriptor.open(outputFile, ParcelFileDescriptor.MODE_READ_WRITE);
+    NoOpMuxerListenerImpl listener = new NoOpMuxerListenerImpl();
+    muxerWrapper =
+        new MuxerWrapper(
+            pfd,
+            new DefaultMuxer.Factory(),
+            listener,
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    muxerWrapper.writeSample(
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    assertThat(listener.fileSizeBytes).isEqualTo(outputFile.length());
+    assertThat(pfd.getFileDescriptor().valid()).isFalse();
+  }
+
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {
+
+    long fileSizeBytes = C.LENGTH_UNSET;
 
     @Override
     public void onTrackEnded(
@@ -858,7 +894,9 @@ public class MuxerWrapperTest {
     public void onEnded(long approximateDurationMs) {}
 
     @Override
-    public void onFileSizeBytesAvailable(long fileSizeBytes) {}
+    public void onFileSizeBytesAvailable(long fileSizeBytes) {
+      this.fileSizeBytes = fileSizeBytes;
+    }
 
     @Override
     public void onError(ExportException exportException) {}

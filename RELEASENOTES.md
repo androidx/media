@@ -21,6 +21,21 @@
         (e.g., `CompositeMediaSource<Void?>`).
     *   Verify in `AdsMediaSource` that `AdPlaybackState.removedAdGroupCount`
         does not decrease across `AdPlaybackState` updates.
+    *   Fix an issue where transitioning between media periods that use
+        different renderers could prematurely enable the incoming renderer
+        before the outgoing renderer finished rendering (for example, throwing
+        `IllegalStateException` ("Multiple renderer media clocks enabled."))
+        when `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix an issue where transitioning to an ad at a custom playback speed
+        could delay advancing all renderers to the ad period when
+        `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix issues with pre-warming renderers during media period transitions
+        and track reselections.
+    *   Add `MediaPeriod.supportsStreamPrerollFlags()` (defaulting to `false`)
+        so that custom `MediaPeriod` implementations can opt in to reporting
+        initial discontinuities via `SampleStream.getFlags()`, falling back to
+        `MediaPeriod.readDiscontinuity()` when not supported and
+        `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
     *   Fix an issue where, with video prewarming, the first frame of the next
         video item was released late and frames around the transition were
@@ -58,6 +73,13 @@
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap
         and horizontal text subtitle cues.
+    *   Add `SubtitleView.setTextDirectionHeuristic` to allow customizing the
+        text direction heuristic used for bidirectional subtitle text wrapping
+        ([#3454](https://github.com/androidx/media/issues/3454)).
+    *   Animate all control slots in `Player` in `media3-ui-compose-material3`,
+        including custom ones, and remove the `visible` parameter from
+        `PlayerDefaults.TopControls`, `CenterControls` and `BottomControls`.
+        This is a breaking change on an unstable API.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:
@@ -68,6 +90,10 @@
         retain partially buffered samples without discarding or splicing, or
         reset the load position to an outdated seek position
         ([#3362](https://github.com/androidx/media/issues/3362)).
+    *   Fix `IllegalStateException` when seeking to the start of a buffered
+        segment after an adaptive track switch.
+    *   Fix several playback issues when switching pathways with HLS Content
+        Steering ([#3465](https://github.com/androidx/media/issues/3465)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
@@ -78,6 +104,13 @@
     *   Fix an issue where `RemoteCastPlayer` load requests were dropped by
         Android TV receivers
         ([#3462](https://github.com/androidx/media/issues/3462)).
+    *   Update `com.google.android.gms:play-services-cast-framework` dependency
+        to `23.0.0`.
+    *   Add `CastParams.Builder.setSystemOutputSwitcherEnabled(boolean)` to
+        configure whether Cast devices appear in the system output switcher
+        without requiring `MediaTransferReceiver` to be declared in
+        `AndroidManifest.xml`, and enable the system output switcher by default
+        for apps targeting API 37+ on devices running API 37+.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo

@@ -73,7 +73,7 @@ public final class PsExtractor implements Extractor {
   private long lastTrackPosition;
 
   // Accessed only by the loading thread.
-  @Nullable private PsBinarySearchSeeker psBinarySearchSeeker;
+  private @Nullable PsBinarySearchSeeker psBinarySearchSeeker;
   private @MonotonicNonNull ExtractorOutput output;
   private boolean hasOutputSeekMap;
 

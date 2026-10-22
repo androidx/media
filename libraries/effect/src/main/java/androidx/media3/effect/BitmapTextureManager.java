@@ -49,7 +49,7 @@ import org.jspecify.annotations.Nullable;
   private final boolean signalRepeatingSequence;
 
   private @MonotonicNonNull RepeatingGainmapShaderProgram repeatingGainmapShaderProgram;
-  @Nullable private GlTextureInfo currentSdrGlTextureInfo;
+  private @Nullable GlTextureInfo currentSdrGlTextureInfo;
   private int downstreamShaderProgramCapacity;
   private boolean currentInputStreamEnded;
   private boolean isNextFrameInTexture;

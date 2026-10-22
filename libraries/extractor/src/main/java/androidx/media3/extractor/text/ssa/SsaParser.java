@@ -74,7 +74,7 @@ public final class SsaParser implements SubtitleParser {
   private static final float DEFAULT_MARGIN = 0.05f;
 
   private final boolean haveInitializationData;
-  @Nullable private final SsaDialogueFormat dialogueFormatFromInitializationData;
+  private final @Nullable SsaDialogueFormat dialogueFormatFromInitializationData;
   private final ParsableByteArray parsableByteArray;
 
   private @MonotonicNonNull Map<String, SsaStyle> styles;

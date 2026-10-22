@@ -91,9 +91,8 @@ public class SimpleMetadataDecoderTest {
       result = new Metadata();
     }
 
-    @Nullable
     @Override
-    protected Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
+    protected @Nullable Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
       decodeWasCalled = true;
       return result;
     }

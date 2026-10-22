@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
 
   private final int type;
 
-  @Nullable private final ComponentName componentName;
+  private final @Nullable ComponentName componentName;
 
   private final String packageName;
 
@@ -142,14 +142,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ComponentName getComponentName() {
+  public @Nullable ComponentName getComponentName() {
     return componentName;
   }
 
   @Override
-  @SessionToken.TokenType
-  public int getType() {
+  public @SessionToken.TokenType int getType() {
     switch (type) {
       case TYPE_SESSION_LEGACY:
         return TYPE_SESSION;
@@ -175,8 +173,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public Object getBinder() {
+  public @Nullable Object getBinder() {
     return legacyToken;
   }
 

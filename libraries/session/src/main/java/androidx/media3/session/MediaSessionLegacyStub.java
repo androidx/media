@@ -140,22 +140,22 @@ import org.jspecify.annotations.Nullable;
   private final ControllerLegacyCbForBroadcast controllerLegacyCbForBroadcast;
   private final ConnectionTimeoutHandler connectionTimeoutHandler;
   private final boolean mayNeedButtonReservationWorkaroundForSeekbar;
-  @Nullable private final AndroidAutoConnectionStateObserver androidAutoObserver;
+  private final @Nullable AndroidAutoConnectionStateObserver androidAutoObserver;
   private final MediaSessionCompat sessionCompat;
-  @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
-  @Nullable private final ComponentName broadcastReceiverComponentName;
-  @Nullable private VolumeProviderCompat volumeProviderCompat;
+  private final @Nullable MediaButtonReceiver runtimeBroadcastReceiver;
+  private final @Nullable ComponentName broadcastReceiverComponentName;
+  private @Nullable VolumeProviderCompat volumeProviderCompat;
   private final boolean playIfSuppressed;
 
   private volatile long connectionTimeoutMs;
   private int sessionFlags;
-  @Nullable private LegacyError legacyError;
+  private @Nullable LegacyError legacyError;
   private Bundle legacyExtras;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
   private Player.Commands availablePlayerCommands;
-  @Nullable private PlaybackException customPlaybackException;
+  private @Nullable PlaybackException customPlaybackException;
   private Player.@Nullable Commands playerCommandsForErrorState;
 
   @SuppressWarnings({
@@ -380,9 +380,9 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
-  private static ComponentName queryPackageManagerForMediaButtonReceiver(Context context) {
+  private static @Nullable ComponentName queryPackageManagerForMediaButtonReceiver(
+      Context context) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     queryIntent.setPackage(context.getPackageName());
@@ -402,8 +402,8 @@ import org.jspecify.annotations.Nullable;
   }
 
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
-  @Nullable
-  private MediaButtonReceiver initializeMediaButtonReceiver(Context context, Uri sessionUri) {
+  private @Nullable MediaButtonReceiver initializeMediaButtonReceiver(
+      Context context, Uri sessionUri) {
     if (SDK_INT >= 31) {
       if (broadcastReceiverComponentName != null) {
         Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
@@ -1400,10 +1400,10 @@ import org.jspecify.annotations.Nullable;
 
     private MediaMetadata lastMediaMetadata;
     private String lastMediaId;
-    @Nullable private Uri lastMediaUri;
+    private @Nullable Uri lastMediaUri;
     private long lastDurationMs;
-    @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
-    @Nullable private Runnable pendingBitmapFuturesTask;
+    private @Nullable FutureCallback<Bitmap> pendingBitmapLoadCallback;
+    private @Nullable Runnable pendingBitmapFuturesTask;
     private ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> queueBitmapFutures;
 
     public ControllerLegacyCbForBroadcast() {
@@ -1936,9 +1936,9 @@ import org.jspecify.annotations.Nullable;
     return "Failed to load bitmap: " + throwable.getMessage();
   }
 
-  @Nullable
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
+  private static @Nullable ComponentName getServiceComponentByAction(
+      Context context, String action) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(action);
     queryIntent.setPackage(context.getPackageName());
@@ -2144,9 +2144,8 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
   @SuppressWarnings("deprecation") // Backwards compatibility with old volume commands
-  private static VolumeProviderCompat createVolumeProviderCompat(PlayerWrapper player) {
+  private static @Nullable VolumeProviderCompat createVolumeProviderCompat(PlayerWrapper player) {
     if (player.getDeviceInfo().playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
       return null;
     }
@@ -2274,7 +2273,7 @@ import org.jspecify.annotations.Nullable;
   private static final class LegacyError {
     public final boolean isFatal;
     @PlaybackStateCompat.ErrorCode public final int code;
-    @Nullable public final String message;
+    public final @Nullable String message;
     public final Bundle extras;
 
     /** Creates an instance. */

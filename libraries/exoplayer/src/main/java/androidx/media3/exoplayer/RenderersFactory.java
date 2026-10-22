@@ -58,8 +58,7 @@ public interface RenderersFactory {
    * @param metadataRendererOutput An output for metadata renderers.
    * @return The {@link Renderer instances}.
    */
-  @Nullable
-  default Renderer createSecondaryRenderer(
+  default @Nullable Renderer createSecondaryRenderer(
       Renderer renderer,
       Handler eventHandler,
       VideoRendererEventListener videoRendererEventListener,

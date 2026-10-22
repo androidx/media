@@ -52,7 +52,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
   private final MediaSource.@Nullable Factory mediaSourceFactory;
   private final BitmapLoader bitmapLoader;
   private final TrackSelector.@Nullable Factory trackSelectorFactory;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private AssetLoader.@MonotonicNonNull Factory imageAssetLoaderFactory;
   private AssetLoader.@MonotonicNonNull Factory exoPlayerAssetLoaderFactory;

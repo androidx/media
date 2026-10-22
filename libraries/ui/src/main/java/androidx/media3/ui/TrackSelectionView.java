@@ -96,8 +96,8 @@ public class TrackSelectionView extends LinearLayout {
   private CheckedTextView[][] trackViews;
 
   private boolean isDisabled;
-  @Nullable private Comparator<TrackInfo> trackInfoComparator;
-  @Nullable private TrackSelectionListener listener;
+  private @Nullable Comparator<TrackInfo> trackInfoComparator;
+  private @Nullable TrackSelectionListener listener;
 
   /** Creates a track selection view. */
   public TrackSelectionView(Context context) {

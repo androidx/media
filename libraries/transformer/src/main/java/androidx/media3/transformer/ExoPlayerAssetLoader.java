@@ -77,7 +77,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Clock clock;
     private final MediaSource.@Nullable Factory mediaSourceFactory;
     private final TrackSelector.Factory trackSelectorFactory;
-    @Nullable private final LogSessionId logSessionId;
+    private final @Nullable LogSessionId logSessionId;
     private final Supplier<LoadControl> loadControlSupplier;
 
     /**
@@ -375,7 +375,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Codec.DecoderFactory decoderFactory;
     private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
-    @Nullable private final LogSessionId logSessionId;
+    private final @Nullable LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
         EditedMediaItem editedMediaItem,

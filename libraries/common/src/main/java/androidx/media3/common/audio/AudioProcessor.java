@@ -143,7 +143,7 @@ public interface AudioProcessor {
     public static final class Builder {
       private long positionOffsetUs;
       private Timeline timeline;
-      @Nullable private Object periodUid;
+      private @Nullable Object periodUid;
 
       /** Creates a new builder. */
       public Builder() {
@@ -245,7 +245,7 @@ public interface AudioProcessor {
      * change due to updates to the media structure. In that case, the value will not be updated
      * until the next call to {@link #flush(StreamMetadata)}.
      */
-    @Nullable public final Object periodUid;
+    public final @Nullable Object periodUid;
 
     /**
      * @deprecated Use {@link Builder} instead.

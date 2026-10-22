@@ -66,7 +66,7 @@ public final class ProducerReferenceTime {
    * The application scheme URI if {@link #type} is {@link #TYPE_APPLICATION}, or {@code null}
    * otherwise.
    */
-  @Nullable public final String applicationScheme;
+  public final @Nullable String applicationScheme;
 
   /**
    * The wall-clock time as a Unix epoch timestamp in milliseconds, or {@link C#TIME_UNSET} if not
@@ -81,7 +81,7 @@ public final class ProducerReferenceTime {
   public final long presentationTime;
 
   /** An optional {@link UtcTimingElement} specifying the UTC timing synchronization source. */
-  @Nullable public final UtcTimingElement utcTiming;
+  public final @Nullable UtcTimingElement utcTiming;
 
   /**
    * Constructs a new instance.

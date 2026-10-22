@@ -75,8 +75,8 @@ import org.jspecify.annotations.Nullable;
   private final HlsExtractorFactory extractorFactory;
   private final HlsPlaylistTracker playlistTracker;
   private final HlsDataSourceFactory dataSourceFactory;
-  @Nullable private final TransferListener mediaTransferListener;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable TransferListener mediaTransferListener;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -91,7 +91,7 @@ import org.jspecify.annotations.Nullable;
   private final PlayerId playerId;
   private final HlsSampleStreamWrapper.Callback sampleStreamWrapperCallback;
   private final long timestampAdjusterInitializationTimeoutMs;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private MediaPeriod.@Nullable Callback mediaPeriodCallback;
   private int pendingPrepareCount;
@@ -447,6 +447,11 @@ import org.jspecify.annotations.Nullable;
   @Override
   public long getNextLoadPositionUs() {
     return compositeSequenceableLoader.getNextLoadPositionUs();
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
   }
 
   @Override

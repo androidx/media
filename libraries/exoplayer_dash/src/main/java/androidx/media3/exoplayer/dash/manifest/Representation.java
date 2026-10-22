@@ -66,7 +66,7 @@ public abstract class Representation {
   /** Supplemental properties in the adaptation set. May be empty. */
   public final List<Descriptor> supplementalProperties;
 
-  @Nullable private final RangedUri initializationUri;
+  private final @Nullable RangedUri initializationUri;
 
   /**
    * Constructs a new instance.
@@ -166,8 +166,7 @@ public abstract class Representation {
    * Returns a {@link RangedUri} defining the location of the representation's initialization data,
    * or null if no initialization data exists.
    */
-  @Nullable
-  public RangedUri getInitializationUri() {
+  public @Nullable RangedUri getInitializationUri() {
     return initializationUri;
   }
 
@@ -175,16 +174,13 @@ public abstract class Representation {
    * Returns a {@link RangedUri} defining the location of the representation's segment index, or
    * null if the representation provides an index directly.
    */
-  @Nullable
-  public abstract RangedUri getIndexUri();
+  public abstract @Nullable RangedUri getIndexUri();
 
   /** Returns an index if the representation provides one directly, or null otherwise. */
-  @Nullable
-  public abstract DashSegmentIndex getIndex();
+  public abstract @Nullable DashSegmentIndex getIndex();
 
   /** Returns a cache key for the representation if set, or null. */
-  @Nullable
-  public abstract String getCacheKey();
+  public abstract @Nullable String getCacheKey();
 
   /** A DASH representation consisting of a single segment. */
   public static class SingleSegmentRepresentation extends Representation {
@@ -195,9 +191,9 @@ public abstract class Representation {
     /** The content length, or {@link C#LENGTH_UNSET} if unknown. */
     public final long contentLength;
 
-    @Nullable private final String cacheKey;
-    @Nullable private final RangedUri indexUri;
-    @Nullable private final SingleSegmentIndex segmentIndex;
+    private final @Nullable String cacheKey;
+    private final @Nullable RangedUri indexUri;
+    private final @Nullable SingleSegmentIndex segmentIndex;
 
     /**
      * @param revisionId Identifies the revision of the content.
@@ -279,20 +275,17 @@ public abstract class Representation {
     }
 
     @Override
-    @Nullable
-    public RangedUri getIndexUri() {
+    public @Nullable RangedUri getIndexUri() {
       return indexUri;
     }
 
     @Override
-    @Nullable
-    public DashSegmentIndex getIndex() {
+    public @Nullable DashSegmentIndex getIndex() {
       return segmentIndex;
     }
 
     @Override
-    @Nullable
-    public String getCacheKey() {
+    public @Nullable String getCacheKey() {
       return cacheKey;
     }
   }
@@ -334,8 +327,7 @@ public abstract class Representation {
     }
 
     @Override
-    @Nullable
-    public RangedUri getIndexUri() {
+    public @Nullable RangedUri getIndexUri() {
       return null;
     }
 
@@ -345,8 +337,7 @@ public abstract class Representation {
     }
 
     @Override
-    @Nullable
-    public String getCacheKey() {
+    public @Nullable String getCacheKey() {
       return null;
     }
 

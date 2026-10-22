@@ -173,9 +173,8 @@ public final class DecoderVideoRendererTest {
                 return new DecoderException("error", error);
               }
 
-              @Nullable
               @Override
-              protected DecoderException decode(
+              protected @Nullable DecoderException decode(
                   DecoderInputBuffer inputBuffer,
                   VideoDecoderOutputBuffer outputBuffer,
                   boolean reset) {

@@ -260,7 +260,7 @@ public final class ExperimentalBandwidthMeter implements BandwidthMeter, Transfe
     }
   }
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
   private final ImmutableMap<Integer, Long> initialBitrateEstimates;
   private final boolean resetOnNetworkTypeChange;
 

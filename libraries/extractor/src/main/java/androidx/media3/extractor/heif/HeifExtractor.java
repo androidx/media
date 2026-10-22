@@ -59,13 +59,13 @@ public final class HeifExtractor implements Extractor {
   public static final int FLAG_READ_IMAGE = 1;
 
   private final Extractor imageExtractor;
-  @Nullable private final Extractor videoExtractor;
+  private final @Nullable Extractor videoExtractor;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
   private @MonotonicNonNull Extractor activeExtractor;
 
   /** Holds a seek that arrives before {@link #activeExtractor} is assigned. */
-  @Nullable private Pair<Long, Long> pendingSeek;
+  private @Nullable Pair<Long, Long> pendingSeek;
 
   /** Creates an instance reading the video and metadata track. */
   public HeifExtractor() {

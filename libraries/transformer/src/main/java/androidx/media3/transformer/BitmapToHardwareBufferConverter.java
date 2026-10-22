@@ -61,12 +61,10 @@ import org.jspecify.annotations.Nullable;
   private final Consumer<VideoFrameProcessingException> errorCallback;
 
   @GuardedBy("this")
-  @Nullable
-  private DefaultHardwareBufferFrame currentFrame;
+  private @Nullable DefaultHardwareBufferFrame currentFrame;
 
   @GuardedBy("this")
-  @Nullable
-  private Bitmap currentBitmap;
+  private @Nullable Bitmap currentBitmap;
 
   @GuardedBy("this")
   private int currentBitmapGenerationId;

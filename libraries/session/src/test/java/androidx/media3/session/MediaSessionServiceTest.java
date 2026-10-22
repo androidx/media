@@ -998,8 +998,7 @@ public class MediaSessionServiceTest {
     serviceController.destroy();
   }
 
-  @Nullable
-  private StatusBarNotification getStatusBarNotification(int notificationId) {
+  private @Nullable StatusBarNotification getStatusBarNotification(int notificationId) {
     for (StatusBarNotification notification : notificationManager.getActiveNotifications()) {
       if (notification.getId() == notificationId) {
         return notification;
@@ -1009,9 +1008,8 @@ public class MediaSessionServiceTest {
   }
 
   private static final class TestService extends MediaSessionService {
-    @Nullable
     @Override
-    public MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
+    public @Nullable MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
       return null; // No need to support binding or pending intents for this test.
     }
   }
@@ -1021,7 +1019,7 @@ public class MediaSessionServiceTest {
     private final List<MediaSession.ControllerInfo> callers;
 
     private ImmutableList<MediaItem> mediaItems;
-    @Nullable private MediaSession session;
+    private @Nullable MediaSession session;
 
     public TestServiceWithPlaybackResumption() {
       callers = new ArrayList<>();
@@ -1071,9 +1069,8 @@ public class MediaSessionServiceTest {
               .build();
     }
 
-    @Nullable
     @Override
-    public MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
+    public @Nullable MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
       return session;
     }
 

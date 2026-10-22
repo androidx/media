@@ -36,7 +36,7 @@ import org.jspecify.annotations.Nullable;
 @ExperimentalApi // TODO: b/498176910 - Remove once FrameWriter is production ready.
 public final class ImageReaderSurfaceHolder implements SurfaceHolder, AutoCloseable {
 
-  @Nullable public ImageReader imageReader;
+  public @Nullable ImageReader imageReader;
 
   private final List<Callback> callbacks = new CopyOnWriteArrayList<>();
   private final Handler handler;

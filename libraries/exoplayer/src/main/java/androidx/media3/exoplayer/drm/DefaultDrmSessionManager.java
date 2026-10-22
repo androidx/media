@@ -320,16 +320,16 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private final Set<DefaultDrmSession> keepaliveSessions;
 
   private int prepareCallsCount;
-  @Nullable private ExoMediaDrm exoMediaDrm;
-  @Nullable private DefaultDrmSession placeholderDrmSession;
-  @Nullable private DefaultDrmSession noMultiSessionDrmSession;
+  private @Nullable ExoMediaDrm exoMediaDrm;
+  private @Nullable DefaultDrmSession placeholderDrmSession;
+  private @Nullable DefaultDrmSession noMultiSessionDrmSession;
   private @MonotonicNonNull Looper playbackLooper;
   private @MonotonicNonNull Handler playbackHandler;
   private int mode;
   private byte @Nullable [] offlineLicenseKeySetId;
   private @MonotonicNonNull PlayerId playerId;
 
-  /* package */ @Nullable volatile MediaDrmHandler mediaDrmHandler;
+  /* package */ volatile @Nullable MediaDrmHandler mediaDrmHandler;
 
   private DefaultDrmSessionManager(
       UUID uuid,
@@ -451,8 +451,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   }
 
   @Override
-  @Nullable
-  public DrmSession acquireSession(
+  public @Nullable DrmSession acquireSession(
       DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher, Format format) {
     verifyPlaybackThread(/* allowBeforeSetPlayer= */ false);
     checkState(prepareCallsCount > 0);
@@ -465,8 +464,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   }
 
   // Must be called on the playback thread.
-  @Nullable
-  private DrmSession acquireSession(
+  private @Nullable DrmSession acquireSession(
       Looper playbackLooper,
       DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher,
       Format format,
@@ -543,8 +541,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
 
   // Internal methods.
 
-  @Nullable
-  private DrmSession maybeAcquirePlaceholderSession(
+  private @Nullable DrmSession maybeAcquirePlaceholderSession(
       int trackType, boolean shouldReleasePreacquiredSessionsBeforeRetrying) {
     ExoMediaDrm exoMediaDrm = checkNotNull(this.exoMediaDrm);
     boolean avoidPlaceholderDrmSessions =
@@ -819,7 +816,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private class ProvisioningManagerImpl implements DefaultDrmSession.ProvisioningManager {
 
     private final Set<DefaultDrmSession> sessionsAwaitingProvisioning;
-    @Nullable private DefaultDrmSession provisioningSession;
+    private @Nullable DefaultDrmSession provisioningSession;
 
     public ProvisioningManagerImpl() {
       sessionsAwaitingProvisioning = new HashSet<>();
@@ -939,7 +936,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
 
     private final DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher;
 
-    @Nullable private DrmSession session;
+    private @Nullable DrmSession session;
     private boolean isReleased;
 
     /**

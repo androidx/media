@@ -58,9 +58,9 @@ import org.jspecify.annotations.Nullable;
 public final class RawAssetLoader implements AssetLoader {
   private final EditedMediaItem editedMediaItem;
   private final Listener assetLoaderListener;
-  @Nullable private final Format audioFormat;
-  @Nullable private final Format videoFormat;
-  @Nullable private final OnInputFrameProcessedListener frameProcessedListener;
+  private final @Nullable Format audioFormat;
+  private final @Nullable Format videoFormat;
+  private final @Nullable OnInputFrameProcessedListener frameProcessedListener;
 
   private @MonotonicNonNull SampleConsumer audioSampleConsumer;
   private @MonotonicNonNull SampleConsumer videoSampleConsumer;

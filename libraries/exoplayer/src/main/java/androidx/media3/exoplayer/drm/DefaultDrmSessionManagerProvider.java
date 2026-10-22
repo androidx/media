@@ -43,8 +43,8 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
   private @MonotonicNonNull DrmSessionManager manager;
 
   private DataSource.@Nullable Factory drmHttpDataSourceFactory;
-  @Nullable private String userAgent;
-  @Nullable private LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
+  private @Nullable String userAgent;
+  private @Nullable LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
 
   public DefaultDrmSessionManagerProvider() {
     lock = new Object();

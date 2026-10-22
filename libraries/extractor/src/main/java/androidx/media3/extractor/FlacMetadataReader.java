@@ -38,7 +38,7 @@ public final class FlacMetadataReader {
   /** Holds a {@link FlacStreamMetadata}. */
   public static final class FlacStreamMetadataHolder {
     /** The FLAC stream metadata. */
-    @Nullable public FlacStreamMetadata flacStreamMetadata;
+    public @Nullable FlacStreamMetadata flacStreamMetadata;
 
     public FlacStreamMetadataHolder(@Nullable FlacStreamMetadata flacStreamMetadata) {
       this.flacStreamMetadata = flacStreamMetadata;
@@ -60,8 +60,7 @@ public final class FlacMetadataReader {
    * @throws IOException If peeking from the input fails. In this case, there is no guarantee on the
    *     peek position.
    */
-  @Nullable
-  public static Metadata peekId3Metadata(
+  public static @Nullable Metadata peekId3Metadata(
       ExtractorInput input, boolean parseData, boolean ignoreArtwork) throws IOException {
     Id3Decoder.@Nullable FramePredicate id3FramePredicate =
         !parseData
@@ -100,8 +99,7 @@ public final class FlacMetadataReader {
    * @throws IOException If reading from the input fails. In this case, the read position is left
    *     unchanged and there is no guarantee on the peek position.
    */
-  @Nullable
-  public static Metadata readId3Metadata(
+  public static @Nullable Metadata readId3Metadata(
       ExtractorInput input, boolean parseData, boolean ignoreArtwork) throws IOException {
     input.resetPeekPosition();
     long startingPeekPosition = input.getPeekPosition();

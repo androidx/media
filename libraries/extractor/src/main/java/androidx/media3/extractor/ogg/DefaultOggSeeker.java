@@ -125,8 +125,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public OggSeekMap createSeekMap() {
+  public @Nullable OggSeekMap createSeekMap() {
     return totalGranules != 0 ? new OggSeekMap() : null;
   }
 

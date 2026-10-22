@@ -15,24 +15,31 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.opengl.GLES20;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.OverlaySettings;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.effect.GlTextureFrameCompositor.CompositorGlProgram;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Wraps a {@link GlProgram} to draw multiple input {@link GlCompositionFrame}s onto one output
- * {@link GlTextureInfo}.
+ * Wraps a {@link GlProgram} to draw multiple input {@linkplain GlTextureFrame frames} onto one
+ * output {@link GlTextureInfo}.
  *
  * <p>All methods must be called on a GL thread, unless otherwise stated.
  */
@@ -77,13 +84,39 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Draws the {@linkplain GlCompositionFrame GlCompositionFrames} onto the {@linkplain
-   * GlTextureInfo outputTexture}.
+   * Draws the {@linkplain GlTextureFrame GlTextureFrames} onto the {@linkplain GlTextureInfo
+   * outputTexture}.
+   */
+  @Override
+  public void drawFrame(List<GlTextureFrame> framesToComposite, GlTextureInfo outputTexture)
+      throws GlUtil.GlException, VideoFrameProcessingException {
+    checkArgument(!framesToComposite.isEmpty());
+    GlTextureFrame primaryInputFrame = framesToComposite.get(0);
+    VideoCompositorSettings videoCompositorSettings =
+        (VideoCompositorSettings)
+            checkNotNull(primaryInputFrame.getMetadata().get(KEY_COMPOSITOR_SETTINGS));
+    long outputPresentationTimeUs = primaryInputFrame.presentationTimeUs;
+    ImmutableList.Builder<InputFrameInfo> inputFrameInfos = new ImmutableList.Builder<>();
+    for (int i = 0; i < framesToComposite.size(); i++) {
+      GlTextureFrame frame = framesToComposite.get(i);
+      int sequenceIndex =
+          (int) checkNotNull(frame.getMetadata().get(KEY_COMPOSITION_SEQUENCE_INDEX));
+      inputFrameInfos.add(
+          new InputFrameInfo(
+              frame.glTextureInfo,
+              videoCompositorSettings.getOverlaySettings(sequenceIndex, outputPresentationTimeUs)));
+    }
+    drawFrameWithInputFrameInfos(inputFrameInfos.build(), outputTexture);
+  }
+
+  /**
+   * Draws the {@linkplain InputFrameInfo InputFrameInfos} onto the {@linkplain GlTextureInfo
+   * outputTexture}.
    */
   // Enhanced for-loops are discouraged in media3.effect due to short-lived allocations.
   @SuppressWarnings("ListReverse")
-  @Override
-  public void drawFrame(List<GlCompositionFrame> framesToComposite, GlTextureInfo outputTexture)
+  /* package */ void drawFrameWithInputFrameInfos(
+      List<InputFrameInfo> framesToComposite, GlTextureInfo outputTexture)
       throws GlUtil.GlException, VideoFrameProcessingException {
     ensureConfigured();
     GlUtil.focusFramebufferUsingCurrentContext(
@@ -146,8 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private void blendOntoFocusedTexture(GlCompositionFrame inputFrameInfo)
-      throws GlUtil.GlException {
+  private void blendOntoFocusedTexture(InputFrameInfo inputFrameInfo) throws GlUtil.GlException {
     GlProgram glProgram = checkNotNull(this.glProgram);
     GlTextureInfo inputTexture = inputFrameInfo.glTextureInfo;
     glProgram.setSamplerTexIdUniform("uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);
@@ -165,5 +197,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // The four-vertex triangle strip forms a quad.
     GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, /* first= */ 0, /* count= */ 4);
     GlUtil.checkGlError();
+  }
+
+  /** Holds required information to composite an input texture. */
+  /* package */ static final class InputFrameInfo {
+    public final GlTextureInfo glTextureInfo;
+    public final OverlaySettings overlaySettings;
+    public final float @Nullable [] transformationMatrix;
+
+    /** Creates a new instance. */
+    public InputFrameInfo(GlTextureInfo glTextureInfo, OverlaySettings overlaySettings) {
+      this(glTextureInfo, overlaySettings, /* transformationMatrix= */ null);
+    }
+
+    /** Creates a new instance with an optional {@code transformationMatrix}. */
+    public InputFrameInfo(
+        GlTextureInfo glTextureInfo,
+        OverlaySettings overlaySettings,
+        float @Nullable [] transformationMatrix) {
+      this.glTextureInfo = glTextureInfo;
+      this.overlaySettings = overlaySettings;
+      this.transformationMatrix = transformationMatrix;
+    }
   }
 }

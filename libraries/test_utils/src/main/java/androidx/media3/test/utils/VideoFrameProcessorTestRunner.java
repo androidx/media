@@ -244,15 +244,15 @@ public final class VideoFrameProcessorTestRunner {
   public static final int VIDEO_FRAME_PROCESSING_WAIT_MS = 5_000;
 
   private final String testId;
-  @Nullable private final String videoAssetPath;
+  private final @Nullable String videoAssetPath;
   private final String outputFileLabel;
   private final float pixelWidthHeightRatio;
   private final ConditionVariable videoFrameProcessorReadyCondition;
-  @Nullable private final CountDownLatch videoFrameProcessingEndedLatch;
+  private final @Nullable CountDownLatch videoFrameProcessingEndedLatch;
   private final AtomicReference<VideoFrameProcessingException> videoFrameProcessingException;
   private final VideoFrameProcessor videoFrameProcessor;
   private final ImmutableList<Effect> effects;
-  @Nullable private final BitmapReader bitmapReader;
+  private final @Nullable BitmapReader bitmapReader;
 
   private VideoFrameProcessorTestRunner(
       String testId,
@@ -569,8 +569,8 @@ public final class VideoFrameProcessorTestRunner {
 
     @Override
     @SuppressLint("WrongConstant")
-    @Nullable
-    public Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents) {
+    public @Nullable Surface getSurface(
+        int width, int height, boolean useHighPrecisionColorComponents) {
       if (imageReader != null && releaseOutputSurface) {
         Image oldImage = imageQueue.poll();
         if (oldImage != null) {

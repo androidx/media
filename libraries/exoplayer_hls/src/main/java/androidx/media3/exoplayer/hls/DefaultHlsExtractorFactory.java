@@ -213,8 +213,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
   }
 
   @SuppressLint("SwitchIntDef") // HLS only supports a small subset of the defined file types.
-  @Nullable
-  private Extractor createExtractorByFileType(
+  private @Nullable Extractor createExtractorByFileType(
       @FileTypes.Type int fileType,
       Format format,
       @Nullable List<Format> muxedCaptionFormats,

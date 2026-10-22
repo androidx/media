@@ -119,7 +119,7 @@ public final class CaptionStyleCompat {
   public final int edgeColor;
 
   /** The preferred typeface, or {@code null} if unspecified. */
-  @Nullable public final Typeface typeface;
+  public final @Nullable Typeface typeface;
 
   /**
    * @deprecated Use {@link SubtitleStyle#fromCaptionStyle(CaptionStyle)} instead.

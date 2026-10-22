@@ -93,7 +93,7 @@ public class PlayerActivity extends AppCompatActivity
 
   // For ad playback only.
 
-  @Nullable private AdsLoader clientSideAdsLoader;
+  private @Nullable AdsLoader clientSideAdsLoader;
 
   private ImaServerSideAdInsertionMediaSource.@Nullable AdsLoader serverSideAdsLoader;
 

@@ -137,7 +137,7 @@ import org.jspecify.annotations.Nullable;
 
   private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   /**
    * The presentation timestamp offset for all the video samples. It will be set when resuming video
@@ -592,7 +592,7 @@ import org.jspecify.annotations.Nullable;
     private final VideoFrameProcessor.Factory videoFrameProcessorFactory;
     private final FallbackListener fallbackListener;
     private final DebugViewProvider debugViewProvider;
-    @Nullable private final LogSessionId logSessionId;
+    private final @Nullable LogSessionId logSessionId;
     private long currentSequenceDurationUs;
 
     public SequenceAssetLoaderListener(
@@ -661,9 +661,9 @@ import org.jspecify.annotations.Nullable;
       }
     }
 
-    @Nullable
     @Override
-    public SampleConsumer onOutputFormat(Format assetLoaderOutputFormat) throws ExportException {
+    public @Nullable SampleConsumer onOutputFormat(Format assetLoaderOutputFormat)
+        throws ExportException {
       synchronized (assetLoaderLock) {
         if (!assetLoaderInputTracker.hasRegisteredAllTracks()) {
           return null;
@@ -1121,8 +1121,7 @@ import org.jspecify.annotations.Nullable;
      * a {@link C.TrackType trackType}, {@code null} if the {@code SampleExporter} is not yet
      * registered.
      */
-    @Nullable
-    public SampleExporter getSampleExporter(@C.TrackType int trackType) {
+    public @Nullable SampleExporter getSampleExporter(@C.TrackType int trackType) {
       return trackTypeToSampleExporter.get(trackType);
     }
 

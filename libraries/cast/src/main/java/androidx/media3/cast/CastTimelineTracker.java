@@ -87,8 +87,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the {@link ItemUid} associated with {@code receiverItemId}, or {@code null} if not
    * found.
    */
-  @Nullable
-  public ItemUid getItemUid(int receiverItemId) {
+  public @Nullable ItemUid getItemUid(int receiverItemId) {
     return receiverItemIdToUid.get(receiverItemId);
   }
 
@@ -326,6 +325,7 @@ import org.jspecify.annotations.Nullable;
         mediaInfo == null
             ? previousData.isLive
             : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE;
+    boolean isSeekable = durationUs != C.TIME_UNSET;
     if (defaultPositionUs == C.TIME_UNSET) {
       defaultPositionUs = previousData.defaultPositionUs;
     }
@@ -337,7 +337,7 @@ import org.jspecify.annotations.Nullable;
     itemIdToData.put(
         uid,
         previousData.copyWithNewValues(
-            durationUs, defaultPositionUs, isLive, mediaItem, contentId));
+            durationUs, defaultPositionUs, isLive, isSeekable, mediaItem, contentId));
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
@@ -371,8 +371,7 @@ import org.jspecify.annotations.Nullable;
    * @return The {@link MediaItem} associated with the given {@link ItemUid} and {@link MediaInfo},
    *     or {@code null} if not found.
    */
-  @Nullable
-  private MediaItem getMediaItem(ItemUid uid, @Nullable MediaInfo mediaInfo) {
+  private @Nullable MediaItem getMediaItem(ItemUid uid, @Nullable MediaInfo mediaInfo) {
     MediaItem mediaItem = mediaItemsBySyntheticId.get(uid);
     if (mediaItem != null) {
       return mediaItem;
@@ -448,8 +447,7 @@ import org.jspecify.annotations.Nullable;
     return queueItem;
   }
 
-  @Nullable
-  private static ItemUid getSyntheticItemUid(@Nullable MediaInfo mediaInfo) {
+  private static @Nullable ItemUid getSyntheticItemUid(@Nullable MediaInfo mediaInfo) {
     if (mediaInfo == null) {
       return null;
     }

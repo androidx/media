@@ -47,9 +47,9 @@ public final class ProgressiveDownloader implements Downloader {
 
   private final CacheDataSource dataSource;
   private final CacheWriter cacheWriter;
-  @Nullable private final PriorityTaskManager priorityTaskManager;
+  private final @Nullable PriorityTaskManager priorityTaskManager;
 
-  @Nullable private ProgressListener progressListener;
+  private @Nullable ProgressListener progressListener;
   private volatile @MonotonicNonNull RunnableFutureTask<Void, IOException> downloadRunnable;
   private volatile boolean isCanceled;
 

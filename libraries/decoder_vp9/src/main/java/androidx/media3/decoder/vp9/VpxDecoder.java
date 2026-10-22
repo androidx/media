@@ -44,10 +44,10 @@ public final class VpxDecoder
   private static final int DECODE_ERROR = -1;
   private static final int DRM_ERROR = -2;
 
-  @Nullable private final CryptoConfig cryptoConfig;
+  private final @Nullable CryptoConfig cryptoConfig;
   private final long vpxDecContext;
 
-  @Nullable private ByteBuffer lastSupplementalData;
+  private @Nullable ByteBuffer lastSupplementalData;
 
   private volatile @C.VideoOutputMode int outputMode;
 
@@ -116,8 +116,7 @@ public final class VpxDecoder
   }
 
   @Override
-  @Nullable
-  protected VpxDecoderException decode(
+  protected @Nullable VpxDecoderException decode(
       DecoderInputBuffer inputBuffer, VideoDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset && lastSupplementalData != null) {
       // Don't propagate supplemental data across calls to flush the decoder.

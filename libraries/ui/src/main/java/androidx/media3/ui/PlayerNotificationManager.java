@@ -224,8 +224,7 @@ public class PlayerNotificationManager {
      * @return The content subtext for the current media item, or null if no subtext should be
      *     displayed.
      */
-    @Nullable
-    default CharSequence getCurrentSubText(Player player) {
+    default @Nullable CharSequence getCurrentSubText(Player player) {
       return null;
     }
 
@@ -319,8 +318,8 @@ public class PlayerNotificationManager {
     protected final int notificationId;
     protected final String channelId;
 
-    @Nullable protected NotificationListener notificationListener;
-    @Nullable protected CustomActionReceiver customActionReceiver;
+    protected @Nullable NotificationListener notificationListener;
+    protected @Nullable CustomActionReceiver customActionReceiver;
     protected MediaDescriptionAdapter mediaDescriptionAdapter;
     protected int channelNameResourceId;
     protected int channelDescriptionResourceId;
@@ -333,7 +332,7 @@ public class PlayerNotificationManager {
     protected int fastForwardActionIconResourceId;
     protected int previousActionIconResourceId;
     protected int nextActionIconResourceId;
-    @Nullable protected String groupKey;
+    protected @Nullable String groupKey;
 
     /**
      * @deprecated Use {@link #Builder(Context, int, String)} instead, then call {@link
@@ -688,8 +687,8 @@ public class PlayerNotificationManager {
   private final String channelId;
   private final int notificationId;
   private final MediaDescriptionAdapter mediaDescriptionAdapter;
-  @Nullable private final NotificationListener notificationListener;
-  @Nullable private final CustomActionReceiver customActionReceiver;
+  private final @Nullable NotificationListener notificationListener;
+  private final @Nullable CustomActionReceiver customActionReceiver;
   private final Handler mainHandler;
   private final NotificationManagerCompat notificationManager;
   private final IntentFilter intentFilter;
@@ -701,8 +700,8 @@ public class PlayerNotificationManager {
   private final int instanceId;
 
   private NotificationCompat.@Nullable Builder builder;
-  @Nullable private List<NotificationCompat.Action> builderActions;
-  @Nullable private Player player;
+  private @Nullable List<NotificationCompat.Action> builderActions;
+  private @Nullable Player player;
   private boolean isNotificationStarted;
   private int currentNotificationTag;
   private MediaSession.@Nullable Token mediaSessionToken;
@@ -725,7 +724,7 @@ public class PlayerNotificationManager {
   private int visibility;
   private @Priority int priority;
   private boolean useChronometer;
-  @Nullable private String groupKey;
+  private @Nullable String groupKey;
 
   protected PlayerNotificationManager(
       Context context,

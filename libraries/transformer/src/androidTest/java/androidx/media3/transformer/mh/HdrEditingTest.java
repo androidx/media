@@ -36,13 +36,12 @@ import static java.util.Collections.max;
 import android.content.Context;
 import android.media.MediaFormat;
 import android.net.Uri;
-import android.view.Surface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.exoplayer.video.PlaceholderSurface;
+import androidx.media3.exoplayer.video.PlaceholderSurfaceInterface;
 import androidx.media3.test.utils.DecodeOneFrameUtil;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
@@ -83,7 +82,7 @@ public final class HdrEditingTest {
   @Rule public final TestName testName = new TestName();
 
   private String testId;
-  @Nullable private Surface placeholderSurface;
+  private @Nullable PlaceholderSurfaceInterface placeholderSurface;
 
   @Before
   public void setUpTestId() {
@@ -556,7 +555,7 @@ public final class HdrEditingTest {
       throws Exception {
     AtomicReference<MediaFormat> decodedFrameFormat = new AtomicReference<>();
     if (placeholderSurface == null) {
-      placeholderSurface = PlaceholderSurface.newInstance(context, false);
+      placeholderSurface = PlaceholderSurfaceInterface.newInstance(context, /* secure= */ false);
     }
     decodeOneMediaItemFrame(
         MediaItem.fromUri(filePath),
@@ -569,7 +568,7 @@ public final class HdrEditingTest {
             decodedFrameFormat.set(mediaFormat);
           }
         },
-        placeholderSurface);
+        placeholderSurface.getSurface());
     return decodedFrameFormat.get();
   }
 }

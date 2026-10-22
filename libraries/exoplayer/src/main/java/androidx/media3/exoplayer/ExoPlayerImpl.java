@@ -184,14 +184,14 @@ import org.jspecify.annotations.Nullable;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
   private final AudioBecomingNoisyManager audioBecomingNoisyManager;
-  @Nullable private final StreamVolumeManager streamVolumeManager;
+  private final @Nullable StreamVolumeManager streamVolumeManager;
   private final WakeLockManager wakeLockManager;
   private final WifiLockManager wifiLockManager;
   private final long detachSurfaceTimeoutMs;
-  @Nullable private final SuitableOutputChecker suitableOutputChecker;
+  private final @Nullable SuitableOutputChecker suitableOutputChecker;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
   private final StuckPlayerDetector stuckPlayerDetector;
-  @Nullable private final VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
+  private final @Nullable VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
   private final CodecParameterListenerManager audioListenerManager;
   private final CodecParameterListenerManager videoListenerManager;
 
@@ -202,7 +202,7 @@ import org.jspecify.annotations.Nullable;
   private boolean pendingDiscontinuity;
   private boolean foregroundMode;
   private boolean scrubbingModeEnabled;
-  @Nullable private ImmutableSet<@TrackType Integer> disabledTrackTypesWithoutScrubbingMode;
+  private @Nullable ImmutableSet<@TrackType Integer> disabledTrackTypesWithoutScrubbingMode;
   private ScrubbingModeParameters scrubbingModeParameters;
   private SeekParameters seekParameters;
   private ShuffleOrder shuffleOrder;
@@ -212,19 +212,19 @@ import org.jspecify.annotations.Nullable;
   private Commands availableCommands;
   private MediaMetadata mediaMetadata;
   private MediaMetadata playlistMetadata;
-  @Nullable private Format videoFormat;
-  @Nullable private Format audioFormat;
-  @Nullable private Object videoOutput;
-  @Nullable private Surface ownedSurface;
-  @Nullable private SurfaceHolder surfaceHolder;
-  @Nullable private SphericalGLSurfaceView sphericalGLSurfaceView;
+  private @Nullable Format videoFormat;
+  private @Nullable Format audioFormat;
+  private @Nullable Object videoOutput;
+  private @Nullable Surface ownedSurface;
+  private @Nullable SurfaceHolder surfaceHolder;
+  private @Nullable SphericalGLSurfaceView sphericalGLSurfaceView;
   private boolean surfaceHolderSurfaceIsVideoOutput;
-  @Nullable private TextureView textureView;
+  private @Nullable TextureView textureView;
   private @C.VideoScalingMode int videoScalingMode;
   private @C.VideoChangeFrameRateStrategy int videoChangeFrameRateStrategy;
   private Size surfaceSize;
-  @Nullable private DecoderCounters videoDecoderCounters;
-  @Nullable private DecoderCounters audioDecoderCounters;
+  private @Nullable DecoderCounters videoDecoderCounters;
+  private @Nullable DecoderCounters audioDecoderCounters;
   private AudioAttributes audioAttributes;
   private float volume;
   private float unmuteVolume;
@@ -232,12 +232,12 @@ import org.jspecify.annotations.Nullable;
   private CueGroup currentCueGroup;
   // TODO(b/552972009): Remove when deprecated set/clearVideoFrameMetadataListener methods are
   // removed.
-  @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
-  @Nullable private CameraMotionListener cameraMotionListener;
+  private @Nullable VideoFrameMetadataListener videoFrameMetadataListener;
+  private @Nullable CameraMotionListener cameraMotionListener;
   private boolean throwsWhenUsingWrongThread;
   private boolean hasNotifiedFullWrongThreadWarning;
   private @C.Priority int priority;
-  @Nullable private PriorityTaskManager priorityTaskManager;
+  private @Nullable PriorityTaskManager priorityTaskManager;
   private boolean isPriorityTaskManagerRegistered;
   private boolean playerReleased;
   private DeviceInfo deviceInfo;
@@ -581,8 +581,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ExoPlaybackException getPlayerError() {
+  public @Nullable ExoPlaybackException getPlayerError() {
     verifyApplicationThread();
     return playbackInfo.playbackError;
   }
@@ -1332,8 +1331,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public Renderer getSecondaryRenderer(int index) {
+  public @Nullable Renderer getSecondaryRenderer(int index) {
     verifyApplicationThread();
     return secondaryRenderers[index];
   }
@@ -1865,29 +1863,25 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public Format getVideoFormat() {
+  public @Nullable Format getVideoFormat() {
     verifyApplicationThread();
     return videoFormat;
   }
 
   @Override
-  @Nullable
-  public Format getAudioFormat() {
+  public @Nullable Format getAudioFormat() {
     verifyApplicationThread();
     return audioFormat;
   }
 
   @Override
-  @Nullable
-  public DecoderCounters getVideoDecoderCounters() {
+  public @Nullable DecoderCounters getVideoDecoderCounters() {
     verifyApplicationThread();
     return videoDecoderCounters;
   }
 
   @Override
-  @Nullable
-  public DecoderCounters getAudioDecoderCounters() {
+  public @Nullable DecoderCounters getAudioDecoderCounters() {
     verifyApplicationThread();
     return audioDecoderCounters;
   }
@@ -2406,7 +2400,7 @@ import org.jspecify.annotations.Nullable;
           });
     }
     if (mediaItemTransitioned) {
-      @Nullable final MediaItem finalMediaItem = mediaItem;
+      final @Nullable MediaItem finalMediaItem = mediaItem;
       listeners.queueEvent(
           Player.EVENT_MEDIA_ITEM_TRANSITION,
           listener -> listener.onMediaItemTransition(finalMediaItem, mediaItemTransitionReason));
@@ -2951,8 +2945,7 @@ import org.jspecify.annotations.Nullable;
     return playbackInfo;
   }
 
-  @Nullable
-  private Pair<Object, Long> getPeriodPositionUsAfterTimelineChanged(
+  private @Nullable Pair<Object, Long> getPeriodPositionUsAfterTimelineChanged(
       Timeline oldTimeline,
       Timeline newTimeline,
       int currentWindowIndexInternal,
@@ -2989,8 +2982,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private Pair<Object, Long> maskWindowPositionMsOrGetPeriodPositionUs(
+  private @Nullable Pair<Object, Long> maskWindowPositionMsOrGetPeriodPositionUs(
       Timeline timeline, int windowIndex, long windowPositionMs) {
     if (timeline.isEmpty()) {
       // If empty we store the initial seek in the masking variables.
@@ -3731,9 +3723,9 @@ import org.jspecify.annotations.Nullable;
         Renderer.MSG_CUSTOM_BASE + 2;
 
     private final CopyOnWriteArraySet<VideoFrameMetadataListener> videoFrameMetadataListeners;
-    @Nullable private CameraMotionListener cameraMotionListener;
-    @Nullable private VideoFrameMetadataListener internalVideoFrameMetadataListener;
-    @Nullable private CameraMotionListener internalCameraMotionListener;
+    private @Nullable CameraMotionListener cameraMotionListener;
+    private @Nullable VideoFrameMetadataListener internalVideoFrameMetadataListener;
+    private @Nullable CameraMotionListener internalCameraMotionListener;
 
     private FrameMetadataListener() {
       videoFrameMetadataListeners = new CopyOnWriteArraySet<>();

@@ -82,7 +82,7 @@ public class AudioCapabilitiesEndToEndTest {
   private Context applicationContext;
   private AudioManager audioManager;
   private Parameters defaultParameters;
-  @Nullable private AudioDeviceInfo directPlaybackDevice;
+  private @Nullable AudioDeviceInfo directPlaybackDevice;
   private List<Tracks> selectedTracks;
   private List<String> analyticsListenerReceivedCallbacks;
 

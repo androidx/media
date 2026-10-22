@@ -972,7 +972,7 @@ public final class AdPlaybackState {
     public final long skipDurationUs;
 
     /** The identifier for the label to be displayed in the UI, or null if unset. */
-    @Nullable public final String labelId;
+    public final @Nullable String labelId;
 
     /** Creates an instance. */
     public SkipInfo(long skipOffsetUs, long skipDurationUs, @Nullable String labelId) {
@@ -1044,7 +1044,7 @@ public final class AdPlaybackState {
   /**
    * The opaque identifier for ads with which this instance is associated, or {@code null} if unset.
    */
-  @Nullable public final Object adsId;
+  public final @Nullable Object adsId;
 
   /** The number of ad groups. */
   public final int adGroupCount;

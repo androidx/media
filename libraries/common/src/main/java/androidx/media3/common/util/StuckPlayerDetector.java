@@ -144,7 +144,7 @@ public final class StuckPlayerDetector {
 
     private final int stuckBufferingTimeoutMs;
 
-    @Nullable private Object periodUid;
+    private @Nullable Object periodUid;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private long bufferedPositionInPeriodMs;
@@ -213,7 +213,7 @@ public final class StuckPlayerDetector {
 
     private final int stuckPlayingTimeoutMs;
 
-    @Nullable private Object periodUid;
+    private @Nullable Object periodUid;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private long currentPositionInPeriodMs;
@@ -273,7 +273,7 @@ public final class StuckPlayerDetector {
 
     private final int stuckPlayingNotEndingTimeoutMs;
 
-    @Nullable private Object periodUid;
+    private @Nullable Object periodUid;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private boolean isPlayingAndReachedDuration;

@@ -317,8 +317,8 @@ public final class ClippingMediaSource extends WrappingMediaSource {
   private final Timeline.Window window;
 
   private MediaItem.ClippingConfiguration config;
-  @Nullable private ClippingTimeline clippingTimeline;
-  @Nullable private IllegalClippingException clippingError;
+  private @Nullable ClippingTimeline clippingTimeline;
+  private @Nullable IllegalClippingException clippingError;
   private long periodStartUs;
   private long periodEndUs;
 

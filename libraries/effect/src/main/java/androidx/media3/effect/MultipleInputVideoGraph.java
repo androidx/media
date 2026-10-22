@@ -134,8 +134,8 @@ public final class MultipleInputVideoGraph implements VideoGraph {
 
   private List<Effect> compositionEffects;
   private VideoCompositorSettings videoCompositorSettings;
-  @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
-  @Nullable private VideoCompositor videoCompositor;
+  private @Nullable VideoFrameProcessor compositionVideoFrameProcessor;
+  private @Nullable VideoCompositor videoCompositor;
   private Size compositorOutputSize;
 
   private boolean compositorEnded;

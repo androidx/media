@@ -55,7 +55,7 @@ import org.jspecify.annotations.Nullable;
     public final ImmutableList<Pair<Integer, Long>> firstMediaItemIndexAndOffsetInfo;
 
     /** The video {@link Format} or {@code null} if there is no video track. */
-    @Nullable public final Format videoFormat;
+    public final @Nullable Format videoFormat;
 
     public ResumeMetadata(
         long lastSyncSampleTimestampUs,

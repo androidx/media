@@ -76,9 +76,8 @@ public final class CacheBitmapLoader implements BitmapLoader {
     return future;
   }
 
-  @Nullable
   @Override
-  public ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+  public @Nullable ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
     if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(metadata)) {
       return lastBitmapLoadRequest.getFuture();
     }
@@ -96,8 +95,8 @@ public final class CacheBitmapLoader implements BitmapLoader {
    */
   private static class BitmapLoadRequest {
     private final byte @Nullable [] data;
-    @Nullable private final Uri uri;
-    @Nullable private final ListenableFuture<Bitmap> future;
+    private final @Nullable Uri uri;
+    private final @Nullable ListenableFuture<Bitmap> future;
 
     /** Creates load request for byte array. */
     private BitmapLoadRequest(byte[] data, ListenableFuture<Bitmap> future) {

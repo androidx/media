@@ -55,7 +55,7 @@ public interface AudioOutputProvider {
     public final AudioAttributes audioAttributes;
 
     /** The preferred {@link AudioDeviceInfo} for audio output, or null for no preference. */
-    @Nullable public final AudioDeviceInfo preferredDevice;
+    public final @Nullable AudioDeviceInfo preferredDevice;
 
     /** Sets whether to enable high resolution PCM output with more than 16 bits. */
     public final boolean enableHighResolutionPcmOutput;
@@ -130,7 +130,7 @@ public interface AudioOutputProvider {
     public static final class Builder {
       private final Format format;
       private AudioAttributes audioAttributes;
-      @Nullable private AudioDeviceInfo preferredDevice;
+      private @Nullable AudioDeviceInfo preferredDevice;
       private boolean enableHighResolutionPcmOutput;
       private boolean enablePlaybackParameters;
       private boolean enableOffload;

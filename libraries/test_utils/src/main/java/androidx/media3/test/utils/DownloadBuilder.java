@@ -42,10 +42,10 @@ public final class DownloadBuilder {
 
   private String id;
   private Uri uri;
-  @Nullable private String mimeType;
+  private @Nullable String mimeType;
   private List<StreamKey> streamKeys;
   private byte @Nullable [] keySetId;
-  @Nullable private String cacheKey;
+  private @Nullable String cacheKey;
   private byte[] customMetadata;
 
   private @Download.State int state;

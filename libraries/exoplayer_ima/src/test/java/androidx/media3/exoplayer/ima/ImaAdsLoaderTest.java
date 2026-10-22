@@ -1696,8 +1696,7 @@ public final class ImaAdsLoaderTest {
       }
 
       @Override
-      @Nullable
-      public Ad getAd() {
+      public @Nullable Ad getAd() {
         return ad;
       }
 

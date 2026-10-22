@@ -22,6 +22,8 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.text.TextDirectionHeuristic;
+import android.text.TextDirectionHeuristics;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
@@ -65,16 +67,20 @@ public final class SubtitleView extends FrameLayout {
      * @param bottomPaddingFraction The bottom padding to apply when {@link Cue#line} is {@link
      *     Cue#DIMEN_UNSET}, as a fraction of the view's remaining height after its top and bottom
      *     padding have been subtracted.
+     * @param textDirectionHeuristic The {@link TextDirectionHeuristic} to use when wrapping
+     *     bidirectional text.
      * @see #setStyle(SubtitleStyle)
      * @see #setTextSize(int, float)
      * @see #setBottomPaddingFraction(float)
+     * @see #setTextDirectionHeuristic(TextDirectionHeuristic)
      */
     void update(
         List<Cue> cues,
         SubtitleStyle style,
         float defaultTextSize,
         @Cue.TextSizeType int defaultTextSizeType,
-        float bottomPaddingFraction);
+        float bottomPaddingFraction,
+        TextDirectionHeuristic textDirectionHeuristic);
   }
 
   /**
@@ -127,6 +133,7 @@ public final class SubtitleView extends FrameLayout {
   private float bottomPaddingFraction;
   private boolean applyEmbeddedStyles;
   private boolean applyEmbeddedFontSizes;
+  private TextDirectionHeuristic textDirectionHeuristic;
 
   private @ViewType int viewType;
   private Output output;
@@ -145,6 +152,7 @@ public final class SubtitleView extends FrameLayout {
     bottomPaddingFraction = DEFAULT_BOTTOM_PADDING_FRACTION;
     applyEmbeddedStyles = true;
     applyEmbeddedFontSizes = true;
+    textDirectionHeuristic = TextDirectionHeuristics.FIRSTSTRONG_LTR;
 
     CanvasSubtitleOutput canvasSubtitleOutput = new CanvasSubtitleOutput(context);
     output = canvasSubtitleOutput;
@@ -328,6 +336,27 @@ public final class SubtitleView extends FrameLayout {
     updateOutput();
   }
 
+  /**
+   * Sets the {@link TextDirectionHeuristic} used to estimate the direction of each line when
+   * wrapping bidirectional text for {@link #VIEW_TYPE_CANVAS}.
+   *
+   * <p>Defaults to {@link TextDirectionHeuristics#FIRSTSTRONG_LTR}, which determines each line's
+   * base direction from its first strong directional character according to the Unicode
+   * Bidirectional Algorithm.
+   *
+   * <p>This can be set to {@link TextDirectionHeuristics#LTR} to force a left-to-right base
+   * direction for compatibility with legacy subtitle files that manually place terminal punctuation
+   * at the start of right-to-left lines.
+   *
+   * <p>This setting has no effect when using {@link #VIEW_TYPE_WEB}.
+   *
+   * @param textDirectionHeuristic The {@link TextDirectionHeuristic} to use.
+   */
+  public void setTextDirectionHeuristic(TextDirectionHeuristic textDirectionHeuristic) {
+    this.textDirectionHeuristic = textDirectionHeuristic;
+    updateOutput();
+  }
+
   private float getUserCaptionFontScale() {
     if (isInEditMode()) {
       return 1f;
@@ -356,7 +385,8 @@ public final class SubtitleView extends FrameLayout {
         style,
         defaultTextSize,
         defaultTextSizeType,
-        bottomPaddingFraction);
+        bottomPaddingFraction,
+        textDirectionHeuristic);
   }
 
   /**

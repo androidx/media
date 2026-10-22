@@ -64,7 +64,7 @@ public final class PlaybackPendingIntentBuilder {
   private final Class<? extends MediaSessionService> serviceClass;
   private final int keyCode;
   private boolean startAsForegroundService;
-  @Nullable private String sessionId;
+  private @Nullable String sessionId;
   private Bundle extras;
 
   /**

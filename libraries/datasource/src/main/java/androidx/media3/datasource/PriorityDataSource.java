@@ -110,8 +110,7 @@ public final class PriorityDataSource implements DataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return upstream.getUri();
   }
 

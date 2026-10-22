@@ -131,8 +131,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer() {
+  public @Nullable ByteBuffer getOutputBuffer() {
     checkState(!isReleased);
     if (!isOutputBufferAvailable) {
       return null;
@@ -142,8 +141,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public BufferInfo getOutputBufferInfo() {
+  public @Nullable BufferInfo getOutputBufferInfo() {
     checkState(!isReleased);
     return isOutputBufferAvailable ? bufferInfo : null;
   }

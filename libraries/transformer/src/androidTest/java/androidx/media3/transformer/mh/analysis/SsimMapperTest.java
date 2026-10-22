@@ -123,12 +123,10 @@ public class SsimMapperTest {
   }
 
   @Parameter(0)
-  @Nullable
-  public AssetInfo assetInfo;
+  public @Nullable AssetInfo assetInfo;
 
   @Parameter(1)
-  @Nullable
-  public String mimeType;
+  public @Nullable String mimeType;
 
   @Test
   public void findSsimMapping() throws Exception {

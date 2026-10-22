@@ -152,7 +152,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private @TsExtractor.Mode int tsMode;
   private @DefaultTsPayloadReaderFactory.Flags int tsFlags;
   // TODO (b/261183220): Initialize tsSubtitleFormats in constructor once shrinking bug is fixed.
-  @Nullable private ImmutableList<Format> tsSubtitleFormats;
+  private @Nullable ImmutableList<Format> tsSubtitleFormats;
   private int tsTimestampSearchBytes;
   private boolean textTrackTranscodingEnabled;
   private SubtitleParser.Factory subtitleParserFactory;
@@ -628,8 +628,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     // LINT.ThenChange(../../../../../../proguard-rules.txt)
   }
 
-  @Nullable
-  private static Constructor<? extends Extractor> getFlacExtractorConstructor()
+  private static @Nullable Constructor<? extends Extractor> getFlacExtractorConstructor()
       throws ClassNotFoundException,
           NoSuchMethodException,
           InvocationTargetException,
@@ -664,16 +663,14 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     private final AtomicBoolean extensionLoaded;
 
     @GuardedBy("extensionLoaded")
-    @Nullable
-    private Constructor<? extends Extractor> extractorConstructor;
+    private @Nullable Constructor<? extends Extractor> extractorConstructor;
 
     public ExtensionLoader(ConstructorSupplier constructorSupplier) {
       this.constructorSupplier = constructorSupplier;
       extensionLoaded = new AtomicBoolean(false);
     }
 
-    @Nullable
-    public Extractor getExtractor(Object... constructorParams) {
+    public @Nullable Extractor getExtractor(Object... constructorParams) {
       @Nullable Constructor<? extends Extractor> extractorConstructor =
           maybeLoadExtractorConstructor();
       if (extractorConstructor == null) {
@@ -686,8 +683,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
       }
     }
 
-    @Nullable
-    private Constructor<? extends Extractor> maybeLoadExtractorConstructor() {
+    private @Nullable Constructor<? extends Extractor> maybeLoadExtractorConstructor() {
       synchronized (extensionLoaded) {
         if (extensionLoaded.get()) {
           return extractorConstructor;

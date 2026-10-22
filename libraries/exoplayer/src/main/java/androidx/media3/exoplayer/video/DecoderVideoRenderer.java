@@ -125,26 +125,25 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
   private final ArrayDeque<OutputStreamInfo> pendingOutputStreamChanges;
   private final DecoderInputBuffer flagsOnlyBuffer;
 
-  @Nullable private Format inputFormat;
-  @Nullable private Format outputFormat;
-  @Nullable private OutputStreamInfo outputStreamInfo;
+  private @Nullable Format inputFormat;
+  private @Nullable Format outputFormat;
+  private @Nullable OutputStreamInfo outputStreamInfo;
 
-  @Nullable
-  private Decoder<
-          DecoderInputBuffer, ? extends VideoDecoderOutputBuffer, ? extends DecoderException>
+  private @Nullable
+      Decoder<DecoderInputBuffer, ? extends VideoDecoderOutputBuffer, ? extends DecoderException>
       decoder;
 
-  @Nullable private DecoderInputBuffer inputBuffer;
+  private @Nullable DecoderInputBuffer inputBuffer;
   private long largestQueuedPresentationTimeUs;
-  @Nullable private VideoDecoderOutputBuffer outputBuffer;
+  private @Nullable VideoDecoderOutputBuffer outputBuffer;
   private @VideoOutputMode int outputMode;
-  @Nullable private Object output;
-  @Nullable private Surface outputSurface;
-  @Nullable private VideoDecoderOutputBufferRenderer outputBufferRenderer;
-  @Nullable private VideoFrameMetadataListener frameMetadataListener;
+  private @Nullable Object output;
+  private @Nullable Surface outputSurface;
+  private @Nullable VideoDecoderOutputBufferRenderer outputBufferRenderer;
+  private @Nullable VideoFrameMetadataListener frameMetadataListener;
 
-  @Nullable private DrmSession decoderDrmSession;
-  @Nullable private DrmSession sourceDrmSession;
+  private @Nullable DrmSession decoderDrmSession;
+  private @Nullable DrmSession sourceDrmSession;
 
   private @ReinitializationState int decoderReinitializationState;
   private boolean decoderReceivedBuffers;
@@ -156,7 +155,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
 
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
-  @Nullable private VideoSize reportedVideoSize;
+  private @Nullable VideoSize reportedVideoSize;
 
   private long droppedFrameAccumulationStartTimeMs;
   private int droppedFrames;
@@ -1098,8 +1097,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
     return earlyUs < -500000;
   }
 
-  @Nullable
-  private OutputStreamInfo getLastOutputStreamInfo() {
+  private @Nullable OutputStreamInfo getLastOutputStreamInfo() {
     if (!pendingOutputStreamChanges.isEmpty()) {
       return pendingOutputStreamChanges.getLast();
     }

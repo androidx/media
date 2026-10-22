@@ -223,9 +223,9 @@ public class Hls {
 
     public static final String ADS_RESUMPTION_STATE_KEY = "ads_resumption_state";
 
-    @Nullable private HlsInterstitialsAdsLoader hlsInterstitialsAdsLoader;
-    @Nullable private PlayerView playerView;
-    @Nullable private ExoPlayer player;
+    private @Nullable HlsInterstitialsAdsLoader hlsInterstitialsAdsLoader;
+    private @Nullable PlayerView playerView;
+    private @Nullable ExoPlayer player;
 
     private List<HlsInterstitialsAdsLoader.AdsResumptionState> adsResumptionStates;
 

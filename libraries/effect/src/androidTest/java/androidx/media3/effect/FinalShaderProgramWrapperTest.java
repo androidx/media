@@ -65,9 +65,9 @@ public final class FinalShaderProgramWrapperTest {
   private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private @MonotonicNonNull VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
-  @Nullable private VideoFrameProcessingException videoFrameProcessingException;
+  private @Nullable VideoFrameProcessingException videoFrameProcessingException;
   private VideoFrameProcessor.@Nullable Listener videoFrameProcessorListener;
-  @Nullable private InputListener inputListener;
+  private @Nullable InputListener inputListener;
   private FinalShaderProgramWrapper.@Nullable Listener listener;
   private @MonotonicNonNull SurfaceInfo outputSurfaceInfo;
   private @MonotonicNonNull List<GlTextureInfo> inputTextureInfos;

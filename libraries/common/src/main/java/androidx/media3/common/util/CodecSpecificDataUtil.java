@@ -208,8 +208,7 @@ public final class CodecSpecificDataUtil {
    * href="https://aomediacodec.github.io/iamf/#codecsparameter">IAMF Codec Parameters String</a>
    * specification.
    */
-  @Nullable
-  public static String buildIamfCodecString(byte[] initializationData) {
+  public static @Nullable String buildIamfCodecString(byte[] initializationData) {
     ParsableByteArray parsableByteArray = new ParsableByteArray(initializationData);
 
     @Nullable String iaSequenceHeader = null;
@@ -436,8 +435,7 @@ public final class CodecSpecificDataUtil {
    * @return A {@link Pair} containing the bitdepth and subsampling, or {@code null} if parsing
    *     fails.
    */
-  @Nullable
-  private static Pair<Integer, Integer> getVp9BitdepthChromaSubSampling(
+  private static @Nullable Pair<Integer, Integer> getVp9BitdepthChromaSubSampling(
       ParsableBitArray bits, int profile) {
     int bitDepth;
     if (profile >= 2) {
@@ -820,8 +818,7 @@ public final class CodecSpecificDataUtil {
    *     well-formed and recognized, or null otherwise.
    */
   // TODO: b/492523731 - Consider moving this and related methods back to MediaCodecUtil.
-  @Nullable
-  public static Pair<Integer, Integer> getCodecProfileAndLevel(Format format) {
+  public static @Nullable Pair<Integer, Integer> getCodecProfileAndLevel(Format format) {
     MediaCodecProfileAndLevel mediaCodecProfileAndLevel = getMediaCodecProfileAndLevel(format);
     if (mediaCodecProfileAndLevel != null
         && mediaCodecProfileAndLevel.isSupportableByMediaCodec()) {
@@ -840,8 +837,7 @@ public final class CodecSpecificDataUtil {
    * @return {@link MediaCodecProfileAndLevel} if the codec of the {@code format} is well-formed, or
    *     null otherwise.
    */
-  @Nullable
-  public static MediaCodecProfileAndLevel getMediaCodecProfileAndLevel(Format format) {
+  public static @Nullable MediaCodecProfileAndLevel getMediaCodecProfileAndLevel(Format format) {
     if (format.codecs == null) {
       return null;
     }
@@ -889,8 +885,7 @@ public final class CodecSpecificDataUtil {
    * @return A pair (profile constant, level constant) if profile and level are recognized, or
    *     {@code null} otherwise.
    */
-  @Nullable
-  private static MediaCodecProfileAndLevel getVvcProfileAndLevel(
+  private static @Nullable MediaCodecProfileAndLevel getVvcProfileAndLevel(
       String codec, String[] parts, @Nullable ColorInfo colorInfo) {
     if (parts.length < 3) {
       Log.w(TAG, "Ignoring malformed VVC codec string: " + codec);
@@ -941,8 +936,7 @@ public final class CodecSpecificDataUtil {
    * @return The VVC level constant, or {@code null} if the level is not recognized.
    * @see <a href="https://www.itu.int/rec/T-REC-H.266">ITU-T Rec. H.266, Annex A</a>
    */
-  @Nullable
-  private static Integer vvcCodecStringToProfileLevel(String codecString) {
+  private static @Nullable Integer vvcCodecStringToProfileLevel(String codecString) {
     switch (codecString) {
       case "L16":
         return CodecProfileLevel.VVCMainTierLevel10;
@@ -1005,8 +999,7 @@ public final class CodecSpecificDataUtil {
    * @return A pair (profile constant, level constant) if profile and level are recognized, or
    *     {@code null} otherwise.
    */
-  @Nullable
-  public static MediaCodecProfileAndLevel getHevcProfileAndLevel(
+  public static @Nullable MediaCodecProfileAndLevel getHevcProfileAndLevel(
       String codec, String[] parts, @Nullable ColorInfo colorInfo) {
     if (parts.length < 4) {
       // The codec has fewer parts than required by the HEVC codec string format.
@@ -1261,8 +1254,7 @@ public final class CodecSpecificDataUtil {
     return true;
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getDolbyVisionProfileAndLevel(
+  private static @Nullable MediaCodecProfileAndLevel getDolbyVisionProfileAndLevel(
       String codec, String[] parts) {
     if (parts.length < 3) {
       // The codec has fewer parts than required by the Dolby Vision codec string format.
@@ -1297,8 +1289,7 @@ public final class CodecSpecificDataUtil {
    * @return A Dolby Vision base layer MIME type, or {@code null} if a Dolby Vision profile is not
    *     identified.
    */
-  @Nullable
-  public static String getDolbyVisionBaseLayerMimeType(Format format) {
+  public static @Nullable String getDolbyVisionBaseLayerMimeType(Format format) {
     if (!Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
       return null;
     }
@@ -1321,8 +1312,8 @@ public final class CodecSpecificDataUtil {
   }
 
   /** Returns H263 profile and level from codec string. */
-  @Nullable
-  private static MediaCodecProfileAndLevel getH263ProfileAndLevel(String codec, String[] parts) {
+  private static @Nullable MediaCodecProfileAndLevel getH263ProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length < 3) {
       Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
       return null;
@@ -1350,8 +1341,8 @@ public final class CodecSpecificDataUtil {
     return new MediaCodecProfileAndLevel(profile, level);
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getAvcProfileAndLevel(String codec, String[] parts) {
+  private static @Nullable MediaCodecProfileAndLevel getAvcProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length < 2) {
       // The codec has fewer parts than required by the AVC codec string format.
       Log.w(TAG, "Ignoring malformed AVC codec string: " + codec);
@@ -1391,8 +1382,8 @@ public final class CodecSpecificDataUtil {
     return new MediaCodecProfileAndLevel(profile, level);
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getVp9ProfileAndLevel(String codec, String[] parts) {
+  private static @Nullable MediaCodecProfileAndLevel getVp9ProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length < 3) {
       Log.w(TAG, "Ignoring malformed VP9 codec string: " + codec);
       return null;
@@ -1420,8 +1411,7 @@ public final class CodecSpecificDataUtil {
     return new MediaCodecProfileAndLevel(profile, level);
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getAv1ProfileAndLevel(
+  private static @Nullable MediaCodecProfileAndLevel getAv1ProfileAndLevel(
       String codec, String[] parts, @Nullable ColorInfo colorInfo) {
     if (parts.length < 4) {
       Log.w(TAG, "Ignoring malformed AV1 codec string: " + codec);
@@ -1467,8 +1457,8 @@ public final class CodecSpecificDataUtil {
     return new MediaCodecProfileAndLevel(profile, level);
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getApvProfileAndLevel(String codec, String[] parts) {
+  private static @Nullable MediaCodecProfileAndLevel getApvProfileAndLevel(
+      String codec, String[] parts) {
     if (parts.length < 4) {
       Log.w(TAG, "Ignoring malformed APV codec string: " + codec);
       return null;
@@ -1707,8 +1697,7 @@ public final class CodecSpecificDataUtil {
     }
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getAacCodecProfileAndLevel(
+  private static @Nullable MediaCodecProfileAndLevel getAacCodecProfileAndLevel(
       String codec, String[] parts) {
     if (parts.length != 3) {
       Log.w(TAG, "Ignoring malformed MP4A codec string: " + codec);
@@ -1735,8 +1724,7 @@ public final class CodecSpecificDataUtil {
     return null;
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getAc4CodecProfileAndLevel(
+  private static @Nullable MediaCodecProfileAndLevel getAc4CodecProfileAndLevel(
       String codec, String[] parts) {
     if (parts.length != 4) {
       Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
@@ -1771,8 +1759,7 @@ public final class CodecSpecificDataUtil {
     return new MediaCodecProfileAndLevel(profile, level);
   }
 
-  @Nullable
-  private static MediaCodecProfileAndLevel getIamfCodecProfileAndLevel(
+  private static @Nullable MediaCodecProfileAndLevel getIamfCodecProfileAndLevel(
       String codec, String[] parts) {
     if (parts.length < 4) {
       Log.w(TAG, "Ignoring malformed IAMF codec string: " + codec);
@@ -1958,8 +1945,7 @@ public final class CodecSpecificDataUtil {
     }
   }
 
-  @Nullable
-  private static Integer hevcCodecStringToProfileLevel(String codecString) {
+  private static @Nullable Integer hevcCodecStringToProfileLevel(String codecString) {
     switch (codecString) {
       case "L30":
         return MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel1;
@@ -2018,8 +2004,7 @@ public final class CodecSpecificDataUtil {
     }
   }
 
-  @Nullable
-  private static Integer dolbyVisionStringToProfile(String profileString) {
+  private static @Nullable Integer dolbyVisionStringToProfile(String profileString) {
     if (profileString == null) {
       return null;
     }
@@ -2051,8 +2036,7 @@ public final class CodecSpecificDataUtil {
     }
   }
 
-  @Nullable
-  private static Integer dolbyVisionStringToLevel(String levelString) {
+  private static @Nullable Integer dolbyVisionStringToLevel(String levelString) {
     // TODO (Internal: b/179261323): use framework constant for level 13.
     switch (levelString) {
       case "01":

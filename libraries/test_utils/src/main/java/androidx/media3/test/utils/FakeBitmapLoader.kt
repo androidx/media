@@ -27,14 +27,16 @@ import com.google.common.util.concurrent.ListenableFuture
  * A fake [BitmapLoader] that returns [result] for every [decodeBitmap] and [loadBitmap] call, and
  * counts the calls.
  *
- * @property result The result returned for subsequent calls. It can be changed between calls, for
- *   example to make the next load return a different image, fail, or never complete.
+ * @param result The result returned for every call.
  */
 @UnstableApi
-class FakeBitmapLoader(var result: ListenableFuture<Bitmap>) : BitmapLoader {
+class FakeBitmapLoader(private val result: ListenableFuture<Bitmap>) : BitmapLoader {
 
   /** Creates an instance that returns [bitmap] for every call. */
   constructor(bitmap: Bitmap) : this(Futures.immediateFuture(bitmap))
+
+  /** Creates an instance that fails with [throwable] for every call. */
+  constructor(throwable: Throwable) : this(Futures.immediateFailedFuture(throwable))
 
   /** The number of times [decodeBitmap] has been called. */
   var decodeBitmapCallCount = 0
@@ -55,4 +57,28 @@ class FakeBitmapLoader(var result: ListenableFuture<Bitmap>) : BitmapLoader {
     loadBitmapCallCount++
     return result
   }
+}
+
+/**
+ * A [BitmapLoader] that only implements [loadBitmap], supporting all MIME types and throwing
+ * [UnsupportedOperationException] from [decodeBitmap].
+ */
+@UnstableApi
+fun interface UriOnlyBitmapLoader : BitmapLoader {
+  override fun supportsMimeType(mimeType: String): Boolean = true
+
+  override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
+    throw UnsupportedOperationException()
+}
+
+/**
+ * A [BitmapLoader] that only implements [decodeBitmap], supporting all MIME types and throwing
+ * [UnsupportedOperationException] from [loadBitmap].
+ */
+@UnstableApi
+fun interface BytesOnlyBitmapLoader : BitmapLoader {
+  override fun supportsMimeType(mimeType: String): Boolean = true
+
+  override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
+    throw UnsupportedOperationException()
 }

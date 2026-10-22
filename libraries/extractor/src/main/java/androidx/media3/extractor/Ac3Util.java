@@ -70,7 +70,7 @@ public final class Ac3Util {
      * The sample MIME type of the bitstream. One of {@link MimeTypes#AUDIO_AC3} and {@link
      * MimeTypes#AUDIO_E_AC3}.
      */
-    @Nullable public final String mimeType;
+    public final @Nullable String mimeType;
 
     /**
      * The type of the stream if {@link #mimeType} is {@link MimeTypes#AUDIO_E_AC3}, or {@link

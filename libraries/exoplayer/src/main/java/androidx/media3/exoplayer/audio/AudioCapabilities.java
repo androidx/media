@@ -251,8 +251,7 @@ public final class AudioCapabilities {
    * Returns the global settings {@link Uri} used by the device to specify external surround sound,
    * or null if the device does not support this functionality.
    */
-  @Nullable
-  /* package */ static Uri getExternalSurroundSoundGlobalSettingUri() {
+  /* package */ static @Nullable Uri getExternalSurroundSoundGlobalSettingUri() {
     return deviceMaySetExternalSurroundSoundGlobalSetting()
         ? Global.getUriFor(EXTERNAL_SURROUND_SOUND_KEY)
         : null;
@@ -362,8 +361,7 @@ public final class AudioCapabilities {
    *     instead.
    */
   @Deprecated
-  @Nullable
-  public Pair<Integer, Integer> getEncodingAndChannelConfigForPassthrough(Format format) {
+  public @Nullable Pair<Integer, Integer> getEncodingAndChannelConfigForPassthrough(Format format) {
     return getEncodingAndChannelConfigForPassthrough(format, AudioAttributes.DEFAULT);
   }
 
@@ -377,8 +375,7 @@ public final class AudioCapabilities {
    * @return The encoding and channel config to use, or {@code null} if passthrough of the format is
    *     unsupported.
    */
-  @Nullable
-  public Pair<Integer, Integer> getEncodingAndChannelConfigForPassthrough(
+  public @Nullable Pair<Integer, Integer> getEncodingAndChannelConfigForPassthrough(
       Format format, AudioAttributes audioAttributes) {
     @C.Encoding
     int encoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
@@ -570,7 +567,7 @@ public final class AudioCapabilities {
 
     public final @C.Encoding int encoding;
     public final int maxChannelCount;
-    @Nullable private final ImmutableSet<Integer> channelMasks;
+    private final @Nullable ImmutableSet<Integer> channelMasks;
 
     @RequiresApi(33)
     public AudioProfile(@C.Encoding int encoding, Set<Integer> channelMasks) {
@@ -731,8 +728,7 @@ public final class AudioCapabilities {
           spatializerChannelMasks);
     }
 
-    @Nullable
-    public static AudioDeviceInfo getDefaultRoutedDeviceForAttributes(
+    public static @Nullable AudioDeviceInfo getDefaultRoutedDeviceForAttributes(
         AudioManager audioManager, AudioAttributes audioAttributes) {
       List<AudioDeviceInfo> audioDevices;
       try {

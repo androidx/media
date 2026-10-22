@@ -120,16 +120,16 @@ import org.jspecify.annotations.Nullable;
   public static final String TEXT_EMPHASIS_MARK_FILLED = "filled";
   public static final String TEXT_EMPHASIS_MARK_OPEN = "open";
 
-  @Nullable public final String tag;
-  @Nullable public final String text;
+  public final @Nullable String tag;
+  public final @Nullable String text;
   public final boolean isTextNode;
   public final long startTimeUs;
   public final long endTimeUs;
-  @Nullable public final TtmlStyle style;
+  public final @Nullable TtmlStyle style;
   private final String @Nullable [] styleIds;
   public final String regionId;
-  @Nullable public final String imageId;
-  @Nullable public final TtmlNode parent;
+  public final @Nullable String imageId;
+  public final @Nullable TtmlNode parent;
 
   private final HashMap<String, Integer> nodeStartsByRegion;
   private final HashMap<String, Integer> nodeEndsByRegion;

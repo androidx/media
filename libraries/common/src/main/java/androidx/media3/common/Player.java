@@ -269,7 +269,7 @@ public interface Player {
     /**
      * The UID of the window, or {@code null} if the timeline is {@link Timeline#isEmpty() empty}.
      */
-    @Nullable public final Object windowUid;
+    public final @Nullable Object windowUid;
 
     /**
      * @deprecated Use {@link #mediaItemIndex} instead.
@@ -280,12 +280,12 @@ public interface Player {
     public final int mediaItemIndex;
 
     /** The media item, or {@code null} if the timeline is {@link Timeline#isEmpty() empty}. */
-    @UnstableApi @Nullable public final MediaItem mediaItem;
+    @UnstableApi public final @Nullable MediaItem mediaItem;
 
     /**
      * The UID of the period, or {@code null} if the timeline is {@link Timeline#isEmpty() empty}.
      */
-    @Nullable public final Object periodUid;
+    public final @Nullable Object periodUid;
 
     /** The period index. */
     public final int periodIndex;

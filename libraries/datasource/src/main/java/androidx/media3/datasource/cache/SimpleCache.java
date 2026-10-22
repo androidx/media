@@ -69,7 +69,7 @@ public final class SimpleCache implements Cache {
   private final File cacheDir;
   private final CacheEvictor evictor;
   private final CachedContentIndex contentIndex;
-  @Nullable private final CacheFileMetadataIndex fileIndex;
+  private final @Nullable CacheFileMetadataIndex fileIndex;
   private final HashMap<String, ArrayList<Listener>> listeners;
   private final Random random;
   private final boolean touchCacheSpans;
@@ -346,9 +346,8 @@ public final class SimpleCache implements Cache {
   }
 
   @Override
-  @Nullable
-  public synchronized CacheSpan startReadWriteNonBlocking(String key, long position, long length)
-      throws CacheException {
+  public synchronized @Nullable CacheSpan startReadWriteNonBlocking(
+      String key, long position, long length) throws CacheException {
     checkState(!released);
     checkInitialization();
 

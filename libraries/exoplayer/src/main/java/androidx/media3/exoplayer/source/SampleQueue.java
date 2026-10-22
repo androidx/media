@@ -82,12 +82,12 @@ public class SampleQueue implements TrackOutput {
   private final SampleDataQueue sampleDataQueue;
   private final SampleExtrasHolder extrasHolder;
   private final SpannedData<SharedSampleMetadata> sharedSampleMetadata;
-  @Nullable private final DrmSessionManager drmSessionManager;
+  private final @Nullable DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.@Nullable EventDispatcher drmEventDispatcher;
-  @Nullable private UpstreamFormatChangedListener upstreamFormatChangeListener;
+  private @Nullable UpstreamFormatChangedListener upstreamFormatChangeListener;
 
-  @Nullable private Format downstreamFormat;
-  @Nullable private DrmSession currentDrmSession;
+  private @Nullable Format downstreamFormat;
+  private @Nullable DrmSession currentDrmSession;
 
   private int capacity;
   private long[] sourceIds;
@@ -118,8 +118,8 @@ public class SampleQueue implements TrackOutput {
   private boolean upstreamKeyframeRequired;
   private boolean upstreamFormatRequired;
   private boolean upstreamFormatAdjustmentRequired;
-  @Nullable private Format unadjustedUpstreamFormat;
-  @Nullable private Format upstreamFormat;
+  private @Nullable Format unadjustedUpstreamFormat;
+  private @Nullable Format upstreamFormat;
   private long upstreamSourceId;
   private boolean discardAllSamplesToStartTime;
   private boolean loggedUnexpectedNonSyncSample;
@@ -411,8 +411,7 @@ public class SampleQueue implements TrackOutput {
   }
 
   /** Returns the upstream {@link Format} in which samples are being queued. */
-  @Nullable
-  public final synchronized Format getUpstreamFormat() {
+  public final synchronized @Nullable Format getUpstreamFormat() {
     return upstreamFormatRequired ? null : upstreamFormat;
   }
 
@@ -1334,7 +1333,7 @@ public class SampleQueue implements TrackOutput {
 
     public int size;
     public long offset;
-    @Nullable public CryptoData cryptoData;
+    public @Nullable CryptoData cryptoData;
   }
 
   /** A holder for metadata that applies to a span of contiguous samples. */

@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class InputReaderAdapterV30 implements MediaParser.SeekableInputReader {
 
-  @Nullable private DataReader dataReader;
+  private @Nullable DataReader dataReader;
   private long resourceLength;
   private long currentPosition;
   private long lastSeekPosition;

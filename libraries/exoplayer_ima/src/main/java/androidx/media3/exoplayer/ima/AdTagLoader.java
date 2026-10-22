@@ -147,15 +147,15 @@ import org.jspecify.annotations.Nullable;
   private final AdsLoader adsLoader;
   private final Runnable adLoadTimeoutRunnable;
 
-  @Nullable private Object pendingAdRequestContext;
-  @Nullable private Player player;
+  private @Nullable Object pendingAdRequestContext;
+  private @Nullable Player player;
   private VideoProgressUpdate lastContentProgress;
   private VideoProgressUpdate lastAdProgress;
   private int lastVolumePercent;
 
-  @Nullable private AdsManager adsManager;
+  private @Nullable AdsManager adsManager;
   private boolean isAdsManagerInitialized;
-  @Nullable private AdLoadException pendingAdLoadError;
+  private @Nullable AdLoadException pendingAdLoadError;
   private Timeline timeline;
   private long contentDurationMs;
   private AdPlaybackState adPlaybackState;
@@ -171,10 +171,10 @@ import org.jspecify.annotations.Nullable;
   private @ImaAdState int imaAdState;
 
   /** The current ad media info, or {@code null} if in state {@link #IMA_AD_STATE_NONE}. */
-  @Nullable private AdMediaInfo imaAdMediaInfo;
+  private @Nullable AdMediaInfo imaAdMediaInfo;
 
   /** The current ad info, or {@code null} if in state {@link #IMA_AD_STATE_NONE}. */
-  @Nullable private AdInfo imaAdInfo;
+  private @Nullable AdInfo imaAdInfo;
 
   /** Whether IMA has been notified that playback of content has finished. */
   private boolean sentContentComplete;
@@ -197,7 +197,7 @@ import org.jspecify.annotations.Nullable;
    * The ad info for a pending ad for which the media failed preparation, or {@code null} if no
    * pending ads have failed to prepare.
    */
-  @Nullable private AdInfo pendingAdPrepareErrorAdInfo;
+  private @Nullable AdInfo pendingAdPrepareErrorAdInfo;
 
   /**
    * If a content period has finished but IMA has not yet called {@link
@@ -625,8 +625,8 @@ import org.jspecify.annotations.Nullable;
    * Configures ads rendering for starting playback, returning the settings for the IMA SDK or
    * {@code null} if no ads should play.
    */
-  @Nullable
-  private AdsRenderingSettings setupAdsRendering(long contentPositionMs, long contentDurationMs) {
+  private @Nullable AdsRenderingSettings setupAdsRendering(
+      long contentPositionMs, long contentDurationMs) {
     AdsRenderingSettings adsRenderingSettings = imaFactory.createAdsRenderingSettings();
     adsRenderingSettings.setEnablePreloading(true);
     adsRenderingSettings.setEnableCustomTabs(configuration.enableCustomTabs);

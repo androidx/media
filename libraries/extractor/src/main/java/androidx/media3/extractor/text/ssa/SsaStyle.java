@@ -120,8 +120,8 @@ import org.jspecify.annotations.Nullable;
 
   public final String name;
   public final @SsaAlignment int alignment;
-  @Nullable @ColorInt public final Integer primaryColor;
-  @Nullable @ColorInt public final Integer outlineColor;
+  @ColorInt public final @Nullable Integer primaryColor;
+  @ColorInt public final @Nullable Integer outlineColor;
   public final float fontSize;
   public final boolean bold;
   public final boolean italic;
@@ -132,8 +132,8 @@ import org.jspecify.annotations.Nullable;
   private SsaStyle(
       String name,
       @SsaAlignment int alignment,
-      @Nullable @ColorInt Integer primaryColor,
-      @Nullable @ColorInt Integer outlineColor,
+      @ColorInt @Nullable Integer primaryColor,
+      @ColorInt @Nullable Integer outlineColor,
       float fontSize,
       boolean bold,
       boolean italic,
@@ -152,8 +152,7 @@ import org.jspecify.annotations.Nullable;
     this.borderStyle = borderStyle;
   }
 
-  @Nullable
-  public static SsaStyle fromStyleLine(String styleLine, Format format) {
+  public static @Nullable SsaStyle fromStyleLine(String styleLine, Format format) {
     checkArgument(styleLine.startsWith(STYLE_LINE_PREFIX));
     String[] styleValues = TextUtils.split(styleLine.substring(STYLE_LINE_PREFIX.length()), ",");
     if (styleValues.length != format.length) {
@@ -262,9 +261,8 @@ import org.jspecify.annotations.Nullable;
    * @param ssaColorExpression A SSA V4+ color expression.
    * @return The parsed color value, or null if parsing failed.
    */
-  @Nullable
   @ColorInt
-  public static Integer parseColor(String ssaColorExpression) {
+  public static @Nullable Integer parseColor(String ssaColorExpression) {
     // We use a long because the value is an unsigned 32-bit number, so can be larger than
     // Integer.MAX_VALUE.
     long abgr;
@@ -358,8 +356,7 @@ import org.jspecify.annotations.Nullable;
      *
      * @return the parsed info, or null if {@code styleFormatLine} doesn't contain 'name'.
      */
-    @Nullable
-    public static Format fromFormatLine(String styleFormatLine) {
+    public static @Nullable Format fromFormatLine(String styleFormatLine) {
       int nameIndex = C.INDEX_UNSET;
       int alignmentIndex = C.INDEX_UNSET;
       int primaryColorIndex = C.INDEX_UNSET;
@@ -452,7 +449,7 @@ import org.jspecify.annotations.Nullable;
     private static final Pattern ALIGNMENT_OVERRIDE_PATTERN = Pattern.compile("\\\\an(\\d+)");
 
     public final @SsaAlignment int alignment;
-    @Nullable public final PointF position;
+    public final @Nullable PointF position;
 
     private Overrides(@SsaAlignment int alignment, @Nullable PointF position) {
       this.alignment = alignment;
@@ -499,8 +496,7 @@ import org.jspecify.annotations.Nullable;
      * @param styleOverride The string to parse.
      * @return The parsed position, or null if no position is found.
      */
-    @Nullable
-    private static PointF parsePosition(String styleOverride) {
+    private static @Nullable PointF parsePosition(String styleOverride) {
       Matcher positionMatcher = POSITION_PATTERN.matcher(styleOverride);
       Matcher moveMatcher = MOVE_PATTERN.matcher(styleOverride);
       boolean hasPosition = positionMatcher.find();

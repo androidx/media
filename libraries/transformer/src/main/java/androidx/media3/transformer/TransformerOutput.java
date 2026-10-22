@@ -42,9 +42,9 @@ public final class TransformerOutput {
   /* package */ static final int TYPE_MEDIA_STORE = 2;
 
   /* package */ final @OutputType int outputType;
-  @Nullable /* package */ final String path;
-  @Nullable /* package */ final Uri collectionUri;
-  @Nullable /* package */ final ContentValues contentValues;
+  /* package */ final @Nullable String path;
+  /* package */ final @Nullable Uri collectionUri;
+  /* package */ final @Nullable ContentValues contentValues;
 
   /**
    * Creates a {@link TransformerOutput} targeting a local file path.

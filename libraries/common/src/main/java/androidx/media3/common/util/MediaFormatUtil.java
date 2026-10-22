@@ -285,8 +285,7 @@ public final class MediaFormatUtil {
    * Creates and returns a {@code ColorInfo}, if a valid instance is described in the {@link
    * MediaFormat}.
    */
-  @Nullable
-  public static ColorInfo getColorInfo(MediaFormat mediaFormat) {
+  public static @Nullable ColorInfo getColorInfo(MediaFormat mediaFormat) {
     int colorSpace =
         getInteger(
             mediaFormat, MediaFormat.KEY_COLOR_STANDARD, /* defaultValue= */ Format.NO_VALUE);
@@ -389,9 +388,8 @@ public final class MediaFormatUtil {
    *
    * <p>For H263 and Dolby Vision formats, builds a codec string using profile and level.
    */
-  @Nullable
   @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
-  private static String getCodecString(MediaFormat mediaFormat) {
+  private static @Nullable String getCodecString(MediaFormat mediaFormat) {
     // Add H263 profile and level to codec string as per RFC 6381.
     if (Objects.equals(mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_H263)
         && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
@@ -466,8 +464,7 @@ public final class MediaFormatUtil {
   }
 
   /** Returns the time lapse capture FPS from the given {@link MediaFormat} if it was set. */
-  @Nullable
-  public static Integer getTimeLapseFrameRate(MediaFormat format) {
+  public static @Nullable Integer getTimeLapseFrameRate(MediaFormat format) {
     if (format.containsKey("time-lapse-enable")
         && format.getInteger("time-lapse-enable") > 0
         && format.containsKey("time-lapse-fps")) {

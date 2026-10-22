@@ -398,6 +398,88 @@ public final class MergingMediaPeriodTest {
     assertThat(mergingMediaPeriod.getChildPeriod(2)).isEqualTo(childPeriod2);
   }
 
+  @Test
+  public void
+      supportsStreamPrerollFlags_whenOneChildDoesNotSupportStreamPrerollFlags_returnsFalse() {
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(
+            new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build()));
+    Allocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ false, /* individualAllocationSize= */ 1024);
+    FakeMediaPeriod childPeriod0 =
+        new FakeMediaPeriod(
+            trackGroupArray, allocator, /* singleSampleTimeUs= */ 0, new EventDispatcher());
+    FakeMediaPeriod childPeriod1 =
+        new FakeMediaPeriod(
+            trackGroupArray, allocator, /* singleSampleTimeUs= */ 0, new EventDispatcher());
+    childPeriod1.setSupportsStreamPrerollFlags(false);
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0},
+            childPeriod0,
+            childPeriod1);
+
+    boolean supportsStreamPrerollFlags = mergingMediaPeriod.supportsStreamPrerollFlags();
+
+    assertThat(supportsStreamPrerollFlags).isFalse();
+  }
+
+  @Test
+  public void supportsStreamPrerollFlags_whenAllChildrenSupportStreamPrerollFlags_returnsTrue() {
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(
+            new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build()));
+    Allocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ false, /* individualAllocationSize= */ 1024);
+    MediaPeriod childPeriod0 =
+        new FakeMediaPeriod(
+            trackGroupArray, allocator, /* singleSampleTimeUs= */ 0, new EventDispatcher());
+    MediaPeriod childPeriod1 =
+        new FakeMediaPeriod(
+            trackGroupArray, allocator, /* singleSampleTimeUs= */ 0, new EventDispatcher());
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0},
+            childPeriod0,
+            childPeriod1);
+
+    boolean supportsStreamPrerollFlags = mergingMediaPeriod.supportsStreamPrerollFlags();
+
+    assertThat(supportsStreamPrerollFlags).isTrue();
+  }
+
+  @Test
+  public void setUsesStreamPrerollFlags_afterSelectTracks_clearsChildInitialDiscontinuity()
+      throws Exception {
+    MergingMediaPeriod mergingMediaPeriod =
+        prepareMergingPeriod(
+            new MergingPeriodDefinition(
+                /* timeOffsetUs= */ 0, /* singleSampleTimeUs= */ 0, childFormat11, childFormat12),
+            new MergingPeriodDefinition(
+                /* timeOffsetUs= */ 0, /* singleSampleTimeUs= */ 0, childFormat21));
+    FakeMediaPeriod childPeriod0 = (FakeMediaPeriod) mergingMediaPeriod.getChildPeriod(0);
+    childPeriod0.setDiscontinuityPositionUs(1_000L);
+    TrackGroupArray mergedTrackGroups = mergingMediaPeriod.getTrackGroups();
+    SampleStream[] streams = new SampleStream[2];
+    mergingMediaPeriod.selectTracks(
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(mergedTrackGroups.get(0), /* track= */ 0),
+          new FixedTrackSelection(mergedTrackGroups.get(2), /* track= */ 0)
+        },
+        /* mayRetainStreamFlags= */ new boolean[2],
+        streams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 0);
+
+    mergingMediaPeriod.setUsesStreamPrerollFlags();
+
+    assertThat(mergingMediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+    assertThat(streams[1].getFlags()).isEqualTo(0);
+  }
+
   private MergingMediaPeriod prepareMergingPeriod(MergingPeriodDefinition... definitions)
       throws Exception {
     return prepareMergingPeriod(/* singleTrackGroup= */ false, definitions);

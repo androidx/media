@@ -317,7 +317,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private boolean isInputSdrToneMapped;
   private long outputStreamStartPositionUs;
   private @VideoSink.FirstFrameReleaseInstruction int outputStreamFirstFrameReleaseInstruction;
-  @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
+  private @Nullable Pair<Surface, Size> currentSurfaceAndSize;
   private int pendingFlushCount;
   private @State int state;
 
@@ -776,7 +776,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     private final int inputIndex;
 
     private ImmutableList<Effect> videoEffects;
-    @Nullable private Format inputFormat;
+    private @Nullable Format inputFormat;
     private @InputType int inputType;
     private long inputBufferTimestampAdjustmentUs;
 

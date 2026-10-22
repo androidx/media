@@ -31,7 +31,7 @@ public final class AesCipherDataSink implements DataSink {
   private final byte[] secretKey;
   private final byte @Nullable [] scratch;
 
-  @Nullable private AesFlushingCipher cipher;
+  private @Nullable AesFlushingCipher cipher;
 
   /**
    * Create an instance whose {@code write} methods have the side effect of overwriting the input

@@ -23,8 +23,7 @@ import org.jspecify.annotations.Nullable;
 public final class BackgroundExecutor {
 
   @SuppressWarnings("NonFinalStaticField")
-  @Nullable
-  private static Executor staticInstance;
+  private static @Nullable Executor staticInstance;
 
   /**
    * Returns an {@link Executor} for background tasks.

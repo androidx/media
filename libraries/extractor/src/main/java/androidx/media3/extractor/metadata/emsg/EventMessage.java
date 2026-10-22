@@ -87,8 +87,7 @@ public final class EventMessage implements Metadata.Entry {
   }
 
   @Override
-  @Nullable
-  public Format getWrappedMetadataFormat() {
+  public @Nullable Format getWrappedMetadataFormat() {
     switch (schemeIdUri) {
       case ID3_SCHEME_ID_AOM:
       case ID3_SCHEME_ID_APPLE:

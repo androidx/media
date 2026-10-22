@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public abstract class SubtitleOutputBuffer extends DecoderOutputBuffer implements Subtitle {
 
-  @Nullable private Subtitle subtitle;
+  private @Nullable Subtitle subtitle;
   private long subsampleOffsetUs;
 
   /**

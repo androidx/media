@@ -225,8 +225,7 @@ import org.jspecify.annotations.Nullable;
    * if the track type is not one of {@link C#TRACK_TYPE_AUDIO}, {@link C#TRACK_TYPE_TEXT}, or
    * {@link C#TRACK_TYPE_VIDEO}, which are the types supported by the Cast SDK.
    */
-  @Nullable
-  private static String getUnknownMimeTypeForTrackType(@TrackType int media3TrackType) {
+  private static @Nullable String getUnknownMimeTypeForTrackType(@TrackType int media3TrackType) {
     switch (media3TrackType) {
       case C.TRACK_TYPE_AUDIO:
         return MimeTypes.AUDIO_UNKNOWN;

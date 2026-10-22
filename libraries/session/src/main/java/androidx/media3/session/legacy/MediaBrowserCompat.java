@@ -222,8 +222,7 @@ public final class MediaBrowserCompat {
    * @return The extra bundle if it is connected and set, and {@code null} otherwise.
    * @throws IllegalStateException if not connected.
    */
-  @Nullable
-  public Bundle getExtras() {
+  public @Nullable Bundle getExtras() {
     return impl.getExtras();
   }
 
@@ -353,8 +352,7 @@ public final class MediaBrowserCompat {
    * @return A bundle which is passed to {@link MediaBrowserServiceCompat#notifyChildrenChanged(
    *     String, Bundle)}
    */
-  @Nullable
-  public Bundle getNotifyChildrenChangedOptions() {
+  public @Nullable Bundle getNotifyChildrenChangedOptions() {
     return impl.getNotifyChildrenChangedOptions();
   }
 
@@ -392,8 +390,7 @@ public final class MediaBrowserCompat {
      * @return An equivalent {@link MediaItem} object, or null if none.
      */
     @SuppressLint("WrongConstant")
-    @Nullable
-    public static MediaItem fromMediaItem(MediaBrowser.@Nullable MediaItem item) {
+    public static @Nullable MediaItem fromMediaItem(MediaBrowser.@Nullable MediaItem item) {
       if (item == null) {
         return null;
       }
@@ -410,8 +407,7 @@ public final class MediaBrowserCompat {
      * @param itemList A list of {@link android.media.browse.MediaBrowser.MediaItem} objects.
      * @return An equivalent list of {@link MediaItem} objects, or null if none.
      */
-    @Nullable
-    public static List<MediaItem> fromMediaItemList(
+    public static @Nullable List<MediaItem> fromMediaItemList(
         @Nullable List<MediaBrowser.MediaItem> itemList) {
       if (itemList == null) {
         return null;
@@ -516,8 +512,7 @@ public final class MediaBrowserCompat {
      *
      * @see MediaMetadataCompat#METADATA_KEY_MEDIA_ID
      */
-    @Nullable
-    public String getMediaId() {
+    public @Nullable String getMediaId() {
       return description.getMediaId();
     }
   }
@@ -871,10 +866,10 @@ public final class MediaBrowserCompat {
     private final ArrayMap<String, Subscription> subscriptions = new ArrayMap<>();
 
     protected int serviceVersion;
-    @Nullable protected ServiceBinderWrapper serviceBinderWrapper;
-    @Nullable protected Messenger callbacksMessenger;
+    protected @Nullable ServiceBinderWrapper serviceBinderWrapper;
+    protected @Nullable Messenger callbacksMessenger;
     private MediaSessionCompat.@Nullable Token mediaSessionToken;
-    @Nullable private Bundle notifyChildrenChangedOptions;
+    private @Nullable Bundle notifyChildrenChangedOptions;
 
     @SuppressWarnings("argument.type.incompatible") // Using this before constructor finishes
     MediaBrowserImplBase(
@@ -923,8 +918,7 @@ public final class MediaBrowserCompat {
     }
 
     @Override
-    @Nullable
-    public Bundle getExtras() {
+    public @Nullable Bundle getExtras() {
       return convertToNullIfInvalid(browserFwk.getExtras());
     }
 
@@ -1102,7 +1096,7 @@ public final class MediaBrowserCompat {
     public void sendCustomAction(
         final String action,
         @Nullable Bundle extras,
-        @Nullable final CustomActionCallback callback) {
+        final @Nullable CustomActionCallback callback) {
       if (!isConnected()) {
         throw new IllegalStateException(
             "Cannot send a custom action ("
@@ -1240,9 +1234,8 @@ public final class MediaBrowserCompat {
       }
     }
 
-    @Nullable
     @Override
-    public Bundle getNotifyChildrenChangedOptions() {
+    public @Nullable Bundle getNotifyChildrenChangedOptions() {
       return notifyChildrenChangedOptions;
     }
   }
@@ -1310,8 +1303,7 @@ public final class MediaBrowserCompat {
       return callbacks;
     }
 
-    @Nullable
-    public SubscriptionCallback getCallback(@Nullable Bundle options) {
+    public @Nullable SubscriptionCallback getCallback(@Nullable Bundle options) {
       for (int i = 0; i < optionsList.size(); ++i) {
         if (MediaBrowserCompatUtils.areSameOptions(optionsList.get(i), options)) {
           return callbacks.get(i);
@@ -1334,7 +1326,7 @@ public final class MediaBrowserCompat {
 
   private static class CallbackHandler extends Handler {
     private final WeakReference<MediaBrowserServiceCallbackImpl> callbackImplRef;
-    @Nullable private WeakReference<Messenger> callbacksMessengerRef;
+    private @Nullable WeakReference<Messenger> callbacksMessengerRef;
 
     CallbackHandler(MediaBrowserServiceCallbackImpl callbackImpl) {
       super();
@@ -1395,7 +1387,7 @@ public final class MediaBrowserCompat {
 
   private static class ServiceBinderWrapper {
     private final Messenger messenger;
-    @Nullable private final Bundle rootHints;
+    private final @Nullable Bundle rootHints;
 
     public ServiceBinderWrapper(IBinder target, @Nullable Bundle rootHints) {
       messenger = new Messenger(target);
@@ -1530,7 +1522,7 @@ public final class MediaBrowserCompat {
   @SuppressLint("RestrictedApi")
   private static class SearchResultReceiver extends ResultReceiver {
     private final String query;
-    @Nullable private final Bundle extras;
+    private final @Nullable Bundle extras;
     private final SearchCallback callback;
 
     SearchResultReceiver(
@@ -1575,8 +1567,8 @@ public final class MediaBrowserCompat {
   @SuppressLint("RestrictedApi")
   private static class CustomActionResultReceiver extends ResultReceiver {
     private final String action;
-    @Nullable private final Bundle extras;
-    @Nullable private final CustomActionCallback callback;
+    private final @Nullable Bundle extras;
+    private final @Nullable CustomActionCallback callback;
 
     CustomActionResultReceiver(
         String action,

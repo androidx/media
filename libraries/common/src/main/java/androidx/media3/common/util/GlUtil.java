@@ -468,9 +468,13 @@ public final class GlUtil {
    * is focused}.
    */
   public static long getContextMajorVersion() throws GlException {
+    EGLDisplay eglDisplay = EGL14.eglGetCurrentDisplay();
+    if (Objects.equals(eglDisplay, EGL14.EGL_NO_DISPLAY)) {
+      return 0;
+    }
     int[] currentEglContextVersion = new int[1];
     EGL14.eglQueryContext(
-        EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY),
+        eglDisplay,
         EGL14.eglGetCurrentContext(),
         EGL_CONTEXT_CLIENT_VERSION,
         currentEglContextVersion,
@@ -537,11 +541,19 @@ public final class GlUtil {
    */
   public static ImmutableList<SyncFenceWrapper> createSyncFences(int count) throws GlException {
     checkArgument(count > 0);
-    EGLDisplay eglDisplay = getDefaultEglDisplay();
+    if (SDK_INT < 33) {
+      GLES20.glFinish();
+      checkGlError();
+      return ImmutableList.of();
+    }
+    EGLDisplay eglDisplay = EGL14.eglGetCurrentDisplay();
+    if (Objects.equals(eglDisplay, EGL14.EGL_NO_DISPLAY)) {
+      GLES20.glFinish();
+      checkGlError();
+      return ImmutableList.of();
+    }
     String extensions = EGL14.eglQueryString(eglDisplay, EGL14.EGL_EXTENSIONS);
-    if (SDK_INT < 33
-        || extensions == null
-        || !extensions.contains("EGL_ANDROID_native_fence_sync")) {
+    if (extensions == null || !extensions.contains("EGL_ANDROID_native_fence_sync")) {
       GLES20.glFinish();
       checkGlError();
       return ImmutableList.of();

@@ -50,7 +50,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class DefaultSubtitleParserFactory implements SubtitleParser.Factory {
 
-  @Nullable private final CharsetDetector charsetDetector;
+  private final @Nullable CharsetDetector charsetDetector;
 
   /** Creates an instance. */
   public DefaultSubtitleParserFactory() {

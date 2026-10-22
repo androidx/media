@@ -40,7 +40,7 @@ public final class MediaLoadData {
    * The format of the track to which the data belongs. Null if the data does not belong to a
    * specific track.
    */
-  @Nullable public final Format trackFormat;
+  public final @Nullable Format trackFormat;
 
   /**
    * One of the {@link SelectionReason selection reasons} if the data belongs to a track. {@link
@@ -52,7 +52,7 @@ public final class MediaLoadData {
    * Optional data associated with the selection of the track to which the data belongs. Null if the
    * data does not belong to a track.
    */
-  @Nullable public final Object trackSelectionData;
+  public final @Nullable Object trackSelectionData;
 
   /**
    * The start time of the media in the {@link MediaPeriod}, or {@link C#TIME_UNSET} if the data

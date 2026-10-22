@@ -92,7 +92,7 @@ public class SampleChooserActivity extends AppCompatActivity
   private SampleAdapter sampleAdapter;
   private MenuItem preferExtensionDecodersMenuItem;
   private ExpandableListView sampleListView;
-  @Nullable private MediaItem downloadMediaItemWaitingForNotificationPermission;
+  private @Nullable MediaItem downloadMediaItemWaitingForNotificationPermission;
   private boolean notificationPermissionToastShown;
 
   @Override

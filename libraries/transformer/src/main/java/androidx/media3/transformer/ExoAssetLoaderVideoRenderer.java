@@ -41,7 +41,7 @@ import org.jspecify.annotations.Nullable;
   private final @Composition.HdrMode int hdrMode;
   private final List<Long> decodeOnlyPresentationTimestamps;
   private final long expectedTimestampDeltaUs;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;

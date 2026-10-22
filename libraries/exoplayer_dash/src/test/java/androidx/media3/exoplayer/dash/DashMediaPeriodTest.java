@@ -21,15 +21,23 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.Looper;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.dash.PlayerEmsgHandler.PlayerEmsgCallback;
 import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
@@ -42,11 +50,16 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.source.chunk.BaseMediaChunk;
+import androidx.media3.exoplayer.source.chunk.BaseMediaChunkOutput;
+import androidx.media3.exoplayer.source.chunk.ChunkHolder;
+import androidx.media3.exoplayer.source.chunk.ChunkSampleStream;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.MediaPeriodAsserts;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -474,6 +487,82 @@ public final class DashMediaPeriodTest {
 
     // Even though APV only contains sync frames, it is a video format and SampleQueue does not
     // discard samples to start time; preroll flag must be reported.
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+  }
+
+  @Test
+  public void setUsesStreamPrerollFlags_afterSelectTracks_clearsInitialDiscontinuity()
+      throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_vod");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    TrackGroupArray trackGroups = dashMediaPeriod.getTrackGroups();
+    ExoTrackSelection videoSelection = new FixedTrackSelection(trackGroups.get(0), /* track= */ 0);
+    SampleStream[] sampleStreams = new SampleStream[1];
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {videoSelection},
+            new boolean[1],
+            sampleStreams,
+            new boolean[1],
+            /* positionUs= */ 1_000_000L);
+    @SuppressWarnings("unchecked") // Safe because primary DASH streams are ChunkSampleStreams.
+    ChunkSampleStream<DashChunkSource> chunkSampleStream =
+        (ChunkSampleStream<DashChunkSource>) sampleStreams[0];
+    doAnswer(
+            invocation -> {
+              ChunkHolder holder = invocation.getArgument(3);
+              holder.chunk =
+                  new BaseMediaChunk(
+                      new FakeDataSource(),
+                      new DataSpec(Uri.EMPTY),
+                      videoSelection.getSelectedFormat(),
+                      C.SELECTION_REASON_UNKNOWN,
+                      /* trackSelectionData= */ null,
+                      /* startTimeUs= */ 0,
+                      /* endTimeUs= */ 2_000_000L,
+                      /* clippedStartTimeUs= */ C.TIME_UNSET,
+                      /* clippedEndTimeUs= */ C.TIME_UNSET,
+                      /* chunkIndex= */ 0) {
+                    @Override
+                    public void init(BaseMediaChunkOutput output) {
+                      super.init(output);
+                      output
+                          .track(/* id= */ 0, C.TRACK_TYPE_VIDEO)
+                          .format(videoSelection.getSelectedFormat());
+                    }
+
+                    @Override
+                    public void cancelLoad() {}
+
+                    @Override
+                    public void load() {}
+
+                    @Override
+                    public boolean isLoadCompleted() {
+                      return false;
+                    }
+                  };
+              return null;
+            })
+        .when(chunkSampleStream.getChunkSource())
+        .getNextChunk(any(), anyLong(), any(), any());
+    boolean unusedContinueLoading =
+        chunkSampleStream.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(1_000_000L).build());
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int readResultBefore = chunkSampleStream.readData(formatHolder, buffer, /* readFlags= */ 0);
+
+    dashMediaPeriod.setUsesStreamPrerollFlags();
+    int readResultAfter = chunkSampleStream.readData(formatHolder, buffer, /* readFlags= */ 0);
+    chunkSampleStream.release();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(readResultBefore).isEqualTo(C.RESULT_NOTHING_READ);
+    assertThat(readResultAfter).isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(dashMediaPeriod.supportsStreamPrerollFlags()).isTrue();
+    assertThat(dashMediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
     assertThat(sampleStreams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
   }
 

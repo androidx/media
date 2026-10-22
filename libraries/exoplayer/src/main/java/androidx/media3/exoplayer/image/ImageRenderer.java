@@ -106,15 +106,15 @@ public class ImageRenderer extends BaseRenderer {
   private long largestQueuedPresentationTimeUs;
   private @ReinitializationState int decoderReinitializationState;
   private @C.FirstFrameState int firstFrameState;
-  @Nullable private Format inputFormat;
-  @Nullable private ImageDecoder decoder;
-  @Nullable private DecoderInputBuffer inputBuffer;
+  private @Nullable Format inputFormat;
+  private @Nullable ImageDecoder decoder;
+  private @Nullable DecoderInputBuffer inputBuffer;
   private ImageOutput imageOutput;
-  @Nullable private ImageMetadataListener imageMetadataListener;
-  @Nullable private Bitmap outputBitmap;
+  private @Nullable ImageMetadataListener imageMetadataListener;
+  private @Nullable Bitmap outputBitmap;
   private boolean readyToOutputTiles;
-  @Nullable private TileInfo tileInfo;
-  @Nullable private TileInfo nextTileInfo;
+  private @Nullable TileInfo tileInfo;
+  private @Nullable TileInfo nextTileInfo;
   private int currentTileIndex;
   private boolean codecNeedsInitialization;
 

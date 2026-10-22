@@ -16,43 +16,22 @@
 
 package androidx.media3.ui.compose
 
-import android.content.ContentResolver
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.util.BitmapLoader
-import androidx.media3.common.util.Log
 import androidx.media3.ui.compose.state.MotionPhotoState
-import java.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.guava.await
-import kotlinx.coroutines.withContext
-
-private const val TAG = "MotionPhoto"
 
 /**
  * Composable for displaying a Motion Photo using a hoisted [MotionPhotoState] and a built-in or
@@ -80,14 +59,14 @@ fun MotionPhoto(
   error: Painter? = ColorPainter(Color.Black),
 ) {
   MotionPhoto(state = state, modifier = modifier, contentScale = contentScale) {
-    PhotoOverlay(
-      uri = checkNotNull(state.mediaItem.localConfiguration?.uri),
+    AsyncImage(
+      source = ImageSource.Uri(checkNotNull(state.mediaItem.localConfiguration?.uri)),
+      modifier = Modifier.fillMaxSize(),
       contentDescription = contentDescription,
       contentScale = contentScale,
       bitmapLoader = bitmapLoader,
       placeholder = placeholder,
       error = error,
-      modifier = Modifier.fillMaxSize(),
     )
   }
 }
@@ -125,99 +104,6 @@ fun MotionPhoto(
       contentAlignment = Alignment.Center,
     ) {
       photo()
-    }
-  }
-}
-
-private enum class PhotoOverlayState {
-  LOADING,
-  SUCCESS,
-  ERROR,
-}
-
-// TODO(b/544627271): Deduplicate this local URI loading logic with Artwork.kt and pass target
-// rendering dimensions so bitmaps are downsampled to the display size rather than decoded at full
-// resolution.
-@Composable
-private fun PhotoOverlay(
-  uri: Uri,
-  contentDescription: String?,
-  contentScale: ContentScale,
-  bitmapLoader: BitmapLoader?,
-  placeholder: Painter?,
-  error: Painter?,
-  modifier: Modifier = Modifier,
-) {
-  val appContext = LocalContext.current.applicationContext
-  var bitmapState by remember { mutableStateOf<Bitmap?>(null) }
-  var imageState by remember { mutableStateOf(PhotoOverlayState.LOADING) }
-
-  LaunchedEffect(uri, bitmapLoader) {
-    bitmapState = null
-    imageState = PhotoOverlayState.LOADING
-    val loadedBitmap =
-      try {
-        if (bitmapLoader != null) {
-          bitmapLoader.loadBitmap(uri).await()
-        } else {
-          defaultLoadPhoto(appContext, uri)
-        }
-      } catch (e: CancellationException) {
-        throw e
-      } catch (e: Exception) {
-        Log.w(TAG, "Failed to load photo", e)
-        null
-      }
-    if (loadedBitmap != null) {
-      bitmapState = loadedBitmap
-      imageState = PhotoOverlayState.SUCCESS
-    } else {
-      bitmapState = null
-      imageState = PhotoOverlayState.ERROR
-    }
-  }
-
-  val bitmapPainter =
-    remember(bitmapState) { bitmapState?.asImageBitmap()?.let { BitmapPainter(image = it) } }
-
-  val painter =
-    when (imageState) {
-      PhotoOverlayState.SUCCESS -> bitmapPainter
-      PhotoOverlayState.LOADING -> placeholder
-      PhotoOverlayState.ERROR -> error
-    }
-
-  painter?.let {
-    Image(
-      painter = it,
-      contentDescription = contentDescription,
-      contentScale = contentScale,
-      modifier = modifier,
-    )
-  } ?: Box(modifier)
-}
-
-// The URI is provided by the host application via MediaItem.
-@SuppressWarnings("ContentResolverUri")
-private suspend fun defaultLoadPhoto(context: Context, uri: Uri): Bitmap {
-  val scheme = uri.scheme?.lowercase()
-  if (
-    scheme != ContentResolver.SCHEME_CONTENT &&
-      scheme != ContentResolver.SCHEME_ANDROID_RESOURCE &&
-      scheme != ContentResolver.SCHEME_FILE
-  ) {
-    throw IllegalArgumentException(
-      "Cannot load motion photo with default loader: unsupported scheme '$scheme'"
-    )
-  }
-  return withContext(Dispatchers.IO) {
-    // TODO(b/544627271): Downsample the decoded bitmap to the target rendering size and apply Exif
-    // rotation (see BitmapUtil.decode).
-    val inputStream =
-      context.contentResolver.openInputStream(uri)
-        ?: throw IOException("Unable to open input stream")
-    inputStream.use { stream ->
-      BitmapFactory.decodeStream(stream) ?: throw IOException("Failed to decode bitmap")
     }
   }
 }

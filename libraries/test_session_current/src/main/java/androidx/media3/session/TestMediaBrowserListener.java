@@ -28,8 +28,7 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
   private final MediaController.Listener delegate;
 
   @GuardedBy("this")
-  @Nullable
-  private Runnable onCustomCommandRunnable;
+  private @Nullable Runnable onCustomCommandRunnable;
 
   public TestMediaBrowserListener(MediaController.@Nullable Listener delegate) {
     this.delegate = delegate == null ? new MediaBrowser.Listener() {} : delegate;

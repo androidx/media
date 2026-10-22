@@ -292,18 +292,18 @@ public class LegacyPlayerControlView extends FrameLayout {
 
   private final ComponentListener componentListener;
   private final CopyOnWriteArrayList<VisibilityListener> visibilityListeners;
-  @Nullable private final View previousButton;
-  @Nullable private final View nextButton;
-  @Nullable private final View playButton;
-  @Nullable private final View pauseButton;
-  @Nullable private final View fastForwardButton;
-  @Nullable private final View rewindButton;
-  @Nullable private final ImageView repeatToggleButton;
-  @Nullable private final ImageView shuffleButton;
-  @Nullable private final View vrButton;
-  @Nullable private final TextView durationView;
-  @Nullable private final TextView positionView;
-  @Nullable private final TimeBar timeBar;
+  private final @Nullable View previousButton;
+  private final @Nullable View nextButton;
+  private final @Nullable View playButton;
+  private final @Nullable View pauseButton;
+  private final @Nullable View fastForwardButton;
+  private final @Nullable View rewindButton;
+  private final @Nullable ImageView repeatToggleButton;
+  private final @Nullable ImageView shuffleButton;
+  private final @Nullable View vrButton;
+  private final @Nullable TextView durationView;
+  private final @Nullable TextView positionView;
+  private final @Nullable TimeBar timeBar;
   private final StringBuilder formatBuilder;
   private final Formatter formatter;
   private final Timeline.Period period;
@@ -324,8 +324,8 @@ public class LegacyPlayerControlView extends FrameLayout {
   private final String shuffleOnContentDescription;
   private final String shuffleOffContentDescription;
 
-  @Nullable private Player player;
-  @Nullable private ProgressUpdateListener progressUpdateListener;
+  private @Nullable Player player;
+  private @Nullable ProgressUpdateListener progressUpdateListener;
 
   private boolean isAttachedToWindow;
   private boolean showMultiWindowTimeBar;
@@ -530,8 +530,7 @@ public class LegacyPlayerControlView extends FrameLayout {
    * Returns the {@link Player} currently being controlled by this view, or null if no player is
    * set.
    */
-  @Nullable
-  public Player getPlayer() {
+  public @Nullable Player getPlayer() {
     return player;
   }
 

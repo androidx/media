@@ -82,7 +82,7 @@ import org.jspecify.annotations.Nullable;
 
   private MediaNotification.Provider mediaNotificationProvider;
   private int totalNotificationCount;
-  @Nullable private MediaNotification mediaNotification;
+  private @Nullable MediaNotification mediaNotification;
   private boolean startedInForeground;
   private boolean isUserEngaged;
   private boolean isUserEngagedTimeoutEnabled;
@@ -398,8 +398,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private MediaController getConnectedControllerForSession(MediaSession session) {
+  private @Nullable MediaController getConnectedControllerForSession(MediaSession session) {
     @Nullable ControllerInfo controllerInfo = controllerMap.get(session);
     if (controllerInfo == null || !controllerInfo.controllerFuture.isDone()) {
       return null;

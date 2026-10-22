@@ -54,7 +54,7 @@ public abstract class Action {
   @Size(max = 23)
   private final String tag;
 
-  @Nullable private final String description;
+  private final @Nullable String description;
 
   /**
    * @param tag A tag to use for logging.
@@ -128,7 +128,7 @@ public abstract class Action {
   /** Calls {@link Player#seekTo(long)} or {@link Player#seekTo(int, long)}. */
   public static final class Seek extends Action {
 
-    @Nullable private final Integer mediaItemIndex;
+    private final @Nullable Integer mediaItemIndex;
     private final long positionMs;
     private final boolean catchIllegalSeekException;
 
@@ -732,7 +732,7 @@ public abstract class Action {
   /** Waits for {@link Player.Listener#onTimelineChanged(Timeline, int)}. */
   public static final class WaitForTimelineChanged extends Action {
 
-    @Nullable private final Timeline expectedTimeline;
+    private final @Nullable Timeline expectedTimeline;
     private final boolean ignoreExpectedReason;
     private final @Player.TimelineChangeReason int expectedReason;
 

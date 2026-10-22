@@ -433,8 +433,7 @@ public final class Mp3ExtractorTest {
     assertThat(foundArtwork).isFalse();
   }
 
-  @Nullable
-  private static String getDumpFilePath(String inputFilePath, Enum<?> flagConfig) {
+  private static @Nullable String getDumpFilePath(String inputFilePath, Enum<?> flagConfig) {
     String configName = flagConfig.name();
     if (configName.equals("NONE")) {
       return null;

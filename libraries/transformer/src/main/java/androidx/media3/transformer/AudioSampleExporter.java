@@ -49,7 +49,7 @@ import org.jspecify.annotations.Nullable;
 
   private boolean returnedFirstInput;
   private long encoderTotalInputBytes;
-  @Nullable private DecoderInputBuffer partiallyFilledEncoderInputBuffer;
+  private @Nullable DecoderInputBuffer partiallyFilledEncoderInputBuffer;
 
   public AudioSampleExporter(
       Format firstAssetLoaderTrackFormat,
@@ -168,14 +168,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected Format getMuxerInputFormat() throws ExportException {
+  protected @Nullable Format getMuxerInputFormat() throws ExportException {
     return encoder.getOutputFormat();
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
     encoderOutputBuffer.data = encoder.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;

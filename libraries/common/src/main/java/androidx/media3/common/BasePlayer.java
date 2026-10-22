@@ -288,8 +288,7 @@ public abstract class BasePlayer implements Player {
   }
 
   @Override
-  @Nullable
-  public final MediaItem getCurrentMediaItem() {
+  public final @Nullable MediaItem getCurrentMediaItem() {
     Timeline timeline = getCurrentTimeline();
     return timeline.isEmpty()
         ? null
@@ -307,8 +306,7 @@ public abstract class BasePlayer implements Player {
   }
 
   @Override
-  @Nullable
-  public final Object getCurrentManifest() {
+  public final @Nullable Object getCurrentManifest() {
     Timeline timeline = getCurrentTimeline();
     return timeline.isEmpty()
         ? null

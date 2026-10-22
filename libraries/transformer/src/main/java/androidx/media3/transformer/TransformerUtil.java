@@ -396,8 +396,7 @@ public final class TransformerUtil {
    * @param mediaItem The {@link MediaItem} to inspect.
    * @return The MIME type.
    */
-  @Nullable
-  public static String getImageMimeType(Context context, MediaItem mediaItem) {
+  public static @Nullable String getImageMimeType(Context context, MediaItem mediaItem) {
     if (mediaItem.localConfiguration == null) {
       return null;
     }
@@ -584,8 +583,7 @@ public final class TransformerUtil {
     }
   }
 
-  @Nullable
-  private static String getCommonImageMimeTypeFromExtension(String extension) {
+  private static @Nullable String getCommonImageMimeTypeFromExtension(String extension) {
     switch (extension) {
       case "bmp":
       case "dib":

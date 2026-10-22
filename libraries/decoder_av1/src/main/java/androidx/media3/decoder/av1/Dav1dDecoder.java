@@ -76,12 +76,10 @@ public final class Dav1dDecoder
   private int availableOutputBufferCount;
 
   @GuardedBy("lock")
-  @Nullable
-  private DecoderInputBuffer dequeuedInputBuffer;
+  private @Nullable DecoderInputBuffer dequeuedInputBuffer;
 
   @GuardedBy("lock")
-  @Nullable
-  private Dav1dDecoderException exception;
+  private @Nullable Dav1dDecoderException exception;
 
   @GuardedBy("lock")
   private boolean flushed;
@@ -96,14 +94,12 @@ public final class Dav1dDecoder
   private long outputStartTimeUs;
 
   @GuardedBy("lock")
-  @Nullable
-  private Callback callback;
+  private @Nullable Callback callback;
 
   @GuardedBy("lock")
-  @Nullable
-  private Executor executor;
+  private @Nullable Executor executor;
 
-  @Nullable private Surface surface;
+  private @Nullable Surface surface;
 
   /**
    * Creates a Dav1dDecoder.
@@ -214,8 +210,7 @@ public final class Dav1dDecoder
   }
 
   @Override
-  @Nullable
-  public final DecoderInputBuffer dequeueInputBuffer() throws Dav1dDecoderException {
+  public final @Nullable DecoderInputBuffer dequeueInputBuffer() throws Dav1dDecoderException {
     synchronized (lock) {
       maybeThrowException();
       checkState(dequeuedInputBuffer == null || flushed);
@@ -239,8 +234,8 @@ public final class Dav1dDecoder
   }
 
   @Override
-  @Nullable
-  public final VideoDecoderOutputBuffer dequeueOutputBuffer() throws Dav1dDecoderException {
+  public final @Nullable VideoDecoderOutputBuffer dequeueOutputBuffer()
+      throws Dav1dDecoderException {
     synchronized (lock) {
       maybeThrowException();
       if (queuedOutputBuffers.isEmpty() || flushed) {

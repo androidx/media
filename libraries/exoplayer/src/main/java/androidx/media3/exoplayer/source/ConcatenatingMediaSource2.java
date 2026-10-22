@@ -64,7 +64,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     private final ImmutableList.Builder<MediaSourceHolder> mediaSourceHoldersBuilder;
 
     private int index;
-    @Nullable private MediaItem mediaItem;
+    private @Nullable MediaItem mediaItem;
     private MediaSource.@Nullable Factory mediaSourceFactory;
 
     /** Creates the builder. */
@@ -226,7 +226,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
   private final ImmutableList<MediaSourceHolder> mediaSourceHolders;
   private final IdentityHashMap<MediaPeriod, MediaSourceHolder> mediaSourceByMediaPeriod;
 
-  @Nullable private Handler playbackThreadHandler;
+  private @Nullable Handler playbackThreadHandler;
   private boolean timelineUpdateScheduled;
 
   @GuardedBy("this")
@@ -239,9 +239,8 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     mediaSourceByMediaPeriod = new IdentityHashMap<>();
   }
 
-  @Nullable
   @Override
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     return maybeCreateConcatenatedTimeline();
   }
 
@@ -329,8 +328,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Integer childSourceId, MediaPeriodId mediaPeriodId) {
     int childIndex =
         getChildIndexFromChildWindowSequenceNumber(
@@ -399,8 +397,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     }
   }
 
-  @Nullable
-  private ConcatenatedTimeline maybeCreateConcatenatedTimeline() {
+  private @Nullable ConcatenatedTimeline maybeCreateConcatenatedTimeline() {
     Timeline.Window window = new Timeline.Window();
     Timeline.Period period = new Timeline.Period();
     ImmutableList.Builder<Timeline> timelinesBuilder = ImmutableList.builder();
@@ -556,7 +553,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
     private final boolean isDynamic;
     private final long durationUs;
     private final long defaultPositionUs;
-    @Nullable private final Object manifest;
+    private final @Nullable Object manifest;
 
     public ConcatenatedTimeline(
         MediaItem mediaItem,

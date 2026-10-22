@@ -57,7 +57,7 @@ public final class FakeSuitableOutputChecker implements SuitableOutputChecker {
 
   private boolean isSelectedOutputSuitableForPlayback;
   private boolean previousSelectedOutputSuitableForPlayback;
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
 
   public FakeSuitableOutputChecker(boolean isSelectedOutputSuitableForPlayback) {
     this.isSelectedOutputSuitableForPlayback = isSelectedOutputSuitableForPlayback;

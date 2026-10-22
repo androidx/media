@@ -111,6 +111,8 @@ public class HlsChunkSourceTest {
   private static final String PLAYLIST_LIVE_EMPTY = "media/m3u8/media_playlist_live_empty";
   private static final String PLAYLIST_LIVE_LOW_LATENCY_PARTS_ONLY =
       "media/m3u8/live_low_latency_parts_only";
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_LAGGED =
+      "media/m3u8/live_low_latency_media_can_block_reload";
   private static final Uri PLAYLIST_URI = Uri.parse("http://example.com/");
   private static final Uri PLAYLIST_URI_2 = Uri.parse("http://example2.com/");
   private static final long PLAYLIST_START_PERIOD_OFFSET_US = 8_000_000L;
@@ -806,6 +808,118 @@ public class HlsChunkSourceTest {
         output);
 
     assertThat(output.chunk.steeredPathwayId).isNull();
+  }
+
+  @Test
+  public void getNextChunk_switchedPathwayToLaggedLivePlaylist_getsNullChunk() throws Exception {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(contentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    Uri urlForCdnA = Uri.parse("https://test/media-a/playlist0.m3u8");
+    Uri urlForCdnB = Uri.parse("https://test/media-b/playlist0.m3u8");
+    // CDN-A has 6 segments (mediaSequence 10..15, covering 8s..32s in period).
+    HlsMediaPlaylist playlistA =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    urlForCdnA,
+                    TestUtil.getInputStream(
+                        ApplicationProvider.getApplicationContext(),
+                        PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS));
+    // CDN-B lags behind CDN-A with 4 segments (mediaSequence 10..13, covering 8s..24s in period).
+    HlsMediaPlaylist laggedPlaylistB =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(
+                    urlForCdnB,
+                    TestUtil.getInputStream(
+                        ApplicationProvider.getApplicationContext(),
+                        PLAYLIST_LIVE_LOW_LATENCY_LAGGED));
+    when(mockPlaylistTracker.isLive()).thenReturn(true);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(urlForCdnA), anyBoolean()))
+        .thenReturn(playlistA);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(urlForCdnB), anyBoolean()))
+        .thenReturn(laggedPlaylistB);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Load segment 15 (28s to 32s in period) from CDN-A.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(29_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 29_000_000,
+        /* largestReadPositionUs= */ 29_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk firstChunk = (HlsMediaChunk) output.chunk;
+    loadMediaChunk(firstChunk, testChunkSource);
+    assertThat(firstChunk.playlistUrl).isEqualTo(urlForCdnA);
+    assertThat(firstChunk.chunkIndex).isEqualTo(15);
+
+    // Switch pathway to CDN-B, whose snapshot (ends at 24s) is behind loadPositionUs (32s).
+    for (HlsRedundantGroup group : redundantGroups) {
+      group.setCurrentPathwayId("CDN-B");
+    }
+    output.clear();
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(29_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 32_000_000,
+        /* largestReadPositionUs= */ 29_000_000,
+        /* queue= */ ImmutableList.of(firstChunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk).isNull();
+    assertThat(output.playlistUrl).isEqualTo(urlForCdnB);
+    assertThat(output.endOfStream).isFalse();
+  }
+
+  @Test
+  public void getNextChunk_forcedToKeepOldTrackWithInvalidNewPathwaySnapshot_getsNullChunk()
+      throws Exception {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(contentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    FakeTrackSelection trackSelection1 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection1.enable();
+    FakeTrackSelection trackSelection2 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 1);
+    trackSelection2.enable();
+    testChunkSource.setTrackSelection(trackSelection1);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Load first chunk on Track 0 (CDN-A) starting at 16s.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 16_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk firstChunk = (HlsMediaChunk) output.chunk;
+    loadMediaChunk(firstChunk, testChunkSource);
+
+    // Switch pathway to CDN-B and change track selection to Track 1.
+    for (HlsRedundantGroup group : redundantGroups) {
+      group.setCurrentPathwayId("CDN-B");
+    }
+    testChunkSource.setTrackSelection(trackSelection2);
+    Uri track0CdnBUrl = Uri.parse("https://test/media-b/playlist0.m3u8");
+    // Simulate that Track 0's CDN-B playlist snapshot is not valid yet when reverting to Track 0.
+    when(mockPlaylistTracker.isSnapshotValid(eq(track0CdnBUrl))).thenReturn(false);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(track0CdnBUrl), anyBoolean())).thenReturn(null);
+
+    output.clear();
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 18_000_000,
+        /* largestReadPositionUs= */ 16_000_001,
+        /* queue= */ ImmutableList.of(firstChunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk).isNull();
+    assertThat(output.playlistUrl).isEqualTo(track0CdnBUrl);
+    assertThat(output.endOfStream).isFalse();
   }
 
   @Test

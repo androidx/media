@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
 public final class FixedTrackSelection extends BaseTrackSelection {
 
   private final @C.SelectionReason int reason;
-  @Nullable private final Object data;
+  private final @Nullable Object data;
 
   /**
    * @param group The {@link TrackGroup}. Must not be null.
@@ -86,8 +86,7 @@ public final class FixedTrackSelection extends BaseTrackSelection {
   }
 
   @Override
-  @Nullable
-  public Object getSelectionData() {
+  public @Nullable Object getSelectionData() {
     return data;
   }
 }

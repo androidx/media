@@ -112,7 +112,7 @@ public final class WearUnsuitableOutputPlaybackSuppressionResolverListener
   private final long autoResumeTimeoutAfterUnsuitableOutputSuppressionMs;
   private final Clock clock;
 
-  @Nullable private final WakeLock wakeLock;
+  private final @Nullable WakeLock wakeLock;
 
   private long unsuitableOutputPlaybackSuppressionStartRealtimeMs;
 

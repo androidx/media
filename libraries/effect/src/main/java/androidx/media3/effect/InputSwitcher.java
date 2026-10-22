@@ -262,8 +262,7 @@ import org.jspecify.annotations.Nullable;
       checkNotNull(samplingGlShaderProgram).setOutputListener(gatedChainingListenerWrapper);
     }
 
-    @Nullable
-    public ExternalShaderProgram getSamplingGlShaderProgram() {
+    public @Nullable ExternalShaderProgram getSamplingGlShaderProgram() {
       return samplingGlShaderProgram;
     }
 

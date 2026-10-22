@@ -36,7 +36,7 @@ public class MediaDataSourceAdapter extends BaseDataSource {
 
   private final MediaDataSource mediaDataSource;
 
-  @Nullable private Uri uri;
+  private @Nullable Uri uri;
   private long position;
   private long bytesRemaining;
   private boolean opened;
@@ -107,9 +107,8 @@ public class MediaDataSourceAdapter extends BaseDataSource {
     return bytesRead;
   }
 
-  @Nullable
   @Override
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

@@ -512,15 +512,15 @@ public final class CommandButton {
 
     private final @Icon int icon;
 
-    @Nullable private SessionCommand sessionCommand;
+    private @Nullable SessionCommand sessionCommand;
     private @Player.Command int playerCommand;
     @DrawableRes private int iconResId;
-    @Nullable private Uri iconUri;
+    private @Nullable Uri iconUri;
     private CharSequence displayName;
     private Bundle extras;
     private boolean enabled;
-    @Nullable private ImmutableIntArray slots;
-    @Nullable private Object parameter;
+    private @Nullable ImmutableIntArray slots;
+    private @Nullable Object parameter;
 
     /**
      * @deprecated Use {@link #Builder(int)} instead to define the {@link Icon} for this button. A
@@ -1199,7 +1199,7 @@ public final class CommandButton {
   }
 
   /** The session command of the button. Will be {@code null} if {@link #playerCommand} is set. */
-  @Nullable public final SessionCommand sessionCommand;
+  public final @Nullable SessionCommand sessionCommand;
 
   /**
    * The {@link Player.Command} command of the button. Will be {@link Player#COMMAND_INVALID} if
@@ -1232,7 +1232,7 @@ public final class CommandButton {
    * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
    * capable of loading the content or resource {@link Uri}.
    */
-  @Nullable public final Uri iconUri;
+  public final @Nullable Uri iconUri;
 
   /**
    * The display name of the button. Can be empty if the command is predefined and a custom name
@@ -1272,7 +1272,7 @@ public final class CommandButton {
    * The optional parameter needed to execute the action associated with this button via {@link
    * #executeAction(MediaController)}.
    */
-  @UnstableApi @Nullable public final Object parameter;
+  @UnstableApi public final @Nullable Object parameter;
 
   private CommandButton(
       @Nullable SessionCommand sessionCommand,
@@ -2230,8 +2230,7 @@ public final class CommandButton {
     }
   }
 
-  @Nullable
-  private static Object verifyParameterType(
+  private static @Nullable Object verifyParameterType(
       @Nullable Object parameter, @ParameterType int parameterType) {
     if (parameter == null) {
       return null;
@@ -2312,8 +2311,7 @@ public final class CommandButton {
     }
   }
 
-  @Nullable
-  private static Object getParameterFromBundle(
+  private static @Nullable Object getParameterFromBundle(
       Bundle bundle, String bundleKey, @ParameterType int parameterType, int interfaceVersion) {
     if (!bundle.containsKey(bundleKey)) {
       return null;

@@ -23,8 +23,8 @@ import org.jspecify.annotations.Nullable;
 /* package */ final class CapturingEncoderFactory implements Codec.EncoderFactory {
   private final Codec.EncoderFactory encoderFactory;
 
-  @Nullable private String audioEncoderName;
-  @Nullable private String videoEncoderName;
+  private @Nullable String audioEncoderName;
+  private @Nullable String videoEncoderName;
 
   public CapturingEncoderFactory(Codec.EncoderFactory encoderFactory) {
     this.encoderFactory = encoderFactory;
@@ -65,8 +65,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the name of the last audio {@linkplain Codec encoder} created, or {@code null} if none
    * were created.
    */
-  @Nullable
-  public String getAudioEncoderName() {
+  public @Nullable String getAudioEncoderName() {
     return audioEncoderName;
   }
 
@@ -74,8 +73,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the name of the last video {@linkplain Codec encoder} created, or {@code null} if none
    * were created.
    */
-  @Nullable
-  public String getVideoEncoderName() {
+  public @Nullable String getVideoEncoderName() {
     return videoEncoderName;
   }
 }

@@ -486,7 +486,7 @@ public class MatroskaExtractor implements Extractor {
   private final ArrayDeque<ChapterEntry> currentChapters;
 
   // The track corresponding to the current TrackEntry element, or null.
-  @Nullable private Track currentTrack;
+  private @Nullable Track currentTrack;
 
   // Whether a seek map has been sent to the output.
   private boolean sentSeekMap;
@@ -2383,8 +2383,8 @@ public class MatroskaExtractor implements Extractor {
     public long trackUid;
     public @MonotonicNonNull String chapString;
     public @MonotonicNonNull String chapLanguage;
-    @Nullable public String currentDisplayString;
-    @Nullable public String currentDisplayLanguage;
+    public @Nullable String currentDisplayString;
+    public @Nullable String currentDisplayLanguage;
 
     public ChapterEntry() {
       timeStartNs = C.TIME_UNSET;
@@ -3184,7 +3184,7 @@ public class MatroskaExtractor implements Extractor {
 
   private static final class MatroskaSeekMap implements TrackAwareSeekMap, ChunkIndexProvider {
 
-    @Nullable private final ChunkIndex chunkIndex;
+    private final @Nullable ChunkIndex chunkIndex;
     private final SparseArray<List<CuePointData>> perTrackCues;
     private final long durationUs;
     private final int primarySeekTrackNumber;
@@ -3267,13 +3267,11 @@ public class MatroskaExtractor implements Extractor {
     }
 
     @Override
-    @Nullable
-    public ChunkIndex getChunkIndex() {
+    public @Nullable ChunkIndex getChunkIndex() {
       return chunkIndex;
     }
 
-    @Nullable
-    private static ChunkIndex buildChunkIndex(
+    private static @Nullable ChunkIndex buildChunkIndex(
         SparseArray<List<CuePointData>> perTrackCues,
         long durationUs,
         int primarySeekTrackNumber,

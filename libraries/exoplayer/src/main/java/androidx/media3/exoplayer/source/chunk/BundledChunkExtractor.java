@@ -129,9 +129,8 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       }
     }
 
-    @Nullable
     @Override
-    public ChunkExtractor createProgressiveMediaExtractor(
+    public @Nullable ChunkExtractor createProgressiveMediaExtractor(
         @C.TrackType int primaryTrackType,
         Format representationFormat,
         boolean enableEventMessageTrack,
@@ -195,7 +194,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   private final ManifestFormatMerger primaryTrackManifestFormatInfoMerger;
 
   private boolean extractorInitialized;
-  @Nullable private TrackOutputProvider trackOutputProvider;
+  private @Nullable TrackOutputProvider trackOutputProvider;
   private long endTimeUs;
   private @MonotonicNonNull SeekMap seekMap;
   private Format @MonotonicNonNull [] sampleFormats;
@@ -238,8 +237,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   // ChunkExtractor implementation.
 
   @Override
-  @Nullable
-  public ChunkIndex getChunkIndex() {
+  public @Nullable ChunkIndex getChunkIndex() {
     if (seekMap instanceof ChunkIndex) {
       return (ChunkIndex) seekMap;
     } else if (seekMap instanceof ChunkIndexProvider) {
@@ -326,7 +324,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     private final int id;
     private final int type;
-    @Nullable private final Format manifestFormat;
+    private final @Nullable Format manifestFormat;
     private final DiscardingTrackOutput fakeTrackOutput;
     private final ManifestFormatMerger manifestFormatMerger;
     public @MonotonicNonNull Format sampleFormat;

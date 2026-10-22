@@ -102,7 +102,7 @@ import org.jspecify.annotations.Nullable;
   private final SparseBooleanArray newIds;
 
   private Storage storage;
-  @Nullable private Storage previousStorage;
+  private @Nullable Storage previousStorage;
 
   /** Returns whether the file is an index file. */
   public static boolean isIndexFile(String fileName) {
@@ -247,8 +247,7 @@ import org.jspecify.annotations.Nullable;
    *
    * @param key The cache key of the resource.
    */
-  @Nullable
-  public CachedContent get(String key) {
+  public @Nullable CachedContent get(String key) {
     return keyToContent.get(key);
   }
 
@@ -268,8 +267,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the key which has the given id assigned, or {@code null} if no such key exists. */
-  @Nullable
-  public String getKeyForId(int id) {
+  public @Nullable String getKeyForId(int id) {
     return idToKey.get(id);
   }
 
@@ -494,13 +492,13 @@ import org.jspecify.annotations.Nullable;
     private static final int FLAG_ENCRYPTED_INDEX = 1;
 
     private final boolean encrypt;
-    @Nullable private final Cipher cipher;
-    @Nullable private final SecretKeySpec secretKeySpec;
-    @Nullable private final SecureRandom random;
+    private final @Nullable Cipher cipher;
+    private final @Nullable SecretKeySpec secretKeySpec;
+    private final @Nullable SecureRandom random;
     private final AtomicFile atomicFile;
 
     private boolean changed;
-    @Nullable private ReusableBufferedOutputStream bufferedOutputStream;
+    private @Nullable ReusableBufferedOutputStream bufferedOutputStream;
 
     public LegacyStorage(File file, byte @Nullable [] secretKey, boolean encrypt) {
       checkState(secretKey != null || !encrypt);

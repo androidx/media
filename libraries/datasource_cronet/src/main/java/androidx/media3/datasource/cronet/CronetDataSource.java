@@ -88,7 +88,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   public static final class Factory implements HttpDataSource.Factory {
 
     // TODO: Remove @Nullable annotation when CronetEngineWrapper is deleted.
-    @Nullable private final CronetEngine cronetEngine;
+    private final @Nullable CronetEngine cronetEngine;
     private final Executor executor;
     private final RequestProperties defaultRequestProperties;
     // TODO: Remove when CronetEngineWrapper is deleted.
@@ -96,9 +96,9 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
     // TODO: Remove when CronetEngineWrapper is deleted.
     private HttpDataSource.@Nullable Factory fallbackFactory;
-    @Nullable private Predicate<String> contentTypePredicate;
-    @Nullable private TransferListener transferListener;
-    @Nullable private String userAgent;
+    private @Nullable Predicate<String> contentTypePredicate;
+    private @Nullable TransferListener transferListener;
+    private @Nullable String userAgent;
     private int requestPriority;
     private int connectTimeoutMs;
     private int readTimeoutMs;
@@ -456,14 +456,14 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   private final int readTimeoutMs;
   private final boolean resetTimeoutOnRedirects;
   private final boolean handleSetCookieRequests;
-  @Nullable private final String userAgent;
-  @Nullable private final RequestProperties defaultRequestProperties;
+  private final @Nullable String userAgent;
+  private final @Nullable RequestProperties defaultRequestProperties;
   private final RequestProperties requestProperties;
   private final ConditionVariable operation;
   private final Clock clock;
   private final int readBufferSize;
 
-  @Nullable private final Predicate<String> contentTypePredicate;
+  private final @Nullable Predicate<String> contentTypePredicate;
   private final boolean keepPostFor302Redirects;
 
   // Accessed by the calling thread only.
@@ -472,19 +472,19 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
   // Written from the calling thread only. currentUrlRequest.start() calls ensure writes are visible
   // to reads made by the Cronet thread.
-  @Nullable private UrlRequest currentUrlRequest;
-  @VisibleForTesting @Nullable /* package */ UrlRequestCallback currentUrlRequestCallback;
-  @Nullable private DataSpec currentDataSpec;
+  private @Nullable UrlRequest currentUrlRequest;
+  @VisibleForTesting /* package */ @Nullable UrlRequestCallback currentUrlRequestCallback;
+  private @Nullable DataSpec currentDataSpec;
 
   // Reference written and read by calling thread only. Passed to Cronet thread as a local variable.
   // operation.open() calls ensure writes into the buffer are visible to reads made by the calling
   // thread.
-  @Nullable private ByteBuffer readBuffer;
+  private @Nullable ByteBuffer readBuffer;
 
   // Written from the Cronet thread only. operation.open() calls ensure writes are visible to reads
   // made by the calling thread.
-  @Nullable private UrlResponseInfo responseInfo;
-  @Nullable private IOException exception;
+  private @Nullable UrlResponseInfo responseInfo;
+  private @Nullable IOException exception;
   private boolean finished;
 
   private volatile long currentConnectTimeoutMs;
@@ -557,8 +557,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
   @UnstableApi
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     if (responseInfo != null) {
       return Uri.parse(responseInfo.getUrl());
     } else if (currentDataSpec != null) {
@@ -847,15 +846,13 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
   /** Returns current {@link UrlRequest}. May be null if the data source is not opened. */
   @UnstableApi
-  @Nullable
-  protected UrlRequest getCurrentUrlRequest() {
+  protected @Nullable UrlRequest getCurrentUrlRequest() {
     return currentUrlRequest;
   }
 
   /** Returns current {@link UrlResponseInfo}. May be null if the data source is not opened. */
   @UnstableApi
-  @Nullable
-  protected UrlResponseInfo getCurrentUrlResponseInfo() {
+  protected @Nullable UrlResponseInfo getCurrentUrlResponseInfo() {
     return responseInfo;
   }
 
@@ -1100,8 +1097,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     return statusHolder[0];
   }
 
-  @Nullable
-  private static String getFirstHeader(Map<String, List<String>> allHeaders, String headerName) {
+  private static @Nullable String getFirstHeader(
+      Map<String, List<String>> allHeaders, String headerName) {
     @Nullable List<String> headers = allHeaders.get(headerName);
     return headers != null && !headers.isEmpty() ? headers.get(0) : null;
   }

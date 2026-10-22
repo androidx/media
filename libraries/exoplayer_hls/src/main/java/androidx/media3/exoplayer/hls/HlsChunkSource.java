@@ -83,13 +83,13 @@ import org.jspecify.annotations.Nullable;
     }
 
     /** The chunk to be loaded next. */
-    @Nullable public Chunk chunk;
+    public @Nullable Chunk chunk;
 
     /** Indicates that the end of the stream has been reached. */
     public boolean endOfStream;
 
     /** Indicates that the chunk source is waiting for the referred playlist to be refreshed. */
-    @Nullable public Uri playlistUrl;
+    public @Nullable Uri playlistUrl;
 
     /** Clears the holder. */
     public void clear() {
@@ -139,19 +139,19 @@ import org.jspecify.annotations.Nullable;
   private final HlsRedundantGroup[] redundantGroups;
   private final Format[] redundantGroupFormats;
   private final HlsPlaylistTracker playlistTracker;
-  @Nullable private final HlsContentSteeringTracker contentSteeringTracker;
+  private final @Nullable HlsContentSteeringTracker contentSteeringTracker;
   private final TrackGroup trackGroup;
-  @Nullable private final List<Format> muxedCaptionFormats;
+  private final @Nullable List<Format> muxedCaptionFormats;
   private final FullSegmentEncryptionKeyCache keyCache;
   private final PlayerId playerId;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final long timestampAdjusterInitializationTimeoutMs;
 
   private boolean isPrimaryTimestampSource;
   private byte[] scratchSpace;
-  @Nullable private IOException fatalError;
-  @Nullable private Uri lastPlaylistErrorUrl;
-  @Nullable private Uri nextChunkStuckOnPlaylistUrl;
+  private @Nullable IOException fatalError;
+  private @Nullable Uri lastPlaylistErrorUrl;
+  private @Nullable Uri nextChunkStuckOnPlaylistUrl;
   private boolean independentSegments;
 
   // Note: The track group in the selection is typically *not* equal to trackGroup. This is due to
@@ -473,6 +473,8 @@ import org.jspecify.annotations.Nullable;
     int selectedTrackIndex = trackSelection.getSelectedIndexInTrackGroup();
     boolean switchingTrack = oldTrackIndex != selectedTrackIndex;
     Uri selectedPlaylistUrl = redundantGroups[selectedTrackIndex].getCurrentPlaylistUrl();
+    boolean switchingPlaylist =
+        switchingTrack || (previous != null && !selectedPlaylistUrl.equals(previous.playlistUrl));
     @Nullable String pathwayIdForSelectedPlaylistUrl =
         contentSteeringTracker != null && contentSteeringTracker.isActive()
             ? redundantGroups[selectedTrackIndex].getCurrentPathwayId()
@@ -495,7 +497,7 @@ import org.jspecify.annotations.Nullable;
     long startOfPlaylistInPeriodUs = playlist.startTimeUs - playlistTracker.getInitialStartTimeUs();
     Pair<Long, Integer> nextMediaSequenceAndPartIndex =
         getNextMediaSequenceAndPartIndex(
-            previous, switchingTrack, playlist, startOfPlaylistInPeriodUs, loadPositionUs);
+            previous, switchingPlaylist, playlist, startOfPlaylistInPeriodUs, loadPositionUs);
     long chunkMediaSequence = nextMediaSequenceAndPartIndex.first;
     int partIndex = nextMediaSequenceAndPartIndex.second;
     boolean shouldForceKeepCurrentTrackSelection =
@@ -511,6 +513,12 @@ import org.jspecify.annotations.Nullable;
     if (shouldForceKeepCurrentTrackSelection) {
       selectedTrackIndex = oldTrackIndex;
       selectedPlaylistUrl = redundantGroups[selectedTrackIndex].getCurrentPlaylistUrl();
+      if (!playlistTracker.isSnapshotValid(selectedPlaylistUrl)) {
+        out.playlistUrl = selectedPlaylistUrl;
+        nextChunkStuckOnPlaylistUrl = selectedPlaylistUrl;
+        // Retry when playlist is refreshed.
+        return;
+      }
       playlist =
           playlistTracker.getPlaylistSnapshot(selectedPlaylistUrl, /* isForPlayback= */ true);
       // playlistTracker snapshot is valid (checked by if() above), so playlist must be non-null.
@@ -520,7 +528,8 @@ import org.jspecify.annotations.Nullable;
       Pair<Long, Integer> nextMediaSequenceAndPartIndexWithoutAdapting =
           getNextMediaSequenceAndPartIndex(
               previous,
-              /* switchingTrack= */ false,
+              /* switchingPlaylist= */ previous != null
+                  && !selectedPlaylistUrl.equals(previous.playlistUrl),
               playlist,
               startOfPlaylistInPeriodUs,
               loadPositionUs);
@@ -668,8 +677,7 @@ import org.jspecify.annotations.Nullable;
     return mediaPlaylist.hasIndependentSegments;
   }
 
-  @Nullable
-  private static SegmentBaseHolder getNextSegmentHolder(
+  private static @Nullable SegmentBaseHolder getNextSegmentHolder(
       HlsMediaPlaylist mediaPlaylist, long nextMediaSequence, int nextPartIndex) {
     int segmentIndexInPlaylist = (int) (nextMediaSequence - mediaPlaylist.mediaSequence);
     if (segmentIndexInPlaylist == mediaPlaylist.segments.size()) {
@@ -845,10 +853,12 @@ import org.jspecify.annotations.Nullable;
       checkNotNull(playlist);
       long startOfPlaylistInPeriodUs =
           playlist.startTimeUs - playlistTracker.getInitialStartTimeUs();
-      boolean switchingTrack = trackIndex != oldTrackIndex;
+      boolean switchingPlaylist =
+          trackIndex != oldTrackIndex
+              || (previous != null && !playlistUrl.equals(previous.playlistUrl));
       Pair<Long, Integer> chunkMediaSequenceAndPartIndex =
           getNextMediaSequenceAndPartIndex(
-              previous, switchingTrack, playlist, startOfPlaylistInPeriodUs, loadPositionUs);
+              previous, switchingPlaylist, playlist, startOfPlaylistInPeriodUs, loadPositionUs);
       long chunkMediaSequence = chunkMediaSequenceAndPartIndex.first;
       int partIndex = chunkMediaSequenceAndPartIndex.second;
       chunkIterators[i] =
@@ -1052,8 +1062,8 @@ import org.jspecify.annotations.Nullable;
    * Returns the media sequence number and part index to load next in the {@code mediaPlaylist}.
    *
    * @param previous The last (at least partially) loaded segment.
-   * @param switchingTrack Whether the segment to load is not preceded by a segment in the same
-   *     track.
+   * @param switchingPlaylist Whether the segment to load is not preceded by a segment in the same
+   *     playlist.
    * @param mediaPlaylist The media playlist to which the segment to load belongs.
    * @param startOfPlaylistInPeriodUs The start of {@code mediaPlaylist} relative to the period
    *     start in microseconds.
@@ -1062,11 +1072,11 @@ import org.jspecify.annotations.Nullable;
    */
   private Pair<Long, Integer> getNextMediaSequenceAndPartIndex(
       @Nullable HlsMediaChunk previous,
-      boolean switchingTrack,
+      boolean switchingPlaylist,
       HlsMediaPlaylist mediaPlaylist,
       long startOfPlaylistInPeriodUs,
       long loadPositionUs) {
-    if (previous == null || switchingTrack) {
+    if (previous == null || switchingPlaylist) {
       long endOfPlaylistInPeriodUs = startOfPlaylistInPeriodUs + mediaPlaylist.durationUs;
       long targetPositionInPeriodUs =
           (previous == null || independentSegments) ? loadPositionUs : previous.startTimeUs;
@@ -1189,8 +1199,7 @@ import org.jspecify.annotations.Nullable;
             : (mediaPlaylist.getEndTimeUs() - playlistTracker.getInitialStartTimeUs());
   }
 
-  @Nullable
-  private Chunk maybeCreateEncryptionChunkFor(
+  private @Nullable Chunk maybeCreateEncryptionChunkFor(
       @Nullable Uri keyUri,
       int selectedTrackIndex,
       boolean isInitSegment,
@@ -1227,8 +1236,7 @@ import org.jspecify.annotations.Nullable;
         scratchSpace);
   }
 
-  @Nullable
-  private static Uri getFullEncryptionKeyUri(
+  private static @Nullable Uri getFullEncryptionKeyUri(
       HlsMediaPlaylist playlist, HlsMediaPlaylist.@Nullable SegmentBase segmentBase) {
     if (segmentBase == null || segmentBase.fullSegmentEncryptionKeyUri == null) {
       return null;
@@ -1310,8 +1318,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @Nullable
-    public Object getSelectionData() {
+    public @Nullable Object getSelectionData() {
       return null;
     }
   }

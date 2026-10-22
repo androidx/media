@@ -270,8 +270,7 @@ public final class BoxParser {
    * @param meta The metadata box to decode.
    * @return Parsed metadata, or null.
    */
-  @Nullable
-  public static Metadata parseMdtaFromMeta(Mp4Box.ContainerBox meta) {
+  public static @Nullable Metadata parseMdtaFromMeta(Mp4Box.ContainerBox meta) {
     @Nullable LeafBox hdlrAtom = meta.getLeafBoxOfType(Mp4Box.TYPE_hdlr);
     @Nullable LeafBox keysAtom = meta.getLeafBoxOfType(Mp4Box.TYPE_keys);
     @Nullable LeafBox ilstAtom = meta.getLeafBoxOfType(Mp4Box.TYPE_ilst);
@@ -355,8 +354,7 @@ public final class BoxParser {
    * @return A {@link Track} instance, or {@code null} if the track's type isn't supported.
    * @throws ParserException Thrown if the trak box can't be parsed.
    */
-  @Nullable
-  public static Track parseTrak(
+  public static @Nullable Track parseTrak(
       Mp4Box.ContainerBox trak,
       LeafBox mvhd,
       long duration,
@@ -1016,8 +1014,8 @@ public final class BoxParser {
         editedOffsets.length);
   }
 
-  @Nullable
-  private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit, boolean ignoreArtwork) {
+  private static @Nullable Metadata parseUdtaMeta(
+      ParsableByteArray meta, int limit, boolean ignoreArtwork) {
     meta.skipBytes(Mp4Box.HEADER_SIZE);
     maybeSkipRemainingMetaBoxHeaderBytes(meta);
     while (meta.getPosition() < limit) {
@@ -1033,8 +1031,8 @@ public final class BoxParser {
     return null;
   }
 
-  @Nullable
-  private static Metadata parseIlst(ParsableByteArray ilst, int limit, boolean ignoreArtwork) {
+  private static @Nullable Metadata parseIlst(
+      ParsableByteArray ilst, int limit, boolean ignoreArtwork) {
     ilst.skipBytes(Mp4Box.HEADER_SIZE);
     ArrayList<Metadata.Entry> entries = new ArrayList<>();
     while (ilst.getPosition() < limit) {
@@ -1051,8 +1049,7 @@ public final class BoxParser {
 
   /** Parses the location metadata from the xyz atom. */
   @VisibleForTesting
-  @Nullable
-  /* package */ static Metadata parseXyz(ParsableByteArray xyzBox) {
+  /* package */ static @Nullable Metadata parseXyz(ParsableByteArray xyzBox) {
     int length = xyzBox.readShort();
     xyzBox.skipBytes(2); // language code.
     String location = xyzBox.readString(length);
@@ -1079,8 +1076,7 @@ public final class BoxParser {
   }
 
   /** Parses the Nero chapters from the chpl atom. */
-  @Nullable
-  /* package */ static Metadata parseChpl(ParsableByteArray chplData) {
+  /* package */ static @Nullable Metadata parseChpl(ParsableByteArray chplData) {
     try {
       chplData.skipBytes(5); // 1 byte version + 3 bytes flags + 1 byte reserved.
       int chapterCount = chplData.readInt();
@@ -1187,8 +1183,7 @@ public final class BoxParser {
    *     IDs.
    */
   @VisibleForTesting
-  @Nullable
-  /* package */ static Mp4TrackReferenceData parseTrackReference(LeafBox trefTypeBox) {
+  /* package */ static @Nullable Mp4TrackReferenceData parseTrackReference(LeafBox trefTypeBox) {
     ParsableByteArray data = trefTypeBox.data;
     data.setPosition(Mp4Box.HEADER_SIZE);
     ImmutableList.Builder<Integer> trackIds = new ImmutableList.Builder<>();
@@ -1272,8 +1267,7 @@ public final class BoxParser {
     return new MdhdData(timescale, mediaDurationUs, language);
   }
 
-  @Nullable
-  private static String getLanguageFromCode(int languageCode) {
+  private static @Nullable String getLanguageFromCode(int languageCode) {
     char[] chars = {
       (char) (((languageCode >> 10) & 0x1F) + 0x60),
       (char) (((languageCode >> 5) & 0x1F) + 0x60),
@@ -2064,8 +2058,7 @@ public final class BoxParser {
    *
    * <p>Non-{@code mebx} tracks are returned unchanged.
    */
-  @Nullable
-  /* package */ static Track maybeConvertMebxTrackToIt35(Track track) {
+  /* package */ static @Nullable Track maybeConvertMebxTrackToIt35(Track track) {
     if (!Objects.equals(track.format.sampleMimeType, MimeTypes.APPLICATION_MEBX)) {
       return track;
     }
@@ -2178,8 +2171,7 @@ public final class BoxParser {
    * @return Pair of edit list durations and edit list media times, or {@code null} if they are not
    *     present.
    */
-  @Nullable
-  private static Pair<ImmutableLongArray, ImmutableLongArray> parseEdts(
+  private static @Nullable Pair<ImmutableLongArray, ImmutableLongArray> parseEdts(
       Mp4Box.ContainerBox edtsAtom) {
     @Nullable LeafBox elstAtom = edtsAtom.getLeafBoxOfType(Mp4Box.TYPE_elst);
     if (elstAtom == null) {
@@ -2690,8 +2682,7 @@ public final class BoxParser {
    * Returns stereo video playback related meta data from the vexu box. See
    * https://developer.apple.com/av-foundation/Stereo-Video-ISOBMFF-Extensions.pdf for ref.
    */
-  @Nullable
-  /* package */ static VexuData parseVideoExtendedUsageBox(
+  /* package */ static @Nullable VexuData parseVideoExtendedUsageBox(
       ParsableByteArray parent, int position, int size) throws ParserException {
     parent.setPosition(position + Mp4Box.HEADER_SIZE);
     int childPosition = parent.getPosition();
@@ -2709,9 +2700,8 @@ public final class BoxParser {
     return eyesData == null ? null : new VexuData(eyesData);
   }
 
-  @Nullable
-  private static EyesData parseStereoViewBox(ParsableByteArray parent, int position, int size)
-      throws ParserException {
+  private static @Nullable EyesData parseStereoViewBox(
+      ParsableByteArray parent, int position, int size) throws ParserException {
     parent.setPosition(position + Mp4Box.HEADER_SIZE);
     int childPosition = parent.getPosition();
     while (childPosition - position < size) {
@@ -2738,8 +2728,7 @@ public final class BoxParser {
    * unencrypted atom type and a {@link TrackEncryptionBox}. Null is returned if no common
    * encryption sinf atom was present.
    */
-  @Nullable
-  private static Pair<Integer, TrackEncryptionBox> parseSampleEntryEncryptionData(
+  private static @Nullable Pair<Integer, TrackEncryptionBox> parseSampleEntryEncryptionData(
       ParsableByteArray parent, int position, int size) throws ParserException {
     int childPosition = parent.getPosition();
     while (childPosition - position < size) {
@@ -2759,9 +2748,9 @@ public final class BoxParser {
     return null;
   }
 
-  @Nullable
-  /* package */ static Pair<Integer, TrackEncryptionBox> parseCommonEncryptionSinfFromParent(
-      ParsableByteArray parent, int position, int size) throws ParserException {
+  /* package */ static @Nullable Pair<Integer, TrackEncryptionBox>
+      parseCommonEncryptionSinfFromParent(ParsableByteArray parent, int position, int size)
+          throws ParserException {
     int childPosition = position + Mp4Box.HEADER_SIZE;
     int schemeInformationBoxPosition = C.INDEX_UNSET;
     int schemeInformationBoxSize = 0;
@@ -2801,8 +2790,7 @@ public final class BoxParser {
     }
   }
 
-  @Nullable
-  private static TrackEncryptionBox parseSchiFromParent(
+  private static @Nullable TrackEncryptionBox parseSchiFromParent(
       ParsableByteArray parent, int position, int size, String schemeType) {
     int childPosition = position + Mp4Box.HEADER_SIZE;
     while (childPosition - position < size) {
@@ -2975,7 +2963,7 @@ public final class BoxParser {
 
     public final TrackEncryptionBox[] trackEncryptionBoxes;
 
-    @Nullable public Format format;
+    public @Nullable Format format;
     public int nalUnitLengthFieldLength;
     public @Track.Transformation int requiredSampleTransformation;
 
@@ -3041,7 +3029,7 @@ public final class BoxParser {
   private static final class MdhdData {
     private final long timescale;
     private final long mediaDurationUs;
-    @Nullable private final String language;
+    private final @Nullable String language;
 
     public MdhdData(long timescale, long mediaDurationUs, @Nullable String language) {
       this.timescale = timescale;
@@ -3052,7 +3040,7 @@ public final class BoxParser {
 
   /** Data parsed from vexu box. */
   /* package */ static final class VexuData {
-    @Nullable private final EyesData eyesData;
+    private final @Nullable EyesData eyesData;
 
     public VexuData(EyesData eyesData) {
       this.eyesData = eyesData;

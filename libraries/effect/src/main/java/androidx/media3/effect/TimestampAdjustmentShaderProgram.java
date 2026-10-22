@@ -41,7 +41,7 @@ public class TimestampAdjustmentShaderProgram implements GlShaderProgram {
   private final AtomicInteger pendingCallbacksCount;
   private final AtomicBoolean pendingEndOfStream;
 
-  @Nullable private GlTextureInfo inputTexture;
+  private @Nullable GlTextureInfo inputTexture;
   private InputListener inputListener;
   private OutputListener outputListener;
 

@@ -80,8 +80,7 @@ public final class MotionPhotoDescription {
    * @param motionPhotoLength The length of the motion photo file, in bytes.
    * @return The motion photo metadata, or {@code null}.
    */
-  @Nullable
-  public MotionPhotoMetadata getMotionPhotoMetadata(long motionPhotoLength) {
+  public @Nullable MotionPhotoMetadata getMotionPhotoMetadata(long motionPhotoLength) {
     if (items.size() < 2) {
       // We need a primary item (photo) and at least one secondary item (video).
       return null;

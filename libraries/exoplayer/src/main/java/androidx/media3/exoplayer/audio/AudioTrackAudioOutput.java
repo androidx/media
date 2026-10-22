@@ -86,8 +86,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   @SuppressWarnings("NonFinalStaticField") // Intentional statically shared mutable state
   @GuardedBy("releaseExecutorLock")
-  @Nullable
-  private static ScheduledExecutorService releaseExecutor;
+  private static @Nullable ScheduledExecutorService releaseExecutor;
 
   @GuardedBy("releaseExecutorLock")
   private static int pendingReleaseCount;
@@ -95,19 +94,19 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private final AudioTrack audioTrack;
   private final OutputConfig config;
   private final float maxPlaybackSpeed;
-  @Nullable private final CapabilityChangeListener capabilityChangeListener;
-  @Nullable private OnRoutingChangedListener onRoutingChangedListener;
+  private final @Nullable CapabilityChangeListener capabilityChangeListener;
+  private @Nullable OnRoutingChangedListener onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final boolean isOutputPcm;
   private final int pcmFrameSize;
-  @Nullable private final StreamEventCallbackV29 offloadStreamEventCallbackV29;
+  private final @Nullable StreamEventCallbackV29 offloadStreamEventCallbackV29;
   private final ListenerSet<Listener> listeners;
 
   private boolean hasBeenStopped;
   private long writtenPcmBytes;
   private long writtenEncodedFrames;
   private long lastTunnelingAvSyncPresentationTimeUs;
-  @Nullable private ByteBuffer avSyncHeader;
+  private @Nullable ByteBuffer avSyncHeader;
   private int bytesUntilNextAvSync;
   private int framesPerEncodedSample;
   private int lastUnderrunCount;

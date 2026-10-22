@@ -205,8 +205,7 @@ import org.jspecify.annotations.Nullable;
    * @return The extracted {@link RtspAuthUserInfo}, {@code null} if the argument {@link Uri} does
    *     not contain userinfo, or it's not properly formatted.
    */
-  @Nullable
-  public static RtspAuthUserInfo parseUserInfo(Uri uri) {
+  public static @Nullable RtspAuthUserInfo parseUserInfo(Uri uri) {
     @Nullable String userInfo = uri.getUserInfo();
     if (userInfo == null) {
       return null;

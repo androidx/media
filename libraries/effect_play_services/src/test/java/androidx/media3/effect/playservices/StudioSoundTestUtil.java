@@ -55,7 +55,7 @@ import org.jspecify.annotations.Nullable;
     private final AudioFormat audioFormat;
     private final ByteBuffer inputBuffer;
 
-    @Nullable private StudioSoundCallback callback;
+    private @Nullable StudioSoundCallback callback;
     private @MonotonicNonNull Executor listenerExecutor;
 
     FakeStudioSoundSession(AudioFormat audioFormat) {
@@ -73,9 +73,8 @@ import org.jspecify.annotations.Nullable;
       return audioFormat;
     }
 
-    @Nullable
     @Override
-    public ByteBuffer dequeueInputBuffer() {
+    public @Nullable ByteBuffer dequeueInputBuffer() {
       return inputBuffer;
     }
 
@@ -117,8 +116,8 @@ import org.jspecify.annotations.Nullable;
       implements StudioSoundAudioProcessor.Client {
     /* package */ Task<StudioSoundSession> createSessionTask;
     /* package */ final AtomicBoolean createSessionCalled;
-    @Nullable /* package */ StudioSoundSessionCallback savedSessionCallback;
-    @Nullable /* package */ StudioSoundOptions lastOptions;
+    /* package */ @Nullable StudioSoundSessionCallback savedSessionCallback;
+    /* package */ @Nullable StudioSoundOptions lastOptions;
 
     FakeStudioSoundClient() {
       createSessionTask = Tasks.forCanceled();

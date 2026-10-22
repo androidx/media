@@ -48,9 +48,9 @@ public class MockMediaSessionService extends MediaSessionService {
   private final AtomicInteger boundControllerCount;
   private final ConditionVariable allControllersUnbound;
 
-  @Nullable public MediaSession session;
-  @Nullable private HandlerThread handlerThread;
-  @Nullable private TestHandler handler;
+  public @Nullable MediaSession session;
+  private @Nullable HandlerThread handlerThread;
+  private @Nullable TestHandler handler;
   private boolean cleanupServiceRegistryOnDestroy;
 
   public MockMediaSessionService() {

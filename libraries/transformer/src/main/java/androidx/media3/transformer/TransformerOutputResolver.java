@@ -44,7 +44,7 @@ import org.jspecify.annotations.Nullable;
 
   private final Context context;
   private final TransformerOutput transformerOutput;
-  @Nullable private Uri mediaStoreUri;
+  private @Nullable Uri mediaStoreUri;
 
   public TransformerOutputResolver(Context context, TransformerOutput transformerOutput) {
     this.context = context;
@@ -217,8 +217,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private static String getFilePathFromUri(Context context, Uri uri) {
+  private static @Nullable String getFilePathFromUri(Context context, Uri uri) {
     try (Cursor cursor =
         context
             .getContentResolver()

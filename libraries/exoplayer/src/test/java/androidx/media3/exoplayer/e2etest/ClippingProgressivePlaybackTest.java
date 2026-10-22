@@ -510,8 +510,8 @@ public final class ClippingProgressivePlaybackTest {
   private static final class CapturingExtractorsFactory extends ForwardingExtractorsFactory
       implements Dumper.Dumpable {
 
-    @Nullable private final ConditionVariable blockLoadingCondition;
-    @Nullable private final Predicate<DumpableSampleMetadata> blockLoadingFilter;
+    private final @Nullable ConditionVariable blockLoadingCondition;
+    private final @Nullable Predicate<DumpableSampleMetadata> blockLoadingFilter;
 
     private ImmutableList.Builder<DumpableSampleMetadata> samples;
     private volatile boolean isBlocked;

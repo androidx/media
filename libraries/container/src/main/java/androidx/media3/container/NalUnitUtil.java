@@ -379,10 +379,10 @@ public final class NalUnitUtil {
     public final H265ProfileTierLevelsAndIndices profileTierLevelsAndIndices;
 
     /** The list of rep_format()s and corresponding list of indices. */
-    @Nullable public final H265RepFormatsAndIndices repFormatsAndIndices;
+    public final @Nullable H265RepFormatsAndIndices repFormatsAndIndices;
 
     /** The list of video_signal_info()s and corresponding list of indices. */
-    @Nullable public final H265VideoSignalInfosAndIndices videoSignalInfosAndIndices;
+    public final @Nullable H265VideoSignalInfosAndIndices videoSignalInfosAndIndices;
 
     public H265VpsData(
         H265NalHeader nalHeader,
@@ -403,7 +403,7 @@ public final class NalUnitUtil {
 
     public final H265NalHeader nalHeader;
     public final int maxSubLayersMinus1;
-    @Nullable public final H265ProfileTierLevel profileTierLevel;
+    public final @Nullable H265ProfileTierLevel profileTierLevel;
     public final int chromaFormatIdc;
     public final int bitDepthLumaMinus8;
     public final int bitDepthChromaMinus8;
@@ -1810,8 +1810,7 @@ public final class NalUnitUtil {
    * @param nalLimit The limit of the NAL unit in {@code nalData}.
    * @return A parsed representation of the PPS data.
    */
-  @Nullable
-  public static H265Sei3dRefDisplayInfoData parseH265Sei3dRefDisplayInfo(
+  public static @Nullable H265Sei3dRefDisplayInfoData parseH265Sei3dRefDisplayInfo(
       byte[] nalData, int nalOffset, int nalLimit) {
 
     int seiRbspPos = nalOffset + 2;
@@ -2076,8 +2075,7 @@ public final class NalUnitUtil {
    * @return A RFC 6381 codecs string derived from the SPS of the base layer if such information is
    *     available, or null otherwise.
    */
-  @Nullable
-  public static String getH265BaseLayerCodecsString(List<byte[]> csdBuffers) {
+  public static @Nullable String getH265BaseLayerCodecsString(List<byte[]> csdBuffers) {
     for (int i = 0; i < csdBuffers.size(); i++) {
       byte[] buffer = csdBuffers.get(i);
       int limit = buffer.length;
@@ -2116,8 +2114,8 @@ public final class NalUnitUtil {
   }
 
   /** Creates a RFC 6381 HEVC codec string from a given SPS NAL unit payload. */
-  @Nullable
-  private static String createCodecStringFromH265SpsPalyoad(ParsableNalUnitBitArray data) {
+  private static @Nullable String createCodecStringFromH265SpsPalyoad(
+      ParsableNalUnitBitArray data) {
     data.skipBits(4); // sps_video_parameter_set_id
     int maxSubLayersMinus1 = data.readBits(3);
     data.skipBit(); // sps_temporal_id_nesting_flag
@@ -2656,8 +2654,7 @@ public final class NalUnitUtil {
    * compatibility). This can be queried with {@code
    * androidx.media3.exoplayer.decoder.MediaCodecUtil#getAlternativeCodecMimeType(Format)} instead.
    */
-  @Nullable
-  private static String getNalStructureMimeType(Format format) {
+  private static @Nullable String getNalStructureMimeType(Format format) {
     if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
         && format.codecs != null) {
       if (format.codecs.startsWith("dva1") || format.codecs.startsWith("dvav")) {

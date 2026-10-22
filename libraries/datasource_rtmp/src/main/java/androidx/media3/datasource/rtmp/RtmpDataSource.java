@@ -42,7 +42,7 @@ public final class RtmpDataSource extends BaseDataSource {
   /** {@link DataSource.Factory} for {@link RtmpDataSource} instances. */
   public static final class Factory implements DataSource.Factory {
 
-    @Nullable private TransferListener transferListener;
+    private @Nullable TransferListener transferListener;
 
     /**
      * Sets the {@link TransferListener} that will be used.
@@ -70,8 +70,8 @@ public final class RtmpDataSource extends BaseDataSource {
     }
   }
 
-  @Nullable private RtmpClient rtmpClient;
-  @Nullable private Uri uri;
+  private @Nullable RtmpClient rtmpClient;
+  private @Nullable Uri uri;
 
   public RtmpDataSource() {
     super(/* isNetwork= */ true);
@@ -111,8 +111,7 @@ public final class RtmpDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 }

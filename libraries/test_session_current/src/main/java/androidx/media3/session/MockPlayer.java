@@ -292,7 +292,7 @@ public class MockPlayer implements Player {
   public boolean isPlayingAd;
   public int currentAdGroupIndex;
   public int currentAdIndexInAdGroup;
-  @Nullable public PlaybackParameters playbackParameters;
+  public @Nullable PlaybackParameters playbackParameters;
   public Timeline timeline;
   public ArrayList<MediaItem> mediaItems;
   public boolean resetPosition;
@@ -309,10 +309,10 @@ public class MockPlayer implements Player {
   public boolean shuffleModeEnabled;
   public VideoSize videoSize;
   public Size surfaceSize;
-  @Nullable public Surface surface;
-  @Nullable public SurfaceHolder surfaceHolder;
-  @Nullable public SurfaceView surfaceView;
-  @Nullable public TextureView textureView;
+  public @Nullable Surface surface;
+  public @Nullable SurfaceHolder surfaceHolder;
+  public @Nullable SurfaceView surfaceView;
+  public @Nullable TextureView textureView;
   public float volume;
   public float unmuteVolume;
   public CueGroup cueGroup;
@@ -408,8 +408,7 @@ public class MockPlayer implements Player {
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return playerError;
   }
 
@@ -985,8 +984,7 @@ public class MockPlayer implements Player {
   }
 
   @Override
-  @Nullable
-  public MediaItem getCurrentMediaItem() {
+  public @Nullable MediaItem getCurrentMediaItem() {
     if (currentMediaItemIndex >= 0 && currentMediaItemIndex < timeline.getWindowCount()) {
       return timeline.getWindow(currentMediaItemIndex, new Timeline.Window()).mediaItem;
     }

@@ -176,7 +176,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
     private Supplier<ImageDecoder.Factory> imageDecoderFactorySupplier;
     private Supplier<GlObjectsProvider> glObjectsProviderSupplier;
-    @Nullable private ExecutorService glExecutorService;
+    private @Nullable ExecutorService glExecutorService;
     private Supplier<LoadControl> loadControlSupplier;
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
@@ -184,10 +184,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     private FrameProcessor.@MonotonicNonNull Factory frameProcessorFactory;
 
-    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
     private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
-    @Nullable private AnalyticsListener sequencePlayerAnalyticsListener;
+    private @Nullable AnalyticsListener sequencePlayerAnalyticsListener;
     private VideoFrameReleaseControl.@Nullable FrameTimingEvaluator frameTimingEvaluator;
 
     private boolean videoPrewarmingEnabled;
@@ -636,7 +636,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final long lateThresholdToDropInputUs;
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
-  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+  private final @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   /**
    * The frame processor used to process video frames.
@@ -644,12 +644,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    * <p>All interactions with this processor (including creation, queueing, and releasing) and its
    * listener callbacks must be executed on the {@link #playbackThread}.
    */
-  @Nullable private final FrameProcessor frameProcessor;
+  private final @Nullable FrameProcessor frameProcessor;
 
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
 
-  @Nullable private final SurfaceHolderFrameWriter surfaceHolderFrameWriter;
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable SurfaceHolderFrameWriter surfaceHolderFrameWriter;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   private final HandlerThread playbackThread;
   private final HandlerWrapper playbackThreadHandler;
@@ -658,7 +658,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final SparseBooleanArray videoTracksSelected;
 
   private final AnalyticsCollector analyticsCollector;
-  @Nullable private final AnalyticsListener sequencePlayerAnalyticsListener;
+  private final @Nullable AnalyticsListener sequencePlayerAnalyticsListener;
   private final VideoFrameReleaseControl.@Nullable FrameTimingEvaluator frameTimingEvaluator;
 
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
@@ -677,13 +677,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private float volume;
   private boolean renderedFirstFrame;
   private boolean packetConsumerEnded;
-  @Nullable private VideoSize videoSize;
-  @Nullable private Object videoOutput;
-  @Nullable private PlaybackException playbackException;
+  private @Nullable VideoSize videoSize;
+  private @Nullable Object videoOutput;
+  private @Nullable PlaybackException playbackException;
   private @Player.State int playbackState;
   private @PlaybackSuppressionReason int playbackSuppressionReason;
-  @Nullable private SurfaceHolder surfaceHolder;
-  @Nullable private Surface displaySurface;
+  private @Nullable SurfaceHolder surfaceHolder;
+  private @Nullable Surface displaySurface;
   private boolean repeatingCompositionSeekInProgress;
   private LivePositionSupplier positionSupplier;
   private LivePositionSupplier bufferedPositionSupplier;
@@ -1547,15 +1547,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       if (frameAggregator != null) {
         frameAggregator.close();
       }
-      // Flush the primary sequence to reset the state of the release control when a new Composition
-      // is set.
-      checkNotNull(videoPacketReleaseControl).flush(/* sequenceIndex= */ 0);
       frameAggregator =
           new FrameAggregator(
               composition.sequences.size(),
               composition.videoFrameAggregationParameters.frameRate,
-              videoPacketReleaseControl::queue,
-              videoPacketReleaseControl::flush);
+              checkNotNull(videoPacketReleaseControl)::queue,
+              checkNotNull(videoPacketReleaseControl)::flush);
     }
 
     prepareCompositionPlayerInternal();
@@ -1922,9 +1919,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private static MediaSource wrapMediaSourceWithCompositionForwardingTimeline(
       EditedMediaItemSequence sequence, MediaSource mediaSource) {
     return new WrappingMediaSource(mediaSource) {
-      @Nullable
       @Override
-      public Timeline getInitialTimeline() {
+      public @Nullable Timeline getInitialTimeline() {
         Timeline initialTimeline = mediaSource.getInitialTimeline();
         if (initialTimeline == null) {
           return null;

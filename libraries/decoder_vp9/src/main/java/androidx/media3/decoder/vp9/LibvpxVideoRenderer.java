@@ -56,7 +56,7 @@ public class LibvpxVideoRenderer extends DecoderVideoRenderer {
 
   private final int threads;
 
-  @Nullable private VpxDecoder decoder;
+  private @Nullable VpxDecoder decoder;
 
   /**
    * Creates a new instance.

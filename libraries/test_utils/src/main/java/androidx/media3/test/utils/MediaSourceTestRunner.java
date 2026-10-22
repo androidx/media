@@ -71,7 +71,7 @@ public class MediaSourceTestRunner {
   private final LinkedBlockingDeque<Timeline> timelines;
   private final CopyOnWriteArrayList<Pair<Integer, @Nullable MediaPeriodId>> completedLoads;
 
-  @Nullable private Timeline timeline;
+  private @Nullable Timeline timeline;
 
   /**
    * Creates an instance.

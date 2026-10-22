@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
   /** A builder for {@link SharedStateReferenceCounter} instances. */
   /* package */ static final class Builder implements ReferenceCounter.Builder {
 
-    @Nullable private final FrameSharedState sharedState;
+    private final @Nullable FrameSharedState sharedState;
     private boolean shouldIncrementReferenceCount;
 
     /**
@@ -98,7 +98,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   private final Object lock;
-  @Nullable private final FrameSharedState sharedState;
+  private final @Nullable FrameSharedState sharedState;
 
   @GuardedBy("lock")
   private boolean isReleased;
@@ -158,7 +158,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the {@link FrameSharedState}, or {@code null} if unmanaged. */
-  @Nullable /* package */ FrameSharedState getSharedState() {
+  /* package */ @Nullable FrameSharedState getSharedState() {
     return sharedState;
   }
 

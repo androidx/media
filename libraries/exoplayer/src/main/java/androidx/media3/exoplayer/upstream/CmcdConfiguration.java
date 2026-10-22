@@ -228,7 +228,7 @@ public final class CmcdConfiguration {
    * <p>A playback session typically ties together segments belonging to a single media asset.
    * Maximum length is 64 characters.
    */
-  @Nullable public final String sessionId;
+  public final @Nullable String sessionId;
 
   /**
    * A GUID identifying the current content, or {@code null} if unset.
@@ -236,7 +236,7 @@ public final class CmcdConfiguration {
    * <p>This value is consistent across multiple different sessions and devices and is defined and
    * updated at the discretion of the service provider. Maximum length is 64 characters.
    */
-  @Nullable public final String contentId;
+  public final @Nullable String contentId;
 
   /** Dynamic request specific configuration. */
   public final RequestConfig requestConfig;

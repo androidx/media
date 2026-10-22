@@ -44,8 +44,8 @@ public final class SinglePeriodTimeline extends Timeline {
   private final boolean isSeekable;
   private final boolean isDynamic;
   private final boolean suppressPositionProjection;
-  @Nullable private final Object manifest;
-  @Nullable private final MediaItem mediaItem;
+  private final @Nullable Object manifest;
+  private final @Nullable MediaItem mediaItem;
   private final MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
   /**

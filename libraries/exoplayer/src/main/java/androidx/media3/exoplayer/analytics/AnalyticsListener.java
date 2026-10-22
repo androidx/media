@@ -475,7 +475,7 @@ public interface AnalyticsListener {
      * {@link MediaPeriodId Media period identifier} for the media period this event belongs to, or
      * {@code null} if the event is not associated with a specific media period.
      */
-    @Nullable public final MediaPeriodId mediaPeriodId;
+    public final @Nullable MediaPeriodId mediaPeriodId;
 
     /**
      * Position in the window or ad this event belongs to at the time of the event, in milliseconds.
@@ -499,7 +499,7 @@ public interface AnalyticsListener {
      * {@link MediaPeriodId Media period identifier} for the currently playing media period at the
      * time of the event, or {@code null} if no current media period identifier is available.
      */
-    @Nullable public final MediaPeriodId currentMediaPeriodId;
+    public final @Nullable MediaPeriodId currentMediaPeriodId;
 
     /**
      * Position in the {@link #currentWindowIndex current timeline window} or the currently playing

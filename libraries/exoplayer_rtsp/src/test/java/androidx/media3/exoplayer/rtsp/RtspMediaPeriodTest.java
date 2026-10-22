@@ -488,7 +488,7 @@ public final class RtspMediaPeriodTest {
     private static final String SESSION_ID = "00000000";
 
     private final ImmutableList<RtpPacketStreamDump> rtpPacketStreamDumps;
-    @Nullable private final AtomicBoolean getPlayResponseReference;
+    private final @Nullable AtomicBoolean getPlayResponseReference;
     private final boolean isWwwAuthenticationMode;
 
     private TestResponseProvider(
@@ -614,9 +614,8 @@ public final class RtspMediaPeriodTest {
       return C.LENGTH_UNSET;
     }
 
-    @Nullable
     @Override
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return null;
     }
 

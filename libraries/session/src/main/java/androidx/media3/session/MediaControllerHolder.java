@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
     implements MediaController.ConnectionCallback {
 
   private final Handler handler;
-  @Nullable private T controller;
+  private @Nullable T controller;
   private boolean accepted;
 
   public MediaControllerHolder(Looper looper) {

@@ -35,8 +35,7 @@ public final class Metadata {
      * Returns the {@link Format} that can be used to decode the wrapped metadata in {@link
      * #getWrappedMetadataBytes()}, or null if this Entry doesn't contain wrapped metadata.
      */
-    @Nullable
-    default Format getWrappedMetadataFormat() {
+    default @Nullable Format getWrappedMetadataFormat() {
       return null;
     }
 

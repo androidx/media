@@ -59,8 +59,8 @@ public final class AssetDataSource extends BaseDataSource {
 
   private final AssetManager assetManager;
 
-  @Nullable private Uri uri;
-  @Nullable private InputStream inputStream;
+  private @Nullable Uri uri;
+  private @Nullable InputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -145,8 +145,7 @@ public final class AssetDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return uri;
   }
 

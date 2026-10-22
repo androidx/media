@@ -221,10 +221,9 @@ import org.jspecify.annotations.Nullable;
       inputAudioSinksCreated++;
     }
 
-    @Nullable
     @Override
-    public AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
-        throws ExportException {
+    public @Nullable AudioGraphInput getAudioGraphInput(
+        EditedMediaItem editedMediaItem, Format format) throws ExportException {
       checkThread();
       checkState(!isAudioGraphInputActive);
       if (!isSequencePrimary && !hasRegisteredPrimaryFormat) {

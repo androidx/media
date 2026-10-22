@@ -91,9 +91,8 @@ public class MediaStyleNotificationHelper {
      * @param notification The notification to extract a {@link MediaSession} from.
      * @return The {@link SessionToken} in the {@code notification} if it contains, null otherwise.
      */
-    @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
-    public static SessionToken getSessionToken(Notification notification) {
+    public static @Nullable SessionToken getSessionToken(Notification notification) {
       Bundle extras = androidx.core.app.NotificationCompat.getExtras(notification);
       if (extras == null) {
         return null;
@@ -115,7 +114,7 @@ public class MediaStyleNotificationHelper {
     /* package */ int @Nullable [] actionsToShowInCompact;
     /* package */ @MonotonicNonNull CharSequence remoteDeviceName;
     /* package */ int remoteDeviceIconRes;
-    @Nullable /* package */ PendingIntent remoteDeviceIntent;
+    /* package */ @Nullable PendingIntent remoteDeviceIntent;
 
     /**
      * Creates a new instance with a {@link MediaSession} to this Notification to provide additional

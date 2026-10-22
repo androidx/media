@@ -114,9 +114,7 @@ public final class DefaultGlTextureFrameCompositorTest {
     assertThat(compositingProcessor.queue(ImmutableList.of(frame), directExecutor(), () -> {}))
         .isTrue();
 
-    assertThat(compositorGlProgram.drawnFramePackets).hasSize(1);
-    assertThat(compositorGlProgram.drawnFramePackets.get(0).get(0).glTextureInfo)
-        .isEqualTo(frame.glTextureInfo);
+    assertThat(compositorGlProgram.drawnFramePackets).containsExactly(ImmutableList.of(frame));
     assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
     assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.texId)
         .isEqualTo(FAKE_GL_TEXTURE_ID);
@@ -143,9 +141,7 @@ public final class DefaultGlTextureFrameCompositorTest {
     assertThat(compositingProcessor.queue(ImmutableList.of(frame), directExecutor(), () -> {}))
         .isTrue();
 
-    assertThat(compositorGlProgram.drawnFramePackets).hasSize(1);
-    assertThat(compositorGlProgram.drawnFramePackets.get(0).get(0).glTextureInfo)
-        .isEqualTo(frame.glTextureInfo);
+    assertThat(compositorGlProgram.drawnFramePackets).containsExactly(ImmutableList.of(frame));
     assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
     assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.width).isEqualTo(WIDTH * 2);
     assertThat(downstreamConsumer.lastReceivedFrame.glTextureInfo.height).isEqualTo(HEIGHT * 2);
@@ -160,6 +156,9 @@ public final class DefaultGlTextureFrameCompositorTest {
             compositingProcessor.queue(
                 ImmutableList.of(frame1, frame2), directExecutor(), () -> {}))
         .isTrue();
+
+    assertThat(compositorGlProgram.drawnFramePackets)
+        .containsExactly(ImmutableList.of(frame1, frame2));
     assertThat(downstreamConsumer.framesReceived).isEqualTo(1);
   }
 

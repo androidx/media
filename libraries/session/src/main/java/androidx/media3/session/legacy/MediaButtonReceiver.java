@@ -168,7 +168,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     private final Intent intent;
     private final PendingResult pendingResult;
 
-    @Nullable private MediaBrowserCompat mediaBrowser;
+    private @Nullable MediaBrowserCompat mediaBrowser;
 
     MediaButtonConnectionCallback(Context context, Intent intent, PendingResult pendingResult) {
       this.context = context;
@@ -206,8 +206,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   /** */
-  @Nullable
-  public static ComponentName getMediaButtonReceiverComponent(Context context) {
+  public static @Nullable ComponentName getMediaButtonReceiverComponent(Context context) {
     Intent queryIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     queryIntent.setPackage(context.getPackageName());
     PackageManager pm = context.getPackageManager();
@@ -225,9 +224,9 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     return null;
   }
 
-  @Nullable
   @SuppressWarnings("deprecation")
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
+  private static @Nullable ComponentName getServiceComponentByAction(
+      Context context, String action) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(action);
     queryIntent.setPackage(context.getPackageName());

@@ -74,8 +74,7 @@ import org.jspecify.annotations.Nullable;
     return null;
   }
 
-  @Nullable
-  private static AviChunk createBox(
+  private static @Nullable AviChunk createBox(
       int chunkType, @C.TrackType int trackType, ParsableByteArray body) {
     switch (chunkType) {
       case AviExtractor.FOURCC_avih:

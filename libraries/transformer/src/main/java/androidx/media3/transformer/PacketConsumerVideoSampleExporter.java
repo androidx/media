@@ -272,8 +272,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected Format getMuxerInputFormat() throws ExportException {
+  protected @Nullable Format getMuxerInputFormat() throws ExportException {
     if (encoder != null) {
       @Nullable Format outputFormat = encoder.getOutputFormat();
       if (outputFormat != null && outputRotationDegrees != 0) {
@@ -285,8 +284,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
     if (encoder == null) {
       return null;
     }

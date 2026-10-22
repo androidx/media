@@ -1100,6 +1100,73 @@ public class DefaultHlsPlaylistTrackerTest {
   }
 
   @Test
+  public void
+      start_withContentSteeringAndActiveNonPrimaryPlaylist_activatesNewPathwayAndDeactivatesOld()
+          throws Exception {
+    String initialSteeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 1, \"PATHWAY-PRIORITY\": [\"CDN-A\", \"CDN-B\"]}";
+    String updatedSteeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"CDN-B\", \"CDN-A\"]}";
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/steering?_HLS_pathway=CDN-A&_HLS_throughput=0",
+              "/cdn-a/720p.m3u8",
+              "/cdn-a/audio.m3u8",
+              "/steering?_HLS_pathway=CDN-A&_HLS_throughput=0",
+              "/cdn-b/audio.m3u8",
+              "/cdn-b/audio.m3u8"
+            },
+            getMockResponse(SAMPLE_M3U8_MULTIVARIANT_WITH_CONTENT_STEERING),
+            new MockResponse().setResponseCode(200).setBody(initialSteeringManifest),
+            getMockResponse(SAMPLE_M3U8_MEDIA_PLAYLIST),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_NOT_SKIP),
+            new MockResponse().setResponseCode(200).setBody(updatedSteeringManifest),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_NOT_SKIP),
+            getMockResponse(SAMPLE_M3U8_LIVE_MEDIA_CAN_NOT_SKIP_NEXT));
+
+    DefaultHlsPlaylistTracker defaultHlsPlaylistTracker =
+        new DefaultHlsPlaylistTracker(
+            dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
+            new DefaultLoadErrorHandlingPolicy(),
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            () -> ReleasableExecutor.from(directExecutor(), e -> {}));
+    defaultHlsPlaylistTracker.start(
+        Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+        new MediaSourceEventListener.EventDispatcher(),
+        mediaPlaylist -> {},
+        BandwidthMeter.NO_OP);
+    Uri cdnA720pUrl = Uri.parse(mockWebServer.url("/cdn-a/720p.m3u8").toString());
+    Uri cdnAAudioUrl = Uri.parse(mockWebServer.url("/cdn-a/audio.m3u8").toString());
+    Uri cdnBAudioUrl = Uri.parse(mockWebServer.url("/cdn-b/audio.m3u8").toString());
+    RobolectricUtil.runMainLooperUntil(
+        () -> defaultHlsPlaylistTracker.isSnapshotValid(cdnA720pUrl));
+
+    // Refresh and activate the non-primary audio rendition on CDN-A for playback.
+    defaultHlsPlaylistTracker.refreshPlaylist(cdnAAudioUrl);
+    RobolectricUtil.runMainLooperUntil(
+        () -> defaultHlsPlaylistTracker.isSnapshotValid(cdnAAudioUrl));
+    defaultHlsPlaylistTracker.getPlaylistSnapshot(cdnAAudioUrl, /* isForPlayback= */ true);
+
+    // Advance the looper so the steering manifest reloads at t=1s (switching to CDN-B, which
+    // immediately loads /cdn-b/audio.m3u8), skips the deactivated /cdn-a/audio.m3u8 refresh at
+    // t=2s, and refreshes the newly active /cdn-b/audio.m3u8 at t=3s.
+    RobolectricUtil.runMainLooperUntil(
+        /* maxTimeDiffMs= */ 10_000,
+        () -> {
+          HlsMediaPlaylist snapshot =
+              defaultHlsPlaylistTracker.getPlaylistSnapshot(
+                  cdnBAudioUrl, /* isForPlayback= */ false);
+          return snapshot != null && snapshot.mediaSequence == 11;
+        });
+    defaultHlsPlaylistTracker.stop();
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
   public void onLoadError_whenRetriesExhausted_reportsCanceledTrue() throws Exception {
     mockWebServer.enqueue(
         new MockResponse()

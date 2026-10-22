@@ -53,7 +53,7 @@ public final class CacheWriter {
   private final DataSpec dataSpec;
   private final String cacheKey;
   private final byte[] temporaryBuffer;
-  @Nullable private final ProgressListener progressListener;
+  private final @Nullable ProgressListener progressListener;
 
   private long nextPosition;
   private long endPosition;

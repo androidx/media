@@ -53,12 +53,11 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   private MediaPeriod.@Nullable Callback callback;
   private @Nullable ClippingSampleStream[] sampleStreams;
   private long pendingInitialDiscontinuityPositionUs;
-  private boolean hasProcessedInitialDiscontinuity;
   private boolean usesStreamPrerollFlags;
   private long lastReportedDiscontinuityUs;
   /* package */ long startUs;
   /* package */ long endUs;
-  @Nullable private IllegalClippingException clippingError;
+  private @Nullable IllegalClippingException clippingError;
   private boolean isPeriodClippingEndPosition;
 
   /**
@@ -196,18 +195,17 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
         sampleStreams[i] = null;
       } else if (sampleStreams[i] == null || sampleStreams[i].childStream != childStreams[i]) {
         boolean hasPreroll =
-            isPendingInitialDiscontinuity()
+            pendingInitialDiscontinuityPositionUs != C.TIME_UNSET
                 && shouldKeepInitialDiscontinuity(realEnablePositionUs, positionUs, selections, i);
         sampleStreams[i] = new ClippingSampleStream(checkNotNull(childStreams[i]), hasPreroll);
         anyTrackHasPreroll |= hasPreroll;
+      } else if (pendingInitialDiscontinuityPositionUs != C.TIME_UNSET) {
+        anyTrackHasPreroll |= sampleStreams[i].hasPreroll;
       }
       streams[i] = sampleStreams[i];
     }
     pendingInitialDiscontinuityPositionUs =
         anyTrackHasPreroll ? correctedEnablePositionUs : C.TIME_UNSET;
-    if (usesStreamPrerollFlags) {
-      hasProcessedInitialDiscontinuity = true;
-    }
 
     return correctedEnablePositionUs;
   }
@@ -229,9 +227,13 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   @Override
+  public boolean supportsStreamPrerollFlags() {
+    return mediaPeriod.supportsStreamPrerollFlags();
+  }
+
+  @Override
   public long readDiscontinuity() {
     if (isPendingInitialDiscontinuity()) {
-      hasProcessedInitialDiscontinuity = true;
       long initialDiscontinuityUs = pendingInitialDiscontinuityPositionUs;
       pendingInitialDiscontinuityPositionUs = C.TIME_UNSET;
       lastReportedDiscontinuityUs = initialDiscontinuityUs;
@@ -239,6 +241,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       long childDiscontinuityUs = readDiscontinuity();
       return childDiscontinuityUs != C.TIME_UNSET ? childDiscontinuityUs : initialDiscontinuityUs;
     }
+    pendingInitialDiscontinuityPositionUs = C.TIME_UNSET;
     long discontinuityUs = mediaPeriod.readDiscontinuity();
     if (discontinuityUs == C.TIME_UNSET) {
       return C.TIME_UNSET;
@@ -329,8 +332,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   /* package */ boolean isPendingInitialDiscontinuity() {
-    return pendingInitialDiscontinuityPositionUs != C.TIME_UNSET
-        && !hasProcessedInitialDiscontinuity;
+    return !usesStreamPrerollFlags && pendingInitialDiscontinuityPositionUs != C.TIME_UNSET;
   }
 
   private SeekParameters clipSeekParameters(long positionUs, SeekParameters seekParameters) {
@@ -475,7 +477,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       // point. With a zero clipping start the samples delivered are exactly the samples the wrapped
       // period delivers, so its own report is exact and must not be overwritten with the
       // conservative assumption made by the enable-position heuristic.
-      if (startUs != 0 && hasPreroll) {
+      if (supportsStreamPrerollFlags() && startUs != 0 && hasPreroll) {
         flags &= ~FLAG_MAYBE_HAS_PREROLL;
         flags |= FLAG_HAS_PREROLL;
       }

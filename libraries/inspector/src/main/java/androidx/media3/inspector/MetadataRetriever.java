@@ -61,7 +61,7 @@ public final class MetadataRetriever implements AutoCloseable {
   /** Builder for {@link MetadataRetriever} instances. */
   public static final class Builder {
 
-    @Nullable private final Context context;
+    private final @Nullable Context context;
     private final MediaItem mediaItem;
     private MediaSource.@Nullable Factory mediaSourceFactory;
     private Clock clock;

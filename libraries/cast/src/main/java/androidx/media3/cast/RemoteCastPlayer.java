@@ -122,7 +122,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     private final Context context;
     private MediaItemConverter mediaItemConverter;
-    @Nullable private CastTrackSelector trackSelector;
+    private @Nullable CastTrackSelector trackSelector;
     private long seekBackIncrementMs;
     private long seekForwardIncrementMs;
     private long maxSeekToPreviousPositionMs;
@@ -340,13 +340,13 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   private final Cast cast;
   private final MediaItemConverter mediaItemConverter;
-  @Nullable private final CastTrackSelector trackSelector;
-  @Nullable private CastTrackSelectorRequest lastSelectionRequest;
+  private final @Nullable CastTrackSelector trackSelector;
+  private @Nullable CastTrackSelectorRequest lastSelectionRequest;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
   private final long maxSeekToPreviousPositionMs;
   private final Timeline.Period period;
-  @Nullable private final Api30Impl api30Impl;
+  private final @Nullable Api30Impl api30Impl;
 
   // Result callbacks.
   private final com.google.android.gms.cast.Cast.Listener castListener;
@@ -356,8 +356,8 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   // Listeners and notification.
   private final ListenerSet<Listener> listeners;
-  @Nullable private SessionAvailabilityListener sessionAvailabilityListener;
-  @Nullable private SessionAvailabilityListener internalSessionAvailabilityListener;
+  private @Nullable SessionAvailabilityListener sessionAvailabilityListener;
+  private @Nullable SessionAvailabilityListener internalSessionAvailabilityListener;
 
   // Internal state.
   private final StateHolder<Boolean> playWhenReady;
@@ -368,8 +368,8 @@ public final class RemoteCastPlayer extends BasePlayer {
   private final StateHolder<Float> volume;
   private float unmuteVolume;
   private final StateHolder<PlaybackParameters> playbackParameters;
-  @Nullable private CastSession castSession;
-  @Nullable private RemoteMediaClient remoteMediaClient;
+  private @Nullable CastSession castSession;
+  private @Nullable RemoteMediaClient remoteMediaClient;
   private final CastQueueOrchestrator queueOrchestrator;
   private QueuedOperation.QueueSnapshot currentQueueSnapshot;
   private final StateHolder<Tracks> currentTracks;
@@ -500,8 +500,7 @@ public final class RemoteCastPlayer extends BasePlayer {
    *     Timeline.Window)}.
    */
   @Deprecated
-  @Nullable
-  public MediaQueueItem getItem(int periodId) {
+  public @Nullable MediaQueueItem getItem(int periodId) {
     MediaStatus mediaStatus = getMediaStatus();
     return mediaStatus != null
             && getCurrentTimeline().getIndexOfPeriod(queueOrchestrator.getItemUid(periodId))
@@ -687,8 +686,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   @Override
-  @Nullable
-  public PlaybackException getPlayerError() {
+  public @Nullable PlaybackException getPlayerError() {
     return null;
   }
 
@@ -1288,7 +1286,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   private void onQueueSnapshotChanged(
       QueuedOperation.QueueSnapshot newSnapshot,
-      @Nullable @TimelineChangeReason Integer timelineChangeReason) {
+      @TimelineChangeReason @Nullable Integer timelineChangeReason) {
     if (timelineChangeReason == null || !isCastSessionActive()) {
       currentQueueSnapshot = newSnapshot;
       return;
@@ -1898,8 +1896,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     queueOrchestrator.reset(/* clearSnapshots= */ remoteMediaClient != null);
   }
 
-  @Nullable
-  private MediaStatus getMediaStatus() {
+  private @Nullable MediaStatus getMediaStatus() {
     return isCastSessionActive() ? remoteMediaClient.getMediaStatus() : null;
   }
 
@@ -2099,7 +2096,7 @@ public final class RemoteCastPlayer extends BasePlayer {
      * If {@link #value} is being masked, holds the result callback for the operation that triggered
      * the masking. Or null if {@link #value} is not being masked.
      */
-    @Nullable public ResultCallback<MediaChannelResult> pendingResultCallback;
+    public @Nullable ResultCallback<MediaChannelResult> pendingResultCallback;
 
     public StateHolder(T initialValue) {
       value = initialValue;
@@ -2226,9 +2223,8 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final class Api34Impl {
     private Api34Impl() {}
 
-    @Nullable
     @DoNotInline
-    public static String getRoutingControllerName(RoutingController controller) {
+    public static @Nullable String getRoutingControllerName(RoutingController controller) {
       RoutingSessionInfo sessionInfo = controller.getRoutingSessionInfo();
       CharSequence name = sessionInfo != null ? sessionInfo.getName() : null;
       return name != null ? name.toString() : null;

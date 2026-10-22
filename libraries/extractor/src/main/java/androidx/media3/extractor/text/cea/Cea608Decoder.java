@@ -331,8 +331,8 @@ public final class Cea608Decoder extends CeaDecoder {
   private final ArrayList<CueBuilder> cueBuilders;
 
   private CueBuilder currentCueBuilder;
-  @Nullable private List<Cue> cues;
-  @Nullable private List<Cue> lastCues;
+  private @Nullable List<Cue> cues;
+  private @Nullable List<Cue> lastCues;
 
   private int captionMode;
   private int captionRowCount;
@@ -428,9 +428,8 @@ public final class Cea608Decoder extends CeaDecoder {
     // Do nothing
   }
 
-  @Nullable
   @Override
-  public SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
+  public @Nullable SubtitleOutputBuffer dequeueOutputBuffer() throws SubtitleDecoderException {
     SubtitleOutputBuffer outputBuffer = super.dequeueOutputBuffer();
     if (outputBuffer != null) {
       return outputBuffer;
@@ -971,8 +970,7 @@ public final class Cea608Decoder extends CeaDecoder {
       }
     }
 
-    @Nullable
-    public Cue build(@Cue.AnchorType int forcedPositionAnchor) {
+    public @Nullable Cue build(@Cue.AnchorType int forcedPositionAnchor) {
       SpannableStringBuilder cueString = new SpannableStringBuilder();
       // Add any rolled up captions, separated by new lines.
       for (int i = 0; i < rolledUpCaptions.size(); i++) {

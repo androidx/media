@@ -138,9 +138,9 @@ import org.jspecify.annotations.Nullable;
 
   private final FrameProcessor.@Nullable Factory frameProcessorFactory;
 
-  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
   private final boolean applyMp4EditListTrim;
   private final Muxer.Factory muxerFactory;
   private final String outputFilePath;
@@ -151,8 +151,8 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull ListenableFuture<ResumeMetadata> getResumeMetadataFuture;
   private @MonotonicNonNull ResumeMetadata resumeMetadata;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
-  @Nullable private TransformerInternal transformerInternal;
-  @Nullable private MuxerWrapper remuxingMuxerWrapper;
+  private @Nullable TransformerInternal transformerInternal;
+  private @Nullable MuxerWrapper remuxingMuxerWrapper;
 
   public ResumedExportOperation(
       Context context,

@@ -174,7 +174,7 @@ public class EncoderFrameWriterTest {
 
   /** A fake listener that records callbacks for validation. */
   private static class TestListener implements EncoderFrameWriter.Listener {
-    @Nullable private VideoFrameProcessingException exception;
+    private @Nullable VideoFrameProcessingException exception;
 
     @Override
     public void onEndOfStream() {}
@@ -191,7 +191,7 @@ public class EncoderFrameWriterTest {
     private final List<Format> checkedFormats = new ArrayList<>();
     private final List<Format> createdFormats = new ArrayList<>();
     private boolean isSupportedToReturn;
-    @Nullable private ExportException exceptionToThrow;
+    private @Nullable ExportException exceptionToThrow;
 
     private void setIsSupportedToReturn(boolean isSupported) {
       this.isSupportedToReturn = isSupported;

@@ -133,6 +133,11 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
+  public boolean supportsStreamPrerollFlags() {
+    return mediaPeriod.supportsStreamPrerollFlags();
+  }
+
+  @Override
   public long readDiscontinuity() {
     long discontinuityPositionUs = mediaPeriod.readDiscontinuity();
     return discontinuityPositionUs == C.TIME_UNSET

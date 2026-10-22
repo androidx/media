@@ -70,9 +70,9 @@ public final class VideoFrameReleaseHelper {
   private final Context context;
 
   private boolean vsyncSamplerBuilt;
-  @Nullable private VSyncSampler vsyncSampler;
+  private @Nullable VSyncSampler vsyncSampler;
   private boolean started;
-  @Nullable private Surface surface;
+  private @Nullable Surface surface;
 
   /** The media frame rate used to calculate the playback frame rate of the {@link Surface}. */
   private float surfaceMediaFrameRate;
@@ -92,7 +92,7 @@ public final class VideoFrameReleaseHelper {
   private long lastAdjustedFrameIndex;
   private long lastAdjustedReleaseTimeNs;
   private long lastAdjustedPresentationTimeUs;
-  @Nullable private VSyncSamplerListener vsyncSamplerListener;
+  private @Nullable VSyncSamplerListener vsyncSamplerListener;
 
   @VisibleForTesting
   /* package */ interface VSyncSamplerListener {
@@ -429,8 +429,7 @@ public final class VideoFrameReleaseHelper {
 
   private abstract static class VSyncSampler implements DisplayManager.DisplayListener {
 
-    @Nullable
-    private static VSyncSampler maybeBuildInstance(Context context) {
+    private static @Nullable VSyncSampler maybeBuildInstance(Context context) {
       DisplayManager displayManager =
           (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
       if (displayManager == null) {
@@ -455,7 +454,7 @@ public final class VideoFrameReleaseHelper {
     /* package */ volatile long sampledVsyncTimeNs;
     /* package */ volatile long vsyncDurationNs;
 
-    @Nullable /* package */ VSyncSamplerListener listener;
+    /* package */ @Nullable VSyncSamplerListener listener;
 
     private VSyncSampler(Choreographer choreographer, DisplayManager displayManager) {
       this.choreographer = choreographer;

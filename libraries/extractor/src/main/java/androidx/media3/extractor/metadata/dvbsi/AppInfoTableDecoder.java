@@ -48,17 +48,15 @@ public final class AppInfoTableDecoder extends SimpleMetadataDecoder {
   public static final int APPLICATION_INFORMATION_TABLE_ID = 0x74;
 
   @Override
-  @Nullable
   @SuppressWarnings("ByteBufferBackingArray") // Buffer validated by SimpleMetadataDecoder.decode
-  protected Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
+  protected @Nullable Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer) {
     int tableId = buffer.get();
     return tableId == APPLICATION_INFORMATION_TABLE_ID
         ? parseAit(new ParsableBitArray(buffer.array(), buffer.limit()))
         : null;
   }
 
-  @Nullable
-  private static Metadata parseAit(ParsableBitArray sectionData) {
+  private static @Nullable Metadata parseAit(ParsableBitArray sectionData) {
     // tableId, section_syntax_indication, reserved_future_use, reserved
     sectionData.skipBits(12);
     int sectionLength = sectionData.readBits(12);

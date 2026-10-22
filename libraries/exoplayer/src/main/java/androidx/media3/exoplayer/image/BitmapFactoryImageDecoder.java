@@ -58,7 +58,7 @@ public final class BitmapFactoryImageDecoder
 
     // TODO: Remove @Nullable from this field (and all related null checks) when the deprecated
     // zero-args constructor is removed.
-    @Nullable private final Context context;
+    private final @Nullable Context context;
     private int maxOutputSize;
 
     /**
@@ -108,7 +108,7 @@ public final class BitmapFactoryImageDecoder
     }
   }
 
-  @Nullable private final Context context;
+  private final @Nullable Context context;
   private final int maxOutputSize;
 
   private BitmapFactoryImageDecoder(@Nullable Context context, int maxOutputSize) {
@@ -142,9 +142,8 @@ public final class BitmapFactoryImageDecoder
     return new ImageDecoderException("Unexpected decode error", error);
   }
 
-  @Nullable
   @Override
-  protected ImageDecoderException decode(
+  protected @Nullable ImageDecoderException decode(
       DecoderInputBuffer inputBuffer, ImageOutputBuffer outputBuffer, boolean reset) {
     ByteBuffer inputData = checkNotNull(inputBuffer.data);
     checkState(inputData.hasArray());

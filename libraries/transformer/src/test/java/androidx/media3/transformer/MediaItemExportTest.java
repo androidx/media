@@ -1878,7 +1878,7 @@ public final class MediaItemExportTest {
     public static final class Factory implements AssetLoader.Factory {
 
       private final @SupportedOutputTypes int supportedOutputTypes;
-      @Nullable private final AtomicReference<SampleConsumer> sampleConsumerRef;
+      private final @Nullable AtomicReference<SampleConsumer> sampleConsumerRef;
 
       public Factory(
           @SupportedOutputTypes int supportedOutputTypes,
@@ -1899,7 +1899,7 @@ public final class MediaItemExportTest {
 
     private final AssetLoader.Listener listener;
     private final @SupportedOutputTypes int supportedOutputTypes;
-    @Nullable private final AtomicReference<SampleConsumer> sampleConsumerRef;
+    private final @Nullable AtomicReference<SampleConsumer> sampleConsumerRef;
 
     public FakeAssetLoader(
         Listener listener,

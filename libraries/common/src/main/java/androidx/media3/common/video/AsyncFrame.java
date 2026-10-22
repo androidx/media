@@ -40,7 +40,7 @@ public final class AsyncFrame {
    * <p>The consumer of this {@link AsyncFrame} is responsible for closing the fence after it has
    * been waited on.
    */
-  @Nullable public final SyncFenceWrapper acquireFence;
+  public final @Nullable SyncFenceWrapper acquireFence;
 
   /** Creates a new instance. */
   public AsyncFrame(Frame frame, @Nullable SyncFenceWrapper acquireFence) {

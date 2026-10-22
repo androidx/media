@@ -84,7 +84,7 @@ public final class SubripParser implements SubtitleParser {
   private final StringBuilder textBuilder;
   private final ArrayList<String> tags;
   private final ParsableByteArray parsableByteArray;
-  @Nullable private final CharsetDetector charsetDetector;
+  private final @Nullable CharsetDetector charsetDetector;
   private final Format format;
 
   /** Creates an instance. */

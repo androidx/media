@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 public class Period {
 
   /** The period identifier, if one exists. */
-  @Nullable public final String id;
+  public final @Nullable String id;
 
   /** The start time of the period in milliseconds, relative to the start of the manifest. */
   public final long startMs;
@@ -39,7 +39,7 @@ public class Period {
   public final List<EventStream> eventStreams;
 
   /** The asset identifier for this period, if one exists */
-  @Nullable public final Descriptor assetIdentifier;
+  public final @Nullable Descriptor assetIdentifier;
 
   /** The {@link AlternativeMpdEvent}s belonging to the period, sorted by presentation time. */
   public final ImmutableList<AlternativeMpdEvent> alternativeMpdEvents;

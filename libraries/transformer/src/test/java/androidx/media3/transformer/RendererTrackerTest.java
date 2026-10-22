@@ -258,7 +258,7 @@ public final class RendererTrackerTest {
 
   private static final class FakeTrackedRenderer extends FakeRenderer
       implements RendererTracker.TrackedRenderer {
-    @Nullable private MediaPeriodId mediaPeriodId;
+    private @Nullable MediaPeriodId mediaPeriodId;
 
     FakeTrackedRenderer(@Nullable MediaPeriodId mediaPeriodId) {
       super(C.TRACK_TYPE_VIDEO);
@@ -270,14 +270,12 @@ public final class RendererTrackerTest {
     }
 
     @Override
-    @Nullable
-    public MediaPeriodId getTrackedMediaPeriodId() {
+    public @Nullable MediaPeriodId getTrackedMediaPeriodId() {
       return mediaPeriodId;
     }
 
     @Override
-    @Nullable
-    public Timeline getTrackedTimeline() {
+    public @Nullable Timeline getTrackedTimeline() {
       return getTimeline();
     }
   }

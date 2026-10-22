@@ -42,7 +42,7 @@ public final class CameraMotionRenderer extends BaseRenderer {
   private final DecoderInputBuffer buffer;
   private final ParsableByteArray scratch;
 
-  @Nullable private CameraMotionListener listener;
+  private @Nullable CameraMotionListener listener;
   private long lastTimestampUs;
 
   public CameraMotionRenderer() {

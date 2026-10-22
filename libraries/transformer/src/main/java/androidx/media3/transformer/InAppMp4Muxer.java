@@ -63,7 +63,7 @@ public final class InAppMp4Muxer implements Muxer {
 
   /** {@link Muxer.Factory} for {@link InAppMp4Muxer}. */
   public static final class Factory implements Muxer.Factory {
-    @Nullable private final MetadataProvider metadataProvider;
+    private final @Nullable MetadataProvider metadataProvider;
 
     private long videoDurationUs;
     private int freeSpaceAfterFileTypeBoxBytes;
@@ -239,7 +239,7 @@ public final class InAppMp4Muxer implements Muxer {
   private static final int TRACK_ID_UNSET = -1;
 
   private final Mp4Muxer muxer;
-  @Nullable private final MetadataProvider metadataProvider;
+  private final @Nullable MetadataProvider metadataProvider;
   private final long videoDurationUs;
   private final Set<Metadata.Entry> metadataEntries;
 

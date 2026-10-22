@@ -38,7 +38,7 @@ public final class VideoFrameAggregationParameters {
   /** A builder for {@link VideoFrameAggregationParameters} instances. */
   public static final class Builder {
 
-    @Nullable private Rational frameRate;
+    private @Nullable Rational frameRate;
 
     /** Creates a new instance. */
     public Builder() {}
@@ -84,7 +84,7 @@ public final class VideoFrameAggregationParameters {
   public static final VideoFrameAggregationParameters DEFAULT = new Builder().build();
 
   /** The target frame rate, in frames per second, or {@code null} if no target rate is set. */
-  @Nullable public final Rational frameRate;
+  public final @Nullable Rational frameRate;
 
   private VideoFrameAggregationParameters(Builder builder) {
     this.frameRate = builder.frameRate;

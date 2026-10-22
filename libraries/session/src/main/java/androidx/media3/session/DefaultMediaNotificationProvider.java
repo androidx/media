@@ -262,8 +262,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   private @MonotonicNonNull OnBitmapLoadedFutureCallback pendingOnBitmapLoadedFutureCallback;
   @DrawableRes private int smallIconResourceId;
-  @Nullable private BitmapLoader mediaSessionBitmapLoader;
-  @Nullable private BitmapLoader notificationIconBitmapLoader;
+  private @Nullable BitmapLoader mediaSessionBitmapLoader;
+  private @Nullable BitmapLoader notificationIconBitmapLoader;
 
   /**
    * Creates an instance. Use this constructor only when you want to override methods of this class.
@@ -608,8 +608,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * @param metadata The media metadata from which content title is fetched.
    * @return Notification content title.
    */
-  @Nullable
-  protected CharSequence getNotificationContentTitle(MediaMetadata metadata) {
+  protected @Nullable CharSequence getNotificationContentTitle(MediaMetadata metadata) {
     return metadata.title;
   }
 
@@ -626,8 +625,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * @param metadata The media metadata from which content text is fetched.
    * @return Notification content text.
    */
-  @Nullable
-  protected CharSequence getNotificationContentText(MediaMetadata metadata) {
+  protected @Nullable CharSequence getNotificationContentText(MediaMetadata metadata) {
     return metadata.artist;
   }
 

@@ -151,7 +151,7 @@ public interface MediaSourceEventListener {
     public final int windowIndex;
 
     /** The {@link MediaPeriodId} reported with the events. */
-    @Nullable public final MediaPeriodId mediaPeriodId;
+    public final @Nullable MediaPeriodId mediaPeriodId;
 
     private final CopyOnWriteArrayList<ListenerAndHandler> listenerAndHandlers;
 

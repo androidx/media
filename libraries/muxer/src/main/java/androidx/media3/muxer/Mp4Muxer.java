@@ -196,14 +196,14 @@ public final class Mp4Muxer implements Muxer {
   public static final class Builder {
     private final SeekableMuxerOutput seekableMuxerOutput;
 
-    @Nullable private Supplier<String> cacheFileSupplier;
+    private @Nullable Supplier<String> cacheFileSupplier;
     private @LastSampleDurationBehavior int lastSampleDurationBehavior;
-    @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
+    private @Nullable AnnexBToAvccConverter annexBToAvccConverter;
     private boolean sampleCopyEnabled;
     private boolean sampleBatchingEnabled;
     private boolean attemptStreamableOutputEnabled;
     private @FileFormat int outputFileFormat;
-    @Nullable private Mp4AtFileParameters mp4AtFileParameters;
+    private @Nullable Mp4AtFileParameters mp4AtFileParameters;
     private int freeSpaceAfterFtypInBytes;
 
     /**
@@ -424,7 +424,7 @@ public final class Mp4Muxer implements Muxer {
   private static final String TAG = "Mp4Muxer";
 
   private final SeekableMuxerOutput muxerOutput;
-  @Nullable private final Supplier<String> cacheFileSupplier;
+  private final @Nullable Supplier<String> cacheFileSupplier;
   private final @LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final boolean sampleCopyEnabled;
@@ -432,16 +432,16 @@ public final class Mp4Muxer implements Muxer {
   private final boolean attemptStreamableOutputEnabled;
   private final int freeSpaceAfterFtypInBytes;
   private final @FileFormat int outputFileFormat;
-  @Nullable private final Mp4AtFileParameters mp4AtFileParameters;
+  private final @Nullable Mp4AtFileParameters mp4AtFileParameters;
   private final MetadataCollector metadataCollector;
   private final Mp4Writer mp4Writer;
   private final List<Track> trackIdToTrack;
   private final List<Track> auxiliaryTracks;
 
-  @Nullable private String cacheFilePath;
-  @Nullable private SeekableMuxerOutput cacheMuxerOutput;
-  @Nullable private MetadataCollector auxiliaryTracksMetadataCollector;
-  @Nullable private Mp4Writer auxiliaryTracksMp4Writer;
+  private @Nullable String cacheFilePath;
+  private @Nullable SeekableMuxerOutput cacheMuxerOutput;
+  private @Nullable MetadataCollector auxiliaryTracksMetadataCollector;
+  private @Nullable Mp4Writer auxiliaryTracksMp4Writer;
 
   private int nextTrackId;
 

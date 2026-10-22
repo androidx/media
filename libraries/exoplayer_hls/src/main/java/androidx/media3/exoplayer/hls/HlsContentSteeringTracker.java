@@ -85,7 +85,7 @@ public final class HlsContentSteeringTracker extends BaseContentSteeringTracker 
   private static final String THROUGHPUT_PARAM = "_HLS_throughput";
 
   private final BandwidthMeter bandwidthMeter;
-  @Nullable private final Callback callback;
+  private final @Nullable Callback callback;
   private final Set<String> availablePathwayIds;
   private final Set<String> excludedPathwayIds;
   private final HandlerWrapper handler;
@@ -94,7 +94,7 @@ public final class HlsContentSteeringTracker extends BaseContentSteeringTracker 
   private final List<HlsRedundantGroup> audioRenditionRedundantGroups;
   private final List<HlsRedundantGroup> subtitleRenditionRedundantGroups;
 
-  @Nullable private String currentPathwayId;
+  private @Nullable String currentPathwayId;
 
   /**
    * Creates an {@link HlsContentSteeringTracker}.

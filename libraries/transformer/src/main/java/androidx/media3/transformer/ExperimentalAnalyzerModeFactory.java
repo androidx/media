@@ -27,7 +27,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.exoplayer.video.PlaceholderSurface;
+import androidx.media3.exoplayer.video.PlaceholderSurfaceInterface;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -109,14 +109,14 @@ public final class ExperimentalAnalyzerModeFactory {
 
     private final Format configurationFormat;
     private final ByteBuffer buffer;
-    private final Surface placeholderSurface;
+    private final PlaceholderSurfaceInterface placeholderSurface;
 
     private boolean inputStreamEnded;
 
     public DroppingEncoder(Context context, Format format) {
       this.configurationFormat = format;
       buffer = ByteBuffer.allocateDirect(INTERNAL_BUFFER_SIZE).order(ByteOrder.nativeOrder());
-      placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
+      placeholderSurface = PlaceholderSurfaceInterface.newInstance(context, /* secure= */ false);
     }
 
     @Override
@@ -131,7 +131,7 @@ public final class ExperimentalAnalyzerModeFactory {
 
     @Override
     public Surface getInputSurface() {
-      return placeholderSurface;
+      return placeholderSurface.getSurface();
     }
 
     @Override
@@ -166,20 +166,17 @@ public final class ExperimentalAnalyzerModeFactory {
     }
 
     @Override
-    @Nullable
-    public Format getOutputFormat() {
+    public @Nullable Format getOutputFormat() {
       return configurationFormat;
     }
 
     @Override
-    @Nullable
-    public ByteBuffer getOutputBuffer() {
+    public @Nullable ByteBuffer getOutputBuffer() {
       return null;
     }
 
     @Override
-    @Nullable
-    public BufferInfo getOutputBufferInfo() {
+    public @Nullable BufferInfo getOutputBufferInfo() {
       return null;
     }
 

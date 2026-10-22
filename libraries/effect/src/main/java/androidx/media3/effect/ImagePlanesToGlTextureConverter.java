@@ -88,7 +88,7 @@ import org.jspecify.annotations.Nullable;
       HardwareBufferJniWrapper hardwareBufferJniWrapper,
       ColorInfo outputColorInfo,
       Consumer<VideoFrameProcessingException> errorConsumer) {
-    this.context = context.getApplicationContext();
+    this.context = context;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.outputColorInfo = outputColorInfo;
     this.errorConsumer = errorConsumer;
@@ -98,8 +98,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  public GlTextureFrame convert(
+  public @Nullable GlTextureFrame convert(
       Frame frame, Executor glExecutor, Executor listenerExecutor, FrameProcessor.Listener listener)
       throws VideoFrameProcessingException {
     checkArgument(frame instanceof ImagePlanesFrame, "Expected ImagePlanesFrame, got: %s", frame);
@@ -314,7 +313,7 @@ import org.jspecify.annotations.Nullable;
      */
     /* package */ final float[] planeWidthRatios;
 
-    @Nullable /* package */ GlProgram glProgram;
+    /* package */ @Nullable GlProgram glProgram;
     @RawRes private final int fragmentShaderResId;
     private final float[] textureTransformMatrix;
 

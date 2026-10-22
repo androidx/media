@@ -1043,8 +1043,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
   }
 
   @Override
-  @Nullable
-  public IBinder onBind(@Nullable Intent intent) {
+  public @Nullable IBinder onBind(@Nullable Intent intent) {
     if (intent == null) {
       return null;
     }
@@ -1060,6 +1059,5 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * <p>It must return a {@link MediaLibrarySession} which is a subclass of {@link MediaSession}.
    */
   @Override
-  @Nullable
-  public abstract MediaLibrarySession onGetSession(ControllerInfo controllerInfo);
+  public abstract @Nullable MediaLibrarySession onGetSession(ControllerInfo controllerInfo);
 }

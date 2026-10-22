@@ -38,8 +38,8 @@ import org.jspecify.annotations.Nullable;
 
   public boolean prepared;
   private boolean prepareInternalCalled;
-  @Nullable private Callback callback;
-  @Nullable private PreloadTrackSelectionHolder preloadTrackSelectionHolder;
+  private @Nullable Callback callback;
+  private @Nullable PreloadTrackSelectionHolder preloadTrackSelectionHolder;
 
   /**
    * Creates the {@link PreloadMediaPeriod}.
@@ -257,6 +257,11 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void setUsesStreamPrerollFlags() {
     mediaPeriod.setUsesStreamPrerollFlags();
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return mediaPeriod.supportsStreamPrerollFlags();
   }
 
   @Override

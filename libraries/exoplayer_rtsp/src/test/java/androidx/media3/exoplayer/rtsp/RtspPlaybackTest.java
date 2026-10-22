@@ -489,9 +489,8 @@ public final class RtspPlaybackTest {
       return C.LENGTH_UNSET;
     }
 
-    @Nullable
     @Override
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return null;
     }
 

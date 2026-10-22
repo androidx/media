@@ -63,7 +63,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class PlaybackOutput implements Dumper.Dumpable {
 
-  @Nullable private final CapturingRenderersFactory capturingRenderersFactory;
+  private final @Nullable CapturingRenderersFactory capturingRenderersFactory;
 
   private final CapturingImageOutput capturingImageOutput;
   private final List<Metadata> metadatas;
@@ -242,8 +242,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     dumper.endBlock();
   }
 
-  @Nullable
-  private static String pictureTypeString(@Nullable @PictureType Integer pictureType) {
+  private static @Nullable String pictureTypeString(@PictureType @Nullable Integer pictureType) {
     if (pictureType == null) {
       return null;
     }
@@ -295,8 +294,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     }
   }
 
-  @Nullable
-  private static String mediaTypeString(@Nullable @MediaType Integer mediaType) {
+  private static @Nullable String mediaTypeString(@MediaType @Nullable Integer mediaType) {
     if (mediaType == null) {
       return null;
     }
@@ -378,8 +376,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
     }
   }
 
-  @Nullable
-  private static String ratingString(@Nullable Rating rating) {
+  private static @Nullable String ratingString(@Nullable Rating rating) {
     if (rating == null) {
       return null;
     }

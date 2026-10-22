@@ -112,10 +112,10 @@ public final class FlacStreamMetadata {
   public final long totalSamples;
 
   /** Seek table, or {@code null} if it is not provided. */
-  @Nullable public final SeekTable seekTable;
+  public final @Nullable SeekTable seekTable;
 
   /** Content metadata, or {@code null} if it is not provided. */
-  @Nullable private final Metadata metadata;
+  private final @Nullable Metadata metadata;
 
   /**
    * Parses binary FLAC stream info metadata.
@@ -266,8 +266,7 @@ public final class FlacStreamMetadata {
   }
 
   /** Returns a copy of the content metadata with entries from {@code other} appended. */
-  @Nullable
-  public Metadata getMetadataCopyWithAppendedEntriesFrom(@Nullable Metadata other) {
+  public @Nullable Metadata getMetadataCopyWithAppendedEntriesFrom(@Nullable Metadata other) {
     return metadata == null ? other : metadata.copyWithAppendedEntriesFrom(other);
   }
 
@@ -324,8 +323,7 @@ public final class FlacStreamMetadata {
    * Returns a new {@link Metadata} instance created from {@code vorbisComments} and {@code
    * pictureFrames}.
    */
-  @Nullable
-  private static Metadata concatenateVorbisMetadata(
+  private static @Nullable Metadata concatenateVorbisMetadata(
       List<String> vorbisComments, List<PictureFrame> pictureFrames) {
     @Nullable Metadata parsedVorbisComments = parseVorbisComments(vorbisComments);
     if (parsedVorbisComments == null && pictureFrames.isEmpty()) {

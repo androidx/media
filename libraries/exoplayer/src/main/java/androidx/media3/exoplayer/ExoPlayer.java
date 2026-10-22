@@ -259,10 +259,10 @@ public interface ExoPlayer extends Player {
     /* package */ Supplier<LoadControl> loadControlSupplier;
     /* package */ Supplier<BandwidthMeter> bandwidthMeterSupplier;
     /* package */ Function<Clock, AnalyticsCollector> analyticsCollectorFunction;
-    @Nullable /* package */ AudioOutputProvider audioOutputProvider;
+    /* package */ @Nullable AudioOutputProvider audioOutputProvider;
     /* package */ Looper looper;
     /* package */ @C.Priority int priority;
-    @Nullable /* package */ PriorityTaskManager priorityTaskManager;
+    /* package */ @Nullable PriorityTaskManager priorityTaskManager;
     /* package */ AudioAttributes audioAttributes;
     /* package */ boolean handleAudioFocus;
     @C.WakeMode /* package */ int wakeMode;
@@ -287,7 +287,7 @@ public interface ExoPlayer extends Player {
     /* package */ int stuckSuppressedDetectionTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
-    @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
+    /* package */ @Nullable PlaybackLooperProvider playbackLooperProvider;
     /* package */ boolean buildCalled;
     /* package */ boolean suppressPlaybackOnUnsuitableOutput;
     /* package */ String playerName;

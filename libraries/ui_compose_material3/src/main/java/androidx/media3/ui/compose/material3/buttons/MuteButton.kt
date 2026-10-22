@@ -38,6 +38,9 @@ import androidx.media3.ui.compose.state.MuteButtonState
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that mutes or unmutes the player.
  *
+ * ![MuteButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/mute-button.svg)
+ *
  * When clicked, it will mute the [player] if it's currently unmuted, and unmute it otherwise. The
  * button's state (e.g., whether it's enabled and the current mute icon) is managed by a
  * [MuteButtonState] instance derived from the provided [player].

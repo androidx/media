@@ -39,6 +39,9 @@ import androidx.media3.ui.compose.state.PreviousButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks to the previous media
  * item.
  *
+ * ![PreviousButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/previous-button.svg)
+ *
  * When clicked, it attempts to advance the [player] to the previous media item in its current
  * playlist. The button's state (e.g., whether it's enabled) is managed by a [PreviousButtonState]
  * instance derived from the provided [player].

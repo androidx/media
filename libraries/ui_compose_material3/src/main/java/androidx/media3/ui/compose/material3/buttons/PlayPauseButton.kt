@@ -47,6 +47,9 @@ import androidx.media3.ui.compose.state.SHOW_RETRY_ON_ERROR
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that plays or pauses the current
  * media item.
  *
+ * ![PlayPauseButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/play-pause-button.svg)
+ *
  * When clicked, it will pause the [player] if it's currently playing, or play it otherwise. The
  * button's state (e.g., whether it's enabled and the current play/pause icon) is managed by a
  * [PlayPauseButtonState] instance derived from the provided [player].

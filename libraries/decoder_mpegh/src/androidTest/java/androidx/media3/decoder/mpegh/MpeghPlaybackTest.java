@@ -66,7 +66,7 @@ public final class MpeghPlaybackTest {
           + " (Originalfassung) äöü\" />";
   private static final int MAX_PERSISTENCE_STORAGE = 8096;
 
-  @Nullable private ByteBuffer persistenceBuffer;
+  private @Nullable ByteBuffer persistenceBuffer;
 
   @Before
   public void setUp() {
@@ -156,12 +156,12 @@ public final class MpeghPlaybackTest {
     private final Context context;
     private final Uri uri;
     private final AudioSink audioSink;
-    @Nullable private final String command;
-    @Nullable private final ByteBuffer persistenceBuffer;
+    private final @Nullable String command;
+    private final @Nullable ByteBuffer persistenceBuffer;
     private final List<String> interceptedAsi;
 
-    @Nullable private ExoPlayer player;
-    @Nullable private PlaybackException playbackException;
+    private @Nullable ExoPlayer player;
+    private @Nullable PlaybackException playbackException;
 
     public TestPlaybackRunnable(
         Uri uri,

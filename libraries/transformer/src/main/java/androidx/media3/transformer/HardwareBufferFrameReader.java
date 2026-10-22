@@ -122,11 +122,11 @@ import org.jspecify.annotations.Nullable;
   @GuardedBy("this")
   private final List<InputSurface> inputSurfaces;
 
-  @Nullable private Format lastFormat;
+  private @Nullable Format lastFormat;
   private @MonotonicNonNull Format lastAdjustedFormat;
 
   private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-  @Nullable private BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
+  private @Nullable BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /** The number of frames that are currently in use by the downstream consumer. */
@@ -410,8 +410,7 @@ import org.jspecify.annotations.Nullable;
         format);
   }
 
-  @Nullable
-  private BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
+  private @Nullable BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
     if (SDK_INT >= 26 && bitmapToHardwareBufferConverter == null) {
       bitmapToHardwareBufferConverter =
           new BitmapToHardwareBufferConverter(
@@ -539,7 +538,7 @@ import org.jspecify.annotations.Nullable;
   /** A {@link Surface} that a single producer, such as a decoder, renders frames into. */
   /* package */ final class InputSurface {
     private final ImageReaderAdapter imageReader;
-    @Nullable private Surface surface;
+    private @Nullable Surface surface;
 
     private InputSurface() {
       // The width and height are sensible defaults for tests and are typically ignored when
@@ -638,13 +637,13 @@ import org.jspecify.annotations.Nullable;
      * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
      * #getSurface()}.
      */
-    @Nullable final Bitmap bitmap;
+    final @Nullable Bitmap bitmap;
 
     /**
      * The pending frame timestamps, or {@code null} if the frame will be output via {@link
      * #getSurface()}.
      */
-    @Nullable final TimestampIterator timestampIterator;
+    final @Nullable TimestampIterator timestampIterator;
 
     final Format format;
     final long itemPresentationTimeUs;

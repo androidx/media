@@ -358,8 +358,7 @@ public final class PlayerEmsgHandler implements Handler.Callback {
       sampleQueue.discardToRead();
     }
 
-    @Nullable
-    private MetadataInputBuffer dequeueSample() {
+    private @Nullable MetadataInputBuffer dequeueSample() {
       buffer.clear();
       int result =
           sampleQueue.read(formatHolder, buffer, /* readFlags= */ 0, /* loadingFinished= */ false);

@@ -80,8 +80,7 @@ public final class Sniffer {
    *     {@link SniffFailure} describing why the input isn't deemed to be a fragmented MP4.
    * @throws IOException If an error occurs reading from the input.
    */
-  @Nullable
-  public static SniffFailure sniffFragmented(ExtractorInput input) throws IOException {
+  public static @Nullable SniffFailure sniffFragmented(ExtractorInput input) throws IOException {
     return sniffInternal(input, /* fragmented= */ true);
   }
 
@@ -95,13 +94,11 @@ public final class Sniffer {
    *     {@link SniffFailure} describing why the input isn't deemed to be a fragmented MP4.
    * @throws IOException If an error occurs reading from the input.
    */
-  @Nullable
-  public static SniffFailure sniffUnfragmented(ExtractorInput input) throws IOException {
+  public static @Nullable SniffFailure sniffUnfragmented(ExtractorInput input) throws IOException {
     return sniffInternal(input, /* fragmented= */ false);
   }
 
-  @Nullable
-  private static SniffFailure sniffInternal(ExtractorInput input, boolean fragmented)
+  private static @Nullable SniffFailure sniffInternal(ExtractorInput input, boolean fragmented)
       throws IOException {
     long inputLength = input.getLength();
     int bytesToSearch =

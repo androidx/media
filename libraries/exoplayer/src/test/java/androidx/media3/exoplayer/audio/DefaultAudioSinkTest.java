@@ -113,8 +113,8 @@ public final class DefaultAudioSinkTest {
   private DefaultAudioSink defaultAudioSink;
   private ArrayAudioBufferSink arrayAudioBufferSink;
 
-  @Nullable private AudioDeviceInfo hdmiDevice;
-  @Nullable private AudioDeviceInfo bluetoothDevice;
+  private @Nullable AudioDeviceInfo hdmiDevice;
+  private @Nullable AudioDeviceInfo bluetoothDevice;
 
   @Before
   public void setUp() {

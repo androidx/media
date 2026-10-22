@@ -79,8 +79,7 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
   private final Set<HandlerAndRunnable> pendingOnCompletionActions;
 
   @GuardedBy("this")
-  @Nullable
-  private Handler playbackThreadHandler;
+  private @Nullable Handler playbackThreadHandler;
 
   // Accessed on the playback thread only.
   private final List<MediaSourceHolder> mediaSourceHolders;
@@ -541,8 +540,7 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       MediaSourceHolder childSourceId, MediaPeriodId mediaPeriodId) {
     for (int i = 0; i < childSourceId.activeMediaPeriodIds.size(); i++) {
       // Ensure the reported media period id has the same window sequence number as the one created
@@ -661,8 +659,7 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
   }
 
   @GuardedBy("this")
-  @Nullable
-  private HandlerAndRunnable createOnCompletionAction(
+  private @Nullable HandlerAndRunnable createOnCompletionAction(
       @Nullable Handler handler, @Nullable Runnable runnable) {
     if (handler == null || runnable == null) {
       return null;
@@ -905,7 +902,7 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
 
     public final int index;
     public final T customData;
-    @Nullable public final HandlerAndRunnable onCompletionAction;
+    public final @Nullable HandlerAndRunnable onCompletionAction;
 
     public MessageData(int index, T customData, @Nullable HandlerAndRunnable onCompletionAction) {
       this.index = index;

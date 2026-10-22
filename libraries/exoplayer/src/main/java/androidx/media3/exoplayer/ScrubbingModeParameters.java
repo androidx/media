@@ -49,8 +49,8 @@ public final class ScrubbingModeParameters {
    */
   public static final class Builder {
     private ImmutableSet<@TrackType Integer> disabledTrackTypes;
-    @Nullable private Double fractionalSeekToleranceBefore;
-    @Nullable private Double fractionalSeekToleranceAfter;
+    private @Nullable Double fractionalSeekToleranceBefore;
+    private @Nullable Double fractionalSeekToleranceAfter;
     private boolean shouldIncreaseCodecOperatingRate;
     private boolean allowSkippingMediaCodecFlush;
     private boolean allowSkippingKeyFrameReset;
@@ -117,8 +117,8 @@ public final class ScrubbingModeParameters {
      */
     @CanIgnoreReturnValue
     public Builder setFractionalSeekTolerance(
-        @Nullable @FloatRange(from = 0, to = 1) Double toleranceBefore,
-        @Nullable @FloatRange(from = 0, to = 1) Double toleranceAfter) {
+        @FloatRange(from = 0, to = 1) @Nullable Double toleranceBefore,
+        @FloatRange(from = 0, to = 1) @Nullable Double toleranceAfter) {
       checkArgument((toleranceBefore == null) == (toleranceAfter == null));
       checkArgument(toleranceBefore == null || (toleranceBefore >= 0 && toleranceBefore <= 1));
       checkArgument(toleranceAfter == null || (toleranceAfter >= 0 && toleranceAfter <= 1));
@@ -249,9 +249,8 @@ public final class ScrubbingModeParameters {
    * <p>If this is {@code null} or the media duration is not known then the {@linkplain
    * ExoPlayer#getSeekParameters()} non-scrubbing seek parameters} are used.
    */
-  @Nullable
   @FloatRange(from = 0, to = 1)
-  public final Double fractionalSeekToleranceBefore;
+  public final @Nullable Double fractionalSeekToleranceBefore;
 
   /**
    * The fraction of the media duration to use for {@link SeekParameters#toleranceAfterUs} when
@@ -260,9 +259,8 @@ public final class ScrubbingModeParameters {
    * <p>If this is {@code null} or the media duration is not known then the {@linkplain
    * ExoPlayer#getSeekParameters()} non-scrubbing seek parameters} are used.
    */
-  @Nullable
   @FloatRange(from = 0, to = 1)
-  public final Double fractionalSeekToleranceAfter;
+  public final @Nullable Double fractionalSeekToleranceAfter;
 
   /**
    * Whether the codec operating rate should be increased in scrubbing mode.

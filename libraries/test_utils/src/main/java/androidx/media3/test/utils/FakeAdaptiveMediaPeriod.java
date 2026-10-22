@@ -65,10 +65,10 @@ public class FakeAdaptiveMediaPeriod
   private final FakeChunkSource.Factory chunkSourceFactory;
   private final Allocator allocator;
   private final long durationUs;
-  @Nullable private final TransferListener transferListener;
+  private final @Nullable TransferListener transferListener;
   private final List<ChunkSampleStream<FakeChunkSource>> sampleStreams;
 
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
   private boolean prepared;
   private SequenceableLoader sequenceableLoader;
 
@@ -210,6 +210,11 @@ public class FakeAdaptiveMediaPeriod
   @Override
   public void reevaluateBuffer(long positionUs) {
     sequenceableLoader.reevaluateBuffer(positionUs);
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
   }
 
   @Override

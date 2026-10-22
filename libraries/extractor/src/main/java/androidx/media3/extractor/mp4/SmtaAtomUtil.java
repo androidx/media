@@ -69,8 +69,7 @@ public final class SmtaAtomUtil {
   private SmtaAtomUtil() {}
 
   /** Parses metadata from a Samsung smta atom. */
-  @Nullable
-  public static Metadata parseSmta(ParsableByteArray smta, int limit) {
+  public static @Nullable Metadata parseSmta(ParsableByteArray smta, int limit) {
     smta.skipBytes(Mp4Box.FULL_HEADER_SIZE);
     while (smta.getPosition() < limit) {
       int atomPosition = smta.getPosition();

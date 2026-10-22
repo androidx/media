@@ -50,7 +50,7 @@ import org.jspecify.annotations.Nullable;
   private final Composition composition;
   private final int sequenceIndex;
 
-  @Nullable private Format currentFormat;
+  private @Nullable Format currentFormat;
   // Start at -1 so the initial onMediaItemChanged increments the current index to 0.
   private int currentMediaItemIndex = C.INDEX_UNSET;
   private long currentTimeOffsetUs;

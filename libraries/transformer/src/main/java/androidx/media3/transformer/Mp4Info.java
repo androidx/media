@@ -74,10 +74,10 @@ import org.jspecify.annotations.Nullable;
   public final boolean isFirstVideoSampleAfterTimeUsSyncSample;
 
   /** The video {@link Format} or {@code null} if there is no video track. */
-  @Nullable public final Format videoFormat;
+  public final @Nullable Format videoFormat;
 
   /** The audio {@link Format} or {@code null} if there is no audio track. */
-  @Nullable public final Format audioFormat;
+  public final @Nullable Format audioFormat;
 
   private Mp4Info(
       long durationUs,
@@ -225,7 +225,7 @@ import org.jspecify.annotations.Nullable;
     public int videoTrackId;
     public int audioTrackId;
     public boolean seekMapInitialized;
-    @Nullable public TrackAwareSeekMap seekMap;
+    public @Nullable TrackAwareSeekMap seekMap;
 
     final Map<Integer, TrackOutputImpl> trackTypeToTrackOutput;
 

@@ -52,9 +52,9 @@ public final class TextureBitmapReader implements VideoFrameProcessorTestRunner.
     outputTimestampsToBitmaps = new LinkedHashMap<>();
   }
 
-  @Nullable
   @Override
-  public Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents) {
+  public @Nullable Surface getSurface(
+      int width, int height, boolean useHighPrecisionColorComponents) {
     this.useHighPrecisionColorComponents = useHighPrecisionColorComponents;
     return null;
   }

@@ -65,7 +65,7 @@ import org.jspecify.annotations.Nullable;
   private int waveOffset;
   private int waveSize;
   private int presetIndex;
-  @Nullable private WavetableRegion region;
+  private @Nullable WavetableRegion region;
 
   /** Creates a new instance with the supplied wave table data. */
   public SonivoxSynthVoice(short[] waveData) {
@@ -196,8 +196,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  private WavetableRegion selectRegionByNoteNumber(
+  private @Nullable WavetableRegion selectRegionByNoteNumber(
       @Nullable WavetableRegion region, int noteNumber, TimeStamp timeStamp) {
     if ((region == null) || !region.isNoteInRange(noteNumber)) {
       int regionIndex = SonivoxWaveData.getProgramRegion(presetIndex);

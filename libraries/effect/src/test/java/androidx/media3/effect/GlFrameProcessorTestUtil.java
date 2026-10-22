@@ -66,9 +66,9 @@ public final class GlFrameProcessorTestUtil {
     @Override
     public void configure(Format format, long usage) {}
 
-    @Nullable
     @Override
-    public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+    public @Nullable AsyncFrame dequeueInputFrame(
+        Executor wakeupExecutor, Runnable wakeupListener) {
       return null;
     }
 
@@ -92,20 +92,20 @@ public final class GlFrameProcessorTestUtil {
     public volatile boolean shouldAcceptIncomingFrames;
     public volatile int framesReceived;
     public volatile boolean signalEndOfStreamCalled;
-    @Nullable public Runnable wakeupListener;
-    @Nullable public Executor listenerExecutor;
-    @Nullable public GlTextureFrame lastReceivedFrame;
-    @Nullable public FrameWriter frameWriter;
-    @Nullable public VideoFrameProcessingException exceptionToThrowOnQueueing;
-    @Nullable public RuntimeException runtimeExceptionToThrowOnQueueing;
+    public @Nullable Runnable wakeupListener;
+    public @Nullable Executor listenerExecutor;
+    public @Nullable GlTextureFrame lastReceivedFrame;
+    public @Nullable FrameWriter frameWriter;
+    public @Nullable VideoFrameProcessingException exceptionToThrowOnQueueing;
+    public @Nullable RuntimeException runtimeExceptionToThrowOnQueueing;
 
     /** Opened when a frame is rejected and a wakeup listener is registered. */
     public final ConditionVariable wakeupListenerRegistered;
 
     /** The thread that called {@link #close()}, or {@code null} if not closed. */
-    @Nullable public volatile Thread closeThread;
+    public volatile @Nullable Thread closeThread;
 
-    @Nullable private volatile CountDownLatch framesReceivedLatch;
+    private volatile @Nullable CountDownLatch framesReceivedLatch;
 
     public FakeGlTextureFrameConsumer(@Nullable FrameWriter frameWriter) {
       this.frameWriter = frameWriter;
@@ -360,8 +360,8 @@ public final class GlFrameProcessorTestUtil {
   }
 
   public static final class FakeCompositorGlProgram implements CompositorGlProgram {
-    public final List<List<GlCompositionFrame>> drawnFramePackets;
-    @Nullable public VideoFrameProcessingException exceptionToThrow;
+    public final List<List<GlTextureFrame>> drawnFramePackets;
+    public @Nullable VideoFrameProcessingException exceptionToThrow;
     public GlUtil.@Nullable GlException glExceptionToThrow;
 
     public FakeCompositorGlProgram() {
@@ -369,7 +369,7 @@ public final class GlFrameProcessorTestUtil {
     }
 
     @Override
-    public void drawFrame(List<GlCompositionFrame> inputFrameInfos, GlTextureInfo outputTexture)
+    public void drawFrame(List<GlTextureFrame> framesToComposite, GlTextureInfo outputTexture)
         throws GlUtil.GlException, VideoFrameProcessingException {
       if (exceptionToThrow != null) {
         throw exceptionToThrow;
@@ -377,7 +377,7 @@ public final class GlFrameProcessorTestUtil {
       if (glExceptionToThrow != null) {
         throw glExceptionToThrow;
       }
-      drawnFramePackets.add(ImmutableList.copyOf(inputFrameInfos));
+      drawnFramePackets.add(ImmutableList.copyOf(framesToComposite));
     }
 
     @Override

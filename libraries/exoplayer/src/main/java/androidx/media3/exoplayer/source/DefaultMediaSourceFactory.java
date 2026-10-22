@@ -118,10 +118,10 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   private DataSource.Factory dataSourceFactory;
   private SubtitleParser.Factory subtitleParserFactory;
   private MediaSource.@Nullable Factory serverSideAdInsertionMediaSourceFactory;
-  @Nullable private ExternalLoader externalImageLoader;
+  private @Nullable ExternalLoader externalImageLoader;
   private AdsLoader.@Nullable Provider adsLoaderProvider;
-  @Nullable private AdViewProvider adViewProvider;
-  @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+  private @Nullable AdViewProvider adViewProvider;
+  private @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private long liveTargetOffsetMs;
   private long liveMinOffsetMs;
   private long liveMaxOffsetMs;
@@ -754,9 +754,9 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private SubtitleParser.Factory subtitleParserFactory;
     private boolean loadOnlySelectedTracks;
     private CmcdConfiguration.@Nullable Factory cmcdConfigurationFactory;
-    @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
-    @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable DrmSessionManagerProvider drmSessionManagerProvider;
+    private @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     public DelegateFactoryLoader(
         ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
@@ -881,8 +881,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     }
 
     @CanIgnoreReturnValue
-    @Nullable
-    private Supplier<MediaSource.Factory> maybeLoadSupplier(@C.ContentType int contentType) {
+    private @Nullable Supplier<MediaSource.Factory> maybeLoadSupplier(
+        @C.ContentType int contentType) {
       try {
         return loadSupplier(contentType);
       } catch (ClassNotFoundException e) {

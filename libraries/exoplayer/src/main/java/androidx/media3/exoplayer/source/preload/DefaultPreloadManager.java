@@ -82,7 +82,7 @@ public final class DefaultPreloadManager
     private Supplier<BandwidthMeter> bandwidthMeterSupplier;
     private Supplier<RenderersFactory> renderersFactorySupplier;
     private Supplier<LoadControl> loadControlSupplier;
-    @Nullable private Cache cache;
+    private @Nullable Cache cache;
     private Executor cachingExecutor;
     private Clock clock;
     private boolean buildCalled;
@@ -579,7 +579,7 @@ public final class DefaultPreloadManager
   public static class SimpleRankingDataComparator implements RankingDataComparator<Integer> {
 
     private int currentPlayingIndex;
-    @Nullable private InvalidationListener invalidationListener;
+    private @Nullable InvalidationListener invalidationListener;
 
     /** Creates a {@link SimpleRankingDataComparator}. */
     public SimpleRankingDataComparator() {
@@ -632,7 +632,7 @@ public final class DefaultPreloadManager
   private final TrackSelector trackSelector;
   private final PlaybackLooperProvider preloadLooperProvider;
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
-  @Nullable private final HandlerThread preCacheThread;
+  private final @Nullable HandlerThread preCacheThread;
   private final PreCacheHelper.@Nullable Factory preCacheHelperFactory;
   private final HandlerWrapper preloadHandler;
   private boolean releaseCalled;
@@ -937,7 +937,7 @@ public final class DefaultPreloadManager
 
     private final Context context;
     private final Supplier<DefaultMediaSourceFactory> defaultMediaSourceFactorySupplier;
-    @Nullable private Cache cache;
+    private @Nullable Cache cache;
     private DataSource.@Nullable Factory dataSourceFactory;
 
     private DefaultMediaSourceFactorySupplier(Context context) {
@@ -985,7 +985,7 @@ public final class DefaultPreloadManager
 
   private final class PreloadMediaSourceHolder extends MediaSourceHolder {
 
-    @Nullable public PreCacheHelper preCacheHelper;
+    public @Nullable PreCacheHelper preCacheHelper;
 
     public PreloadMediaSourceHolder(
         MediaItem mediaItem, PreloadMediaSource mediaSource, Integer rankingData) {

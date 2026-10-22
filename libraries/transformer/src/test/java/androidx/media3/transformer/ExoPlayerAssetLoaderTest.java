@@ -282,9 +282,8 @@ public class ExoPlayerAssetLoaderTest {
 
   private static final class FakeSampleConsumer implements SampleConsumer {
 
-    @Nullable
     @Override
-    public DecoderInputBuffer getInputBuffer() {
+    public @Nullable DecoderInputBuffer getInputBuffer() {
       return null;
     }
 

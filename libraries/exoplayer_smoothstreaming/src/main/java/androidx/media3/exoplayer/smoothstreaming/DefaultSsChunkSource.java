@@ -142,13 +142,13 @@ public class DefaultSsChunkSource implements SsChunkSource {
   private final int streamElementIndex;
   private final ChunkExtractor[] chunkExtractors;
   private final DataSource dataSource;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
 
   private ExoTrackSelection trackSelection;
   private SsManifest manifest;
   private int currentManifestChunkOffset;
 
-  @Nullable private IOException fatalError;
+  private @Nullable IOException fatalError;
 
   /**
    * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, ChunkHolder)} method

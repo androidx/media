@@ -174,14 +174,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  @Nullable
-  protected Format getMuxerInputFormat() throws ExportException {
+  protected @Nullable Format getMuxerInputFormat() throws ExportException {
     return encoderWrapper.getOutputFormat();
   }
 
   @Override
-  @Nullable
-  protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
+  protected @Nullable DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
     encoderOutputBuffer.data = encoderWrapper.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;
@@ -228,8 +226,12 @@ import org.jspecify.annotations.Nullable;
     private final boolean renderFramesAutomatically;
     private final long initialTimestampOffsetUs;
     private final int maxFramesInEncoder;
-    private @GuardedBy("lock") int framesInEncoder;
-    private @GuardedBy("lock") int framesAvailableToRender;
+
+    @GuardedBy("lock")
+    private int framesInEncoder;
+
+    @GuardedBy("lock")
+    private int framesAvailableToRender;
 
     public VideoGraphWrapper(
         Context context,

@@ -202,9 +202,8 @@ public class Cea708DecoderTest {
    *
    * <p>Fails if {@link Cea608Decoder#dequeueInputBuffer()} returns {@code null}.
    */
-  @Nullable
-  private static Subtitle decodeSampleAndCopyResult(SubtitleDecoder decoder, byte[] sample)
-      throws SubtitleDecoderException {
+  private static @Nullable Subtitle decodeSampleAndCopyResult(
+      SubtitleDecoder decoder, byte[] sample) throws SubtitleDecoderException {
     SubtitleInputBuffer inputBuffer = checkNotNull(decoder.dequeueInputBuffer());
     inputBuffer.data = ByteBuffer.wrap(sample);
     decoder.queueInputBuffer(inputBuffer);

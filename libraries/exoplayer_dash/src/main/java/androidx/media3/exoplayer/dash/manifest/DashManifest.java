@@ -82,26 +82,26 @@ public class DashManifest implements FilterableManifest<DashManifest> {
    * The {@link UtcTimingElement}, or null if not present. Defined in DVB A168:7/2016, Section
    * 4.7.2.
    */
-  @Nullable public final UtcTimingElement utcTiming;
+  public final @Nullable UtcTimingElement utcTiming;
 
   /** The {@link ServiceDescriptionElement}, or null if not present. */
-  @Nullable public final ServiceDescriptionElement serviceDescription;
+  public final @Nullable ServiceDescriptionElement serviceDescription;
 
   /** The {@link ProgramInformation}, or null if not present. */
-  @Nullable public final ProgramInformation programInformation;
+  public final @Nullable ProgramInformation programInformation;
 
   private final List<Period> periods;
 
   /**
    * @deprecated Use {@link #locations} instead.
    */
-  @Deprecated @Nullable public final Uri location;
+  @Deprecated public final @Nullable Uri location;
 
   /** The locations to request future updates of the DASH media presentation description (mpd). */
   public final ImmutableList<Location> locations;
 
   /** The {@link ContentSteering}, or {@code null} if not present. */
-  @Nullable public final ContentSteering contentSteering;
+  public final @Nullable ContentSteering contentSteering;
 
   /**
    * @deprecated Use {@link #DashManifest(long, long, long, boolean, long, long, long, long,

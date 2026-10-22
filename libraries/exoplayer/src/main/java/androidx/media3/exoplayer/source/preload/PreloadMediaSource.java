@@ -268,9 +268,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   private boolean prepareChildSourceCalled;
   private boolean releasePreloadMediaSourceCalled;
   private long startPositionUs;
-  @Nullable private Timeline timeline;
-  @Nullable private Pair<PreloadMediaPeriod, MediaPeriodKey> preloadingMediaPeriodAndKey;
-  @Nullable private Pair<PreloadMediaPeriod, MediaPeriodId> playingPreloadedMediaPeriodAndId;
+  private @Nullable Timeline timeline;
+  private @Nullable Pair<PreloadMediaPeriod, MediaPeriodKey> preloadingMediaPeriodAndKey;
+  private @Nullable Pair<PreloadMediaPeriod, MediaPeriodId> playingPreloadedMediaPeriodAndId;
   private boolean onSourcePreparedNotified;
   private boolean onUsedByPlayerNotified;
 
@@ -528,7 +528,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     private final long periodStartPositionUs;
     private boolean prepared;
     private int continueLoadingRetryCountBeforeCallingPreloadControlAgain;
-    @Nullable private Runnable maybeContinueLoadingRunnable;
+    private @Nullable Runnable maybeContinueLoadingRunnable;
     private boolean onLoadToTheEndOfSourceNotified;
 
     public PreloadMediaPeriodCallback(long periodStartPositionUs) {

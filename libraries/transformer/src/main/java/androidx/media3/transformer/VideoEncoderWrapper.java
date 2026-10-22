@@ -55,11 +55,11 @@ import org.jspecify.annotations.Nullable;
   private final Format inputFormat;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final List<String> muxerSupportedMimeTypes;
-  @Nullable private final TransformationRequest transformationRequest;
+  private final @Nullable TransformationRequest transformationRequest;
   private final FallbackListener fallbackListener;
   private final String requestedOutputMimeType;
   private final @Composition.HdrMode int hdrModeAfterFallback;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private @MonotonicNonNull SurfaceInfo encoderSurfaceInfo;
 
@@ -115,8 +115,7 @@ import org.jspecify.annotations.Nullable;
    * Returns an encoder input {@link SurfaceInfo} with the closest supported dimensions, and a fixed
    * {@code rotationDegrees}.
    */
-  @Nullable
-  public SurfaceInfo getFixedRotationSurfaceInfo(
+  public @Nullable SurfaceInfo getFixedRotationSurfaceInfo(
       int requestedWidth, int requestedHeight, int rotationDegrees) throws ExportException {
     if (releaseEncoder) {
       return null;
@@ -177,8 +176,7 @@ import org.jspecify.annotations.Nullable;
    * Returns an encoder input {@link SurfaceInfo} with the closest supported dimensions. Prefers
    * landscape encoding, and picks a rotation based on {@link #allowedEncodingRotationDegrees}.
    */
-  @Nullable
-  public SurfaceInfo getSurfaceInfo(int requestedWidth, int requestedHeight)
+  public @Nullable SurfaceInfo getSurfaceInfo(int requestedWidth, int requestedHeight)
       throws ExportException {
     if (releaseEncoder) {
       return null;
@@ -331,8 +329,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @Nullable
-  public Format getOutputFormat() throws ExportException {
+  public @Nullable Format getOutputFormat() throws ExportException {
     if (encoder == null) {
       return null;
     }
@@ -343,8 +340,7 @@ import org.jspecify.annotations.Nullable;
     return outputFormat;
   }
 
-  @Nullable
-  public ByteBuffer getOutputBuffer() throws ExportException {
+  public @Nullable ByteBuffer getOutputBuffer() throws ExportException {
     return encoder != null ? encoder.getOutputBuffer() : null;
   }
 

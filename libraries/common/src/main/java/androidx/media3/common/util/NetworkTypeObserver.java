@@ -64,7 +64,7 @@ public final class NetworkTypeObserver {
     void onNetworkTypeChanged(@C.NetworkType int networkType);
   }
 
-  @Nullable private static NetworkTypeObserver staticInstance;
+  private static @Nullable NetworkTypeObserver staticInstance;
 
   private final Executor backgroundExecutor;
   private final CopyOnWriteArrayList<ListenerHolder> listeners;

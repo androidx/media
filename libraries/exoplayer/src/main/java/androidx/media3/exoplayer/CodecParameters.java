@@ -201,8 +201,7 @@ public final class CodecParameters {
    * @param key A string representing the key of the codec parameter.
    * @return The value of the requested parameter, or {@code null} if the key is not present.
    */
-  @Nullable
-  public Object get(String key) {
+  public @Nullable Object get(String key) {
     return params.get(key);
   }
 

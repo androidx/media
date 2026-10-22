@@ -44,7 +44,7 @@ import org.jspecify.annotations.Nullable;
 
   public final IMediaSession sessionBinder;
 
-  @Nullable public final PendingIntent sessionActivity;
+  public final @Nullable PendingIntent sessionActivity;
 
   public final SessionCommands sessionCommands;
 
@@ -62,11 +62,11 @@ import org.jspecify.annotations.Nullable;
 
   public final ImmutableList<CommandButton> mediaButtonPreferences;
 
-  @Nullable public final Token platformToken;
+  public final @Nullable Token platformToken;
 
   public final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
-  @Nullable public final String packageNameOverride;
+  public final @Nullable String packageNameOverride;
 
   public ConnectionState(
       int libraryVersion,

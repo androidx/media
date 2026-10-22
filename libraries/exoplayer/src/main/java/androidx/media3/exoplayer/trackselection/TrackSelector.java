@@ -147,8 +147,8 @@ public abstract class TrackSelector {
     default void onRendererCapabilitiesChanged(Renderer renderer) {}
   }
 
-  @Nullable private InvalidationListener listener;
-  @Nullable private BandwidthMeter bandwidthMeter;
+  private @Nullable InvalidationListener listener;
+  private @Nullable BandwidthMeter bandwidthMeter;
 
   /**
    * Called by the player to initialize the selector.

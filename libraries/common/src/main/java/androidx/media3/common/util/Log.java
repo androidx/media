@@ -320,9 +320,8 @@ public final class Log {
    * @return The string representation of the {@link Throwable}, or null if {@code throwable} is
    *     null.
    */
-  @Nullable
   @Pure
-  public static String getThrowableString(@Nullable Throwable throwable) {
+  public static @Nullable String getThrowableString(@Nullable Throwable throwable) {
     if (throwable == null) {
       return null;
     }

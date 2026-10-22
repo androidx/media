@@ -22,7 +22,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.exoplayer.video.PlaceholderSurface;
+import androidx.media3.exoplayer.video.PlaceholderSurfaceInterface;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import java.util.ArrayList;
@@ -43,9 +43,9 @@ import org.jspecify.annotations.Nullable;
   private final Context context;
   private final List<VideoSinkOperation> pendingOperations;
 
-  @Nullable private VideoSink videoSink;
+  private @Nullable VideoSink videoSink;
   private boolean isInitialized;
-  private @MonotonicNonNull PlaceholderSurface placeholderSurface;
+  private @MonotonicNonNull PlaceholderSurfaceInterface placeholderSurface;
 
   public BufferingVideoSink(Context context) {
     this.context = context;
@@ -70,8 +70,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   /** Returns the underlying {@link VideoSink} or {@code null} if there is none. */
-  @Nullable
-  public VideoSink getVideoSink() {
+  public @Nullable VideoSink getVideoSink() {
     return videoSink;
   }
 
@@ -166,8 +165,8 @@ import org.jspecify.annotations.Nullable;
   /**
    * {@inheritDoc}
    *
-   * <p>A {@link PlaceholderSurface} is returned if the {@linkplain #setVideoSink(VideoSink)
-   * underlying sink} is {@code null}.
+   * <p>A {@linkplain PlaceholderSurfaceInterface placeholder surface} is returned if the
+   * {@linkplain #setVideoSink(VideoSink) underlying sink} is {@code null}.
    */
   @Override
   public Surface getInputSurface() {
@@ -287,11 +286,11 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  /* package */ PlaceholderSurface getPlaceholderSurface() {
+  /* package */ Surface getPlaceholderSurface() {
     if (placeholderSurface == null) {
-      placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
+      placeholderSurface = PlaceholderSurfaceInterface.newInstance(context, /* secure= */ false);
     }
-    return placeholderSurface;
+    return placeholderSurface.getSurface();
   }
 
   private interface VideoSinkOperation {

@@ -37,7 +37,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
 
   public static final String SCHEME_DATA = "data";
 
-  @Nullable private DataSpec dataSpec;
+  private @Nullable DataSpec dataSpec;
   private byte @Nullable [] data;
   private int readPosition;
   private int bytesRemaining;
@@ -100,8 +100,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return dataSpec != null ? dataSpec.uri : null;
   }
 

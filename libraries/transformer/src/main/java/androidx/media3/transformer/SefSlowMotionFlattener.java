@@ -68,7 +68,7 @@ import org.jspecify.annotations.Nullable;
   private final byte[] scratch;
 
   /** The SEF slow motion configuration of the input. */
-  @Nullable private final SlowMotionData slowMotionData;
+  private final @Nullable SlowMotionData slowMotionData;
 
   /** The MIME type of video data stored in input buffers. */
   private final String mimeType;
@@ -95,13 +95,13 @@ import org.jspecify.annotations.Nullable;
    * The {@link SegmentInfo} describing the current slow motion segment, or null if the current
    * frame is not in such a segment.
    */
-  @Nullable private SegmentInfo currentSegmentInfo;
+  private @Nullable SegmentInfo currentSegmentInfo;
 
   /**
    * The {@link SegmentInfo} describing the slow motion segment following (not including) the
    * current frame, or null if there is no such segment.
    */
-  @Nullable private SegmentInfo nextSegmentInfo;
+  private @Nullable SegmentInfo nextSegmentInfo;
 
   /**
    * The time delta to be added to the output timestamps before scaling to take the slow motion
@@ -355,7 +355,7 @@ import org.jspecify.annotations.Nullable;
     public int normalSpeedMaxLayer;
 
     /** The input {@link SlowMotionData}. */
-    @Nullable public SlowMotionData slowMotionData;
+    public @Nullable SlowMotionData slowMotionData;
 
     public MetadataInfo() {
       captureFrameRate = C.RATE_UNSET;

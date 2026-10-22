@@ -36,7 +36,7 @@ public final class LoadEventInfo {
     private DataSpec dataSpec;
     private long elapsedRealtimeMs;
     private Uri uri;
-    @Nullable private String steeredPathwayId;
+    private @Nullable String steeredPathwayId;
     private Map<String, List<String>> responseHeaders;
     private long loadDurationMs;
     private long bytesLoaded;
@@ -204,7 +204,7 @@ public final class LoadEventInfo {
    * The ID of the steered pathway from which data is being loaded, or {@code null} if not
    * applicable.
    */
-  @Nullable public final String steeredPathwayId;
+  public final @Nullable String steeredPathwayId;
 
   /** The response headers associated with the load, or an empty map if unavailable. */
   public final Map<String, List<String>> responseHeaders;

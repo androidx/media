@@ -29,7 +29,7 @@ public class SimpleDecoderOutputBuffer extends DecoderOutputBuffer {
 
   private final Owner<SimpleDecoderOutputBuffer> owner;
 
-  @Nullable public ByteBuffer data;
+  public @Nullable ByteBuffer data;
 
   public SimpleDecoderOutputBuffer(Owner<SimpleDecoderOutputBuffer> owner) {
     this.owner = owner;

@@ -68,10 +68,10 @@ public final class TrackSelectionDialogBuilder {
   private boolean allowAdaptiveSelections;
   private boolean allowMultipleOverrides;
   private boolean showDisableOption;
-  @Nullable private TrackNameProvider trackNameProvider;
+  private @Nullable TrackNameProvider trackNameProvider;
   private boolean isDisabled;
   private ImmutableMap<TrackGroup, TrackSelectionOverride> overrides;
-  @Nullable private Comparator<Format> trackFormatComparator;
+  private @Nullable Comparator<Format> trackFormatComparator;
 
   /**
    * Creates a builder for a track selection dialog.
@@ -268,8 +268,7 @@ public final class TrackSelectionDialogBuilder {
 
   // Reflection calls can't verify null safety of return values or parameters.
   @SuppressWarnings("nullness:argument")
-  @Nullable
-  private Dialog buildForAndroidX() {
+  private @Nullable Dialog buildForAndroidX() {
     try {
       // This method uses reflection to avoid a dependency on AndroidX appcompat that adds 800KB to
       // the APK size even with shrinking. See https://issuetracker.google.com/161514204.

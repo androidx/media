@@ -75,7 +75,7 @@ import org.jspecify.annotations.Nullable;
   private final Handler playbackThreadHandler;
   private final RtpDataChannel.Factory rtpDataChannelFactory;
 
-  @Nullable private RtpDataChannel dataChannel;
+  private @Nullable RtpDataChannel dataChannel;
   private @MonotonicNonNull RtpExtractor extractor;
   private @MonotonicNonNull DefaultExtractorInput extractorInput;
 

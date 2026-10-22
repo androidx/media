@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class DownloadNotificationHelper {
 
-  private static final @StringRes int NULL_STRING_ID = 0;
+  @StringRes private static final int NULL_STRING_ID = 0;
 
   private final Notification.Builder notificationBuilder;
 

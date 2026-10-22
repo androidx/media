@@ -131,8 +131,8 @@ public final class AudioFocusManager {
 
   private final Supplier<AudioManager> audioManager;
   private final Handler eventHandler;
-  @Nullable private PlayerControl playerControl;
-  @Nullable private AudioAttributes audioAttributes;
+  private @Nullable PlayerControl playerControl;
+  private @Nullable AudioAttributes audioAttributes;
 
   private @AudioFocusState int audioFocusState;
   private @AudioManagerCompat.AudioFocusGain int focusGainToRequest;

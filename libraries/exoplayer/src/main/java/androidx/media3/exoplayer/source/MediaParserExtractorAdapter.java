@@ -176,8 +176,7 @@ public final class MediaParserExtractorAdapter implements ProgressiveMediaExtrac
   }
 
   @Override
-  @Nullable
-  public String getUnderlyingImplementationName() {
+  public @Nullable String getUnderlyingImplementationName() {
     return mediaParser.getParserName().equals(MediaParser.PARSER_NAME_UNKNOWN)
         ? null
         : mediaParser.getParserName();

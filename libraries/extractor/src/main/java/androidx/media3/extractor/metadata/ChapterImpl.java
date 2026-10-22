@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
   private final long startTimeMs;
   private final long endTimeMs;
   private final boolean isHidden;
-  @Nullable private final Label title;
+  private final @Nullable Label title;
 
   /**
    * Creates an instance.
@@ -62,9 +62,8 @@ import org.jspecify.annotations.Nullable;
     return isHidden;
   }
 
-  @Nullable
   @Override
-  public Label getTitle() {
+  public @Nullable Label getTitle() {
     return title;
   }
 

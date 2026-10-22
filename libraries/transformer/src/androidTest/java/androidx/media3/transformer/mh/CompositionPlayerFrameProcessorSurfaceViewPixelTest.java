@@ -616,14 +616,12 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     public void setKeepScreenOn(boolean screenOn) {}
 
     @Override
-    @Nullable
-    public Canvas lockCanvas() {
+    public @Nullable Canvas lockCanvas() {
       return null;
     }
 
     @Override
-    @Nullable
-    public Canvas lockCanvas(Rect dirty) {
+    public @Nullable Canvas lockCanvas(Rect dirty) {
       return null;
     }
 

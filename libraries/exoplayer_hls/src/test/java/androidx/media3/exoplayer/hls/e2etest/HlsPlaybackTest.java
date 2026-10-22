@@ -558,8 +558,8 @@ public final class HlsPlaybackTest {
 
   private static class AnalyticsListenerImpl implements AnalyticsListener {
 
-    @Nullable private LoadEventInfo loadErrorEventInfo;
-    @Nullable private IOException loadError;
+    private @Nullable LoadEventInfo loadErrorEventInfo;
+    private @Nullable IOException loadError;
 
     @Override
     public void onLoadError(

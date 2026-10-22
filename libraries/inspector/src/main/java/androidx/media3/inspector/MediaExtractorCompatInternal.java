@@ -53,6 +53,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.FileDescriptorDataSource;
 import androidx.media3.datasource.MediaDataSourceAdapter;
+import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
@@ -114,15 +115,15 @@ import org.jspecify.annotations.Nullable;
 
   private boolean hasBeenPrepared;
   private long offsetInCurrentFile;
-  @Nullable private DataSource currentDataSource;
-  @Nullable private FileDescriptor duplicatedFileDescriptor;
-  @Nullable private SeekPoint pendingSeek;
+  private @Nullable DataSource currentDataSource;
+  private @Nullable FileDescriptor duplicatedFileDescriptor;
+  private @Nullable SeekPoint pendingSeek;
 
-  @Nullable private SeekMap seekMap;
+  private @Nullable SeekMap seekMap;
   private boolean tracksEnded;
   private int upstreamFormatsCount;
-  @Nullable private Map<String, String> httpRequestHeaders;
-  @Nullable private LogSessionId logSessionId;
+  private @Nullable Map<String, String> httpRequestHeaders;
+  private @Nullable LogSessionId logSessionId;
 
   /**
    * Creates a new instance using the given {@link ProgressiveMediaExtractor} to obtain media
@@ -524,8 +525,8 @@ import org.jspecify.annotations.Nullable;
       return -1;
     }
     // The platform media extractor implementation ignores the buffer's input position and limit.
-    buffer.position(offset);
     buffer.limit(buffer.capacity());
+    buffer.position(offset);
     sampleHolderWithBufferReplacementDisabled.data = buffer;
     peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
     buffer.flip();
@@ -551,9 +552,8 @@ import org.jspecify.annotations.Nullable;
       return -1;
     }
     peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
-    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementEnabled.data);
-    int sampleSize = buffer.position();
-    buffer.position(0);
+    int sampleSize = checkNotNull(sampleHolderWithBufferReplacementEnabled.data).position();
+    sampleHolderWithBufferReplacementEnabled.clear();
     return sampleSize;
   }
 
@@ -594,18 +594,21 @@ import org.jspecify.annotations.Nullable;
     }
     peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
     populatePlatformCryptoInfoParameters(info);
+    sampleHolderWithBufferReplacementEnabled.clear();
     return true;
   }
 
   private void populatePlatformCryptoInfoParameters(MediaCodec.CryptoInfo info) {
-    MediaCodec.CryptoInfo platformCryptoInfo =
-        checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo).getFrameworkCryptoInfo();
+    CryptoInfo cryptoInfo = checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo);
+    MediaCodec.CryptoInfo platformCryptoInfo = cryptoInfo.getFrameworkCryptoInfo();
     info.numSubSamples = platformCryptoInfo.numSubSamples;
     info.numBytesOfClearData = platformCryptoInfo.numBytesOfClearData;
     info.numBytesOfEncryptedData = platformCryptoInfo.numBytesOfEncryptedData;
     info.key = platformCryptoInfo.key;
     info.iv = platformCryptoInfo.iv;
     info.mode = platformCryptoInfo.mode;
+    info.setPattern(
+        new MediaCodec.CryptoInfo.Pattern(cryptoInfo.encryptedBlocks, cryptoInfo.clearBlocks));
   }
 
   /** Sets the {@link LogSessionId} for MediaExtractorCompat. */
@@ -927,7 +930,7 @@ import org.jspecify.annotations.Nullable;
 
     private final MediaExtractorSampleQueue sampleQueue;
     private final boolean isCompatibilityTrack;
-    @Nullable private final String compatibilityTrackMimeType;
+    private final @Nullable String compatibilityTrackMimeType;
 
     private MediaExtractorTrack(
         MediaExtractorSampleQueue sampleQueue,
@@ -1113,8 +1116,7 @@ import org.jspecify.annotations.Nullable;
      *
      * @return The first {@link SampleMetadata} in the queue, or {@code null} if empty.
      */
-    @Nullable
-    private SampleMetadata peekFirst() {
+    private @Nullable SampleMetadata peekFirst() {
       return sampleMetadataQueue.peekFirst();
     }
 

@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 public abstract class ImageOutputBuffer extends DecoderOutputBuffer {
 
   /** The decoded {@link Bitmap}. */
-  @Nullable public Bitmap bitmap;
+  public @Nullable Bitmap bitmap;
 
   @Override
   @CallSuper

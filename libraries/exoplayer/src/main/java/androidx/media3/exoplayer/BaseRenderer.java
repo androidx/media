@@ -75,12 +75,12 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private final @C.TrackType int trackType;
   private final FormatHolder formatHolder;
 
-  @Nullable private RendererConfiguration configuration;
+  private @Nullable RendererConfiguration configuration;
   private int index;
   private @MonotonicNonNull PlayerId playerId;
   private @MonotonicNonNull Clock clock;
   private int state;
-  @Nullable private SampleStream stream;
+  private @Nullable SampleStream stream;
   private Format @Nullable [] streamFormats;
   private long streamOffsetUs;
   private long lastResetPositionUs;
@@ -126,8 +126,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   @Override
-  @Nullable
-  public MediaClock getMediaClock() {
+  public @Nullable MediaClock getMediaClock() {
     return null;
   }
 
@@ -185,8 +184,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   @Override
-  @Nullable
-  public final SampleStream getStream() {
+  public final @Nullable SampleStream getStream() {
     return stream;
   }
 

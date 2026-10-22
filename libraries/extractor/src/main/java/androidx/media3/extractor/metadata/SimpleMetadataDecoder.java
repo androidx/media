@@ -28,8 +28,7 @@ import org.jspecify.annotations.Nullable;
 public abstract class SimpleMetadataDecoder implements MetadataDecoder {
 
   @Override
-  @Nullable
-  public final Metadata decode(MetadataInputBuffer inputBuffer) {
+  public final @Nullable Metadata decode(MetadataInputBuffer inputBuffer) {
     ByteBuffer buffer = checkNotNull(inputBuffer.data);
     checkArgument(buffer.position() == 0 && buffer.hasArray() && buffer.arrayOffset() == 0);
     return decode(inputBuffer, buffer);
@@ -46,6 +45,5 @@ public abstract class SimpleMetadataDecoder implements MetadataDecoder {
    *     {@code 0} respectively.
    * @return The decoded metadata object, or {@code null} if the metadata could not be decoded.
    */
-  @Nullable
-  protected abstract Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer);
+  protected abstract @Nullable Metadata decode(MetadataInputBuffer inputBuffer, ByteBuffer buffer);
 }

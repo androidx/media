@@ -51,7 +51,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
   public static final class Factory {
 
     private long durationUs;
-    @Nullable private Object tag;
+    private @Nullable Object tag;
 
     /**
      * Sets the duration of the silent audio. The value needs to be a positive value.
@@ -229,6 +229,11 @@ public final class SilenceMediaSource extends BaseMediaSource {
 
     @Override
     public void discardBuffer(long positionUs, boolean toKeyframe) {}
+
+    @Override
+    public boolean supportsStreamPrerollFlags() {
+      return true;
+    }
 
     @Override
     public long readDiscontinuity() {

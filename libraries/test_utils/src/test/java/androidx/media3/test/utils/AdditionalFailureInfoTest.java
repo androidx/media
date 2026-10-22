@@ -147,7 +147,7 @@ public final class AdditionalFailureInfoTest {
    */
   private static class ExpectedException implements TestRule {
 
-    @Nullable private Consumer<Throwable> throwableAssertions;
+    private @Nullable Consumer<Throwable> throwableAssertions;
 
     /**
      * Provide a callback of assertions to execute on the caught exception.

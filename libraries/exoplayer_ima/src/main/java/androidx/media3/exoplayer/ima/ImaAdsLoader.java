@@ -112,14 +112,14 @@ public final class ImaAdsLoader implements AdsLoader {
 
     private final Context context;
 
-    @Nullable private ImaSdkSettings imaSdkSettings;
-    @Nullable private AdErrorListener adErrorListener;
-    @Nullable private AdEventListener adEventListener;
+    private @Nullable ImaSdkSettings imaSdkSettings;
+    private @Nullable AdErrorListener adErrorListener;
+    private @Nullable AdEventListener adEventListener;
     private VideoAdPlayer.@Nullable VideoAdPlayerCallback videoAdPlayerCallback;
-    @Nullable private List<String> adMediaMimeTypes;
-    @Nullable private Set<UiElement> adUiElements;
-    @Nullable private Collection<CompanionAdSlot> companionAdSlots;
-    @Nullable private Boolean enableContinuousPlayback;
+    private @Nullable List<String> adMediaMimeTypes;
+    private @Nullable Set<UiElement> adUiElements;
+    private @Nullable Collection<CompanionAdSlot> companionAdSlots;
+    private @Nullable Boolean enableContinuousPlayback;
     private long adPreloadTimeoutMs;
     private int vastLoadTimeoutMs;
     private int mediaLoadTimeoutMs;
@@ -452,10 +452,10 @@ public final class ImaAdsLoader implements AdsLoader {
   private final Timeline.Window window;
 
   private boolean wasSetPlayerCalled;
-  @Nullable private Player nextPlayer;
+  private @Nullable Player nextPlayer;
   private List<String> supportedMimeTypes;
-  @Nullable private Player player;
-  @Nullable private AdTagLoader currentAdTagLoader;
+  private @Nullable Player player;
+  private @Nullable AdTagLoader currentAdTagLoader;
 
   private ImaAdsLoader(
       Context context, ImaUtil.Configuration configuration, ImaUtil.ImaFactory imaFactory) {
@@ -491,8 +491,7 @@ public final class ImaAdsLoader implements AdsLoader {
    * registration.
    */
   @UnstableApi
-  @Nullable
-  public AdDisplayContainer getAdDisplayContainer() {
+  public @Nullable AdDisplayContainer getAdDisplayContainer() {
     return currentAdTagLoader != null ? currentAdTagLoader.getAdDisplayContainer() : null;
   }
 
@@ -687,8 +686,7 @@ public final class ImaAdsLoader implements AdsLoader {
     }
   }
 
-  @Nullable
-  private AdTagLoader getCurrentAdTagLoader() {
+  private @Nullable AdTagLoader getCurrentAdTagLoader() {
     @Nullable Player player = this.player;
     if (player == null) {
       return null;

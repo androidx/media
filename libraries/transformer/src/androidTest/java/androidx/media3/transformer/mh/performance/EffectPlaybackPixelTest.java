@@ -504,8 +504,7 @@ public class EffectPlaybackPixelTest {
     }
   }
 
-  @Nullable
-  private static MediaCodecVideoRenderer findVideoRenderer(ExoPlayer player) {
+  private static @Nullable MediaCodecVideoRenderer findVideoRenderer(ExoPlayer player) {
     for (int i = 0; i < player.getRendererCount(); i++) {
       if (player.getRendererType(i) == C.TRACK_TYPE_VIDEO) {
         Renderer renderer = player.getRenderer(i);

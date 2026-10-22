@@ -132,8 +132,7 @@ public class DownloadServiceDashTest {
                 }
 
                 @Override
-                @Nullable
-                protected Scheduler getScheduler() {
+                protected @Nullable Scheduler getScheduler() {
                   return null;
                 }
 

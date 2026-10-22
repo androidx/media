@@ -245,9 +245,8 @@ public class DefaultActionFactoryTest {
 
   /** A test service for unit tests. */
   public static final class TestService extends MediaLibraryService {
-    @Nullable
     @Override
-    public MediaLibrarySession onGetSession(MediaSession.ControllerInfo controllerInfo) {
+    public @Nullable MediaLibrarySession onGetSession(MediaSession.ControllerInfo controllerInfo) {
       return null;
     }
   }

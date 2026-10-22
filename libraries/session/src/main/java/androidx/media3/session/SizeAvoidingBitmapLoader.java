@@ -65,9 +65,8 @@ import org.jspecify.annotations.Nullable;
     return Futures.transform(future, this::scaleIfNecessary, directExecutor());
   }
 
-  @Nullable
   @Override
-  public ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+  public @Nullable ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
     ListenableFuture<Bitmap> future = bitmapLoader.loadBitmapFromMetadata(metadata);
     return future == null
         ? null

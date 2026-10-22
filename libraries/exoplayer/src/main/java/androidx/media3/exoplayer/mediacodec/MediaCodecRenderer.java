@@ -140,7 +140,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     private static final int DECODER_QUERY_ERROR = CUSTOM_ERROR_CODE_BASE + 2;
 
     /** The MIME type for which a decoder was being initialized. */
-    @Nullable public final String mimeType;
+    public final @Nullable String mimeType;
 
     /** Whether it was required that the decoder support a secure output path. */
     public final boolean secureDecoderRequired;
@@ -149,17 +149,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
      * The {@link MediaCodecInfo} of the decoder that failed to initialize. Null if no suitable
      * decoder was found.
      */
-    @Nullable public final MediaCodecInfo codecInfo;
+    public final @Nullable MediaCodecInfo codecInfo;
 
     /** An optional developer-readable diagnostic information string. May be null. */
-    @Nullable public final String diagnosticInfo;
+    public final @Nullable String diagnosticInfo;
 
     /**
      * If the decoder failed to initialize and another decoder being used as a fallback also failed
      * to initialize, the {@link DecoderInitializationException} for the fallback decoder. Null if
      * there was no fallback decoder or no suitable decoders were found.
      */
-    @Nullable public final DecoderInitializationException fallbackDecoderInitializationException;
+    public final @Nullable DecoderInitializationException fallbackDecoderInitializationException;
 
     public DecoderInitializationException(
         Format format, @Nullable Throwable cause, boolean secureDecoderRequired, int errorCode) {
@@ -328,10 +328,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
   private final AtomicInteger readDataResultHolder;
 
-  @Nullable private Format inputFormat;
+  private @Nullable Format inputFormat;
   private @MonotonicNonNull Format outputFormat;
-  @Nullable private DrmSession codecDrmSession;
-  @Nullable private DrmSession sourceDrmSession;
+  private @Nullable DrmSession codecDrmSession;
+  private @Nullable DrmSession sourceDrmSession;
   private @MonotonicNonNull WakeupListener wakeupListener;
 
   /**
@@ -345,19 +345,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * {@link #sourceDrmSession} will also be null), or if decryption is happening without framework
    * support ({@link #codecDrmSession} and {@link #sourceDrmSession} will be non-null).
    */
-  @Nullable private MediaCrypto mediaCrypto;
+  private @Nullable MediaCrypto mediaCrypto;
 
   private long renderTimeLimitMs;
   private float currentPlaybackSpeed;
   private float targetPlaybackSpeed;
-  @Nullable private MediaCodecAdapter codec;
-  @Nullable private Format codecInputFormat;
-  @Nullable private MediaFormat codecOutputMediaFormat;
+  private @Nullable MediaCodecAdapter codec;
+  private @Nullable Format codecInputFormat;
+  private @Nullable MediaFormat codecOutputMediaFormat;
   private boolean codecOutputMediaFormatChanged;
   private float codecOperatingRate;
-  @Nullable private ArrayDeque<MediaCodecInfo> availableCodecInfos;
-  @Nullable private DecoderInitializationException preferredDecoderInitializationException;
-  @Nullable private MediaCodecInfo codecInfo;
+  private @Nullable ArrayDeque<MediaCodecInfo> availableCodecInfos;
+  private @Nullable DecoderInitializationException preferredDecoderInitializationException;
+  private @Nullable MediaCodecInfo codecInfo;
   private boolean codecNeedsAdaptationWorkaround;
   private boolean codecNeedsSosFlushWorkaround;
   private boolean codecNeedsAdaptationWorkaroundBuffer;
@@ -368,7 +368,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private long codecHotswapDeadlineMs;
   private int inputIndex;
   private int outputIndex;
-  @Nullable private ByteBuffer outputBuffer;
+  private @Nullable ByteBuffer outputBuffer;
   private boolean isDecodeOnlyOutputBuffer;
   private boolean isOutputBufferStale;
   private boolean bypassEnabled;
@@ -387,7 +387,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean outputStreamEnded;
   private boolean waitingForFirstSampleInFormat;
   private boolean pendingOutputEndOfStream;
-  @Nullable private ExoPlaybackException pendingPlaybackException;
+  private @Nullable ExoPlaybackException pendingPlaybackException;
   protected DecoderCounters decoderCounters;
   private OutputStreamInfo outputStreamInfo;
   private long lastProcessedOutputBufferTimeUs;
@@ -688,23 +688,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
   }
 
-  @Nullable
-  protected final MediaCodecAdapter getCodec() {
+  protected final @Nullable MediaCodecAdapter getCodec() {
     return codec;
   }
 
-  @Nullable
-  protected final Format getCodecInputFormat() {
+  protected final @Nullable Format getCodecInputFormat() {
     return codecInputFormat;
   }
 
-  @Nullable
-  protected final MediaFormat getCodecOutputMediaFormat() {
+  protected final @Nullable MediaFormat getCodecOutputMediaFormat() {
     return codecOutputMediaFormat;
   }
 
-  @Nullable
-  protected final MediaCodecInfo getCodecInfo() {
+  protected final @Nullable MediaCodecInfo getCodecInfo() {
     return codecInfo;
   }
 
@@ -1759,8 +1755,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     reused for the new format, or {@code null} if the renderer did not have a decoder.
    */
   @CallSuper
-  @Nullable
-  protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+  protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
     if (DEBUG_LOG_ENABLED) {
       Log.d(
@@ -2111,8 +2106,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /** Returns listener used to signal that {@link #render(long, long)} should be called. */
-  @Nullable
-  protected final WakeupListener getWakeupListener() {
+  protected final @Nullable WakeupListener getWakeupListener() {
     return wakeupListener;
   }
 

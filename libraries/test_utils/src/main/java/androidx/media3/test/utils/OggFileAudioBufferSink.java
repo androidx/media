@@ -52,7 +52,7 @@ public final class OggFileAudioBufferSink extends ForwardingAudioSink {
   private final ByteBuffer scratchByteBuffer;
   private final String outputFileNamePrefix;
 
-  @Nullable private RandomAccessFile randomAccessFile;
+  private @Nullable RandomAccessFile randomAccessFile;
   private int counter;
 
   /**

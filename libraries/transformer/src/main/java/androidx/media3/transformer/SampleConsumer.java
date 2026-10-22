@@ -83,8 +83,7 @@ public interface SampleConsumer {
    *
    * <p>Should only be used for compressed data and raw audio data.
    */
-  @Nullable
-  default DecoderInputBuffer getInputBuffer() {
+  default @Nullable DecoderInputBuffer getInputBuffer() {
     throw new UnsupportedOperationException();
   }
 

@@ -76,7 +76,7 @@ import org.jspecify.annotations.Nullable;
   public final @Player.State int playbackState;
 
   /** The current playback error, or null if this is not an error state. */
-  @Nullable public final ExoPlaybackException playbackError;
+  public final @Nullable ExoPlaybackException playbackError;
 
   /** Whether the player is currently loading. */
   public final boolean isLoading;

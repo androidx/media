@@ -53,7 +53,7 @@ public final class OpusDecoder
   public final boolean outputFloat;
   public final int channelCount;
 
-  @Nullable private final CryptoConfig cryptoConfig;
+  private final @Nullable CryptoConfig cryptoConfig;
   private final int preSkipSamples;
   private final int seekPreRollSamples;
   private final long nativeDecoderContext;
@@ -164,8 +164,7 @@ public final class OpusDecoder
   }
 
   @Override
-  @Nullable
-  protected OpusDecoderException decode(
+  protected @Nullable OpusDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       opusReset(nativeDecoderContext);

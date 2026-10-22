@@ -97,11 +97,10 @@ public class FakeSampleStream implements SampleStream {
           /* format= */ null, new SampleInfo(sampleData.clone(), flags, timeUs));
     }
 
-    @Nullable private final Format format;
+    private final @Nullable Format format;
 
-    @Nullable
     @VisibleForTesting(otherwise = PRIVATE)
-    /* package */ final SampleInfo sampleInfo;
+    /* package */ final @Nullable SampleInfo sampleInfo;
 
     /**
      * Creates an instance. Exactly one of {@code format} or {@code sampleInfo} must be non-null.
@@ -119,8 +118,8 @@ public class FakeSampleStream implements SampleStream {
 
   private int sampleStreamItemsWritePosition;
   private boolean loadingFinished;
-  @Nullable private Format downstreamFormat;
-  @Nullable private Format notifiedDownstreamFormat;
+  private @Nullable Format downstreamFormat;
+  private @Nullable Format notifiedDownstreamFormat;
   private @SampleStream.Flags int flags;
 
   /**

@@ -111,7 +111,7 @@ public final class CronetDataSourceTest {
   private ExecutorService executorService;
   private CronetDataSource dataSourceUnderTest;
   private boolean redirectCalled;
-  @Nullable private MockWebServer mockWebServer;
+  private @Nullable MockWebServer mockWebServer;
 
   @Before
   public void setUp() {

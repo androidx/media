@@ -203,7 +203,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
   private final SubtitleParser.Factory subtitleParserFactory;
   private final @Flags int flags;
-  @Nullable private final Track sideloadedTrack;
+  private final @Nullable Track sideloadedTrack;
 
   // Sideloaded data.
   private final List<Format> closedCaptionFormats;
@@ -219,7 +219,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ParsableByteArray scratch;
 
   // Adjusts sample timestamps.
-  @Nullable private final TimestampAdjuster timestampAdjuster;
+  private final @Nullable TimestampAdjuster timestampAdjuster;
 
   private final EventMessageEncoder eventMessageEncoder;
 
@@ -228,7 +228,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private final ArrayDeque<ContainerBox> containerAtoms;
   private final ArrayDeque<MetadataSampleInfo> pendingMetadataSampleInfos;
   private final ReorderingBufferQueue reorderingBufferQueue;
-  @Nullable private final TrackOutput additionalEmsgTrackOutput;
+  private final @Nullable TrackOutput additionalEmsgTrackOutput;
 
   private final ChunkIndexMerger chunkIndexMerger;
 
@@ -237,14 +237,14 @@ public class FragmentedMp4Extractor implements Extractor {
   private int atomType;
   private long atomSize;
   private int atomHeaderBytesRead;
-  @Nullable private ParsableByteArray atomData;
+  private @Nullable ParsableByteArray atomData;
   private long endOfMdatPosition;
   private int pendingMetadataSampleBytes;
   private long pendingSeekTimeUs;
 
   private long durationUs;
   private long segmentIndexEarliestPresentationTimeUs;
-  @Nullable private TrackBundle currentTrackBundle;
+  private @Nullable TrackBundle currentTrackBundle;
   private int sampleSize;
   private int sampleBytesWritten;
   private int sampleCurrentNalBytesRemaining;
@@ -885,8 +885,7 @@ public class FragmentedMp4Extractor implements Extractor {
     return track.durationUs;
   }
 
-  @Nullable
-  protected Track modifyTrack(@Nullable Track track) {
+  protected @Nullable Track modifyTrack(@Nullable Track track) {
     if (track == null) {
       return null;
     }
@@ -1268,8 +1267,7 @@ public class FragmentedMp4Extractor implements Extractor {
    * @return The {@link TrackBundle} to which the {@link TrackFragment} belongs, or null if the tfhd
    *     does not refer to any {@link TrackBundle}.
    */
-  @Nullable
-  private static TrackBundle parseTfhd(
+  private static @Nullable TrackBundle parseTfhd(
       ParsableByteArray tfhd, SparseArray<TrackBundle> trackBundles, boolean haveSideloadedTrack) {
     tfhd.setPosition(Mp4Box.HEADER_SIZE);
     int fullAtom = tfhd.readInt();
@@ -1962,8 +1960,7 @@ public class FragmentedMp4Extractor implements Extractor {
    * Returns the {@link TrackBundle} whose sample has the earliest file position out of those yet to
    * be consumed, or null if all have been consumed.
    */
-  @Nullable
-  private static TrackBundle getNextTrackBundle(SparseArray<TrackBundle> trackBundles) {
+  private static @Nullable TrackBundle getNextTrackBundle(SparseArray<TrackBundle> trackBundles) {
     @Nullable TrackBundle nextTrackBundle = null;
     long nextSampleOffset = Long.MAX_VALUE;
 
@@ -1987,8 +1984,7 @@ public class FragmentedMp4Extractor implements Extractor {
   }
 
   /** Returns DrmInitData from leaf atoms. */
-  @Nullable
-  private static DrmInitData getDrmInitDataFromAtoms(List<LeafBox> leafChildren) {
+  private static @Nullable DrmInitData getDrmInitDataFromAtoms(List<LeafBox> leafChildren) {
     @Nullable ArrayList<SchemeData> schemeDatas = null;
     int leafChildrenSize = leafChildren.size();
     for (int i = 0; i < leafChildrenSize; i++) {
@@ -2346,7 +2342,7 @@ public class FragmentedMp4Extractor implements Extractor {
      * A {@link Format} that needs to be passed to {@link #output}, after being possibly modified
      * based on sample data, before {@link TrackOutput#sampleMetadata} is called.
      */
-    @Nullable private Format pendingFormat;
+    private @Nullable Format pendingFormat;
 
     private Format baseFormat;
 
@@ -2596,8 +2592,7 @@ public class FragmentedMp4Extractor implements Extractor {
       }
     }
 
-    @Nullable
-    public TrackEncryptionBox getEncryptionBoxIfEncrypted() {
+    public @Nullable TrackEncryptionBox getEncryptionBoxIfEncrypted() {
       if (!currentlyInFragment) {
         // Encryption is not supported yet for samples specified in the sample table.
         return null;

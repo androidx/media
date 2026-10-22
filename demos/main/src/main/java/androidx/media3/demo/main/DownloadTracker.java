@@ -79,7 +79,7 @@ public class DownloadTracker {
   private final HashMap<Uri, Download> downloads;
   private final DownloadIndex downloadIndex;
 
-  @Nullable private StartDownloadDialogHelper startDownloadDialogHelper;
+  private @Nullable StartDownloadDialogHelper startDownloadDialogHelper;
 
   public DownloadTracker(
       Context context, DataSource.Factory dataSourceFactory, DownloadManager downloadManager) {
@@ -107,8 +107,7 @@ public class DownloadTracker {
     return download != null && download.state != Download.STATE_FAILED;
   }
 
-  @Nullable
-  public DownloadRequest getDownloadRequest(Uri uri) {
+  public @Nullable DownloadRequest getDownloadRequest(Uri uri) {
     @Nullable Download download = downloads.get(uri);
     return download != null && download.state != Download.STATE_FAILED ? download.request : null;
   }
@@ -269,8 +268,7 @@ public class DownloadTracker {
      * Returns the first {@link Format} with a non-null {@link Format#drmInitData} found in the
      * content's tracks, or null if none is found.
      */
-    @Nullable
-    private Format getFirstFormatWithDrmInitData(DownloadHelper helper) {
+    private @Nullable Format getFirstFormatWithDrmInitData(DownloadHelper helper) {
       if (!tracksInfoAvailable) {
         return null;
       }

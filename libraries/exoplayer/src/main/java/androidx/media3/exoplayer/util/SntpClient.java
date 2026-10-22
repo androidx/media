@@ -392,7 +392,7 @@ public final class SntpClient {
 
   private static final class NtpTimeCallback implements Loader.Callback<Loadable> {
 
-    @Nullable private final InitializationCallback callback;
+    private final @Nullable InitializationCallback callback;
 
     public NtpTimeCallback(@Nullable InitializationCallback callback) {
       this.callback = callback;

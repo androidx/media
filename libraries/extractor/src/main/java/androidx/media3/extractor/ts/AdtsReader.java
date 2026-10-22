@@ -70,7 +70,7 @@ public final class AdtsReader implements ElementaryStreamReader {
   private final boolean exposeId3;
   private final ParsableBitArray adtsScratch;
   private final ParsableByteArray id3HeaderBuffer;
-  @Nullable private final String language;
+  private final @Nullable String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
 

@@ -73,7 +73,7 @@ import org.jspecify.annotations.Nullable;
   private long streamGranulePosition;
   private boolean isContinuedPage;
   private boolean wroteIdentificationAndCommentHeader;
-  @Nullable private VorbisIdHeader vorbisIdHeader;
+  private @Nullable VorbisIdHeader vorbisIdHeader;
   private Mode @Nullable [] vorbisModes;
   private int previousVorbisPacketBlockSize;
   private boolean seenFirstVorbisAudioPacket;

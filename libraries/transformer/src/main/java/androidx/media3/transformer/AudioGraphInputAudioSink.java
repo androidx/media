@@ -116,11 +116,11 @@ import org.jspecify.annotations.Nullable;
 
   private final Controller controller;
 
-  @Nullable private AudioGraphInput outputGraphInput;
-  @Nullable private Format currentInputFormat;
+  private @Nullable AudioGraphInput outputGraphInput;
+  private @Nullable Format currentInputFormat;
   private boolean inputStreamEnded;
   private boolean signalledEndOfStream;
-  @Nullable private EditedMediaItem currentEditedMediaItem;
+  private @Nullable EditedMediaItem currentEditedMediaItem;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
   private long outputStreamOffsetUs;
@@ -352,9 +352,8 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void setAudioAttributes(AudioAttributes audioAttributes) {}
 
-  @Nullable
   @Override
-  public AudioAttributes getAudioAttributes() {
+  public @Nullable AudioAttributes getAudioAttributes() {
     return null;
   }
 

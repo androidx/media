@@ -202,7 +202,7 @@ public class DefaultLoadControl implements LoadControl {
 
     private final HashMap<String, Integer> playerTargetBufferBytes;
 
-    @Nullable private DefaultAllocator allocator;
+    private @Nullable DefaultAllocator allocator;
     private int minBufferMs;
     private int minBufferForLocalPlaybackMs;
     private int maxBufferMs;
@@ -222,7 +222,7 @@ public class DefaultLoadControl implements LoadControl {
     // setPrioritizeTimeOverSizeThresholds methods should not use local playback specific defaults
     // for the other setter to avoid unintended side effects of changing one default but keeping the
     // manual override for the other.
-    @Nullable private Boolean onlyGenericConfigurationMethodsCalled;
+    private @Nullable Boolean onlyGenericConfigurationMethodsCalled;
 
     /** Constructs a new instance. */
     public Builder() {

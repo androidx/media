@@ -40,6 +40,9 @@ import androidx.media3.ui.compose.state.SeekForwardButtonState
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks forward in the current
  * media item.
  *
+ * ![SeekForwardButton
+ * image](https://developer.android.com/images/reference/androidx/media3/ui/compose/material3/seek-forward-button.svg)
+ *
  * When clicked, it attempts to seek forward in the [player] by the amount returned by
  * [Player.getSeekForwardIncrement]. The button's state (e.g., whether it's enabled) is managed by a
  * [SeekForwardButtonState] instance derived from the provided [player].

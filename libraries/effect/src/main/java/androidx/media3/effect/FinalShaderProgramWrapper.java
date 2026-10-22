@@ -102,7 +102,7 @@ import org.jspecify.annotations.Nullable;
 
   private int inputWidth;
   private int inputHeight;
-  @Nullable private DefaultShaderProgram defaultShaderProgram;
+  private @Nullable DefaultShaderProgram defaultShaderProgram;
   // Whether the input stream has ended, but not all input has been released. This is relevant only
   // when renderFramesAutomatically is false. Ensures all frames are rendered before reporting
   // onInputStreamProcessed.
@@ -113,12 +113,12 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull Listener listener;
   private boolean matrixTransformationsChanged;
   private boolean outputSurfaceInfoChanged;
-  @Nullable private SurfaceInfo outputSurfaceInfo;
+  private @Nullable SurfaceInfo outputSurfaceInfo;
 
   private long redrawFramePresentationTimeUs;
 
   /** Wraps the {@link Surface} in {@link #outputSurfaceInfo}. */
-  @Nullable private EGLSurface outputEglSurface;
+  private @Nullable EGLSurface outputEglSurface;
 
   public FinalShaderProgramWrapper(
       Context context,

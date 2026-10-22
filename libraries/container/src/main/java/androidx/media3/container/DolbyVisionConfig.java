@@ -81,7 +81,7 @@ public final class DolbyVisionConfig {
    * The RFC 6381 codecs string, or {@code null} if the profile isn't recognized and so a codecs
    * string can't be constructed.
    */
-  @Nullable public final String codecs;
+  public final @Nullable String codecs;
 
   private DolbyVisionConfig(int profile, int level, @Nullable String codecs) {
     this.profile = profile;

@@ -117,19 +117,19 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private final SubtitleDecoderFactory subtitleDecoderFactory;
   private boolean waitingForKeyFrame;
   private @ReplacementState int decoderReplacementState;
-  @Nullable private SubtitleDecoder subtitleDecoder;
-  @Nullable private SubtitleInputBuffer nextSubtitleInputBuffer;
-  @Nullable private SubtitleOutputBuffer subtitle;
-  @Nullable private SubtitleOutputBuffer nextSubtitle;
+  private @Nullable SubtitleDecoder subtitleDecoder;
+  private @Nullable SubtitleInputBuffer nextSubtitleInputBuffer;
+  private @Nullable SubtitleOutputBuffer subtitle;
+  private @Nullable SubtitleOutputBuffer nextSubtitle;
   private int nextSubtitleEventIndex;
 
   // Fields used with both CuesWithTiming and Subtitle objects
-  @Nullable private final Handler outputHandler;
+  private final @Nullable Handler outputHandler;
   private final TextOutput output;
   private final FormatHolder formatHolder;
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
-  @Nullable private Format streamFormat;
+  private @Nullable Format streamFormat;
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;

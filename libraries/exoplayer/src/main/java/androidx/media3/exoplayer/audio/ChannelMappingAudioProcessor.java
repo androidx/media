@@ -40,8 +40,8 @@ import org.jspecify.annotations.Nullable;
 public final class ChannelMappingAudioProcessor extends BaseAudioProcessor
     implements MetricsProvider {
 
-  @Nullable private ImmutableIntArray pendingOutputChannels;
-  @Nullable private ImmutableIntArray outputChannels;
+  private @Nullable ImmutableIntArray pendingOutputChannels;
+  private @Nullable ImmutableIntArray outputChannels;
 
   /**
    * @deprecated Use {@link #setChannelMap(ImmutableIntArray)} instead.

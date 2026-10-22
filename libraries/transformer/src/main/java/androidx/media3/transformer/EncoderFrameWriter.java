@@ -90,14 +90,14 @@ public class EncoderFrameWriter implements FrameWriter {
   private final Listener listener;
   private final Executor listenerExecutor;
   private final Handler imageReleaseHandler;
-  @Nullable private final LogSessionId logSessionId;
+  private final @Nullable LogSessionId logSessionId;
 
   private int inUseCount;
   private @MonotonicNonNull Format configurationFormat;
-  @Nullable private ImageWriter imageWriter;
-  @Nullable private Codec encoder;
-  @Nullable private Executor wakeupExecutor;
-  @Nullable private Runnable wakeupListener;
+  private @Nullable ImageWriter imageWriter;
+  private @Nullable Codec encoder;
+  private @Nullable Executor wakeupExecutor;
+  private @Nullable Runnable wakeupListener;
 
   public EncoderFrameWriter(
       Codec.EncoderFactory encoderFactory,
@@ -156,9 +156,8 @@ public class EncoderFrameWriter implements FrameWriter {
     imageWriter.setOnImageReleasedListener((writer) -> onImageReleased(), imageReleaseHandler);
   }
 
-  @Nullable
   @Override
-  public synchronized AsyncFrame dequeueInputFrame(
+  public synchronized @Nullable AsyncFrame dequeueInputFrame(
       Executor wakeupExecutor, Runnable wakeupListener) {
     checkState(imageWriter != null);
     if (inUseCount == CAPACITY) {

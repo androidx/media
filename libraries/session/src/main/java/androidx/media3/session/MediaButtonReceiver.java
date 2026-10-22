@@ -271,8 +271,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
-  @Nullable
-  private static ComponentName getServiceComponentByAction(Context context, String action) {
+  private static @Nullable ComponentName getServiceComponentByAction(
+      Context context, String action) {
     PackageManager pm = context.getPackageManager();
     Intent queryIntent = new Intent(action);
     queryIntent.setPackage(context.getPackageName());

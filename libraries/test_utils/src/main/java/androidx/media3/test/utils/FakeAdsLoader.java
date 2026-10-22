@@ -34,7 +34,7 @@ public final class FakeAdsLoader implements AdsLoader {
 
   public final Map<Object, EventListener> eventListeners;
 
-  @Nullable public Player player;
+  public @Nullable Player player;
   public int @ContentType [] supportedContentTypes;
 
   /** Creates an instance. */

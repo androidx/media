@@ -98,8 +98,7 @@ public final class FlacDecoder
   }
 
   @Override
-  @Nullable
-  protected FlacDecoderException decode(
+  protected @Nullable FlacDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
       decoderJni.flush();

@@ -46,8 +46,8 @@ import org.jspecify.annotations.Nullable;
   private final ArrayList<MediaPeriod> childrenPendingPreparation;
   private final HashMap<TrackGroup, TrackGroup> childTrackGroupByMergedTrackGroup;
 
-  @Nullable private Callback callback;
-  @Nullable private TrackGroupArray trackGroups;
+  private @Nullable Callback callback;
+  private @Nullable TrackGroupArray trackGroups;
   private MediaPeriod[] enabledPeriods;
   private SequenceableLoader compositeSequenceableLoader;
 
@@ -228,6 +228,16 @@ import org.jspecify.annotations.Nullable;
     for (MediaPeriod period : periods) {
       period.setUsesStreamPrerollFlags();
     }
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    for (MediaPeriod period : periods) {
+      if (!period.supportsStreamPrerollFlags()) {
+        return false;
+      }
+    }
+    return periods.length > 0;
   }
 
   @Override

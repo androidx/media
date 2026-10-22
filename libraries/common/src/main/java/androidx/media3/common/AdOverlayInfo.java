@@ -64,7 +64,7 @@ public final class AdOverlayInfo {
     private final View view;
     private final @Purpose int purpose;
 
-    @Nullable private String detailedReason;
+    private @Nullable String detailedReason;
 
     /**
      * Creates a new builder.
@@ -103,7 +103,7 @@ public final class AdOverlayInfo {
   public final @Purpose int purpose;
 
   /** An optional, detailed reason that the overlay view is needed. */
-  @Nullable public final String reasonDetail;
+  public final @Nullable String reasonDetail;
 
   /**
    * @deprecated Use {@link Builder} instead.

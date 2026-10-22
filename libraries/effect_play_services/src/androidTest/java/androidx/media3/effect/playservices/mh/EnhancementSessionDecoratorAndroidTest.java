@@ -98,8 +98,8 @@ public final class EnhancementSessionDecoratorAndroidTest {
   private FrameProcessor.Factory baseGlFactory;
   private FakeFrameWriter fakeDownstreamOutput;
   private FakeFrameProcessor.Listener testListener;
-  @Nullable private FrameProcessor decorator;
-  @Nullable private Transformer transformer;
+  private @Nullable FrameProcessor decorator;
+  private @Nullable Transformer transformer;
 
   @Before
   public void setUp() throws Exception {

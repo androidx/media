@@ -116,9 +116,9 @@ public final class RawResourceDataSource extends BaseDataSource {
 
   private final Context applicationContext;
 
-  @Nullable private DataSpec dataSpec;
-  @Nullable private AssetFileDescriptor assetFileDescriptor;
-  @Nullable private InputStream inputStream;
+  private @Nullable DataSpec dataSpec;
+  private @Nullable AssetFileDescriptor assetFileDescriptor;
+  private @Nullable InputStream inputStream;
   private long bytesRemaining;
   private boolean opened;
 
@@ -339,8 +339,7 @@ public final class RawResourceDataSource extends BaseDataSource {
   }
 
   @Override
-  @Nullable
-  public Uri getUri() {
+  public @Nullable Uri getUri() {
     return dataSpec != null ? dataSpec.uri : null;
   }
 

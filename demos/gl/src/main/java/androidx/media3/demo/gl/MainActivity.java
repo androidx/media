@@ -63,10 +63,10 @@ public final class MainActivity extends Activity {
   private static final String DRM_SCHEME_EXTRA = "drm_scheme";
   private static final String DRM_LICENSE_URL_EXTRA = "drm_license_url";
 
-  @Nullable private PlayerView playerView;
-  @Nullable private VideoProcessingGLSurfaceView videoProcessingGLSurfaceView;
+  private @Nullable PlayerView playerView;
+  private @Nullable VideoProcessingGLSurfaceView videoProcessingGLSurfaceView;
 
-  @Nullable private ExoPlayer player;
+  private @Nullable ExoPlayer player;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {

@@ -134,7 +134,7 @@ public final class DashMediaSource extends BaseMediaSource {
     private long fallbackTargetLiveOffsetMs;
     private long minLiveStartPositionUs;
     private ParsingLoadable.@Nullable Parser<? extends DashManifest> manifestParser;
-    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
+    private @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a new factory for {@link DashMediaSource}s.
@@ -437,7 +437,7 @@ public final class DashMediaSource extends BaseMediaSource {
   private final DataSource.Factory manifestDataSourceFactory;
   private final DashChunkSource.Factory chunkSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final BaseUrlExclusionList baseUrlExclusionList;
@@ -452,7 +452,7 @@ public final class DashMediaSource extends BaseMediaSource {
   private final Runnable simulateManifestRefreshRunnable;
   private final PlayerEmsgCallback playerEmsgCallback;
   private final LoaderErrorThrower manifestLoadErrorThrower;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @GuardedBy("manifestLocationsLock")
   private final Map<String, Long> excludedManifestServiceLocations;
@@ -461,22 +461,20 @@ public final class DashMediaSource extends BaseMediaSource {
   private ImmutableList<Location> manifestLocations;
 
   @GuardedBy("manifestLocationsLock")
-  @Nullable
-  private Location currentManifestLocation;
+  private @Nullable Location currentManifestLocation;
 
   @GuardedBy("manifestLocationsLock")
   private Uri initialManifestUri;
 
   @GuardedBy("manifestLocationsLock")
-  @Nullable
-  private ImmutableList<String> serviceLocationSteeringPriority;
+  private @Nullable ImmutableList<String> serviceLocationSteeringPriority;
 
-  @Nullable private DashContentSteeringTracker contentSteeringTracker;
-  @Nullable private SteeringQueryParamsProvider steeringQueryParamsProvider;
+  private @Nullable DashContentSteeringTracker contentSteeringTracker;
+  private @Nullable SteeringQueryParamsProvider steeringQueryParamsProvider;
 
   private DataSource dataSource;
   private Loader loader;
-  @Nullable private TransferListener mediaTransferListener;
+  private @Nullable TransferListener mediaTransferListener;
 
   private IOException manifestFatalError;
   private Handler handler;

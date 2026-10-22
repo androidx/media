@@ -74,8 +74,7 @@ public final class LoopingMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  @Nullable
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     MaskingMediaSource maskingMediaSource = (MaskingMediaSource) mediaSource;
     return loopCount != Integer.MAX_VALUE
         ? new LoopingTimeline(maskingMediaSource.getTimeline(), loopCount)
@@ -121,8 +120,8 @@ public final class LoopingMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(MediaPeriodId mediaPeriodId) {
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+      MediaPeriodId mediaPeriodId) {
     return loopCount != Integer.MAX_VALUE
         ? childMediaPeriodIdToMediaPeriodId.get(mediaPeriodId)
         : mediaPeriodId;

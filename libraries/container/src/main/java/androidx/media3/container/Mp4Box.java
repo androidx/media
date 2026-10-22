@@ -612,8 +612,7 @@ public abstract class Mp4Box {
      * @param type The leaf type.
      * @return The child leaf of the given type, or null if no such child exists.
      */
-    @Nullable
-    public LeafBox getLeafBoxOfType(int type) {
+    public @Nullable LeafBox getLeafBoxOfType(int type) {
       int childrenSize = leafChildren.size();
       for (int i = 0; i < childrenSize; i++) {
         LeafBox box = leafChildren.get(i);
@@ -633,8 +632,7 @@ public abstract class Mp4Box {
      * @param type The container type.
      * @return The child container of the given type, or null if no such child exists.
      */
-    @Nullable
-    public ContainerBox getContainerBoxOfType(int type) {
+    public @Nullable ContainerBox getContainerBoxOfType(int type) {
       int childrenSize = containerChildren.size();
       for (int i = 0; i < childrenSize; i++) {
         ContainerBox box = containerChildren.get(i);

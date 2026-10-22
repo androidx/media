@@ -46,7 +46,7 @@ public abstract class BitmapOverlay extends TextureOverlay {
 
   private int lastTextureId;
   private int lastBitmapGenerationId;
-  @Nullable private Bitmap lastBitmap;
+  private @Nullable Bitmap lastBitmap;
 
   public BitmapOverlay() {
     float[] temp = GlUtil.create4x4IdentityMatrix();

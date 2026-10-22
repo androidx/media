@@ -177,8 +177,7 @@ public class FakeClock implements Clock {
   private long timeSinceBootMs;
 
   @GuardedBy("this")
-  @Nullable
-  private Looper activeMessageLooper;
+  private @Nullable Looper activeMessageLooper;
 
   /**
    * Creates a fake clock that doesn't auto-advance and assumes that the system was booted exactly
@@ -505,11 +504,11 @@ public class FakeClock implements Clock {
     private final long messageId;
     private final long timeMs;
     private final ClockHandler handler;
-    @Nullable private final Runnable runnable;
+    private final @Nullable Runnable runnable;
     private final int what;
     private final int arg1;
     private final int arg2;
-    @Nullable private final Object obj;
+    private final @Nullable Object obj;
 
     private HandlerMessage(
         long timeMs,

@@ -653,9 +653,8 @@ public final class ProgressiveMediaPeriodTest {
             return assetDataSource.read(buffer, offset, length);
           }
 
-          @Nullable
           @Override
-          public Uri getUri() {
+          public @Nullable Uri getUri() {
             return assetDataSource.getUri();
           }
 
@@ -898,6 +897,33 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
     assertThat(streams[1].getFlags()).isEqualTo(0);
     assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(0);
+    mediaPeriod.release();
+  }
+
+  @Test
+  public void setUsesStreamPrerollFlags_afterSelectTracks_clearsInitialDiscontinuity()
+      throws Exception {
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(Uri.parse("asset://android_asset/media/mp4/sample_edit_list.mp4"));
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @Nullable ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @Nullable SampleStream[] streams = new SampleStream[trackGroups.length];
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[trackGroups.length],
+            streams,
+            new boolean[trackGroups.length],
+            /* positionUs= */ 0);
+
+    mediaPeriod.setUsesStreamPrerollFlags();
+
+    assertThat(mediaPeriod.supportsStreamPrerollFlags()).isTrue();
+    assertThat(streams[0].getFlags()).isEqualTo(SampleStream.FLAG_HAS_PREROLL);
+    assertThat(streams[1].getFlags()).isEqualTo(0);
+    assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
     mediaPeriod.release();
   }
 
@@ -2995,8 +3021,7 @@ public final class ProgressiveMediaPeriodTest {
     }
 
     @Override
-    @Nullable
-    public Uri getUri() {
+    public @Nullable Uri getUri() {
       return delegate.getUri();
     }
 

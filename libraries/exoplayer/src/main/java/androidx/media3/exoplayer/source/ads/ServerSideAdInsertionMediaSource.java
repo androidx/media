@@ -111,14 +111,13 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   private final ListMultimap<Pair<Long, Object>, SharedMediaPeriod> mediaPeriods;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcherWithoutId;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcherWithoutId;
-  @Nullable private final AdPlaybackStateUpdater adPlaybackStateUpdater;
+  private final @Nullable AdPlaybackStateUpdater adPlaybackStateUpdater;
   private final Timeline.Period period;
 
   @GuardedBy("this")
-  @Nullable
-  private Handler playbackHandler;
+  private @Nullable Handler playbackHandler;
 
-  @Nullable private SharedMediaPeriod lastUsedMediaPeriod;
+  private @Nullable SharedMediaPeriod lastUsedMediaPeriod;
   private ImmutableMap<Object, AdPlaybackState> adPlaybackStates;
   private Timeline sourceTimeline;
   private Timeline splitTimeline;
@@ -572,8 +571,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     }
   }
 
-  @Nullable
-  private MediaPeriodImpl getMediaPeriodForEvent(
+  private @Nullable MediaPeriodImpl getMediaPeriodForEvent(
       @Nullable MediaPeriodId mediaPeriodId,
       @Nullable MediaLoadData mediaLoadData,
       boolean useLoadingPeriod) {
@@ -656,7 +654,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     private final Object periodUid;
 
     private AdPlaybackState adPlaybackState;
-    @Nullable private MediaPeriodImpl loadingPeriod;
+    private @Nullable MediaPeriodImpl loadingPeriod;
     private boolean hasStartedPreparing;
     private boolean isPrepared;
     public @Nullable ExoTrackSelection[] trackSelections;
@@ -720,8 +718,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       return startPositionUs == previousEndPositionUs;
     }
 
-    @Nullable
-    public MediaPeriodImpl getMediaPeriodForEvent(@Nullable MediaLoadData mediaLoadData) {
+    public @Nullable MediaPeriodImpl getMediaPeriodForEvent(@Nullable MediaLoadData mediaLoadData) {
       if (mediaLoadData != null && mediaLoadData.mediaStartTimeMs != C.TIME_UNSET) {
         for (int i = 0; i < mediaPeriods.size(); i++) {
           MediaPeriodImpl mediaPeriod = mediaPeriods.get(i);
@@ -986,6 +983,10 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       actualMediaPeriod.setUsesStreamPrerollFlags();
     }
 
+    private boolean supportsStreamPrerollFlags() {
+      return actualMediaPeriod.supportsStreamPrerollFlags();
+    }
+
     private long getStreamPositionUsWithNotYetStartedHandling(
         MediaPeriodImpl mediaPeriod, long positionUs) {
       if (positionUs < mediaPeriod.lastStartPositionUs) {
@@ -1240,6 +1241,11 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     @Override
     public void setUsesStreamPrerollFlags() {
       sharedPeriod.setUsesStreamPrerollFlags();
+    }
+
+    @Override
+    public boolean supportsStreamPrerollFlags() {
+      return sharedPeriod.supportsStreamPrerollFlags();
     }
 
     @Override

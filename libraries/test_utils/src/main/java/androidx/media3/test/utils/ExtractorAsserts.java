@@ -147,7 +147,7 @@ public final class ExtractorAsserts {
      *   <li>Dumps: {@code extractordumps/$mediapath}
      * </ul>
      */
-    @Nullable public final String dumpFilesPrefix;
+    public final @Nullable String dumpFilesPrefix;
 
     /**
      * Controls how consecutive formats with no intervening samples are handled. If true, only the
@@ -164,7 +164,7 @@ public final class ExtractorAsserts {
 
     /** Builder for {@link AssertionConfig} instances. */
     public static class Builder {
-      @Nullable private String dumpFilesPrefix;
+      private @Nullable String dumpFilesPrefix;
       private boolean deduplicateConsecutiveFormats;
 
       @CanIgnoreReturnValue
@@ -525,6 +525,16 @@ public final class ExtractorAsserts {
           output.trackOutputs.valueAt(i).clear();
         }
         extractor.seek(0, 0);
+      }
+    }
+    // Reading again after the end of input must be a no-op.
+    while (true) {
+      try {
+        assertThat(extractor.read(input, seekPositionHolder))
+            .isEqualTo(Extractor.RESULT_END_OF_INPUT);
+        break;
+      } catch (SimulatedIOException e) {
+        // Retry.
       }
     }
   }

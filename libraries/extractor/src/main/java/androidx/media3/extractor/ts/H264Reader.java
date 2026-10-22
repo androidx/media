@@ -576,7 +576,7 @@ public final class H264Reader implements ElementaryStreamReader {
       private boolean isComplete;
       private boolean hasSliceType;
 
-      @Nullable private SpsData spsData;
+      private @Nullable SpsData spsData;
       private int nalRefIdc;
       private int sliceType;
       private int frameNum;

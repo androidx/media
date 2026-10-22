@@ -23,19 +23,19 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class ProgramInformation {
   /** The title for the media presentation. */
-  @Nullable public final String title;
+  public final @Nullable String title;
 
   /** Information about the original source of the media presentation. */
-  @Nullable public final String source;
+  public final @Nullable String source;
 
   /** A copyright statement for the media presentation. */
-  @Nullable public final String copyright;
+  public final @Nullable String copyright;
 
   /** A URL that provides more information about the media presentation. */
-  @Nullable public final String moreInformationURL;
+  public final @Nullable String moreInformationURL;
 
   /** Declares the language code(s) for this ProgramInformation. */
-  @Nullable public final String lang;
+  public final @Nullable String lang;
 
   public ProgramInformation(
       @Nullable String title,

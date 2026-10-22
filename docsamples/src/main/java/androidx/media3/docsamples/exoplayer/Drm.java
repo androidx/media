@@ -39,9 +39,9 @@ public class Drm {
     @Override
     public void setPlayer(Looper playbackLooper, PlayerId playerId) {}
 
-    @Nullable
     @Override
-    public DrmSession acquireSession(@Nullable EventDispatcher eventDispatcher, Format format) {
+    public @Nullable DrmSession acquireSession(
+        @Nullable EventDispatcher eventDispatcher, Format format) {
       return null;
     }
 

@@ -1281,6 +1281,18 @@ public final class AssetInfo {
           .setAudioDurationUs(1_000_000)
           .build();
 
+  public static final AssetInfo WAV_8BIT_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_8bit.wav").build();
+
+  public static final AssetInfo WAV_FLOAT32_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_float32.wav").build();
+
+  public static final AssetInfo WAV_FLOAT64_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_float64.wav").build();
+
+  public static final AssetInfo RAW_WAV_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/bbb_2ch_44kHz.wav").build();
+
   public static final AssetInfo FLAC_STEREO_ASSET =
       new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
 
@@ -1302,20 +1314,82 @@ public final class AssetInfo {
           .setVideoFrameCount(15)
           .build();
 
+  public static final AssetInfo H264_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_no_bframes.mp4").build();
+
+  public static final AssetInfo H264_WITH_NON_REFERENCE_B_FRAMES_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_800x640_768kbps_30fps_avc_non_reference_3b.mp4")
+          .build();
+
+  public static final AssetInfo H264_WITH_PYRAMID_B_FRAMES_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_800x640_768kbps_30fps_avc_pyramid_3b.mp4")
+          .build();
+
+  public static final AssetInfo H264_WITH_FIRST_PTS_10_SEC_MP4_ASSET =
+      new AssetInfo.Builder(
+              "asset:///media/mp4/bbb_800x640_768kbps_30fps_avc_2b_firstpts_10_sec.mp4")
+          .build();
+
+  public static final AssetInfo H264_DOLBY_VISION_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/video_dovi_1920x1080_60fps_dvav_09.mp4").build();
+
+  public static final AssetInfo H265_DOLBY_VISION_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_edit_list.mp4").build();
+
+  public static final AssetInfo H265_WITH_METADATA_TRACK_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/h265_with_metadata_track.mp4").build();
+
+  public static final AssetInfo APV_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_with_apvc.mp4").build();
+
+  public static final AssetInfo IT35_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_with_it35_track.mp4").build();
+
   public static final AssetInfo MPEG4_MP4_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/bbb_176x144_192kbps_15fps_mpeg4.mp4")
           .setTrackCount(1)
           .setVideoFrameCount(15)
           .build();
 
+  // Contains CSD in CodecPrivate format.
+  public static final AssetInfo VP9_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_800x640_768kbps_30fps_vp9.mp4").build();
+
+  public static final AssetInfo VP9_WEBM_ASSET =
+      new AssetInfo.Builder("asset:///media/mkv/bbb_642x642_768kbps_30fps_vp9.webm").build();
+
   public static final AssetInfo RAW_AAC_ASSET =
       new AssetInfo.Builder("asset:///media/aac/sine.aac").setAudioDurationUs(1_040_000).build();
+
+  public static final AssetInfo AAC_LC_AAC_ASSET =
+      new AssetInfo.Builder("asset:///media/aac/bbb_1ch_8kHz_aac_lc.aac").build();
+
+  public static final AssetInfo AAC_M4A_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_1ch_8kHz_aac_lc.m4a").build();
+
+  public static final AssetInfo AAC_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_1ch_16kHz_aac.mp4").build();
+
+  public static final AssetInfo AUDIO_ONLY_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_audio_only_15s.mp4").build();
+
+  public static final AssetInfo E_AC3_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_eac3.mp4").build();
+
+  public static final AssetInfo E_AC3_JOC_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_eac3joc.mp4").build();
+
+  public static final AssetInfo IAMF_OPUS_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/5p1_iamf_opus.mp4").build();
 
   public static final AssetInfo AMR_NB_SINE_ASSET =
       new AssetInfo.Builder("asset:///media/amr/sine-nb.amr").setAudioDurationUs(1_050_000).build();
 
+  public static final AssetInfo OPUS_OGG_ASSET =
+      new AssetInfo.Builder("asset:///media/ogg/bbb_6ch_8kHz_opus.ogg").build();
+
   public static final AssetInfo VORBIS_OGG_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_1ch_16kHz_q10_vorbis.ogg")
+      new AssetInfo.Builder("asset:///media/ogg/bbb_1ch_16kHz_q10_vorbis.ogg")
           .setTrackCount(1)
           .setAudioSampleCount(103)
           .build();
@@ -1329,8 +1403,7 @@ public final class AssetInfo {
   /** Video {@link Format}, or {@code null}. */
   // Format object is not deeply immutable but it is meant to be immutable.
   @SuppressWarnings("Immutable")
-  @Nullable
-  public final Format videoFormat;
+  public final @Nullable Format videoFormat;
 
   /** Video duration in microseconds, or {@link C#TIME_UNSET}. */
   public final long videoDurationUs;
@@ -1345,7 +1418,7 @@ public final class AssetInfo {
   public final int audioSampleCount;
 
   /** Video frame timestamps in microseconds, or {@code null}. */
-  @Nullable public final ImmutableList<Long> videoTimestampsUs;
+  public final @Nullable ImmutableList<Long> videoTimestampsUs;
 
   private AssetInfo(
       String uri,

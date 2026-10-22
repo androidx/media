@@ -54,19 +54,19 @@ import org.jspecify.annotations.Nullable;
     implements MediaPeriod, SequenceableLoader.Callback<ChunkSampleStream<SsChunkSource>> {
 
   private final SsChunkSource.Factory chunkSourceFactory;
-  @Nullable private final TransferListener transferListener;
+  private final @Nullable TransferListener transferListener;
   private final LoaderErrorThrower manifestLoaderErrorThrower;
   private final DrmSessionManager drmSessionManager;
-  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  private final @Nullable CmcdConfiguration cmcdConfiguration;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private final Allocator allocator;
   private final TrackGroupArray trackGroups;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
-  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
+  private final @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
-  @Nullable private Callback callback;
+  private @Nullable Callback callback;
   private SsManifest manifest;
   private ChunkSampleStream<SsChunkSource>[] sampleStreams;
   private SequenceableLoader compositeSequenceableLoader;
@@ -210,6 +210,11 @@ import org.jspecify.annotations.Nullable;
   @Override
   public long getNextLoadPositionUs() {
     return compositeSequenceableLoader.getNextLoadPositionUs();
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
   }
 
   @Override

@@ -56,7 +56,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
 
     private final Context context;
 
-    @Nullable private ListeningExecutorService listeningExecutorService;
+    private @Nullable ListeningExecutorService listeningExecutorService;
     private DataSource.@Nullable Factory dataSourceFactory;
     private BitmapFactory.@Nullable Options options;
     private int maximumOutputDimension;

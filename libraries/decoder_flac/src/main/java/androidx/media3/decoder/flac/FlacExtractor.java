@@ -89,7 +89,7 @@ public final class FlacExtractor implements Extractor {
   private final boolean id3MetadataDisabled;
   private final boolean ignoreArtwork;
 
-  @Nullable private FlacDecoderJni decoderJni;
+  private @Nullable FlacDecoderJni decoderJni;
   private @MonotonicNonNull ExtractorOutput extractorOutput;
   private @MonotonicNonNull TrackOutput trackOutput;
 
@@ -97,8 +97,8 @@ public final class FlacExtractor implements Extractor {
   private @MonotonicNonNull FlacStreamMetadata streamMetadata;
   private @MonotonicNonNull OutputFrameHolder outputFrameHolder;
 
-  @Nullable private Metadata id3Metadata;
-  @Nullable private FlacBinarySearchSeeker binarySearchSeeker;
+  private @Nullable Metadata id3Metadata;
+  private @Nullable FlacBinarySearchSeeker binarySearchSeeker;
 
   /** Constructs an instance with {@code flags = 0}. */
   public FlacExtractor() {
@@ -257,8 +257,7 @@ public final class FlacExtractor implements Extractor {
    * Outputs a {@link SeekMap} and returns a {@link FlacBinarySearchSeeker} if one is required to
    * handle seeks.
    */
-  @Nullable
-  private static FlacBinarySearchSeeker outputSeekMap(
+  private static @Nullable FlacBinarySearchSeeker outputSeekMap(
       FlacDecoderJni decoderJni,
       FlacStreamMetadata streamMetadata,
       long streamLength,

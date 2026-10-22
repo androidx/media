@@ -47,11 +47,11 @@ import org.jspecify.annotations.Nullable;
   private static final String TAG = "GlTextureCopier";
 
   private final Context context;
-  @Nullable private GlProgram sdrExternalCopyGlProgram;
-  @Nullable private GlProgram sdrInternalCopyGlProgram;
-  @Nullable private GlProgram hdrExternalCopyGlProgram;
-  @Nullable private GlProgram hdrInternalCopyGlProgram;
-  @Nullable private GlProgram ultraHdrCopyGlProgram;
+  private @Nullable GlProgram sdrExternalCopyGlProgram;
+  private @Nullable GlProgram sdrInternalCopyGlProgram;
+  private @Nullable GlProgram hdrExternalCopyGlProgram;
+  private @Nullable GlProgram hdrInternalCopyGlProgram;
+  private @Nullable GlProgram ultraHdrCopyGlProgram;
   private int fboId = C.INDEX_UNSET;
 
   public GlTextureCopier(Context context) {

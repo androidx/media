@@ -89,7 +89,7 @@ public class SubtitleExtractor implements Extractor {
 
   private final SubtitleParser subtitleParser;
   private final CueEncoder cueEncoder;
-  @Nullable private final Format format;
+  private final @Nullable Format format;
   private final List<Sample> samples;
   private final ParsableByteArray scratchSampleArray;
 

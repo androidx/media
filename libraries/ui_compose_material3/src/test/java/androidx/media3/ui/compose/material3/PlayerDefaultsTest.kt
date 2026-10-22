@@ -51,11 +51,10 @@ class PlayerDefaultsTest {
   private val customContentTag = "custom_content"
 
   @Test
-  fun topControls_visibleTrue_isDisplayed() {
+  fun topControls_withContent_displaysContent() {
     composeTestRule.setContent {
       PlayerDefaults.TopControls(
         player = FakePlayer(),
-        visible = true,
         modifier = Modifier.testTag(topControlsTag),
         content = { Box(Modifier.size(100.dp).testTag(topControlsContentTag)) },
       )
@@ -65,43 +64,15 @@ class PlayerDefaultsTest {
   }
 
   @Test
-  fun topControls_visibleFalse_isNotDisplayed() {
-    composeTestRule.setContent {
-      PlayerDefaults.TopControls(
-        player = FakePlayer(),
-        visible = false,
-        modifier = Modifier.testTag(topControlsTag),
-        content = { Box(Modifier.size(100.dp).testTag(topControlsTag)) },
-      )
-    }
-
-    composeTestRule.onNodeWithTag(topControlsTag).assertDoesNotExist()
-  }
-
-  @Test
-  fun centerControls_visibleTrue_isDisplayed() {
+  fun centerControls_default_isDisplayed() {
     composeTestRule.setContent {
       PlayerDefaults.CenterControls(
         player = FakePlayer(),
-        visible = true,
         modifier = Modifier.size(100.dp).testTag(centerControlsTag),
       )
     }
 
     composeTestRule.onNodeWithTag(centerControlsTag).assertIsDisplayed()
-  }
-
-  @Test
-  fun centerControls_visibleFalse_isNotDisplayed() {
-    composeTestRule.setContent {
-      PlayerDefaults.CenterControls(
-        player = FakePlayer(),
-        visible = false,
-        modifier = Modifier.size(100.dp).testTag(centerControlsTag),
-      )
-    }
-
-    composeTestRule.onNodeWithTag(centerControlsTag).assertDoesNotExist()
   }
 
   @Test
@@ -116,11 +87,7 @@ class PlayerDefaultsTest {
         setSeekBackIncrementMs(10_000L)
       }
     composeTestRule.setContent {
-      PlayerDefaults.CenterControls(
-        player = player,
-        modifier = Modifier.size(400.dp),
-        visible = true,
-      )
+      PlayerDefaults.CenterControls(player = player, modifier = Modifier.size(400.dp))
     }
 
     composeTestRule.onNode(hasContentDescription(seekBackwardDesc)).assertIsDisplayed()
@@ -141,7 +108,6 @@ class PlayerDefaultsTest {
     composeTestRule.setContent {
       PlayerDefaults.CenterControls(
         player = FakePlayer(),
-        visible = true,
         central = { Box(Modifier.size(100.dp).testTag(customButtonTag)) },
       )
     }
@@ -153,11 +119,10 @@ class PlayerDefaultsTest {
   }
 
   @Test
-  fun bottomControls_visibleTrue_isDisplayed() {
+  fun bottomControls_default_isDisplayed() {
     composeTestRule.setContent {
       PlayerDefaults.BottomControls(
         player = FakePlayer(),
-        visible = true,
         modifier = Modifier.testTag(bottomControlsTag),
       )
     }
@@ -166,24 +131,10 @@ class PlayerDefaultsTest {
   }
 
   @Test
-  fun bottomControls_visibleFalse_isNotDisplayed() {
-    composeTestRule.setContent {
-      PlayerDefaults.BottomControls(
-        player = FakePlayer(),
-        visible = false,
-        modifier = Modifier.testTag(bottomControlsTag),
-      )
-    }
-
-    composeTestRule.onNodeWithTag(bottomControlsTag).assertDoesNotExist()
-  }
-
-  @Test
   fun bottomControls_customSlider_isDisplayed() {
     composeTestRule.setContent {
       PlayerDefaults.BottomControls(
         player = FakePlayer(),
-        visible = true,
         progressSlider = { Box(Modifier.size(100.dp).testTag(customSliderTag)) },
       )
     }
@@ -196,7 +147,6 @@ class PlayerDefaultsTest {
     composeTestRule.setContent {
       PlayerDefaults.BottomControls(
         player = FakePlayer(),
-        visible = true,
         above = { Box(Modifier.size(100.dp).testTag(customContentTag)) },
       )
     }
@@ -209,7 +159,6 @@ class PlayerDefaultsTest {
     composeTestRule.setContent {
       PlayerDefaults.BottomControls(
         player = FakePlayer(),
-        visible = true,
         below = { Box(Modifier.size(100.dp).testTag(customContentTag)) },
       )
     }

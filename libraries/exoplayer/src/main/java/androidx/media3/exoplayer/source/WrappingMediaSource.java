@@ -79,9 +79,8 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
     prepareChildSource();
   }
 
-  @Nullable
   @Override
-  public Timeline getInitialTimeline() {
+  public @Nullable Timeline getInitialTimeline() {
     return mediaSource.getInitialTimeline();
   }
 
@@ -184,9 +183,8 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
     return windowIndex;
   }
 
-  @Nullable
   @Override
-  protected final MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+  protected final @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
       Void childSourceId, MediaPeriodId mediaPeriodId) {
     return getMediaPeriodIdForChildMediaPeriodId(mediaPeriodId);
   }
@@ -200,8 +198,8 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
    * @return The corresponding {@link MediaPeriodId} in the wrapping source. Null if no
    *     corresponding media period id can be determined.
    */
-  @Nullable
-  protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(MediaPeriodId mediaPeriodId) {
+  protected @Nullable MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
+      MediaPeriodId mediaPeriodId) {
     return mediaPeriodId;
   }
 

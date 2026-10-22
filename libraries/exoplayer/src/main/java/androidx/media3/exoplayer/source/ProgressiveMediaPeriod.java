@@ -139,11 +139,11 @@ import org.jspecify.annotations.Nullable;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final Listener listener;
   private final Allocator allocator;
-  @Nullable private final String customCacheKey;
+  private final @Nullable String customCacheKey;
   private final long continueLoadingCheckIntervalBytes;
   private final boolean loadOnlySelectedTracks;
   private final int singleTrackId;
-  @Nullable private final Format singleTrackFormat;
+  private final @Nullable Format singleTrackFormat;
   private final long singleSampleDurationUs;
   private final Loader loader;
   private final ProgressiveMediaExtractor progressiveMediaExtractor;
@@ -154,8 +154,8 @@ import org.jspecify.annotations.Nullable;
   private final List<MergingMetadataSampleStream> mergingSampleStreams;
   private final LoadingStateMachine loadingStateMachine;
 
-  @Nullable private Callback callback;
-  @Nullable private IcyHeaders icyHeaders;
+  private @Nullable Callback callback;
+  private @Nullable IcyHeaders icyHeaders;
   // TODO(b/457738425) - Consider merging controledTrackOutputs, sampleQueues together, since they
   // are essentially the same objects.
   private ControlledTrackOutput[] controlledTrackOutputs;
@@ -538,6 +538,11 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void setUsesStreamPrerollFlags() {
     loadingStateMachine.setUsesStreamPrerollFlags();
+  }
+
+  @Override
+  public boolean supportsStreamPrerollFlags() {
+    return true;
   }
 
   @Override
@@ -1363,7 +1368,7 @@ import org.jspecify.annotations.Nullable;
     private boolean pendingExtractorSeek;
     private long seekTimeUs;
     private DataSpec dataSpec;
-    @Nullable private TrackOutput icyTrackOutput;
+    private @Nullable TrackOutput icyTrackOutput;
     private boolean seenIcyMetadata;
 
     @SuppressWarnings("nullness:method.invocation")

@@ -70,7 +70,7 @@ public final class DefaultCodec implements Codec {
 
   private final Format configurationFormat;
   private final MediaCodec mediaCodec;
-  @Nullable private final Surface inputSurface;
+  private final @Nullable Surface inputSurface;
   private final int maxPendingFrameCount;
   private final boolean isDecoder;
   private final boolean isVideo;
@@ -79,7 +79,7 @@ public final class DefaultCodec implements Codec {
   private final AtomicBoolean videoOutputStarted;
 
   private @MonotonicNonNull Format outputFormat;
-  @Nullable private ByteBuffer outputBuffer;
+  private @Nullable ByteBuffer outputBuffer;
   private int inputBufferIndex;
   private int outputBufferIndex;
   private boolean inputStreamEnded;
@@ -284,16 +284,14 @@ public final class DefaultCodec implements Codec {
   }
 
   @Override
-  @Nullable
-  public Format getOutputFormat() throws ExportException {
+  public @Nullable Format getOutputFormat() throws ExportException {
     // The format is updated when dequeueing a 'special' buffer index, so attempt to dequeue now.
     maybeDequeueOutputBuffer(/* setOutputBuffer= */ false);
     return outputFormat;
   }
 
   @Override
-  @Nullable
-  public ByteBuffer getOutputBuffer() throws ExportException {
+  public @Nullable ByteBuffer getOutputBuffer() throws ExportException {
     boolean outputAvailable = maybeDequeueOutputBuffer(/* setOutputBuffer= */ true);
     if (!outputAvailable) {
       return null;
@@ -307,8 +305,7 @@ public final class DefaultCodec implements Codec {
   }
 
   @Override
-  @Nullable
-  public BufferInfo getOutputBufferInfo() throws ExportException {
+  public @Nullable BufferInfo getOutputBufferInfo() throws ExportException {
     return maybeDequeueOutputBuffer(/* setOutputBuffer= */ false) ? outputBufferInfo : null;
   }
 

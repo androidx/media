@@ -36,7 +36,7 @@ public final class TrackEncryptionBox {
   public final boolean isEncrypted;
 
   /** The protection scheme type, as defined by the 'schm' box, or null if unknown. */
-  @Nullable public final String schemeType;
+  public final @Nullable String schemeType;
 
   /**
    * A {@link TrackOutput.CryptoData} instance containing the encryption information from this

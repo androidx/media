@@ -60,7 +60,7 @@ public final class SurfaceToFrameWriterAdapterTest {
   private Handler handler;
   private TestListener testListener;
   private SurfaceToFrameWriterAdapter writer;
-  @Nullable private ImageWriter testProducerWriter;
+  private @Nullable ImageWriter testProducerWriter;
 
   @Before
   public void setUp() {

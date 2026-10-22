@@ -268,8 +268,7 @@ public final class TtmlParser implements SubtitleParser {
     }
   }
 
-  @Nullable
-  private static TtsExtent parseTtsExtent(XmlPullParser xmlParser) {
+  private static @Nullable TtsExtent parseTtsExtent(XmlPullParser xmlParser) {
     @Nullable String ttsExtent =
         XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_EXTENT);
     if (ttsExtent == null) {
@@ -348,8 +347,7 @@ public final class TtmlParser implements SubtitleParser {
    * fractions. In case of missing tts:extent the pixel defined regions can't be parsed, and null is
    * returned.
    */
-  @Nullable
-  private static TtmlRegion parseRegionAttributes(
+  private static @Nullable TtmlRegion parseRegionAttributes(
       XmlPullParser xmlParser,
       int cellRows,
       @Nullable TtsExtent ttsExtent,

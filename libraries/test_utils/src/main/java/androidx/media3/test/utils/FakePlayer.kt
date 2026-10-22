@@ -50,6 +50,9 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  * @param bufferingDelayMs The time spent in [Player#STATE_BUFFERING] when preparing or seeking, in
  *   milliseconds. A value of zero will result in the player transitioning directly to
  *   [Player#STATE_READY] without entering [Player#STATE_BUFFERING]. Must not be negative.
+ * @param throwWhenCommandUnavailable Whether calling a state-modifying player method when its
+ *   corresponding [Player.Command] is not available throws an [IllegalStateException] instead of
+ *   being ignored.
  */
 @UnstableApi
 class FakePlayer(
@@ -59,6 +62,7 @@ class FakePlayer(
   playbackSpeed: Float = 1f,
   trackSelectionParameters: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
   private val bufferingDelayMs: Long = 100,
+  throwWhenCommandUnavailable: Boolean = false,
 ) : SimpleBasePlayer(Looper.myLooper()!!) {
   private val handler = Util.createHandlerForCurrentLooper()
 
@@ -82,6 +86,7 @@ class FakePlayer(
 
   init {
     require(bufferingDelayMs >= 0)
+    setThrowWhenCommandUnavailable(throwWhenCommandUnavailable)
     updateAvailableSeekCommands()
     invalidateState()
   }

@@ -39,10 +39,10 @@ public abstract class RunnableFutureTask<R extends @Nullable Object, E extends E
   private final ConditionVariable finished;
   private final Object cancelLock;
 
-  @Nullable private Exception exception;
-  @Nullable private R result;
+  private @Nullable Exception exception;
+  private @Nullable R result;
 
-  @Nullable private Thread workThread;
+  private @Nullable Thread workThread;
   private boolean canceled;
 
   protected RunnableFutureTask() {

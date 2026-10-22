@@ -93,8 +93,7 @@ public class RemoteMediaController {
   // MediaController methods
   ////////////////////////////////////////////////////////////////////////////////
 
-  @Nullable
-  public SessionToken getConnectedSessionToken() throws RemoteException {
+  public @Nullable SessionToken getConnectedSessionToken() throws RemoteException {
     @Nullable Bundle sessionTokenBundle = binder.getConnectedSessionToken(controllerId);
     return sessionTokenBundle == null ? null : SessionToken.fromBundle(sessionTokenBundle);
   }

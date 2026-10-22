@@ -340,9 +340,8 @@ public class MediaSessionPermissionTest {
             throw new UnsupportedOperationException();
           }
 
-          @Nullable
           @Override
-          public MediaItem getCurrentMediaItem() {
+          public @Nullable MediaItem getCurrentMediaItem() {
             throw new UnsupportedOperationException();
           }
 

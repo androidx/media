@@ -73,7 +73,7 @@ public interface HttpDataSource extends DataSource {
   final class RequestProperties {
 
     private final Map<String, String> requestProperties;
-    @Nullable private Map<String, String> requestPropertiesSnapshot;
+    private @Nullable Map<String, String> requestPropertiesSnapshot;
 
     public RequestProperties() {
       requestProperties = new HashMap<>();
@@ -419,7 +419,7 @@ public interface HttpDataSource extends DataSource {
     public final int responseCode;
 
     /** The http status message. */
-    @Nullable public final String responseMessage;
+    public final @Nullable String responseMessage;
 
     /** An unmodifiable map of the response header fields and values. */
     @UnstableApi public final Map<String, List<String>> headerFields;
