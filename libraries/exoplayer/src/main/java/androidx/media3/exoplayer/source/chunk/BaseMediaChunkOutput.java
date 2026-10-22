@@ -55,36 +55,28 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
 
   @Override
   public TrackOutput track(int id, @C.TrackType int type) {
-    if (type == C.TRACK_TYPE_TEXT) {
-      int cachedIndex = queueIndexById.get(id, C.INDEX_UNSET);
-      if (cachedIndex != C.INDEX_UNSET) {
-        return sampleQueues[cachedIndex];
+    int cachedIndex = queueIndexById.get(id, C.INDEX_UNSET);
+    if (cachedIndex != C.INDEX_UNSET && trackTypes[cachedIndex] == type) {
+      return sampleQueues[cachedIndex];
+    }
+    int firstMatchingIndex = C.INDEX_UNSET;
+    for (int i = 0; i < trackTypes.length; i++) {
+      if (trackTypes[i] != type) {
+        continue;
       }
-      int firstTextIndex = C.INDEX_UNSET;
-      for (int i = 0; i < trackTypes.length; i++) {
-        if (trackTypes[i] != C.TRACK_TYPE_TEXT) {
-          continue;
-        }
-        if (firstTextIndex == C.INDEX_UNSET) {
-          firstTextIndex = i;
-        }
-        if (!queueAssigned[i]) {
-          queueAssigned[i] = true;
-          queueIndexById.put(id, i);
-          return sampleQueues[i];
-        }
+      if (firstMatchingIndex == C.INDEX_UNSET) {
+        firstMatchingIndex = i;
       }
-      if (firstTextIndex != C.INDEX_UNSET) {
-        // More text outputs than text queues. Share the first queue.
-        queueIndexById.put(id, firstTextIndex);
-        return sampleQueues[firstTextIndex];
+      if (!queueAssigned[i]) {
+        queueAssigned[i] = true;
+        queueIndexById.put(id, i);
+        return sampleQueues[i];
       }
-    } else {
-      for (int i = 0; i < trackTypes.length; i++) {
-        if (type == trackTypes[i]) {
-          return sampleQueues[i];
-        }
-      }
+    }
+    if (firstMatchingIndex != C.INDEX_UNSET) {
+      // More outputs of this type than queues. Share the first matching queue.
+      queueIndexById.put(id, firstMatchingIndex);
+      return sampleQueues[firstMatchingIndex];
     }
     Log.e(TAG, "Unmatched track of type: " + type);
     return new DiscardingTrackOutput();
