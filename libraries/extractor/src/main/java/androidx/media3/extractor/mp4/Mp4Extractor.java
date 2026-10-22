@@ -998,17 +998,16 @@ public final class Mp4Extractor implements Extractor {
       nalPrefixData[1] = 0;
       nalPrefixData[2] = 0;
       int nalUnitLengthFieldLengthDiff = 4 - track.track.nalUnitLengthFieldLength;
-      sampleSize += nalUnitLengthFieldLengthDiff;
       // NAL units are length delimited, but the decoder requires start code delimited units.
       // Loop until we've written the sample to the track output, replacing length delimiters with
       // start codes as we encounter them.
-      while (sampleBytesWritten < sampleSize) {
+      while (sampleBytesRead < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
           int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength;
           int numberOfBytesToDetermineSampleDependencies = 0;
           if (!isSampleDependedOn
               && nalUnitPrefixLength + NalUnitUtil.numberOfBytesInNalUnitHeader(track.track.format)
-                  <= track.sampleTable.sizes[sampleIndex] - sampleBytesRead) {
+                  <= sampleSize - sampleBytesRead) {
             // Parsing sample dependencies needs the first few NAL unit bytes. Read them in the same
             // readFully call that reads the NAL length. This ensures sampleBytesRead,
             // sampleBytesWritten and isSampleDependedOn remain in a consistent state if we have
@@ -1055,6 +1054,7 @@ public final class Mp4Extractor implements Extractor {
           sampleCurrentNalBytesRemaining -= writtenBytes;
         }
       }
+      sampleSize = sampleBytesWritten;
     } else if (track.track.sampleTransformation == Track.TRANSFORMATION_MEBX_UNBOX) {
       scratch.reset(sampleSize);
       input.readFully(scratch.getData(), /* offset= */ 0, sampleSize);
