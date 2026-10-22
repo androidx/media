@@ -564,6 +564,7 @@ public final class DefaultAudioSink implements AudioSink {
   private final ToFloatPcmAudioProcessor toFloatPcmAudioProcessor;
   private final ImmutableList<AudioProcessor> availableAudioProcessors;
   private final ArrayDeque<MediaPositionParameters> mediaPositionParametersCheckpoints;
+  private final ArrayDeque<SkipSilenceCheckpoint> skipSilenceCheckpoints;
   private final boolean preferAudioOutputPlaybackParameters;
   private @OffloadMode int offloadMode;
   private @Nullable AudioOutputListener audioOutputListener;
@@ -647,6 +648,7 @@ public final class DefaultAudioSink implements AudioSink {
     playbackParameters = PlaybackParameters.DEFAULT;
     skipSilenceEnabled = DEFAULT_SKIP_SILENCE;
     mediaPositionParametersCheckpoints = new ArrayDeque<>();
+    skipSilenceCheckpoints = new ArrayDeque<>();
     initializationExceptionPendingExceptionHolder = new PendingExceptionHolder<>();
     writeExceptionPendingExceptionHolder = new PendingExceptionHolder<>();
     audioOffloadListener = builder.audioOffloadListener;
@@ -726,7 +728,7 @@ public final class DefaultAudioSink implements AudioSink {
     }
     long positionUs = audioOutput.getPositionUs();
     positionUs = min(positionUs, configuration.framesToDurationUs(getWrittenFrames()));
-    return applySkipping(applyMediaPositionParameters(positionUs));
+    return applySkipping(applyMediaPositionParameters(positionUs), positionUs);
   }
 
   @SuppressWarnings("deprecation") // Supporting deprecated preferredBufferSizeOverride config
@@ -889,6 +891,7 @@ public final class DefaultAudioSink implements AudioSink {
             .setPositionOffsetUs(positionOffsetUs)
             .build();
     audioProcessingPipeline.flush(streamMetadata);
+    skippedOutputFrameCountAtLastPosition = 0;
   }
 
   private boolean initializeAudioOutput() throws InitializationException {
@@ -1253,12 +1256,14 @@ public final class DefaultAudioSink implements AudioSink {
         }
         bufferToWrite = audioProcessingPipeline.getOutput();
       }
+      maybeRecordSkippedSilence();
       ByteBuffer pipelineInputBuffer = getTrimmedInputBuffer();
       if (!pipelineInputBuffer.hasRemaining()) {
         return;
       }
       audioProcessingPipeline.queueInput(pipelineInputBuffer);
     }
+    maybeRecordSkippedSilence();
   }
 
   /**
@@ -1745,6 +1750,8 @@ public final class DefaultAudioSink implements AudioSink {
     writeExceptionPendingExceptionHolder.clear();
     initializationExceptionPendingExceptionHolder.clear();
     skippedOutputFrameCountAtLastPosition = 0;
+    mediaPositionParameters.appliedSkippedSilenceDurationUs = 0;
+    skipSilenceCheckpoints.clear();
     accumulatedSkippedSilenceDurationUs = 0;
     if (reportSkippedSilenceHandler != null) {
       checkNotNull(reportSkippedSilenceHandler).removeCallbacksAndMessages(null);
@@ -1934,19 +1941,51 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
-  private long applySkipping(long positionUs) {
-    long skippedOutputFrameCountAtCurrentPosition =
-        audioProcessorChain.getSkippedOutputFrameCount();
-    long adjustedPositionUs =
-        positionUs + configuration.framesToDurationUs(skippedOutputFrameCountAtCurrentPosition);
-    if (skippedOutputFrameCountAtCurrentPosition > skippedOutputFrameCountAtLastPosition) {
+  private void maybeRecordSkippedSilence() {
+    if (configuration == null) {
+      return;
+    }
+    long skippedOutputFrameCount = audioProcessorChain.getSkippedOutputFrameCount();
+    if (skippedOutputFrameCount > skippedOutputFrameCountAtLastPosition) {
       long silenceDurationUs =
           configuration.framesToDurationUs(
-              skippedOutputFrameCountAtCurrentPosition - skippedOutputFrameCountAtLastPosition);
-      skippedOutputFrameCountAtLastPosition = skippedOutputFrameCountAtCurrentPosition;
-      handleSkippedSilence(silenceDurationUs);
+              skippedOutputFrameCount - skippedOutputFrameCountAtLastPosition);
+      skippedOutputFrameCountAtLastPosition = skippedOutputFrameCount;
+      long audioOutputPositionUs = configuration.framesToDurationUs(getWrittenFrames());
+      MediaPositionParameters currentMediaPositionParameters =
+          !mediaPositionParametersCheckpoints.isEmpty()
+              ? mediaPositionParametersCheckpoints.getLast()
+              : mediaPositionParameters;
+      if (!skipSilenceCheckpoints.isEmpty()
+          && skipSilenceCheckpoints.getLast().audioOutputPositionUs == audioOutputPositionUs
+          && skipSilenceCheckpoints.getLast().mediaPositionParameters
+              == currentMediaPositionParameters) {
+        skipSilenceCheckpoints.getLast().silenceDurationUs += silenceDurationUs;
+      } else {
+        skipSilenceCheckpoints.add(
+            new SkipSilenceCheckpoint(
+                currentMediaPositionParameters, audioOutputPositionUs, silenceDurationUs));
+      }
     }
-    return adjustedPositionUs;
+  }
+
+  /**
+   * Applies skipped silence to the media position up to the current audio output playout position.
+   *
+   * @param mediaPositionUs The current media position before accounting for skipped silence
+   *     (already adjusted for start media time and playback speed), in microseconds.
+   * @param audioOutputPositionUs The current audio output playout position (used to check which
+   *     {@link SkipSilenceCheckpoint}s have been played through), in microseconds.
+   */
+  private long applySkipping(long mediaPositionUs, long audioOutputPositionUs) {
+    while (!skipSilenceCheckpoints.isEmpty()
+        && audioOutputPositionUs >= skipSilenceCheckpoints.getFirst().audioOutputPositionUs) {
+      SkipSilenceCheckpoint checkpoint = skipSilenceCheckpoints.remove();
+      checkpoint.mediaPositionParameters.appliedSkippedSilenceDurationUs +=
+          checkpoint.silenceDurationUs;
+      handleSkippedSilence(checkpoint.silenceDurationUs);
+    }
+    return mediaPositionUs + mediaPositionParameters.appliedSkippedSilenceDurationUs;
   }
 
   private void handleSkippedSilence(long silenceDurationUs) {
@@ -2163,11 +2202,42 @@ public final class DefaultAudioSink implements AudioSink {
      */
     public long mediaPositionDriftUs;
 
+    /**
+     * The duration of silence skipped since this checkpoint and played through so far, in
+     * microseconds.
+     */
+    public long appliedSkippedSilenceDurationUs;
+
     private MediaPositionParameters(
         PlaybackParameters playbackParameters, long mediaTimeUs, long audioOutputPositionUs) {
       this.playbackParameters = playbackParameters;
       this.mediaTimeUs = mediaTimeUs;
       this.audioOutputPositionUs = audioOutputPositionUs;
+    }
+  }
+
+  /** Stores a skipped silence duration and the audio output position at which it takes effect. */
+  private static final class SkipSilenceCheckpoint {
+
+    /**
+     * The {@link MediaPositionParameters} checkpoint that was active in the audio processing
+     * pipeline when this silence was skipped.
+     */
+    private final MediaPositionParameters mediaPositionParameters;
+
+    /** The audio output position at which the skipped silence takes effect, in microseconds. */
+    private final long audioOutputPositionUs;
+
+    /** The duration of skipped silence at {@link #audioOutputPositionUs}, in microseconds. */
+    private long silenceDurationUs;
+
+    private SkipSilenceCheckpoint(
+        MediaPositionParameters mediaPositionParameters,
+        long audioOutputPositionUs,
+        long silenceDurationUs) {
+      this.mediaPositionParameters = mediaPositionParameters;
+      this.audioOutputPositionUs = audioOutputPositionUs;
+      this.silenceDurationUs = silenceDurationUs;
     }
   }
 

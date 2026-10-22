@@ -54,6 +54,10 @@
         ([#3468](https://github.com/androidx/media/issues/3468)).
 *   Inspector Frame:
 *   Audio:
+    *   Fix an issue where buffered skipped silence was included in
+        `AudioSink.getCurrentPositionUs(boolean)` and reported via
+        `AudioSink.Listener.onSilenceSkipped()` before playback reached the
+        skipped region ([#3472](https://github.com/androidx/media/issues/3472)).
 *   Video:
 *   Text:
 *   Metadata:
