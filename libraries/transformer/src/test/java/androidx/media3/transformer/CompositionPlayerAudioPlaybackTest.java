@@ -1354,6 +1354,32 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
+  public void seekToCurrentPosition_whenReady_doesNotResetAudioProcessorPositionOffset()
+      throws Exception {
+    player = createCompositionPlayer(context, capturingAudioSink);
+    PositionOffsetRecorder positionOffsetRecorder = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(createAudioEffects(positionOffsetRecorder))
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    // The sequence player ignores a seek to its current position, so its audio renderer is not
+    // reset.
+    player.seekTo(/* positionMs= */ 500);
+    play(player).untilState(Player.STATE_ENDED);
+
+    assertThat(getLast(positionOffsetRecorder.positionOffsetsUs)).isEqualTo(500_000L);
+  }
+
+  @Test
   public void seekToMidClip_withCompositionAudioProcessor_reportsCorrectPositionOffset(
       @TestParameter boolean isScrubbingModeEnabled) throws Exception {
     player = createCompositionPlayer(context, capturingAudioSink);
