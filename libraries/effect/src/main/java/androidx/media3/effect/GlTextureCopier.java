@@ -289,35 +289,37 @@ import org.jspecify.annotations.Nullable;
 
   private void setupExternalHdrGlProgram(ColorInfo outputColorInfo)
       throws GlException, IOException {
-    checkState(isOpenGl3Supported() && GlUtil.isYuvTargetExtensionSupported());
-    if (hdrExternalCopyGlProgram == null) {
-      hdrExternalCopyGlProgram =
-          new GlProgram(
-              context,
-              R.raw.vertex_shader_transformation_es3,
-              R.raw.color_conversions_es3,
-              R.raw.fragment_shader_transformation_external_yuv_color_conversion_es3);
-      setupCommonAttributesAndUniforms(hdrExternalCopyGlProgram);
-
-      hdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
-      hdrExternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
+    if (hdrExternalCopyGlProgram != null) {
+      return;
     }
+    checkState(isOpenGl3Supported() && GlUtil.isYuvTargetExtensionSupported());
+    hdrExternalCopyGlProgram =
+        new GlProgram(
+            context,
+            R.raw.vertex_shader_transformation_es3,
+            R.raw.color_conversions_es3,
+            R.raw.fragment_shader_transformation_external_yuv_color_conversion_es3);
+    setupCommonAttributesAndUniforms(hdrExternalCopyGlProgram);
+
+    hdrExternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+    hdrExternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
   }
 
   private void setupInternalHdrGlProgram(ColorInfo outputColorInfo)
       throws GlException, IOException {
-    checkState(isOpenGl3Supported());
-    if (hdrInternalCopyGlProgram == null) {
-      hdrInternalCopyGlProgram =
-          new GlProgram(
-              context,
-              R.raw.vertex_shader_transformation_es3,
-              R.raw.color_conversions_es3,
-              R.raw.fragment_shader_transformation_hdr_internal_color_conversion_es3);
-      setupCommonAttributesAndUniforms(hdrInternalCopyGlProgram);
-      hdrInternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
-      hdrInternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
+    if (hdrInternalCopyGlProgram != null) {
+      return;
     }
+    checkState(isOpenGl3Supported());
+    hdrInternalCopyGlProgram =
+        new GlProgram(
+            context,
+            R.raw.vertex_shader_transformation_es3,
+            R.raw.color_conversions_es3,
+            R.raw.fragment_shader_transformation_hdr_internal_color_conversion_es3);
+    setupCommonAttributesAndUniforms(hdrInternalCopyGlProgram);
+    hdrInternalCopyGlProgram.setIntUniform("uOutputColorTransfer", outputColorInfo.colorTransfer);
+    hdrInternalCopyGlProgram.setIntUniform("uOutputColorGamut", outputColorInfo.colorSpace);
   }
 
   private void setupInternalSdrGlProgram(ColorInfo outputColorInfo)
