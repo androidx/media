@@ -28,9 +28,9 @@ import androidx.media3.extractor.TrackOutput;
  * A {@link TrackOutputProvider} that provides {@link TrackOutput TrackOutputs} based on a
  * predefined mapping from track type to output.
  *
- * <p>If several text outputs are requested (for example multiple embedded CEA-608 channels), each
- * distinct {@code id} is bound to its own text sample queue, in the order the ids are first
- * requested. Outputs of any other type are always bound to the first sample queue of that type.
+ * <p>When multiple sample queues of the same {@link C.TrackType} are provided, each distinct track
+ * {@code id} of that type is bound to its own sample queue in the order the IDs are first
+ * requested.
  */
 @UnstableApi
 public final class BaseMediaChunkOutput implements TrackOutputProvider {
