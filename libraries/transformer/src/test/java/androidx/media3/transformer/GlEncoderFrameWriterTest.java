@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.media.metrics.LogSessionId;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -42,8 +43,15 @@ import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
-/** Unit tests for {@link GlEncoderFrameWriter}. */
+/**
+ * Unit tests for {@link GlEncoderFrameWriter}.
+ *
+ * <p>Tests synchronous validation, format support, and configuration using a fake {@link
+ * Codec.EncoderFactory}. For tests requiring OpenGL rendering, hardware surfaces, or a real
+ * MediaCodec, see {@code GlEncoderFrameWriterAndroidTest}.
+ */
 @RunWith(AndroidJUnit4.class)
 public final class GlEncoderFrameWriterTest {
 
@@ -160,6 +168,38 @@ public final class GlEncoderFrameWriterTest {
     boolean isSupported = glEncoderFrameWriter.getInfo().isSupported(VIDEO_FORMAT, /* usage= */ 0L);
 
     assertThat(isSupported).isFalse();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void isSupported_belowApi28WithNonRgbaPixelFormatSupportedByEncoder_returnsFalse() {
+    fakeEncoderFactory.setIsSupportedToReturn(true);
+    Format rgb565Format = VIDEO_FORMAT.buildUpon().setPixelFormat(PixelFormat.RGB_565).build();
+
+    boolean isSupported = glEncoderFrameWriter.getInfo().isSupported(rgb565Format, /* usage= */ 0L);
+
+    assertThat(isSupported).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 28)
+  public void isSupported_api28AndAboveWithNonRgbaPixelFormat_returnsTrue() {
+    fakeEncoderFactory.setIsSupportedToReturn(true);
+    Format rgb565Format = VIDEO_FORMAT.buildUpon().setPixelFormat(PixelFormat.RGB_565).build();
+
+    boolean isSupported = glEncoderFrameWriter.getInfo().isSupported(rgb565Format, /* usage= */ 0L);
+
+    assertThat(isSupported).isTrue();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void configure_belowApi28WithNonRgbaPixelFormat_throwsIllegalArgumentException() {
+    Format rgb565Format = VIDEO_FORMAT.buildUpon().setPixelFormat(PixelFormat.RGB_565).build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> glEncoderFrameWriter.configure(rgb565Format, Frame.USAGE_VIDEO_ENCODE));
   }
 
   @Test

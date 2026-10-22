@@ -16,13 +16,19 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.PixelFormat;
 import android.media.metrics.LogSessionId;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -32,6 +38,8 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.ImagePlanesFrame;
+import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.HardwareBufferJni;
@@ -40,6 +48,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -48,7 +57,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /**
@@ -56,6 +67,8 @@ import org.junit.runner.RunWith;
  * instances, which are unsupported on Robolectric.
  */
 @RunWith(AndroidJUnit4.class)
+// TODO(b/531653682): Lower minSdkVersion to 24 (here and on the maxSdkVersion = 27 tests below)
+// once HardwareBufferJniWrapper supports API 24+.
 @SdkSuppress(minSdkVersion = 26)
 public final class GlEncoderFrameWriterAndroidTest {
 
@@ -68,6 +81,9 @@ public final class GlEncoderFrameWriterAndroidTest {
           .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
           .build();
   private static final int CAPACITY = 4;
+  private static final int RGBA_BYTES_PER_PIXEL = 4;
+
+  @Rule public final TestName testName = new TestName();
 
   private GlEncoderFrameWriter glEncoderFrameWriter;
   private AtomicReference<Codec> createdEncoder;
@@ -98,31 +114,7 @@ public final class GlEncoderFrameWriterAndroidTest {
           }
         };
 
-    GlEncoderFrameWriter.Listener listener =
-        new GlEncoderFrameWriter.Listener() {
-          @Override
-          public void onEndOfStream() {
-            endOfStreamSignaled.set(true);
-            eosCondition.open();
-          }
-
-          @Override
-          public void onError(VideoFrameProcessingException e) {
-            errorException.set(e);
-            errorCondition.open();
-          }
-        };
-
-    glEncoderFrameWriter =
-        new GlEncoderFrameWriter(
-            context,
-            encoderFactory,
-            listener,
-            /* listenerExecutor= */ directExecutor(),
-            new DefaultGlObjectsProvider(),
-            MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
-            HardwareBufferJni.INSTANCE,
-            /* logSessionId= */ null);
+    glEncoderFrameWriter = createGlEncoderFrameWriter(encoderFactory);
   }
 
   @After
@@ -152,7 +144,8 @@ public final class GlEncoderFrameWriterAndroidTest {
   }
 
   @Test
-  public void dequeueInputFrame_returnsValidAsyncFrame() {
+  @SdkSuppress(minSdkVersion = 28)
+  public void dequeueInputFrame_api28AndAbove_returnsHardwareBufferFrame() {
     glEncoderFrameWriter.configure(TEST_ENCODING_FORMAT, Frame.USAGE_VIDEO_ENCODE);
 
     AsyncFrame asyncFrame =
@@ -162,6 +155,32 @@ public final class GlEncoderFrameWriterAndroidTest {
     HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
     assertThat(frame.getHardwareBuffer()).isNotNull();
     assertThat(frame.getFormat()).isEqualTo(createdEncoder.get().getConfigurationFormat());
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26, maxSdkVersion = 27)
+  public void
+      dequeueInputFrame_belowApi28_returnsRgbaImagePlanesFrameMatchingFormatAndDimensions() {
+    glEncoderFrameWriter.configure(TEST_ENCODING_FORMAT, Frame.USAGE_VIDEO_ENCODE);
+    Format expectedFormat =
+        createdEncoder
+            .get()
+            .getConfigurationFormat()
+            .buildUpon()
+            .setPixelFormat(PixelFormat.RGBA_8888)
+            .build();
+
+    AsyncFrame asyncFrame =
+        glEncoderFrameWriter.dequeueInputFrame(/* wakeupExecutor= */ directExecutor(), () -> {});
+
+    assertThat(errorException.get()).isNull();
+    ImagePlanesFrame frame = (ImagePlanesFrame) asyncFrame.frame;
+    assertThat(frame.getFormat()).isEqualTo(expectedFormat);
+    Plane plane = getOnlyElement(frame.getPlanes());
+    assertThat(plane.getPixelStride()).isEqualTo(RGBA_BYTES_PER_PIXEL);
+    assertThat(plane.getRowStride()).isEqualTo(expectedFormat.width * RGBA_BYTES_PER_PIXEL);
+    assertThat(plane.getBuffer().capacity())
+        .isEqualTo(expectedFormat.width * expectedFormat.height * RGBA_BYTES_PER_PIXEL);
   }
 
   @Test
@@ -211,8 +230,42 @@ public final class GlEncoderFrameWriterAndroidTest {
     glEncoderFrameWriter.signalEndOfStream();
     eosCondition.block(TEST_TIMEOUT_MS);
 
-    verify(writeCompleteFence).await(any());
+    verify(writeCompleteFence).awaitMs(anyLong());
     verify(writeCompleteFence).close();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26, maxSdkVersion = 27)
+  public void queueInputFrame_belowApi28_rendersExpectedBitmap() throws Exception {
+    glEncoderFrameWriter.close();
+    SingleFrameCapturingEncoder.Factory capturingEncoderFactory =
+        new SingleFrameCapturingEncoder.Factory();
+    glEncoderFrameWriter = createGlEncoderFrameWriter(capturingEncoderFactory);
+    Bitmap expectedBitmap = readBitmap("media/png/first_frame_1920x1080.png");
+    Format format =
+        TEST_ENCODING_FORMAT
+            .buildUpon()
+            .setWidth(expectedBitmap.getWidth())
+            .setHeight(expectedBitmap.getHeight())
+            .build();
+    glEncoderFrameWriter.configure(format, Frame.USAGE_VIDEO_ENCODE);
+    AsyncFrame asyncFrame =
+        glEncoderFrameWriter.dequeueInputFrame(/* wakeupExecutor= */ directExecutor(), () -> {});
+    ImagePlanesFrame frame = (ImagePlanesFrame) asyncFrame.frame;
+    ByteBuffer buffer = getOnlyElement(frame.getPlanes()).getBuffer();
+    expectedBitmap.copyPixelsToBuffer(buffer);
+    buffer.rewind();
+
+    glEncoderFrameWriter.queueInputFrame(frame, asyncFrame.acquireFence);
+    glEncoderFrameWriter.signalEndOfStream();
+    eosCondition.block(TEST_TIMEOUT_MS);
+
+    Bitmap actualBitmap = capturingEncoderFactory.getLastBitmap();
+    assertThat(actualBitmap).isNotNull();
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, actualBitmap, testName.getMethodName()))
+        .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
   @Test
@@ -250,5 +303,32 @@ public final class GlEncoderFrameWriterAndroidTest {
     assertThat(eosCondition.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(endOfStreamSignaled.get()).isTrue();
     assertThat(errorException.get()).isNull();
+  }
+
+  private GlEncoderFrameWriter createGlEncoderFrameWriter(Codec.EncoderFactory encoderFactory) {
+    GlEncoderFrameWriter.Listener listener =
+        new GlEncoderFrameWriter.Listener() {
+          @Override
+          public void onEndOfStream() {
+            endOfStreamSignaled.set(true);
+            eosCondition.open();
+          }
+
+          @Override
+          public void onError(VideoFrameProcessingException e) {
+            errorException.set(e);
+            errorCondition.open();
+          }
+        };
+
+    return new GlEncoderFrameWriter(
+        ApplicationProvider.getApplicationContext(),
+        encoderFactory,
+        listener,
+        /* listenerExecutor= */ directExecutor(),
+        new DefaultGlObjectsProvider(),
+        MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
+        HardwareBufferJni.INSTANCE,
+        /* logSessionId= */ null);
   }
 }
