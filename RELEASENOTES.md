@@ -95,6 +95,9 @@
     *   Fix several playback issues when switching pathways with HLS Content
         Steering ([#3465](https://github.com/androidx/media/issues/3465)).
 *   DASH extension:
+    *   Fix duplicated/garbled CEA-608 subtitles when a stream has multiple
+        embedded caption tracks
+        ([#887](https://github.com/androidx/media/issues/887)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
