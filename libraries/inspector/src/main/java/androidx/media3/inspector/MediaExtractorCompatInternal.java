@@ -21,6 +21,7 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_NEXT_SYNC;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -410,6 +411,7 @@ import org.jspecify.annotations.Nullable;
 
   /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
   /* package */ MediaFormat getTrackFormat(int trackIndex) {
+    checkTrackIndex(trackIndex);
     MediaExtractorTrack track = tracks.get(trackIndex);
     MediaFormat mediaFormat =
         track.createDownstreamMediaFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
@@ -432,6 +434,7 @@ import org.jspecify.annotations.Nullable;
    * once.
    */
   /* package */ void selectTrack(int trackIndex) {
+    checkTrackIndex(trackIndex);
     selectedTrackIndices.add(trackIndex);
   }
 
@@ -442,7 +445,12 @@ import org.jspecify.annotations.Nullable;
    * #getSampleTime} only retrieve information for the subset of tracks selected.
    */
   /* package */ void unselectTrack(int trackIndex) {
+    checkTrackIndex(trackIndex);
     selectedTrackIndices.remove(trackIndex);
+  }
+
+  private void checkTrackIndex(int trackIndex) {
+    checkArgument(trackIndex >= 0 && trackIndex < tracks.size(), "Invalid track index");
   }
 
   /**

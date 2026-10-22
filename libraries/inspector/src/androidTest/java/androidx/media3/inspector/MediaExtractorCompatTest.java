@@ -1103,7 +1103,6 @@ public class MediaExtractorCompatTest {
           extractorOutput.endTracks();
           return Extractor.RESULT_CONTINUE;
         });
-    mediaExtractorCompat.selectTrack(0);
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
           outputSampleData(outputs[0], encryptedSampleData);
@@ -1117,6 +1116,7 @@ public class MediaExtractorCompatTest {
         });
 
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
 
     MediaCodec.CryptoInfo platformCryptoInfo = new MediaCodec.CryptoInfo();
     assertThat(mediaExtractorCompat.getSampleCryptoInfo(platformCryptoInfo)).isTrue();

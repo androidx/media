@@ -20,6 +20,7 @@ import static androidx.media3.common.C.CENC_TYPE_cenc;
 import static androidx.media3.common.C.WIDEVINE_UUID;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
@@ -424,6 +425,24 @@ public class MediaExtractorContractTest {
     assertThat(sampleSize).isEqualTo(firstVideoSampleSize);
     assertThat(buffer.position()).isEqualTo(8);
     assertThat(buffer.limit()).isEqualTo(8 + firstVideoSampleSize);
+  }
+
+  @Test
+  public void trackMethods_withInvalidTrackIndex_throwIllegalArgumentException()
+      throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+    int trackCount = mediaExtractorProxy.getTrackCount();
+
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.selectTrack(-1));
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.selectTrack(trackCount));
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.unselectTrack(-1));
+    assertThrows(
+        IllegalArgumentException.class, () -> mediaExtractorProxy.unselectTrack(trackCount));
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.getTrackFormat(-1));
+    assertThrows(
+        IllegalArgumentException.class, () -> mediaExtractorProxy.getTrackFormat(trackCount));
   }
 
   private static byte[] buildInitializationVector(int suffix) {

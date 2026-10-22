@@ -327,7 +327,13 @@ public final class MediaExtractorCompat {
     return delegate.getTrackCount();
   }
 
-  /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
+  /**
+   * Returns the track {@link MediaFormat} at the specified {@code trackIndex}.
+   *
+   * @param trackIndex The index of the track.
+   * @return The {@link MediaFormat} of the track.
+   * @throws IllegalArgumentException If {@code trackIndex} is not a valid track index.
+   */
   public MediaFormat getTrackFormat(int trackIndex) {
     return delegate.getTrackFormat(trackIndex);
   }
@@ -340,6 +346,9 @@ public final class MediaExtractorCompat {
    *
    * <p>Note: Selecting the same track multiple times has no effect, the track is only selected
    * once.
+   *
+   * @param trackIndex The index of the track to select.
+   * @throws IllegalArgumentException If {@code trackIndex} is not a valid track index.
    */
   public void selectTrack(int trackIndex) {
     delegate.selectTrack(trackIndex);
@@ -350,6 +359,9 @@ public final class MediaExtractorCompat {
    *
    * <p>Subsequent calls to {@link #readSampleData}, {@link #getSampleTrackIndex} and {@link
    * #getSampleTime} only retrieve information for the subset of tracks selected.
+   *
+   * @param trackIndex The index of the track to unselect.
+   * @throws IllegalArgumentException If {@code trackIndex} is not a valid track index.
    */
   public void unselectTrack(int trackIndex) {
     delegate.unselectTrack(trackIndex);
