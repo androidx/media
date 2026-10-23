@@ -37,6 +37,10 @@
         `MediaPeriod.readDiscontinuity()` when not supported and
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
+    *   Fix an issue where, with video prewarming, the first frame of the next
+        video item was released late and frames around the transition were
+        dropped, because the prewarmed renderer was connected to the frame
+        processor only at the transition.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

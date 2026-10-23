@@ -54,6 +54,8 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -626,6 +628,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final ImageDecoder.Factory imageDecoderFactory;
   private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
+  // The VideoGraph of the playback pipeline, accessed on the playback thread.
+  @Nullable private VideoGraph playbackVideoGraph;
   private final HandlerWrapper compositionInternalListenerHandler;
   private final LoadControl loadControl;
   private final boolean enableReplayableCache;
@@ -1508,7 +1512,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             /* skipBuffersWithIdenticalReleaseTime= */ false);
     playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
-            .setVideoGraphFactory(checkNotNull(videoGraphFactory))
+            .setVideoGraphFactory(createPlaybackVideoGraphFactory(checkNotNull(videoGraphFactory)))
             .setClock(clock)
             .setEnableReplayableCache(enableReplayableCache)
             .experimentalSetLateThresholdToDropInputUs(lateThresholdToDropInputUs)
@@ -1687,7 +1691,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               imageDecoderFactory,
               /* inputIndex= */ sequenceIndex,
               videoPrewarmingEnabled,
-              lateThresholdToDropInputUs);
+              lateThresholdToDropInputUs,
+              /* pendingInputFrameCountSupplier= */ () ->
+                  playbackVideoGraph == null
+                      ? 0
+                      : playbackVideoGraph.getPendingInputFrameCount(sequenceIndex));
     }
     SequencePlayerHolder playerHolder =
         new SequencePlayerHolder(
@@ -2001,6 +2009,41 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     boolean value = renderedFirstFrame;
     renderedFirstFrame = false;
     return value;
+  }
+
+  /**
+   * Returns a {@link VideoGraph.Factory} that keeps the created {@link VideoGraph}, so that the
+   * renderers can read the number of its pending input frames.
+   */
+  private VideoGraph.Factory createPlaybackVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
+    return new VideoGraph.Factory() {
+      @Override
+      public VideoGraph create(
+          Context context,
+          ColorInfo outputColorInfo,
+          DebugViewProvider debugViewProvider,
+          VideoGraph.Listener listener,
+          Executor listenerExecutor,
+          long initialTimestampOffsetUs,
+          boolean renderFramesAutomatically) {
+        VideoGraph videoGraph =
+            videoGraphFactory.create(
+                context,
+                outputColorInfo,
+                debugViewProvider,
+                listener,
+                listenerExecutor,
+                initialTimestampOffsetUs,
+                renderFramesAutomatically);
+        playbackVideoGraph = videoGraph;
+        return videoGraph;
+      }
+
+      @Override
+      public boolean supportsMultipleInputs() {
+        return videoGraphFactory.supportsMultipleInputs();
+      }
+    };
   }
 
   private void maybeUpdatePlaybackError(
