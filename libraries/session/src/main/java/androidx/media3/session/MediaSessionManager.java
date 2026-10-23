@@ -214,15 +214,15 @@ public final class MediaSessionManager {
       boolean isPackageSpecific = false;
       if (SDK_INT >= 37 && packageName != null) {
         Api37.addOnActiveSessionsForPackageChangedListener(
-            platformManager, packageName, executor, platformListener);
+            platformManager, packageName, executor, notificationListener, platformListener);
         isPackageSpecific = true;
       }
 
-      listenersMap.put(listener, new ListenerWrapper(platformListener, isPackageSpecific));
       if (!isPackageSpecific) {
         platformManager.addOnActiveSessionsChangedListener(
             platformListener, notificationListener, new Handler(Looper.getMainLooper()));
       }
+      listenersMap.put(listener, new ListenerWrapper(platformListener, isPackageSpecific));
     }
   }
 
@@ -357,10 +357,16 @@ public final class MediaSessionManager {
         android.media.session.MediaSessionManager platformManager,
         String packageName,
         Executor executor,
+        @Nullable ComponentName notificationListener,
         android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
             platformListener) {
-      platformManager.addOnActiveSessionsForPackageChangedListener(
-          packageName, executor, platformListener);
+      if (notificationListener != null) {
+        platformManager.addOnActiveSessionsForPackageChangedListener(
+            packageName, executor, notificationListener, platformListener);
+      } else {
+        platformManager.addOnActiveSessionsForPackageChangedListener(
+            packageName, executor, platformListener);
+      }
     }
 
     private static void removeOnActiveSessionsForPackageChangedListener(
