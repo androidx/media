@@ -512,6 +512,7 @@ public class FragmentedMp4Extractor implements Extractor {
     reorderingBufferQueue.clear();
     pendingSeekTimeUs = timeUs;
     containerAtoms.clear();
+    atomData = null;
     seekPositionBeforeMfraProcessing = C.INDEX_UNSET;
     enterReadingAtomHeaderState();
   }
@@ -718,6 +719,7 @@ public class FragmentedMp4Extractor implements Extractor {
     @Nullable ParsableByteArray atomData = this.atomData;
     if (atomData != null) {
       input.readFully(atomData.getData(), Mp4Box.HEADER_SIZE, atomPayloadSize);
+      this.atomData = null; // Release reference to allow GC once the atom is processed.
       onLeafAtomRead(new LeafBox(atomType, atomData), input);
     } else {
       input.skipFully(atomPayloadSize);

@@ -334,9 +334,13 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     FakeExtractorOutput output =
         TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+    mp4Extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+    FakeExtractorOutput outputAfterSeek =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
 
     String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_xmp_metadata");
     DumpFileAsserts.assertOutput(context, output, dumpFilePath);
+    DumpFileAsserts.assertOutput(context, outputAfterSeek, dumpFilePath);
   }
 
   @Test
