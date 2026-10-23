@@ -742,6 +742,8 @@ public class MediaSession {
      *   <li>The controller is part of the Android system (using {@link
      *       android.os.Process#SYSTEM_UID}).
      *   <li>The controller has been granted {@code android.permission.MEDIA_CONTENT_CONTROL}.
+     *   <li>The controller has been granted {@code android.permission.EXECUTE_APP_FUNCTIONS} (from
+     *       API 36).
      *   <li>The controller has been granted {@code android.permission.STATUS_BAR_SERVICE}.
      *   <li>The controller has an enabled notification listener.
      * </ul>

@@ -81,6 +81,57 @@ public final class MediaSessionManagerUnitTest {
     assertThat(tokens.get(0).getPackageName()).isEqualTo(context.getPackageName());
   }
 
+  @Ignore("TODO(b/576546513): Enable when SDK 38 is supported by Robolectric.")
+  @Test
+  @Config(minSdk = 38)
+  public void getActiveSessions_withExecuteAppFunctionsPermissionOnApi38_returnsSessions()
+      throws Exception {
+    shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+    addActivePlatformController(OTHER_PACKAGE_NAME);
+
+    ListenableFuture<List<SessionToken>> tokensFuture =
+        MediaSessionManager.getActiveSessions(
+            context, /* packageName= */ null, /* notificationListener= */ null);
+    idleAllLoopers();
+    List<SessionToken> tokens = tokensFuture.get();
+
+    assertThat(tokens).hasSize(1);
+    assertThat(tokens.get(0).getPackageName()).isEqualTo(context.getPackageName());
+  }
+
+  @Test
+  @Config(maxSdk = 36)
+  public void
+      getActiveSessions_withExecuteAppFunctionsPermissionForOwnPackageBelowApi37_returnsEmptyList()
+          throws Exception {
+    shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+    addActivePlatformController(context.getPackageName());
+
+    ListenableFuture<List<SessionToken>> tokensFuture =
+        MediaSessionManager.getActiveSessions(
+            context, context.getPackageName(), /* notificationListener= */ null);
+    idleAllLoopers();
+    List<SessionToken> tokens = tokensFuture.get();
+
+    assertThat(tokens).isEmpty();
+  }
+
+  @Test
+  @Config(maxSdk = 37)
+  public void
+      getActiveSessions_withExecuteAppFunctionsPermissionForOtherPackageBelowApi38_throwsSecurityException() {
+    shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+
+    assertThrows(
+        SecurityException.class,
+        () ->
+            MediaSessionManager.getActiveSessions(
+                context, OTHER_PACKAGE_NAME, /* notificationListener= */ null));
+  }
+
   @Test
   @Config(maxSdk = 36)
   public void getActiveSessions_withoutPermissionForOwnPackageBelowApi37_returnsEmptyList()
@@ -123,6 +174,66 @@ public final class MediaSessionManagerUnitTest {
 
     assertThat(receivedUpdates).hasSize(1);
     assertThat(receivedUpdates.get(0)).hasSize(1);
+  }
+
+  @Ignore("TODO(b/576546513): Enable when SDK 38 is supported by Robolectric.")
+  @Test
+  @Config(minSdk = 38)
+  public void
+      addOnActiveSessionsChangedListener_withExecuteAppFunctionsPermissionOnApi38_notifiesListener()
+          throws Exception {
+    shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+    List<List<SessionToken>> receivedUpdates = new ArrayList<>();
+    MediaSessionManager.OnActiveSessionsChangedListener listener = receivedUpdates::add;
+
+    MediaSessionManager.addOnActiveSessionsChangedListener(
+        context, OTHER_PACKAGE_NAME, listener, directExecutor(), /* notificationListener= */ null);
+    addActivePlatformController(OTHER_PACKAGE_NAME);
+    idleAllLoopers();
+    MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener);
+
+    assertThat(receivedUpdates).hasSize(1);
+    assertThat(receivedUpdates.get(0)).hasSize(1);
+  }
+
+  @Test
+  @Config(maxSdk = 36)
+  public void
+      addOnActiveSessionsChangedListener_withExecuteAppFunctionsPermissionForOwnPackageBelowApi37_doesNotNotifyListener()
+          throws Exception {
+    shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+    List<List<SessionToken>> receivedUpdates = new ArrayList<>();
+    MediaSessionManager.OnActiveSessionsChangedListener listener = receivedUpdates::add;
+
+    MediaSessionManager.addOnActiveSessionsChangedListener(
+        context,
+        context.getPackageName(),
+        listener,
+        directExecutor(),
+        /* notificationListener= */ null);
+    addActivePlatformController(context.getPackageName());
+    idleAllLoopers();
+    MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener);
+
+    assertThat(receivedUpdates).isEmpty();
+  }
+
+  @Test
+  @Config(maxSdk = 37)
+  public void
+      addOnActiveSessionsChangedListener_withExecuteAppFunctionsPermissionForOtherPackageBelowApi38_throwsSecurityException() {
+    shadowOf((Application) context)
+        .grantPermissions(android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+    MediaSessionManager.OnActiveSessionsChangedListener listener = activeSessions -> {};
+    Executor executor = directExecutor();
+
+    assertThrows(
+        SecurityException.class,
+        () ->
+            MediaSessionManager.addOnActiveSessionsChangedListener(
+                context, OTHER_PACKAGE_NAME, listener, executor, /* notificationListener= */ null));
   }
 
   @Test

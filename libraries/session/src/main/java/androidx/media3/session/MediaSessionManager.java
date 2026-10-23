@@ -76,8 +76,9 @@ public final class MediaSessionManager {
    * Retrieves a list of {@link SessionToken} instances for active sessions, optionally filtered by
    * package.
    *
-   * <p>Requires {@code android.Manifest.permission.MEDIA_CONTENT_CONTROL} or an enabled
-   * notification listener for requesting sessions of other packages.
+   * <p>Requires {@code android.Manifest.permission.MEDIA_CONTENT_CONTROL}, {@code
+   * android.Manifest.permission.EXECUTE_APP_FUNCTIONS} (from API 38), or an enabled notification
+   * listener for requesting sessions of other packages.
    *
    * <p>On API levels 37 and above, it automatically works for sessions of your own package without
    * special permissions if {@code packageName} is set to your own package.
@@ -103,12 +104,13 @@ public final class MediaSessionManager {
     boolean isOwnPackage =
         packageName != null && packageName.equals(applicationContext.getPackageName());
     boolean hasPermission =
-        hasMediaContentControlPermission(applicationContext)
+        hasMediaControlPermission(applicationContext)
             || hasEnabledNotificationListener(applicationContext, notificationListener);
 
     if (!isOwnPackage && !hasPermission) {
       throw new SecurityException(
-          "Requires MEDIA_CONTENT_CONTROL or enabled notification listener");
+          "Requires MEDIA_CONTENT_CONTROL, EXECUTE_APP_FUNCTIONS (on API 38+), or enabled"
+              + " notification listener");
     }
 
     if (SDK_INT < 37 && isOwnPackage && !hasPermission) {
@@ -135,8 +137,9 @@ public final class MediaSessionManager {
   /**
    * Adds a listener for changes to the active sessions, optionally filtered by package.
    *
-   * <p>Requires {@code android.Manifest.permission.MEDIA_CONTENT_CONTROL} or an enabled
-   * notification listener for requesting sessions of other packages.
+   * <p>Requires {@code android.Manifest.permission.MEDIA_CONTENT_CONTROL}, {@code
+   * android.Manifest.permission.EXECUTE_APP_FUNCTIONS} (from API 38), or an enabled notification
+   * listener for requesting sessions of other packages.
    *
    * <p>On API levels 37 and above, it automatically works for sessions of your own package without
    * special permissions if {@code packageName} is set to your own package.
@@ -164,12 +167,13 @@ public final class MediaSessionManager {
     boolean isOwnPackage =
         packageName != null && packageName.equals(applicationContext.getPackageName());
     boolean hasPermission =
-        hasMediaContentControlPermission(applicationContext)
+        hasMediaControlPermission(applicationContext)
             || hasEnabledNotificationListener(applicationContext, notificationListener);
 
     if (!isOwnPackage && !hasPermission) {
       throw new SecurityException(
-          "Requires MEDIA_CONTENT_CONTROL or enabled notification listener");
+          "Requires MEDIA_CONTENT_CONTROL, EXECUTE_APP_FUNCTIONS (on API 38+), or enabled"
+              + " notification listener");
     }
 
     if (SDK_INT < 37 && isOwnPackage && !hasPermission) {
@@ -257,6 +261,10 @@ public final class MediaSessionManager {
    * Returns a future that resolves to the token for the session that is currently receiving media
    * key events.
    *
+   * <p>Requires {@code android.Manifest.permission.MEDIA_CONTENT_CONTROL}, {@code
+   * android.Manifest.permission.EXECUTE_APP_FUNCTIONS} (from API 38), or an enabled notification
+   * listener.
+   *
    * <p>On API levels before 33, this will return a future that resolves to {@code null}.
    *
    * @param context The context to use to access the system service.
@@ -303,9 +311,12 @@ public final class MediaSessionManager {
         directExecutor());
   }
 
-  private static boolean hasMediaContentControlPermission(Context context) {
+  private static boolean hasMediaControlPermission(Context context) {
     return context.checkSelfPermission(android.Manifest.permission.MEDIA_CONTENT_CONTROL)
-        == PackageManager.PERMISSION_GRANTED;
+            == PackageManager.PERMISSION_GRANTED
+        || (SDK_INT >= 38
+            && context.checkSelfPermission(android.Manifest.permission.EXECUTE_APP_FUNCTIONS)
+                == PackageManager.PERMISSION_GRANTED);
   }
 
   private static boolean hasEnabledNotificationListener(
