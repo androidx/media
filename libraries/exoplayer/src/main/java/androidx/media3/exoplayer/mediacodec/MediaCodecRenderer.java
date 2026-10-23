@@ -94,6 +94,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -333,6 +337,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private @Nullable DrmSession codecDrmSession;
   private @Nullable DrmSession sourceDrmSession;
   private @MonotonicNonNull WakeupListener wakeupListener;
+  // An audio decoder being created off the playback thread (asyncCodecInitializationEnabled).
+  private @Nullable FutureTask<MediaCodecAdapter> pendingCodec;
+  private MediaCodecAdapter.@Nullable Configuration pendingCodecConfiguration;
+  private float pendingCodecOperatingRate;
+  private long pendingCodecInitializingTimestamp;
+  private @MonotonicNonNull CodecParameters pendingCodecParameters;
 
   /**
    * A framework {@link MediaCrypto} for use with {@link MediaCodec#queueSecureInputBuffer(int, int,
@@ -392,6 +402,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private OutputStreamInfo outputStreamInfo;
   private long lastProcessedOutputBufferTimeUs;
   private boolean needToNotifyOutputFormatChangeAfterStreamChange;
+  private boolean asyncCodecInitializationEnabled;
   private boolean hasSkippedFlushAndWaitingForQueueInputBuffer;
   private long skippedFlushOffsetUs;
   private long largestStaleModifiedPresentationTimeUs;
@@ -508,6 +519,30 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         positionUs,
         elapsedRealtimeUs,
         /* isOnBufferAvailableListenerRegistered= */ codecRegisteredOnBufferAvailableListener);
+  }
+
+  /**
+   * Sets whether this renderer creates its decoder on a background thread instead of the playback
+   * thread, so that the player's other renderers are fed while the decoder is being created. The
+   * renderer keeps its samples meanwhile and starts decoding from the first one once the decoder
+   * exists. Only applies to audio renderers playing content without DRM; ignored otherwise.
+   *
+   * <p>When enabled, the renderer's {@link MediaCodecAdapter.Factory} is called on a background
+   * thread, so a custom factory must be thread-safe. A decoder still being created when the
+   * renderer is disabled, reset or released is released on that background thread once it exists,
+   * possibly after the renderer's {@link #release()} returned. The initialization duration reported
+   * in {@link #onCodecInitialized} includes the time until the renderer picks the created decoder
+   * up on a later {@link #render} call.
+   *
+   * <p>The default value is {@code false}. Must be called before the renderer is enabled.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param enabled Whether to create the decoder on a background thread.
+   */
+  @ExperimentalApi
+  public void experimentalSetAsyncCodecInitializationEnabled(boolean enabled) {
+    this.asyncCodecInitializationEnabled = enabled;
   }
 
   /**
@@ -816,6 +851,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   @Override
   protected void onDisabled() {
+    abandonPendingCodec();
     inputFormat = null;
     setOutputStreamInfo(OutputStreamInfo.UNSET);
     pendingOutputStreamChanges.clear();
@@ -851,6 +887,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   protected void releaseCodec() {
+    abandonPendingCodec();
     try {
       if (codec != null) {
         codec.release();
@@ -945,7 +982,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             && shouldContinueRendering(renderStartTimeMs)) {}
         while (feedInputBuffer() && shouldContinueRendering(renderStartTimeMs)) {}
         TraceUtil.endSection();
-      } else {
+      } else if (pendingCodec == null) {
         decoderCounters.skippedInputBufferCount += skipSource(positionUs);
         // We need to read any format changes despite not having a codec so that drmSession can be
         // updated, and so that we have the most recent format should the codec be initialized. We
@@ -1288,15 +1325,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     ArrayDeque<MediaCodecInfo> availableCodecInfos = checkNotNull(this.availableCodecInfos);
     while (codec == null) {
       MediaCodecInfo codecInfo = checkNotNull(availableCodecInfos.peekFirst());
-      if (!maybeInitializeProcessingPipeline(inputFormat)) {
+      if (pendingCodec == null && !maybeInitializeProcessingPipeline(inputFormat)) {
         return;
       }
 
-      if (!shouldInitCodec(codecInfo)) {
+      if (pendingCodec == null && !shouldInitCodec(codecInfo)) {
         return;
       }
       try {
         initCodec(codecInfo, crypto);
+        if (codec == null) {
+          return; // Being created off the playback thread: a later call finishes it.
+        }
       } catch (Exception e) {
         Log.w(TAG, "Failed to initialize decoder: " + codecInfo, e);
         // This codec failed to initialize, so fall back to the next codec in the list (if any). We
@@ -1349,6 +1389,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   /** Configures rendering where no codec is used. */
   private void initBypass(Format format) {
+    abandonPendingCodec(); // Bypass became possible while a decoder was being created.
     disableBypass(); // In case of transition between 2 bypass formats.
 
     String mimeType = format.sampleMimeType;
@@ -1369,24 +1410,80 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     long codecInitializingTimestamp;
     long codecInitializedTimestamp;
     String codecName = codecInfo.name;
-    float codecOperatingRate =
-        getCodecOperatingRateV23(targetPlaybackSpeed, inputFormat, getStreamFormats());
-    if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
-      codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
-    }
-    codecInitializingTimestamp = getClock().elapsedRealtime();
-    MediaCodecAdapter.Configuration configuration =
-        getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
-    if (SDK_INT >= 31) {
-      Api31.setLogSessionIdToMediaCodecFormat(configuration, getPlayerId());
-    }
-    try {
-      TraceUtil.beginSection("createCodec:" + codecName);
-      codec = codecAdapterFactory.createAdapter(configuration);
+    float codecOperatingRate;
+    MediaCodecAdapter.Configuration configuration;
+    @Nullable FutureTask<MediaCodecAdapter> created = pendingCodec;
+    if (created != null) {
+      if (!created.isDone()) {
+        return;
+      }
+      configuration = checkNotNull(pendingCodecConfiguration);
+      codecOperatingRate = pendingCodecOperatingRate;
+      codecInitializingTimestamp = pendingCodecInitializingTimestamp;
+      pendingCodec = null;
+      pendingCodecConfiguration = null;
+      try {
+        codec = created.get();
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof Error) {
+          throw (Error) cause;
+        }
+        throw cause instanceof Exception ? (Exception) cause : e;
+      }
       codecRegisteredOnBufferAvailableListener =
           codec.registerOnBufferAvailableListener(new MediaCodecRendererCodecAdapterListener());
-    } finally {
-      TraceUtil.endSection();
+    } else {
+      codecOperatingRate =
+          getCodecOperatingRateV23(targetPlaybackSpeed, inputFormat, getStreamFormats());
+      if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
+        codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
+      }
+      codecInitializingTimestamp = getClock().elapsedRealtime();
+      configuration =
+          getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
+      if (SDK_INT >= 31) {
+        Api31.setLogSessionIdToMediaCodecFormat(configuration, getPlayerId());
+      }
+      if (crypto == null
+          && getTrackType() == C.TRACK_TYPE_AUDIO
+          && asyncCodecInitializationEnabled) {
+        MediaCodecAdapter.Factory factory = codecAdapterFactory;
+        MediaCodecAdapter.Configuration startConfiguration = configuration;
+        FutureTask<MediaCodecAdapter> task =
+            new FutureTask<MediaCodecAdapter>(
+                () -> {
+                  TraceUtil.beginSection("createCodec:" + codecName);
+                  try {
+                    return factory.createAdapter(startConfiguration);
+                  } finally {
+                    TraceUtil.endSection();
+                  }
+                }) {
+              @Override
+              protected void done() {
+                @Nullable WakeupListener listener = wakeupListener;
+                if (listener != null) {
+                  listener.onWakeup();
+                }
+              }
+            };
+        pendingCodec = task;
+        pendingCodecConfiguration = configuration;
+        pendingCodecOperatingRate = codecOperatingRate;
+        pendingCodecInitializingTimestamp = codecInitializingTimestamp;
+        pendingCodecParameters = activeCodecParameters;
+        AsyncCodecInit.EXECUTOR.execute(task);
+        return;
+      }
+      try {
+        TraceUtil.beginSection("createCodec:" + codecName);
+        codec = codecAdapterFactory.createAdapter(configuration);
+        codecRegisteredOnBufferAvailableListener =
+            codec.registerOnBufferAvailableListener(new MediaCodecRendererCodecAdapterListener());
+      } finally {
+        TraceUtil.endSection();
+      }
     }
     codecInitializedTimestamp = getClock().elapsedRealtime();
 
@@ -1411,6 +1508,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     if (getState() == STATE_STARTED) {
       codecHotswapDeadlineMs = getClock().elapsedRealtime() + MAX_CODEC_HOTSWAP_TIME_MS;
+    }
+
+    if (created != null) {
+      // Apply a playback speed and codec parameters set while the decoder was being created.
+      updateCodecOperatingRate(inputFormat);
+      if (SDK_INT >= 29 && !activeCodecParameters.equals(pendingCodecParameters)) {
+        checkNotNull(codec).setParameters(activeCodecParameters.toBundle());
+      }
     }
 
     decoderCounters.decoderInitCount++;
@@ -1802,6 +1907,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     if (codec == null) {
+      abandonPendingCodec(); // Created for the previous format.
       availableCodecInfos = null;
       maybeInitCodecOrBypass();
       return null;
@@ -2933,6 +3039,34 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         codecConfiguration.mediaFormat.setString("log-session-id", logSessionId.getStringId());
       }
     }
+  }
+
+  /** Releases a decoder still being created (or created and never used) off the playback thread. */
+  private void abandonPendingCodec() {
+    @Nullable FutureTask<MediaCodecAdapter> pending = pendingCodec;
+    if (pending == null) {
+      return;
+    }
+    pendingCodec = null;
+    pendingCodecConfiguration = null;
+    AsyncCodecInit.EXECUTOR.execute(
+        () -> {
+          try {
+            pending.get().release();
+          } catch (Exception e) {
+            // Its creation failed: nothing to release.
+          }
+        });
+  }
+
+  private static final class AsyncCodecInit {
+    static final ExecutorService EXECUTOR =
+        Executors.newCachedThreadPool(
+            runnable -> {
+              Thread thread = new Thread(runnable, "ExoPlayer:CodecInit");
+              thread.setDaemon(true);
+              return thread;
+            });
   }
 
   private final class MediaCodecRendererCodecAdapterListener

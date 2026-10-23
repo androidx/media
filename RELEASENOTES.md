@@ -21,6 +21,12 @@
         (e.g., `CompositeMediaSource<Void?>`).
     *   Verify in `AdsMediaSource` that `AdPlaybackState.removedAdGroupCount`
         does not decrease across `AdPlaybackState` updates.
+    *   Add experimental `MediaCodecRenderer`
+        `experimentalSetAsyncCodecInitializationEnabled` to create audio
+        decoders on a background thread, so that the other renderers are fed
+        while an audio decoder is being created.
+    *   Make `LoudnessCodecController` thread-safe and ignore calls after
+        `release()`.
     *   Fix an issue where transitioning between media periods that use
         different renderers could prematurely enable the incoming renderer
         before the outgoing renderer finished rendering (for example, throwing
@@ -37,6 +43,10 @@
         `MediaPeriod.readDiscontinuity()` when not supported and
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
 *   CompositionPlayer:
+    *   Add experimental `CompositionPlayer.Builder`
+        `experimentalSetAsyncAudioCodecInitializationEnabled` to create the
+        audio decoders off the playback thread, reducing the time to the first
+        frame after `prepare` and composition changes.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

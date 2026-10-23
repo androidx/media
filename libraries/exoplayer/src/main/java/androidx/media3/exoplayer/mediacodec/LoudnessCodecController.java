@@ -27,7 +27,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import org.jspecify.annotations.Nullable;
 
-/** Wrapper class for the platform {@link android.media.LoudnessCodecController}. */
+/**
+ * Wrapper class for the platform {@link android.media.LoudnessCodecController}.
+ *
+ * <p>Methods may be called from any thread. Not reusable after {@link #release()}: later calls are
+ * ignored.
+ */
 @RequiresApi(35)
 @UnstableApi
 public final class LoudnessCodecController {
@@ -51,6 +56,7 @@ public final class LoudnessCodecController {
   private final LoudnessParameterUpdateListener updateListener;
 
   private android.media.@Nullable LoudnessCodecController loudnessCodecController;
+  private boolean released;
 
   /** Creates the loudness controller. */
   public LoudnessCodecController() {
@@ -73,7 +79,10 @@ public final class LoudnessCodecController {
    *
    * @param audioSessionId The audio session ID.
    */
-  public void setAudioSessionId(int audioSessionId) {
+  public synchronized void setAudioSessionId(int audioSessionId) {
+    if (released) {
+      return;
+    }
     if (loudnessCodecController != null) {
       loudnessCodecController.close();
       loudnessCodecController = null;
@@ -102,7 +111,11 @@ public final class LoudnessCodecController {
    *
    * @param mediaCodec A {@link MediaCodec}.
    */
-  public void addMediaCodec(MediaCodec mediaCodec) {
+  public synchronized void addMediaCodec(MediaCodec mediaCodec) {
+    if (released) {
+      // A decoder created on another thread may be added after the renderer released this.
+      return;
+    }
     if (loudnessCodecController != null && !loudnessCodecController.addMediaCodec(mediaCodec)) {
       // Don't add codec if the existing loudness controller can't handle it.
       return;
@@ -115,7 +128,7 @@ public final class LoudnessCodecController {
    *
    * @param mediaCodec A {@link MediaCodec}.
    */
-  public void removeMediaCodec(MediaCodec mediaCodec) {
+  public synchronized void removeMediaCodec(MediaCodec mediaCodec) {
     boolean removedCodec = mediaCodecs.remove(mediaCodec);
     if (removedCodec && loudnessCodecController != null) {
       loudnessCodecController.removeMediaCodec(mediaCodec);
@@ -123,10 +136,12 @@ public final class LoudnessCodecController {
   }
 
   /** Releases the loudness controller. */
-  public void release() {
+  public synchronized void release() {
+    released = true;
     mediaCodecs.clear();
     if (loudnessCodecController != null) {
       loudnessCodecController.close();
+      loudnessCodecController = null;
     }
   }
 }
