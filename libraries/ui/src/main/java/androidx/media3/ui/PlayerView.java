@@ -296,6 +296,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   // LINT.ThenChange(../../../../res/values/attrs.xml)
 
   private final ComponentListener componentListener;
+  private final @Nullable FrameLayout contentFrameContainer;
   private final @Nullable AspectRatioFrameLayout contentFrame;
   private final @Nullable View shutterView;
   private final @Nullable View surfaceView;
@@ -356,6 +357,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     mainLooperHandler = new Handler(Looper.getMainLooper());
 
     if (isInEditMode()) {
+      contentFrameContainer = null;
       contentFrame = null;
       shutterView = null;
       surfaceView = null;
@@ -431,7 +433,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     LayoutInflater.from(context).inflate(playerLayoutId, this);
     setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
 
-    // Content frame.
+    // Content frame and its outer container (used to inset the video area during ad playback while
+    // keeping the aspect-ratio-fitted contentFrame centered inside the inset region).
+    contentFrameContainer = findViewById(R.id.exo_content_frame_container);
     contentFrame = findViewById(R.id.exo_content_frame);
     if (contentFrame != null) {
       setResizeModeRaw(contentFrame, resizeMode);
@@ -1487,6 +1491,30 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           new AdOverlayInfo.Builder(controller, AdOverlayInfo.PURPOSE_CONTROLS).build());
     }
     return ImmutableList.copyOf(overlayViews);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Custom layouts supplied via {@code player_layout_id} or by overriding {@code
+   * exo_player_view.xml} must wrap {@code exo_content_frame} in an {@code
+   * exo_content_frame_container} view (whose layout parameters extend {@link
+   * ViewGroup.MarginLayoutParams}) to support interactive ad video resizing; otherwise this method
+   * returns {@code null}.
+   */
+  @UnstableApi
+  @Override
+  public @Nullable View getAdVideoView() {
+    // Return the outer container rather than contentFrame directly: contentFrame uses
+    // layout_gravity="center" to center the aspect-ratio-fitted video surface, and FrameLayout
+    // does not bound a Gravity.CENTER child to asymmetric margins. Insetting the outer container's
+    // margins bounds the available region while contentFrame centers the video within it.
+    return contentFrameContainer != null
+            && contentFrame != null
+            && surfaceView != null
+            && contentFrame.getParent() == contentFrameContainer
+        ? contentFrameContainer
+        : null;
   }
 
   // Internal methods.

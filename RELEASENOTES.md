@@ -13,6 +13,8 @@
         nullness annotations. Kotlin subclasses of `RunnableFutureTask` with a
         nullable result type (such as `Void?`) must specify a nullable type
         argument (e.g., `RunnableFutureTask<Void?, Exception>`).
+    *   Add `AdViewProvider.getAdVideoView()` to provide the video container
+        `View` that can be resized during ad playback.
 *   ExoPlayer:
     *   Fix an issue where a renderer enabled early for an upcoming media period
         could start rendering before playback transitions to that period.
@@ -69,6 +71,11 @@
 *   Effect Play services:
 *   Muxers:
 *   IMA extension:
+    *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
+        ads to resize and reposition the video player view within the ad
+        container, and add
+        `ImaAdsLoader.requestAds(DataSpec, Object, AdViewProvider)` (deprecating
+        `ImaAdsLoader.requestAds(DataSpec, Object, ViewGroup)`).
 *   Session:
 *   UI:
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
@@ -81,6 +88,8 @@
         including custom ones, and remove the `visible` parameter from
         `PlayerDefaults.TopControls`, `CenterControls` and `BottomControls`.
         This is a breaking change on an unstable API.
+    *   Support `AdViewProvider.getAdVideoView()` in `PlayerView` by wrapping
+        `exo_content_frame` in `exo_content_frame_container`.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

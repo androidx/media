@@ -507,9 +507,30 @@ public final class ImaAdsLoader implements AdsLoader {
    * @param adsId A opaque identifier for the ad playback state across start/stop calls.
    * @param adViewGroup A {@link ViewGroup} on top of the player that will show any ad UI, or {@code
    *     null} if playing audio-only ads.
+   * @deprecated Use {@link #requestAds(DataSpec, Object, AdViewProvider)} instead.
    */
+  @Deprecated
   @UnstableApi
   public void requestAds(DataSpec adTagDataSpec, Object adsId, @Nullable ViewGroup adViewGroup) {
+    requestAds(adTagDataSpec, adsId, (AdViewProvider) () -> adViewGroup);
+  }
+
+  /**
+   * Requests ads, if they have not already been requested. Must be called on the main thread.
+   *
+   * <p>Ads will be requested automatically when the player is prepared if this method has not been
+   * called, so it is only necessary to call this method if you want to request ads before preparing
+   * the player.
+   *
+   * @param adTagDataSpec The data specification of the ad tag to load. See class javadoc for
+   *     information about compatible ad tag formats.
+   * @param adsId An opaque identifier for the ad playback state across start/stop calls.
+   * @param adViewProvider A provider of views for the ad UI, or {@code null} if playing audio-only
+   *     ads.
+   */
+  @UnstableApi
+  public void requestAds(
+      DataSpec adTagDataSpec, Object adsId, @Nullable AdViewProvider adViewProvider) {
     adTagLoaderByAdsId.computeIfAbsent(
         adsId,
         id ->
@@ -520,7 +541,8 @@ public final class ImaAdsLoader implements AdsLoader {
                 supportedMimeTypes,
                 adTagDataSpec,
                 id,
-                adViewGroup));
+                adViewProvider != null ? adViewProvider.getAdViewGroup() : null,
+                adViewProvider != null ? adViewProvider.getAdVideoView() : null));
   }
 
   /**
@@ -602,7 +624,7 @@ public final class ImaAdsLoader implements AdsLoader {
 
     @Nullable AdTagLoader adTagLoader = adTagLoaderByAdsId.get(adsId);
     if (adTagLoader == null) {
-      requestAds(adTagDataSpec, adsId, adViewProvider.getAdViewGroup());
+      requestAds(adTagDataSpec, adsId, adViewProvider);
       adTagLoader = adTagLoaderByAdsId.get(adsId);
     }
     adTagLoaderByAdsMediaSource.put(adsMediaSource, checkNotNull(adTagLoader));
