@@ -49,6 +49,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.flac.FlacExtractor;
+import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.base.Ascii;
@@ -121,7 +123,11 @@ public final class MediaExtractorCompat {
   private static DefaultExtractorsFactory createDefaultExtractorsFactory() {
     return new DefaultExtractorsFactory()
         .setMp4ExtractorFlags(Mp4Extractor.FLAG_EMIT_RAW_MEBX_DATA)
-        .setFragmentedMp4ExtractorFlags(FragmentedMp4Extractor.FLAG_EMIT_RAW_MEBX_DATA);
+        .setFragmentedMp4ExtractorFlags(FragmentedMp4Extractor.FLAG_EMIT_RAW_MEBX_DATA)
+        // Format.metadata is not exposed, so parsing ID3 and artwork metadata is skipped.
+        .setDisableArtworkMetadata(true)
+        .setMp3ExtractorFlags(Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
+        .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA);
   }
 
   /**
