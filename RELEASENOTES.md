@@ -1088,6 +1088,11 @@ This release includes the following changes since
 *   Effect Lottie:
     *   Introduce a new `:media3-effect-lottie` module which provides
         functionality for applying lottie effects to video frames.
+*   Effect Play services:
+    *   Introduce a new `media3-effect-play-services` module providing Google
+        Play services media effects, including `EnhancementSessionDecorator` for
+        video enhancement and `StudioSoundAudioProcessor` for audio source
+        separation.
 *   IMA extension:
     *   Update the IMA SDK version to 3.39.0 in order to have access to the
         latest Ad media info API.
