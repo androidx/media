@@ -66,6 +66,11 @@
 *   DRM:
 *   Effect:
 *   Effect Lottie:
+*   Effect Play services:
+    *   Introduce a new `media3-effect-play-services` module providing Google
+        Play services media effects, including `EnhancementSessionDecorator` for
+        video enhancement and `StudioSoundAudioProcessor` for audio source
+        separation.
 *   Muxers:
 *   IMA extension:
 *   Session:

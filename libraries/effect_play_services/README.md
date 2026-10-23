@@ -1,12 +1,12 @@
 # Effect Play services module
 
-Provides functionality for applying Google Play services video enhancement
-effects to video frames using
-[`EnhancementSession`](https://developers.google.com/android/reference/com/google/android/gms/media/effect/enhancement/EnhancementSession).
+Provides functionality for applying Google Play services media effects,
+including video enhancement effects using
+[`EnhancementSession`](https://developers.google.com/android/reference/com/google/android/gms/media/effect/enhancement/EnhancementSession)
+and audio source separation using
+[StudioSound](https://developers.google.com/android/reference/com/google/android/gms/media/effect/studiosound/package-summary).
 
 ## Getting the module
-
-<!-- TODO(b/531659135): Publish the module to Maven. -->
 
 The easiest way to get the module is to add it as a gradle dependency:
 

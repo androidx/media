@@ -73,6 +73,8 @@ fun addMissingAarTypeToXml(xml: XmlProvider) {
       "com.google.ads.interactivemedia.v3:interactivemedia",
       "com.google.android.gms:play-services-cast-framework",
       "com.google.android.gms:play-services-cronet",
+      "com.google.android.gms:play-services-media-effect-enhancement",
+      "com.google.android.gms:play-services-media-effect-studiosound",
       "com.google.android.material:material",
       "com.google.testparameterinjector:test-parameter-injector",
       "io.antmedia:rtmp-client",
