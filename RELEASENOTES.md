@@ -67,10 +67,6 @@
 *   Effect:
 *   Effect Lottie:
 *   Effect Play services:
-    *   Introduce a new `media3-effect-play-services` module providing Google
-        Play services media effects, including `EnhancementSessionDecorator` for
-        video enhancement and `StudioSoundAudioProcessor` for audio source
-        separation.
 *   Muxers:
 *   IMA extension:
 *   Session:
@@ -123,6 +119,17 @@
 *   Remove deprecated symbols:
 
 ## 1.12
+
+### 1.12.0-alpha02 (2026-10-26)
+
+This release includes the following changes since
+[1.12.0-alpha01](#1120-alpha01-2026-10-21):
+
+*   Effect Play services:
+    *   Introduce a new `media3-effect-play-services` module providing Google
+        Play services media effects, including `EnhancementSessionDecorator` for
+        video enhancement and `StudioSoundAudioProcessor` for audio source
+        separation.
 
 ### 1.12.0-alpha01 (2026-10-21)
 
