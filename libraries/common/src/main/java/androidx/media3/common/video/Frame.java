@@ -18,6 +18,7 @@ package androidx.media3.common.video;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.hardware.HardwareBuffer;
+import android.media.MediaFormat;
 import androidx.annotation.LongDef;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
@@ -102,6 +103,14 @@ public interface Frame {
    * value should be a {@code Long}.
    */
   String KEY_PRESENTATION_TIME_US = "KEY_PRESENTATION_TIME_US";
+
+  /**
+   * Metadata key for storing the SMPTE ST 2094-50 dynamic HDR metadata of this frame.
+   *
+   * <p>The value should be a non-empty {@code byte[]} holding the ITU-T T.35 payload without the
+   * 5-byte T.35 header, in the same format as {@link MediaFormat#KEY_HDR_ST2094_50_INFO}.
+   */
+  String KEY_HDR_ST2094_50_INFO = "KEY_HDR_ST2094_50_INFO";
 
   /** The frame format. */
   Format getFormat();

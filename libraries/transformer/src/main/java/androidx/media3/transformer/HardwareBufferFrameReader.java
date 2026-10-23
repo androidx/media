@@ -267,7 +267,12 @@ import org.jspecify.annotations.Nullable;
 
         frameConsumer.accept(
             createAsyncFrameFromImage(
-                image, itemPresentationTimeUs, sequenceOffsetUs, indexOfItem, frameInfo.format));
+                image,
+                itemPresentationTimeUs,
+                sequenceOffsetUs,
+                indexOfItem,
+                frameInfo.format,
+                frameInfo.additionalMetadata));
         maybeOutputPendingBitmaps();
         maybeWakeupVideoRenderer();
       } catch (RuntimeException e) {
@@ -393,7 +398,8 @@ import org.jspecify.annotations.Nullable;
       long presentationTimeUs,
       long sequenceOffsetUs,
       int indexOfItem,
-      Format format) {
+      Format format,
+      ImmutableMap<String, Object> additionalMetadata) {
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
     // AImage_getHardwareBuffer.
     // TODO(b/531653682): Support frame types not backed by HardwareBuffer.
@@ -407,7 +413,8 @@ import org.jspecify.annotations.Nullable;
         presentationTimeUs,
         sequenceOffsetUs,
         indexOfItem,
-        format);
+        format,
+        additionalMetadata);
   }
 
   private @Nullable BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
@@ -441,7 +448,8 @@ import org.jspecify.annotations.Nullable;
           presentationTimeUs,
           sequenceOffsetUs,
           itemIndex,
-          format);
+          format,
+          /* additionalMetadata= */ ImmutableMap.of());
     }
     // TODO(b/531653682): Support frame types not backed by HardwareBuffer.
     DefaultHardwareBufferFrame retainedHandle =
@@ -457,7 +465,8 @@ import org.jspecify.annotations.Nullable;
         presentationTimeUs,
         sequenceOffsetUs,
         itemIndex,
-        format);
+        format,
+        /* additionalMetadata= */ ImmutableMap.of());
   }
 
   @SuppressWarnings({"deprecation", "NewApi"}) // Uses deprecated CompositionFrameMetadata.
@@ -469,7 +478,8 @@ import org.jspecify.annotations.Nullable;
       long presentationTimeUs,
       long sequenceOffsetUs,
       int itemIndex,
-      Format format) {
+      Format format,
+      ImmutableMap<String, Object> additionalMetadata) {
     // COLOR_TRANSFER_SRGB may not be supported by the encoder or display, but is equivalent to
     // COLOR_TRANSFER_SDR on Android which is widely supported.
     if (format.colorInfo != null
@@ -487,6 +497,7 @@ import org.jspecify.annotations.Nullable;
             .put(Frame.KEY_PRESENTATION_TIME_US, presentationTimeUs)
             .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
             .putAll(asFrameMetadata(compositionFrameMetadata))
+            .putAll(additionalMetadata)
             .buildOrThrow();
     DefaultHardwareBufferFrame frame =
         new DefaultHardwareBufferFrame.Builder(hardwareBuffer, releaseExecutor, releaseCallback)
@@ -598,13 +609,23 @@ import org.jspecify.annotations.Nullable;
      *     duration of all preceding media items in the sequence.
      * @param indexOfItem The position of the edited media item in the sequence.
      * @param format The {@link Format} of the edited media item.
+     * @param additionalMetadata Metadata to add to the {@linkplain Frame#getMetadata() metadata} of
+     *     the output frame.
      */
     void queueFrame(
-        long presentationTimeUs, long sequenceOffsetUs, int indexOfItem, Format format) {
+        long presentationTimeUs,
+        long sequenceOffsetUs,
+        int indexOfItem,
+        Format format,
+        ImmutableMap<String, Object> additionalMetadata) {
       synchronized (HardwareBufferFrameReader.this) {
         pendingFrameInfo.add(
             FrameInfo.createForSurface(
-                presentationTimeUs, sequenceOffsetUs, indexOfItem, getAdjustedFormat(format)));
+                presentationTimeUs,
+                sequenceOffsetUs,
+                indexOfItem,
+                getAdjustedFormat(format),
+                additionalMetadata));
       }
       imageReader.notifyFrameQueued(presentationTimeUs);
     }
@@ -631,7 +652,8 @@ import org.jspecify.annotations.Nullable;
             /* itemPresentationTimeUs= */ C.TIME_END_OF_SOURCE,
             /* sequenceOffsetUs= */ 0,
             /* itemIndex= */ C.INDEX_UNSET,
-            /* format= */ new Format.Builder().build());
+            /* format= */ new Format.Builder().build(),
+            /* additionalMetadata= */ ImmutableMap.of());
 
     /**
      * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
@@ -650,6 +672,9 @@ import org.jspecify.annotations.Nullable;
     final long sequenceOffsetUs;
     final int itemIndex;
 
+    /** Metadata to add to the metadata of the output frame. */
+    final ImmutableMap<String, Object> additionalMetadata;
+
     static FrameInfo createForBitmap(
         Bitmap bitmap,
         TimestampIterator timestampIterator,
@@ -657,12 +682,29 @@ import org.jspecify.annotations.Nullable;
         int itemIndex,
         Format format) {
       return new FrameInfo(
-          bitmap, timestampIterator, C.TIME_UNSET, sequenceOffsetUs, itemIndex, format);
+          bitmap,
+          timestampIterator,
+          C.TIME_UNSET,
+          sequenceOffsetUs,
+          itemIndex,
+          format,
+          /* additionalMetadata= */ ImmutableMap.of());
     }
 
     static FrameInfo createForSurface(
-        long itemPresentationTimeUs, long sequenceOffsetUs, int itemIndex, Format format) {
-      return new FrameInfo(null, null, itemPresentationTimeUs, sequenceOffsetUs, itemIndex, format);
+        long itemPresentationTimeUs,
+        long sequenceOffsetUs,
+        int itemIndex,
+        Format format,
+        ImmutableMap<String, Object> additionalMetadata) {
+      return new FrameInfo(
+          null,
+          null,
+          itemPresentationTimeUs,
+          sequenceOffsetUs,
+          itemIndex,
+          format,
+          additionalMetadata);
     }
 
     private FrameInfo(
@@ -671,13 +713,15 @@ import org.jspecify.annotations.Nullable;
         long itemPresentationTimeUs,
         long sequenceOffsetUs,
         int itemIndex,
-        Format format) {
+        Format format,
+        ImmutableMap<String, Object> additionalMetadata) {
       this.bitmap = bitmap;
       this.timestampIterator = timestampIterator;
       this.itemPresentationTimeUs = itemPresentationTimeUs;
       this.sequenceOffsetUs = sequenceOffsetUs;
       this.itemIndex = itemIndex;
       this.format = format;
+      this.additionalMetadata = additionalMetadata;
     }
   }
 

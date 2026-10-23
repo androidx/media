@@ -31,6 +31,7 @@ import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AV1;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AVC;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
@@ -48,6 +49,7 @@ import static androidx.media3.transformer.TestUtil.assertTimestampsMatchFrameRat
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
 import static androidx.media3.transformer.TestUtil.createTestHardwareBufferCompositionPlayerBuilder;
+import static androidx.media3.transformer.TestUtil.getIt35SampleDataByTimeUs;
 import static androidx.media3.transformer.TestUtil.getQueuedContentTimesUs;
 import static androidx.media3.transformer.TestUtil.setupAndPrepareHardwareBufferPlayer;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -153,7 +155,7 @@ public class CompositionPlayerTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_AVC),
+          /* decoders= */ ImmutableList.of(CODEC_INFO_AVC, CODEC_INFO_AV1),
           /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   private static final long TEST_TIMEOUT_MS = 1_000;
@@ -3739,6 +3741,47 @@ public class CompositionPlayerTest {
         }
       }
     }
+  }
+
+  @Test
+  @Config(sdk = 37)
+  public void play_hardwareBufferPlayerWithHagcTrack_attachesPayloadOfMatchingSample()
+      throws Exception {
+    String it35FilePath = "mp4/sample_with_it35_track.mp4";
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + it35FilePath))
+            .setDurationUs(1_003_000)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(editedMediaItem, editedMediaItem)))
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    play(player).untilState(STATE_ENDED);
+
+    ImmutableMap<Long, byte[]> it35SampleDataByTimeUs =
+        getIt35SampleDataByTimeUs("media/" + it35FilePath);
+    int frameCount = 0;
+    for (CapturingFrameProcessor.Event event : frameProcessor.getQueuedEvents()) {
+      if (!(event instanceof FramesEvent)) {
+        continue;
+      }
+      for (AsyncFrame asyncFrame : ((FramesEvent) event).frames) {
+        if (asyncFrame.frame.getContentTimeUs() == C.TIME_END_OF_SOURCE) {
+          continue;
+        }
+        ImmutableMap<String, Object> metadata = asyncFrame.frame.getMetadata();
+        long itemTimeUs = (Long) metadata.get(Frame.KEY_PRESENTATION_TIME_US);
+        assertWithMessage("HAGC payload of the frame at %s us mismatches", itemTimeUs)
+            .that(metadata.get(Frame.KEY_HDR_ST2094_50_INFO))
+            .isEqualTo(it35SampleDataByTimeUs.get(itemTimeUs));
+        frameCount++;
+      }
+    }
+    assertThat(frameCount).isGreaterThan(0);
   }
 
   /**

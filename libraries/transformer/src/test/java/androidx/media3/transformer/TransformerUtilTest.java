@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioAndVideoFrom;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_DEFAULT;
@@ -35,6 +36,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Util;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -44,6 +46,7 @@ import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -353,6 +356,45 @@ public final class TransformerUtilTest {
             TransformerUtil.getEditedMediaItemIndex(
                 timeline, new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(4))))
         .isEqualTo(0);
+  }
+
+  @Test
+  public void getHagcPayload_withValidHagcSupplementalData_stripsHeader() {
+    DecoderInputBuffer buffer =
+        createBufferWithSupplementalData(createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01, 1, 2, 3));
+
+    assertThat(TransformerUtil.getHagcPayload(buffer)).isEqualTo(new byte[] {1, 2, 3});
+  }
+
+  @Test
+  public void getHagcPayload_noSupplementalData_returnsNull() {
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+
+    assertThat(TransformerUtil.getHagcPayload(buffer)).isNull();
+  }
+
+  @Test
+  public void getHagcPayload_nonHagcSupplementalData_returnsNull() {
+    DecoderInputBuffer buffer = createBufferWithSupplementalData(new byte[] {1, 2, 3});
+
+    assertThat(TransformerUtil.getHagcPayload(buffer)).isNull();
+  }
+
+  @Test
+  public void getHagcPayload_emptyPayload_returnsNull() {
+    DecoderInputBuffer buffer =
+        createBufferWithSupplementalData(createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01));
+
+    assertThat(TransformerUtil.getHagcPayload(buffer)).isNull();
+  }
+
+  private static DecoderInputBuffer createBufferWithSupplementalData(byte[] supplementalData) {
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    buffer.addFlag(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    buffer.supplementalData = ByteBuffer.wrap(supplementalData);
+    return buffer;
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {
