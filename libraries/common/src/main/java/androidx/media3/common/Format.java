@@ -177,6 +177,7 @@ public final class Format {
     private @Nullable List<byte[]> initializationData;
     private @Nullable DrmInitData drmInitData;
     private long subsampleOffsetUs;
+    private boolean hasReliablePresentationTimestamps;
 
     // Video specific.
 
@@ -227,6 +228,7 @@ public final class Format {
       maxInputSize = NO_VALUE;
       maxNumReorderSamples = NO_VALUE;
       subsampleOffsetUs = OFFSET_SAMPLE_RELATIVE;
+      hasReliablePresentationTimestamps = true; // most formats have accurate per-sample timestamps
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
@@ -281,6 +283,7 @@ public final class Format {
       this.initializationData = format.initializationData;
       this.drmInitData = format.drmInitData;
       this.subsampleOffsetUs = format.subsampleOffsetUs;
+      this.hasReliablePresentationTimestamps = format.hasReliablePresentationTimestamps;
       // Video specific.
       this.width = format.width;
       this.height = format.height;
@@ -601,6 +604,20 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setSubsampleOffsetUs(long subsampleOffsetUs) {
       this.subsampleOffsetUs = subsampleOffsetUs;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#hasReliablePresentationTimestamps}. The default value is {@code true}.
+     *
+     * @param hasReliablePresentationTimestamps The {@link
+     *     Format#hasReliablePresentationTimestamps}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setHasReliablePresentationTimestamps(
+        boolean hasReliablePresentationTimestamps) {
+      this.hasReliablePresentationTimestamps = hasReliablePresentationTimestamps;
       return this;
     }
 
@@ -1117,6 +1134,15 @@ public final class Format {
    */
   @UnstableApi public final long subsampleOffsetUs;
 
+  /**
+   * Indicates whether per-sample presentation timestamps for this track are known to be accurate.
+   *
+   * <p>When {@code false}, the source couldn't determine each sample's true presentation time
+   * (for example an MP4 track with no {@code ctts} box). Consumers shouldn't treat the
+   * timestamps as ground truth for scheduling decisions. Defaults to {@code true}.
+   */
+  @UnstableApi public final boolean hasReliablePresentationTimestamps;
+
   // Video specific.
 
   /** The width of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
@@ -1317,6 +1343,7 @@ public final class Format {
         builder.initializationData == null ? Collections.emptyList() : builder.initializationData;
     drmInitData = builder.drmInitData;
     subsampleOffsetUs = builder.subsampleOffsetUs;
+    hasReliablePresentationTimestamps = builder.hasReliablePresentationTimestamps;
     // Video specific.
     width = builder.width;
     height = builder.height;

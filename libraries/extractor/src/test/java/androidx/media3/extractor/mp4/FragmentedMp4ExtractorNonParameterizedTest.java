@@ -15,9 +15,11 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.container.BoxUtils;
 import androidx.media3.container.Mp4Box;
@@ -182,6 +184,22 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
             new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED), data);
     assertThat(new Dumper().add(output).toString())
         .isEqualTo(new Dumper().add(expectedOutput).toString());
+  }
+
+  @Test
+  public void extract_reorderedVideo_hasReliablePresentationTimestamps() throws Exception {
+    // The moov box's sample table has no ctts box, but composition offsets come from trun boxes.
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor, ApplicationProvider.getApplicationContext(), "media/mp4/sample_fragmented.mp4");
+
+    Format videoFormat = checkNotNull(output.trackOutputs.get(0).lastFormat);
+    assertThat(videoFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
+    assertThat(videoFormat.maxNumReorderSamples).isGreaterThan(0);
+    assertThat(videoFormat.hasReliablePresentationTimestamps).isTrue();
   }
 
   @Test

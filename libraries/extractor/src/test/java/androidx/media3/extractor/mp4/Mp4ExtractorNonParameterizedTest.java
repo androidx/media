@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -408,6 +409,66 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     assertThat(output.numberOfTracks).isEqualTo(1);
     assertThat(output.trackOutputs.get(0).lastFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
+  @Test
+  public void extract_reorderedVideoWithoutCttsOrEditList_hasUnreliablePresentationTimestamps()
+      throws Exception {
+    Format videoFormat =
+        extractFirstTrackFormat("media/mp4/sample_no_ctts_reordered.mp4", /* flags= */ 0);
+
+    assertThat(videoFormat.maxNumReorderSamples).isGreaterThan(0);
+    assertThat(videoFormat.hasReliablePresentationTimestamps).isFalse();
+  }
+
+  @Test
+  public void extract_reorderedVideoWithoutCttsWithEditList_hasUnreliablePresentationTimestamps()
+      throws Exception {
+    Format videoFormat =
+        extractFirstTrackFormat(
+            "media/mp4/sample_no_ctts_reordered_edit_list.mp4", /* flags= */ 0);
+
+    assertThat(videoFormat.maxNumReorderSamples).isGreaterThan(0);
+    assertThat(videoFormat.hasReliablePresentationTimestamps).isFalse();
+  }
+
+  @Test
+  public void
+      extract_reorderedVideoWithoutCttsAndOmitTrackSampleTable_hasUnreliablePresentationTimestamps()
+          throws Exception {
+    Format videoFormat =
+        extractFirstTrackFormat(
+            "media/mp4/sample_no_ctts_reordered.mp4", Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+
+    assertThat(videoFormat.hasReliablePresentationTimestamps).isFalse();
+  }
+
+  @Test
+  public void extract_nonReorderedVideoWithoutCtts_hasReliablePresentationTimestamps()
+      throws Exception {
+    Format videoFormat =
+        extractFirstTrackFormat("media/mp4/sample_no_ctts_not_reordered.mp4", /* flags= */ 0);
+
+    assertThat(videoFormat.maxNumReorderSamples).isEqualTo(0);
+    assertThat(videoFormat.hasReliablePresentationTimestamps).isTrue();
+  }
+
+  @Test
+  public void extract_reorderedVideoWithCtts_hasReliablePresentationTimestamps()
+      throws Exception {
+    Format videoFormat = extractFirstTrackFormat("media/mp4/h265_bframes.mp4", /* flags= */ 0);
+
+    assertThat(videoFormat.maxNumReorderSamples).isGreaterThan(0);
+    assertThat(videoFormat.hasReliablePresentationTimestamps).isTrue();
+  }
+
+  private static Format extractFirstTrackFormat(String inputFilePath, @Mp4Extractor.Flags int flags)
+      throws IOException {
+    Mp4Extractor mp4Extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED, flags);
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor, ApplicationProvider.getApplicationContext(), inputFilePath);
+    return checkNotNull(output.trackOutputs.get(0).lastFormat);
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {
