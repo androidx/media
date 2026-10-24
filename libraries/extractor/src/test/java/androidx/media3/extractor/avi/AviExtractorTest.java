@@ -52,6 +52,14 @@ public final class AviExtractorTest {
   }
 
   @Test
+  public void aviSampleOpenDml() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AviExtractor(/* extractorFlags= */ 0, SubtitleParser.Factory.UNSUPPORTED),
+        "media/avi/sample-opendml.avi",
+        simulationConfig);
+  }
+
+  @Test
   public void aviSampleWithUnflaggedAudioKeyframes() throws Exception {
     ExtractorAsserts.assertBehavior(
         () -> new AviExtractor(/* extractorFlags= */ 0, SubtitleParser.Factory.UNSUPPORTED),
