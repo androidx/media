@@ -98,6 +98,7 @@ public final class FragmentedMp4Muxer implements Muxer {
 
     private long fragmentDurationMs;
     private boolean sampleCopyEnabled;
+    private boolean fragmentsBetweenKeyFramesEnabled;
 
     /**
      * @deprecated Use {@link FragmentedMp4Muxer.Builder#Builder(WritableByteChannel)} instead.
@@ -121,6 +122,7 @@ public final class FragmentedMp4Muxer implements Muxer {
       this.outputChannel = outputChannel;
       fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
       sampleCopyEnabled = true;
+      fragmentsBetweenKeyFramesEnabled = false;
     }
 
     /**
@@ -153,9 +155,32 @@ public final class FragmentedMp4Muxer implements Muxer {
       return this;
     }
 
+    /**
+     * Sets whether fragments can start at non-key frames.
+     *
+     * <p>When enabled, a new fragment starts once the pending video samples span the {@linkplain
+     * #setFragmentDurationMs fragment duration}, even if the next sample is not a key frame. This
+     * allows the output to grow while samples arrive when key frames are farther apart than the
+     * fragment duration.
+     *
+     * <p>This option only takes effect if {@link Format#maxNumReorderSamples} of the video {@link
+     * Format} is {@code 0}. Otherwise, fragments only start at key frames.
+     *
+     * <p>Fragments that start at non-key frames are not listed as random access points in the
+     * {@code mfra} box.
+     *
+     * <p>The default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setFragmentsBetweenKeyFramesEnabled(boolean enabled) {
+      this.fragmentsBetweenKeyFramesEnabled = enabled;
+      return this;
+    }
+
     /** Builds a {@link FragmentedMp4Muxer} instance. */
     public FragmentedMp4Muxer build() {
-      return new FragmentedMp4Muxer(outputChannel, fragmentDurationMs, sampleCopyEnabled);
+      return new FragmentedMp4Muxer(
+          outputChannel, fragmentDurationMs, sampleCopyEnabled, fragmentsBetweenKeyFramesEnabled);
     }
   }
 
@@ -192,7 +217,10 @@ public final class FragmentedMp4Muxer implements Muxer {
   private final SparseArray<Track> trackIdToTrack;
 
   private FragmentedMp4Muxer(
-      WritableByteChannel outputChannel, long fragmentDurationMs, boolean sampleCopyEnabled) {
+      WritableByteChannel outputChannel,
+      long fragmentDurationMs,
+      boolean sampleCopyEnabled,
+      boolean fragmentsBetweenKeyFramesEnabled) {
     metadataCollector = new MetadataCollector();
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
@@ -200,7 +228,8 @@ public final class FragmentedMp4Muxer implements Muxer {
             metadataCollector,
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,
-            sampleCopyEnabled);
+            sampleCopyEnabled,
+            fragmentsBetweenKeyFramesEnabled);
     trackIdToTrack = new SparseArray<>();
   }
 
