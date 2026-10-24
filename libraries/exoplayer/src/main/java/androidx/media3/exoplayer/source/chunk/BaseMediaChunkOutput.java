@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import android.util.SparseIntArray;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -26,6 +27,10 @@ import androidx.media3.extractor.TrackOutput;
 /**
  * A {@link TrackOutputProvider} that provides {@link TrackOutput TrackOutputs} based on a
  * predefined mapping from track type to output.
+ *
+ * <p>When multiple sample queues of the same {@link C.TrackType} are provided, each distinct track
+ * {@code id} of that type is bound to its own sample queue in the order the IDs are first
+ * requested.
  */
 @UnstableApi
 public final class BaseMediaChunkOutput implements TrackOutputProvider {
@@ -34,6 +39,8 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
 
   private final @C.TrackType int[] trackTypes;
   private final SampleQueue[] sampleQueues;
+  private final SparseIntArray queueIndexById;
+  private final boolean[] queueAssigned;
 
   /**
    * @param trackTypes The track types of the individual track outputs.
@@ -42,14 +49,34 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
   public BaseMediaChunkOutput(int[] trackTypes, SampleQueue[] sampleQueues) {
     this.trackTypes = trackTypes;
     this.sampleQueues = sampleQueues;
+    queueIndexById = new SparseIntArray();
+    queueAssigned = new boolean[sampleQueues.length];
   }
 
   @Override
   public TrackOutput track(int id, @C.TrackType int type) {
+    int cachedIndex = queueIndexById.get(id, C.INDEX_UNSET);
+    if (cachedIndex != C.INDEX_UNSET && trackTypes[cachedIndex] == type) {
+      return sampleQueues[cachedIndex];
+    }
+    int firstMatchingIndex = C.INDEX_UNSET;
     for (int i = 0; i < trackTypes.length; i++) {
-      if (type == trackTypes[i]) {
+      if (trackTypes[i] != type) {
+        continue;
+      }
+      if (firstMatchingIndex == C.INDEX_UNSET) {
+        firstMatchingIndex = i;
+      }
+      if (!queueAssigned[i]) {
+        queueAssigned[i] = true;
+        queueIndexById.put(id, i);
         return sampleQueues[i];
       }
+    }
+    if (firstMatchingIndex != C.INDEX_UNSET) {
+      // More outputs of this type than queues. Share the first matching queue.
+      queueIndexById.put(id, firstMatchingIndex);
+      return sampleQueues[firstMatchingIndex];
     }
     Log.e(TAG, "Unmatched track of type: " + type);
     return new DiscardingTrackOutput();
