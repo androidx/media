@@ -184,7 +184,7 @@ public class CodecSpecificDataUtilTest {
   }
 
   @Test
-  public void getCodecProfileAndLevel_handlesAv1ProfileMain10HDRWithHdrInfoSet() {
+  public void getCodecProfileAndLevel_handlesAv1ProfileMain10WithSdrAndHdrInfoSet() {
     ColorInfo colorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT709)
@@ -200,17 +200,78 @@ public class CodecSpecificDataUtilTest {
             .build();
     assertCodecProfileAndLevelForFormat(
         format,
+        MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10,
+        MediaCodecInfo.CodecProfileLevel.AV1Level71);
+  }
+
+  @Test
+  public void getCodecProfileAndLevel_handlesAv1ProfileMain10HDRWithHdrInfoSetWithoutTransfer() {
+    ColorInfo colorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setHdrStaticInfo(new byte[] {1, 2, 3, 4, 5, 6, 7})
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCodecs("av01.0.21M.10")
+            .setColorInfo(colorInfo)
+            .build();
+    assertCodecProfileAndLevelForFormat(
+        format,
         MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10,
         MediaCodecInfo.CodecProfileLevel.AV1Level71);
   }
 
   @Test
-  public void getCodecProfileAndLevel_handlesAv1ProfileMain10HDRWithoutHdrInfoSet() {
+  public void getCodecProfileAndLevel_handlesAv1ProfileMain10WithHlg() {
     ColorInfo colorInfo =
         new ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT709)
             .setColorRange(C.COLOR_RANGE_LIMITED)
             .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCodecs("av01.0.21M.10")
+            .setColorInfo(colorInfo)
+            .build();
+    assertCodecProfileAndLevelForFormat(
+        format,
+        MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10,
+        MediaCodecInfo.CodecProfileLevel.AV1Level71);
+  }
+
+  @Test
+  public void getCodecProfileAndLevel_handlesAv1ProfileMain10WithHlgAndHdrInfoSet() {
+    ColorInfo colorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .setHdrStaticInfo(new byte[] {1, 2, 3, 4, 5, 6, 7})
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCodecs("av01.0.21M.10")
+            .setColorInfo(colorInfo)
+            .build();
+    assertCodecProfileAndLevelForFormat(
+        format,
+        MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10,
+        MediaCodecInfo.CodecProfileLevel.AV1Level71);
+  }
+
+  @Test
+  public void getCodecProfileAndLevel_handlesAv1ProfileMain10HDRWithPq() {
+    ColorInfo colorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setColorTransfer(C.COLOR_TRANSFER_ST2084)
             .build();
     Format format =
         new Format.Builder()
