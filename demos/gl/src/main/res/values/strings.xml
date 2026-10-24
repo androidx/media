@@ -15,7 +15,7 @@
 -->
 <resources>
 
-  <string name="application_name">ExoPlayer GL demo</string>
+  <string name="application_name">Media3 GL Demo</string>
 
   <string name="error_protected_content_extension_not_supported">The GL protected content extension is not supported.</string>
   <string name="gl_error_occurred">GL error occurred.</string>
