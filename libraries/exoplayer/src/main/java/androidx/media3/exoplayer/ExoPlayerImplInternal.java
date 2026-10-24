@@ -1056,6 +1056,9 @@ import org.jspecify.annotations.Nullable;
         playbackInfo = playbackInfo.copyWithSleepingForOffload(false);
       }
       playbackInfo = playbackInfo.copyWithPlaybackState(state);
+      if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
+        playbackInfo = playbackInfo.copyWithIsLoading(false);
+      }
     }
   }
 
@@ -3729,7 +3732,10 @@ import org.jspecify.annotations.Nullable;
   private void updateIsLoading() {
     MediaPeriodHolder loadingPeriod = queue.getLoadingPeriod();
     boolean isLoading =
-        shouldContinueLoading || (loadingPeriod != null && loadingPeriod.mediaPeriod.isLoading());
+        playbackInfo.playbackState != Player.STATE_IDLE
+            && playbackInfo.playbackState != Player.STATE_ENDED
+            && (shouldContinueLoading
+                || (loadingPeriod != null && loadingPeriod.mediaPeriod.isLoading()));
     if (isLoading != playbackInfo.isLoading) {
       playbackInfo = playbackInfo.copyWithIsLoading(isLoading);
     }
