@@ -16,6 +16,7 @@
 package androidx.media3.demo.main;
 
 import android.content.Context;
+import android.media.AudioManager;
 import android.net.http.HttpEngine;
 import android.os.Build;
 import android.os.ext.SdkExtensions;
@@ -34,6 +35,9 @@ import androidx.media3.datasource.cronet.CronetDataSource;
 import androidx.media3.datasource.cronet.CronetUtil;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.RenderersFactory;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.TrueHdMatAudioOutputProvider;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper;
 import java.io.File;
@@ -87,8 +91,18 @@ public final class DemoUtil {
                 ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
                 : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
-    return new DefaultRenderersFactory(context.getApplicationContext())
-        .setExtensionRendererMode(extensionRendererMode);
+    return new DefaultRenderersFactory(context.getApplicationContext()) {
+      @Override
+      protected AudioSink buildAudioSink(
+          Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+        // Pass TrueHD through as IEC 61937 MAT bursts.
+        return new DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+            .setAudioOutputProvider(new TrueHdMatAudioOutputProvider(context))
+            .build();
+      }
+    }.setExtensionRendererMode(extensionRendererMode);
   }
 
   @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
