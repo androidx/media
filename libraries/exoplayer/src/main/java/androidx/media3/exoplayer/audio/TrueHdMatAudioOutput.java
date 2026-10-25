@@ -54,7 +54,7 @@ import java.nio.ByteBuffer;
  * <p>Requires API 31, as earlier versions only allow stereo IEC 61937 tracks.
  */
 @UnstableApi
-@RequiresApi(31)
+@RequiresApi(24)
 public final class TrueHdMatAudioOutput extends ForwardingAudioOutput {
 
   private static final String TAG = "TrueHdMatAudioOutput";

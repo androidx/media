@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.audio;
 import static android.os.Build.VERSION.SDK_INT;
 
 import android.content.Context;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioProfile;
@@ -37,17 +38,6 @@ import java.util.Objects;
  * An {@link AudioOutputProvider} that plays Dolby TrueHD through a {@link TrueHdMatAudioOutput},
  * passing it through as IEC 61937 MAT bursts, and delegates all other formats to a wrapped {@link
  * AudioOutputProvider}.
- *
- * <p>TrueHD is never supported before API 31, which is the first API level that allows 8 channel
- * IEC 61937 tracks. From API 31, TrueHD is considered supported if any of the following hold:
- *
- * <ul>
- *   <li>On API 33+, the direct audio profiles of the output include TrueHD.
- *   <li>On API 31 and 32, direct playback of 8 channel 192 kHz IEC 61937 (HDMI high bitrate
- *       audio) is supported. This is a heuristic, as it doesn't guarantee the sink can decode
- *       TrueHD.
- *   <li>On API 31 and 32, the wrapped provider supports TrueHD directly.
- * </ul>
  *
  * <p>Tunneled playback is passed on to the {@link TrueHdMatAudioOutput}.
  */
@@ -118,7 +108,7 @@ public final class TrueHdMatAudioOutputProvider extends ForwardingAudioOutputPro
 
   @Override
   public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
-    if (config.encoding != C.ENCODING_DOLBY_TRUEHD || SDK_INT < 31) {
+    if (config.encoding != C.ENCODING_DOLBY_TRUEHD || SDK_INT < 24) {
       return super.getAudioOutput(config);
     }
     return TrueHdMatAudioOutput.create(config, /* capabilityChangeListener= */ null, clock);
@@ -131,15 +121,36 @@ public final class TrueHdMatAudioOutputProvider extends ForwardingAudioOutputPro
   }
 
   private boolean isMatPassthroughSupported(FormatConfig formatConfig) {
-    if (SDK_INT < 31 || formatConfig.format.sampleRate == Format.NO_VALUE) {
-      return false;
-    }
-    if (SDK_INT >= 33 && audioManager != null) {
-      return Api33.hasTrueHdDirectProfile(audioManager, formatConfig.audioAttributes);
-    }
-    if (Api29.isHighBitrateIec61937Supported(
-            formatConfig.format.sampleRate, formatConfig.audioAttributes)) {
-      return true;
+    if (audioManager != null) {
+      if (SDK_INT >= 33) {
+        return Api33.hasTrueHdDirectProfile(audioManager, formatConfig.audioAttributes);
+      }
+      if (SDK_INT >= 29 && Api29.isHighBitrateIec61937Supported(
+          formatConfig.format.sampleRate, formatConfig.audioAttributes)) {
+        return true;
+      }
+      if (SDK_INT >= 24) {
+        AudioDeviceInfo[] infos = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+        if (infos != null) {
+          boolean trueHd = false;
+          boolean iec61937 = false;
+          for (AudioDeviceInfo info : infos) {
+            for (int encoding : info.getEncodings()) {
+              switch (encoding) {
+                case AudioFormat.ENCODING_DOLBY_TRUEHD:
+                  trueHd = true;
+                  break;
+                case AudioFormat.ENCODING_IEC61937:
+                  iec61937 = true;
+                  break;
+              }
+            }
+          }
+          if (trueHd && iec61937) {
+            return true;
+          }
+        }
+      }
     }
     return super.getFormatSupport(formatConfig).supportLevel == FORMAT_SUPPORTED_DIRECTLY;
   }
