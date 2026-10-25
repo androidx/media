@@ -89,6 +89,10 @@
     *   Set codec provenance via `AudioTrack.Builder.setCodecProvenance` on API
         37+ when playing spatialized multichannel PCM audio decoded from a
         compressed format.
+    *   Fix `AudioTrack` initialization retries being skipped when 1 second of
+        audio is at least as large as the initial buffer size, which made
+        DTS-HD passthrough fail on devices with limited audio memory
+        ([#3487](https://github.com/androidx/media/issues/3487)).
 *   Video:
     *   Allow falling back to an H.265/HEVC decoder for backward-compatible
         Dolby Vision Profile 7 streams, and no longer fall back to an AV1

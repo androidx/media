@@ -120,8 +120,9 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /**
-   * The fallback minimum buffer size to use for retry if the 1-second buffer size cannot be
-   * calculated.
+   * The minimum buffer size that retries always go down to, even if the 1-second buffer size is
+   * larger. Also the fallback minimum buffer size to use for retry if the 1-second buffer size
+   * cannot be calculated.
    */
   private static final int AUDIO_OUTPUT_RETRY_FALLBACK_BUFFER_SIZE = 1_000_000;
 
@@ -1194,7 +1195,9 @@ public final class DefaultAudioSink implements AudioSink {
             configuration.outputConfig.channelMask,
             configuration.outputConfig.encoding);
 
-    return max(oneSecondBufferSize, minBufferSize);
+    // The 1-second buffer size can be as large as the initial buffer size (e.g. for DTS-HD
+    // passthrough without a known bitrate), which would prevent any retry.
+    return max(min(oneSecondBufferSize, AUDIO_OUTPUT_RETRY_FALLBACK_BUFFER_SIZE), minBufferSize);
   }
 
   private AudioOutput buildAudioOutput(OutputConfig outputConfig) throws InitializationException {

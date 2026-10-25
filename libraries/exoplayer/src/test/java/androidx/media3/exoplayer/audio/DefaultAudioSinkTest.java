@@ -2716,6 +2716,44 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
+  public void
+      handleBuffer_passthroughAudioOutputInitializationErrorUnknownBitrate_retryDownToFallbackSize()
+          throws Exception {
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
+    addHdmiDevice();
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> outputBufferSizes = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            outputBufferSizes.add(config.bufferSize);
+            throw new InitializationException();
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_DTS_HD)
+            .setChannelCount(DEFAULT_MAX_CHANNEL_COUNT)
+            .setSampleRate(48_000)
+            .build();
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                ByteBuffer.allocateDirect(1000).order(ByteOrder.nativeOrder()),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isFalse();
+    // 2,250,000 is the default DTS-HD passthrough buffer and also its 1-sec buffer deduced from the
+    // DTS-HD max rate (18 Mbps / 8), so retries go down to the 1,000,000 fallback size instead.
+    assertThat(outputBufferSizes).containsExactly(2_250_000, 1_125_000, 1_000_000).inOrder();
+  }
+
+  @Test
   public void handleBuffer_recoverableWriteError_throwsWriteException() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AtomicBoolean writeShouldFail = new AtomicBoolean();
