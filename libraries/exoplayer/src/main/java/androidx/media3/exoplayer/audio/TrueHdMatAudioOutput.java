@@ -59,6 +59,9 @@ public final class TrueHdMatAudioOutput extends ForwardingAudioOutput {
 
   private static final String TAG = "TrueHdMatAudioOutput";
 
+  // Per the Android spec this has to be CHANNEL_OUT_STEREO, but the IEC61937 spec says
+  // it has to be CHANNEL_OUT_7POINT1_SURROUND and the decoder hangs if it isn't.
+  // https://developer.android.com/reference/android/media/AudioFormat#ENCODING_IEC61937
   private static final int IEC61937_CHANNEL_MASK = AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
   // 8 channels of 16-bit samples.
   private static final int IEC61937_FRAME_SIZE = 16;

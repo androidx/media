@@ -22,10 +22,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioProfile;
-import android.media.AudioTrack;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -46,6 +43,9 @@ public final class TrueHdMatAudioOutputProvider extends ForwardingAudioOutputPro
 
   // Default IEC 61937 track buffer size, 12 MAT frames (240 ms for 48 kHz based streams).
   private static final int DEFAULT_BUFFER_SIZE = 12 * TrueHdMatPacker.MAT_FRAME_SIZE;
+  // This is a hack necessary because I don't have access to the FormatConfig in getOutputConfig()
+  // This is overridden with the correct value in TrueHdMatAudioOutput
+  static final int CHANNEL_MASK_IEC61937 = -1;
 
   @Nullable private final AudioManager audioManager;
   private Clock clock;
@@ -75,43 +75,41 @@ public final class TrueHdMatAudioOutputProvider extends ForwardingAudioOutputPro
 
   @Override
   public FormatSupport getFormatSupport(FormatConfig formatConfig) {
-    if (!isTrueHd(formatConfig.format)) {
-      return super.getFormatSupport(formatConfig);
+    if (isTrueHd(formatConfig.format) && isTrueHdIec61937Supported(formatConfig)) {
+      return new FormatSupport.Builder().setFormatSupportLevel(FORMAT_SUPPORTED_DIRECTLY).build();
     }
-    return isMatPassthroughSupported(formatConfig)
-        ? new FormatSupport.Builder().setFormatSupportLevel(FORMAT_SUPPORTED_DIRECTLY).build()
-        : FormatSupport.UNSUPPORTED;
+    return super.getFormatSupport(formatConfig);
   }
 
   @Override
   public OutputConfig getOutputConfig(FormatConfig formatConfig) throws ConfigurationException {
     Format format = formatConfig.format;
-    if (!isTrueHd(format) || !isMatPassthroughSupported(formatConfig)) {
-      return super.getOutputConfig(formatConfig);
+    if (isTrueHd(format) && isTrueHdIec61937Supported(formatConfig)) {
+      return new OutputConfig.Builder()
+          .setEncoding(C.ENCODING_DOLBY_TRUEHD)
+          .setSampleRate(format.sampleRate)
+          .setChannelMask(CHANNEL_MASK_IEC61937)
+          .setBufferSize(
+              formatConfig.preferredBufferSize != C.LENGTH_UNSET
+                  ? formatConfig.preferredBufferSize
+                  : DEFAULT_BUFFER_SIZE)
+          .setAudioSessionId(formatConfig.audioSessionId)
+          .setAudioAttributes(formatConfig.audioAttributes)
+          .setVirtualDeviceId(formatConfig.virtualDeviceId)
+          .setIsTunneling(formatConfig.enableTunneling)
+          .setIsOffload(false)
+          .setUsePlaybackParameters(false)
+          .build();
     }
-    return new OutputConfig.Builder()
-        .setEncoding(C.ENCODING_DOLBY_TRUEHD)
-        .setSampleRate(format.sampleRate)
-        .setChannelMask(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND)
-        .setBufferSize(
-            formatConfig.preferredBufferSize != C.LENGTH_UNSET
-                ? formatConfig.preferredBufferSize
-                : DEFAULT_BUFFER_SIZE)
-        .setAudioSessionId(formatConfig.audioSessionId)
-        .setAudioAttributes(formatConfig.audioAttributes)
-        .setVirtualDeviceId(formatConfig.virtualDeviceId)
-        .setIsTunneling(formatConfig.enableTunneling)
-        .setIsOffload(false)
-        .setUsePlaybackParameters(false)
-        .build();
+    return super.getOutputConfig(formatConfig);
   }
 
   @Override
   public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
-    if (config.encoding != C.ENCODING_DOLBY_TRUEHD || SDK_INT < 24) {
-      return super.getAudioOutput(config);
+    if (config.encoding == C.ENCODING_DOLBY_TRUEHD && SDK_INT >= 24 && config.channelMask == CHANNEL_MASK_IEC61937) {
+      return TrueHdMatAudioOutput.create(config, /* capabilityChangeListener= */ null, clock);
     }
-    return TrueHdMatAudioOutput.create(config, /* capabilityChangeListener= */ null, clock);
+    return super.getAudioOutput(config);
   }
 
   @Override
@@ -120,14 +118,20 @@ public final class TrueHdMatAudioOutputProvider extends ForwardingAudioOutputPro
     super.setClock(clock);
   }
 
-  private boolean isMatPassthroughSupported(FormatConfig formatConfig) {
+  private boolean isTrueHdIec61937Supported(FormatConfig formatConfig) {
     if (audioManager != null) {
       if (SDK_INT >= 33) {
-        return Api33.hasTrueHdDirectProfile(audioManager, formatConfig.audioAttributes);
-      }
-      if (SDK_INT >= 29 && Api29.isHighBitrateIec61937Supported(
-          formatConfig.format.sampleRate, formatConfig.audioAttributes)) {
-        return true;
+        // This is a likely point of failure in the future.  As far as I know, no device currently
+        // exists that meets true criteria.
+        List<AudioProfile> profiles =
+            audioManager.getDirectProfilesForAttributes(formatConfig.audioAttributes.getPlatformAudioAttributes());
+        for (AudioProfile profile : profiles) {
+          if (profile.getFormat() == AudioFormat.ENCODING_DOLBY_TRUEHD &&
+              profile.getEncapsulationType() == AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937) {
+            return true;
+          }
+        }
+        return false;
       }
       if (SDK_INT >= 24) {
         AudioDeviceInfo[] infos = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
@@ -145,53 +149,17 @@ public final class TrueHdMatAudioOutputProvider extends ForwardingAudioOutputPro
                   break;
               }
             }
-          }
-          if (trueHd && iec61937) {
-            return true;
+            if (trueHd && iec61937) {
+              return true;
+            }
           }
         }
       }
     }
-    return super.getFormatSupport(formatConfig).supportLevel == FORMAT_SUPPORTED_DIRECTLY;
+    return false;
   }
 
   private static boolean isTrueHd(Format format) {
     return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_TRUEHD);
-  }
-
-  @RequiresApi(29)
-  private static final class Api29 {
-
-    private Api29() {}
-
-    public static boolean isHighBitrateIec61937Supported(
-        int trueHdSampleRate, AudioAttributes audioAttributes) {
-      AudioFormat format =
-          new AudioFormat.Builder()
-              .setEncoding(AudioFormat.ENCODING_IEC61937)
-              .setSampleRate(trueHdSampleRate % 44100 == 0 ? 176_400 : 192_000)
-              .setChannelMask(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND)
-              .build();
-      return AudioTrack.isDirectPlaybackSupported(
-          format, audioAttributes.getPlatformAudioAttributes());
-    }
-  }
-
-  @RequiresApi(33)
-  private static final class Api33 {
-
-    private Api33() {}
-
-    public static boolean hasTrueHdDirectProfile(
-        AudioManager audioManager, AudioAttributes audioAttributes) {
-      List<AudioProfile> profiles =
-          audioManager.getDirectProfilesForAttributes(audioAttributes.getPlatformAudioAttributes());
-      for (AudioProfile profile : profiles) {
-        if (profile.getFormat() == AudioFormat.ENCODING_DOLBY_TRUEHD) {
-          return true;
-        }
-      }
-      return false;
-    }
   }
 }
