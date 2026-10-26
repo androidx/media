@@ -238,6 +238,46 @@ public final class MergingCuesResolverTest {
   }
 
   @Test
+  public void discardCuesBeforeTimeUs_atEndTime_discardsCue() {
+    MergingCuesResolver mergingCuesResolver = new MergingCuesResolver();
+    CuesWithTiming cue =
+        new CuesWithTiming(FIRST_CUES, /* startTimeUs= */ 1_000_000, /* durationUs= */ 1_000_000);
+    mergingCuesResolver.addCues(cue, /* currentPositionUs= */ 0);
+
+    mergingCuesResolver.discardCuesBeforeTimeUs(2_000_000);
+
+    assertThat(mergingCuesResolver.getCuesAtTimeUs(1_500_000)).isEmpty();
+  }
+
+  @Test
+  public void discardCuesBeforeTimeUs_atStartTimeOfZeroDurationCue_keepsCue() {
+    MergingCuesResolver mergingCuesResolver = new MergingCuesResolver();
+    CuesWithTiming zeroDurationCue =
+        new CuesWithTiming(SECOND_CUES, /* startTimeUs= */ 2_000_000, /* durationUs= */ 0);
+    mergingCuesResolver.addCues(zeroDurationCue, /* currentPositionUs= */ 0);
+
+    mergingCuesResolver.discardCuesBeforeTimeUs(2_000_000);
+
+    assertThat(mergingCuesResolver.getPreviousCueChangeTimeUs(2_000_000)).isEqualTo(2_000_000);
+  }
+
+  @Test
+  public void discardCuesBeforeTimeUs_withMultipleCuesEndingBeforeTimeUs_discardsAllCues() {
+    MergingCuesResolver mergingCuesResolver = new MergingCuesResolver();
+    CuesWithTiming cue1 =
+        new CuesWithTiming(FIRST_CUES, /* startTimeUs= */ 1_000_000, /* durationUs= */ 1_000_000);
+    CuesWithTiming cue2 =
+        new CuesWithTiming(SECOND_CUES, /* startTimeUs= */ 1_500_000, /* durationUs= */ 500_000);
+    mergingCuesResolver.addCues(cue1, /* currentPositionUs= */ 0);
+    mergingCuesResolver.addCues(cue2, /* currentPositionUs= */ 0);
+
+    mergingCuesResolver.discardCuesBeforeTimeUs(2_000_000);
+
+    assertThat(mergingCuesResolver.getCuesAtTimeUs(1_500_000)).isEmpty();
+    assertThat(mergingCuesResolver.getCuesAtTimeUs(1_800_000)).isEmpty();
+  }
+
+  @Test
   public void clear_clearsAllCues() {
     MergingCuesResolver mergingCuesResolver = new MergingCuesResolver();
     CuesWithTiming firstCuesWithTiming =

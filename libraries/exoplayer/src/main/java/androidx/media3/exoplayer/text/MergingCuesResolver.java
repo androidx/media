@@ -101,8 +101,9 @@ import java.util.List;
   @Override
   public void discardCuesBeforeTimeUs(long timeUs) {
     for (int i = 0; i < cuesWithTimingList.size(); i++) {
-      long startTimeUs = cuesWithTimingList.get(i).startTimeUs;
-      if (timeUs > startTimeUs && timeUs > cuesWithTimingList.get(i).endTimeUs) {
+      CuesWithTiming cue = cuesWithTimingList.get(i);
+      long startTimeUs = cue.startTimeUs;
+      if (timeUs > startTimeUs && timeUs >= cue.endTimeUs) {
         // In most cases only a single item will be removed in each invocation of this method, so
         // the inefficiency of removing items one-by-one inside a loop is mitigated.
         cuesWithTimingList.remove(i);

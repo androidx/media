@@ -259,6 +259,46 @@ public final class ReplacingCuesResolverTest {
   }
 
   @Test
+  public void discardCuesBeforeTimeUs_atEndTime_discardsCue() {
+    ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
+    CuesWithTiming cue =
+        new CuesWithTiming(FIRST_CUES, /* startTimeUs= */ 1_000_000, /* durationUs= */ 1_000_000);
+    replacingCuesResolver.addCues(cue, /* currentPositionUs= */ 0);
+
+    replacingCuesResolver.discardCuesBeforeTimeUs(2_000_000);
+
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(1_500_000)).isEmpty();
+  }
+
+  @Test
+  public void discardCuesBeforeTimeUs_atStartTimeOfZeroDurationCue_keepsCue() {
+    ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
+    CuesWithTiming zeroDurationCue =
+        new CuesWithTiming(SECOND_CUES, /* startTimeUs= */ 2_000_000, /* durationUs= */ 0);
+    replacingCuesResolver.addCues(zeroDurationCue, /* currentPositionUs= */ 0);
+
+    replacingCuesResolver.discardCuesBeforeTimeUs(2_000_000);
+
+    assertThat(replacingCuesResolver.getPreviousCueChangeTimeUs(2_000_000)).isEqualTo(2_000_000);
+  }
+
+  @Test
+  public void discardCuesBeforeTimeUs_withMultipleCuesEndingBeforeTimeUs_discardsAllCues() {
+    ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
+    CuesWithTiming cue1 =
+        new CuesWithTiming(FIRST_CUES, /* startTimeUs= */ 1_000_000, /* durationUs= */ 1_000_000);
+    CuesWithTiming cue2 =
+        new CuesWithTiming(SECOND_CUES, /* startTimeUs= */ 1_500_000, /* durationUs= */ 500_000);
+    replacingCuesResolver.addCues(cue1, /* currentPositionUs= */ 0);
+    replacingCuesResolver.addCues(cue2, /* currentPositionUs= */ 0);
+
+    replacingCuesResolver.discardCuesBeforeTimeUs(2_000_000);
+
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(1_500_000)).isEmpty();
+    assertThat(replacingCuesResolver.getCuesAtTimeUs(1_800_000)).isEmpty();
+  }
+
+  @Test
   public void clear_clearsAllCues() {
     ReplacingCuesResolver replacingCuesResolver = new ReplacingCuesResolver();
     CuesWithTiming firstCuesWithTiming =
