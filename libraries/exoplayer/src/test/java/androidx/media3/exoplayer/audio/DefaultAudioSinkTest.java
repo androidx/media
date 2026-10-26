@@ -3278,6 +3278,186 @@ public final class DefaultAudioSinkTest {
     assertThat(trackingProcessor.lastStreamMetadata.positionOffsetUs).isEqualTo(990_000);
   }
 
+  @Config(minSdk = 37)
+  @Test
+  public void
+      handleBuffer_spatializedMultichannelPcmWithChangingCodecProvenance_recreatesAudioOutput()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    ArrayList<AudioOutputProvider.OutputConfig> createdOutputConfigs = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+                .setAudioCapabilities(audioCapabilities)
+                .build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            createdOutputConfigs.add(config);
+            return super.getAudioOutput(config);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format pcm5Point1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(6)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+    ByteBuffer firstBuffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * 6 * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    ByteBuffer secondBuffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * 6 * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                firstBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+    ShadowSystemClock.advanceBy(2, TimeUnit.SECONDS);
+
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
+            .setCodecProvenance(MimeTypes.AUDIO_AC4)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                secondBuffer,
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1));
+
+    assertThat(createdOutputConfigs).hasSize(2);
+    assertThat(createdOutputConfigs.get(0).codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(createdOutputConfigs.get(1).codecProvenance).isEqualTo(MimeTypes.AUDIO_AC4);
+  }
+
+  @Config(minSdk = 37)
+  @Test
+  public void handleBuffer_nonSpatializedStereoPcmWithChangingCodecProvenance_reusesAudioOutput()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    ArrayList<AudioOutputProvider.OutputConfig> createdOutputConfigs = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+                .setAudioCapabilities(audioCapabilities)
+                .build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            createdOutputConfigs.add(config);
+            return super.getAudioOutput(config);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format stereoPcm =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(stereoPcm)
+            .setCodecProvenance(MimeTypes.AUDIO_AAC)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1));
+
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(stereoPcm)
+            .setCodecProvenance(MimeTypes.AUDIO_OPUS)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1));
+
+    assertThat(createdOutputConfigs).hasSize(1);
+    assertThat(createdOutputConfigs.get(0).codecProvenance).isNull();
+  }
+
+  @Config(minSdk = 37)
+  @Test
+  public void setAudioAttributes_withCodecProvenance_recomputesOutputConfigCodecProvenance()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    ArrayList<AudioOutputProvider.OutputConfig> createdOutputConfigs = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+                .setAudioCapabilities(audioCapabilities)
+                .build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            createdOutputConfigs.add(config);
+            return super.getAudioOutput(config);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    defaultAudioSink.setAudioAttributes(
+        new AudioAttributes.Builder()
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
+            .build());
+    Format pcm5Point1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(6)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * 6 * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build());
+
+    defaultAudioSink.setAudioAttributes(
+        new AudioAttributes.Builder()
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_AUTO)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+
+    assertThat(createdOutputConfigs).hasSize(1);
+    assertThat(createdOutputConfigs.get(0).codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+  }
+
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }

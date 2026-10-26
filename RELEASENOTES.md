@@ -60,6 +60,9 @@
         `AudioSink.getCurrentPositionUs(boolean)` and reported via
         `AudioSink.Listener.onSilenceSkipped()` before playback reached the
         skipped region ([#3472](https://github.com/androidx/media/issues/3472)).
+    *   Set codec provenance via `AudioTrack.Builder.setCodecProvenance` on API
+        37+ when playing spatialized multichannel PCM audio decoded from a
+        compressed format.
 *   Video:
 *   Text:
 *   Metadata:

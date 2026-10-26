@@ -318,6 +318,18 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
                 bitrate,
                 usePlaybackParameters ? maxPlaybackSpeed : DEFAULT_PLAYBACK_SPEED);
 
+    @Nullable String codecProvenance =
+        SDK_INT >= 37
+                && outputMode == OUTPUT_MODE_PCM
+                && MimeTypes.isAudio(formatConfig.codecProvenance)
+                && !Objects.equals(formatConfig.codecProvenance, MimeTypes.AUDIO_RAW)
+                && formatConfig.audioAttributes.spatializationBehavior
+                    != C.SPATIALIZATION_BEHAVIOR_NEVER
+                && !formatConfig.audioAttributes.isContentSpatialized
+                && audioCapabilities.getSpatializerChannelMasks().contains(outputChannelConfig)
+            ? formatConfig.codecProvenance
+            : null;
+
     return new OutputConfig.Builder()
         .setSampleRate(outputSampleRate)
         .setChannelMask(outputChannelConfig)
@@ -330,6 +342,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         .setUsePlaybackParameters(usePlaybackParameters)
         .setUseOffloadGapless(useOffloadGapless)
         .setVirtualDeviceId(formatConfig.virtualDeviceId)
+        .setCodecProvenance(codecProvenance)
         .build();
   }
 
@@ -375,6 +388,9 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         }
         if (SDK_INT >= 34 && contextForAudioTrack != null) {
           audioTrackBuilder.setContext(contextForAudioTrack);
+        }
+        if (SDK_INT >= 37 && config.codecProvenance != null) {
+          audioTrackBuilder = audioTrackBuilder.setCodecProvenance(config.codecProvenance);
         }
         if (builderModifier != null) {
           builderModifier.accept(audioTrackBuilder, config);

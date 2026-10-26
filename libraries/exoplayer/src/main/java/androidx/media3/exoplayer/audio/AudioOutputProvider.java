@@ -23,6 +23,7 @@ import androidx.annotation.IntDef;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -108,6 +109,15 @@ public interface AudioOutputProvider {
      */
     public final int preferredBufferSize;
 
+    /**
+     * The MIME type of the original codec when the audio data was decoded to PCM, or {@code null}
+     * if not applicable.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
+     */
+    @UnstableApi public final @Nullable String codecProvenance;
+
     private FormatConfig(Builder builder) {
       this.format = builder.format;
       this.audioAttributes = builder.audioAttributes;
@@ -119,6 +129,7 @@ public interface AudioOutputProvider {
       this.virtualDeviceId = builder.virtualDeviceId;
       this.enableTunneling = builder.enableTunneling;
       this.preferredBufferSize = builder.preferredBufferSize;
+      this.codecProvenance = builder.codecProvenance;
     }
 
     /** Returns a {@link Builder} initialized with the values of this instance. */
@@ -138,6 +149,7 @@ public interface AudioOutputProvider {
       private int virtualDeviceId;
       private boolean enableTunneling;
       private int preferredBufferSize;
+      private @Nullable String codecProvenance;
 
       /** Creates a new builder. */
       public Builder(Format format) {
@@ -159,6 +171,7 @@ public interface AudioOutputProvider {
         this.virtualDeviceId = config.virtualDeviceId;
         this.enableTunneling = config.enableTunneling;
         this.preferredBufferSize = config.preferredBufferSize;
+        this.codecProvenance = config.codecProvenance;
       }
 
       /** Sets the {@link AudioAttributes}. */
@@ -257,6 +270,20 @@ public interface AudioOutputProvider {
         return this;
       }
 
+      /**
+       * Sets the MIME type of the original codec when the audio data was decoded to PCM, or {@code
+       * null} if not applicable.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
+       */
+      @UnstableApi
+      @CanIgnoreReturnValue
+      public Builder setCodecProvenance(@Nullable String codecProvenance) {
+        this.codecProvenance = MimeTypes.normalizeMimeType(codecProvenance);
+        return this;
+      }
+
       /** Builds the {@link FormatConfig}. */
       public FormatConfig build() {
         return new FormatConfig(this);
@@ -306,6 +333,12 @@ public interface AudioOutputProvider {
      */
     public final boolean useOffloadGapless;
 
+    /**
+     * The MIME type of the original codec when the audio data was decoded to PCM, or {@code null}
+     * if not applicable.
+     */
+    @UnstableApi public final @Nullable String codecProvenance;
+
     private OutputConfig(Builder builder) {
       this.encoding = builder.encoding;
       this.sampleRate = builder.sampleRate;
@@ -318,6 +351,7 @@ public interface AudioOutputProvider {
       this.virtualDeviceId = builder.virtualDeviceId;
       this.usePlaybackParameters = builder.usePlaybackParameters;
       this.useOffloadGapless = builder.useOffloadGapless;
+      this.codecProvenance = builder.codecProvenance;
     }
 
     /** Returns a {@link Builder} initialized with the values of this instance. */
@@ -344,7 +378,8 @@ public interface AudioOutputProvider {
           && virtualDeviceId == that.virtualDeviceId
           && usePlaybackParameters == that.usePlaybackParameters
           && useOffloadGapless == that.useOffloadGapless
-          && audioAttributes.equals(that.audioAttributes);
+          && audioAttributes.equals(that.audioAttributes)
+          && Objects.equals(codecProvenance, that.codecProvenance);
     }
 
     @Override
@@ -360,7 +395,8 @@ public interface AudioOutputProvider {
           audioSessionId,
           virtualDeviceId,
           useOffloadGapless,
-          usePlaybackParameters);
+          usePlaybackParameters,
+          codecProvenance);
     }
 
     /** Builder for {@link OutputConfig} instances. */
@@ -376,6 +412,7 @@ public interface AudioOutputProvider {
       private int virtualDeviceId;
       private boolean usePlaybackParameters;
       private boolean useOffloadGapless;
+      private @Nullable String codecProvenance;
 
       /** Creates a new instance. */
       public Builder() {
@@ -396,6 +433,7 @@ public interface AudioOutputProvider {
         this.virtualDeviceId = config.virtualDeviceId;
         this.usePlaybackParameters = config.usePlaybackParameters;
         this.useOffloadGapless = config.useOffloadGapless;
+        this.codecProvenance = config.codecProvenance;
       }
 
       /** Sets the {@link C.Encoding} of the audio data. */
@@ -483,6 +521,17 @@ public interface AudioOutputProvider {
       @CanIgnoreReturnValue
       public Builder setUseOffloadGapless(boolean useOffloadGapless) {
         this.useOffloadGapless = useOffloadGapless;
+        return this;
+      }
+
+      /**
+       * Sets the MIME type of the original codec when the audio data was decoded to PCM, or {@code
+       * null} if not applicable.
+       */
+      @UnstableApi
+      @CanIgnoreReturnValue
+      public Builder setCodecProvenance(@Nullable String codecProvenance) {
+        this.codecProvenance = MimeTypes.normalizeMimeType(codecProvenance);
         return this;
       }
 
