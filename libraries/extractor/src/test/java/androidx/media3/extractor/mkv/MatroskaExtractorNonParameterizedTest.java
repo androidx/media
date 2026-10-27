@@ -28,6 +28,8 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -85,8 +87,7 @@ public class MatroskaExtractorNonParameterizedTest {
         new byte[] {
           0x53,
           (byte) 0xAC,
-          (byte) 0x84,
-          (byte) ((relativePosition >> 24) & 0xFF),
+          (byte) 0x83,
           (byte) ((relativePosition >> 16) & 0xFF),
           (byte) ((relativePosition >> 8) & 0xFF),
           (byte) (relativePosition & 0xFF)
@@ -147,6 +148,30 @@ public class MatroskaExtractorNonParameterizedTest {
         input.setPosition((int) positionHolder.position);
       }
     }
+  }
+
+  private static void updateSegmentSize(byte[] fileBytes) {
+    long segmentDataLength = fileBytes.length - SEGMENT_CONTENT_POSITION;
+    fileBytes[48] = (byte) ((segmentDataLength >> 24) & 0xFF);
+    fileBytes[49] = (byte) ((segmentDataLength >> 16) & 0xFF);
+    fileBytes[50] = (byte) ((segmentDataLength >> 8) & 0xFF);
+    fileBytes[51] = (byte) (segmentDataLength & 0xFF);
+  }
+
+  private static List<Long> readToEndAndRecordSeeks(
+      MatroskaExtractor extractor, FakeExtractorInput input) throws Exception {
+    List<Long> seeks = new ArrayList<>();
+    PositionHolder positionHolder = new PositionHolder();
+    int readResult = Extractor.RESULT_CONTINUE;
+    int maxSeeks = 1000;
+    while (readResult != Extractor.RESULT_END_OF_INPUT && maxSeeks-- > 0) {
+      readResult = extractor.read(input, positionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        seeks.add(positionHolder.position);
+        input.setPosition((int) positionHolder.position);
+      }
+    }
+    return seeks;
   }
 
   @Test
@@ -282,4 +307,59 @@ public class MatroskaExtractorNonParameterizedTest {
     assertThat(output.seekMap.isSeekable()).isTrue();
     assertThat(output.numberOfTracks).isGreaterThan(0);
   }
+
+  @Test
+  public void read_withCuesReferencePointingToCluster_terminatesSeeksAndOutputsSamples()
+      throws Exception {
+    byte[] baseData =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
+    long secondarySeekHeadPos = baseData.length;
+    byte[] secondarySeekHead = buildSeekHead(ID_CUES_BYTES, CLUSTER_FILE_POSITION);
+    updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, secondarySeekHeadPos);
+    byte[] testData = concat(baseData, secondarySeekHead);
+    updateSegmentSize(testData);
+
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(testData).build();
+
+    List<Long> seeks = readToEndAndRecordSeeks(extractor, input);
+
+    assertThat(seeks).containsExactly(secondarySeekHeadPos, CLUSTER_FILE_POSITION).inOrder();
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.numberOfTracks).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleCount()).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleTimeUs(0)).isEqualTo(67_000);
+  }
+
+  @Test
+  public void read_withCuesReferenceReachingEof_terminatesFallbackAndOutputsSamples()
+      throws Exception {
+    byte[] baseData =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
+    long secondarySeekHeadPos = baseData.length;
+    long voidPos = secondarySeekHeadPos + 21; // 108557
+    byte[] secondarySeekHead = buildSeekHead(ID_CUES_BYTES, voidPos);
+    byte[] voidElement = new byte[] {(byte) 0xEC, (byte) 0x80}; // Empty Void element
+    updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, secondarySeekHeadPos);
+    byte[] testData = concat(baseData, secondarySeekHead, voidElement);
+    updateSegmentSize(testData);
+
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(testData).build();
+
+    List<Long> seeks = readToEndAndRecordSeeks(extractor, input);
+
+    assertThat(seeks).contains(voidPos);
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.numberOfTracks).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleCount()).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleTimeUs(0)).isEqualTo(67_000);
+  }
 }
+

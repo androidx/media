@@ -679,6 +679,19 @@ public class MatroskaExtractor implements Extractor {
       }
     }
     if (!continueReading) {
+      if (seekPositionAfterBuildingCues != C.INDEX_UNSET) {
+        checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+        sentSeekMap = true;
+        outputTrackFormats();
+        maybeEndTracks();
+        seekPosition.position = seekPositionAfterBuildingCues;
+        seekPositionAfterBuildingCues = C.INDEX_UNSET;
+        seekForCues = false;
+        seekForSecondarySeekHead = false;
+        cuesContentPosition = C.INDEX_UNSET;
+        pendingSeekHeadCount = 0;
+        return Extractor.RESULT_SEEK;
+      }
       for (int i = 0; i < tracks.size(); i++) {
         Track track = tracks.valueAt(i);
         track.assertOutputInitialized();
@@ -2265,9 +2278,12 @@ public class MatroskaExtractor implements Extractor {
     // available. We will not do this unless we seeked to get to the Cues or secondary SeekHead in
     // the first place.
     if (sentSeekMap && seekPositionAfterBuildingCues != C.INDEX_UNSET) {
-      seekPosition.position = seekPositionAfterBuildingCues;
+      if (seekPositionAfterBuildingCues != currentPosition) {
+        seekPosition.position = seekPositionAfterBuildingCues;
+        seekPositionAfterBuildingCues = C.INDEX_UNSET;
+        return true;
+      }
       seekPositionAfterBuildingCues = C.INDEX_UNSET;
-      return true;
     }
     return false;
   }
@@ -2361,6 +2377,17 @@ public class MatroskaExtractor implements Extractor {
   private void maybePrepareSeekMap() {
     if (sentSeekMap) {
       return; // Already evaluated
+    }
+    if (seekPositionAfterBuildingCues != C.INDEX_UNSET) {
+      checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+      sentSeekMap = true;
+      outputTrackFormats();
+      maybeEndTracks();
+      cuesContentPosition = C.INDEX_UNSET;
+      pendingSeekHeadCount = 0;
+      seekForCues = false;
+      seekForSecondarySeekHead = false;
+      return;
     }
     // We need to build cues before parsing the cluster.
     if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
