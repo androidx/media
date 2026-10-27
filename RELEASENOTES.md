@@ -79,6 +79,11 @@
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
+    *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame`.
+        Setting it to `false` allows fragments to start at non-key frames when
+        video key frames are farther apart than the fragment duration. This only
+        takes effect if the video `Format.maxNumReorderSamples` is 0
+        ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
         ads to resize and reposition the video player view within the ad
@@ -394,11 +399,6 @@ This release includes the following changes since [1.11.1](#1111-2026-09-10):
         `FragmentedMp4Muxer` when adding tracks.
     *   Support 24-bit and 32-bit integer PCM audio tracks in `Mp4Muxer` and
         `FragmentedMp4Muxer`.
-    *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame`.
-        Setting it to `false` allows fragments to start at non-key frames when
-        video key frames are farther apart than the fragment duration. This only
-        takes effect if the video `Format.maxNumReorderSamples` is 0
-        ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Forward player pause and resume events to the IMA SDK in
         `ImaServerSideAdInsertionMediaSource`.
