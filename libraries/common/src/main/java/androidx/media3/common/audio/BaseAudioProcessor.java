@@ -97,6 +97,9 @@ public abstract class BaseAudioProcessor implements AudioProcessor {
     inputAudioFormat = pendingInputAudioFormat;
     outputAudioFormat = pendingOutputAudioFormat;
     onFlush(streamMetadata);
+    if (!isActive()) {
+      buffer = EMPTY_BUFFER;
+    }
   }
 
   @Override

@@ -416,6 +416,41 @@ public final class SilenceSkippingAudioProcessorTest {
     }
   }
 
+  @Test
+  public void flush_afterTransitionFromActiveToInactiveAndBackToActive_skipsSilence()
+      throws Exception {
+    silenceSkippingAudioProcessor.setEnabled(true);
+    silenceSkippingAudioProcessor.configure(AUDIO_FORMAT);
+    silenceSkippingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    process(
+        silenceSkippingAudioProcessor,
+        getInputBufferProviderForAlternatingSilenceAndNoise(
+            TEST_SIGNAL_SILENCE_DURATION_MS,
+            TEST_SIGNAL_NOISE_DURATION_MS,
+            TEST_SIGNAL_FRAME_COUNT),
+        INPUT_BUFFER_SIZE);
+
+    silenceSkippingAudioProcessor.setEnabled(false);
+    silenceSkippingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    assertThat(silenceSkippingAudioProcessor.isActive()).isFalse();
+    silenceSkippingAudioProcessor.setEnabled(true);
+    silenceSkippingAudioProcessor.flush(StreamMetadata.DEFAULT);
+    long totalOutputFrames =
+        process(
+            silenceSkippingAudioProcessor,
+            getInputBufferProviderForAlternatingSilenceAndNoise(
+                TEST_SIGNAL_SILENCE_DURATION_MS,
+                TEST_SIGNAL_NOISE_DURATION_MS,
+                TEST_SIGNAL_FRAME_COUNT),
+            INPUT_BUFFER_SIZE);
+
+    // The output has 50000 frames of noise, plus 50 * (100 + 0.2 * 900) frames of silence (plus
+    // rounding errors).
+    assertThat(totalOutputFrames).isIn(Range.closed(64000L - 1500L, 64000L + 1500L));
+    assertThat(silenceSkippingAudioProcessor.getSkippedFrames())
+        .isEqualTo(TEST_SIGNAL_FRAME_COUNT - totalOutputFrames);
+  }
+
   /**
    * Processes the entire stream provided by {@code inputBufferProvider} in chunks of {@code
    * inputBufferSize} and returns the total number of output frames.

@@ -357,6 +357,24 @@ public final class AudioProcessingPipelineTest {
     assertThat(pipeline.getOutput().hasRemaining()).isFalse();
   }
 
+  @Test
+  public void flush_whenBaseAudioProcessorBecomesInactive_releasesInternalBuffer()
+      throws Exception {
+    FakeAudioProcessor processor = new FakeAudioProcessor(/* active= */ true);
+    processor.configure(AUDIO_FORMAT);
+    processor.flush(StreamMetadata.DEFAULT);
+    processor.queueInput(ByteBuffer.allocateDirect(1024));
+    assertThat(processor.getOutput().capacity()).isEqualTo(1024);
+
+    processor.setActive(false);
+    processor.flush(StreamMetadata.DEFAULT);
+    processor.setActive(true);
+    processor.flush(StreamMetadata.DEFAULT);
+    processor.queueInput(ByteBuffer.allocateDirect(16));
+
+    assertThat(processor.getOutput().capacity()).isEqualTo(16);
+  }
+
   private static class FakeAudioProcessor extends BaseAudioProcessor {
     private final int maxInputBytesAtOnce;
     private final boolean duplicateBytes;

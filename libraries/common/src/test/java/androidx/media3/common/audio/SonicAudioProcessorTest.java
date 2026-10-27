@@ -24,6 +24,7 @@ import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.nio.ByteBuffer;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -125,6 +126,59 @@ public final class SonicAudioProcessorTest {
     assertThat(sonicAudioProcessor.getOutput().hasRemaining()).isTrue();
     sonicAudioProcessor.queueEndOfStream();
 
+    assertThat(sonicAudioProcessor.isEnded()).isTrue();
+  }
+
+  @Test
+  public void flush_afterTransitionFromActiveToInactiveAndBackToActive_releasesBufferAndProcesses()
+      throws Exception {
+    sonicAudioProcessor.setSpeed(1.5f);
+    sonicAudioProcessor.configure(AUDIO_FORMAT_48000_HZ);
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
+    sonicAudioProcessor.queueInput(
+        getPeriodicSamplesBuffer(/* sampleCount= */ 3400 * 2, /* period= */ 192 * 2));
+    int firstOutputCapacity = sonicAudioProcessor.getOutput().capacity();
+    assertThat(firstOutputCapacity).isGreaterThan(0);
+
+    sonicAudioProcessor.setSpeed(1f);
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
+    assertThat(sonicAudioProcessor.isActive()).isFalse();
+    assertThat(sonicAudioProcessor.getProcessedInputBytes()).isEqualTo(0);
+    sonicAudioProcessor.setSpeed(1.5f);
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
+    sonicAudioProcessor.queueInput(
+        getPeriodicSamplesBuffer(/* sampleCount= */ 1700 * 2, /* period= */ 192 * 2));
+    sonicAudioProcessor.queueEndOfStream();
+    ByteBuffer secondOutput = sonicAudioProcessor.getOutput();
+
+    assertThat(sonicAudioProcessor.isActive()).isTrue();
+    assertThat(secondOutput.hasRemaining()).isTrue();
+    assertThat(secondOutput.capacity()).isLessThan(firstOutputCapacity);
+    assertThat(sonicAudioProcessor.isEnded()).isTrue();
+  }
+
+  @Test
+  public void flush_withUnchangedParameters_producesIdenticalOutput() throws Exception {
+    sonicAudioProcessor.setSpeed(1.5f);
+    sonicAudioProcessor.configure(AUDIO_FORMAT_48000_HZ);
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
+    sonicAudioProcessor.queueInput(
+        getPeriodicSamplesBuffer(/* sampleCount= */ 1700 * 2, /* period= */ 192 * 2));
+    sonicAudioProcessor.queueEndOfStream();
+    ByteBuffer firstOutput = sonicAudioProcessor.getOutput();
+    byte[] firstOutputBytes = new byte[firstOutput.remaining()];
+    firstOutput.get(firstOutputBytes);
+
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
+    sonicAudioProcessor.queueInput(
+        getPeriodicSamplesBuffer(/* sampleCount= */ 1700 * 2, /* period= */ 192 * 2));
+    sonicAudioProcessor.queueEndOfStream();
+    ByteBuffer secondOutput = sonicAudioProcessor.getOutput();
+    byte[] secondOutputBytes = new byte[secondOutput.remaining()];
+    secondOutput.get(secondOutputBytes);
+
+    assertThat(secondOutputBytes).isNotEmpty();
+    assertThat(secondOutputBytes).isEqualTo(firstOutputBytes);
     assertThat(sonicAudioProcessor.isEnded()).isTrue();
   }
 

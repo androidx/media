@@ -188,7 +188,7 @@ public final class SonicAudioProcessor implements AudioProcessor, MetricsProvide
 
   /** Returns the number of bytes processed since last flush or reset. */
   public long getProcessedInputBytes() {
-    return inputBytes - checkNotNull(sonic).getPendingInputBytes();
+    return sonic == null ? 0 : inputBytes - sonic.getPendingInputBytes();
   }
 
   @Override
@@ -278,7 +278,7 @@ public final class SonicAudioProcessor implements AudioProcessor, MetricsProvide
     if (isActive()) {
       inputAudioFormat = pendingInputAudioFormat;
       outputAudioFormat = pendingOutputAudioFormat;
-      if (pendingSonicRecreation) {
+      if (pendingSonicRecreation || sonic == null) {
         sonic =
             new Sonic(
                 inputAudioFormat.sampleRate,
@@ -287,9 +287,13 @@ public final class SonicAudioProcessor implements AudioProcessor, MetricsProvide
                 pitch,
                 outputAudioFormat.sampleRate,
                 inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT);
-      } else if (sonic != null) {
+        pendingSonicRecreation = false;
+      } else {
         sonic.flush();
       }
+    } else {
+      sonic = null;
+      buffer = EMPTY_BUFFER;
     }
     outputBuffer = EMPTY_BUFFER;
     inputBytes = 0;

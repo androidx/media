@@ -320,6 +320,9 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor
         maybeSilenceBuffer = new byte[maybeSilenceBufferSize];
         contiguousOutputBuffer = new byte[maybeSilenceBufferSize];
       }
+    } else {
+      maybeSilenceBuffer = Util.EMPTY_BYTE_ARRAY;
+      contiguousOutputBuffer = Util.EMPTY_BYTE_ARRAY;
     }
     state = STATE_NOISY;
     skippedFrames = 0;
