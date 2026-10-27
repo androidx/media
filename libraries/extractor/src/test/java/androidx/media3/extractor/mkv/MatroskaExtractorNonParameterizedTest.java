@@ -76,6 +76,7 @@ public class MatroskaExtractorNonParameterizedTest {
   private static final int PRIMARY_SEEK_ENTRY_CUES_POS_OFFSET = 100;
   private static final long CUES_FILE_POSITION = 107445;
   private static final long CLUSTER_FILE_POSITION = 5562;
+  private static final long CLUSTER_CONTENT_POSITION = 5569;
 
   private static final byte[] ID_SEEK_HEAD_BYTES = new byte[] {0x11, 0x4D, (byte) 0x9B, 0x74};
   private static final byte[] ID_CUES_BYTES = new byte[] {0x1C, 0x53, (byte) 0xBB, 0x6B};
@@ -355,6 +356,62 @@ public class MatroskaExtractorNonParameterizedTest {
     List<Long> seeks = readToEndAndRecordSeeks(extractor, input);
 
     assertThat(seeks).contains(voidPos);
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.numberOfTracks).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleCount()).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleTimeUs(0)).isEqualTo(67_000);
+  }
+
+  @Test
+  public void read_withCuesReferencePointingToSecondarySeekHeadWithoutCues_terminatesAndOutputsSamples()
+      throws Exception {
+    byte[] baseData =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
+    long posA = baseData.length;
+    long posB = posA + 21;
+    byte[] seekHeadA = buildSeekHead(ID_CUES_BYTES, posB);
+    byte[] seekHeadB = buildSeekHead(ID_CLUSTER_BYTES, CLUSTER_FILE_POSITION);
+    updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, posA);
+    byte[] testData = concat(baseData, seekHeadA, seekHeadB);
+    updateSegmentSize(testData);
+
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(testData).build();
+
+    List<Long> seeks = readToEndAndRecordSeeks(extractor, input);
+
+    assertThat(seeks).containsExactly(posA, posB, CLUSTER_CONTENT_POSITION).inOrder();
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.numberOfTracks).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleCount()).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleTimeUs(0)).isEqualTo(67_000);
+  }
+
+  @Test
+  public void read_withCyclicCuesReferences_terminatesSafelyAndOutputsSamples()
+      throws Exception {
+    byte[] baseData =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
+    long posA = baseData.length;
+    long posB = posA + 21;
+    byte[] seekHeadA = buildSeekHead(ID_CUES_BYTES, posB);
+    byte[] seekHeadB = buildSeekHead(ID_CUES_BYTES, posA);
+    updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, posA);
+    byte[] testData = concat(baseData, seekHeadA, seekHeadB);
+    updateSegmentSize(testData);
+
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(testData).build();
+
+    List<Long> seeks = readToEndAndRecordSeeks(extractor, input);
+
+    assertThat(seeks).containsExactly(posA, posB, CLUSTER_CONTENT_POSITION).inOrder();
     assertThat(output.seekMap).isNotNull();
     assertThat(output.seekMap.isSeekable()).isFalse();
     assertThat(output.numberOfTracks).isGreaterThan(0);

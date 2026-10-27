@@ -692,6 +692,12 @@ public class MatroskaExtractor implements Extractor {
         pendingSeekHeadCount = 0;
         return Extractor.RESULT_SEEK;
       }
+      if (!sentSeekMap) {
+        checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+        sentSeekMap = true;
+        outputTrackFormats();
+        maybeEndTracks();
+      }
       for (int i = 0; i < tracks.size(); i++) {
         Track track = tracks.valueAt(i);
         track.assertOutputInitialized();
@@ -954,8 +960,10 @@ public class MatroskaExtractor implements Extractor {
               "Mandatory element SeekID or SeekPosition not found", /* cause= */ null);
         }
         if (seekEntryId == ID_CUES) {
-          cuesContentPosition = seekEntryPosition;
-          pendingSeekHeadCount = 0;
+          if (!arrayContains(visitedSeekHeadPositions, visitedSeekHeadCount, seekEntryPosition)) {
+            cuesContentPosition = seekEntryPosition;
+            pendingSeekHeadCount = 0;
+          }
         } else if (seekEntryId == ID_TRACKS) {
           tracksContentPosition = seekEntryPosition;
         } else if (seekEntryId == ID_SEEK_HEAD && cuesContentPosition == C.INDEX_UNSET) {
@@ -1197,7 +1205,11 @@ public class MatroskaExtractor implements Extractor {
       case ID_SEEK_POSITION:
         // Seek Position is the relative offset beginning from the Segment. So to get absolute
         // offset from the beginning of the file, we need to add segmentContentPosition to it.
-        seekEntryPosition = value + segmentContentPosition;
+        if (value < 0 || segmentContentPosition == C.INDEX_UNSET) {
+          seekEntryPosition = C.INDEX_UNSET;
+        } else {
+          seekEntryPosition = value + segmentContentPosition;
+        }
         break;
       case ID_TIMECODE_SCALE:
         timecodeScale = value;
@@ -2228,7 +2240,9 @@ public class MatroskaExtractor implements Extractor {
           seekPositionAfterBuildingCues = currentPosition;
         }
         long targetPosition = removePendingSeekHeadPosition();
-        visitedSeekHeadPositions[visitedSeekHeadCount++] = targetPosition;
+        if (visitedSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
+          visitedSeekHeadPositions[visitedSeekHeadCount++] = targetPosition;
+        }
         seekPosition.position = targetPosition;
         return true;
       }
@@ -2271,6 +2285,10 @@ public class MatroskaExtractor implements Extractor {
         seekPositionAfterBuildingCues = currentPosition;
       }
       seekPosition.position = cuesContentPosition;
+      if (visitedSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
+        visitedSeekHeadPositions[visitedSeekHeadCount++] = cuesContentPosition;
+      }
+      cuesContentPosition = C.INDEX_UNSET;
       seekForCues = false;
       return true;
     }
