@@ -44,8 +44,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
-import androidx.media3.common.video.Frame;
-import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -71,7 +69,6 @@ import androidx.media3.transformer.HardwareBufferFrameReader.InputSurface;
 import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -939,15 +936,10 @@ import org.jspecify.annotations.Nullable;
     private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
     private final TargetFrameRateHelper targetFrameRateHelper;
-
-    /** The metadata of the frames queued to the decoder, keyed by composition time. */
-    private final FrameMetadataQueue pendingFrameMetadata;
-
     private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
 
     private @Nullable InputSurface inputSurface;
     private @MonotonicNonNull Format nextFormat;
-    private ImmutableMap<String, Object> nextFrameMetadata;
     private @Nullable VideoFrameMetadataListener frameMetadataListener;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
@@ -978,8 +970,6 @@ import org.jspecify.annotations.Nullable;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
       this.targetFrameRateHelper = new TargetFrameRateHelper();
-      this.pendingFrameMetadata = new FrameMetadataQueue();
-      this.nextFrameMetadata = ImmutableMap.of();
       this.rendererTracker = rendererTracker;
     }
 
@@ -1055,18 +1045,6 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer)
-        throws ExoPlaybackException {
-      super.handleInputBufferSupplementalData(buffer);
-      byte @Nullable [] hagcPayload = TransformerUtil.getHagcPayload(buffer);
-      if (hagcPayload != null) {
-        pendingFrameMetadata.add(
-            buffer.timeUs + offsetToCompositionTimeUs,
-            ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, hagcPayload));
-      }
-    }
-
-    @Override
     protected boolean processOutputBuffer(
         long positionUs,
         long elapsedRealtimeUs,
@@ -1095,8 +1073,6 @@ import org.jspecify.annotations.Nullable;
         return false;
       }
       nextFormat = format;
-      nextFrameMetadata =
-          pendingFrameMetadata.getMetadata(bufferPresentationTimeUs + offsetToCompositionTimeUs);
       long outputStreamOffsetUs = getOutputStreamOffsetUs();
       long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
       if (targetFrameRateHelper.shouldDropOutputFrame(presentationTimeUs) && !isLastBuffer) {
@@ -1138,8 +1114,7 @@ import org.jspecify.annotations.Nullable;
               /* presentationTimeUs= */ presentationTimeUs,
               sequenceOffsetUs,
               indexOfCurrentItem(),
-              checkNotNull(nextFormat),
-              nextFrameMetadata);
+              checkNotNull(nextFormat));
       super.renderOutputBufferV21(
           codec, index, presentationTimeUs, /* releaseTimeNs= */ presentationTimeUs * 1000);
     }
@@ -1170,12 +1145,6 @@ import org.jspecify.annotations.Nullable;
         inputSurface.release();
         inputSurface = null;
       }
-    }
-
-    @Override
-    protected void resetCodecStateForFlush() {
-      super.resetCodecStateForFlush();
-      pendingFrameMetadata.clear();
     }
 
     @Override

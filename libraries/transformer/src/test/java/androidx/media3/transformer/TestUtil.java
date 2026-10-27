@@ -16,7 +16,6 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFile;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,7 +53,6 @@ import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.math.RoundingMode;
@@ -224,27 +222,6 @@ public final class TestUtil {
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
     return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO))
         .getSampleTimesUs();
-  }
-
-  /**
-   * Returns the sample data of the {@code it35} track of an MP4 asset, keyed by sample time.
-   *
-   * <p>The asset must not have other metadata tracks.
-   *
-   * @param assetPath The path of the asset, relative to the assets directory.
-   */
-  public static ImmutableMap<Long, byte[]> getIt35SampleDataByTimeUs(String assetPath)
-      throws IOException {
-    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
-    FakeExtractorOutput fakeExtractorOutput =
-        extractAllSamplesFromFile(mp4Extractor, getApplicationContext(), assetPath);
-    FakeTrackOutput it35TrackOutput =
-        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
-    ImmutableMap.Builder<Long, byte[]> sampleDataByTimeUs = new ImmutableMap.Builder<>();
-    for (int i = 0; i < it35TrackOutput.getSampleCount(); i++) {
-      sampleDataByTimeUs.put(it35TrackOutput.getSampleTimeUs(i), it35TrackOutput.getSampleData(i));
-    }
-    return sampleDataByTimeUs.buildOrThrow();
   }
 
   /**
