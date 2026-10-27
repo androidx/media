@@ -218,63 +218,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       priorityTaskManager.add(C.PRIORITY_DOWNLOAD);
     }
     try {
-      CacheDataSource dataSource = cacheDataSourceFactory.createDataSourceForDownloading();
-      // Get the manifest and all of the segments.
-      M manifest = getManifest(dataSource, manifestDataSpec, /* removing= */ false);
-      if (!streamKeys.isEmpty()) {
-        manifest = manifest.copy(streamKeys);
-      }
-      List<Segment> segments = getSegments(dataSource, manifest, /* removing= */ false);
-
-      // Sort the segments so that we download media in the right order from the start of the
-      // content, and merge segments where possible to minimize the number of server round trips.
-      Collections.sort(segments);
-      mergeSegments(segments, cacheKeyFactory, maxMergedSegmentStartTimeDiffUs);
-
-      // Scan the segments, removing any that are fully downloaded.
-      int totalSegments = segments.size();
-      int segmentsDownloaded = 0;
-      long contentLength = 0;
-      long bytesDownloaded = 0;
-      for (int i = segments.size() - 1; i >= 0; i--) {
-        DataSpec dataSpec = segments.get(i).dataSpec;
-        String cacheKey = cacheKeyFactory.buildCacheKey(dataSpec);
-        long segmentLength = dataSpec.length;
-        if (segmentLength == C.LENGTH_UNSET) {
-          long resourceLength =
-              ContentMetadata.getContentLength(cache.getContentMetadata(cacheKey));
-          if (resourceLength != C.LENGTH_UNSET) {
-            segmentLength = resourceLength - dataSpec.position;
-          }
-        }
-        long segmentBytesDownloaded =
-            cache.getCachedBytes(cacheKey, dataSpec.position, segmentLength);
-        bytesDownloaded += segmentBytesDownloaded;
-        if (segmentLength != C.LENGTH_UNSET) {
-          if (segmentLength == segmentBytesDownloaded) {
-            // The segment is fully downloaded.
-            segmentsDownloaded++;
-            segments.remove(i);
-          }
-          if (contentLength != C.LENGTH_UNSET) {
-            contentLength += segmentLength;
-          }
-        } else {
-          contentLength = C.LENGTH_UNSET;
-        }
-      }
-
-      // Download the segments.
-      @Nullable ProgressNotifier progressNotifier =
-          progressListener != null
-              ? new ProgressNotifier(
-                  progressListener,
-                  contentLength,
-                  totalSegments,
-                  bytesDownloaded,
-                  segmentsDownloaded)
-              : null;
-      pendingSegments.addAll(segments);
+      @Nullable ProgressNotifier progressNotifier = initDownload(progressListener, pendingSegments);
       while (!isCanceled && !pendingSegments.isEmpty()) {
         // Block until there aren't any higher priority tasks.
         if (priorityTaskManager != null) {
@@ -504,6 +448,61 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
   protected static DataSpec getCompressibleDataSpec(Uri uri) {
     return new DataSpec.Builder().setUri(uri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
+  }
+
+  private @Nullable ProgressNotifier initDownload(
+      @Nullable ProgressListener progressListener, ArrayDeque<Segment> pendingSegments)
+      throws IOException, InterruptedException {
+    CacheDataSource dataSource = cacheDataSourceFactory.createDataSourceForDownloading();
+    // Get the manifest and all of the segments.
+    M manifest = getManifest(dataSource, manifestDataSpec, /* removing= */ false);
+    if (!streamKeys.isEmpty()) {
+      manifest = manifest.copy(streamKeys);
+    }
+    List<Segment> segments = getSegments(dataSource, manifest, /* removing= */ false);
+
+    // Sort the segments so that we download media in the right order from the start of the
+    // content, and merge segments where possible to minimize the number of server round trips.
+    Collections.sort(segments);
+    mergeSegments(segments, cacheKeyFactory, maxMergedSegmentStartTimeDiffUs);
+
+    // Scan the segments, removing any that are fully downloaded.
+    int totalSegments = segments.size();
+    int segmentsDownloaded = 0;
+    long contentLength = 0;
+    long bytesDownloaded = 0;
+    for (int i = segments.size() - 1; i >= 0; i--) {
+      DataSpec dataSpec = segments.get(i).dataSpec;
+      String cacheKey = cacheKeyFactory.buildCacheKey(dataSpec);
+      long segmentLength = dataSpec.length;
+      if (segmentLength == C.LENGTH_UNSET) {
+        long resourceLength = ContentMetadata.getContentLength(cache.getContentMetadata(cacheKey));
+        if (resourceLength != C.LENGTH_UNSET) {
+          segmentLength = resourceLength - dataSpec.position;
+        }
+      }
+      long segmentBytesDownloaded =
+          cache.getCachedBytes(cacheKey, dataSpec.position, segmentLength);
+      bytesDownloaded += segmentBytesDownloaded;
+      if (segmentLength != C.LENGTH_UNSET) {
+        if (segmentLength == segmentBytesDownloaded) {
+          // The segment is fully downloaded.
+          segmentsDownloaded++;
+          segments.remove(i);
+        }
+        if (contentLength != C.LENGTH_UNSET) {
+          contentLength += segmentLength;
+        }
+      } else {
+        contentLength = C.LENGTH_UNSET;
+      }
+    }
+
+    pendingSegments.addAll(segments);
+    return progressListener != null
+        ? new ProgressNotifier(
+            progressListener, contentLength, totalSegments, bytesDownloaded, segmentsDownloaded)
+        : null;
   }
 
   private <T extends @Nullable Object> void addActiveRunnable(RunnableFutureTask<T, ?> runnable)
