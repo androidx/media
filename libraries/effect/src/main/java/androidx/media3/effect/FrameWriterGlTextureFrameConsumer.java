@@ -481,21 +481,4 @@ import org.jspecify.annotations.Nullable;
         .setColorInfo(colorInfo)
         .build();
   }
-
-  @Override
-  public boolean isOutputFormatSupported(Format format) {
-    // TODO(b/545572413): Check for color space support and fallback to SDR if necessary.
-    if (!frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
-      return false;
-    }
-    try {
-      if (format.colorInfo != null
-          && !GlUtil.isColorTransferSupported(format.colorInfo.colorTransfer)) {
-        return false;
-      }
-    } catch (GlException e) {
-      return false;
-    }
-    return true;
-  }
 }
