@@ -46,6 +46,17 @@ public final class AdtsExtractorTest {
         AdtsExtractor::new, "media/ts/sample_with_id3.adts", simulationConfig);
   }
 
+  @Test
+  public void sample_with_id3_disabledId3Metadata() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new AdtsExtractor(/* flags= */ AdtsExtractor.FLAG_DISABLE_ID3_METADATA),
+        "media/ts/sample_with_id3.adts",
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/ts/sample_with_id3.adts.id3-disabled")
+            .build(),
+        simulationConfig);
+  }
+
   // https://github.com/androidx/media/issues/3464
   @Test
   public void sample_midFrameStart() throws Exception {

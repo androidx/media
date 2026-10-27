@@ -61,6 +61,8 @@
     *   Fix `ArrayIndexOutOfBoundsException` in `FragmentedMp4Extractor` when a
         fragment contains a `trun` box with no samples
         ([#3471](https://github.com/androidx/media/issues/3471)).
+    *   ADTS: Add `FLAG_DISABLE_ID3_METADATA` to `AdtsExtractor` to stop ID3
+        data in the stream from being output as an `application/id3` track.
 *   Inspector:
     *   Fix an issue where cancelling the future returned by
         `MetadataRetriever.retrieveDurationUs()` prevented `close()` from

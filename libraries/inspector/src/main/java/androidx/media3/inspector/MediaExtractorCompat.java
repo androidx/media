@@ -53,6 +53,7 @@ import androidx.media3.extractor.flac.FlacExtractor;
 import androidx.media3.extractor.mp3.Mp3Extractor;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
 import java.io.FileDescriptor;
@@ -127,7 +128,8 @@ public final class MediaExtractorCompat {
         // Format.metadata is not exposed, so parsing ID3 and artwork metadata is skipped.
         .setDisableArtworkMetadata(true)
         .setMp3ExtractorFlags(Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
-        .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA);
+        .setFlacExtractorFlags(FlacExtractor.FLAG_DISABLE_ID3_METADATA)
+        .setAdtsExtractorFlags(AdtsExtractor.FLAG_DISABLE_ID3_METADATA);
   }
 
   /**

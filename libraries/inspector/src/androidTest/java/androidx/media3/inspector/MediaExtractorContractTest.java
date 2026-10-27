@@ -150,6 +150,20 @@ public class MediaExtractorContractTest {
   }
 
   @Test
+  public void setDataSource_withAdtsStream_exposesSingleAudioTrack() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/aac/sine.aac")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    assertThat(mediaExtractorProxy.getTrackCount()).isEqualTo(1);
+    assertThat(mediaExtractorProxy.getTrackFormat(0).getString(MediaFormat.KEY_MIME))
+        .isEqualTo(MimeTypes.AUDIO_AAC);
+    mediaExtractorProxy.selectTrack(0);
+    assertThat(mediaExtractorProxy.getSampleTrackIndex()).isEqualTo(0);
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(0);
+  }
+
+  @Test
   @SdkSuppress(minSdkVersion = 30)
   public void setDataSource_withMebxTracks_extractsSamples() throws IOException {
     try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample_edit_list.mp4")) {

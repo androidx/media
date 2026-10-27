@@ -56,15 +56,19 @@ public final class AdtsExtractor implements Extractor {
 
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
-   * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING} and {@link
-   * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS}.
+   * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING}, {@link #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS}
+   * and {@link #FLAG_DISABLE_ID3_METADATA}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef(
       flag = true,
-      value = {FLAG_ENABLE_CONSTANT_BITRATE_SEEKING, FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS})
+      value = {
+        FLAG_ENABLE_CONSTANT_BITRATE_SEEKING,
+        FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS,
+        FLAG_DISABLE_ID3_METADATA
+      })
   public @interface Flags {}
 
   /**
@@ -88,6 +92,12 @@ public final class AdtsExtractor implements Extractor {
    * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING} is implicitly enabled as well.
    */
   public static final int FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS = 1 << 1;
+
+  /**
+   * Flag to disable outputting ID3 metadata found in the stream as an {@link
+   * MimeTypes#APPLICATION_ID3} track. Can be set to save memory if ID3 metadata is not required.
+   */
+  public static final int FLAG_DISABLE_ID3_METADATA = 1 << 2;
 
   private static final int MAX_PACKET_SIZE = 2 * 1024;
 
@@ -142,7 +152,9 @@ public final class AdtsExtractor implements Extractor {
       flags |= FLAG_ENABLE_CONSTANT_BITRATE_SEEKING;
     }
     this.flags = flags;
-    reader = new AdtsReader(true, MimeTypes.AUDIO_AAC);
+    reader =
+        new AdtsReader(
+            /* exposeId3= */ (flags & FLAG_DISABLE_ID3_METADATA) == 0, MimeTypes.AUDIO_AAC);
     packetBuffer = new ParsableByteArray(MAX_PACKET_SIZE);
     averageFrameSize = C.LENGTH_UNSET;
     firstFramePosition = C.INDEX_UNSET;
