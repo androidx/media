@@ -38,6 +38,10 @@
         initial discontinuities via `SampleStream.getFlags()`, falling back to
         `MediaPeriod.readDiscontinuity()` when not supported and
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
+    *   Fix an issue where skipping an ad followed by another ad in the same ad
+        group was reported with `DISCONTINUITY_REASON_AUTO_TRANSITION` instead
+        of `DISCONTINUITY_REASON_SKIP`, or not reported at all when
+        `AdsMediaSource` uses lazy content source preparation.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

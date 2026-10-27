@@ -4081,8 +4081,9 @@ import org.jspecify.annotations.Nullable;
           periodPositionChanged
               && isSourceRefresh
               && !playbackInfo.timeline.isEmpty()
-              && !playbackInfo.timeline.getPeriodByUid(playbackInfo.periodId.periodUid, period)
-                  .isPlaceholder;
+              && (playbackInfo.periodId.isAd()
+                  || !playbackInfo.timeline.getPeriodByUid(playbackInfo.periodId.periodUid, period)
+                      .isPlaceholder);
       return new PositionUpdateForPlaylistChange(
           newPeriodId,
           /* periodPositionUs= */ 0,
@@ -4283,6 +4284,7 @@ import org.jspecify.annotations.Nullable;
             ? Player.DISCONTINUITY_REASON_REMOVE
             : Player.DISCONTINUITY_REASON_SKIP;
     if (newPeriodId.periodUid.equals(playbackInfo.periodId.periodUid)
+        && !playbackInfo.periodId.isAd()
         && newPeriodId.adGroupIndex != C.INDEX_UNSET) {
       AdPlaybackState adPlaybackState =
           timeline.getPeriodByUid(newPeriodId.periodUid, period).adPlaybackState;
@@ -4297,8 +4299,9 @@ import org.jspecify.annotations.Nullable;
         periodPositionChanged
             && isSourceRefresh
             && !playbackInfo.timeline.isEmpty()
-            && !playbackInfo.timeline.getPeriodByUid(playbackInfo.periodId.periodUid, period)
-                .isPlaceholder;
+            && (playbackInfo.periodId.isAd()
+                || !playbackInfo.timeline.getPeriodByUid(playbackInfo.periodId.periodUid, period)
+                    .isPlaceholder);
     return new PositionUpdateForPlaylistChange(
         newPeriodId,
         periodPositionUs,
