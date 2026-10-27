@@ -73,7 +73,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A {@link FrameProcessor} implementation that executes a chain of {@link GlTextureFrameConsumer}s.
+ * A {@link FrameProcessor} implementation that applies effects to frames and composites them using
+ * OpenGL.
  */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 public final class DefaultGlFrameProcessor implements FrameProcessor {

@@ -26,7 +26,7 @@ import java.util.concurrent.Executor;
  * <p>This interface aims at resembling {@link FrameProcessor}.
  */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
-public interface GlTextureFrameConsumer extends AutoCloseable {
+/* package */ interface GlTextureFrameConsumer extends AutoCloseable {
 
   /** Allowing outputting {@link GlTextureFrame} from the {@link GlTextureFrameConsumer}. */
   interface GlTextureFrameProcessor extends GlTextureFrameConsumer {
