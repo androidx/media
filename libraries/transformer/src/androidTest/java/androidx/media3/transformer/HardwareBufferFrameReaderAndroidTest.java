@@ -50,7 +50,6 @@ import androidx.media3.transformer.HardwareBufferFrameReader.InputSurface;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -122,11 +121,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void frameReader_queueFrame_receivesFrame() throws Exception {
     inputSurface.queueFrame(
-        /* presentationTimeUs= */ 0,
-        /* sequenceOffsetUs= */ 0,
-        /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        /* presentationTimeUs= */ 0, /* sequenceOffsetUs= */ 0, /* indexOfItem= */ 0, TEST_FORMAT);
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 0);
 
     AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
@@ -149,8 +144,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ 1234,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        TEST_FORMAT);
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
 
     AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
@@ -192,8 +186,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ 1234,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        TEST_FORMAT);
     checkState(!inputSurface.canAcceptFrame());
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
 
@@ -214,8 +207,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ 1234,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        TEST_FORMAT);
     hardwareBufferFrameReader.addRendererWakeupListener(() -> onWakeupCalled.set(true));
     assertThat(inputSurface.canAcceptFrame()).isFalse();
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
@@ -251,8 +243,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ 1234,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        TEST_FORMAT);
     hardwareBufferFrameReader.outputBitmap(
         Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888),
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f),
@@ -281,8 +272,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ frameTimeUs,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        TEST_FORMAT);
     hardwareBufferFrameReader.queueEndOfStream();
 
     produceFrameToFrameReaderSurface(frameTimeUs);
@@ -309,8 +299,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ frameTimeUs,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        TEST_FORMAT,
-        /* additionalMetadata= */ ImmutableMap.of());
+        TEST_FORMAT);
 
     AsyncFrame receivedEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
@@ -348,21 +337,18 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ frameTimeUs1,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        format1,
-        /* additionalMetadata= */ ImmutableMap.of());
+        format1);
     inputSurface.queueFrame(
         /* presentationTimeUs= */ frameTimeUs2,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        format2,
-        /* additionalMetadata= */ ImmutableMap.of());
+        format2);
     hardwareBufferFrameReader.queueEndOfStream();
     inputSurface.queueFrame(
         /* presentationTimeUs= */ frameTimeUs3,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        format3,
-        /* additionalMetadata= */ ImmutableMap.of());
+        format3);
 
     produceFrameToFrameReaderSurface(frameTimeUs1);
     AsyncFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
@@ -407,8 +393,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ frameTimeUs1,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        nullColorInfoFormat,
-        /* additionalMetadata= */ ImmutableMap.of());
+        nullColorInfoFormat);
     produceFrameToFrameReaderSurface(frameTimeUs1);
 
     AsyncFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
@@ -436,8 +421,7 @@ public class HardwareBufferFrameReaderAndroidTest {
         /* presentationTimeUs= */ frameTimeUs1,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        unsetColorSpaceFormat,
-        /* additionalMetadata= */ ImmutableMap.of());
+        unsetColorSpaceFormat);
     produceFrameToFrameReaderSurface(frameTimeUs1);
 
     AsyncFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);

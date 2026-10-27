@@ -52,7 +52,6 @@ import androidx.media3.transformer.TestUtil.FakeImageReaderAdapter;
 import androidx.media3.transformer.TestUtil.FakeImageReaderAdapterFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -122,8 +121,7 @@ public class HardwareBufferFrameReaderTest {
         /* presentationTimeUs= */ 0,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        new Format.Builder().build(),
-        /* additionalMetadata= */ ImmutableMap.of());
+        new Format.Builder().build());
 
     assertThat(inputSurface.canAcceptFrame()).isFalse();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
@@ -137,8 +135,7 @@ public class HardwareBufferFrameReaderTest {
         /* presentationTimeUs= */ 0,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        new Format.Builder().build(),
-        /* additionalMetadata= */ ImmutableMap.of());
+        new Format.Builder().build());
 
     assertThat(inputSurface2.canAcceptFrame()).isFalse();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
@@ -609,39 +606,19 @@ public class HardwareBufferFrameReaderTest {
         /* presentationTimeUs= */ 0,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 0,
-        new Format.Builder().build(),
-        /* additionalMetadata= */ ImmutableMap.of());
+        new Format.Builder().build());
     shadowOf(handlerThread.getLooper()).idle();
     inputSurface2.queueFrame(
         /* presentationTimeUs= */ 33_333,
         /* sequenceOffsetUs= */ 0,
         /* indexOfItem= */ 1,
-        new Format.Builder().build(),
-        /* additionalMetadata= */ ImmutableMap.of());
+        new Format.Builder().build());
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
     assertThat(receivedFrames).hasSize(2);
     assertFramePresentationTimes(
         receivedFrames, /* firstFrameIndex= */ 0, /* sequenceOffsetUs= */ 0);
-    frameReader.release();
-  }
-
-  @Test
-  public void queueFrame_withAdditionalMetadata_addsItToFrameMetadata() {
-    HardwareBufferFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
-    InputSurface inputSurface = frameReader.createInputSurface();
-
-    inputSurface.queueFrame(
-        /* presentationTimeUs= */ 0,
-        /* sequenceOffsetUs= */ 0,
-        /* indexOfItem= */ 0,
-        new Format.Builder().build(),
-        /* additionalMetadata= */ ImmutableMap.of("key", "value"));
-    shadowOf(handlerThread.getLooper()).idle();
-
-    assertThat(receivedFrames).hasSize(1);
-    assertThat(receivedFrames.get(0).frame.getMetadata()).containsEntry("key", "value");
     frameReader.release();
   }
 
