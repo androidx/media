@@ -15,16 +15,15 @@
  */
 package androidx.media3.session;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import android.graphics.Bitmap;
 import android.net.Uri;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -41,7 +40,7 @@ public final class CacheBitmapLoader implements BitmapLoader {
 
   private final BitmapLoader bitmapLoader;
 
-  private @MonotonicNonNull BitmapLoadRequest lastBitmapLoadRequest;
+  private @Nullable BitmapLoadRequest lastBitmapLoadRequest;
 
   /**
    * Creates an instance that is able to cache the last bitmap load request to the given bitmap
@@ -58,11 +57,12 @@ public final class CacheBitmapLoader implements BitmapLoader {
 
   @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
-    if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(data)) {
+    byte[] dataHash = computeSha256(data);
+    if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(dataHash)) {
       return lastBitmapLoadRequest.getFuture();
     }
     ListenableFuture<Bitmap> future = bitmapLoader.decodeBitmap(data);
-    lastBitmapLoadRequest = new BitmapLoadRequest(data, future);
+    lastBitmapLoadRequest = new BitmapLoadRequest(dataHash, future);
     return future;
   }
 
@@ -78,69 +78,84 @@ public final class CacheBitmapLoader implements BitmapLoader {
 
   @Override
   public @Nullable ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
-    if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(metadata)) {
+    byte @Nullable [] dataHash =
+        metadata.artworkData != null ? computeSha256(metadata.artworkData) : null;
+    if (lastBitmapLoadRequest != null
+        && lastBitmapLoadRequest.matches(dataHash, metadata.artworkUri)) {
       return lastBitmapLoadRequest.getFuture();
     }
     ListenableFuture<Bitmap> future = bitmapLoader.loadBitmapFromMetadata(metadata);
     if (future == null) {
+      lastBitmapLoadRequest = null;
       return null;
     }
-    lastBitmapLoadRequest = new BitmapLoadRequest(metadata, future);
+    if (dataHash != null) {
+      lastBitmapLoadRequest = new BitmapLoadRequest(dataHash, future);
+    } else if (metadata.artworkUri != null) {
+      lastBitmapLoadRequest = new BitmapLoadRequest(metadata.artworkUri, future);
+    } else {
+      lastBitmapLoadRequest = null;
+    }
     return future;
   }
 
   /**
-   * Stores the result of a bitmap load request. Requests are identified either by a byte array, if
-   * the bitmap is loaded from compressed data, or a URI, if the bitmap was loaded from a URI.
+   * Computes a SHA-256 digest on each request to avoid hash collisions (which would serve the wrong
+   * cached artwork) without retaining a reference to {@code data}.
+   */
+  private static byte[] computeSha256(byte[] data) {
+    try {
+      return MessageDigest.getInstance("SHA-256").digest(data);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Stores the result of a bitmap load request. Requests are identified either by a hash of a byte
+   * array, if the bitmap is loaded from compressed data, or a URI, if the bitmap was loaded from a
+   * URI.
    */
   private static class BitmapLoadRequest {
-    private final byte @Nullable [] data;
+    private final byte @Nullable [] dataHash;
     private final @Nullable Uri uri;
-    private final @Nullable ListenableFuture<Bitmap> future;
+    private final ListenableFuture<Bitmap> future;
 
-    /** Creates load request for byte array. */
-    private BitmapLoadRequest(byte[] data, ListenableFuture<Bitmap> future) {
-      this.data = data;
+    /** Creates load request for byte array hash. */
+    private BitmapLoadRequest(byte[] dataHash, ListenableFuture<Bitmap> future) {
+      this.dataHash = dataHash;
       this.uri = null;
       this.future = future;
     }
 
     /** Creates load request for URI. */
     private BitmapLoadRequest(Uri uri, ListenableFuture<Bitmap> future) {
-      this.data = null;
+      this.dataHash = null;
       this.uri = uri;
       this.future = future;
     }
 
-    /** Creates load request for media metadata. */
-    private BitmapLoadRequest(MediaMetadata metadata, ListenableFuture<Bitmap> future) {
-      this.data = metadata.artworkData;
-      this.uri = metadata.artworkUri;
-      this.future = future;
-    }
-
-    /** Whether the bitmap load request was performed for {@code data}. */
-    private boolean matches(byte[] data) {
-      return this.data != null && Arrays.equals(this.data, data);
+    /** Whether the bitmap load request was performed for {@code dataHash}. */
+    private boolean matches(byte[] dataHash) {
+      return this.dataHash != null && Arrays.equals(this.dataHash, dataHash);
     }
 
     /** Whether the bitmap load request was performed for {@code uri}. */
-    private boolean matches(Uri uri) {
+    private boolean matches(@Nullable Uri uri) {
       return this.uri != null && this.uri.equals(uri);
     }
 
     /**
-     * Whether the bitmap load request was performed for either {@code metadata.artworkUri} or
-     * {@code metadata.artworkData}.
+     * Whether the bitmap load request matches {@code dataHash} if non-null, or {@code uri}
+     * otherwise.
      */
-    private boolean matches(MediaMetadata metadata) {
-      return (this.uri != null && this.uri.equals(metadata.artworkUri))
-          || (this.data != null && Arrays.equals(this.data, metadata.artworkData));
+    private boolean matches(byte @Nullable [] dataHash, @Nullable Uri uri) {
+      return dataHash != null ? matches(dataHash) : matches(uri);
     }
 
     /** Returns the future that set for the bitmap load request. */
     private ListenableFuture<Bitmap> getFuture() {
-      return checkNotNull(future);
+      return future;
     }
   }
 }

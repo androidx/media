@@ -87,6 +87,8 @@
         `ImaAdsLoader.requestAds(DataSpec, Object, ViewGroup)`).
 *   Session:
     *   Stabilize media button preferences APIs.
+    *   Reduce memory usage by no longer retaining compressed artwork data in
+        `CacheBitmapLoader`.
 *   UI:
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap

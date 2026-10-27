@@ -82,10 +82,25 @@ public class CacheBitmapLoaderTest {
 
     assertThat(future1.get(10, SECONDS).sameAs(expectedBitmap)).isTrue();
 
-    // Second request, has cached bitmap load request.
-    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.decodeBitmap(imageData);
+    // Second request with a distinct byte[] instance containing the same data.
+    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.decodeBitmap(imageData.clone());
 
     assertThat(future1).isSameInstanceAs(future2);
+  }
+
+  @Test
+  public void decodeBitmap_requestWithMutatedInputArray_returnsNewFuture() throws Exception {
+    CacheBitmapLoader cacheBitmapLoader =
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    ListenableFuture<Bitmap> future1 = cacheBitmapLoader.decodeBitmap(imageData);
+    // Wait for the decode to finish.
+    future1.get(10, SECONDS);
+
+    imageData[0] = (byte) ~imageData[0];
+    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.decodeBitmap(imageData);
+
+    assertThat(future1).isNotSameInstanceAs(future2);
   }
 
   @Test
@@ -239,10 +254,32 @@ public class CacheBitmapLoaderTest {
 
     assertThat(future1.get(10, SECONDS).sameAs(expectedBitmap)).isTrue();
 
-    // Second request, has cached bitmap load request.
-    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.loadBitmapFromMetadata(metadata);
+    // Second request with a distinct MediaMetadata and byte[] instance containing the same data.
+    MediaMetadata metadataCopy =
+        new MediaMetadata.Builder().setArtworkData(imageData, PICTURE_TYPE_MEDIA).build();
+    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.loadBitmapFromMetadata(metadataCopy);
 
     assertThat(future1).isSameInstanceAs(future2);
+  }
+
+  @Test
+  public void loadBitmapFromMetadata_requestWithMutatedArtworkData_returnsNewFuture()
+      throws Exception {
+    CacheBitmapLoader cacheBitmapLoader =
+        new CacheBitmapLoader(
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    MediaMetadata metadata =
+        new MediaMetadata.Builder().setArtworkData(imageData, PICTURE_TYPE_MEDIA).build();
+    ListenableFuture<Bitmap> future1 = cacheBitmapLoader.loadBitmapFromMetadata(metadata);
+    // Wait for the decode to finish.
+    future1.get(10, SECONDS);
+
+    metadata.artworkData[0] = (byte) ~metadata.artworkData[0];
+    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.loadBitmapFromMetadata(metadata);
+
+    assertThat(future1).isNotSameInstanceAs(future2);
   }
 
   @Test
@@ -395,6 +432,61 @@ public class CacheBitmapLoaderTest {
           .hasCauseThat()
           .isInstanceOf(HttpDataSource.InvalidResponseCodeException.class);
       assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void loadBitmapFromMetadata_withEmptyMetadata_evictsCachedRequest() throws Exception {
+    CacheBitmapLoader cacheBitmapLoader =
+        new CacheBitmapLoader(
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    MediaMetadata metadata =
+        new MediaMetadata.Builder().setArtworkData(imageData, PICTURE_TYPE_MEDIA).build();
+    ListenableFuture<Bitmap> future1 = cacheBitmapLoader.loadBitmapFromMetadata(metadata);
+    // Wait for the loading/decoding to finish.
+    future1.get(10, SECONDS);
+
+    assertThat(cacheBitmapLoader.loadBitmapFromMetadata(MediaMetadata.EMPTY)).isNull();
+    ListenableFuture<Bitmap> future2 = cacheBitmapLoader.loadBitmapFromMetadata(metadata);
+
+    assertThat(future1).isNotSameInstanceAs(future2);
+  }
+
+  @Test
+  public void loadBitmapFromMetadata_requestWithDataAndUriAfterUriOnlyRequest_returnsNewFuture()
+      throws Exception {
+    CacheBitmapLoader cacheBitmapLoader =
+        new CacheBitmapLoader(
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
+    byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
+    Buffer responseBody = new Buffer().write(imageData1);
+    try (MockWebServer mockWebServer = new MockWebServer()) {
+      mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+      Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+      Bitmap expectedBitmap1 =
+          apply90DegreeExifRotation(
+              BitmapFactory.decodeByteArray(imageData1, /* offset= */ 0, imageData1.length));
+      Bitmap expectedBitmap2 =
+          apply90DegreeExifRotation(
+              BitmapFactory.decodeByteArray(imageData2, /* offset= */ 0, imageData2.length));
+      MediaMetadata uriOnlyMetadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
+      MediaMetadata dataAndUriMetadata =
+          new MediaMetadata.Builder()
+              .setArtworkData(imageData2, PICTURE_TYPE_MEDIA)
+              .setArtworkUri(uri)
+              .build();
+
+      ListenableFuture<Bitmap> future1 = cacheBitmapLoader.loadBitmapFromMetadata(uriOnlyMetadata);
+      assertThat(future1.get(10, SECONDS).sameAs(expectedBitmap1)).isTrue();
+
+      ListenableFuture<Bitmap> future2 =
+          cacheBitmapLoader.loadBitmapFromMetadata(dataAndUriMetadata);
+      assertThat(future2.get(10, SECONDS).sameAs(expectedBitmap2)).isTrue();
+      assertThat(future1).isNotSameInstanceAs(future2);
     }
   }
 
