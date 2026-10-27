@@ -960,7 +960,16 @@ import org.jspecify.annotations.Nullable;
     private MediaFormat createDownstreamMediaFormat(
         FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
       Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
+      // MediaExtractor exposes the frame rate as an integer, and omits it if it rounds to zero.
+      int frameRate = Math.round(format.frameRate);
+      if (frameRate <= 0 && format.frameRate != Format.NO_VALUE) {
+        // MediaFormat.removeKey requires API 29, so prevent the key from being set instead.
+        format = format.buildUpon().setFrameRate(Format.NO_VALUE).build();
+      }
       MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
+      if (frameRate > 0) {
+        mediaFormatResult.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate);
+      }
       if (compatibilityTrackMimeType != null) {
         if (SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);

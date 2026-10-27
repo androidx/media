@@ -1272,6 +1272,26 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  public void getTrackFormat_withFrameRateRoundingToZero_omitsFrameRate() throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          output.format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.VIDEO_H264)
+                  .setFrameRate(0.4f)
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_FRAME_RATE)).isFalse();
+  }
+
+  @Test
   public void setDataSource_withFileDescriptor_closesDuplicatedFileDescriptorOnRelease()
       throws IOException {
     fakeExtractor.addReadAction(

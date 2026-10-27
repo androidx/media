@@ -428,6 +428,21 @@ public class MediaExtractorContractTest {
   }
 
   @Test
+  public void getTrackFormat_forVideoTrack_returnsIntegerFrameRate() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    MediaFormat videoFormat = mediaExtractorProxy.getTrackFormat(/* trackIndex= */ 0);
+    MediaFormat audioFormat = mediaExtractorProxy.getTrackFormat(/* trackIndex= */ 1);
+
+    assertThat(videoFormat.getString(MediaFormat.KEY_MIME)).isEqualTo(MimeTypes.VIDEO_H264);
+    assertThat(videoFormat.getInteger(MediaFormat.KEY_FRAME_RATE)).isEqualTo(30);
+    assertThat(audioFormat.getString(MediaFormat.KEY_MIME)).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(audioFormat.containsKey(MediaFormat.KEY_FRAME_RATE)).isFalse();
+  }
+
+  @Test
   public void trackMethods_withInvalidTrackIndex_throwIllegalArgumentException()
       throws IOException {
     try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {

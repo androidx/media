@@ -54,6 +54,8 @@
         `MetadataRetriever.retrieveDurationUs()` prevented `close()` from
         releasing the underlying `MediaSource`
         ([#3468](https://github.com/androidx/media/issues/3468)).
+    *   Fix `MediaExtractorCompat` to return `MediaFormat.KEY_FRAME_RATE` as an
+        integer, matching the platform `MediaExtractor`.
 *   Inspector Frame:
 *   Audio:
     *   Fix an issue where buffered skipped silence was included in
