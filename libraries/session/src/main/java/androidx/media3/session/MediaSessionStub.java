@@ -616,6 +616,7 @@ import org.jspecify.annotations.Nullable;
                           controllerInfo, playerInfo.timeline, playerInfo.currentTracks);
                     }
                     Token platformToken = sessionImpl.getPlatformToken();
+                    @SuppressWarnings("deprecation") // Reading deprecated customLayout field.
                     ConnectionState state =
                         new ConnectionState(
                             MediaLibraryInfo.VERSION_INT,

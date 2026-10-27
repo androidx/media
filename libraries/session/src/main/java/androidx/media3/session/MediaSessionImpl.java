@@ -1012,6 +1012,7 @@ import org.jspecify.annotations.Nullable;
         });
   }
 
+  @SuppressWarnings("deprecation") // Using deprecated customLayout for backwards compatibility.
   private void updateLegacySessionConfigurationOnConnectOnHandler(
       ControllerInfo controller, ConnectionResult connectionResult) {
     if (isMediaNotificationController(controller) && connectionResult.isAccepted) {

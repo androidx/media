@@ -192,7 +192,6 @@ open class DemoPlaybackService : MediaLibraryService() {
       .build()
   }
 
-  @OptIn(UnstableApi::class)
   private fun MediaSession.setCustomShuffleModeButton() =
     setMediaButtonPreferences(
       listOf(if (player.shuffleModeEnabled) turnShuffleOffButton else turnShuffleOnButton)

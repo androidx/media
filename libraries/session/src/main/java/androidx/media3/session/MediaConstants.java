@@ -107,35 +107,19 @@ public final class MediaConstants {
       androidx.media3.session.legacy.MediaConstants.EXTRAS_KEY_CUSTOM_BROWSER_ACTION_MEDIA_ITEM_ID;
 
   /**
-   * {@link Bundle} key to indicate a preference that a region of space for the skip to next control
-   * should always be blocked out in the UI, even when the seek to next standard action is not
-   * supported.
-   *
-   * <p>This may be used when the session temporarily disallows {@link
-   * androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT} by design.
-   *
-   * @see MediaSession#setSessionExtras(Bundle)
-   * @see MediaController.Listener#onExtrasChanged(MediaController, Bundle)
-   * @see androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT
-   * @see androidx.media3.common.Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
+   * @deprecated Use {@link MediaSession#setMediaButtonPreferences} and {@link
+   *     CommandButton.Builder#setSlots} to configure button slot placement instead.
    */
+  @Deprecated
   public static final String EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT =
       androidx.media3.session.legacy.MediaConstants
           .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT;
 
   /**
-   * {@link Bundle} key to indicate a preference that a region of space for the skip to previous
-   * control should always be blocked out in the UI, even when the seek to previous standard action
-   * is not supported.
-   *
-   * <p>This may be used when the session temporarily disallows {@link
-   * androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS} by design.
-   *
-   * @see MediaSession#setSessionExtras(Bundle)
-   * @see MediaController.Listener#onExtrasChanged(MediaController, Bundle)
-   * @see androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS
-   * @see androidx.media3.common.Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
+   * @deprecated Use {@link MediaSession#setMediaButtonPreferences} and {@link
+   *     CommandButton.Builder#setSlots} to configure button slot placement instead.
    */
+  @Deprecated
   public static final String EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV =
       androidx.media3.session.legacy.MediaConstants
           .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV;

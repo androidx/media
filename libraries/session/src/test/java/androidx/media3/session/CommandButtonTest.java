@@ -991,6 +991,7 @@ public class CommandButtonTest {
         .isEqualTo(new HeartRating(true));
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withPrevAndNextCommands_returnsCorrectSlots() {
@@ -1034,6 +1035,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withPrevCommandNoNextReservation_returnsCorrectSlots() {
@@ -1075,6 +1077,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withPrevCommandAndNextReservation_returnsCorrectSlots() {
@@ -1116,6 +1119,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withNextCommandNoPrevReservation_returnsCorrectSlots() {
@@ -1157,6 +1161,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withNextCommandAndPrevReservation_returnsCorrectSlots() {
@@ -1198,6 +1203,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withoutPrevNextCommandsNoReservations_returnsCorrectSlots() {
@@ -1241,6 +1247,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withoutPrevNextCommandsAndPrevReservation_returnsCorrectSlots() {
@@ -1281,6 +1288,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withoutPrevNextCommandsAndNextReservation_returnsCorrectSlots() {
@@ -1321,6 +1329,7 @@ public class CommandButtonTest {
         .inOrder();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated slot reservation extras.
   @Test
   public void
       getMediaButtonPreferencesFromCustomLayout_withoutPrevNextCommandsAndPrevNextReservations_returnsCorrectSlots() {

@@ -222,11 +222,11 @@ class MediaAppControllerActivity : AppCompatActivity() {
           commands: SessionCommands,
         ) = updateMediaInfoText()
 
-        override fun onCustomLayoutChanged(
+        override fun onMediaButtonPreferencesChanged(
           controller: MediaController,
-          layout: MutableList<CommandButton>,
+          mediaButtonPreferences: MutableList<CommandButton>,
         ) {
-          customCommandsAdapter.setCommands(layout)
+          customCommandsAdapter.setCommands(mediaButtonPreferences)
         }
 
         override fun onChildrenChanged(

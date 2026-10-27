@@ -54,7 +54,6 @@ object ControlPlaybackKt {
     // [END create_media_session]
   }
 
-  @OptIn(UnstableApi::class)
   fun commandButton() {
     // [START command_button]
     val button =
@@ -65,7 +64,6 @@ object ControlPlaybackKt {
     // [END command_button]
   }
 
-  @OptIn(UnstableApi::class)
   fun setMediaButtonPreferences(
     context: Context,
     player: Player,
@@ -80,7 +78,6 @@ object ControlPlaybackKt {
     // [END set_media_button_preferences]
   }
 
-  @OptIn(UnstableApi::class)
   fun updateMediaButtonPreferences(
     mediaSession: MediaSession,
     likeButton: CommandButton,

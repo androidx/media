@@ -227,9 +227,9 @@ import org.jspecify.annotations.Nullable;
  * android.support.v4.media.session.MediaControllerCompat} instances.
  *
  * <p>While Media3 allows setting controller-specific configurations (such as available commands,
- * custom layout, media button preferences, session activity, session extras, and playback
- * exceptions) for each connected {@link MediaController}, all platform and legacy controllers
- * interact with this single, shared platform session.
+ * media button preferences, session activity, session extras, and playback exceptions) for each
+ * connected {@link MediaController}, all platform and legacy controllers interact with this single,
+ * shared platform session.
  *
  * <p>Because all platform and legacy controllers share this one platform session,
  * controller-specific settings cannot be pushed to individual platform or legacy controllers (calls
@@ -241,20 +241,19 @@ import org.jspecify.annotations.Nullable;
  *   <li>Use {@linkplain #getMediaNotificationControllerInfo() the media notification controller} as
  *       the target controller in controller-specific methods (such as {@link
  *       #setAvailableCommands(ControllerInfo, SessionCommands, Player.Commands)}, {@link
- *       #setMediaButtonPreferences(ControllerInfo, List)}, {@link #setCustomLayout(ControllerInfo,
- *       List)}, {@link #setSessionActivity(ControllerInfo, PendingIntent)}, {@link
+ *       #setMediaButtonPreferences(ControllerInfo, List)}, {@link
+ *       #setSessionActivity(ControllerInfo, PendingIntent)}, {@link
  *       #setSessionExtras(ControllerInfo, Bundle)}, or {@link #setPlaybackException(ControllerInfo,
  *       PlaybackException)}). When a media notification controller is connected, settings applied
  *       to it are routed directly to the shared platform session and reflected across all platform
  *       controllers.
  *   <li>Use session-wide methods such as {@link #setMediaButtonPreferences(List)}, {@link
- *       #setCustomLayout(List)}, {@link #setSessionExtras(Bundle)}, {@link
- *       #setSessionActivity(PendingIntent)}, {@link #setPlaybackException(PlaybackException)},
- *       {@link #sendError(SessionError)}, and {@link #broadcastCustomCommand(SessionCommand,
- *       Bundle)}.
- *   <li>Configure initial commands, media button preferences, custom layout, session extras, or
- *       session activity for the platform session when the media notification controller connects
- *       in {@link Callback#onConnect} or {@link Callback#onConnectAsync} via {@link
+ *       #setSessionExtras(Bundle)}, {@link #setSessionActivity(PendingIntent)}, {@link
+ *       #setPlaybackException(PlaybackException)}, {@link #sendError(SessionError)}, and {@link
+ *       #broadcastCustomCommand(SessionCommand, Bundle)}.
+ *   <li>Configure initial commands, media button preferences, session extras, or session activity
+ *       for the platform session when the media notification controller connects in {@link
+ *       Callback#onConnect} or {@link Callback#onConnectAsync} via {@link
  *       ConnectionResult.AcceptedResultBuilder}.
  * </ul>
  *
@@ -423,33 +422,10 @@ public class MediaSession {
     }
 
     /**
-     * Sets the custom layout of the session.
-     *
-     * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences}. Note
-     * that the media button preferences use {@link CommandButton#slots} to define the allowed
-     * button placement.
-     *
-     * <p>The button are converted to custom actions in the platform media session playback state
-     * for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
-     * controllers (see {@code
-     * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
-     * converting, the {@linkplain SessionCommand#customExtras custom extras of the session command}
-     * is used for the extras of the platform custom action.
-     *
-     * <p>Controllers that connect have the custom layout of the session available with the initial
-     * connection result by default. A custom layout specific to a controller can be set when the
-     * controller {@linkplain MediaSession.Callback#onConnectAsync connects} by using an {@link
-     * ConnectionResult.AcceptedResultBuilder}.
-     *
-     * <p>Use {@code MediaSession.setCustomLayout(..)} to update the custom layout during the life
-     * time of the session.
-     *
-     * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
-     * {@code false} if the available commands of a controller do not allow to use a button.
-     *
-     * @param customLayout The ordered list of {@link CommandButton command buttons}.
-     * @return The builder to allow chaining.
+     * @deprecated Use {@link #setMediaButtonPreferences(List)} instead. Note that media button
+     *     preferences use {@link CommandButton#slots} to define the allowed button placement.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     @UnstableApi
     @Override
@@ -460,20 +436,20 @@ public class MediaSession {
     /**
      * Sets the media button preferences.
      *
-     * <p>The button are converted to custom actions in the platform media session playback state
+     * <p>The buttons are converted to custom actions in the platform media session playback state
      * for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
      * controllers (see {@code
      * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
      * converting, the {@linkplain SessionCommand#customExtras custom extras of the session command}
-     * is used for the extras of the platform custom action.
+     * are used for the extras of the platform custom action.
      *
      * <p>Controllers that connect have the media button preferences of the session available with
      * the initial connection result by default. Media button preferences specific to a controller
      * can be set when the controller {@linkplain MediaSession.Callback#onConnectAsync connects} by
      * using an {@link ConnectionResult.AcceptedResultBuilder}.
      *
-     * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
-     * preferences during the life time of the session.
+     * <p>Use {@link MediaSession#setMediaButtonPreferences} to update the media button preferences
+     * during the lifetime of the session.
      *
      * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
      * {@code false} if the available commands of a controller do not allow to use a button.
@@ -482,7 +458,6 @@ public class MediaSession {
      * @return The builder to allow chaining.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     @Override
     public Builder setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
       return super.setMediaButtonPreferences(mediaButtonPreferences);
@@ -1154,9 +1129,9 @@ public class MediaSession {
    * <p>In addition to available commands and media button preferences, this controller info serves
    * as the designated target to dynamically configure the single shared platform session for {@link
    * #setSessionActivity(ControllerInfo, PendingIntent)}, {@link #setSessionExtras(ControllerInfo,
-   * Bundle)}, {@link #setPlaybackException(ControllerInfo, PlaybackException)}, and {@link
-   * #setCustomLayout(ControllerInfo, List)}. Configurations applied to this controller info update
-   * the shared platform session and reflect across all connected platform controllers.
+   * Bundle)}, and {@link #setPlaybackException(ControllerInfo, PlaybackException)}. Configurations
+   * applied to this controller info update the shared platform session and reflect across all
+   * connected platform controllers.
    *
    * <p>This method must be called from the thread associated with the {@linkplain
    * Player#getApplicationLooper() application looper}.
@@ -1173,10 +1148,10 @@ public class MediaSession {
    *
    * <p>Interoperability: If an Automotive OS controller connects as a platform or legacy controller
    * (see {@link ControllerInfo#LEGACY_CONTROLLER_VERSION}), it interacts via the shared platform
-   * session. In this case, controller-specific settings (such as custom layout or media button
-   * preferences) cannot be set directly for the controller; configure the shared platform session
-   * instead (e.g. via {@link #setMediaButtonPreferences(List)} or {@linkplain
-   * #getMediaNotificationControllerInfo() the media notification controller}).
+   * session. In this case, controller-specific settings (such as media button preferences) cannot
+   * be set directly for the controller; configure the shared platform session instead (e.g. via
+   * {@link #setMediaButtonPreferences(List)} or {@linkplain #getMediaNotificationControllerInfo()
+   * the media notification controller}).
    *
    * @param controllerInfo The controller info of the connected controller.
    * @return True if the controller into belongs to a connected Automotive OS controller.
@@ -1194,9 +1169,9 @@ public class MediaSession {
    *
    * <p>Interoperability: If an Android Auto companion app controller connects as a platform or
    * legacy controller (see {@link ControllerInfo#LEGACY_CONTROLLER_VERSION}), it interacts via the
-   * shared platform session. In this case, controller-specific settings (such as custom layout or
-   * media button preferences) cannot be set directly for the controller; configure the shared
-   * platform session instead (e.g. via {@link #setMediaButtonPreferences(List)} or {@linkplain
+   * shared platform session. In this case, controller-specific settings (such as media button
+   * preferences) cannot be set directly for the controller; configure the shared platform session
+   * instead (e.g. via {@link #setMediaButtonPreferences(List)} or {@linkplain
    * #getMediaNotificationControllerInfo() the media notification controller}).
    *
    * @param controllerInfo The controller info of the connected controller.
@@ -1208,37 +1183,11 @@ public class MediaSession {
   }
 
   /**
-   * Sets the custom layout for the given controller.
-   *
-   * <p>This method will be deprecated, prefer to use {@link
-   * #setMediaButtonPreferences(ControllerInfo, List)}. Note that the media button preferences use
-   * {@link CommandButton#slots} to define the allowed button placement.
-   *
-   * <p>Make sure to have the session commands of all command buttons of the custom layout
-   * {@linkplain MediaController#getAvailableSessionCommands() available for controllers}. Include
-   * the custom session commands a controller should be able to send in the available commands of
-   * the connection result {@linkplain MediaSession.Callback#onConnectAsync(MediaSession,
-   * ControllerInfo) that your app returns when the controller connects}. The {@link
-   * CommandButton#isEnabled} flag is set according to the available commands of the controller and
-   * overrides a value that may have been set by the app.
-   *
-   * <p>On the controller side, {@link
-   * MediaController.Listener#onCustomLayoutChanged(MediaController, List)} is only called if the
-   * new custom layout is different to the custom layout the {@link
-   * MediaController#getCustomLayout() controller already has available}. Note that this comparison
-   * uses {@link CommandButton#equals} and therefore ignores {@link CommandButton#extras}.
-   *
-   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
-   * {@code false} if the available commands of the controller do not allow to use a button.
-   *
-   * <p>Interoperability: This call has no effect when called for a {@linkplain
-   * ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}. To set the custom
-   * layout of the platform session, use {@linkplain #getMediaNotificationControllerInfo() the media
-   * notification controller} as the target controller or use {@link #setCustomLayout(List)}.
-   *
-   * @param controller The controller for which to set the custom layout.
-   * @param layout The ordered list of {@linkplain CommandButton command buttons}.
+   * @deprecated Use {@link #setMediaButtonPreferences(ControllerInfo, List)} instead. Note that
+   *     media button preferences use {@link CommandButton#slots} to define the allowed button
+   *     placement.
    */
+  @Deprecated
   @CanIgnoreReturnValue
   public final ListenableFuture<SessionResult> setCustomLayout(
       ControllerInfo controller, List<CommandButton> layout) {
@@ -1248,30 +1197,10 @@ public class MediaSession {
   }
 
   /**
-   * Sets the custom layout for all controllers.
-   *
-   * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences(List)}. Note
-   * that the media button preferences use {@link CommandButton#slots} to define the allowed button
-   * placement.
-   *
-   * <p>Calling this method broadcasts the custom layout to all connected Media3 controllers,
-   * including the {@linkplain #getMediaNotificationControllerInfo() media notification controller}.
-   *
-   * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
-   * {@code false} if the available commands of a controller do not allow to use a button.
-   *
-   * <p>{@link MediaController.Listener#onCustomLayoutChanged(MediaController, List)} is only called
-   * if the new custom layout is different to the custom layout the {@linkplain
-   * MediaController#getCustomLayout() controller already has available}. Note that {@link Bundle
-   * extras} are ignored when comparing {@linkplain CommandButton command buttons}.
-   *
-   * <p>Controllers that connect after calling this method will have the new custom layout available
-   * with the initial connection result. A custom layout specific to a controller can be set when
-   * the controller {@linkplain MediaSession.Callback#onConnectAsync connects} by using an {@link
-   * ConnectionResult.AcceptedResultBuilder}.
-   *
-   * @param layout The ordered list of {@linkplain CommandButton command buttons}.
+   * @deprecated Use {@link #setMediaButtonPreferences(List)} instead. Note that media button
+   *     preferences use {@link CommandButton#slots} to define the allowed button placement.
    */
+  @Deprecated
   public final void setCustomLayout(List<CommandButton> layout) {
     checkNotNull(layout, "layout must not be null");
     impl.setCustomLayout(ImmutableList.copyOf(layout));
@@ -1307,7 +1236,6 @@ public class MediaSession {
    * @param controller The controller for which to set the media button preferences.
    * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
    */
-  @UnstableApi
   @CanIgnoreReturnValue
   public final ListenableFuture<SessionResult> setMediaButtonPreferences(
       ControllerInfo controller, List<CommandButton> mediaButtonPreferences) {
@@ -1339,7 +1267,6 @@ public class MediaSession {
    *
    * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
    */
-  @UnstableApi
   public final void setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
     checkNotNull(mediaButtonPreferences, "media button preferences must not be null");
     impl.setMediaButtonPreferences(ImmutableList.copyOf(mediaButtonPreferences));
@@ -1421,19 +1348,10 @@ public class MediaSession {
   }
 
   /**
-   * Returns the custom layout of the session.
-   *
-   * <p>This method will be deprecated, prefer to use {@link #getMediaButtonPreferences()} instead.
-   * Note that the media button preferences use {@link CommandButton#slots} to define the allowed
-   * button placement.
-   *
-   * <p>For informational purpose only. Mutations on the {@link Bundle} of either a {@link
-   * CommandButton} or a {@link SessionCommand} do not have effect. To change the custom layout use
-   * {@link #setCustomLayout(List)} or {@link #setCustomLayout(ControllerInfo, List)}.
-   *
-   * <p>This method must be called from the thread associated with the {@linkplain
-   * Player#getApplicationLooper() application looper}.
+   * @deprecated Use {@link #getMediaButtonPreferences()} instead. Note that media button
+   *     preferences use {@link CommandButton#slots} to define the allowed button placement.
    */
+  @Deprecated
   @UnstableApi
   public ImmutableList<CommandButton> getCustomLayout() {
     return impl.getCustomLayout();
@@ -1444,13 +1362,13 @@ public class MediaSession {
    *
    * <p>For informational purpose only. Mutations on the {@link Bundle} of either a {@link
    * CommandButton} or a {@link SessionCommand} do not have effect. To change the media button
-   * preferences use {@link #setMediaButtonPreferences}.
+   * preferences use {@link #setMediaButtonPreferences(List)} or {@link
+   * #setMediaButtonPreferences(ControllerInfo, List)}.
    *
    * <p>This method must be called from the thread associated with the {@linkplain
    * Player#getApplicationLooper() application looper}.
    */
-  @UnstableApi
-  public ImmutableList<CommandButton> getMediaButtonPreferences() {
+  public final ImmutableList<CommandButton> getMediaButtonPreferences() {
     return impl.getMediaButtonPreferences();
   }
 
@@ -1750,13 +1668,13 @@ public class MediaSession {
      * legacy controllers will connect to the session, you should ensure that the callback returns
      * quickly to avoid blocking the main thread for a long period of time.
      *
-     * <p>Custom layouts, media button preferences, session extras, and session activities returned
-     * in the {@link ConnectionResult} for a platform or legacy controller are ignored by the
-     * platform session. To configure initial commands, media button preferences, or custom actions
-     * for the shared platform session, configure the {@link ConnectionResult} returned when
-     * {@linkplain #getMediaNotificationControllerInfo() the media notification controller}
-     * connects. When the notification controller is connected, System UI does not invoke this
-     * callback and automatically adopts the platform session configuration.
+     * <p>Media button preferences, session extras, and session activities returned in the {@link
+     * ConnectionResult} for a platform or legacy controller are ignored by the platform session. To
+     * configure initial commands, media button preferences, or custom actions for the shared
+     * platform session, configure the {@link ConnectionResult} returned when {@linkplain
+     * #getMediaNotificationControllerInfo() the media notification controller} connects. When the
+     * notification controller is connected, System UI does not invoke this callback and
+     * automatically adopts the platform session configuration.
      *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.
@@ -1810,13 +1728,13 @@ public class MediaSession {
      * returned future must not be completed on or by posting to the application thread (or main
      * thread), as this will cause a deadlock while the thread is blocked.
      *
-     * <p>Custom layouts, media button preferences, session extras, and session activities returned
-     * in the {@link ConnectionResult} for a platform or legacy controller are ignored by the
-     * platform session. To configure initial commands, media button preferences, or custom actions
-     * for the shared platform session, configure the {@link ConnectionResult} returned when
-     * {@linkplain #getMediaNotificationControllerInfo() the media notification controller}
-     * connects. When the notification controller is connected, System UI does not invoke this
-     * callback and automatically adopts the platform session configuration.
+     * <p>Media button preferences, session extras, and session activities returned in the {@link
+     * ConnectionResult} for a platform or legacy controller are ignored by the platform session. To
+     * configure initial commands, media button preferences, or custom actions for the shared
+     * platform session, configure the {@link ConnectionResult} returned when {@linkplain
+     * #getMediaNotificationControllerInfo() the media notification controller} connects. When the
+     * notification controller is connected, System UI does not invoke this callback and
+     * automatically adopts the platform session configuration.
      *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.
@@ -2455,27 +2373,10 @@ public class MediaSession {
       }
 
       /**
-       * Sets the custom layout, overriding the {@linkplain MediaSession#getCustomLayout() custom
-       * layout of the session}.
-       *
-       * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences}. Note
-       * that the media button preferences use {@link CommandButton#slots} to define the allowed
-       * button placement.
-       *
-       * <p>The default is null to indicate that the custom layout of the session should be used.
-       *
-       * <p>Make sure to have the session commands of all command buttons of the custom layout
-       * included in the {@linkplain #setAvailableSessionCommands(SessionCommands) available session
-       * commands}. On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is
-       * set to {@code false} if the available commands of the controller do not allow to use a
-       * button.
-       *
-       * <p>Interoperability: This setting has no effect when accepting a connection from a
-       * {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or legacy controller}.
-       * Setting a custom layout when accepting {@linkplain
-       * MediaSession#getMediaNotificationControllerInfo() the media notification controller} sets
-       * the custom layout of the shared platform session.
+       * @deprecated Use {@link #setMediaButtonPreferences(List)} instead. Note that media button
+       *     preferences use {@link CommandButton#slots} to define the allowed button placement.
        */
+      @Deprecated
       @CanIgnoreReturnValue
       public AcceptedResultBuilder setCustomLayout(@Nullable List<CommandButton> customLayout) {
         this.customLayout = customLayout == null ? null : ImmutableList.copyOf(customLayout);
@@ -2619,8 +2520,11 @@ public class MediaSession {
     /** Available player commands. */
     public final Player.Commands availablePlayerCommands;
 
-    /** The custom layout or null if the custom layout of the session should be used. */
-    @UnstableApi public final @Nullable ImmutableList<CommandButton> customLayout;
+    /**
+     * @deprecated Use {@link #mediaButtonPreferences} instead. Note that media button preferences
+     *     use {@link CommandButton#slots} to define the allowed button placement.
+     */
+    @Deprecated @UnstableApi public final @Nullable ImmutableList<CommandButton> customLayout;
 
     /**
      * The media button preferences or null if the media button preferences of the session should be

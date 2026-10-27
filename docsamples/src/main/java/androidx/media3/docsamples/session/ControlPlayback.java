@@ -55,7 +55,6 @@ public class ControlPlayback {
     // [END create_media_session]
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   public void commandButton() {
     // [START command_button]
     CommandButton button =
@@ -66,7 +65,6 @@ public class ControlPlayback {
     // [END command_button]
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   public void setMediaButtonPreferences(
       Context context, Player player, CommandButton likeButton, CommandButton favoriteButton) {
     // [START set_media_button_preferences]
@@ -77,7 +75,6 @@ public class ControlPlayback {
     // [END set_media_button_preferences]
   }
 
-  @OptIn(markerClass = UnstableApi.class)
   public void updateMediaButtonPreferences(
       MediaSession mediaSession,
       CommandButton likeButton,

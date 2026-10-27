@@ -86,6 +86,7 @@
         `ImaAdsLoader.requestAds(DataSpec, Object, AdViewProvider)` (deprecating
         `ImaAdsLoader.requestAds(DataSpec, Object, ViewGroup)`).
 *   Session:
+    *   Stabilize media button preferences APIs.
 *   UI:
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap

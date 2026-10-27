@@ -547,33 +547,10 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
-       * Sets the custom layout of the session.
-       *
-       * <p>This method will be deprecated, prefer to use {@link #setMediaButtonPreferences}. Note
-       * that the media button preferences use {@link CommandButton#slots} to define the allowed
-       * button placement.
-       *
-       * <p>The buttons are converted to platform actions in the platform media session playback
-       * state for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
-       * controllers (see {@code
-       * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
-       * converting, the {@linkplain SessionCommand#customExtras custom extras of the session
-       * command} is used for the extras of the platform custom action.
-       *
-       * <p>Controllers that connect have the custom layout of the session available with the
-       * initial connection result by default. A custom layout specific to a controller can be set
-       * when the controller {@linkplain MediaLibrarySession.Callback#onConnectAsync connects} by
-       * using an {@link ConnectionResult.AcceptedResultBuilder}.
-       *
-       * <p>On the controller side, {@link CommandButton#isEnabled} is overridden according to the
-       * available commands of the controller.
-       *
-       * <p>Use {@link MediaSession#setCustomLayout} to update the custom layout during the lifetime
-       * of the session.
-       *
-       * @param customLayout The ordered list of {@link CommandButton command buttons}.
-       * @return The builder to allow chaining.
+       * @deprecated Use {@link #setMediaButtonPreferences(List)} instead. Note that media button
+       *     preferences use {@link CommandButton#slots} to define the allowed button placement.
        */
+      @Deprecated
       @UnstableApi
       @CanIgnoreReturnValue
       @Override
@@ -584,19 +561,19 @@ public abstract class MediaLibraryService extends MediaSessionService {
       /**
        * Sets the media button preferences.
        *
-       * <p>The button is converted to custom actions in the platform media session playback state
+       * <p>The buttons are converted to custom actions in the platform media session playback state
        * for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
        * controllers (see {@code
        * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
        * converting, the {@linkplain SessionCommand#customExtras custom extras of the session
-       * command} is used for the extras of the platform custom action.
+       * command} are used for the extras of the platform custom action.
        *
        * <p>Controllers that connect have the media button preferences of the session available with
        * the initial connection result by default. Media button preferences specific to a controller
        * can be set when the controller {@linkplain MediaSession.Callback#onConnectAsync connects}
        * by using an {@link ConnectionResult.AcceptedResultBuilder}.
        *
-       * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
+       * <p>Use {@link MediaSession#setMediaButtonPreferences} to update the media button
        * preferences during the lifetime of the session.
        *
        * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
@@ -606,7 +583,6 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * @return The builder to allow chaining.
        */
       @CanIgnoreReturnValue
-      @UnstableApi
       @Override
       public Builder setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
         return super.setMediaButtonPreferences(mediaButtonPreferences);

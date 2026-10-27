@@ -45,7 +45,7 @@ class CustomCommandsAdapter(
     customCommandsList.layoutManager = LinearLayoutManager(activity)
     customCommandsList.setHasFixedSize(true)
     customCommandsList.adapter = this
-    setCommands(mediaController.customLayout)
+    setCommands(mediaController.mediaButtonPreferences)
   }
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =

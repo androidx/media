@@ -264,6 +264,7 @@ import org.jspecify.annotations.Nullable;
    * Returns the {@link MediaSession.ConnectionResult} using the available commands and settings of
    * the platform session.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated setCustomLayout.
   public MediaSession.ConnectionResult getPlatformConnectionResult(MediaSession mediaSession) {
     MediaSession.ConnectionResult.AcceptedResultBuilder result =
         new MediaSession.ConnectionResult.AcceptedResultBuilder()
@@ -1285,6 +1286,7 @@ import org.jspecify.annotations.Nullable;
         this::updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged);
   }
 
+  @SuppressWarnings("deprecation") // Reading deprecated slot reservation extras.
   private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged() {
     boolean hadPrevReservation =
         legacyExtras.getBoolean(
@@ -1307,6 +1309,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  @SuppressWarnings("deprecation") // Writing deprecated slot reservation extras for legacy session.
   private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences() {
     ImmutableList<CommandButton> mediaButtonPreferencesWithUnavailableButtonsDisabled =
         CommandButton.copyWithUnavailableButtonsDisabled(

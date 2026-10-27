@@ -1872,6 +1872,12 @@ package androidx.media3.session {
     field public static final ICON_VOLUME_DOWN: int = 57421; // 0xe04d
     field public static final ICON_VOLUME_OFF: int = 57423; // 0xe04f
     field public static final ICON_VOLUME_UP: int = 57424; // 0xe050
+    field public static final SLOT_BACK: int = 2; // 0x2
+    field public static final SLOT_BACK_SECONDARY: int = 4; // 0x4
+    field public static final SLOT_CENTRAL: int = 1; // 0x1
+    field public static final SLOT_FORWARD: int = 3; // 0x3
+    field public static final SLOT_FORWARD_SECONDARY: int = 5; // 0x5
+    field public static final SLOT_OVERFLOW: int = 6; // 0x6
     field public final displayName: CharSequence;
     field public final extras: android.os.Bundle;
     field public final icon: @androidx.media3.session.CommandButton.Icon int;
@@ -1880,6 +1886,7 @@ package androidx.media3.session {
     field public final isEnabled: boolean;
     field @androidx.media3.common.Player.Command public final playerCommand: @androidx.media3.common.Player.Command int;
     field public final sessionCommand: androidx.media3.session.SessionCommand?;
+    field public final slots: com.google.common.primitives.ImmutableIntArray;
   }
 
   public static final class CommandButton.Builder {
@@ -1894,9 +1901,13 @@ package androidx.media3.session {
     method public setIconUri(_: android.net.Uri): androidx.media3.session.CommandButton.Builder;
     method public setPlayerCommand(@androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int): androidx.media3.session.CommandButton.Builder;
     method public setSessionCommand(_: androidx.media3.session.SessionCommand): androidx.media3.session.CommandButton.Builder;
+    method public setSlots(_: @androidx.media3.session.CommandButton.Slot int...): androidx.media3.session.CommandButton.Builder;
   }
 
   @IntDef({androidx.media3.session.CommandButton.ICON_UNDEFINED, androidx.media3.session.CommandButton.ICON_PLAY, androidx.media3.session.CommandButton.ICON_PAUSE, androidx.media3.session.CommandButton.ICON_STOP, androidx.media3.session.CommandButton.ICON_NEXT, androidx.media3.session.CommandButton.ICON_PREVIOUS, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_5, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_10, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_15, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_30, androidx.media3.session.CommandButton.ICON_SKIP_BACK, androidx.media3.session.CommandButton.ICON_SKIP_BACK_5, androidx.media3.session.CommandButton.ICON_SKIP_BACK_10, androidx.media3.session.CommandButton.ICON_SKIP_BACK_15, androidx.media3.session.CommandButton.ICON_SKIP_BACK_30, androidx.media3.session.CommandButton.ICON_FAST_FORWARD, androidx.media3.session.CommandButton.ICON_REWIND, androidx.media3.session.CommandButton.ICON_REPEAT_ALL, androidx.media3.session.CommandButton.ICON_REPEAT_ONE, androidx.media3.session.CommandButton.ICON_REPEAT_OFF, androidx.media3.session.CommandButton.ICON_SHUFFLE_ON, androidx.media3.session.CommandButton.ICON_SHUFFLE_OFF, androidx.media3.session.CommandButton.ICON_SHUFFLE_STAR, androidx.media3.session.CommandButton.ICON_HEART_FILLED, androidx.media3.session.CommandButton.ICON_HEART_UNFILLED, androidx.media3.session.CommandButton.ICON_STAR_FILLED, androidx.media3.session.CommandButton.ICON_STAR_UNFILLED, androidx.media3.session.CommandButton.ICON_BOOKMARK_FILLED, androidx.media3.session.CommandButton.ICON_BOOKMARK_UNFILLED, androidx.media3.session.CommandButton.ICON_THUMB_UP_FILLED, androidx.media3.session.CommandButton.ICON_THUMB_UP_UNFILLED, androidx.media3.session.CommandButton.ICON_THUMB_DOWN_FILLED, androidx.media3.session.CommandButton.ICON_THUMB_DOWN_UNFILLED, androidx.media3.session.CommandButton.ICON_FLAG_FILLED, androidx.media3.session.CommandButton.ICON_FLAG_UNFILLED, androidx.media3.session.CommandButton.ICON_PLUS, androidx.media3.session.CommandButton.ICON_MINUS, androidx.media3.session.CommandButton.ICON_PLAYLIST_ADD, androidx.media3.session.CommandButton.ICON_PLAYLIST_REMOVE, androidx.media3.session.CommandButton.ICON_QUEUE_ADD, androidx.media3.session.CommandButton.ICON_QUEUE_NEXT, androidx.media3.session.CommandButton.ICON_QUEUE_REMOVE, androidx.media3.session.CommandButton.ICON_BLOCK, androidx.media3.session.CommandButton.ICON_PLUS_CIRCLE_FILLED, androidx.media3.session.CommandButton.ICON_PLUS_CIRCLE_UNFILLED, androidx.media3.session.CommandButton.ICON_MINUS_CIRCLE_FILLED, androidx.media3.session.CommandButton.ICON_MINUS_CIRCLE_UNFILLED, androidx.media3.session.CommandButton.ICON_CHECK_CIRCLE_FILLED, androidx.media3.session.CommandButton.ICON_CHECK_CIRCLE_UNFILLED, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_0_5, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_0_8, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_0, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_2, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_5, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_8, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_2_0, androidx.media3.session.CommandButton.ICON_SETTINGS, androidx.media3.session.CommandButton.ICON_QUALITY, androidx.media3.session.CommandButton.ICON_SUBTITLES, androidx.media3.session.CommandButton.ICON_SUBTITLES_OFF, androidx.media3.session.CommandButton.ICON_CLOSED_CAPTIONS, androidx.media3.session.CommandButton.ICON_CLOSED_CAPTIONS_OFF, androidx.media3.session.CommandButton.ICON_SYNC, androidx.media3.session.CommandButton.ICON_SHARE, androidx.media3.session.CommandButton.ICON_VOLUME_UP, androidx.media3.session.CommandButton.ICON_VOLUME_DOWN, androidx.media3.session.CommandButton.ICON_VOLUME_OFF, androidx.media3.session.CommandButton.ICON_ARTIST, androidx.media3.session.CommandButton.ICON_ALBUM, androidx.media3.session.CommandButton.ICON_RADIO, androidx.media3.session.CommandButton.ICON_SIGNAL, androidx.media3.session.CommandButton.ICON_FEED}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface CommandButton.Icon {
+  }
+
+  @IntDef({androidx.media3.session.CommandButton.SLOT_CENTRAL, androidx.media3.session.CommandButton.SLOT_BACK, androidx.media3.session.CommandButton.SLOT_FORWARD, androidx.media3.session.CommandButton.SLOT_BACK_SECONDARY, androidx.media3.session.CommandButton.SLOT_FORWARD_SECONDARY, androidx.media3.session.CommandButton.SLOT_OVERFLOW}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface CommandButton.Slot {
   }
 
   public final class LibraryResult<V> {
@@ -1958,8 +1969,8 @@ package androidx.media3.session {
     field public static final ERROR_CODE_AUTHENTICATION_EXPIRED_COMPAT: int = 3; // 0x3
     field public static final EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT: String = "android.media.extras.ERROR_RESOLUTION_ACTION_INTENT";
     field public static final EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT: String = "android.media.extras.ERROR_RESOLUTION_ACTION_LABEL";
-    field public static final EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT: String = "android.media.playback.ALWAYS_RESERVE_SPACE_FOR.ACTION_SKIP_TO_NEXT";
-    field public static final EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV: String = "android.media.playback.ALWAYS_RESERVE_SPACE_FOR.ACTION_SKIP_TO_PREVIOUS";
+    field @Deprecated public static final EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT: String = "android.media.playback.ALWAYS_RESERVE_SPACE_FOR.ACTION_SKIP_TO_NEXT";
+    field @Deprecated public static final EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV: String = "android.media.playback.ALWAYS_RESERVE_SPACE_FOR.ACTION_SKIP_TO_PREVIOUS";
   }
 
   @com.google.errorprone.annotations.DoNotMock public class MediaController implements androidx.media3.common.Player {
@@ -1997,11 +2008,12 @@ package androidx.media3.session {
     method public final getCurrentPosition(): long;
     method public final getCurrentTimeline(): androidx.media3.common.Timeline;
     method public final getCurrentTracks(): androidx.media3.common.Tracks;
-    method public final getCustomLayout(): com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton>;
+    method @Deprecated public final getCustomLayout(): com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton>;
     method public final getDeviceInfo(): androidx.media3.common.DeviceInfo;
     method @IntRange(from=0) public final getDeviceVolume(): int;
     method public final getDuration(): long;
     method public final getMaxSeekToPreviousPosition(): long;
+    method public final getMediaButtonPreferences(): com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton>;
     method public final getMediaItemAt(_: int): androidx.media3.common.MediaItem;
     method public final getMediaItemCount(): int;
     method public final getMediaMetadata(): androidx.media3.common.MediaMetadata;
@@ -2102,10 +2114,11 @@ package androidx.media3.session {
   public static interface MediaController.Listener {
     method public default onAvailableSessionCommandsChanged(_: androidx.media3.session.MediaController, _: androidx.media3.session.SessionCommands): void;
     method public default onCustomCommand(_: androidx.media3.session.MediaController, _: androidx.media3.session.SessionCommand, _: android.os.Bundle): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
-    method public default onCustomLayoutChanged(_: androidx.media3.session.MediaController, _: java.util.List<androidx.media3.session.CommandButton>): void;
+    method @Deprecated public default onCustomLayoutChanged(_: androidx.media3.session.MediaController, _: java.util.List<androidx.media3.session.CommandButton>): void;
     method public default onDisconnected(_: androidx.media3.session.MediaController): void;
     method public default onExtrasChanged(_: androidx.media3.session.MediaController, _: android.os.Bundle): void;
-    method public default onSetCustomLayout(_: androidx.media3.session.MediaController, _: java.util.List<androidx.media3.session.CommandButton>): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
+    method public default onMediaButtonPreferencesChanged(_: androidx.media3.session.MediaController, _: java.util.List<androidx.media3.session.CommandButton>): void;
+    method @Deprecated public default onSetCustomLayout(_: androidx.media3.session.MediaController, _: java.util.List<androidx.media3.session.CommandButton>): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
   }
 
   public abstract class MediaLibraryService extends androidx.media3.session.MediaSessionService {
@@ -2139,6 +2152,7 @@ package androidx.media3.session {
     method public build(): androidx.media3.session.MediaLibraryService.MediaLibrarySession;
     method public setExtras(_: android.os.Bundle): androidx.media3.session.MediaLibraryService.MediaLibrarySession.Builder;
     method public setId(_: String): androidx.media3.session.MediaLibraryService.MediaLibrarySession.Builder;
+    method public setMediaButtonPreferences(_: java.util.List<androidx.media3.session.CommandButton>): androidx.media3.session.MediaLibraryService.MediaLibrarySession.Builder;
     method public setSessionActivity(_: android.app.PendingIntent): androidx.media3.session.MediaLibraryService.MediaLibrarySession.Builder;
   }
 
@@ -2164,6 +2178,7 @@ package androidx.media3.session {
     method public final getConnectedControllers(): java.util.List<androidx.media3.session.MediaSession.ControllerInfo>;
     method public final getControllerForCurrentRequest(): androidx.media3.session.MediaSession.ControllerInfo?;
     method public final getId(): String;
+    method public final getMediaButtonPreferences(): com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton>;
     method public final getPlayer(): androidx.media3.common.Player;
     method public final getSessionActivity(): android.app.PendingIntent?;
     method public getSessionExtras(): android.os.Bundle;
@@ -2171,8 +2186,10 @@ package androidx.media3.session {
     method public final release(): void;
     method public final sendCustomCommand(_: androidx.media3.session.MediaSession.ControllerInfo, _: androidx.media3.session.SessionCommand, _: android.os.Bundle): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
     method public final setAvailableCommands(_: androidx.media3.session.MediaSession.ControllerInfo, _: androidx.media3.session.SessionCommands, _: androidx.media3.common.Player.Commands): void;
-    method public final setCustomLayout(_: androidx.media3.session.MediaSession.ControllerInfo, _: java.util.List<androidx.media3.session.CommandButton>): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
-    method public final setCustomLayout(_: java.util.List<androidx.media3.session.CommandButton>): void;
+    method @Deprecated public final setCustomLayout(_: androidx.media3.session.MediaSession.ControllerInfo, _: java.util.List<androidx.media3.session.CommandButton>): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
+    method @Deprecated public final setCustomLayout(_: java.util.List<androidx.media3.session.CommandButton>): void;
+    method public final setMediaButtonPreferences(_: androidx.media3.session.MediaSession.ControllerInfo, _: java.util.List<androidx.media3.session.CommandButton>): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
+    method public final setMediaButtonPreferences(_: java.util.List<androidx.media3.session.CommandButton>): void;
     method public final setPlayer(_: androidx.media3.common.Player): void;
     method public final setSessionExtras(_: android.os.Bundle): void;
     method public final setSessionExtras(_: androidx.media3.session.MediaSession.ControllerInfo, _: android.os.Bundle): void;
@@ -2184,6 +2201,7 @@ package androidx.media3.session {
     method public setCallback(_: androidx.media3.session.MediaSession.Callback): androidx.media3.session.MediaSession.Builder;
     method public setExtras(_: android.os.Bundle): androidx.media3.session.MediaSession.Builder;
     method public setId(_: String): androidx.media3.session.MediaSession.Builder;
+    method public setMediaButtonPreferences(_: java.util.List<androidx.media3.session.CommandButton>): androidx.media3.session.MediaSession.Builder;
     method public setSessionActivity(_: android.app.PendingIntent): androidx.media3.session.MediaSession.Builder;
     method public setSessionExtras(_: android.os.Bundle): androidx.media3.session.MediaSession.Builder;
   }

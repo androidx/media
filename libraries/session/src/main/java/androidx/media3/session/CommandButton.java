@@ -59,8 +59,8 @@ import org.jspecify.annotations.Nullable;
  * A button for a {@link SessionCommand} or {@link Player.Command} that can be displayed by
  * controllers.
  *
- * @see MediaSession#setCustomLayout(MediaSession.ControllerInfo, List)
- * @see MediaController.Listener#onCustomLayoutChanged(MediaController, List)
+ * @see MediaSession#setMediaButtonPreferences(MediaSession.ControllerInfo, List)
+ * @see MediaController.Listener#onMediaButtonPreferencesChanged(MediaController, List)
  */
 public final class CommandButton {
 
@@ -423,12 +423,10 @@ public final class CommandButton {
    */
   public static final int ICON_FEED = 0xe0e5;
 
-  // TODO: b/332877990 - Stabilize these constants and other slot APIs
   /**
    * A slot at which a button can be displayed in a UI surface. Must be one of the {@code
    * CommandButton.SLOT_} constants.
    */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -443,34 +441,34 @@ public final class CommandButton {
   public @interface Slot {}
 
   /** A central slot in a playback control UI, most commonly used for play or pause actions. */
-  @UnstableApi public static final int SLOT_CENTRAL = 1;
+  public static final int SLOT_CENTRAL = 1;
 
   /**
    * A slot in a playback control UI for backward-directed playback actions, most commonly used for
    * previous or rewind actions.
    */
-  @UnstableApi public static final int SLOT_BACK = 2;
+  public static final int SLOT_BACK = 2;
 
   /**
    * A slot in a playback control UI for forward-directed playback actions, most commonly used for
    * next or fast-forward actions.
    */
-  @UnstableApi public static final int SLOT_FORWARD = 3;
+  public static final int SLOT_FORWARD = 3;
 
   /**
    * A slot in a playback control UI for secondary backward-directed playback actions, most commonly
    * used for previous or rewind actions.
    */
-  @UnstableApi public static final int SLOT_BACK_SECONDARY = 4;
+  public static final int SLOT_BACK_SECONDARY = 4;
 
   /**
    * A slot in a playback control UI for secondary forward-directed playback actions, most commonly
    * used for next or fast-forward actions.
    */
-  @UnstableApi public static final int SLOT_FORWARD_SECONDARY = 5;
+  public static final int SLOT_FORWARD_SECONDARY = 5;
 
   /** A slot in a playback control UI for additional actions that don't fit into other slots. */
-  @UnstableApi public static final int SLOT_OVERFLOW = 6;
+  public static final int SLOT_OVERFLOW = 6;
 
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -775,18 +773,18 @@ public final class CommandButton {
      *       {@link #SLOT_CENTRAL}
      *   <li>{@link Player#COMMAND_SEEK_TO_PREVIOUS}, {@link
      *       Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM}, {@link Player#COMMAND_SEEK_BACK} and/or
-     *       {@link #ICON_PREVIOUS}, {@link #ICON_SKIP_BACK}, {@link #ICON_REWIND}: {@link
-     *       #SLOT_BACK}
+     *       {@link #ICON_PREVIOUS}, {@link #ICON_SKIP_BACK}, {@code ICON_SKIP_BACK_*}, {@link
+     *       #ICON_REWIND}: {@link #SLOT_BACK}
      *   <li>{@link Player#COMMAND_SEEK_TO_NEXT}, {@link Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM},
      *       {@link Player#COMMAND_SEEK_FORWARD} and/or {@link #ICON_NEXT}, {@link
-     *       #ICON_SKIP_FORWARD}, {@link #ICON_FAST_FORWARD}: {@link #SLOT_FORWARD}
+     *       #ICON_SKIP_FORWARD}, {@code ICON_SKIP_FORWARD_*}, {@link #ICON_FAST_FORWARD}: {@link
+     *       #SLOT_FORWARD}
      *   <li>Anything else: {@link #SLOT_OVERFLOW}
      * </ul>
      *
      * @param slots The list of allowed {@link Slot} positions. Must not be empty.
      * @return This builder for chaining.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setSlots(@Slot int... slots) {
       checkArgument(slots.length != 0);
@@ -1257,7 +1255,7 @@ public final class CommandButton {
    * in the first slot in the list that exists, isn't already occupied and that allows this type of
    * button.
    */
-  @UnstableApi public final ImmutableIntArray slots;
+  public final ImmutableIntArray slots;
 
   /**
    * Whether the button is enabled.
@@ -2103,6 +2101,7 @@ public final class CommandButton {
    *     modified.
    * @return The list of buttons as media button preferences.
    */
+  @SuppressWarnings("deprecation") // Reading deprecated slot reservation extras.
   /* package */ static ImmutableList<CommandButton> getMediaButtonPreferencesFromCustomLayout(
       List<CommandButton> customLayout,
       Player.Commands availablePlayerCommands,

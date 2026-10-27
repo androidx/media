@@ -35,6 +35,7 @@ import org.robolectric.android.controller.ServiceController;
 @RunWith(AndroidJUnit4.class)
 public class ConnectionResultTest {
 
+  @SuppressWarnings("deprecation") // Testing deprecated AcceptedResultBuilder and customLayout
   @Test
   public void acceptedResultBuilder_builtWidthMediaSession_correctDefaults() {
     Context context = ApplicationProvider.getApplicationContext();
@@ -49,6 +50,7 @@ public class ConnectionResultTest {
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
     assertThat(connectionResult.customLayout).isNull();
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
     assertThat(connectionResult.sessionExtras).isNull();
     assertThat(connectionResult.sessionActivity).isNull();
     assertThat(connectionResult.isAccepted).isTrue();
@@ -57,6 +59,7 @@ public class ConnectionResultTest {
     mediaSession.release();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated setCustomLayout and customLayout
   @Test
   public void acceptedResultBuilder_builtWidthMediaSession_correctlyOverridden() {
     Context context = ApplicationProvider.getApplicationContext();
@@ -73,6 +76,7 @@ public class ConnectionResultTest {
             .setAvailableSessionCommands(SessionCommands.EMPTY)
             .setAvailablePlayerCommands(Player.Commands.EMPTY)
             .setCustomLayout(ImmutableList.of())
+            .setMediaButtonPreferences(ImmutableList.of())
             .setSessionExtras(extras)
             .setSessionActivity(sessionActivity)
             .build();
@@ -80,6 +84,7 @@ public class ConnectionResultTest {
     assertThat(connectionResult.availableSessionCommands.commands).isEmpty();
     assertThat(connectionResult.availablePlayerCommands.size()).isEqualTo(0);
     assertThat(connectionResult.customLayout).isEmpty();
+    assertThat(connectionResult.mediaButtonPreferences).isEmpty();
     assertThat(connectionResult.sessionExtras).isEqualTo(extras);
     assertThat(connectionResult.sessionActivity).isEqualTo(sessionActivity);
     assertThat(connectionResult.isAccepted).isTrue();
@@ -88,6 +93,7 @@ public class ConnectionResultTest {
     mediaSession.release();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated AcceptedResultBuilder and customLayout
   @Test
   public void
       acceptedResultBuilder_builtWidthMediaLibrarySession_correctDefaultLibrarySessionCommands() {
@@ -109,6 +115,7 @@ public class ConnectionResultTest {
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
     assertThat(connectionResult.customLayout).isNull();
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
     assertThat(connectionResult.isAccepted).isTrue();
     mediaLibrarySession.getPlayer().release();
     mediaLibrarySession.release();
@@ -122,6 +129,7 @@ public class ConnectionResultTest {
 
     assertThat(connectionResult.availableSessionCommands.commands).isEmpty();
     assertThat(connectionResult.availablePlayerCommands.size()).isEqualTo(0);
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
     assertThat(connectionResult.isAccepted).isTrue();
   }
 
@@ -149,6 +157,48 @@ public class ConnectionResultTest {
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS);
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
+
+    mediaSession.getPlayer().release();
+    mediaSession.release();
+  }
+
+  @Test
+  public void acceptedResultBuilder_trustedController_correctlyOverridden() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, new TestExoPlayerBuilder(context).build()).build();
+    MediaSession.ControllerInfo controllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "package",
+            /* pid= */ 0,
+            /* uid= */ 0,
+            /* libraryVersion= */ 0,
+            /* interfaceVersion= */ 0,
+            /* trusted= */ true,
+            Bundle.EMPTY,
+            /* isPackageNameVerified= */ true);
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    PendingIntent sessionActivity =
+        PendingIntent.getActivity(
+            context, /* requestCode= */ 0, new Intent(), PendingIntent.FLAG_IMMUTABLE);
+
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession, controllerInfo)
+            .setAvailableSessionCommands(SessionCommands.EMPTY)
+            .setAvailablePlayerCommands(Player.Commands.EMPTY)
+            .setMediaButtonPreferences(ImmutableList.of())
+            .setSessionExtras(extras)
+            .setSessionActivity(sessionActivity)
+            .build();
+
+    assertThat(connectionResult.availableSessionCommands.commands).isEmpty();
+    assertThat(connectionResult.availablePlayerCommands.size()).isEqualTo(0);
+    assertThat(connectionResult.mediaButtonPreferences).isEmpty();
+    assertThat(connectionResult.sessionExtras).isEqualTo(extras);
+    assertThat(connectionResult.sessionActivity).isEqualTo(sessionActivity);
+    assertThat(connectionResult.isAccepted).isTrue();
 
     mediaSession.getPlayer().release();
     mediaSession.release();
@@ -178,6 +228,7 @@ public class ConnectionResultTest {
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS);
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_PLAYER_COMMANDS);
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
 
     mediaSession.getPlayer().release();
     mediaSession.release();
@@ -213,6 +264,7 @@ public class ConnectionResultTest {
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS);
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
 
     mediaLibrarySession.getPlayer().release();
     mediaLibrarySession.release();
@@ -249,12 +301,14 @@ public class ConnectionResultTest {
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_AND_LIBRARY_COMMANDS);
     assertThat(connectionResult.availablePlayerCommands)
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_PLAYER_COMMANDS);
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
 
     mediaLibrarySession.getPlayer().release();
     mediaLibrarySession.release();
     serviceController.destroy();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated customLayout
   @Test
   public void accept() {
     SessionCommands sessionCommands =
@@ -268,9 +322,11 @@ public class ConnectionResultTest {
     assertThat(connectionResult.availableSessionCommands).isEqualTo(sessionCommands);
     assertThat(connectionResult.availablePlayerCommands).isEqualTo(playerCommands);
     assertThat(connectionResult.customLayout).isNull();
+    assertThat(connectionResult.mediaButtonPreferences).isNull();
     assertThat(connectionResult.isAccepted).isTrue();
   }
 
+  @SuppressWarnings("deprecation") // Testing deprecated customLayout
   @Test
   public void reject() {
     MediaSession.ConnectionResult connectionResult = MediaSession.ConnectionResult.reject();
@@ -278,6 +334,7 @@ public class ConnectionResultTest {
     assertThat(connectionResult.availableSessionCommands.commands).isEmpty();
     assertThat(connectionResult.availablePlayerCommands.size()).isEqualTo(0);
     assertThat(connectionResult.customLayout).isEmpty();
+    assertThat(connectionResult.mediaButtonPreferences).isEmpty();
     assertThat(connectionResult.isAccepted).isFalse();
   }
 

@@ -3024,6 +3024,7 @@ import org.jspecify.annotations.Nullable;
         mediaItemTransitionReason);
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   void onAvailableCommandsChangedFromSession(
       SessionCommands sessionCommands, Commands playerCommands) {
     if (!isConnected()) {
@@ -3093,6 +3094,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   void onAvailableCommandsChangedFromPlayer(Commands commandsFromPlayer) {
     if (!isConnected()) {
       return;
@@ -3147,6 +3149,7 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated listener methods.
   void onSetCustomLayout(int seq, List<CommandButton> layout) {
     if (!isConnected()) {
       return;
@@ -3189,6 +3192,7 @@ import org.jspecify.annotations.Nullable;
             });
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated listener methods.
   void onSetMediaButtonPreferences(int seq, List<CommandButton> mediaButtonPreferences) {
     if (!isConnected()) {
       return;
@@ -3231,6 +3235,7 @@ import org.jspecify.annotations.Nullable;
             });
   }
 
+  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   public void onExtrasChanged(Bundle extras) {
     if (!isConnected()) {
       return;
@@ -3658,6 +3663,7 @@ import org.jspecify.annotations.Nullable;
         getSessionInterfaceVersion());
   }
 
+  @SuppressWarnings("deprecation") // Reading deprecated slot reservation extras.
   private static ImmutableList<CommandButton> resolveCustomLayout(
       List<CommandButton> mediaButtonPreferences,
       List<CommandButton> customLayoutOriginal,

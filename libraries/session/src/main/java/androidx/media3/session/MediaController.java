@@ -487,44 +487,30 @@ public class MediaController implements Player {
     default void onDisconnected(MediaController controller) {}
 
     /**
-     * Called when the session sets the custom layout through {@link MediaSession#setCustomLayout}.
-     *
-     * <p>This method will be deprecated. Use {@link #onCustomLayoutChanged(MediaController, List)}
-     * instead.
-     *
-     * <p>There is a slight difference in behaviour. This to be deprecated method may be
-     * consecutively called with an unchanged custom layout passed into it, in which case the new
-     * {@link #onCustomLayoutChanged(MediaController, List)} isn't called again for equal arguments.
-     *
-     * <p>Further, when the available commands of a controller change in a way that affect whether
-     * buttons of the custom layout are enabled or disabled, the new callback {@link
-     * #onCustomLayoutChanged(MediaController, List)} is called, in which case the deprecated
-     * callback isn't called.
+     * @deprecated Use {@link #onMediaButtonPreferencesChanged(MediaController, List)} instead. Note
+     *     that media button preferences use {@link CommandButton#slots} to define the allowed
+     *     button placement.
+     *     <p>There is a slight difference in behaviour. This deprecated method may be consecutively
+     *     called with unchanged arguments passed into it, in which case {@link
+     *     #onMediaButtonPreferencesChanged(MediaController, List)} isn't called again for equal
+     *     arguments.
+     *     <p>Further, when the available commands of a controller change in a way that affects
+     *     whether buttons are enabled or disabled, {@link
+     *     #onMediaButtonPreferencesChanged(MediaController, List)} is called, in which case this
+     *     deprecated callback isn't called.
      */
+    @Deprecated
     default ListenableFuture<SessionResult> onSetCustomLayout(
         MediaController controller, List<CommandButton> layout) {
       return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
-     * Called when the {@linkplain #getCustomLayout() custom layout} changed.
-     *
-     * <p>This method will be deprecated, prefer to use {@link #onMediaButtonPreferencesChanged}.
-     * Note that the media button preferences use {@link CommandButton#slots} to define the allowed
-     * button placement.
-     *
-     * <p>The custom layout can change when either the session {@linkplain
-     * MediaSession#setCustomLayout changes the custom layout}, or when the session {@linkplain
-     * MediaSession#setAvailableCommands(MediaSession.ControllerInfo, SessionCommands, Commands)
-     * changes the available commands} for a controller that affect whether buttons of the custom
-     * layout are enabled or disabled.
-     *
-     * <p>Note that the {@linkplain CommandButton#isEnabled enabled} flag is set to {@code false} if
-     * the available commands do not allow to use a button.
-     *
-     * @param controller The controller.
-     * @param layout The ordered list of {@linkplain CommandButton command buttons}.
+     * @deprecated Use {@link #onMediaButtonPreferencesChanged(MediaController, List)} instead. Note
+     *     that media button preferences use {@link CommandButton#slots} to define the allowed
+     *     button placement.
      */
+    @Deprecated
     default void onCustomLayoutChanged(MediaController controller, List<CommandButton> layout) {}
 
     /**
@@ -542,7 +528,6 @@ public class MediaController implements Player {
      * @param controller The controller.
      * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
      */
-    @UnstableApi
     default void onMediaButtonPreferencesChanged(
         MediaController controller, List<CommandButton> mediaButtonPreferences) {}
 
@@ -1345,20 +1330,10 @@ public class MediaController implements Player {
   }
 
   /**
-   * Returns the custom layout.
-   *
-   * <p>This method will be deprecated, prefer to use {@link #getMediaButtonPreferences()} instead.
-   * Note that the media button preferences use {@link CommandButton#slots} to define the allowed
-   * button placement.
-   *
-   * <p>After being connected, a change of the custom layout is reported with {@link
-   * Listener#onCustomLayoutChanged(MediaController, List)}.
-   *
-   * <p>Note that the {@linkplain CommandButton#isEnabled enabled} flag is set to {@code false} if
-   * the available commands do not allow to use a button.
-   *
-   * @return The custom layout.
+   * @deprecated Use {@link #getMediaButtonPreferences()} instead. Note that media button
+   *     preferences use {@link CommandButton#slots} to define the allowed button placement.
    */
+  @Deprecated
   public final ImmutableList<CommandButton> getCustomLayout() {
     verifyApplicationThread();
     return isConnected() ? impl.getCustomLayout() : ImmutableList.of();
@@ -1375,7 +1350,6 @@ public class MediaController implements Player {
    *
    * @return The media button preferences.
    */
-  @UnstableApi
   public final ImmutableList<CommandButton> getMediaButtonPreferences() {
     verifyApplicationThread();
     return isConnected() ? impl.getMediaButtonPreferences() : ImmutableList.of();
