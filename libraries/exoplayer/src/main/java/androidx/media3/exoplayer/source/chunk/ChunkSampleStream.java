@@ -219,7 +219,7 @@ public class ChunkSampleStream<T extends ChunkSource>
    * @param trackType The type of the embedded track to enable.
    * @return The {@link EmbeddedSampleStream} for the embedded track.
    */
-  public EmbeddedSampleStream selectEmbeddedTrack(long positionUs, int trackType) {
+  public EmbeddedSampleStream selectEmbeddedTrack(long positionUs, @C.TrackType int trackType) {
     for (int i = 0; i < embeddedSampleQueues.length; i++) {
       if (embeddedTrackTypes[i] == trackType) {
         checkState(!embeddedTracksSelected[i]);
