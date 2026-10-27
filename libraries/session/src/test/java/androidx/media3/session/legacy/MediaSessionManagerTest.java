@@ -29,6 +29,7 @@ import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.Arrays;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
@@ -194,6 +195,7 @@ public class MediaSessionManagerTest {
     assertThat(isTrusted).isTrue();
   }
 
+  @Ignore("Flaky: b/578522710")
   @Test
   @Config(maxSdk = 35)
   public void isTrustedForMediaControl_executeAppFunctionsGrantedBelowApi36_returnsFalse() {
