@@ -321,11 +321,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final float assumedMinimumCodecOperatingRate;
   private final DecoderInputBuffer noDataBuffer;
   private final DecoderInputBuffer buffer;
-  private final DecoderInputBuffer bypassSampleBuffer;
-  private final BatchBuffer bypassBatchBuffer;
+  private @Nullable DecoderInputBuffer bypassSampleBuffer;
+  private @Nullable BatchBuffer bypassBatchBuffer;
   private final MediaCodec.BufferInfo outputBufferInfo;
   private final ArrayDeque<OutputStreamInfo> pendingOutputStreamChanges;
-  private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
+  private @Nullable OggOpusAudioPacketizer oggOpusAudioPacketizer;
   private final AtomicInteger readDataResultHolder;
 
   private @Nullable Format inputFormat;
@@ -427,22 +427,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     readDataResultHolder = new AtomicInteger();
     noDataBuffer = DecoderInputBuffer.newNoDataInstance();
     buffer = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
-    bypassSampleBuffer = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
-    bypassBatchBuffer = new BatchBuffer();
     outputBufferInfo = new MediaCodec.BufferInfo();
     currentPlaybackSpeed = 1f;
     targetPlaybackSpeed = 1f;
     renderTimeLimitMs = C.TIME_UNSET;
     pendingOutputStreamChanges = new ArrayDeque<>();
     outputStreamInfo = OutputStreamInfo.UNSET;
-    // MediaCodec outputs audio buffers in native endian:
-    // https://developer.android.com/reference/android/media/MediaCodec#raw-audio-buffers
-    // and code called from MediaCodecAudioRenderer.processOutputBuffer expects this endianness.
-    // Call ensureSpaceForWrite to make sure the buffer has non-null data, and set the expected
-    // endianness.
-    bypassBatchBuffer.ensureSpaceForWrite(/* length= */ 0);
-    bypassBatchBuffer.data.order(ByteOrder.nativeOrder());
-    oggOpusAudioPacketizer = new OggOpusAudioPacketizer();
 
     codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
@@ -839,18 +829,26 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private void disableBypass() {
     bypassEnabled = false;
     resetBypassState();
+    bypassBatchBuffer = null;
+    bypassSampleBuffer = null;
+    oggOpusAudioPacketizer = null;
   }
 
   private void resetBypassState() {
     resetCommonStateForFlush();
     bypassDrainAndReinitialize = false;
-    bypassBatchBuffer.clear();
-    bypassSampleBuffer.clear();
+    if (bypassBatchBuffer != null) {
+      bypassBatchBuffer.clear();
+      checkNotNull(bypassSampleBuffer).clear();
+      checkNotNull(oggOpusAudioPacketizer).reset();
+    }
     bypassSampleBufferPending = false;
-    oggOpusAudioPacketizer.reset();
   }
 
   protected void releaseCodec() {
+    bypassBatchBuffer = null;
+    bypassSampleBuffer = null;
+    oggOpusAudioPacketizer = null;
     try {
       if (codec != null) {
         codec.release();
@@ -1349,16 +1347,31 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   /** Configures rendering where no codec is used. */
   private void initBypass(Format format) {
-    disableBypass(); // In case of transition between 2 bypass formats.
+    bypassEnabled = false;
+    resetBypassState(); // In case of transition between 2 bypass formats.
+
+    if (bypassBatchBuffer == null) {
+      bypassSampleBuffer =
+          new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+      bypassBatchBuffer = new BatchBuffer();
+      // MediaCodec outputs audio buffers in native endian:
+      // https://developer.android.com/reference/android/media/MediaCodec#raw-audio-buffers
+      // and code called from MediaCodecAudioRenderer.processOutputBuffer expects this endianness.
+      // Call ensureSpaceForWrite to make sure the buffer has non-null data, and set the expected
+      // endianness.
+      bypassBatchBuffer.ensureSpaceForWrite(/* length= */ 0);
+      bypassBatchBuffer.data.order(ByteOrder.nativeOrder());
+      oggOpusAudioPacketizer = new OggOpusAudioPacketizer();
+    }
 
     String mimeType = format.sampleMimeType;
     if (!MimeTypes.AUDIO_AAC.equals(mimeType)
         && !MimeTypes.AUDIO_MPEG.equals(mimeType)
         && !MimeTypes.AUDIO_OPUS.equals(mimeType)) {
       // TODO(b/154746451): Batching provokes frame drops in non offload.
-      bypassBatchBuffer.setMaxSampleCount(1);
+      checkNotNull(bypassBatchBuffer).setMaxSampleCount(1);
     } else {
-      bypassBatchBuffer.setMaxSampleCount(BatchBuffer.DEFAULT_MAX_SAMPLE_COUNT);
+      checkNotNull(bypassBatchBuffer).setMaxSampleCount(BatchBuffer.DEFAULT_MAX_SAMPLE_COUNT);
     }
     bypassEnabled = true;
   }
@@ -2630,6 +2643,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     // Process any batched data.
     checkState(!outputStreamEnded);
+    BatchBuffer bypassBatchBuffer = checkNotNull(this.bypassBatchBuffer);
+    DecoderInputBuffer bypassSampleBuffer = checkNotNull(this.bypassSampleBuffer);
     if (bypassBatchBuffer.hasSamples()) {
       if (processOutputBuffer(
           positionUs,
@@ -2670,8 +2685,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         return true;
       }
       // The new format might require using a codec rather than bypass.
-      disableBypass();
       bypassDrainAndReinitialize = false;
+      if (inputFormat != null && isBypassPossible(inputFormat)) {
+        bypassEnabled = false;
+        resetBypassState();
+      } else {
+        disableBypass();
+      }
       maybeInitCodecOrBypass();
       if (!bypassEnabled) {
         // We're no longer in bypass mode.
@@ -2693,6 +2713,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   private void bypassRead() throws ExoPlaybackException {
     checkState(!inputStreamEnded);
+    BatchBuffer bypassBatchBuffer = checkNotNull(this.bypassBatchBuffer);
+    DecoderInputBuffer bypassSampleBuffer = checkNotNull(this.bypassSampleBuffer);
+    OggOpusAudioPacketizer oggOpusAudioPacketizer = checkNotNull(this.oggOpusAudioPacketizer);
     FormatHolder formatHolder = getFormatHolder();
     bypassSampleBuffer.clear();
     while (true) {
@@ -2764,6 +2787,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private boolean haveBypassBatchBufferAndNewSampleSameDecodeOnlyState() {
+    BatchBuffer bypassBatchBuffer = checkNotNull(this.bypassBatchBuffer);
+    DecoderInputBuffer bypassSampleBuffer = checkNotNull(this.bypassSampleBuffer);
     // TODO: b/295800114 - Splitting the batch buffer by decode-only state isn't safe for formats
     // where not every sample is a keyframe because the downstream component may receive encoded
     // data starting from a non-keyframe sample.

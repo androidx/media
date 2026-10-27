@@ -52,6 +52,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.ThrowingRunnable;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -133,10 +134,11 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId1);
+
     renderer.start();
     long positionUs = 0;
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
     renderer.replaceStream(
@@ -145,9 +147,10 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 400,
         /* offsetUs= */ 400,
         mediaPeriodId2);
+
     renderer.setCurrentStreamFinal();
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -194,10 +197,11 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId1);
+
     renderer.start();
     long positionUs = 0;
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
     renderer.replaceStream(
@@ -206,9 +210,10 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 400,
         /* offsetUs= */ 400,
         mediaPeriodId2);
+
     renderer.setCurrentStreamFinal();
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -258,10 +263,11 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId1);
+
     renderer.start();
     long positionUs = 0;
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
     renderer.replaceStream(
@@ -270,9 +276,10 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 400,
         /* offsetUs= */ 200,
         mediaPeriodId2);
+
     renderer.setCurrentStreamFinal();
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -320,10 +327,11 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId1);
+
     renderer.start();
     long positionUs = 0;
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
     renderer.replaceStream(
@@ -332,9 +340,10 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId2);
+
     renderer.setCurrentStreamFinal();
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -380,10 +389,11 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId1);
+
     renderer.start();
     long positionUs = 0;
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
     renderer.replaceStream(
@@ -392,8 +402,9 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 200,
         /* offsetUs= */ 200,
         mediaPeriodId2);
+
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
     renderer.replaceStream(
@@ -404,7 +415,7 @@ public class MediaCodecRendererTest {
         mediaPeriodId3);
     renderer.setCurrentStreamFinal();
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -457,10 +468,11 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         mediaPeriodId2);
+
     renderer.start();
     long positionUs = 0;
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 200;
     }
     // Seek to first media period and reset second media period/sample stream.
@@ -479,11 +491,12 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ positionUs,
         /* offsetUs= */ 0,
         mediaPeriodId1);
+
     fakeSampleStream1.seekToUs(positionUs, true);
     renderer.resetPosition(positionUs, /* sampleStreamIsResetToKeyFrame= */ true);
     renderer.start();
     while (!renderer.hasReadStreamToEnd()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 200;
     }
     renderer.replaceStream(
@@ -492,9 +505,10 @@ public class MediaCodecRendererTest {
         /* startPositionUs= */ 300,
         /* offsetUs= */ 300,
         mediaPeriodId2);
+
     renderer.setCurrentStreamFinal();
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 200;
     }
 
@@ -546,7 +560,7 @@ public class MediaCodecRendererTest {
     renderer.setCurrentStreamFinal();
     long positionUs = 0;
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -590,7 +604,7 @@ public class MediaCodecRendererTest {
     renderer.setCurrentStreamFinal();
     long positionUs = 0;
     while (!renderer.isEnded()) {
-      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
       positionUs += 100;
     }
 
@@ -648,7 +662,7 @@ public class MediaCodecRendererTest {
     ExoPlaybackException playbackException =
         assertThrows(
             ExoPlaybackException.class,
-            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime()));
+            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000));
 
     assertThat(playbackException.type).isEqualTo(ExoPlaybackException.TYPE_RENDERER);
     assertThat(playbackException)
@@ -692,7 +706,7 @@ public class MediaCodecRendererTest {
     ExoPlaybackException playbackException =
         assertThrows(
             ExoPlaybackException.class,
-            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime()));
+            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000));
 
     assertThat(playbackException.type).isEqualTo(ExoPlaybackException.TYPE_RENDERER);
     assertThat(playbackException).hasCauseThat().isInstanceOf(MediaCodec.CryptoException.class);
@@ -944,7 +958,7 @@ public class MediaCodecRendererTest {
         /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     renderer.start();
-    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000 * 1000);
     shadowOf(Looper.getMainLooper()).idle();
     verify(mockCodecAdapter, never())
         .queueInputBuffer(anyInt(), anyInt(), anyInt(), anyLong(), anyInt());
@@ -987,7 +1001,7 @@ public class MediaCodecRendererTest {
         /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     renderer.start();
-    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000 * 1000);
     shadowOf(Looper.getMainLooper()).idle();
     verify(mockCodecAdapter).queueInputBuffer(eq(0), anyInt(), anyInt(), anyLong(), anyInt());
 
@@ -1070,7 +1084,7 @@ public class MediaCodecRendererTest {
         /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     renderer.start();
-    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000 * 1000);
     shadowOf(Looper.getMainLooper()).idle();
   }
 
@@ -1338,5 +1352,167 @@ public class MediaCodecRendererTest {
             eq(isDecodeOnly),
             anyBoolean(),
             any());
+  }
+
+  @Test
+  public void render_formatTransitionFromBypassToCodec_playsSuccessfully() throws Exception {
+    Format formatBypass =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1000).build();
+    Format formatCodec =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setAverageBitrate(1500).build();
+    FakeSampleStream fakeSampleStream1 =
+        createFakeSampleStream(formatBypass, /* sampleTimesUs...= */ 0, 100);
+    FakeSampleStream fakeSampleStream2 =
+        createFakeSampleStream(formatCodec, /* sampleTimesUs...= */ 0, 100);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+    MediaCodecRenderer renderer =
+        new TestRenderer() {
+          @Override
+          protected boolean shouldUseBypass(Format format) {
+            return Util.areEqual(format.sampleMimeType, MimeTypes.AUDIO_RAW);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {formatBypass},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+
+    renderer.start();
+    long positionUs = 0;
+    while (!renderer.hasReadStreamToEnd()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+    renderer.replaceStream(
+        new Format[] {formatCodec},
+        fakeSampleStream2,
+        /* startPositionUs= */ 200,
+        /* offsetUs= */ 200,
+        mediaPeriodId2);
+
+    renderer.setCurrentStreamFinal();
+    while (!renderer.isEnded()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+
+    assertThat(renderer.isEnded()).isTrue();
+  }
+
+  @Test
+  public void render_formatTransitionFromCodecToBypass_playsSuccessfully() throws Exception {
+    Format formatCodec =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setAverageBitrate(1500).build();
+    Format formatBypass =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1000).build();
+    FakeSampleStream fakeSampleStream1 =
+        createFakeSampleStream(formatCodec, /* sampleTimesUs...= */ 0, 100);
+    FakeSampleStream fakeSampleStream2 =
+        createFakeSampleStream(formatBypass, /* sampleTimesUs...= */ 0, 100);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+    MediaCodecRenderer renderer =
+        new TestRenderer() {
+          @Override
+          protected boolean shouldUseBypass(Format format) {
+            return Util.areEqual(format.sampleMimeType, MimeTypes.AUDIO_RAW);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {formatCodec},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+
+    renderer.start();
+    long positionUs = 0;
+    while (!renderer.hasReadStreamToEnd()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+    renderer.replaceStream(
+        new Format[] {formatBypass},
+        fakeSampleStream2,
+        /* startPositionUs= */ 200,
+        /* offsetUs= */ 200,
+        mediaPeriodId2);
+
+    renderer.setCurrentStreamFinal();
+    while (!renderer.isEnded()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+
+    assertThat(renderer.isEnded()).isTrue();
+  }
+
+  @Test
+  public void render_formatTransitionFromBypassToBypass_playsSuccessfully() throws Exception {
+    Format formatBypass1 =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1000).build();
+    Format formatBypass2 =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1500).build();
+    FakeSampleStream fakeSampleStream1 =
+        createFakeSampleStream(formatBypass1, /* sampleTimesUs...= */ 0, 100);
+    FakeSampleStream fakeSampleStream2 =
+        createFakeSampleStream(formatBypass2, /* sampleTimesUs...= */ 0, 100);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+    MediaCodecRenderer renderer =
+        new TestRenderer() {
+          @Override
+          protected boolean shouldUseBypass(Format format) {
+            return Util.areEqual(format.sampleMimeType, MimeTypes.AUDIO_RAW);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {formatBypass1},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+
+    renderer.start();
+    long positionUs = 0;
+    while (!renderer.hasReadStreamToEnd()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+    renderer.replaceStream(
+        new Format[] {formatBypass2},
+        fakeSampleStream2,
+        /* startPositionUs= */ 200,
+        /* offsetUs= */ 200,
+        mediaPeriodId2);
+
+    renderer.setCurrentStreamFinal();
+    while (!renderer.isEnded()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+
+    assertThat(renderer.isEnded()).isTrue();
   }
 }
