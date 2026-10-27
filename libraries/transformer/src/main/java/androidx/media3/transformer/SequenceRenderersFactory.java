@@ -125,6 +125,7 @@ import org.jspecify.annotations.Nullable;
   private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
   private final RendererTracker rendererTracker;
+  private boolean asyncAudioCodecInitializationEnabled;
 
   private @MonotonicNonNull SequenceAudioRenderer audioRenderer;
   private @MonotonicNonNull SequenceVideoRenderer primaryVideoRenderer;
@@ -196,6 +197,15 @@ import org.jspecify.annotations.Nullable;
     rendererTracker = new RendererTracker();
   }
 
+  /**
+   * Sets whether the audio renderer creates its decoders on a background thread (see {@code
+   * MediaCodecRenderer.experimentalSetAsyncCodecInitializationEnabled}). Must be called before
+   * {@link #createRenderers}.
+   */
+  public void setAsyncAudioCodecInitializationEnabled(boolean enabled) {
+    asyncAudioCodecInitializationEnabled = enabled;
+  }
+
   public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
     if (primaryVideoRenderer != null) {
       primaryVideoRenderer.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
@@ -221,6 +231,8 @@ import org.jspecify.annotations.Nullable;
               audioRendererEventListener,
               /* audioSink= */ playbackAudioGraphWrapper.createInput(inputIndex),
               playbackAudioGraphWrapper);
+      audioRenderer.experimentalSetAsyncCodecInitializationEnabled(
+          asyncAudioCodecInitializationEnabled);
     }
     renderers.add(audioRenderer);
 

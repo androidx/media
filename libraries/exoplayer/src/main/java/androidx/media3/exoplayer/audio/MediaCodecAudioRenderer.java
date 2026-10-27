@@ -156,6 +156,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private boolean hasPendingReportedSkippedSilence;
   private boolean hasReportedAudioPositionAdvancing;
   private int rendererPriority;
+  private int codecRendererPriority;
   private boolean isStarted;
   private long nextBufferToWritePresentationTimeUs;
   private long firstNotReadyTimeMs;
@@ -340,6 +341,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     this.audioSink = audioSink;
     this.loudnessCodecController = loudnessCodecController;
     rendererPriority = C.PRIORITY_PLAYBACK;
+    codecRendererPriority = rendererPriority;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     processOutputBufferResultHolder = new AtomicBoolean();
     currentOutputEncoderPadding = Format.NO_VALUE;
@@ -519,6 +521,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         codecNeedsVorbisToAndroidChannelMappingWorkaround(codecInfo.name);
     MediaFormat mediaFormat =
         getMediaFormat(format, codecInfo.codecMimeType, codecMaxInputSize, codecOperatingRate);
+    codecRendererPriority = rendererPriority;
     // Store the input MIME type if we're only using the codec for decryption.
     boolean decryptOnlyCodecEnabled =
         MimeTypes.AUDIO_RAW.equals(codecInfo.mimeType)
@@ -621,6 +624,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       MediaCodecAdapter.Configuration configuration,
       long initializedTimestampMs,
       long initializationDurationMs) {
+    if (rendererPriority != codecRendererPriority) {
+      // The priority changed while the decoder was being created off the playback thread.
+      updateCodecImportance();
+    }
     eventDispatcher.decoderInitialized(name, initializedTimestampMs, initializationDurationMs);
   }
 
