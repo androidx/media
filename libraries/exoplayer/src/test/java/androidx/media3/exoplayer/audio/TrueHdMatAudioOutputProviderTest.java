@@ -18,6 +18,8 @@ package androidx.media3.exoplayer.audio;
 import static androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_UNSUPPORTED;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
@@ -25,7 +27,6 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioProfile;
-import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -54,6 +55,14 @@ public final class TrueHdMatAudioOutputProviderTest {
           .setSampleRate(48_000)
           .build();
 
+  private static final Format PCM_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.AUDIO_RAW)
+          .setPcmEncoding(C.ENCODING_PCM_16BIT)
+          .setChannelCount(2)
+          .setSampleRate(48_000)
+          .build();
+
   private Context context;
   private AudioManager audioManager;
   private TrueHdMatAudioOutputProvider provider;
@@ -69,58 +78,43 @@ public final class TrueHdMatAudioOutputProviderTest {
 
   @Test
   public void getFormatSupport_pcm_isDelegated() {
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.AUDIO_RAW)
-            .setPcmEncoding(C.ENCODING_PCM_16BIT)
-            .setChannelCount(2)
-            .setSampleRate(48_000)
-            .build();
-
-    assertThat(provider.getFormatSupport(new FormatConfig.Builder(format).build()).supportLevel)
+    assertThat(provider.getFormatSupport(new FormatConfig.Builder(PCM_FORMAT).build()).supportLevel)
         .isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
-  public void getOutputConfig_pcm_isDelegated() throws Exception {
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.AUDIO_RAW)
-            .setPcmEncoding(C.ENCODING_PCM_16BIT)
-            .setChannelCount(2)
-            .setSampleRate(48_000)
-            .build();
-
-    OutputConfig outputConfig = provider.getOutputConfig(new FormatConfig.Builder(format).build());
+  public void getOutputConfigAndAudioOutput_pcm_isDelegated() throws Exception {
+    OutputConfig outputConfig =
+        provider.getOutputConfig(new FormatConfig.Builder(PCM_FORMAT).build());
     AudioOutput audioOutput = provider.getAudioOutput(outputConfig);
 
     assertThat(outputConfig.encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(outputConfig.channelMask)
+        .isNotEqualTo(TrueHdMatAudioOutputProvider.CHANNEL_MASK_IEC61937);
     assertThat(audioOutput).isInstanceOf(AudioTrackAudioOutput.class);
     audioOutput.release();
   }
 
   @Test
-  public void getFormatSupport_trueHdWithoutDeviceSupport_isUnsupported() {
+  public void getFormatSupport_trueHdWithoutDeviceSupport_isNotSupportedDirectly() {
     assertThat(
             provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
-        .isEqualTo(FORMAT_UNSUPPORTED);
+        .isNotEqualTo(FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
-  @Config(minSdk = 29, maxSdk = 30)
-  public void getFormatSupport_trueHdBeforeApi31_isUnsupported() {
-    // 8 channel IEC 61937 tracks can't be created before API 31.
-    addHighBitrateIec61937Support(/* sampleRate= */ 192_000);
+  public void getFormatSupport_trueHdWithoutDeviceSupport_isDelegated() {
+    AudioOutputProvider delegate = new AudioTrackAudioOutputProvider.Builder(context).build();
+    FormatConfig formatConfig = new FormatConfig.Builder(TRUEHD_FORMAT).build();
 
-    assertThat(
-            provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
-        .isEqualTo(FORMAT_UNSUPPORTED);
+    assertThat(provider.getFormatSupport(formatConfig).supportLevel)
+        .isEqualTo(delegate.getFormatSupport(formatConfig).supportLevel);
   }
 
   @Test
   @Config(minSdk = 31, maxSdk = 32)
-  public void getFormatSupport_trueHdWithHighBitrateIec61937Support_isSupportedDirectly() {
-    addHighBitrateIec61937Support(/* sampleRate= */ 192_000);
+  public void getFormatSupport_deviceWithTrueHdAndIec61937Encodings_isSupportedDirectly() {
+    addOutputDevice(AudioFormat.ENCODING_DOLBY_TRUEHD, AudioFormat.ENCODING_IEC61937);
 
     FormatSupport formatSupport =
         provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build());
@@ -131,51 +125,73 @@ public final class TrueHdMatAudioOutputProviderTest {
 
   @Test
   @Config(minSdk = 31, maxSdk = 32)
-  public void getFormatSupport_44_1KhzTrueHd_checksIec61937SupportAt176_4Khz() {
-    Format format = TRUEHD_FORMAT.buildUpon().setSampleRate(44_100).build();
-    addHighBitrateIec61937Support(/* sampleRate= */ 192_000);
+  public void getFormatSupport_deviceWithTrueHdEncodingOnly_isNotSupportedDirectly() {
+    addOutputDevice(AudioFormat.ENCODING_DOLBY_TRUEHD);
 
-    assertThat(provider.getFormatSupport(new FormatConfig.Builder(format).build()).supportLevel)
-        .isEqualTo(FORMAT_UNSUPPORTED);
+    assertThat(
+            provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
+        .isNotEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+  }
 
-    addHighBitrateIec61937Support(/* sampleRate= */ 176_400);
+  @Test
+  @Config(minSdk = 31, maxSdk = 32)
+  public void getFormatSupport_deviceWithIec61937EncodingOnly_isNotSupportedDirectly() {
+    addOutputDevice(AudioFormat.ENCODING_IEC61937);
 
-    assertThat(provider.getFormatSupport(new FormatConfig.Builder(format).build()).supportLevel)
-        .isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+    assertThat(
+            provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
+        .isNotEqualTo(FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
   @Config(minSdk = 33)
-  public void getFormatSupport_trueHdWithTrueHdDirectProfile_isSupportedDirectly() {
-    addDeviceWithDirectProfile(AudioFormat.ENCODING_DOLBY_TRUEHD);
+  public void getFormatSupport_trueHdIec61937DirectProfile_isSupportedDirectly() {
+    addDeviceWithDirectProfile(
+        AudioFormat.ENCODING_DOLBY_TRUEHD, AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937);
 
-    assertThat(
-            provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
-        .isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+    FormatSupport formatSupport =
+        provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build());
+
+    assertThat(formatSupport.supportLevel).isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+    assertThat(formatSupport.isFormatSupportedForOffload).isFalse();
   }
 
   @Test
   @Config(minSdk = 33)
-  public void getFormatSupport_trueHdWithOtherDirectProfiles_isUnsupported() {
-    addDeviceWithDirectProfile(AudioFormat.ENCODING_E_AC3);
+  public void getFormatSupport_trueHdDirectProfileWithoutEncapsulation_isNotSupportedDirectly() {
+    addDeviceWithDirectProfile(
+        AudioFormat.ENCODING_DOLBY_TRUEHD, AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE);
 
     assertThat(
             provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
-        .isEqualTo(FORMAT_UNSUPPORTED);
+        .isNotEqualTo(FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
-  public void getFormatSupport_trueHdWithoutSampleRate_isUnsupported() {
-    addDeviceSupport();
-    Format format = TRUEHD_FORMAT.buildUpon().setSampleRate(Format.NO_VALUE).build();
+  @Config(minSdk = 33)
+  public void getFormatSupport_otherIec61937DirectProfile_isNotSupportedDirectly() {
+    addDeviceWithDirectProfile(
+        AudioFormat.ENCODING_E_AC3, AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937);
 
-    assertThat(provider.getFormatSupport(new FormatConfig.Builder(format).build()).supportLevel)
-        .isEqualTo(FORMAT_UNSUPPORTED);
+    assertThat(
+            provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
+        .isNotEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void getFormatSupport_api33WithOnlyDeviceEncodings_isNotSupportedDirectly() {
+    // From API 33 only direct profiles are checked, not device encodings.
+    addOutputDevice(AudioFormat.ENCODING_DOLBY_TRUEHD, AudioFormat.ENCODING_IEC61937);
+
+    assertThat(
+            provider.getFormatSupport(new FormatConfig.Builder(TRUEHD_FORMAT).build()).supportLevel)
+        .isNotEqualTo(FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
   @Config(minSdk = 31)
-  public void getOutputConfig_trueHd_returnsTrueHdConfig() throws Exception {
+  public void getOutputConfig_trueHd_returnsIec61937Config() throws Exception {
     addDeviceSupport();
     FormatConfig formatConfig =
         new FormatConfig.Builder(TRUEHD_FORMAT)
@@ -188,7 +204,8 @@ public final class TrueHdMatAudioOutputProviderTest {
 
     assertThat(outputConfig.encoding).isEqualTo(C.ENCODING_DOLBY_TRUEHD);
     assertThat(outputConfig.sampleRate).isEqualTo(48_000);
-    assertThat(outputConfig.channelMask).isEqualTo(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND);
+    assertThat(outputConfig.channelMask)
+        .isEqualTo(TrueHdMatAudioOutputProvider.CHANNEL_MASK_IEC61937);
     assertThat(outputConfig.bufferSize).isEqualTo(12 * TrueHdMatPacker.MAT_FRAME_SIZE);
     assertThat(outputConfig.audioSessionId).isEqualTo(42);
     assertThat(outputConfig.isTunneling).isFalse();
@@ -224,6 +241,21 @@ public final class TrueHdMatAudioOutputProviderTest {
   }
 
   @Test
+  public void getOutputConfig_trueHdWithoutDeviceSupport_doesNotUseIec61937ChannelMask()
+      throws Exception {
+    OutputConfig outputConfig;
+    try {
+      outputConfig = provider.getOutputConfig(new FormatConfig.Builder(TRUEHD_FORMAT).build());
+    } catch (AudioOutputProvider.ConfigurationException e) {
+      // The delegate may reject TrueHD altogether, which is also fine.
+      return;
+    }
+
+    assertThat(outputConfig.channelMask)
+        .isNotEqualTo(TrueHdMatAudioOutputProvider.CHANNEL_MASK_IEC61937);
+  }
+
+  @Test
   @Config(minSdk = 31)
   public void getAudioOutput_trueHd_returnsTrueHdMatAudioOutput() throws Exception {
     addDeviceSupport();
@@ -255,39 +287,42 @@ public final class TrueHdMatAudioOutputProviderTest {
     audioOutput.release();
   }
 
-  /** Makes TrueHD supported on the current API level. */
+  /** Makes TrueHD IEC 61937 passthrough supported on the current API level. */
   private void addDeviceSupport() {
     if (android.os.Build.VERSION.SDK_INT >= 33) {
-      addDeviceWithDirectProfile(AudioFormat.ENCODING_DOLBY_TRUEHD);
+      addDeviceWithDirectProfile(
+          AudioFormat.ENCODING_DOLBY_TRUEHD, AudioProfile.AUDIO_ENCAPSULATION_TYPE_IEC61937);
     } else {
-      addHighBitrateIec61937Support(/* sampleRate= */ 192_000);
+      addOutputDevice(AudioFormat.ENCODING_DOLBY_TRUEHD, AudioFormat.ENCODING_IEC61937);
     }
   }
 
-  private static void addHighBitrateIec61937Support(int sampleRate) {
-    ShadowAudioTrack.addDirectPlaybackSupport(
-        new AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_IEC61937)
-            .setSampleRate(sampleRate)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND)
-            .build(),
-        AudioAttributes.DEFAULT.getPlatformAudioAttributes());
+  /** Adds an HDMI output device whose {@link AudioDeviceInfo#getEncodings()} returns encodings. */
+  private void addOutputDevice(int... encodings) {
+    // Devices created by AudioDeviceInfoBuilder return null encodings before API 33, so mock it.
+    AudioDeviceInfo device = mock(AudioDeviceInfo.class);
+    when(device.getType()).thenReturn(AudioDeviceInfo.TYPE_HDMI);
+    when(device.isSink()).thenReturn(true);
+    when(device.getEncodings()).thenReturn(encodings);
+    shadowOf(audioManager).setOutputDevices(ImmutableList.of(device));
   }
 
-  private void addDeviceWithDirectProfile(int encoding) {
+  private void addDeviceWithDirectProfile(int encoding, int encapsulationType) {
     AudioDeviceInfo device =
         AudioDeviceInfoBuilder.newBuilder()
             .setType(AudioDeviceInfo.TYPE_HDMI)
-            .setProfiles(
-                ImmutableList.of(
-                    AudioProfileBuilder.newBuilder()
-                        .setFormat(encoding)
-                        .setSamplingRates(new int[] {48_000})
-                        .setChannelMasks(new int[] {AudioFormat.CHANNEL_OUT_7POINT1_SURROUND})
-                        .setChannelIndexMasks(new int[] {})
-                        .setEncapsulationType(AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE)
-                        .build()))
+            .setProfiles(ImmutableList.of(createProfile(encoding, encapsulationType)))
             .build();
     shadowOf(audioManager).addOutputDeviceWithDirectProfiles(device);
+  }
+
+  private static AudioProfile createProfile(int encoding, int encapsulationType) {
+    return AudioProfileBuilder.newBuilder()
+        .setFormat(encoding)
+        .setSamplingRates(new int[] {48_000, 192_000})
+        .setChannelMasks(new int[] {AudioFormat.CHANNEL_OUT_7POINT1_SURROUND})
+        .setChannelIndexMasks(new int[] {})
+        .setEncapsulationType(encapsulationType)
+        .build();
   }
 }
