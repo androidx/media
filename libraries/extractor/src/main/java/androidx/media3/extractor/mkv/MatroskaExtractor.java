@@ -503,9 +503,15 @@ public class MatroskaExtractor implements Extractor {
   private long currentCueClusterPosition = C.INDEX_UNSET;
   private long currentCueRelativePosition = C.INDEX_UNSET;
   private int primarySeekTrackNumber = C.INDEX_UNSET;
+  private static final int MAX_SEEK_HEAD_HOPS = 16;
+  private final long[] pendingSeekHeadPositions = new long[MAX_SEEK_HEAD_HOPS];
+  private int pendingSeekHeadCount;
+  private final long[] visitedSeekHeadPositions = new long[MAX_SEEK_HEAD_HOPS];
+  private int visitedSeekHeadCount;
   private boolean seekForCues;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
+  private boolean seekForSecondarySeekHead;
   private long tracksContentPosition = C.INDEX_UNSET;
   private boolean seekForTracks;
   private long seekPositionAfterReadingTracks = C.INDEX_UNSET;
@@ -640,6 +646,14 @@ public class MatroskaExtractor implements Extractor {
     // Cues elements will be ignored by the parsing logic.
     if (!sentSeekMap) {
       perTrackCues.clear();
+      seekForCues = false;
+      seekForSecondarySeekHead = false;
+      seekPositionAfterBuildingCues = C.INDEX_UNSET;
+      if (position == 0) {
+        cuesContentPosition = C.INDEX_UNSET;
+        pendingSeekHeadCount = 0;
+        visitedSeekHeadCount = 0;
+      }
     }
     for (int i = 0; i < tracks.size(); i++) {
       tracks.valueAt(i).reset();
@@ -659,11 +673,31 @@ public class MatroskaExtractor implements Extractor {
       continueReading = reader.read(input);
       if (continueReading
           && (maybeSeekForTracks(seekPosition, input.getPosition())
+              || maybeSeekForSecondarySeekHead(seekPosition, input.getPosition())
               || maybeSeekForCues(seekPosition, input.getPosition()))) {
         return Extractor.RESULT_SEEK;
       }
     }
     if (!continueReading) {
+      if (seekPositionAfterBuildingCues != C.INDEX_UNSET) {
+        checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+        sentSeekMap = true;
+        outputTrackFormats();
+        maybeEndTracks();
+        seekPosition.position = seekPositionAfterBuildingCues;
+        seekPositionAfterBuildingCues = C.INDEX_UNSET;
+        seekForCues = false;
+        seekForSecondarySeekHead = false;
+        cuesContentPosition = C.INDEX_UNSET;
+        pendingSeekHeadCount = 0;
+        return Extractor.RESULT_SEEK;
+      }
+      if (!sentSeekMap) {
+        checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+        sentSeekMap = true;
+        outputTrackFormats();
+        maybeEndTracks();
+      }
       for (int i = 0; i < tracks.size(); i++) {
         Track track = tracks.valueAt(i);
         track.assertOutputInitialized();
@@ -906,15 +940,38 @@ public class MatroskaExtractor implements Extractor {
           durationUs = scaleTimecodeToUs(durationTimecode);
         }
         break;
+      case ID_SEEK_HEAD:
+        if (seekPositionAfterBuildingCues != C.INDEX_UNSET) {
+          if (cuesContentPosition != C.INDEX_UNSET) {
+            seekForCues = true;
+          } else if (pendingSeekHeadCount > 0) {
+            seekForSecondarySeekHead = true;
+          } else {
+            checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+            sentSeekMap = true;
+            outputTrackFormats();
+            maybeEndTracks();
+          }
+        }
+        break;
       case ID_SEEK:
         if (seekEntryId == UNSET_ENTRY_ID || seekEntryPosition == C.INDEX_UNSET) {
           throw ParserException.createForMalformedContainer(
               "Mandatory element SeekID or SeekPosition not found", /* cause= */ null);
         }
         if (seekEntryId == ID_CUES) {
-          cuesContentPosition = seekEntryPosition;
+          if (!arrayContains(visitedSeekHeadPositions, visitedSeekHeadCount, seekEntryPosition)) {
+            cuesContentPosition = seekEntryPosition;
+            pendingSeekHeadCount = 0;
+          }
         } else if (seekEntryId == ID_TRACKS) {
           tracksContentPosition = seekEntryPosition;
+        } else if (seekEntryId == ID_SEEK_HEAD && cuesContentPosition == C.INDEX_UNSET) {
+          if (!arrayContains(visitedSeekHeadPositions, visitedSeekHeadCount, seekEntryPosition)
+              && !arrayContains(pendingSeekHeadPositions, pendingSeekHeadCount, seekEntryPosition)
+              && visitedSeekHeadCount + pendingSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
+            pendingSeekHeadPositions[pendingSeekHeadCount++] = seekEntryPosition;
+          }
         }
         break;
       case ID_CUES:
@@ -944,14 +1001,7 @@ public class MatroskaExtractor implements Extractor {
           }
           sentSeekMap = true;
           inCuesElement = false;
-          for (int i = 0; i < tracks.size(); i++) {
-            Track track = tracks.valueAt(i);
-            if (!track.waitingForDtsAnalysis) {
-              updateTrackFormatWithMetadata(track);
-              track.assertOutputInitialized();
-              track.output.format(checkNotNull(track.format));
-            }
-          }
+          outputTrackFormats();
           maybeEndTracks();
         }
         break;
@@ -1079,7 +1129,9 @@ public class MatroskaExtractor implements Extractor {
         // If we're not going to seek for cues, or we have already processed them, output the
         // formats immediately.
         boolean maybeSendFormatsEarly =
-            !seekForCuesEnabled || cuesContentPosition == C.INDEX_UNSET || sentSeekMap;
+            !seekForCuesEnabled
+                || (cuesContentPosition == C.INDEX_UNSET && pendingSeekHeadCount == 0)
+                || sentSeekMap;
 
         for (int i = 0; i < tracks.size(); i++) {
           Track trackItem = tracks.valueAt(i);
@@ -1098,14 +1150,6 @@ public class MatroskaExtractor implements Extractor {
             }
             if (firstAudioTrackNumber == C.INDEX_UNSET) {
               firstAudioTrackNumber = trackItem.number;
-            }
-          }
-
-          if (maybeSendFormatsEarly) {
-            if (!trackItem.waitingForDtsAnalysis) {
-              updateTrackFormatWithMetadata(trackItem);
-              trackItem.assertOutputInitialized();
-              trackItem.output.format(checkNotNull(trackItem.format));
             }
           }
         }
@@ -1127,6 +1171,7 @@ public class MatroskaExtractor implements Extractor {
           maybePrepareSeekMap();
         }
         if (maybeSendFormatsEarly) {
+          outputTrackFormats();
           maybeEndTracks();
         }
         break;
@@ -1160,7 +1205,11 @@ public class MatroskaExtractor implements Extractor {
       case ID_SEEK_POSITION:
         // Seek Position is the relative offset beginning from the Segment. So to get absolute
         // offset from the beginning of the file, we need to add segmentContentPosition to it.
-        seekEntryPosition = value + segmentContentPosition;
+        if (value < 0 || segmentContentPosition == C.INDEX_UNSET) {
+          seekEntryPosition = C.INDEX_UNSET;
+        } else {
+          seekEntryPosition = value + segmentContentPosition;
+        }
         break;
       case ID_TIMECODE_SCALE:
         timecodeScale = value;
@@ -2182,6 +2231,45 @@ public class MatroskaExtractor implements Extractor {
     return bytesWritten;
   }
 
+  private boolean maybeSeekForSecondarySeekHead(
+      PositionHolder seekPosition, long currentPosition) {
+    if (seekForSecondarySeekHead) {
+      seekForSecondarySeekHead = false;
+      if (pendingSeekHeadCount > 0) {
+        if (seekPositionAfterBuildingCues == C.INDEX_UNSET) {
+          seekPositionAfterBuildingCues = currentPosition;
+        }
+        long targetPosition = removePendingSeekHeadPosition();
+        if (visitedSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
+          visitedSeekHeadPositions[visitedSeekHeadCount++] = targetPosition;
+        }
+        seekPosition.position = targetPosition;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private long removePendingSeekHeadPosition() {
+    if (pendingSeekHeadCount == 0) {
+      return C.INDEX_UNSET;
+    }
+    long position = pendingSeekHeadPositions[0];
+    pendingSeekHeadCount--;
+    System.arraycopy(
+        pendingSeekHeadPositions, 1, pendingSeekHeadPositions, 0, pendingSeekHeadCount);
+    return position;
+  }
+
+  private static boolean arrayContains(long[] array, int count, long value) {
+    for (int i = 0; i < count; i++) {
+      if (array[i] == value) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Updates the position of the holder to Cues element's position if the extractor configuration
    * permits use of master seek entry. After building Cues sets the holder's position back to where
@@ -2193,17 +2281,27 @@ public class MatroskaExtractor implements Extractor {
    */
   private boolean maybeSeekForCues(PositionHolder seekPosition, long currentPosition) {
     if (seekForCues) {
-      seekPositionAfterBuildingCues = currentPosition;
+      if (seekPositionAfterBuildingCues == C.INDEX_UNSET) {
+        seekPositionAfterBuildingCues = currentPosition;
+      }
       seekPosition.position = cuesContentPosition;
+      if (visitedSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
+        visitedSeekHeadPositions[visitedSeekHeadCount++] = cuesContentPosition;
+      }
+      cuesContentPosition = C.INDEX_UNSET;
       seekForCues = false;
       return true;
     }
-    // After parsing Cues, seek back to original position if available. We will not do this unless
-    // we seeked to get to the Cues in the first place.
+    // After parsing Cues or concluding index resolution, seek back to original position if
+    // available. We will not do this unless we seeked to get to the Cues or secondary SeekHead in
+    // the first place.
     if (sentSeekMap && seekPositionAfterBuildingCues != C.INDEX_UNSET) {
-      seekPosition.position = seekPositionAfterBuildingCues;
+      if (seekPositionAfterBuildingCues != currentPosition) {
+        seekPosition.position = seekPositionAfterBuildingCues;
+        seekPositionAfterBuildingCues = C.INDEX_UNSET;
+        return true;
+      }
       seekPositionAfterBuildingCues = C.INDEX_UNSET;
-      return true;
     }
     return false;
   }
@@ -2298,15 +2396,40 @@ public class MatroskaExtractor implements Extractor {
     if (sentSeekMap) {
       return; // Already evaluated
     }
+    if (seekPositionAfterBuildingCues != C.INDEX_UNSET) {
+      checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+      sentSeekMap = true;
+      outputTrackFormats();
+      maybeEndTracks();
+      cuesContentPosition = C.INDEX_UNSET;
+      pendingSeekHeadCount = 0;
+      seekForCues = false;
+      seekForSecondarySeekHead = false;
+      return;
+    }
     // We need to build cues before parsing the cluster.
     if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
       // We know where the Cues element is located. Seek to request it.
       seekForCues = true;
+    } else if (seekForCuesEnabled && pendingSeekHeadCount > 0) {
+      // We know where the secondary SeekHead is located. Seek to read it for cues.
+      seekForSecondarySeekHead = true;
     } else {
       // We don't know where the Cues element is located. It's most likely omitted. Allow
       // playback, but disable seeking.
       checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
       sentSeekMap = true;
+    }
+  }
+
+  private void outputTrackFormats() {
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.valueAt(i);
+      if (!track.waitingForDtsAnalysis) {
+        updateTrackFormatWithMetadata(track);
+        track.assertOutputInitialized();
+        track.output.format(checkNotNull(track.format));
+      }
     }
   }
 
