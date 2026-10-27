@@ -18,6 +18,7 @@ package androidx.media3.cast;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
+import android.os.Bundle;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -27,15 +28,33 @@ import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaMetadata;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.common.images.WebImage;
+import com.google.common.collect.ImmutableSet;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.jspecify.annotations.Nullable;
 
-/** Default {@link MediaItemConverter} implementation. */
+/**
+ * Default {@link MediaItemConverter} implementation.
+ *
+ * <p>Predefined Cast {@link com.google.android.gms.cast.MediaMetadata} fields without a dedicated
+ * property on {@link androidx.media3.common.MediaMetadata MediaItem.mediaMetadata} are mapped to
+ * and from {@link androidx.media3.common.MediaMetadata#extras MediaItem.mediaMetadata.extras} under
+ * their Cast keys (with date fields represented as {@code yyyyMMdd} or non-midnight {@code
+ * yyyyMMdd'T'HHmmssXX} strings, matching {@link
+ * com.google.android.gms.cast.MediaMetadata#getDateAsString(String)}). Other {@code extras} entries
+ * of supported types ({@link Boolean}, {@link Integer}, {@link Long}, {@link Float}, {@link
+ * Double}, {@link String}, and nested {@link Bundle} instances) are stored as JSON in {@link
+ * MediaInfo#getCustomData()}, with {@link Float} values unpacked as {@link Double}.
+ */
 @UnstableApi
 public final class DefaultMediaItemConverter implements MediaItemConverter {
 
@@ -57,6 +76,22 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   private static final String KEY_MAX_OFFSET_MS = "m3-maxOffsetMs";
   private static final String KEY_MIN_PLAYBACK_SPEED = "m3-minPlaybackSpeed";
   private static final String KEY_MAX_PLAYBACK_SPEED = "m3-maxPlaybackSpeed";
+  private static final String KEY_MEDIA3_EXTRAS = "m3-extras";
+  private static final String ISO_8601_BASIC_DATE_PATTERN = "yyyyMMdd";
+  private static final String ISO_8601_BASIC_DATE_TIME_PATTERN = "yyyyMMdd'T'HHmmssXX";
+
+  // These fields have a 1:1 mapping between MediaMetadata and MediaItem.mediaMetadata.
+  private static final ImmutableSet<String> FIRST_CLASS_METADATA_KEYS =
+      ImmutableSet.of(
+          MediaMetadata.KEY_TITLE,
+          MediaMetadata.KEY_SUBTITLE,
+          MediaMetadata.KEY_ARTIST,
+          MediaMetadata.KEY_ALBUM_ARTIST,
+          MediaMetadata.KEY_ALBUM_TITLE,
+          MediaMetadata.KEY_COMPOSER,
+          MediaMetadata.KEY_DISC_NUMBER,
+          MediaMetadata.KEY_TRACK_NUMBER,
+          MediaMetadata.KEY_RELEASE_DATE);
 
   @Override
   public MediaItem toMediaItem(MediaQueueItem mediaQueueItem) {
@@ -103,9 +138,59 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
         }
       }
     }
+
+    // Deserialization of MediaItem.mediaMetadata.extras:
+    // 1. Predefined Cast SDK fields are extracted directly from MediaMetadata using
+    //    MediaMetadata.getTypeForKey to query each key's expected type.
+    Bundle extras = new Bundle();
+    if (metadata != null) {
+      for (String key : metadata.keySet()) {
+        if (key == null || key.isEmpty() || FIRST_CLASS_METADATA_KEYS.contains(key)) {
+          continue;
+        }
+        @MediaMetadata.FieldType int type = MediaMetadata.getTypeForKey(key);
+        switch (type) {
+          case MediaMetadata.FIELD_TYPE_STRING:
+            extras.putString(key, metadata.getString(key));
+            break;
+          case MediaMetadata.FIELD_TYPE_INT:
+            extras.putInt(key, metadata.getInt(key));
+            break;
+          case MediaMetadata.FIELD_TYPE_DOUBLE:
+            extras.putDouble(key, metadata.getDouble(key));
+            break;
+          case MediaMetadata.FIELD_TYPE_TIME_MILLIS:
+            extras.putLong(key, metadata.getTimeMillis(key));
+            break;
+          case MediaMetadata.FIELD_TYPE_DATE:
+            String dateStr = metadata.getDateAsString(key);
+            if (dateStr != null) {
+              extras.putString(key, dateStr);
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    }
+
+    // 2. Unpack custom application extras stored under KEY_MEDIA3_EXTRAS in customData.
+    @Nullable JSONObject customData = mediaInfo.getCustomData();
+    if (customData != null && customData.has(KEY_MEDIA3_EXTRAS)) {
+      try {
+        JSONObject customExtrasJson = customData.getJSONObject(KEY_MEDIA3_EXTRAS);
+        unpackCustomDataExtras(customExtrasJson, extras);
+      } catch (JSONException e) {
+        Log.w(TAG, "Failed to parse " + KEY_MEDIA3_EXTRAS + " from customData", e);
+      }
+    }
+
+    if (!extras.isEmpty()) {
+      metadataBuilder.setExtras(extras);
+    }
+
     // TODO: b/526548538 - Get rid of custom keys in media3 when equivalent CastSDK fields are
     // present.
-    @Nullable JSONObject customData = mediaInfo.getCustomData();
     if (customData != null && customData.has(KEY_MEDIA_ITEM)) {
       try {
         return getMediaItem(customData, metadataBuilder.build());
@@ -190,6 +275,26 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
           mediaItem.mediaMetadata.releaseDay != null ? mediaItem.mediaMetadata.releaseDay : 1);
       metadata.putDate(MediaMetadata.KEY_RELEASE_DATE, calendar);
     }
+    // Serialization of MediaItem.mediaMetadata.extras:
+    // In Cast SDK, predefined metadata fields belong in MediaMetadata, so we maintain that paradigm
+    // by writing recognized keys (via MediaMetadata.getTypeForKey) directly to MediaMetadata.
+    // Custom application extras (FIELD_TYPE_NONE) cannot be stored in MediaMetadata without prior
+    // schema knowledge, so they are serialized as JSON under KEY_MEDIA3_EXTRAS in customData.
+    @Nullable Bundle extras = mediaItem.mediaMetadata.extras;
+    @Nullable JSONObject customDataExtras = null;
+    if (extras != null) {
+      for (String key : extras.keySet()) {
+        if (key == null || key.isEmpty()) {
+          continue;
+        }
+        if (!tryPuttingPredefinedField(metadata, key, extras)) {
+          if (customDataExtras == null) {
+            customDataExtras = new JSONObject();
+          }
+          putCustomField(customDataExtras, key, extras.get(key));
+        }
+      }
+    }
     String contentUrl = mediaItem.localConfiguration.uri.toString();
     String contentId =
         mediaItem.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? contentUrl : mediaItem.mediaId;
@@ -202,7 +307,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
             .setContentType(mediaItem.localConfiguration.mimeType)
             .setContentUrl(contentUrl)
             .setMetadata(metadata)
-            .setCustomData(getCustomData(mediaItem));
+            .setCustomData(getCustomData(mediaItem, customDataExtras));
     if (isExplicitlyLive) {
       mediaInfoBuilder.setStreamType(MediaInfo.STREAM_TYPE_LIVE);
     }
@@ -313,13 +418,17 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
 
   // Serialization.
 
-  private static JSONObject getCustomData(MediaItem mediaItem) {
+  private static JSONObject getCustomData(
+      MediaItem mediaItem, @Nullable JSONObject customDataExtras) {
     JSONObject json = new JSONObject();
     try {
       json.put(KEY_MEDIA_ITEM, getMediaItemJson(mediaItem));
       @Nullable JSONObject playerConfigJson = getPlayerConfigJson(mediaItem);
       if (playerConfigJson != null) {
         json.put(KEY_PLAYER_CONFIG, playerConfigJson);
+      }
+      if (customDataExtras != null && customDataExtras.length() > 0) {
+        json.put(KEY_MEDIA3_EXTRAS, customDataExtras);
       }
     } catch (JSONException e) {
       throw new RuntimeException(e);
@@ -404,5 +513,151 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
     }
 
     return playerConfigJson;
+  }
+
+  private static boolean tryPuttingPredefinedField(
+      MediaMetadata metadata, String key, Bundle extras) {
+    if (FIRST_CLASS_METADATA_KEYS.contains(key)) {
+      return false;
+    }
+    @MediaMetadata.FieldType int type = MediaMetadata.getTypeForKey(key);
+    @Nullable Object value = extras.get(key);
+    switch (type) {
+      case MediaMetadata.FIELD_TYPE_STRING:
+        if (value instanceof String) {
+          metadata.putString(key, (String) value);
+          return true;
+        }
+        return false;
+      case MediaMetadata.FIELD_TYPE_INT:
+        if (value instanceof Integer) {
+          metadata.putInt(key, (Integer) value);
+          return true;
+        }
+        return false;
+      case MediaMetadata.FIELD_TYPE_DOUBLE:
+        if (value instanceof Double) {
+          metadata.putDouble(key, (Double) value);
+          return true;
+        }
+        return false;
+      case MediaMetadata.FIELD_TYPE_TIME_MILLIS:
+        if (value instanceof Long) {
+          metadata.putTimeMillis(key, (Long) value);
+          return true;
+        }
+        return false;
+      case MediaMetadata.FIELD_TYPE_DATE:
+        return value instanceof String && tryPuttingDateField(metadata, key, (String) value);
+      case MediaMetadata.FIELD_TYPE_NONE:
+      default:
+        return false;
+    }
+  }
+
+  private static boolean tryPuttingDateField(MediaMetadata metadata, String key, String value) {
+    @Nullable Calendar calendar = parseIso8601Date(value);
+    if (calendar == null) {
+      return false;
+    }
+    // Verify that the date can be put and retrieved from the MediaMetadata.
+    MediaMetadata testMetadata = new MediaMetadata();
+    testMetadata.putDate(key, calendar);
+    if (!value.equals(testMetadata.getDateAsString(key))) {
+      return false;
+    }
+    metadata.putDate(key, calendar);
+    return true;
+  }
+
+  private static @Nullable Calendar parseIso8601Date(String dateString) {
+    boolean hasTime = dateString.contains("T");
+    @Nullable TimeZone timeZone = extractTimeZone(dateString, hasTime);
+    if (timeZone == null) {
+      return null;
+    }
+    String pattern = hasTime ? ISO_8601_BASIC_DATE_TIME_PATTERN : ISO_8601_BASIC_DATE_PATTERN;
+    SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.US);
+    format.setLenient(false);
+    format.setTimeZone(timeZone);
+    ParsePosition position = new ParsePosition(0);
+    @Nullable Date date = format.parse(dateString, position);
+    if (date == null || position.getIndex() != dateString.length()) {
+      return null;
+    }
+    Calendar calendar = Calendar.getInstance(timeZone, Locale.US);
+    calendar.setTime(date);
+    return calendar;
+  }
+
+  private static @Nullable TimeZone extractTimeZone(String dateString, boolean hasTime) {
+    if (!hasTime || dateString.endsWith("Z")) {
+      return TimeZone.getTimeZone("UTC");
+    }
+    int timeSeparatorIndex = dateString.indexOf('T');
+    int offsetIndex = Math.max(dateString.lastIndexOf('+'), dateString.lastIndexOf('-'));
+    if (offsetIndex > timeSeparatorIndex) {
+      return TimeZone.getTimeZone("GMT" + dateString.substring(offsetIndex));
+    }
+    return null;
+  }
+
+  private static void putCustomField(JSONObject json, String key, @Nullable Object value) {
+    if (value == null) {
+      return;
+    }
+    try {
+      if (value instanceof Bundle) {
+        json.put(key, bundleToJson((Bundle) value));
+      } else if (value instanceof Float) {
+        Float floatValue = (Float) value;
+        if (!floatValue.isNaN() && !floatValue.isInfinite()) {
+          json.put(key, Double.parseDouble(floatValue.toString()));
+        }
+      } else if (value instanceof Boolean
+          || value instanceof Integer
+          || value instanceof Long
+          || value instanceof Double
+          || value instanceof String) {
+        json.put(key, value);
+      }
+    } catch (JSONException e) {
+      Log.w(TAG, "Failed to serialize custom extras key: " + key, e);
+    }
+  }
+
+  private static JSONObject bundleToJson(Bundle bundle) {
+    JSONObject json = new JSONObject();
+    for (String key : bundle.keySet()) {
+      if (key == null || key.isEmpty()) {
+        continue;
+      }
+      putCustomField(json, key, bundle.get(key));
+    }
+    return json;
+  }
+
+  private static void unpackCustomDataExtras(JSONObject json, Bundle extras) {
+    for (Iterator<String> it = json.keys(); it.hasNext(); ) {
+      String key = it.next();
+      Object val = json.opt(key);
+      if (val instanceof JSONObject) {
+        Bundle nestedBundle = new Bundle();
+        unpackCustomDataExtras((JSONObject) val, nestedBundle);
+        extras.putBundle(key, nestedBundle);
+      } else if (val instanceof Boolean) {
+        extras.putBoolean(key, (Boolean) val);
+      } else if (val instanceof Integer) {
+        extras.putInt(key, (Integer) val);
+      } else if (val instanceof Long) {
+        extras.putLong(key, (Long) val);
+      } else if (val instanceof Float) {
+        extras.putDouble(key, Double.parseDouble(val.toString()));
+      } else if (val instanceof Double) {
+        extras.putDouble(key, (Double) val);
+      } else if (val instanceof String) {
+        extras.putString(key, (String) val);
+      }
+    }
   }
 }

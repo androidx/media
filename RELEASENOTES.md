@@ -124,6 +124,11 @@
         without requiring `MediaTransferReceiver` to be declared in
         `AndroidManifest.xml`, and enable the system output switcher by default
         for apps targeting API 37+ on devices running API 37+.
+    *   Support predefined Cast `MediaMetadata` fields in
+        `DefaultMediaItemConverter` by mapping fields without a dedicated
+        `MediaItem.mediaMetadata` property to and from
+        `MediaItem.mediaMetadata.extras`, and preserve custom extras in
+        `MediaInfo.customData`.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo
