@@ -780,6 +780,53 @@ public class CompositionExportTest {
   }
 
   @Test
+  public void
+      export_audioPrimarySequenceAndAudioVideoSecondarySequenceWithVideoOnlyItem_doesNotCrash()
+          throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItem videoOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)).build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(audioItem)),
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(videoOnlyItem)))
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(2);
+  }
+
+  @Test
+  public void
+      export_audioPrimarySequenceAndAudioVideoSecondarySequenceWithRemovedAudio_doesNotCrash()
+          throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)).build();
+    EditedMediaItem videoWithRemovedAudioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO))
+            .setRemoveAudio(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(audioItem)),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(videoWithRemovedAudioItem)))
+            .setTransmuxVideo(true)
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.processedInputs).hasSize(2);
+  }
+
+  @Test
   public void resume_withSpeedChangingEffects_throws() {
     SpeedProvider provider =
         new SpeedProvider() {

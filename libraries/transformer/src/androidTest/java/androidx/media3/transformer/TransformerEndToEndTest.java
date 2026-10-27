@@ -42,6 +42,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
+import static androidx.media3.test.utils.AssetInfo.MP4_VIDEO_ONLY_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.RAW_AAC_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_192KHZ_ASSET;
@@ -264,6 +265,64 @@ public class TransformerEndToEndTest {
     // audioSequence duration: ~2s (2 inputs).
     // loopingAudioSequence: Matches max other sequence (~3.5s) -> 4 inputs of ~1s audio item.
     assertThat(result.exportResult.processedInputs).hasSize(9);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_audioVideoPrimaryAndAudioVideoSecondaryWithImage_completes() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
+    EditedMediaItem audioVideoItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    EditedMediaItem imageItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(500).build())
+            .setFrameRate(30)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                withAudioAndVideoFrom(ImmutableList.of(audioVideoItem)),
+                withAudioAndVideoFrom(ImmutableList.of(imageItem)))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.exportResult.processedInputs).hasSize(2);
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_videoPrimaryAndAudioVideoSecondaryWithAudioOnlyItem_completes()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_VIDEO_ONLY_ASSET.videoFormat,
+        /* outputFormat= */ MP4_VIDEO_ONLY_ASSET.videoFormat);
+    EditedMediaItem videoOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_VIDEO_ONLY_ASSET.uri)).build();
+    EditedMediaItem audioOnlyItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(videoOnlyItem)),
+                withAudioAndVideoFrom(ImmutableList.of(audioOnlyItem)))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    assertThat(result.exportResult.processedInputs).hasSize(2);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 

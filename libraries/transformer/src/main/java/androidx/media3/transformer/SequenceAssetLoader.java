@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.getPcmFormat;
 import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ASSET_LOADER;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
@@ -60,12 +61,14 @@ import org.jspecify.annotations.Nullable;
  */
 /* package */ final class SequenceAssetLoader implements AssetLoader, AssetLoader.Listener {
 
-  private static final Format FORCE_AUDIO_TRACK_FORMAT =
+  private static final Format FORCE_ENCODED_AUDIO_TRACK_FORMAT =
       new Format.Builder()
           .setSampleMimeType(MimeTypes.AUDIO_AAC)
           .setSampleRate(44100)
           .setChannelCount(2)
           .build();
+  private static final Format FORCE_RAW_AUDIO_TRACK_FORMAT =
+      getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100);
 
   // TODO: b/502556636 - Extract blank image constants to a shared location.
   private static final int BLANK_IMAGE_BITMAP_WIDTH = 16;
@@ -298,7 +301,7 @@ import org.jspecify.annotations.Nullable;
 
     if (shouldAddAudioGap) {
       sequenceAssetLoaderListener.onTrackAdded(
-          FORCE_AUDIO_TRACK_FORMAT, SUPPORTED_OUTPUT_TYPE_DECODED);
+          FORCE_ENCODED_AUDIO_TRACK_FORMAT, SUPPORTED_OUTPUT_TYPE_DECODED);
       decodeAudio = true;
     }
     if (shouldAddVideoGap) {
@@ -321,7 +324,7 @@ import org.jspecify.annotations.Nullable;
         Util.getTrackTypeString(trackType),
         format);
 
-    SampleConsumerWrapper sampleConsumer;
+    @Nullable SampleConsumerWrapper sampleConsumer;
     if (isCurrentAssetFirstAsset) {
       // TODO: b/445884217 - Remove logic that relies on the first item for gap generation.
       if (trackType == C.TRACK_TYPE_VIDEO) {
@@ -329,34 +332,45 @@ import org.jspecify.annotations.Nullable;
       } else {
         sequenceHasAudio = true;
       }
-      @Nullable SampleConsumer wrappedSampleConsumer =
-          sequenceAssetLoaderListener.onOutputFormat(format);
-      if (wrappedSampleConsumer == null) {
-        return null;
+      // onOutputFormat() might return early if not all output formats are registered. If a matching
+      // sample consumer was created in a previous onOutputFormat() call, reuse it here.
+      sampleConsumer = sampleConsumersByTrackType.get(trackType);
+      if (sampleConsumer == null) {
+        @Nullable SampleConsumer wrappedSampleConsumer =
+            sequenceAssetLoaderListener.onOutputFormat(format);
+        if (wrappedSampleConsumer == null) {
+          return null;
+        }
+        sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer, trackType);
+        sampleConsumersByTrackType.put(trackType, sampleConsumer);
       }
-      sampleConsumer = new SampleConsumerWrapper(wrappedSampleConsumer, trackType);
-      sampleConsumersByTrackType.put(trackType, sampleConsumer);
 
+      // Asset does not contain one type of track (audio or video). Force creation of a sample
+      // consumer of that type if the overall sequence is expected to support that type of track.
       if (reportedTrackCount.get() == 1) {
         if (sequenceTrackTypes.contains(C.TRACK_TYPE_AUDIO) && trackType == C.TRACK_TYPE_VIDEO) {
-          SampleConsumer wrappedAudioSampleConsumer =
-              checkNotNull(
-                  sequenceAssetLoaderListener.onOutputFormat(
-                      FORCE_AUDIO_TRACK_FORMAT
-                          .buildUpon()
-                          .setSampleMimeType(MimeTypes.AUDIO_RAW)
-                          .setPcmEncoding(C.ENCODING_PCM_16BIT)
-                          .build()));
+          @Nullable SampleConsumer forcedAudioSampleConsumer =
+              sequenceAssetLoaderListener.onOutputFormat(FORCE_RAW_AUDIO_TRACK_FORMAT);
+          // Might be null if the primary sequence has registered a VideoSampleExporter, but hasn't
+          // yet registered an AudioSampleExporter. Try again on the next onOutputFormat() call.
+          if (forcedAudioSampleConsumer == null) {
+            return null;
+          }
           sampleConsumersByTrackType.put(
               C.TRACK_TYPE_AUDIO,
-              new SampleConsumerWrapper(wrappedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
+              new SampleConsumerWrapper(forcedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
         } else if (sequenceTrackTypes.contains(C.TRACK_TYPE_VIDEO)
             && trackType == C.TRACK_TYPE_AUDIO) {
-          SampleConsumer wrappedVideoSampleConsumer =
-              checkNotNull(sequenceAssetLoaderListener.onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT));
+          @Nullable SampleConsumer forcedVideoSampleConsumer =
+              sequenceAssetLoaderListener.onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT);
+          // Might be null if the primary sequence has registered an AudioSampleExporter, but hasn't
+          // yet registered a VideoSampleExporter. Try again on the next onOutputFormat() call.
+          if (forcedVideoSampleConsumer == null) {
+            return null;
+          }
           sampleConsumersByTrackType.put(
               C.TRACK_TYPE_VIDEO,
-              new SampleConsumerWrapper(wrappedVideoSampleConsumer, C.TRACK_TYPE_VIDEO));
+              new SampleConsumerWrapper(forcedVideoSampleConsumer, C.TRACK_TYPE_VIDEO));
         }
       }
     } else {
