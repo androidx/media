@@ -27,12 +27,17 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Creates and remembers a [MotionPhotoState] for managing Motion Photo playback and visual state.
@@ -68,7 +73,11 @@ fun rememberMotionPhotoState(
   initialShowPhoto: Boolean = true,
   initialConfig: MotionPhotoConfig = MotionPhotoConfig.DEFAULT,
 ): MotionPhotoState {
-  val state = remember(mediaItem) { MotionPhotoState(mediaItem, initialShowPhoto, initialConfig) }
+  val coroutineScope = rememberCoroutineScope()
+  val state =
+    remember(mediaItem) {
+      MotionPhotoState(mediaItem, initialShowPhoto, initialConfig, coroutineScope)
+    }
   state.player = player
   LaunchedEffect(state, player) {
     state.bindAndInitialize()
@@ -93,6 +102,7 @@ fun rememberMotionPhotoState(
  *   [MediaItem.LocalConfiguration.uri].
  * @param initialShowPhoto Whether the still photo is initially shown instead of playing motion.
  * @param initialConfig The initial [MotionPhotoConfig] governing motion playback behavior.
+ * @param coroutineScope Scope used to launch deferred rewind coroutines during photo transitions.
  */
 @Stable
 @RestrictTo(LIBRARY_GROUP)
@@ -101,6 +111,7 @@ internal constructor(
   val mediaItem: MediaItem,
   initialShowPhoto: Boolean = true,
   initialConfig: MotionPhotoConfig = MotionPhotoConfig.DEFAULT,
+  private val coroutineScope: CoroutineScope,
 ) {
 
   init {
@@ -137,12 +148,14 @@ internal constructor(
   }
 
   private var _player by mutableStateOf<Player?>(null)
+  private var deferredRewindJob: Job? = null
 
   /** The [Player] driving media playback. */
   internal var player: Player?
     get() = _player
     set(value) {
       if (_player != value) {
+        cancelDeferredRewind()
         _player = value
         isMotionUnavailable = false
         hasRenderedFirstFrame = false
@@ -188,6 +201,9 @@ internal constructor(
       }
       val previousConfig = _config
       _config = value
+      if (_config.resumeVideoFromPreviousPosition) {
+        cancelDeferredRewind()
+      }
       player?.let { currentPlayer ->
         syncRepeatMode(currentPlayer)
         when {
@@ -221,14 +237,27 @@ internal constructor(
       currentPlayer.setMediaItem(mediaItem)
       hasRenderedFirstFrame = false
     }
-    // TODO(b/544627271): Support custom start boundaries and defer rewind until after the photo
-    // crossfade-in completes.
-    syncPlaybackState(currentPlayer, allowPrepareOnError = shouldReplaceMediaItem)
+    // TODO(b/544627271): Support custom start and end playback boundaries.
+    syncPlaybackState(
+      currentPlayer,
+      allowPrepareOnError = shouldReplaceMediaItem,
+      isInitialBind = true,
+    )
     updateMotionAvailability(currentPlayer)
   }
 
   internal suspend fun observe() {
     val currentPlayer = player ?: return
+    try {
+      observePlayerEvents(currentPlayer)
+    } finally {
+      // The effect running observe() shares this state's lifetime. A rewind that is still pending
+      // when it ends must not reach a player that a newer state may have re-bound in the meantime.
+      cancelDeferredRewind()
+    }
+  }
+
+  private suspend fun observePlayerEvents(currentPlayer: Player) {
     currentPlayer.listenTo(
       Player.EVENT_TRACKS_CHANGED,
       Player.EVENT_PLAYER_ERROR,
@@ -296,25 +325,60 @@ internal constructor(
     }
   }
 
-  private fun syncPlaybackState(currentPlayer: Player, allowPrepareOnError: Boolean) {
+  private fun syncPlaybackState(
+    currentPlayer: Player,
+    allowPrepareOnError: Boolean,
+    isInitialBind: Boolean = false,
+  ) {
     syncRepeatMode(currentPlayer)
+    val wasIdle = currentPlayer.playbackState == Player.STATE_IDLE
     if (
-      currentPlayer.playbackState == Player.STATE_IDLE &&
+      wasIdle &&
         (currentPlayer.playerError == null || allowPrepareOnError) &&
         currentPlayer.isCommandAvailable(Player.COMMAND_PREPARE)
     ) {
       currentPlayer.prepare()
     }
 
-    val shouldRewind =
-      !_config.resumeVideoFromPreviousPosition ||
-        (!_showPhoto && currentPlayer.playbackState == Player.STATE_ENDED)
-    if (shouldRewind) {
-      seekToStartPosition(currentPlayer)
+    val hadPendingDeferredRewind = deferredRewindJob?.isActive == true
+    cancelDeferredRewind()
+    when {
+      _config.resumeVideoFromPreviousPosition -> {
+        if (!_showPhoto && currentPlayer.playbackState == Player.STATE_ENDED) {
+          seekToStartPosition(currentPlayer)
+        }
+      }
+      shouldDeferRewind() -> {
+        // Captured on purpose: the crossfade that starts now keeps this duration even if the config
+        // changes while it is running, so the rewind must wait for the same amount of time.
+        val transitionDurationMs = _config.transitionDurationMs
+        deferredRewindJob = coroutineScope.launch {
+          delay(transitionDurationMs)
+          seekToStartPosition(currentPlayer)
+        }
+      }
+      // When resuming motion (_showPhoto == false), the player was already rewound when returning
+      // to the photo unless a deferred rewind was still in flight, the player is being initialized
+      // or re-prepared from idle, or playback had ended.
+      _showPhoto ||
+        isInitialBind ||
+        hadPendingDeferredRewind ||
+        wasIdle ||
+        currentPlayer.playbackState == Player.STATE_ENDED -> {
+        seekToStartPosition(currentPlayer)
+      }
     }
     if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
       currentPlayer.playWhenReady = !_showPhoto
     }
+  }
+
+  private fun shouldDeferRewind(): Boolean =
+    _showPhoto && hasRenderedFirstFrame && !isMotionUnavailable && _config.transitionDurationMs > 0L
+
+  private fun cancelDeferredRewind() {
+    deferredRewindJob?.cancel()
+    deferredRewindJob = null
   }
 
   private fun seekToStartPosition(currentPlayer: Player) {
@@ -343,7 +407,8 @@ internal constructor(
  *   returns to the still photo instead of looping.
  * @property resumeVideoFromPreviousPosition Whether resuming motion playback should continue from
  *   the paused position rather than rewinding to the start position when returning to the still
- *   photo.
+ *   photo. When `false`, the rewind is deferred until the crossfade to the still photo has
+ *   completed, so that it happens underneath the opaque photo.
  * @property transitionDurationMs The duration of the alpha crossfade transition between the still
  *   photo and video in milliseconds. Must be non-negative.
  */
