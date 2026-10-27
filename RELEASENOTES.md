@@ -15,6 +15,10 @@
         argument (e.g., `RunnableFutureTask<Void?, Exception>`).
     *   Add `AdViewProvider.getAdVideoView()` to provide the video container
         `View` that can be resized during ad playback.
+    *   Map the `mlpa` RFC 6381 codec string to `MimeTypes.AUDIO_TRUEHD` in
+        `MimeTypes.getMediaMimeType`, fixing missing muxed Dolby TrueHD audio
+        tracks during HLS chunkless preparation
+        ([#3485](https://github.com/androidx/media/issues/3485)).
 *   ExoPlayer:
     *   Fix an issue where a renderer enabled early for an upcoming media period
         could start rendering before playback transitions to that period.

@@ -179,6 +179,7 @@ public final class MimeTypesTest {
     assertThat(MimeTypes.getMediaMimeType("dec3")).isEqualTo(MimeTypes.AUDIO_E_AC3);
     assertThat(MimeTypes.getMediaMimeType("ec-3")).isEqualTo(MimeTypes.AUDIO_E_AC3);
     assertThat(MimeTypes.getMediaMimeType("ec+3")).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(MimeTypes.getMediaMimeType("mlpa")).isEqualTo(MimeTypes.AUDIO_TRUEHD);
     assertThat(MimeTypes.getMediaMimeType("dtsc")).isEqualTo(MimeTypes.AUDIO_DTS);
     assertThat(MimeTypes.getMediaMimeType("dtse")).isEqualTo(MimeTypes.AUDIO_DTS_EXPRESS);
     assertThat(MimeTypes.getMediaMimeType("dtsh")).isEqualTo(MimeTypes.AUDIO_DTS_HD);

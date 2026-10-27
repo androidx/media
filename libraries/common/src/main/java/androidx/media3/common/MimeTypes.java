@@ -505,6 +505,8 @@ public final class MimeTypes {
       return MimeTypes.AUDIO_E_AC3_JOC;
     } else if (codec.startsWith("ac-4") || codec.startsWith("dac4")) {
       return MimeTypes.AUDIO_AC4;
+    } else if (codec.startsWith("mlpa")) {
+      return MimeTypes.AUDIO_TRUEHD;
     } else if (codec.startsWith("dtsc")) {
       return MimeTypes.AUDIO_DTS;
     } else if (codec.startsWith("dtse")) {
