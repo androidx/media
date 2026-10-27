@@ -512,13 +512,13 @@ public abstract class DecoderAudioRenderer<
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
               .build();
-      @Nullable String codecProvenance =
+      @Nullable String originalMimeType =
           !Objects.equals(inputFormat.sampleMimeType, outputFormat.sampleMimeType)
               ? inputFormat.sampleMimeType
               : null;
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(outputFormat)
-              .setCodecProvenance(codecProvenance)
+              .setOriginalMimeType(originalMimeType)
               .setOutputChannelMapping(getChannelMapping(decoder))
               .setTimeline(getTimeline())
               .setMediaPeriodId(getMediaPeriodId())

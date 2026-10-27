@@ -722,13 +722,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
           audioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_DISABLED);
         }
       }
-      @Nullable String codecProvenance =
+      @Nullable String originalMimeType =
           !Objects.equals(format.sampleMimeType, audioSinkInputFormat.sampleMimeType)
               ? format.sampleMimeType
               : null;
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(audioSinkInputFormat)
-              .setCodecProvenance(codecProvenance)
+              .setOriginalMimeType(originalMimeType)
               .setOutputChannelMapping(channelMap)
               .setTimeline(getTimeline())
               .setMediaPeriodId(getMediaPeriodId())

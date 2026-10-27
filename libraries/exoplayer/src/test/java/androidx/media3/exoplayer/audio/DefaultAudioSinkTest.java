@@ -3281,7 +3281,7 @@ public final class DefaultAudioSinkTest {
   @Config(minSdk = 37)
   @Test
   public void
-      handleBuffer_spatializedMultichannelPcmWithChangingCodecProvenance_recreatesAudioOutput()
+      handleBuffer_spatializedMultichannelPcmWithChangingOriginalMimeType_recreatesAudioOutput()
           throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AudioCapabilities audioCapabilities =
@@ -3319,7 +3319,7 @@ public final class DefaultAudioSinkTest {
             .order(ByteOrder.nativeOrder());
     defaultAudioSink.configure(
         new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
-            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .build());
     retryUntilTrue(
         () ->
@@ -3330,7 +3330,7 @@ public final class DefaultAudioSinkTest {
 
     defaultAudioSink.configure(
         new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
-            .setCodecProvenance(MimeTypes.AUDIO_AC4)
+            .setOriginalMimeType(MimeTypes.AUDIO_AC4)
             .build());
     retryUntilTrue(
         () ->
@@ -3340,13 +3340,13 @@ public final class DefaultAudioSinkTest {
                 /* encodedAccessUnitCount= */ 1));
 
     assertThat(createdOutputConfigs).hasSize(2);
-    assertThat(createdOutputConfigs.get(0).codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
-    assertThat(createdOutputConfigs.get(1).codecProvenance).isEqualTo(MimeTypes.AUDIO_AC4);
+    assertThat(createdOutputConfigs.get(0).originalMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(createdOutputConfigs.get(1).originalMimeType).isEqualTo(MimeTypes.AUDIO_AC4);
   }
 
   @Config(minSdk = 37)
   @Test
-  public void handleBuffer_nonSpatializedStereoPcmWithChangingCodecProvenance_reusesAudioOutput()
+  public void handleBuffer_nonSpatializedStereoPcmWithChangingOriginalMimeType_reusesAudioOutput()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AudioCapabilities audioCapabilities =
@@ -3377,7 +3377,7 @@ public final class DefaultAudioSinkTest {
             .build();
     defaultAudioSink.configure(
         new AudioSink.AudioSinkConfig.Builder(stereoPcm)
-            .setCodecProvenance(MimeTypes.AUDIO_AAC)
+            .setOriginalMimeType(MimeTypes.AUDIO_AAC)
             .build());
     retryUntilTrue(
         () ->
@@ -3388,7 +3388,7 @@ public final class DefaultAudioSinkTest {
 
     defaultAudioSink.configure(
         new AudioSink.AudioSinkConfig.Builder(stereoPcm)
-            .setCodecProvenance(MimeTypes.AUDIO_OPUS)
+            .setOriginalMimeType(MimeTypes.AUDIO_OPUS)
             .build());
     retryUntilTrue(
         () ->
@@ -3398,12 +3398,12 @@ public final class DefaultAudioSinkTest {
                 /* encodedAccessUnitCount= */ 1));
 
     assertThat(createdOutputConfigs).hasSize(1);
-    assertThat(createdOutputConfigs.get(0).codecProvenance).isNull();
+    assertThat(createdOutputConfigs.get(0).originalMimeType).isNull();
   }
 
   @Config(minSdk = 37)
   @Test
-  public void setAudioAttributes_withCodecProvenance_recomputesOutputConfigCodecProvenance()
+  public void setAudioAttributes_withOriginalMimeType_recomputesOutputConfigOriginalMimeType()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AudioCapabilities audioCapabilities =
@@ -3442,7 +3442,7 @@ public final class DefaultAudioSinkTest {
             .order(ByteOrder.nativeOrder());
     defaultAudioSink.configure(
         new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
-            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .build());
 
     defaultAudioSink.setAudioAttributes(
@@ -3455,7 +3455,7 @@ public final class DefaultAudioSinkTest {
                 buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
 
     assertThat(createdOutputConfigs).hasSize(1);
-    assertThat(createdOutputConfigs.get(0).codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(createdOutputConfigs.get(0).originalMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
   }
 
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {

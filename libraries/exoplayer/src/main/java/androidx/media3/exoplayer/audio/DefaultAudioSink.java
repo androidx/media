@@ -799,7 +799,7 @@ public final class DefaultAudioSink implements AudioSink {
             : C.LENGTH_UNSET;
     FormatConfig formatConfig =
         getFormatConfig(
-            afterProcessingFormat, preferredBufferSize, audioSinkConfig.codecProvenance);
+            afterProcessingFormat, preferredBufferSize, audioSinkConfig.originalMimeType);
     try {
       outputConfig = audioOutputProvider.getOutputConfig(formatConfig);
     } catch (AudioOutputProvider.ConfigurationException e) {
@@ -828,7 +828,7 @@ public final class DefaultAudioSink implements AudioSink {
             audioProcessingPipeline,
             audioSinkConfig.timeline,
             audioSinkConfig.mediaPeriodId != null ? audioSinkConfig.mediaPeriodId.periodUid : null,
-            audioSinkConfig.codecProvenance);
+            audioSinkConfig.originalMimeType);
     if (isAudioOutputInitialized()) {
       this.pendingConfiguration = pendingConfiguration;
     } else {
@@ -985,7 +985,7 @@ public final class DefaultAudioSink implements AudioSink {
               getFormatConfig(
                   pendingConfiguration.afterProcessingInputFormat,
                   /* preferredBufferSize= */ C.LENGTH_UNSET,
-                  pendingConfiguration.codecProvenance),
+                  pendingConfiguration.originalMimeType),
               pendingConfiguration.outputConfig)) {
         playPendingData();
         if (hasPendingData()) {
@@ -1799,7 +1799,7 @@ public final class DefaultAudioSink implements AudioSink {
                 getFormatConfig(
                     configuration.afterProcessingInputFormat,
                     /* preferredBufferSize= */ C.LENGTH_UNSET,
-                    configuration.codecProvenance));
+                    configuration.originalMimeType));
       } catch (AudioOutputProvider.ConfigurationException e) {
         // Shouldn't usually happen if the configuration succeeded with same setup before.
         throw new IllegalStateException(new ConfigurationException(e, configuration.inputFormat));
@@ -2039,11 +2039,11 @@ public final class DefaultAudioSink implements AudioSink {
 
   private FormatConfig getFormatConfig(Format format) {
     return getFormatConfig(
-        format, /* preferredBufferSize= */ C.LENGTH_UNSET, /* codecProvenance= */ null);
+        format, /* preferredBufferSize= */ C.LENGTH_UNSET, /* originalMimeType= */ null);
   }
 
   private FormatConfig getFormatConfig(
-      Format format, int preferredBufferSize, @Nullable String codecProvenance) {
+      Format format, int preferredBufferSize, @Nullable String originalMimeType) {
     return new FormatConfig.Builder(format)
         .setAudioAttributes(audioAttributes)
         .setEnableHighResolutionPcmOutput(enableFloatOutput)
@@ -2054,7 +2054,7 @@ public final class DefaultAudioSink implements AudioSink {
         .setEnableTunneling(tunneling)
         .setPreferredBufferSize(preferredBufferSize)
         .setVirtualDeviceId(virtualDeviceId)
-        .setCodecProvenance(codecProvenance)
+        .setOriginalMimeType(originalMimeType)
         .build();
   }
 
@@ -2264,7 +2264,7 @@ public final class DefaultAudioSink implements AudioSink {
     private final AudioProcessingPipeline audioProcessingPipeline;
     private final Timeline timeline;
     private final @Nullable Object periodUid;
-    private final @Nullable String codecProvenance;
+    private final @Nullable String originalMimeType;
     private int encoderDelay;
     private int encoderPadding;
 
@@ -2277,7 +2277,7 @@ public final class DefaultAudioSink implements AudioSink {
         AudioProcessingPipeline audioProcessingPipeline,
         Timeline timeline,
         @Nullable Object periodUid,
-        @Nullable String codecProvenance) {
+        @Nullable String originalMimeType) {
       this.inputFormat = inputFormat;
       this.afterProcessingInputFormat = afterProcessingInputFormat;
       this.inputPcmFrameSize = inputPcmFrameSize;
@@ -2286,7 +2286,7 @@ public final class DefaultAudioSink implements AudioSink {
       this.audioProcessingPipeline = audioProcessingPipeline;
       this.timeline = timeline;
       this.periodUid = periodUid;
-      this.codecProvenance = codecProvenance;
+      this.originalMimeType = originalMimeType;
       this.encoderDelay = inputFormat.encoderDelay;
       this.encoderPadding = inputFormat.encoderPadding;
     }
@@ -2302,7 +2302,7 @@ public final class DefaultAudioSink implements AudioSink {
               audioProcessingPipeline,
               timeline,
               periodUid,
-              codecProvenance);
+              originalMimeType);
       copiedConfiguration.encoderDelay = encoderDelay;
       copiedConfiguration.encoderPadding = encoderPadding;
       return copiedConfiguration;

@@ -1129,7 +1129,7 @@ public class DecoderAudioRendererTest {
   }
 
   @Test
-  public void render_decodedFromCompressedFormat_setsCodecProvenanceOnAudioSinkConfig()
+  public void render_decodedFromCompressedFormat_setsOriginalMimeTypeOnAudioSinkConfig()
       throws Exception {
     Format opusFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_OPUS).build();
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
@@ -1163,11 +1163,11 @@ public class DecoderAudioRendererTest {
     ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
         ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
     verify(mockAudioSink).configure(configCaptor.capture());
-    assertThat(configCaptor.getValue().codecProvenance).isEqualTo(MimeTypes.AUDIO_OPUS);
+    assertThat(configCaptor.getValue().originalMimeType).isEqualTo(MimeTypes.AUDIO_OPUS);
   }
 
   @Test
-  public void render_rawPcmFormat_doesNotSetCodecProvenanceOnAudioSinkConfig() throws Exception {
+  public void render_rawPcmFormat_doesNotSetOriginalMimeTypeOnAudioSinkConfig() throws Exception {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.isEnded()).thenReturn(true);
     FakeSampleStream fakeSampleStream =
@@ -1199,7 +1199,7 @@ public class DecoderAudioRendererTest {
     ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
         ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
     verify(mockAudioSink).configure(configCaptor.capture());
-    assertThat(configCaptor.getValue().codecProvenance).isNull();
+    assertThat(configCaptor.getValue().originalMimeType).isNull();
   }
 
   private void setupRendererWithFakeClock(FakeClock fakeClock) {

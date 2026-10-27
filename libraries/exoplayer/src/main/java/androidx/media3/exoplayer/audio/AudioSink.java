@@ -220,10 +220,10 @@ public interface AudioSink {
     public final @Nullable MediaPeriodId mediaPeriodId;
 
     /**
-     * The MIME type of the original codec when the audio data was decoded to PCM, or {@code null}
-     * if not applicable.
+     * The original MIME type of the audio data before it was decoded to PCM, or {@code null} if not
+     * applicable.
      */
-    public final @Nullable String codecProvenance;
+    public final @Nullable String originalMimeType;
 
     private AudioSinkConfig(Builder builder) {
       format = builder.format;
@@ -231,7 +231,7 @@ public interface AudioSink {
       outputChannelMapping = builder.outputChannelMapping;
       timeline = builder.timeline;
       mediaPeriodId = builder.mediaPeriodId;
-      codecProvenance = builder.codecProvenance;
+      originalMimeType = builder.originalMimeType;
     }
 
     /** Creates a {@link Builder} from the current values. */
@@ -253,7 +253,7 @@ public interface AudioSink {
           && Objects.equals(outputChannelMapping, that.outputChannelMapping)
           && timeline.equals(that.timeline)
           && Objects.equals(mediaPeriodId, that.mediaPeriodId)
-          && Objects.equals(codecProvenance, that.codecProvenance);
+          && Objects.equals(originalMimeType, that.originalMimeType);
     }
 
     @Override
@@ -263,7 +263,7 @@ public interface AudioSink {
       result = 31 * result + (outputChannelMapping == null ? 0 : outputChannelMapping.hashCode());
       result = 31 * result + timeline.hashCode();
       result = 31 * result + (mediaPeriodId == null ? 0 : mediaPeriodId.hashCode());
-      result = 31 * result + (codecProvenance == null ? 0 : codecProvenance.hashCode());
+      result = 31 * result + (originalMimeType == null ? 0 : originalMimeType.hashCode());
       return result;
     }
 
@@ -274,7 +274,7 @@ public interface AudioSink {
       private @Nullable ImmutableIntArray outputChannelMapping;
       private Timeline timeline;
       private @Nullable MediaPeriodId mediaPeriodId;
-      private @Nullable String codecProvenance;
+      private @Nullable String originalMimeType;
 
       /**
        * Creates a new builder.
@@ -287,7 +287,7 @@ public interface AudioSink {
         this.outputChannelMapping = null;
         this.timeline = Timeline.EMPTY;
         this.mediaPeriodId = null;
-        this.codecProvenance = null;
+        this.originalMimeType = null;
       }
 
       @SuppressWarnings("deprecation") // Copying deprecated value.
@@ -297,7 +297,7 @@ public interface AudioSink {
         this.outputChannelMapping = audioSinkConfig.outputChannelMapping;
         this.timeline = audioSinkConfig.timeline;
         this.mediaPeriodId = audioSinkConfig.mediaPeriodId;
-        this.codecProvenance = audioSinkConfig.codecProvenance;
+        this.originalMimeType = audioSinkConfig.originalMimeType;
       }
 
       /**
@@ -370,15 +370,14 @@ public interface AudioSink {
       }
 
       /**
-       * Sets the MIME type of the original codec when the audio data was decoded to PCM.
+       * Sets the original MIME type of the audio data before it was decoded to PCM.
        *
-       * @param codecProvenance The MIME type of the original codec, or {@code null} if not
-       *     applicable.
+       * @param originalMimeType The original MIME type, or {@code null} if not applicable.
        * @return This builder.
        */
       @CanIgnoreReturnValue
-      public Builder setCodecProvenance(@Nullable String codecProvenance) {
-        this.codecProvenance = MimeTypes.normalizeMimeType(codecProvenance);
+      public Builder setOriginalMimeType(@Nullable String originalMimeType) {
+        this.originalMimeType = MimeTypes.normalizeMimeType(originalMimeType);
         return this;
       }
 

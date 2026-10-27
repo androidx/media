@@ -926,7 +926,7 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
-  public void render_decodedFromCompressedFormat_setsCodecProvenanceOnAudioSinkConfig()
+  public void render_decodedFromCompressedFormat_setsOriginalMimeTypeOnAudioSinkConfig()
       throws Exception {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
@@ -958,11 +958,11 @@ public class MediaCodecAudioRendererTest {
     ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
         ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
     verify(audioSink).configure(configCaptor.capture());
-    assertThat(configCaptor.getValue().codecProvenance).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(configCaptor.getValue().originalMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
   }
 
   @Test
-  public void render_bypassRawPcmFormat_doesNotSetCodecProvenanceOnAudioSinkConfig()
+  public void render_bypassRawPcmFormat_doesNotSetOriginalMimeTypeOnAudioSinkConfig()
       throws Exception {
     Format rawPcmFormat =
         new Format.Builder()
@@ -1001,7 +1001,7 @@ public class MediaCodecAudioRendererTest {
     ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
         ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
     verify(audioSink).configure(configCaptor.capture());
-    assertThat(configCaptor.getValue().codecProvenance).isNull();
+    assertThat(configCaptor.getValue().originalMimeType).isNull();
   }
 
   @Test

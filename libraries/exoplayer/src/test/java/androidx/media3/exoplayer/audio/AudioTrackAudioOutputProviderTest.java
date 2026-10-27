@@ -547,7 +547,7 @@ public class AudioTrackAudioOutputProviderTest {
 
   @Test
   @Config(minSdk = 37)
-  public void getOutputConfig_spatializedMultichannelPcmWithCodecProvenance_setsCodecProvenance()
+  public void getOutputConfig_spatializedMultichannelPcmWithOriginalMimeType_setsOriginalMimeType()
       throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
@@ -569,17 +569,17 @@ public class AudioTrackAudioOutputProviderTest {
     FormatConfig config =
         new FormatConfig.Builder(format)
             .setAudioAttributes(TEST_ATTRIBUTES)
-            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .build();
 
     OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
 
-    assertThat(outputConfig.codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(outputConfig.originalMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
   }
 
   @Test
   @Config(minSdk = 37)
-  public void getAudioOutput_withCodecProvenance_setsCodecProvenanceOnAudioTrack()
+  public void getAudioOutput_withOriginalMimeType_setsCodecProvenanceOnAudioTrack()
       throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
@@ -602,7 +602,7 @@ public class AudioTrackAudioOutputProviderTest {
         audioOutputProvider.getOutputConfig(
             new FormatConfig.Builder(format)
                 .setAudioAttributes(TEST_ATTRIBUTES)
-                .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+                .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
                 .build());
 
     AudioTrackAudioOutput audioOutput = audioOutputProvider.getAudioOutput(outputConfig);
@@ -613,7 +613,7 @@ public class AudioTrackAudioOutputProviderTest {
 
   @Test
   @Config(minSdk = 37)
-  public void getOutputConfig_rawPcmCodecProvenance_doesNotSetCodecProvenance() throws Exception {
+  public void getOutputConfig_rawPcmOriginalMimeType_doesNotSetOriginalMimeType() throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
             context,
@@ -634,17 +634,17 @@ public class AudioTrackAudioOutputProviderTest {
     FormatConfig config =
         new FormatConfig.Builder(format)
             .setAudioAttributes(TEST_ATTRIBUTES)
-            .setCodecProvenance(MimeTypes.AUDIO_RAW)
+            .setOriginalMimeType(MimeTypes.AUDIO_RAW)
             .build();
 
     OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
 
-    assertThat(outputConfig.codecProvenance).isNull();
+    assertThat(outputConfig.originalMimeType).isNull();
   }
 
   @Test
   @Config(minSdk = 37)
-  public void getOutputConfig_stereoPcmWithSpatializerActive_doesNotSetCodecProvenance()
+  public void getOutputConfig_stereoPcmWithSpatializerActive_doesNotSetOriginalMimeType()
       throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
@@ -666,17 +666,17 @@ public class AudioTrackAudioOutputProviderTest {
     FormatConfig config =
         new FormatConfig.Builder(format)
             .setAudioAttributes(TEST_ATTRIBUTES)
-            .setCodecProvenance(MimeTypes.AUDIO_AAC)
+            .setOriginalMimeType(MimeTypes.AUDIO_AAC)
             .build();
 
     OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
 
-    assertThat(outputConfig.codecProvenance).isNull();
+    assertThat(outputConfig.originalMimeType).isNull();
   }
 
   @Test
   @Config(minSdk = 37)
-  public void getOutputConfig_contentAlreadySpatialized_doesNotSetCodecProvenance()
+  public void getOutputConfig_contentAlreadySpatialized_doesNotSetOriginalMimeType()
       throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
@@ -700,17 +700,17 @@ public class AudioTrackAudioOutputProviderTest {
     FormatConfig config =
         new FormatConfig.Builder(format)
             .setAudioAttributes(preSpatializedAttributes)
-            .setCodecProvenance(MimeTypes.AUDIO_IAMF)
+            .setOriginalMimeType(MimeTypes.AUDIO_IAMF)
             .build();
 
     OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
 
-    assertThat(outputConfig.codecProvenance).isNull();
+    assertThat(outputConfig.originalMimeType).isNull();
   }
 
   @Test
   @Config(minSdk = 37)
-  public void getOutputConfig_spatializationBehaviorNever_doesNotSetCodecProvenance()
+  public void getOutputConfig_spatializationBehaviorNever_doesNotSetOriginalMimeType()
       throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
@@ -737,17 +737,17 @@ public class AudioTrackAudioOutputProviderTest {
     FormatConfig config =
         new FormatConfig.Builder(format)
             .setAudioAttributes(neverSpatializeAttributes)
-            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .build();
 
     OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
 
-    assertThat(outputConfig.codecProvenance).isNull();
+    assertThat(outputConfig.originalMimeType).isNull();
   }
 
   @Test
   @Config(maxSdk = 36)
-  public void getOutputConfig_beforeApi37_doesNotSetCodecProvenance() throws Exception {
+  public void getOutputConfig_beforeApi37_doesNotSetOriginalMimeType() throws Exception {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
             context,
@@ -768,12 +768,12 @@ public class AudioTrackAudioOutputProviderTest {
     FormatConfig config =
         new FormatConfig.Builder(format)
             .setAudioAttributes(TEST_ATTRIBUTES)
-            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .build();
 
     OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
 
-    assertThat(outputConfig.codecProvenance).isNull();
+    assertThat(outputConfig.originalMimeType).isNull();
   }
 
   private static final class AudioCapabilitiesListener implements AudioOutputProvider.Listener {
