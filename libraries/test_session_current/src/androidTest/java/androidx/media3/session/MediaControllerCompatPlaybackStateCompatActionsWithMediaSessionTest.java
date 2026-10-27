@@ -2509,6 +2509,361 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     releasePlayer(player);
   }
 
+  @Test
+  public void prepare_whenCommandGetTimelineNotAvailable_doesNotTriggerOnQueueChanged()
+      throws Exception {
+    Player player =
+        createPlayerWithExcludedCommand(
+            createPlayer(
+                /* onPostCreationTask= */ createdPlayer ->
+                    createdPlayer.setMediaItems(
+                        ImmutableList.of(
+                            MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                            MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3")))),
+            Player.COMMAND_GET_TIMELINE);
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+    CountDownLatch stateReadyLatch = new CountDownLatch(1);
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                player.addListener(
+                    new Player.Listener() {
+                      @Override
+                      public void onPlaybackStateChanged(@Player.State int playbackState) {
+                        if (playbackState == Player.STATE_READY) {
+                          stateReadyLatch.countDown();
+                        }
+                      }
+                    }));
+
+    getInstrumentation().runOnMainSync(player::prepare);
+
+    assertThat(stateReadyLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).isEmpty();
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void clearMediaItems_afterNonEmptyQueueSet_triggersOnQueueChangedWithNullOnce()
+      throws Exception {
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItems(
+                    ImmutableList.of(
+                        MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                        MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3"))));
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch queueNullLatch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+            if (queue == null) {
+              queueNullLatch.countDown();
+            }
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+
+    getInstrumentation().runOnMainSync(player::clearMediaItems);
+
+    assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).containsExactly((Object) null);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      setAvailableCommands_togglingCommandGetTimelineOnMediaNotificationController_updatesQueueCorrectly()
+          throws Exception {
+    MediaItem mediaItem1 = MediaItem.fromUri("asset:///media/wav/sample.wav");
+    MediaItem mediaItem2 = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<MediaSessionCompat.QueueItem> initialQueue = controllerCompat.getQueue();
+    connectMediaNotificationController(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch twoItemsQueueLatch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+            if (queue != null && queue.size() == 2) {
+              twoItemsQueueLatch.countDown();
+            }
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              mediaSession.setAvailableCommands(
+                  mediaSession.getMediaNotificationControllerInfo(),
+                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                  ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                      .buildUpon()
+                      .remove(Player.COMMAND_GET_TIMELINE)
+                      .build());
+              player.removeMediaItem(/* index= */ 1);
+              mediaSession.setAvailableCommands(
+                  mediaSession.getMediaNotificationControllerInfo(),
+                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                  ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+              player.addMediaItem(mediaItem2);
+            });
+
+    assertThat(twoItemsQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().waitForIdleSync();
+    assertThat(initialQueue).hasSize(2);
+    assertThat(receivedQueues).hasSize(3);
+    assertThat(receivedQueues.get(0)).isNull();
+    assertThat(receivedQueues.get(1)).hasSize(1);
+    assertThat(receivedQueues.get(2)).hasSize(2);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      setAvailableCommands_removingCommandGetTimelineWhenTimelineAlreadyEmpty_doesNotTriggerAdditionalOnQueueChanged()
+          throws Exception {
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItems(
+                    ImmutableList.of(
+                        MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                        MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3"))));
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    connectMediaNotificationController(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch queueNullLatch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+            if (queue == null) {
+              queueNullLatch.countDown();
+            }
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+
+    getInstrumentation().runOnMainSync(player::clearMediaItems);
+
+    assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).containsExactly((Object) null);
+
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                mediaSession.setAvailableCommands(
+                    mediaSession.getMediaNotificationControllerInfo(),
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                        .buildUpon()
+                        .remove(Player.COMMAND_GET_TIMELINE)
+                        .build()));
+
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).containsExactly((Object) null);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      setAvailableCommands_togglingCommandGetTimelineWithoutTimelineMutations_clearsAndRestoresQueue()
+          throws Exception {
+    MediaItem mediaItem1 =
+        new MediaItem.Builder().setMediaId("id_1").setUri("asset:///media/wav/sample.wav").build();
+    MediaItem mediaItem2 =
+        new MediaItem.Builder()
+            .setMediaId("id_2")
+            .setUri("asset:///media/mp3/bear-id3.mp3")
+            .build();
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    connectMediaNotificationController(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch restoredQueueLatch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+            if (queue != null) {
+              restoredQueueLatch.countDown();
+            }
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              mediaSession.setAvailableCommands(
+                  mediaSession.getMediaNotificationControllerInfo(),
+                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                  ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                      .buildUpon()
+                      .remove(Player.COMMAND_GET_TIMELINE)
+                      .build());
+              mediaSession.setAvailableCommands(
+                  mediaSession.getMediaNotificationControllerInfo(),
+                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                  ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+            });
+
+    assertThat(restoredQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).hasSize(2);
+    assertThat(receivedQueues.get(0)).isNull();
+    assertThat(receivedQueues.get(1)).hasSize(2);
+    assertThat(receivedQueues.get(1).get(0).getDescription().getMediaId()).isEqualTo("id_1");
+    assertThat(receivedQueues.get(1).get(1).getDescription().getMediaId()).isEqualTo("id_2");
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      timelineMutations_whileCommandGetTimelineUnavailable_doesNotTriggerAdditionalOnQueueChanged()
+          throws Exception {
+    MediaItem mediaItem1 = MediaItem.fromUri("asset:///media/wav/sample.wav");
+    MediaItem mediaItem2 = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
+    MediaSession mediaSession = createMediaSession(player);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    connectMediaNotificationController(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch queueNullLatch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+            if (queue == null) {
+              queueNullLatch.countDown();
+            }
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                mediaSession.setAvailableCommands(
+                    mediaSession.getMediaNotificationControllerInfo(),
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                        .buildUpon()
+                        .remove(Player.COMMAND_GET_TIMELINE)
+                        .build()));
+
+    assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).containsExactly((Object) null);
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.addMediaItem(mediaItem1);
+              player.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 2);
+              player.removeMediaItem(/* index= */ 1);
+              player.clearMediaItems();
+            });
+
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).containsExactly((Object) null);
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      setAvailableCommands_grantingCommandGetTimelineWhenTimelineEmpty_doesNotTriggerOnQueueChanged()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ListenableFuture<ConnectionResult> onConnectAsync(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            if (session.isMediaNotificationController(controller)) {
+              return immediateFuture(
+                  new AcceptedResultBuilder(session, controller)
+                      .setAvailablePlayerCommands(
+                          ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                              .buildUpon()
+                              .remove(Player.COMMAND_GET_TIMELINE)
+                              .build())
+                      .build());
+            }
+            return MediaSession.Callback.super.onConnectAsync(session, controller);
+          }
+        };
+    MediaSession mediaSession = createMediaSession(player, callback);
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+            receivedQueues.add(queue);
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                mediaSession.setAvailableCommands(
+                    mediaSession.getMediaNotificationControllerInfo(),
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    ConnectionResult.DEFAULT_PLAYER_COMMANDS));
+
+    getInstrumentation().waitForIdleSync();
+    assertThat(receivedQueues).isEmpty();
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
   private static class ControllingCommandsPlayer extends SimpleBasePlayer {
 
     private Commands availableCommands;

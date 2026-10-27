@@ -1408,6 +1408,7 @@ import org.jspecify.annotations.Nullable;
     private @Nullable FutureCallback<Bitmap> pendingBitmapLoadCallback;
     private @Nullable Runnable pendingBitmapFuturesTask;
     private ArrayMap<ByteArrayKey, ListenableFuture<Bitmap>> queueBitmapFutures;
+    private boolean hasNonNullQueue;
 
     public ControllerLegacyCbForBroadcast() {
       lastMediaMetadata = MediaMetadata.EMPTY;
@@ -1662,7 +1663,10 @@ import org.jspecify.annotations.Nullable;
       pendingBitmapFuturesTask = null;
       if (!isQueueEnabled() || timeline.isEmpty()) {
         queueBitmapFutures = new ArrayMap<>();
-        setQueue(sessionCompat, /* queue= */ null);
+        if (hasNonNullQueue) {
+          hasNonNullQueue = false;
+          setQueue(sessionCompat, /* queue= */ null);
+        }
         return;
       }
       List<MediaItem> mediaItemList = LegacyConversions.convertToMediaItemList(timeline);
@@ -1731,6 +1735,7 @@ import org.jspecify.annotations.Nullable;
 
       // Framework MediaSession#setQueue() uses ParceledListSlice,
       // which means we can safely send long lists.
+      hasNonNullQueue = true;
       setQueue(sessionCompat, queueItemList);
     }
 
