@@ -669,7 +669,7 @@ public final class DashPlaybackTest {
 
   // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
   //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
-  //  actually only has data for one of them (CC1). That means this test, which selectes CC2, can
+  //  actually only has data for one of them (CC1). That means this test, which selects CC2, can
   //  currently only assert that no subtitles are output.
   @Test
   public void cea608_twoChannelsDeclared_spanishSelected() throws Exception {

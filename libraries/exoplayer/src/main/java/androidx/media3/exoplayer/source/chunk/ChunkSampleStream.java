@@ -236,7 +236,7 @@ public class ChunkSampleStream<T extends ChunkSource>
    * @return The {@link EmbeddedSampleStream} for the embedded track.
    */
   public EmbeddedSampleStream selectEmbeddedTrack(
-      long positionUs, int trackType, int indexAmongTracksOfType) {
+      long positionUs, @C.TrackType int trackType, int indexAmongTracksOfType) {
     int tracksOfTypeSeen = 0;
     for (int i = 0; i < embeddedSampleQueues.length; i++) {
       if (embeddedTrackTypes[i] == trackType) {

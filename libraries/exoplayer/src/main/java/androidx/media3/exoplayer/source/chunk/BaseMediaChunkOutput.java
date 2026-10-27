@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import android.util.SparseIntArray;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -23,6 +25,9 @@ import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.chunk.ChunkExtractor.TrackOutputProvider;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.TrackOutput;
+import com.google.common.collect.ImmutableList;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A {@link TrackOutputProvider} that provides {@link TrackOutput TrackOutputs} based on a
@@ -37,46 +42,44 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
 
   private static final String TAG = "BaseMediaChunkOutput";
 
-  private final @C.TrackType int[] trackTypes;
-  private final SampleQueue[] sampleQueues;
-  private final SparseIntArray queueIndexById;
-  private final boolean[] queueAssigned;
+  private final ImmutableList<SampleQueueHolder> sampleQueueHolders;
 
   /**
    * @param trackTypes The track types of the individual track outputs.
    * @param sampleQueues The individual sample queues.
    */
   public BaseMediaChunkOutput(int[] trackTypes, SampleQueue[] sampleQueues) {
-    this.trackTypes = trackTypes;
-    this.sampleQueues = sampleQueues;
-    queueIndexById = new SparseIntArray();
-    queueAssigned = new boolean[sampleQueues.length];
+    checkArgument(trackTypes.length == sampleQueues.length);
+    ImmutableList.Builder<SampleQueueHolder> sampleQueueHoldersBuilder =
+        ImmutableList.builderWithExpectedSize(sampleQueues.length);
+    for (int i = 0; i < sampleQueues.length; i++) {
+      sampleQueueHoldersBuilder.add(new SampleQueueHolder(trackTypes[i], sampleQueues[i]));
+    }
+    this.sampleQueueHolders = sampleQueueHoldersBuilder.build();
   }
 
   @Override
   public TrackOutput track(int id, @C.TrackType int type) {
-    int cachedIndex = queueIndexById.get(id, C.INDEX_UNSET);
-    if (cachedIndex != C.INDEX_UNSET && trackTypes[cachedIndex] == type) {
-      return sampleQueues[cachedIndex];
-    }
-    int firstMatchingIndex = C.INDEX_UNSET;
-    for (int i = 0; i < trackTypes.length; i++) {
-      if (trackTypes[i] != type) {
+    @Nullable SampleQueueHolder firstMatchingHolder = null;
+    for (int i = 0; i < sampleQueueHolders.size(); i++) {
+      SampleQueueHolder holder = sampleQueueHolders.get(i);
+      if (holder.trackType != type) {
         continue;
       }
-      if (firstMatchingIndex == C.INDEX_UNSET) {
-        firstMatchingIndex = i;
+      if (firstMatchingHolder == null) {
+        firstMatchingHolder = holder;
       }
-      if (!queueAssigned[i]) {
-        queueAssigned[i] = true;
-        queueIndexById.put(id, i);
-        return sampleQueues[i];
+      if (holder.isBoundTo(id)) {
+        return holder.sampleQueue;
+      }
+      if (!holder.isBound()) {
+        holder.bind(id);
+        return holder.sampleQueue;
       }
     }
-    if (firstMatchingIndex != C.INDEX_UNSET) {
+    if (firstMatchingHolder != null) {
       // More outputs of this type than queues. Share the first matching queue.
-      queueIndexById.put(id, firstMatchingIndex);
-      return sampleQueues[firstMatchingIndex];
+      return firstMatchingHolder.sampleQueue;
     }
     Log.e(TAG, "Unmatched track of type: " + type);
     return new DiscardingTrackOutput();
@@ -84,9 +87,9 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
 
   /** Returns the current absolute write indices of the individual sample queues. */
   public int[] getWriteIndices() {
-    int[] writeIndices = new int[sampleQueues.length];
-    for (int i = 0; i < sampleQueues.length; i++) {
-      writeIndices[i] = sampleQueues[i].getWriteIndex();
+    int[] writeIndices = new int[sampleQueueHolders.size()];
+    for (int i = 0; i < sampleQueueHolders.size(); i++) {
+      writeIndices[i] = sampleQueueHolders.get(i).sampleQueue.getWriteIndex();
     }
     return writeIndices;
   }
@@ -96,8 +99,34 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
    * subsequently written to the sample queues.
    */
   public void setSampleOffsetUs(long sampleOffsetUs) {
-    for (SampleQueue sampleQueue : sampleQueues) {
-      sampleQueue.setSampleOffsetUs(sampleOffsetUs);
+    for (int i = 0; i < sampleQueueHolders.size(); i++) {
+      sampleQueueHolders.get(i).sampleQueue.setSampleOffsetUs(sampleOffsetUs);
+    }
+  }
+
+  private static final class SampleQueueHolder {
+
+    public final @C.TrackType int trackType;
+    public final SampleQueue sampleQueue;
+
+    private @MonotonicNonNull Integer trackId;
+
+    public SampleQueueHolder(@C.TrackType int trackType, SampleQueue sampleQueue) {
+      this.trackType = trackType;
+      this.sampleQueue = sampleQueue;
+    }
+
+    public boolean isBound() {
+      return trackId != null;
+    }
+
+    public boolean isBoundTo(int trackId) {
+      return this.trackId != null && this.trackId == trackId;
+    }
+
+    public void bind(int trackId) {
+      checkState(this.trackId == null);
+      this.trackId = trackId;
     }
   }
 }
