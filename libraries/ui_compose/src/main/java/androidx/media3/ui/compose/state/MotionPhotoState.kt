@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.annotation.IntRange
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.runtime.Composable
@@ -113,16 +114,26 @@ internal constructor(
    *
    * @property isPhotoVisible Whether the still photo overlay should currently cover the video
    *   surface.
+   * @property transitionDurationMs The duration of the alpha crossfade transition in milliseconds.
    */
   @Immutable
-  class VisualState internal constructor(val isPhotoVisible: Boolean) {
+  class VisualState
+  internal constructor(
+    val isPhotoVisible: Boolean,
+    @IntRange(from = 0) val transitionDurationMs: Long,
+  ) {
     override fun equals(other: Any?): Boolean {
       if (this === other) return true
       if (other !is VisualState) return false
-      return isPhotoVisible == other.isPhotoVisible
+      return isPhotoVisible == other.isPhotoVisible &&
+        transitionDurationMs == other.transitionDurationMs
     }
 
-    override fun hashCode(): Int = isPhotoVisible.hashCode()
+    override fun hashCode(): Int {
+      var result = isPhotoVisible.hashCode()
+      result = 31 * result + transitionDurationMs.hashCode()
+      return result
+    }
   }
 
   private var _player by mutableStateOf<Player?>(null)
@@ -192,7 +203,9 @@ internal constructor(
   /** The current resolved [VisualState] for presenting the Motion Photo. */
   val visualState: VisualState by derivedStateOf {
     VisualState(
-      isPhotoVisible = _showPhoto || player == null || isMotionUnavailable || !hasRenderedFirstFrame
+      isPhotoVisible =
+        _showPhoto || player == null || isMotionUnavailable || !hasRenderedFirstFrame,
+      transitionDurationMs = _config.transitionDurationMs,
     )
   }
 
@@ -331,41 +344,54 @@ internal constructor(
  * @property resumeVideoFromPreviousPosition Whether resuming motion playback should continue from
  *   the paused position rather than rewinding to the start position when returning to the still
  *   photo.
+ * @property transitionDurationMs The duration of the alpha crossfade transition between the still
+ *   photo and video in milliseconds. Must be non-negative.
  */
 // TODO(b/544627271): Add playback boundaries (`startBoundary`, `startPositionOffsetMs`,
 // `endBoundary`, `endPositionOffsetMs`), custom key photo frame anchor timestamp
-// (`customImageAnchorTimestampMs`), crossfade duration (`transitionDurationMs`), and other presets
-// in follow-up CLs.
+// (`customImageAnchorTimestampMs`), and other presets in follow-up CLs.
 @Immutable
 @RestrictTo(LIBRARY_GROUP)
 class MotionPhotoConfig(
   val isLooping: Boolean = false,
   val resumeVideoFromPreviousPosition: Boolean = false,
+  @IntRange(from = 0) val transitionDurationMs: Long = DEFAULT_TRANSITION_DURATION_MS,
 ) {
+  init {
+    require(transitionDurationMs >= 0) { "transitionDurationMs must be non-negative." }
+  }
+
   /** Returns a copy of this [MotionPhotoConfig] with the given properties updated. */
   fun copy(
     isLooping: Boolean = this.isLooping,
     resumeVideoFromPreviousPosition: Boolean = this.resumeVideoFromPreviousPosition,
+    @IntRange(from = 0) transitionDurationMs: Long = this.transitionDurationMs,
   ): MotionPhotoConfig =
     MotionPhotoConfig(
       isLooping = isLooping,
       resumeVideoFromPreviousPosition = resumeVideoFromPreviousPosition,
+      transitionDurationMs = transitionDurationMs,
     )
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is MotionPhotoConfig) return false
     return isLooping == other.isLooping &&
-      resumeVideoFromPreviousPosition == other.resumeVideoFromPreviousPosition
+      resumeVideoFromPreviousPosition == other.resumeVideoFromPreviousPosition &&
+      transitionDurationMs == other.transitionDurationMs
   }
 
   override fun hashCode(): Int {
     var result = isLooping.hashCode()
     result = 31 * result + resumeVideoFromPreviousPosition.hashCode()
+    result = 31 * result + transitionDurationMs.hashCode()
     return result
   }
 
   companion object {
+    /** Default crossfade transition duration in milliseconds. */
+    const val DEFAULT_TRANSITION_DURATION_MS = 200L
+
     /** Default configuration instance that plays motion once and returns to the still photo. */
     @JvmField val DEFAULT = MotionPhotoConfig()
 

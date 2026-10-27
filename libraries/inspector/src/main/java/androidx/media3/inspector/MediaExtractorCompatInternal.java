@@ -21,6 +21,7 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_NEXT_SYNC;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -118,6 +119,7 @@ import org.jspecify.annotations.Nullable;
   private @Nullable DataSource currentDataSource;
   private @Nullable FileDescriptor duplicatedFileDescriptor;
   private @Nullable SeekPoint pendingSeek;
+  private boolean hasReachedEndOfInput;
 
   private @Nullable SeekMap seekMap;
   private boolean tracksEnded;
@@ -369,6 +371,8 @@ import org.jspecify.annotations.Nullable;
           throw ParserException.createForMalformedContainer(message, /* cause= */ error);
         } else if (result == Extractor.RESULT_SEEK) {
           reopenCurrentDataSource(positionHolder.position);
+        } else if (result == Extractor.RESULT_END_OF_INPUT) {
+          hasReachedEndOfInput = true;
         }
       }
     } catch (Exception | OutOfMemoryError e) {
@@ -410,6 +414,7 @@ import org.jspecify.annotations.Nullable;
 
   /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
   /* package */ MediaFormat getTrackFormat(int trackIndex) {
+    checkTrackIndex(trackIndex);
     MediaExtractorTrack track = tracks.get(trackIndex);
     MediaFormat mediaFormat =
         track.createDownstreamMediaFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
@@ -432,6 +437,7 @@ import org.jspecify.annotations.Nullable;
    * once.
    */
   /* package */ void selectTrack(int trackIndex) {
+    checkTrackIndex(trackIndex);
     selectedTrackIndices.add(trackIndex);
   }
 
@@ -442,7 +448,12 @@ import org.jspecify.annotations.Nullable;
    * #getSampleTime} only retrieve information for the subset of tracks selected.
    */
   /* package */ void unselectTrack(int trackIndex) {
+    checkTrackIndex(trackIndex);
     selectedTrackIndices.remove(trackIndex);
+  }
+
+  private void checkTrackIndex(int trackIndex) {
+    checkArgument(trackIndex >= 0 && trackIndex < tracks.size(), "Invalid track index");
   }
 
   /**
@@ -450,7 +461,7 @@ import org.jspecify.annotations.Nullable;
    * mode}.
    */
   /* package */ void seekTo(long timeUs, @MediaExtractorCompat.SeekMode int mode) {
-    if (seekMap == null) {
+    if (seekMap == null || selectedTrackIndices.isEmpty()) {
       return;
     }
 
@@ -470,7 +481,8 @@ import org.jspecify.annotations.Nullable;
     switch (mode) {
       case SEEK_TO_CLOSEST_SYNC:
         seekPoint =
-            Math.abs(timeUs - seekPoints.second.timeUs) < Math.abs(timeUs - seekPoints.first.timeUs)
+            Math.abs(timeUs - seekPoints.second.timeUs)
+                    <= Math.abs(timeUs - seekPoints.first.timeUs)
                 ? seekPoints.second
                 : seekPoints.first;
         break;
@@ -489,6 +501,7 @@ import org.jspecify.annotations.Nullable;
       sampleQueues.valueAt(i).reset();
     }
     pendingSeek = seekPoint;
+    hasReachedEndOfInput = false;
   }
 
   /**
@@ -777,6 +790,9 @@ import org.jspecify.annotations.Nullable;
    */
   @EnsuresNonNullIf(expression = "sampleMetadataQueue.peekFirst()", result = true)
   private boolean advanceToSampleOrEndOfInput() {
+    if (selectedTrackIndices.isEmpty()) {
+      return false;
+    }
     try {
       maybeResolvePendingSeek();
     } catch (IOException e) {
@@ -784,7 +800,6 @@ import org.jspecify.annotations.Nullable;
       return false;
     }
 
-    boolean seenEndOfInput = false;
     while (true) {
       if (!sampleMetadataQueue.isEmpty()) {
         // By default, tracks are unselected.
@@ -795,19 +810,19 @@ import org.jspecify.annotations.Nullable;
           // There is a queued sample, but its track is unselected. We skip the sample.
           skipOneSample();
         }
-      } else if (!seenEndOfInput) {
+      } else if (!hasReachedEndOfInput) {
         // There are no queued samples for the selected tracks, but we can feed more data to the
         // extractor and see if more samples are produced.
         try {
           @ReadResult int result = progressiveMediaExtractor.read(positionHolder);
           if (result == Extractor.RESULT_END_OF_INPUT) {
-            seenEndOfInput = true;
+            hasReachedEndOfInput = true;
           } else if (result == Extractor.RESULT_SEEK) {
             reopenCurrentDataSource(positionHolder.position);
           }
         } catch (Exception | OutOfMemoryError e) {
           Log.w(TAG, "Treating exception as the end of input.", e);
-          seenEndOfInput = true;
+          hasReachedEndOfInput = true;
         }
       } else {
         // No queued samples for selected tracks, and we've parsed all the file. Nothing else to do.

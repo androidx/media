@@ -20,6 +20,7 @@ import static androidx.media3.common.C.CENC_TYPE_cenc;
 import static androidx.media3.common.C.WIDEVINE_UUID;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
@@ -424,6 +425,68 @@ public class MediaExtractorContractTest {
     assertThat(sampleSize).isEqualTo(firstVideoSampleSize);
     assertThat(buffer.position()).isEqualTo(8);
     assertThat(buffer.limit()).isEqualTo(8 + firstVideoSampleSize);
+  }
+
+  @Test
+  public void trackMethods_withInvalidTrackIndex_throwIllegalArgumentException()
+      throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+    int trackCount = mediaExtractorProxy.getTrackCount();
+
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.selectTrack(-1));
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.selectTrack(trackCount));
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.unselectTrack(-1));
+    assertThrows(
+        IllegalArgumentException.class, () -> mediaExtractorProxy.unselectTrack(trackCount));
+    assertThrows(IllegalArgumentException.class, () -> mediaExtractorProxy.getTrackFormat(-1));
+    assertThrows(
+        IllegalArgumentException.class, () -> mediaExtractorProxy.getTrackFormat(trackCount));
+  }
+
+  @Test
+  public void seekTo_withNoTrackSelected_isNoOp() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample_ac3.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    mediaExtractorProxy.seekTo(/* timeUs= */ 128_000, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC);
+    mediaExtractorProxy.selectTrack(0);
+
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(0);
+  }
+
+  @Test
+  public void seekTo_withClosestSyncAtMidpoint_seeksToLaterSyncSample() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample_ac3.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+    mediaExtractorProxy.selectTrack(0);
+
+    // Sync samples in track 0 are at 0, 32_000, 64_000, ... us.
+    mediaExtractorProxy.seekTo(/* timeUs= */ 16_000, MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC);
+
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(32_000);
+  }
+
+  @Test
+  public void sampleGetters_withNoTrackSelected_returnNoSampleAndKeepSamples() throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    assertThat(mediaExtractorProxy.getSampleTrackIndex()).isEqualTo(-1);
+    assertThat(mediaExtractorProxy.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorProxy.getSampleFlags()).isEqualTo(-1);
+    assertThat(mediaExtractorProxy.readSampleData(ByteBuffer.allocate(1), /* offset= */ 0))
+        .isEqualTo(-1);
+    assertThat(mediaExtractorProxy.advance()).isFalse();
+
+    mediaExtractorProxy.selectTrack(0);
+
+    assertThat(mediaExtractorProxy.getSampleTrackIndex()).isEqualTo(0);
+    assertThat(mediaExtractorProxy.getSampleFlags()).isEqualTo(MediaExtractor.SAMPLE_FLAG_SYNC);
   }
 
   private static byte[] buildInitializationVector(int suffix) {

@@ -85,7 +85,12 @@ import java.util.ArrayList;
       return;
     }
     CuesWithTiming lastCueToDiscard = cuesWithTimingList.get(indexToDiscardTo - 1);
-    if (lastCueToDiscard.endTimeUs == C.TIME_UNSET || lastCueToDiscard.endTimeUs >= timeUs) {
+    if (lastCueToDiscard.endTimeUs == C.TIME_UNSET
+        || lastCueToDiscard.endTimeUs > timeUs
+        || lastCueToDiscard.startTimeUs == timeUs) {
+      // Keep cues that either have unset end time or end after timeUs so that they are still active
+      // when querying cues at timeUs. Also keep a zero-duration cue starting at timeUs so
+      // getPreviousCueChangeTimeUs(timeUs) still returns timeUs.
       indexToDiscardTo--;
     }
     cuesWithTimingList.subList(0, indexToDiscardTo).clear();

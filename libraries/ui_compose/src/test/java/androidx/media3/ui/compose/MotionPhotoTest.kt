@@ -47,6 +47,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakeBitmapLoader
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.state.MotionPhotoConfig
 import androidx.media3.ui.compose.state.MotionPhotoState
 import androidx.media3.ui.compose.state.rememberMotionPhotoState
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -331,7 +332,7 @@ class MotionPhotoTest {
     }
 
   @Test
-  fun motionPhoto_whenShowPhotoSetToFalseAfterFirstFrameRendered_crossfadesOutOverTime() =
+  fun motionPhoto_whenShowPhotoSetToFalseAfterFirstFrameRendered_crossfadesOutOverTransitionDuration() =
     runComposeUiTest {
       val player = FakePlayer(bufferingDelayMs = 0)
       lateinit var state: MotionPhotoState
@@ -343,6 +344,7 @@ class MotionPhotoTest {
             player = player,
             mediaItem = unresolvableMediaItem,
             initialShowPhoto = true,
+            initialConfig = MotionPhotoConfig(transitionDurationMs = 800L),
           )
         MotionPhoto(
           state = state,
@@ -358,10 +360,11 @@ class MotionPhotoTest {
 
       state.showPhoto = false
       mainClock.advanceTimeByFrame()
-      mainClock.advanceTimeBy(150L)
+      waitForIdle()
+      mainClock.advanceTimeBy(600L)
       waitForIdle()
 
-      // Halfway through the 300ms tween crossfade, the photo overlay is still partially visible.
+      // At 600ms into the configured 800ms crossfade, the photo overlay is still partially visible.
       assertThat(
           composeView.accessibilityNodeProvider
             .createAccessibilityNodeInfo(photoSemanticsId)!!
@@ -369,10 +372,52 @@ class MotionPhotoTest {
         )
         .isTrue()
 
-      mainClock.advanceTimeBy(350L)
+      mainClock.advanceTimeBy(250L)
       waitForIdle()
 
-      // Once the crossfade completes, alpha reaches 0f and the photo overlay is hidden.
+      // Once the 800ms crossfade completes, alpha reaches 0f and the photo overlay is hidden.
+      assertThat(
+          composeView.accessibilityNodeProvider
+            .createAccessibilityNodeInfo(photoSemanticsId)!!
+            .isVisibleToUser
+        )
+        .isFalse()
+    }
+
+  @Test
+  fun motionPhoto_withZeroTransitionDurationAndShowPhotoSetToFalse_hidesPhotoImmediately() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      lateinit var composeView: View
+      setContent {
+        composeView = LocalView.current
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = unresolvableMediaItem,
+            initialShowPhoto = true,
+            initialConfig = MotionPhotoConfig(transitionDurationMs = 0L),
+          )
+        MotionPhoto(
+          state = state,
+          modifier = Modifier.size(100.dp),
+          photo = { Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG)) },
+        )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      val photoSemanticsId = onNodeWithTag(PHOTO_SLOT_TAG).fetchSemanticsNode().id
+      mainClock.autoAdvance = false
+
+      state.showPhoto = false
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      mainClock.advanceTimeByFrame()
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+
       assertThat(
           composeView.accessibilityNodeProvider
             .createAccessibilityNodeInfo(photoSemanticsId)!!

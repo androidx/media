@@ -53,6 +53,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 
+import org.junit.Ignore
+
 /** Checks transcoding quality using WebGPU HardwareBuffer rendering. */
 @OptIn(UnstableApi::class, ExperimentalApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -75,6 +77,7 @@ class WebGpuTranscodeQualityTest {
         InstrumentationRegistry.getInstrumentation().context.assets
     }
 
+  @Ignore("Flaky: b/577142229")
   @Test
   fun export_withWebGpu_psnrIsGreaterThanThreshold() = runBlocking {
     // Don't skip based on format support as input and output formats should be within CDD

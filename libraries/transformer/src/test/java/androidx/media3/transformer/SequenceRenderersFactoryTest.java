@@ -17,9 +17,12 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AVC;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
+import static androidx.media3.transformer.EditedMediaItemSequence.withVideoFrom;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -46,6 +49,7 @@ import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
@@ -63,13 +67,16 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import androidx.media3.test.utils.FakeSampleStream;
+import androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.transformer.TestUtil.FakeImageReaderAdapter;
+import androidx.media3.transformer.TestUtil.FakeImageReaderAdapterFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Bytes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -260,6 +267,54 @@ public final class SequenceRenderersFactoryTest {
     assertThat(imageReaders).hasSize(2);
     assertThat(imageReaders.get(1).isClosed()).isFalse();
   }
+
+  @Test
+  public void hardwareBufferVideoRenderer_reenabledAfterStop_doesNotAttachStaleHagc()
+      throws Exception {
+    List<AsyncFrame> receivedFrames = new ArrayList<>();
+    EditedMediaItemSequence sequence = createVideoSequence();
+    HardwareBufferFrameReader hardwareBufferFrameReader =
+        createHardwareBufferFrameReader(
+            sequence,
+            receivedFrames,
+            handlerThread.getLooper(),
+            new FakeImageReaderAdapterFactory());
+    Renderer videoRenderer =
+        createRenderer(
+            createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader), C.TRACK_TYPE_VIDEO);
+    Timeline timeline =
+        new CompositionPlayer.CompositionForwardingTimeline(new FakeTimeline(), sequence);
+    Format videoFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(640)
+            .setHeight(360)
+            .build();
+
+    enableRenderer(
+        videoRenderer,
+        timeline,
+        /* periodIndex= */ 0,
+        videoFormat,
+        /* fakeSampleStreamItems= */ ImmutableList.of(
+            sampleWithHagc(new byte[] {1, 2, 3}), END_OF_STREAM_ITEM));
+    renderUntilFrameCount(videoRenderer, receivedFrames, /* frameCount= */ 1);
+    // Stopping the player disables the renderer, and preparing it again re-enables it with the
+    // same timestamps. Metadata queued before the stop must not be attached after it.
+    videoRenderer.disable();
+    // Enable the renderer again, with a frame at the same time but without HAGC metadata.
+    enableRenderer(videoRenderer, timeline, /* periodIndex= */ 0, videoFormat);
+    renderUntilFrameCount(videoRenderer, receivedFrames, /* frameCount= */ 2);
+
+    assertThat(receivedFrames.get(0).frame.getMetadata().get(Frame.KEY_HDR_ST2094_50_INFO))
+        .isEqualTo(new byte[] {1, 2, 3});
+    assertThat(receivedFrames.get(1).frame.getMetadata())
+        .doesNotContainKey(Frame.KEY_HDR_ST2094_50_INFO);
+  }
+
+  // TODO: b/390604981 - Once the asynchronous ShadowMediaCodec offers more than one input buffer,
+  // test that frames still in the decoder when the renderer moves to the next item keep the HAGC
+  // of their item.
 
   @Test
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
@@ -502,6 +557,14 @@ public final class SequenceRenderersFactoryTest {
     return withAudioFrom(ImmutableList.of(editedMediaItem));
   }
 
+  private static EditedMediaItemSequence createVideoSequence() {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri("https://example.com"))
+            .setDurationUs(1_000_000)
+            .build();
+    return withVideoFrom(ImmutableList.of(editedMediaItem));
+  }
+
   private static HardwareBufferFrameReader createHardwareBufferFrameReader(
       EditedMediaItemSequence sequence, List<AsyncFrame> receivedFrames, Looper looper) {
     return createHardwareBufferFrameReader(
@@ -564,6 +627,43 @@ public final class SequenceRenderersFactoryTest {
       boolean mayRenderStartOfStream,
       long offsetUs)
       throws ExoPlaybackException {
+    enableRenderer(
+        renderer,
+        timeline,
+        periodIndex,
+        format,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0L, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM),
+        mayRenderStartOfStream,
+        offsetUs);
+  }
+
+  private static void enableRenderer(
+      Renderer renderer,
+      Timeline timeline,
+      int periodIndex,
+      Format format,
+      List<FakeSampleStreamItem> fakeSampleStreamItems)
+      throws ExoPlaybackException {
+    enableRenderer(
+        renderer,
+        timeline,
+        periodIndex,
+        format,
+        fakeSampleStreamItems,
+        /* mayRenderStartOfStream= */ true,
+        /* offsetUs= */ 0L);
+  }
+
+  private static void enableRenderer(
+      Renderer renderer,
+      Timeline timeline,
+      int periodIndex,
+      Format format,
+      List<FakeSampleStreamItem> fakeSampleStreamItems,
+      boolean mayRenderStartOfStream,
+      long offsetUs)
+      throws ExoPlaybackException {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -571,8 +671,7 @@ public final class SequenceRenderersFactoryTest {
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
             format,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0L, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+            fakeSampleStreamItems);
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     renderer.init(/* index= */ 0, PlayerId.UNSET, SystemClock.DEFAULT);
     renderer.setTimeline(timeline);
@@ -633,6 +732,35 @@ public final class SequenceRenderersFactoryTest {
       videoFrameHandler.render(/* renderTimestampNs= */ bufferPresentationTimeUs * 1000);
       return true;
     }
+  }
+
+  /**
+   * Calls {@link Renderer#render} until the frame reader has received {@code frameCount} frames.
+   *
+   * <p>The renderer hands each frame to the frame reader as soon as the decoder outputs it,
+   * whatever the position. This can take several calls: a frame leaves the decoder in a later call
+   * than the one that queued its sample, and the frame reader takes one frame at a time.
+   */
+  private static void renderUntilFrameCount(
+      Renderer renderer, List<AsyncFrame> receivedFrames, int frameCount)
+      throws ExoPlaybackException {
+    while (receivedFrames.size() < frameCount) {
+      renderer.render(/* positionUs= */ 0L, /* elapsedRealtimeUs= */ 0L);
+    }
+  }
+
+  /**
+   * Returns a one-byte key frame sample at time zero with the given HAGC payload as supplemental
+   * data.
+   */
+  private static FakeSampleStreamItem sampleWithHagc(byte[] hagcPayload) {
+    // The sample size, the sample, then the HAGC T.35 header and payload.
+    byte[] sampleData =
+        Bytes.concat(createByteArray(0, 0, 0, 1, 0, 0xB5, 0x00, 0x90, 0x00, 0x01), hagcPayload);
+    return sample(
+        /* timeUs= */ 0L,
+        C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+        sampleData);
   }
 
   private static final class FakeWakeupListener implements Renderer.WakeupListener {

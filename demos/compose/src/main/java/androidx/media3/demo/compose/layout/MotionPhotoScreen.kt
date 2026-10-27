@@ -43,6 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlayer
@@ -76,10 +77,15 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
   val motionPhotoState = rememberMotionPhotoState(player = player, mediaItem = mediaItem)
 
   val lifecycleOwner = LocalLifecycleOwner.current
-  DisposableEffect(lifecycleOwner, motionPhotoState) {
+  DisposableEffect(lifecycleOwner, motionPhotoState, player) {
     val observer = LifecycleEventObserver { _, event ->
-      if (event == Lifecycle.Event.ON_STOP) {
+      if (event == Lifecycle.Event.ON_START) {
+        if (player.playbackState == Player.STATE_IDLE && player.mediaItemCount > 0) {
+          player.prepare()
+        }
+      } else if (event == Lifecycle.Event.ON_STOP) {
         motionPhotoState.showPhoto = true
+        player.stop()
       }
     }
     lifecycleOwner.lifecycle.addObserver(observer)

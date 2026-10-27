@@ -74,6 +74,7 @@ import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
 import com.google.ads.interactivemedia.v3.api.VideoOrientation;
 import com.google.ads.interactivemedia.v3.api.player.AdMediaInfo;
 import com.google.ads.interactivemedia.v3.api.player.ContentProgressProvider;
+import com.google.ads.interactivemedia.v3.api.player.ResizablePlayer;
 import com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer;
 import com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate;
 import com.google.common.collect.ImmutableList;
@@ -266,7 +267,7 @@ public final class ImaAdsLoaderTest {
   @Test
   public void startAndCallbacksAfterRelease() {
     // Request ads in order to get a reference to the ad event listener.
-    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, adViewGroup);
+    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider);
     imaAdsLoader.release();
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
@@ -277,7 +278,7 @@ public final class ImaAdsLoaderTest {
     // Note: we can't currently call getContentProgress/getAdProgress as a VerifyError is thrown
     // when using Robolectric and accessing VideoProgressUpdate.VIDEO_TIME_NOT_READY, due to the IMA
     // SDK being proguarded.
-    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, adViewGroup);
+    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider);
     adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
     videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
     adEventListener.onAdEvent(getAdEvent(AdEventType.CONTENT_PAUSE_REQUESTED, mockPrerollSingleAd));
@@ -1277,7 +1278,7 @@ public final class ImaAdsLoaderTest {
   public void stop_unregistersAllVideoControlOverlays() {
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
-    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, adViewGroup);
+    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider);
     imaAdsLoader.stop(adsMediaSource, adsLoaderListener);
 
     InOrder inOrder = inOrder(mockAdDisplayContainer);
@@ -1904,6 +1905,202 @@ public final class ImaAdsLoaderTest {
     // Verify that it now reports correct progress for 2nd ad.
     verify(mockVideoAdPlayerCallback, atLeastOnce())
         .onAdProgress(adMediaInfo2, new VideoProgressUpdate(0, 5_000));
+  }
+
+  @Test
+  public void start_withoutAdVideoView_doesNotImplementResizablePlayer() {
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    assertThat(videoAdPlayer).isNotInstanceOf(ResizablePlayer.class);
+  }
+
+  @Test
+  public void start_withUnattachedAdVideoView_doesNotImplementResizablePlayer() {
+    View unattachedVideoView = new View(getApplicationContext());
+    AdViewProvider unattachedAdViewProvider =
+        new AdViewProvider() {
+          @Override
+          public ViewGroup getAdViewGroup() {
+            return adViewGroup;
+          }
+
+          @Override
+          public View getAdVideoView() {
+            return unattachedVideoView;
+          }
+        };
+
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, unattachedAdViewProvider, adsLoaderListener);
+
+    assertThat(videoAdPlayer).isNotInstanceOf(ResizablePlayer.class);
+  }
+
+  @Test
+  public void requestAds_withAdVideoView_implementsResizablePlayer() {
+    FrameLayout rootLayout = new FrameLayout(getApplicationContext());
+    View videoView = new View(getApplicationContext());
+    rootLayout.addView(videoView);
+    AdViewProvider resizableAdViewProvider =
+        new AdViewProvider() {
+          @Override
+          public ViewGroup getAdViewGroup() {
+            return adViewGroup;
+          }
+
+          @Override
+          public View getAdVideoView() {
+            return videoView;
+          }
+        };
+
+    imaAdsLoader.requestAds(TEST_DATA_SPEC, TEST_ADS_ID, resizableAdViewProvider);
+
+    assertThat(videoAdPlayer).isInstanceOf(ResizablePlayer.class);
+  }
+
+  @Test
+  public void resize_withAdVideoView_updatesMargins() {
+    FrameLayout rootLayout = new FrameLayout(getApplicationContext());
+    View videoView = new View(getApplicationContext());
+    rootLayout.addView(videoView);
+    AdViewProvider resizableAdViewProvider =
+        new AdViewProvider() {
+          @Override
+          public ViewGroup getAdViewGroup() {
+            return adViewGroup;
+          }
+
+          @Override
+          public View getAdVideoView() {
+            return videoView;
+          }
+        };
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, resizableAdViewProvider, adsLoaderListener);
+    ResizablePlayer resizablePlayer = (ResizablePlayer) videoAdPlayer;
+
+    resizablePlayer.resize(
+        /* leftMargin= */ 15, /* topMargin= */ 25, /* rightMargin= */ 35, /* bottomMargin= */ 45);
+
+    ViewGroup.MarginLayoutParams marginLayoutParams =
+        (ViewGroup.MarginLayoutParams) videoView.getLayoutParams();
+    assertThat(marginLayoutParams.leftMargin).isEqualTo(15);
+    assertThat(marginLayoutParams.topMargin).isEqualTo(25);
+    assertThat(marginLayoutParams.rightMargin).isEqualTo(35);
+    assertThat(marginLayoutParams.bottomMargin).isEqualTo(45);
+  }
+
+  @Test
+  public void stop_afterAdVideoViewResized_resetsMargins() {
+    FrameLayout rootLayout = new FrameLayout(getApplicationContext());
+    View videoView = new View(getApplicationContext());
+    rootLayout.addView(videoView);
+    AdViewProvider resizableAdViewProvider =
+        new AdViewProvider() {
+          @Override
+          public ViewGroup getAdViewGroup() {
+            return adViewGroup;
+          }
+
+          @Override
+          public View getAdVideoView() {
+            return videoView;
+          }
+        };
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, resizableAdViewProvider, adsLoaderListener);
+    ResizablePlayer resizablePlayer = (ResizablePlayer) videoAdPlayer;
+    resizablePlayer.resize(
+        /* leftMargin= */ 15, /* topMargin= */ 25, /* rightMargin= */ 35, /* bottomMargin= */ 45);
+
+    imaAdsLoader.stop(adsMediaSource, adsLoaderListener);
+
+    ViewGroup.MarginLayoutParams marginLayoutParams =
+        (ViewGroup.MarginLayoutParams) videoView.getLayoutParams();
+    assertThat(marginLayoutParams.leftMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.topMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.rightMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.bottomMargin).isEqualTo(0);
+  }
+
+  @Test
+  public void release_afterAdVideoViewResized_resetsMargins() {
+    FrameLayout rootLayout = new FrameLayout(getApplicationContext());
+    View videoView = new View(getApplicationContext());
+    rootLayout.addView(videoView);
+    AdViewProvider resizableAdViewProvider =
+        new AdViewProvider() {
+          @Override
+          public ViewGroup getAdViewGroup() {
+            return adViewGroup;
+          }
+
+          @Override
+          public View getAdVideoView() {
+            return videoView;
+          }
+        };
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, resizableAdViewProvider, adsLoaderListener);
+    ResizablePlayer resizablePlayer = (ResizablePlayer) videoAdPlayer;
+    resizablePlayer.resize(
+        /* leftMargin= */ 15, /* topMargin= */ 25, /* rightMargin= */ 35, /* bottomMargin= */ 45);
+
+    imaAdsLoader.release();
+
+    ViewGroup.MarginLayoutParams marginLayoutParams =
+        (ViewGroup.MarginLayoutParams) videoView.getLayoutParams();
+    assertThat(marginLayoutParams.leftMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.topMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.rightMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.bottomMargin).isEqualTo(0);
+  }
+
+  @Test
+  public void onPositionDiscontinuity_switchingPeriodAfterAdVideoViewResized_resetsMargins() {
+    timelineWindowDefinitions =
+        new TimelineWindowDefinition[] {
+          getInitialTimelineWindowDefinition(TEST_ADS_ID),
+          new TimelineWindowDefinition.Builder().setDurationUs(CONTENT_DURATION_US).build()
+        };
+    FrameLayout rootLayout = new FrameLayout(getApplicationContext());
+    View videoView = new View(getApplicationContext());
+    rootLayout.addView(videoView);
+    AdViewProvider resizableAdViewProvider =
+        new AdViewProvider() {
+          @Override
+          public ViewGroup getAdViewGroup() {
+            return adViewGroup;
+          }
+
+          @Override
+          public View getAdVideoView() {
+            return videoView;
+          }
+        };
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, resizableAdViewProvider, adsLoaderListener);
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    ResizablePlayer resizablePlayer = (ResizablePlayer) videoAdPlayer;
+    resizablePlayer.resize(
+        /* leftMargin= */ 15, /* topMargin= */ 25, /* rightMargin= */ 35, /* bottomMargin= */ 45);
+
+    fakePlayer.setPlayingContentPosition(/* periodIndex= */ 1, /* positionMs= */ 0);
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+
+    ViewGroup.MarginLayoutParams marginLayoutParams =
+        (ViewGroup.MarginLayoutParams) videoView.getLayoutParams();
+    assertThat(marginLayoutParams.leftMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.topMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.rightMargin).isEqualTo(0);
+    assertThat(marginLayoutParams.bottomMargin).isEqualTo(0);
   }
 
   private static TimelineWindowDefinition getInitialTimelineWindowDefinition(Object adsId) {

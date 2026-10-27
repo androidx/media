@@ -15,7 +15,9 @@
  */
 package androidx.media3.common;
 
+import android.view.View;
 import android.view.ViewGroup;
+import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -43,5 +45,20 @@ public interface AdViewProvider {
    */
   default List<AdOverlayInfo> getAdOverlayInfos() {
     return ImmutableList.of();
+  }
+
+  /**
+   * Returns the container {@link View} for the video surface that can be resized during ad playback
+   * (for example, to accommodate nonlinear or interactive ad overlays), or {@code null} if video
+   * resizing is not supported.
+   *
+   * <p>When non-null, the returned view's {@link View#getLayoutParams() layout parameters} must be
+   * an instance of {@link ViewGroup.MarginLayoutParams} with zero default margins, its unresized
+   * bounds must match {@link #getAdViewGroup()}, and it must center the video surface within its
+   * resized bounds when margins are applied.
+   */
+  @UnstableApi
+  default @Nullable View getAdVideoView() {
+    return null;
   }
 }

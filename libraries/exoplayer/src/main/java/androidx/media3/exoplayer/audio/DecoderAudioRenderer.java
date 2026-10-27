@@ -69,6 +69,7 @@ import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
@@ -511,8 +512,13 @@ public abstract class DecoderAudioRenderer<
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
               .build();
+      @Nullable String codecProvenance =
+          !Objects.equals(inputFormat.sampleMimeType, outputFormat.sampleMimeType)
+              ? inputFormat.sampleMimeType
+              : null;
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(outputFormat)
+              .setCodecProvenance(codecProvenance)
               .setOutputChannelMapping(getChannelMapping(decoder))
               .setTimeline(getTimeline())
               .setMediaPeriodId(getMediaPeriodId())

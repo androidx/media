@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
+import android.os.Bundle;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -28,6 +29,7 @@ import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.common.collect.ImmutableMap;
 import java.util.Calendar;
+import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -350,5 +352,518 @@ public class DefaultMediaItemConverterTest {
     assertThat(mediaItem.mediaMetadata.releaseYear).isEqualTo(2024);
     assertThat(mediaItem.mediaMetadata.releaseMonth).isEqualTo(5);
     assertThat(mediaItem.mediaMetadata.releaseDay).isEqualTo(27);
+  }
+
+  @Test
+  public void toMediaQueueItem_withPredefinedExtras_setsCastMetadata() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "Test Series");
+    extras.putInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER, 3);
+    extras.putInt(com.google.android.gms.cast.MediaMetadata.KEY_EPISODE_NUMBER, 7);
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO, "Test Studio");
+
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+    com.google.android.gms.cast.MediaMetadata metadata = queueItem.getMedia().getMetadata();
+
+    assertThat(metadata.getString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("Test Series");
+    assertThat(metadata.getInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isEqualTo(3);
+    assertThat(metadata.getInt(com.google.android.gms.cast.MediaMetadata.KEY_EPISODE_NUMBER))
+        .isEqualTo(7);
+    assertThat(metadata.getString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO))
+        .isEqualTo("Test Studio");
+    assertThat(queueItem.getMedia().getCustomData().has("m3-extras")).isFalse();
+  }
+
+  @Test
+  public void toMediaQueueItem_withCustomExtras_setsCustomData() throws Exception {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString("customString", "customValue");
+    extras.putInt("customInt", 123);
+    extras.putBoolean("customBool", true);
+    Bundle nestedBundle = new Bundle();
+    nestedBundle.putString("nestedKey", "nestedVal");
+    extras.putBundle("nestedBundle", nestedBundle);
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+    com.google.android.gms.cast.MediaMetadata metadata = queueItem.getMedia().getMetadata();
+    JSONObject customData = queueItem.getMedia().getCustomData();
+
+    assertThat(customData.has("m3-extras")).isTrue();
+    JSONObject customExtras = customData.getJSONObject("m3-extras");
+    assertThat(customExtras.getString("customString")).isEqualTo("customValue");
+    assertThat(customExtras.getInt("customInt")).isEqualTo(123);
+    assertThat(customExtras.getBoolean("customBool")).isTrue();
+    assertThat(customExtras.getJSONObject("nestedBundle").getString("nestedKey"))
+        .isEqualTo("nestedVal");
+    assertThat(metadata.containsKey("customString")).isFalse();
+    assertThat(metadata.containsKey("customInt")).isFalse();
+  }
+
+  @Test
+  public void toMediaQueueItem_withMixedExtras_segregatesPredefinedAndCustom() throws Exception {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "Test Series");
+    extras.putInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER, 2);
+    extras.putString("customKey", "customVal");
+    extras.putBoolean("customBool", false);
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+    com.google.android.gms.cast.MediaMetadata metadata = queueItem.getMedia().getMetadata();
+    JSONObject customData = queueItem.getMedia().getCustomData();
+
+    assertThat(metadata.getString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("Test Series");
+    assertThat(metadata.getInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isEqualTo(2);
+    assertThat(metadata.containsKey("customKey")).isFalse();
+    assertThat(metadata.containsKey("customBool")).isFalse();
+
+    assertThat(customData.has("m3-extras")).isTrue();
+    JSONObject customExtras = customData.getJSONObject("m3-extras");
+    assertThat(customExtras.getString("customKey")).isEqualTo("customVal");
+    assertThat(customExtras.getBoolean("customBool")).isFalse();
+    assertThat(customExtras.has(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isFalse();
+    assertThat(customExtras.has(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isFalse();
+  }
+
+  @Test
+  public void toMediaItem_withPredefinedCastMetadata_setsExtras() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_TV_SHOW);
+    gmsMetadata.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "Test Series");
+    gmsMetadata.putInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER, 4);
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO, "Test Studio");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaMetadata.extras).isNotNull();
+    Bundle extras = mediaItem.mediaMetadata.extras;
+    assertThat(extras.getString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("Test Series");
+    assertThat(extras.getInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isEqualTo(4);
+    assertThat(extras.getString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO))
+        .isEqualTo("Test Studio");
+  }
+
+  @Test
+  public void toMediaItem_withCustomDataExtras_setsExtras() throws Exception {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    JSONObject customExtras = new JSONObject();
+    customExtras.put("customString", "customValue");
+    customExtras.put("customInt", 456);
+    customExtras.put("customBool", true);
+    JSONObject nestedJson = new JSONObject();
+    nestedJson.put("nestedKey", "nestedVal");
+    customExtras.put("nestedBundle", nestedJson);
+    JSONObject customData = new JSONObject();
+    customData.put("m3-extras", customExtras);
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaMetadata.extras).isNotNull();
+    Bundle extras = mediaItem.mediaMetadata.extras;
+    assertThat(extras.getString("customString")).isEqualTo("customValue");
+    assertThat(extras.getInt("customInt")).isEqualTo(456);
+    assertThat(extras.getBoolean("customBool")).isTrue();
+    Bundle nestedBundle = extras.getBundle("nestedBundle");
+    assertThat(nestedBundle).isNotNull();
+    assertThat(nestedBundle.getString("nestedKey")).isEqualTo("nestedVal");
+  }
+
+  @Test
+  public void toMediaItem_rejoiningExternalSessionWithoutCustomData_setsPredefinedExtras() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_TV_SHOW);
+    gmsMetadata.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "External Series");
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO, "External Studio");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("http://example.com/video.mp4")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.localConfiguration.uri.toString())
+        .isEqualTo("http://example.com/video.mp4");
+    assertThat(mediaItem.mediaMetadata.extras).isNotNull();
+    assertThat(
+            mediaItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("External Series");
+    assertThat(
+            mediaItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_STUDIO))
+        .isEqualTo("External Studio");
+  }
+
+  @Test
+  public void toMediaItem_withFirstClassAndPredefinedMetadata_doesNotDuplicateFirstClassInExtras() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_TV_SHOW);
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE, "Show Title");
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_ARTIST, "Show Artist");
+    Calendar calendar = Calendar.getInstance();
+    calendar.clear();
+    calendar.set(2024, Calendar.MAY, 27);
+    gmsMetadata.putDate(com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE, calendar);
+    gmsMetadata.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "Series Title");
+
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    // 1:1 first-class properties should be set
+    assertThat(mediaItem.mediaMetadata.title.toString()).isEqualTo("Show Title");
+    assertThat(mediaItem.mediaMetadata.artist.toString()).isEqualTo("Show Artist");
+    assertThat(mediaItem.mediaMetadata.releaseYear).isEqualTo(2024);
+    assertThat(mediaItem.mediaMetadata.releaseMonth).isEqualTo(5);
+    assertThat(mediaItem.mediaMetadata.releaseDay).isEqualTo(27);
+
+    // extras should only contain unmapped fields
+    assertThat(mediaItem.mediaMetadata.extras).isNotNull();
+    assertThat(
+            mediaItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("Series Title");
+    assertThat(
+            mediaItem.mediaMetadata.extras.containsKey(
+                com.google.android.gms.cast.MediaMetadata.KEY_TITLE))
+        .isFalse();
+    assertThat(
+            mediaItem.mediaMetadata.extras.containsKey(
+                com.google.android.gms.cast.MediaMetadata.KEY_ARTIST))
+        .isFalse();
+    assertThat(
+            mediaItem.mediaMetadata.extras.containsKey(
+                com.google.android.gms.cast.MediaMetadata.KEY_RELEASE_DATE))
+        .isFalse();
+  }
+
+  @Test
+  public void toMediaQueueItemAndToMediaItem_withPredefinedAndCustomExtras_preservesAllExtras() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "Sci-Fi Show");
+    extras.putInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER, 2);
+    extras.putInt("appCustomId", 999);
+    extras.putFloat("appCustomFloat", 0.1f);
+    extras.putBoolean("appCustomFlag", true);
+    Bundle nestedBundle = new Bundle();
+    nestedBundle.putString("nestedKey", "nestedVal");
+    nestedBundle.putFloat("nestedFloat", 1.25f);
+    extras.putBundle("nestedBundle", nestedBundle);
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .setMediaMetadata(
+                new MediaMetadata.Builder().setTitle("Episode Title").setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    assertThat(reconstructedItem.mediaMetadata.title.toString()).isEqualTo("Episode Title");
+    assertThat(reconstructedItem.mediaMetadata.extras).isNotNull();
+    Bundle reconstructedExtras = reconstructedItem.mediaMetadata.extras;
+    assertThat(
+            reconstructedExtras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("Sci-Fi Show");
+    assertThat(
+            reconstructedExtras.getInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isEqualTo(2);
+    assertThat(reconstructedExtras.getInt("appCustomId")).isEqualTo(999);
+    assertThat(reconstructedExtras.getDouble("appCustomFloat")).isEqualTo(0.1);
+    assertThat(reconstructedExtras.getBoolean("appCustomFlag")).isTrue();
+    Bundle reconstructedNested = reconstructedExtras.getBundle("nestedBundle");
+    assertThat(reconstructedNested).isNotNull();
+    assertThat(reconstructedNested.getString("nestedKey")).isEqualTo("nestedVal");
+    assertThat(reconstructedNested.getDouble("nestedFloat")).isEqualTo(1.25);
+  }
+
+  @Test
+  public void toMediaQueueItemAndToMediaItem_withBasicIso8601DateExtra_setsCastDateMetadata() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE, "20240527");
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    com.google.android.gms.cast.MediaMetadata castMetadata = queueItem.getMedia().getMetadata();
+    assertThat(
+            castMetadata.getDateAsString(
+                com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isEqualTo("20240527");
+    assertThat(queueItem.getMedia().getCustomData().has("m3-extras")).isFalse();
+    assertThat(reconstructedItem.mediaMetadata.extras).isNotNull();
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isEqualTo("20240527");
+  }
+
+  @Test
+  public void toMediaQueueItemAndToMediaItem_withBasicIso8601DateTimeExtras_setsCastDateMetadata() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE, "20240527T103045Z");
+    extras.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE, "20240527T123045+0200");
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    com.google.android.gms.cast.MediaMetadata castMetadata = queueItem.getMedia().getMetadata();
+    assertThat(
+            castMetadata.getDateAsString(
+                com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isEqualTo("20240527T103045Z");
+    assertThat(
+            castMetadata.getDateAsString(
+                com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE))
+        .isEqualTo("20240527T123045+0200");
+    assertThat(queueItem.getMedia().getCustomData().has("m3-extras")).isFalse();
+    assertThat(reconstructedItem.mediaMetadata.extras).isNotNull();
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isEqualTo("20240527T103045Z");
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE))
+        .isEqualTo("20240527T123045+0200");
+  }
+
+  @Test
+  public void
+      toMediaQueueItemAndToMediaItem_withNonBasicOrMidnightDateExtras_preservesStringsInCustomData() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE, "2024-05-27T10:30:45Z");
+    extras.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE, "20240527T000000Z");
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    com.google.android.gms.cast.MediaMetadata castMetadata = queueItem.getMedia().getMetadata();
+    assertThat(
+            castMetadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isFalse();
+    assertThat(
+            castMetadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE))
+        .isFalse();
+    assertThat(queueItem.getMedia().getCustomData().has("m3-extras")).isTrue();
+    assertThat(reconstructedItem.mediaMetadata.extras).isNotNull();
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isEqualTo("2024-05-27T10:30:45Z");
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE))
+        .isEqualTo("20240527T000000Z");
+  }
+
+  @Test
+  public void toMediaItemAndToMediaQueueItem_withCastMetadataAndCustomData_preservesAllMetadata()
+      throws Exception {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    com.google.android.gms.cast.MediaMetadata originalMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_TV_SHOW);
+    originalMetadata.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_TITLE, "Original Title");
+    originalMetadata.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, "Action Series");
+    originalMetadata.putInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER, 5);
+    originalMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO, "Paramount");
+    JSONObject customExtras = new JSONObject();
+    customExtras.put("customKey", "customValue");
+    JSONObject customData = new JSONObject();
+    customData.put("m3-extras", customExtras);
+    MediaInfo originalMediaInfo =
+        new MediaInfo.Builder("http://example.com/video.mp4")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setMetadata(originalMetadata)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem originalQueueItem = new MediaQueueItem.Builder(originalMediaInfo).build();
+
+    MediaItem reconstructedMediaItem = converter.toMediaItem(originalQueueItem);
+    MediaQueueItem reconstructedQueueItem = converter.toMediaQueueItem(reconstructedMediaItem);
+
+    com.google.android.gms.cast.MediaMetadata resultMetadata =
+        reconstructedQueueItem.getMedia().getMetadata();
+    assertThat(resultMetadata.getString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE))
+        .isEqualTo("Original Title");
+    assertThat(resultMetadata.getString(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo("Action Series");
+    assertThat(resultMetadata.getInt(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isEqualTo(5);
+    assertThat(resultMetadata.getString(com.google.android.gms.cast.MediaMetadata.KEY_STUDIO))
+        .isEqualTo("Paramount");
+    JSONObject resultCustomData = reconstructedQueueItem.getMedia().getCustomData();
+    assertThat(resultCustomData.has("m3-extras")).isTrue();
+    assertThat(resultCustomData.getJSONObject("m3-extras").getString("customKey"))
+        .isEqualTo("customValue");
+  }
+
+  @Test
+  public void
+      toMediaQueueItemAndToMediaItem_withMismatchedPredefinedExtraTypes_preservesValuesInExtras() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    Bundle extras = new Bundle();
+    extras.putInt(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE, 42);
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER, "Season Three");
+    extras.putString(com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE, "20240230");
+    extras.putString(
+        com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE, "20240527T103045+0000");
+    MediaItem item =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .setMediaMetadata(new MediaMetadata.Builder().setExtras(extras).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    com.google.android.gms.cast.MediaMetadata castMetadata = queueItem.getMedia().getMetadata();
+    assertThat(castMetadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isFalse();
+    assertThat(
+            castMetadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isFalse();
+    assertThat(
+            castMetadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isFalse();
+    assertThat(
+            castMetadata.containsKey(com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE))
+        .isFalse();
+    assertThat(reconstructedItem.mediaMetadata.extras).isNotNull();
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getInt(
+                com.google.android.gms.cast.MediaMetadata.KEY_SERIES_TITLE))
+        .isEqualTo(42);
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_SEASON_NUMBER))
+        .isEqualTo("Season Three");
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_BROADCAST_DATE))
+        .isEqualTo("20240230");
+    assertThat(
+            reconstructedItem.mediaMetadata.extras.getString(
+                com.google.android.gms.cast.MediaMetadata.KEY_CREATION_DATE))
+        .isEqualTo("20240527T103045+0000");
+  }
+
+  @Test
+  public void toMediaQueueItemAndToMediaItem_withNullExtras_leavesExtrasNullAndOmitsCustomData() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem itemWithNullExtras =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(new MediaMetadata.Builder().setTitle("Title").build())
+            .build();
+
+    MediaQueueItem queueItemNull = converter.toMediaQueueItem(itemWithNullExtras);
+    MediaItem reconstructedNull = converter.toMediaItem(queueItemNull);
+
+    assertThat(reconstructedNull.mediaMetadata.extras).isNull();
+    assertThat(queueItemNull.getMedia().getCustomData().has("m3-extras")).isFalse();
+  }
+
+  @Test
+  public void toMediaQueueItemAndToMediaItem_withEmptyExtras_leavesExtrasNullAndOmitsCustomData() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem itemWithEmptyExtras =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(
+                new MediaMetadata.Builder().setTitle("Title").setExtras(new Bundle()).build())
+            .build();
+
+    MediaQueueItem queueItemEmpty = converter.toMediaQueueItem(itemWithEmptyExtras);
+    MediaItem reconstructedEmpty = converter.toMediaItem(queueItemEmpty);
+
+    assertThat(reconstructedEmpty.mediaMetadata.extras).isNull();
+    assertThat(queueItemEmpty.getMedia().getCustomData().has("m3-extras")).isFalse();
   }
 }

@@ -50,6 +50,7 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.ReferenceCounter;
 import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
@@ -62,6 +63,7 @@ import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -623,6 +625,33 @@ public final class TransformerUtil {
       default:
         return null;
     }
+  }
+
+  /**
+   * Extracts the HAGC (ST 2094-50) ITU-T T.35 metadata payload from the buffer's supplemental data,
+   * if present.
+   *
+   * <p>The returned array does not contain the 5-byte T.35 header.
+   *
+   * @return The payload, or {@code null} if the buffer has no supplemental data, the data is not
+   *     HAGC metadata, or the payload is empty.
+   */
+  /* package */ static byte @Nullable [] getHagcPayload(DecoderInputBuffer buffer) {
+    @Nullable ByteBuffer supplementalData = buffer.supplementalData;
+    if (!buffer.hasSupplementalData()
+        || supplementalData == null
+        || !CodecSpecificDataUtil.isHagcMetadata(supplementalData)) {
+      return null;
+    }
+    int payloadLength = supplementalData.remaining() - CodecSpecificDataUtil.HAGC_T35_HEADER_LENGTH;
+    if (payloadLength <= 0) {
+      return null;
+    }
+    ByteBuffer duplicate = supplementalData.duplicate();
+    duplicate.position(duplicate.position() + CodecSpecificDataUtil.HAGC_T35_HEADER_LENGTH);
+    byte[] info = new byte[payloadLength];
+    duplicate.get(info);
+    return info;
   }
 
   /** Utility for setting LogSessionId on MediaFormat (API 35+). */

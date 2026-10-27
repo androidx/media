@@ -69,8 +69,9 @@ public final class MediaSessionManager {
   /**
    * Checks whether the remote user is a trusted app.
    *
-   * <p>An app is trusted if the app holds the android.Manifest.permission.MEDIA_CONTENT_CONTROL
-   * permission or has an enabled notification listener.
+   * <p>An app is trusted if the app holds the android.Manifest.permission.MEDIA_CONTENT_CONTROL or
+   * android.Manifest.permission.EXECUTE_APP_FUNCTIONS (from API 36) permission or has an enabled
+   * notification listener.
    *
    * @param userInfo The remote user info from either {@link
    *     MediaSessionCompat#getCurrentControllerInfo()} and {@link
@@ -257,6 +258,9 @@ public final class MediaSessionManager {
           || uid == Process.myUid()
           || isPermissionGranted(PERMISSION_STATUS_BAR_SERVICE, packageName, pid, uid)
           || isPermissionGranted(PERMISSION_MEDIA_CONTENT_CONTROL, packageName, pid, uid)
+          || (SDK_INT >= 36
+              && isPermissionGranted(
+                  android.Manifest.permission.EXECUTE_APP_FUNCTIONS, packageName, pid, uid))
           || isEnabledNotificationListener(packageName, uid);
     }
 

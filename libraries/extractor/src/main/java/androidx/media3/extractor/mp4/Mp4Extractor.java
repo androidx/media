@@ -359,6 +359,7 @@ public final class Mp4Extractor implements Extractor {
   public void seek(long position, long timeUs) {
     containerAtoms.clear();
     atomHeaderBytesRead = 0;
+    atomData = null;
     sampleTrackIndex = C.INDEX_UNSET;
     sampleBytesRead = 0;
     sampleBytesWritten = 0;
@@ -530,6 +531,7 @@ public final class Mp4Extractor implements Extractor {
     @Nullable ParsableByteArray atomData = this.atomData;
     if (atomData != null) {
       input.readFully(atomData.getData(), atomHeaderBytesRead, (int) atomPayloadSize);
+      this.atomData = null; // Release reference to allow GC once the atom is processed.
       if (atomType == Mp4Box.TYPE_ftyp) {
         seenFtypAtom = true;
         fileType = processFtypAtom(atomData);
@@ -713,18 +715,19 @@ public final class Mp4Extractor implements Extractor {
               trackSampleTables.size()));
     }
 
-    List<Integer> chapterTrackIds = new ArrayList<>();
-    for (TrackSampleTable table : trackSampleTables) {
-      if (table.track.chapterTrackId != C.INDEX_UNSET
-          && !chapterTrackIds.contains(table.track.chapterTrackId)) {
-        chapterTrackIds.add(table.track.chapterTrackId);
-      }
-    }
-
     chapterSampleTables.clear();
-    for (TrackSampleTable table : trackSampleTables) {
-      if (chapterTrackIds.contains(table.track.id)) {
-        chapterSampleTables.add(table);
+    if (!omitTrackSampleTable) {
+      List<Integer> chapterTrackIds = new ArrayList<>();
+      for (TrackSampleTable table : trackSampleTables) {
+        if (table.track.chapterTrackId != C.INDEX_UNSET
+            && !chapterTrackIds.contains(table.track.chapterTrackId)) {
+          chapterTrackIds.add(table.track.chapterTrackId);
+        }
+      }
+      for (TrackSampleTable table : trackSampleTables) {
+        if (chapterTrackIds.contains(table.track.id)) {
+          chapterSampleTables.add(table);
+        }
       }
     }
 
@@ -823,6 +826,7 @@ public final class Mp4Extractor implements Extractor {
     this.tracks = tracks.toArray(new Mp4Track[0]);
     accumulatedSampleSizes =
         !omitTrackSampleTable ? calculateAccumulatedSampleSizes(this.tracks) : null;
+    xmpData = null; // Release reference to allow GC once attached to track formats.
 
     extractorOutput.endTracks();
     extractorOutput.seekMap(new Mp4SeekMap(durationUs, this.tracks, firstVideoTrackIndex));
@@ -998,17 +1002,16 @@ public final class Mp4Extractor implements Extractor {
       nalPrefixData[1] = 0;
       nalPrefixData[2] = 0;
       int nalUnitLengthFieldLengthDiff = 4 - track.track.nalUnitLengthFieldLength;
-      sampleSize += nalUnitLengthFieldLengthDiff;
       // NAL units are length delimited, but the decoder requires start code delimited units.
       // Loop until we've written the sample to the track output, replacing length delimiters with
       // start codes as we encounter them.
-      while (sampleBytesWritten < sampleSize) {
+      while (sampleBytesRead < sampleSize) {
         if (sampleCurrentNalBytesRemaining == 0) {
           int nalUnitPrefixLength = track.track.nalUnitLengthFieldLength;
           int numberOfBytesToDetermineSampleDependencies = 0;
           if (!isSampleDependedOn
               && nalUnitPrefixLength + NalUnitUtil.numberOfBytesInNalUnitHeader(track.track.format)
-                  <= track.sampleTable.sizes[sampleIndex] - sampleBytesRead) {
+                  <= sampleSize - sampleBytesRead) {
             // Parsing sample dependencies needs the first few NAL unit bytes. Read them in the same
             // readFully call that reads the NAL length. This ensures sampleBytesRead,
             // sampleBytesWritten and isSampleDependedOn remain in a consistent state if we have
@@ -1055,6 +1058,7 @@ public final class Mp4Extractor implements Extractor {
           sampleCurrentNalBytesRemaining -= writtenBytes;
         }
       }
+      sampleSize = sampleBytesWritten;
     } else if (track.track.sampleTransformation == Track.TRANSFORMATION_MEBX_UNBOX) {
       scratch.reset(sampleSize);
       input.readFully(scratch.getData(), /* offset= */ 0, sampleSize);
@@ -1203,6 +1207,7 @@ public final class Mp4Extractor implements Extractor {
     quickTimeChapters.clear();
 
     if (chapterTrackIndex == chapterSampleTables.size()) {
+      chapterSampleTables.clear(); // Release references to allow GC once chapters are read.
       parserState = STATE_READING_SAMPLE;
     }
     return Extractor.RESULT_CONTINUE;

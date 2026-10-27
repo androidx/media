@@ -15,13 +15,16 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.graphics.Matrix;
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGL14;
@@ -32,6 +35,7 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.view.Surface;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -44,18 +48,25 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.HardwareBufferPool;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.DefaultShaderProgram;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.MatrixUtils;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import java.time.Duration;
+import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
+import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -65,12 +76,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An implementation of {@link FrameWriter} that uses OpenGL to render {@link HardwareBuffer}s to a
- * {@linkplain DefaultCodec encoder} {@link Surface}.
+ * An implementation of {@link FrameWriter} that uses OpenGL to render frames to a {@linkplain
+ * DefaultCodec encoder} {@link Surface}.
+ *
+ * <p>Below API 28, {@link #dequeueInputFrame} returns an {@link ImagePlanesFrame} with a single
+ * {@link PixelFormat#RGBA_8888} plane. From API 28, {@link #dequeueInputFrame} returns a {@link
+ * HardwareBufferFrame} configured with {@link Format#pixelFormat} (defaulting to {@link
+ * HardwareBuffer#RGBA_8888} if unset).
  *
  * <p>This implementation does <b>NOT</b> support HDR. Use {@link EncoderFrameWriter} to output HDR.
  */
-@RequiresApi(26)
 /* package */ final class GlEncoderFrameWriter implements FrameWriter {
 
   /** Listener for {@link GlEncoderFrameWriter} events. */
@@ -91,7 +106,7 @@ import org.jspecify.annotations.Nullable;
   private static final String TAG = "GlEncoderFrameWriter";
   private static final int CAPACITY = 4;
   private static final long RELEASE_TIMEOUT_MS = 1_000;
-  private static final Duration FENCE_WAIT_TIMEOUT = Duration.ofMillis(500);
+  private static final long FENCE_WAIT_TIMEOUT_MS = 500;
 
   private final Context context;
   private final Codec.EncoderFactory encoderFactory;
@@ -100,7 +115,7 @@ import org.jspecify.annotations.Nullable;
   private final ListeningExecutorService glExecutorService;
   private final GlObjectsProvider glObjectsProvider;
   private final AtomicBoolean isClosed;
-  private final FrameRenderer frameRenderer;
+  private final FrameBackend frameBackend;
   private final @Nullable LogSessionId logSessionId;
 
   private EGLDisplay eglDisplay;
@@ -120,7 +135,7 @@ import org.jspecify.annotations.Nullable;
    * @param listener The {@link Listener} for asynchronous events.
    * @param listenerExecutor The {@link Executor} on which the listener methods are invoked.
    * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} to interact with
-   *     HardwareBuffers.
+   *     HardwareBuffers. Ignored below API 28.
    * @param logSessionId The {@link LogSessionId} for logging, or {@code null} if not provided.
    */
   public GlEncoderFrameWriter(
@@ -140,7 +155,10 @@ import org.jspecify.annotations.Nullable;
     this.glExecutorService = glExecutorService;
     this.logSessionId = logSessionId;
     isClosed = new AtomicBoolean(false);
-    frameRenderer = new HardwareBufferFrameRenderer(hardwareBufferJniWrapper);
+    frameBackend =
+        SDK_INT >= 28
+            ? new HardwareBufferFrameBackend(hardwareBufferJniWrapper)
+            : new ImagePlanesFrameBackend();
     eglDisplay = EGL14.EGL_NO_DISPLAY;
     eglContext = EGL14.EGL_NO_CONTEXT;
     placeholderSurface = EGL14.EGL_NO_SURFACE;
@@ -154,6 +172,9 @@ import org.jspecify.annotations.Nullable;
       if (ColorInfo.isTransferHdr(format.colorInfo)) {
         return false;
       }
+      if (!frameBackend.isPixelFormatSupported(format.pixelFormat)) {
+        return false;
+      }
       return encoderFactory.isVideoFormatSupported(format);
     };
   }
@@ -161,6 +182,9 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void configure(Format format, @Frame.Usage long usage) {
     checkState(encoder == null);
+    // TODO(b/567532525): Check getInfo().isSupported(format, usage) directly once rotationDegrees
+    // handling is aligned.
+    frameBackend.checkPixelFormat(format.pixelFormat);
 
     try {
       encoder = encoderFactory.createForVideoEncoding(format, logSessionId);
@@ -171,7 +195,7 @@ import org.jspecify.annotations.Nullable;
 
     Surface encoderInputSurface = encoder.getInputSurface();
     configurationFormat = encoder.getConfigurationFormat();
-    frameRenderer.configure(usage | Frame.USAGE_GPU_SAMPLED_IMAGE | Frame.USAGE_VIDEO_ENCODE);
+    frameBackend.configure(usage | Frame.USAGE_GPU_SAMPLED_IMAGE | Frame.USAGE_VIDEO_ENCODE);
 
     submitToGlExecutor(
         () -> {
@@ -188,13 +212,13 @@ import org.jspecify.annotations.Nullable;
       return null;
     }
 
-    return frameRenderer.dequeueInputFrame(() -> wakeupExecutor.execute(wakeupListener));
+    return frameBackend.dequeueInputFrame(() -> wakeupExecutor.execute(wakeupListener));
   }
 
   @Override
   public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
     checkState(configurationFormat != null);
-    frameRenderer.queueInputFrame(frame, writeCompleteFence);
+    frameBackend.queueInputFrame(frame, writeCompleteFence);
   }
 
   @Override
@@ -235,7 +259,7 @@ import org.jspecify.annotations.Nullable;
       glExecutorService.shutdown();
     }
 
-    frameRenderer.release();
+    frameBackend.release();
 
     if (encoder != null) {
       encoder.release();
@@ -325,6 +349,8 @@ import org.jspecify.annotations.Nullable;
       defaultShaderProgram = null;
     }
 
+    frameBackend.releaseGlResources();
+
     if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
       if (placeholderSurface != EGL14.EGL_NO_SURFACE) {
         GlUtil.focusEglSurface(
@@ -400,10 +426,18 @@ import org.jspecify.annotations.Nullable;
         listenerExecutor);
   }
 
-  /** Renderer that manages input frame buffers and renders queued frames to the encoder surface. */
-  private interface FrameRenderer {
-    /** Configures the renderer with the required {@link Frame.Usage} flags. */
-    void configure(@Frame.Usage long usage);
+  // TODO(b/567532525): Remove checkPixelFormat() and revisit whether FrameBackend can be replaced
+  // by FrameWriter once configure() can call getInfo().isSupported() directly.
+  /** Backend that manages input frame buffers and renders queued frames to the encoder surface. */
+  private interface FrameBackend {
+    /** Returns whether {@code pixelFormat} is supported by this frame backend. */
+    boolean isPixelFormatSupported(int pixelFormat);
+
+    /** Checks that {@code pixelFormat} is supported by this frame backend. */
+    void checkPixelFormat(int pixelFormat);
+
+    /** Configures the backend with the required {@link Frame.Usage} flags. */
+    default void configure(@Frame.Usage long usage) {}
 
     /**
      * Dequeues an input frame, or registers {@code wakeupListener} and returns {@code null} if no
@@ -414,20 +448,41 @@ import org.jspecify.annotations.Nullable;
     /** Queues an input {@link Frame} to be rendered to the encoder surface. */
     void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence);
 
+    /**
+     * Releases GL resources held by this backend.
+     *
+     * <p>Must be called on the GL thread.
+     */
+    default void releaseGlResources() throws GlException {}
+
     /** Releases buffer pool resources. */
     void release();
   }
 
-  /** Implementation of {@link FrameRenderer} backed by {@link HardwareBuffer}. */
-  private final class HardwareBufferFrameRenderer implements FrameRenderer {
+  /** Implementation of {@link FrameBackend} backed by {@link HardwareBuffer}. */
+  @RequiresApi(26)
+  private final class HardwareBufferFrameBackend implements FrameBackend {
 
     private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
     private final HardwareBufferPool hardwareBufferPool;
     private @Frame.Usage long usage;
 
-    private HardwareBufferFrameRenderer(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+    private HardwareBufferFrameBackend(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
       this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
       this.hardwareBufferPool = new HardwareBufferPool(CAPACITY);
+    }
+
+    @Override
+    public boolean isPixelFormatSupported(int pixelFormat) {
+      // HardwareBuffer frames are bound to OpenGL textures via EGLImage, which supports any
+      // HardwareBuffer format supported by the device.
+      return true;
+    }
+
+    @Override
+    public void checkPixelFormat(int pixelFormat) {
+      checkArgument(
+          isPixelFormatSupported(pixelFormat), "Unsupported pixel format: %s", pixelFormat);
     }
 
     @Override
@@ -483,7 +538,7 @@ import org.jspecify.annotations.Nullable;
         }
 
         if (writeCompleteFence != null) {
-          boolean signaled = writeCompleteFence.await(FENCE_WAIT_TIMEOUT);
+          boolean signaled = writeCompleteFence.awaitMs(FENCE_WAIT_TIMEOUT_MS);
           if (!signaled) {
             Log.w(TAG, "Timed out waiting for fence.");
           }
@@ -562,6 +617,182 @@ import org.jspecify.annotations.Nullable;
             throw new VideoFrameProcessingException("Failed to destroy EGLImage.");
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Implementation of {@link FrameBackend} backed by {@link ImagePlanesFrame}.
+   *
+   * <p>The {@link ByteBuffer} pool ({@link #availableByteBuffers}, {@link #allocatedBufferCount},
+   * and {@link #byteBufferWakeupListener}) is synchronized under {@link #bufferPoolLock} across
+   * threads:
+   *
+   * <ul>
+   *   <li>{@link #dequeueInputFrame} accesses the pool on the upstream producer thread.
+   *   <li>{@link #renderFrame} recycles buffers and consumes the wakeup listener on {@link
+   *       #glExecutorService}.
+   *   <li>{@link #release} clears the pool and wakeup listener on the thread releasing the writer
+   *       (after waiting for {@link #releaseGlResources} on {@link #glExecutorService}).
+   * </ul>
+   */
+  private final class ImagePlanesFrameBackend implements FrameBackend {
+
+    private static final int RGBA_BYTES_PER_PIXEL = 4;
+
+    private final Object bufferPoolLock;
+
+    @GuardedBy("bufferPoolLock")
+    private final Queue<ByteBuffer> availableByteBuffers;
+
+    @GuardedBy("bufferPoolLock")
+    private int allocatedBufferCount;
+
+    @GuardedBy("bufferPoolLock")
+    private @Nullable Runnable byteBufferWakeupListener;
+
+    private int imagePlanesTexId;
+
+    private ImagePlanesFrameBackend() {
+      bufferPoolLock = new Object();
+      availableByteBuffers = new ArrayDeque<>(CAPACITY);
+      imagePlanesTexId = C.INDEX_UNSET;
+    }
+
+    @Override
+    public boolean isPixelFormatSupported(int pixelFormat) {
+      // Only PixelFormat.RGBA_8888 (or Format.NO_VALUE, which defaults to PixelFormat.RGBA_8888) is
+      // supported because frames are uploaded to OpenGL via GLES20.glTexSubImage2D as
+      // GLES20.GL_RGBA.
+      return pixelFormat == Format.NO_VALUE || pixelFormat == PixelFormat.RGBA_8888;
+    }
+
+    @Override
+    public void checkPixelFormat(int pixelFormat) {
+      checkArgument(
+          isPixelFormatSupported(pixelFormat),
+          "Only PixelFormat.RGBA_8888 or Format.NO_VALUE is supported below API 28, but got: %s",
+          pixelFormat);
+    }
+
+    @Override
+    public @Nullable AsyncFrame dequeueInputFrame(Runnable wakeupListener) {
+      @Nullable ByteBuffer buffer;
+      synchronized (bufferPoolLock) {
+        buffer = availableByteBuffers.poll();
+        if (buffer == null) {
+          if (allocatedBufferCount >= CAPACITY) {
+            byteBufferWakeupListener = wakeupListener;
+            return null;
+          }
+          allocatedBufferCount++;
+        }
+      }
+      Format format =
+          checkNotNull(configurationFormat)
+              .buildUpon()
+              .setPixelFormat(PixelFormat.RGBA_8888)
+              .build();
+      int rowStride = format.width * RGBA_BYTES_PER_PIXEL;
+      if (buffer == null) {
+        // configurationFormat is set once in configure(), so all pooled buffers have the same size.
+        buffer = ByteBuffer.allocateDirect(rowStride * format.height);
+      }
+      DefaultImagePlanesFrame frame =
+          new DefaultImagePlanesFrame.Builder(
+                  ImmutableList.of(
+                      new DefaultPlane(buffer, rowStride, /* pixelStride= */ RGBA_BYTES_PER_PIXEL)))
+              .setFormat(format)
+              .build();
+      return new AsyncFrame(frame, /* acquireFence= */ null);
+    }
+
+    @Override
+    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
+      checkArgument(frame instanceof DefaultImagePlanesFrame);
+      // ImagePlanesFrame is backed by a CPU ByteBuffer, so callers must complete writes
+      // synchronously before queueing (and SyncFence requires API 33+).
+      checkArgument(writeCompleteFence == null);
+      submitToGlExecutor(
+          () -> {
+            renderFrame((ImagePlanesFrame) frame);
+            return null;
+          },
+          /* onSuccessListener= */ null);
+    }
+
+    @Override
+    public void releaseGlResources() throws GlException {
+      if (imagePlanesTexId != C.INDEX_UNSET) {
+        GlUtil.deleteTexture(imagePlanesTexId);
+        imagePlanesTexId = C.INDEX_UNSET;
+      }
+    }
+
+    @Override
+    public void release() {
+      synchronized (bufferPoolLock) {
+        availableByteBuffers.clear();
+        byteBufferWakeupListener = null;
+      }
+    }
+
+    /**
+     * Renders an {@link ImagePlanesFrame}'s RGBA pixel buffer to the output surface.
+     *
+     * <p>Must be called on the GL thread.
+     */
+    private void renderFrame(ImagePlanesFrame frame)
+        throws GlException, VideoFrameProcessingException {
+      Format format = frame.getFormat();
+      checkArgument(format.pixelFormat == PixelFormat.RGBA_8888);
+      ByteBuffer buffer = getOnlyElement(frame.getPlanes()).getBuffer();
+      try {
+        if (isClosed.get()) {
+          return;
+        }
+
+        if (imagePlanesTexId == C.INDEX_UNSET) {
+          ensureShaderConfigured(/* isRgba8888Input= */ true);
+          checkNotNull(defaultShaderProgram)
+              .setTextureTransformMatrix(
+                  constructTransformationMatrix(format.width, format.height, format));
+          imagePlanesTexId =
+              GlUtil.createTexture(
+                  format.width, format.height, /* useHighPrecisionColorComponents= */ false);
+        }
+        GlUtil.bindTexture(GLES20.GL_TEXTURE_2D, imagePlanesTexId, GLES20.GL_LINEAR);
+        GLES20.glTexSubImage2D(
+            GLES20.GL_TEXTURE_2D,
+            /* level= */ 0,
+            /* xoffset= */ 0,
+            /* yoffset= */ 0,
+            format.width,
+            format.height,
+            GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE,
+            buffer);
+        GlUtil.checkGlError();
+
+        drawAndPresentFrame(imagePlanesTexId, frame.getContentTimeUs());
+      } finally {
+        recycleByteBuffer(buffer);
+      }
+    }
+
+    private void recycleByteBuffer(ByteBuffer buffer) {
+      if (isClosed.get()) {
+        return;
+      }
+      buffer.clear();
+      @Nullable Runnable listenerToRun;
+      synchronized (bufferPoolLock) {
+        availableByteBuffers.add(buffer);
+        listenerToRun = byteBufferWakeupListener;
+        byteBufferWakeupListener = null;
+      }
+      if (listenerToRun != null) {
+        listenerToRun.run();
       }
     }
   }

@@ -545,6 +545,237 @@ public class AudioTrackAudioOutputProviderTest {
     assertThat(outputConfig.sampleRate).isEqualTo(48000);
   }
 
+  @Test
+  @Config(minSdk = 37)
+  public void getOutputConfig_spatializedMultichannelPcmWithCodecProvenance_setsCodecProvenance()
+      throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+  }
+
+  @Test
+  @Config(minSdk = 37)
+  public void getAudioOutput_withCodecProvenance_setsCodecProvenanceOnAudioTrack()
+      throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    OutputConfig outputConfig =
+        audioOutputProvider.getOutputConfig(
+            new FormatConfig.Builder(format)
+                .setAudioAttributes(TEST_ATTRIBUTES)
+                .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+                .build());
+
+    AudioTrackAudioOutput audioOutput = audioOutputProvider.getAudioOutput(outputConfig);
+
+    assertThat(audioOutput.getAudioTrack().getCodecProvenance())
+        .isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+  }
+
+  @Test
+  @Config(minSdk = 37)
+  public void getOutputConfig_rawPcmCodecProvenance_doesNotSetCodecProvenance() throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setCodecProvenance(MimeTypes.AUDIO_RAW)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.codecProvenance).isNull();
+  }
+
+  @Test
+  @Config(minSdk = 37)
+  public void getOutputConfig_stereoPcmWithSpatializerActive_doesNotSetCodecProvenance()
+      throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setCodecProvenance(MimeTypes.AUDIO_AAC)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.codecProvenance).isNull();
+  }
+
+  @Test
+  @Config(minSdk = 37)
+  public void getOutputConfig_contentAlreadySpatialized_doesNotSetCodecProvenance()
+      throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    AudioAttributes preSpatializedAttributes =
+        TEST_ATTRIBUTES.buildUpon().setIsContentSpatialized(true).build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(preSpatializedAttributes)
+            .setCodecProvenance(MimeTypes.AUDIO_IAMF)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.codecProvenance).isNull();
+  }
+
+  @Test
+  @Config(minSdk = 37)
+  public void getOutputConfig_spatializationBehaviorNever_doesNotSetCodecProvenance()
+      throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    AudioAttributes neverSpatializeAttributes =
+        TEST_ATTRIBUTES
+            .buildUpon()
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(neverSpatializeAttributes)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.codecProvenance).isNull();
+  }
+
+  @Test
+  @Config(maxSdk = 36)
+  public void getOutputConfig_beforeApi37_doesNotSetCodecProvenance() throws Exception {
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            TEST_ATTRIBUTES,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    audioOutputProvider =
+        new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+            .setAudioCapabilities(audioCapabilities)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(6)
+            .setSampleRate(48000)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build();
+
+    OutputConfig outputConfig = audioOutputProvider.getOutputConfig(config);
+
+    assertThat(outputConfig.codecProvenance).isNull();
+  }
+
   private static final class AudioCapabilitiesListener implements AudioOutputProvider.Listener {
     private boolean hasFormatChanged = false;
 

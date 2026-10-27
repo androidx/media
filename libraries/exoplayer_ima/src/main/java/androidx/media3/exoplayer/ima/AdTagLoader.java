@@ -30,6 +30,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.content.Context;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.IntDef;
 import androidx.media3.common.AdOverlayInfo;
@@ -63,6 +64,7 @@ import com.google.ads.interactivemedia.v3.api.AdsRequest;
 import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
 import com.google.ads.interactivemedia.v3.api.player.AdMediaInfo;
 import com.google.ads.interactivemedia.v3.api.player.ContentProgressProvider;
+import com.google.ads.interactivemedia.v3.api.player.ResizablePlayer;
 import com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer;
 import com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate;
 import com.google.common.collect.BiMap;
@@ -149,6 +151,7 @@ import org.jspecify.annotations.Nullable;
 
   private @Nullable Object pendingAdRequestContext;
   private @Nullable Player player;
+  private @Nullable View adVideoView;
   private VideoProgressUpdate lastContentProgress;
   private VideoProgressUpdate lastAdProgress;
   private int lastVolumePercent;
@@ -237,7 +240,8 @@ import org.jspecify.annotations.Nullable;
       List<String> supportedMimeTypes,
       DataSpec adTagDataSpec,
       Object adsId,
-      @Nullable ViewGroup adViewGroup) {
+      @Nullable ViewGroup adViewGroup,
+      @Nullable View adVideoView) {
     this.configuration = configuration;
     this.imaFactory = imaFactory;
     @Nullable ImaSdkSettings imaSdkSettings = configuration.imaSdkSettings;
@@ -252,6 +256,7 @@ import org.jspecify.annotations.Nullable;
     this.supportedMimeTypes = supportedMimeTypes;
     this.adTagDataSpec = adTagDataSpec;
     this.adsId = adsId;
+    this.adVideoView = adVideoView;
     period = new Timeline.Period();
     handler = Util.createHandler(getImaLooper(), /* callback= */ null);
     componentListener = new ComponentListener();
@@ -273,14 +278,19 @@ import org.jspecify.annotations.Nullable;
     timeline = Timeline.EMPTY;
     adPlaybackState = AdPlaybackState.NONE;
     adLoadTimeoutRunnable = this::handleAdLoadTimeout;
-    VideoAdPlayerImpl videoAdPlayerImpl = new VideoAdPlayerImpl();
-    if (adViewGroup != null) {
-      adDisplayContainer =
-          imaFactory.createAdDisplayContainer(adViewGroup, /* player= */ videoAdPlayerImpl);
-    } else {
-      adDisplayContainer =
-          imaFactory.createAudioAdDisplayContainer(context, /* player= */ videoAdPlayerImpl);
-    }
+    // The IMA SDK checks `adDisplayContainer.getPlayer() instanceof ResizablePlayer` to determine
+    // whether the player supports resizing, so only instantiate ResizableVideoAdPlayerImpl when a
+    // resizable video view is available.
+    boolean canResizeVideoView =
+        adViewGroup != null
+            && adVideoView != null
+            && adVideoView.getLayoutParams() instanceof ViewGroup.MarginLayoutParams;
+    VideoAdPlayer videoAdPlayer =
+        canResizeVideoView ? new ResizableVideoAdPlayerImpl() : new VideoAdPlayerImpl();
+    adDisplayContainer =
+        adViewGroup != null
+            ? imaFactory.createAdDisplayContainer(adViewGroup, videoAdPlayer)
+            : imaFactory.createAudioAdDisplayContainer(context, videoAdPlayer);
     if (configuration.companionAdSlots != null) {
       adDisplayContainer.setCompanionSlots(configuration.companionAdSlots);
     }
@@ -321,6 +331,10 @@ import org.jspecify.annotations.Nullable;
   public void addListenerWithAdView(EventListener eventListener, AdViewProvider adViewProvider) {
     boolean isStarted = !eventListeners.isEmpty();
     eventListeners.add(eventListener);
+    @Nullable View adVideoView = adViewProvider.getAdVideoView();
+    if (adVideoView != null) {
+      this.adVideoView = adVideoView;
+    }
     if (isStarted) {
       if (!AdPlaybackState.NONE.equals(adPlaybackState)) {
         // Pass the existing ad playback state to the new listener.
@@ -414,6 +428,7 @@ import org.jspecify.annotations.Nullable;
     lastVolumePercent = getPlayerVolumePercent();
     lastAdProgress = getAdVideoProgressUpdate();
     lastContentProgress = getContentVideoProgressUpdate();
+    resetAdVideoViewMargins();
     player.removeListener(this);
     this.player = null;
   }
@@ -423,6 +438,7 @@ import org.jspecify.annotations.Nullable;
     eventListeners.remove(eventListener);
     if (eventListeners.isEmpty()) {
       adDisplayContainer.unregisterAllFriendlyObstructions();
+      resetAdVideoViewMargins();
     }
   }
 
@@ -433,6 +449,8 @@ import org.jspecify.annotations.Nullable;
     }
     released = true;
     pendingAdRequestContext = null;
+    resetAdVideoViewMargins();
+    adVideoView = null;
     destroyAdsManager();
     adsLoader.removeAdsLoadedListener(componentListener);
     adsLoader.removeAdErrorListener(componentListener);
@@ -830,6 +848,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void resumeContentInternal() {
+    resetAdVideoViewMargins();
     if (imaAdInfo != null) {
       // Mark current ad group as skipped if it hasn't finished yet. This could for example happen
       // after a load timeout where we receive CONTENT_RESUME_REQUESTED instead of loadAd.
@@ -1134,6 +1153,7 @@ import org.jspecify.annotations.Nullable;
     }
     imaAdState = IMA_AD_STATE_NONE;
     stopUpdatingAdProgress();
+    resetAdVideoViewMargins();
     // TODO: Handle the skipped event so the ad can be marked as skipped rather than played.
     checkNotNull(imaAdInfo);
     int adGroupIndex = imaAdInfo.adGroupIndex;
@@ -1149,6 +1169,39 @@ import org.jspecify.annotations.Nullable;
       imaAdMediaInfo = null;
       imaAdInfo = null;
     }
+  }
+
+  private void resizeAdVideoViewInternal(
+      int leftMargin, int topMargin, int rightMargin, int bottomMargin) {
+    @Nullable View adVideoView = this.adVideoView;
+    if (adVideoView == null) {
+      return;
+    }
+    ViewGroup.LayoutParams layoutParams = adVideoView.getLayoutParams();
+    if (layoutParams instanceof ViewGroup.MarginLayoutParams) {
+      ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
+      if (marginLayoutParams.leftMargin != leftMargin
+          || marginLayoutParams.topMargin != topMargin
+          || marginLayoutParams.rightMargin != rightMargin
+          || marginLayoutParams.bottomMargin != bottomMargin) {
+        marginLayoutParams.setMargins(leftMargin, topMargin, rightMargin, bottomMargin);
+        adVideoView.setLayoutParams(marginLayoutParams);
+      }
+    }
+  }
+
+  /**
+   * Resets the margins on {@link AdViewProvider#getAdVideoView()} to zero.
+   *
+   * <p>Because the video view is shared between ad and content playback, its margins must be
+   * explicitly restored when stopping an ad, resuming content, deactivating playback, or
+   * detaching/releasing the loader in case the IMA SDK does not invoke {@code
+   * ResizablePlayer.resize(0, 0, 0, 0)} (for example, after an ad playback error, timeout, seek
+   * past an ad group, playlist item switch, or mid-ad release).
+   */
+  private void resetAdVideoViewMargins() {
+    resizeAdVideoViewInternal(
+        /* leftMargin= */ 0, /* topMargin= */ 0, /* rightMargin= */ 0, /* bottomMargin= */ 0);
   }
 
   private void handleAdGroupLoadError(Exception error) {
@@ -1571,6 +1624,24 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void release() {
       // Do nothing.
+    }
+  }
+
+  /**
+   * Subclass of {@link VideoAdPlayerImpl} implementing {@link ResizablePlayer}. Kept separate from
+   * {@link VideoAdPlayerImpl} because the IMA SDK checks {@code player instanceof ResizablePlayer}
+   * to determine whether the player supports resizing.
+   */
+  private final class ResizableVideoAdPlayerImpl extends VideoAdPlayerImpl
+      implements ResizablePlayer {
+
+    @Override
+    public void resize(int leftMargin, int topMargin, int rightMargin, int bottomMargin) {
+      try {
+        resizeAdVideoViewInternal(leftMargin, topMargin, rightMargin, bottomMargin);
+      } catch (RuntimeException e) {
+        maybeNotifyInternalError("resize", e);
+      }
     }
   }
 

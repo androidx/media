@@ -23,6 +23,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.UiModeManager;
@@ -60,6 +64,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
@@ -169,9 +174,12 @@ public final class DefaultAudioSinkTest {
         new DefaultAudioSink.Builder()
             .setAudioProcessorChain(
                 new AudioProcessorChain() {
+                  private final AudioProcessor[] audioProcessors =
+                      new AudioProcessor[] {new TrackingAudioProcessor()};
+
                   @Override
                   public AudioProcessor[] getAudioProcessors() {
-                    return new AudioProcessor[0];
+                    return audioProcessors;
                   }
 
                   @Override
@@ -1543,6 +1551,273 @@ public final class DefaultAudioSinkTest {
                 /* encodedAccessUnitCount= */ 1));
     assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
         .isEqualTo(8 * C.MICROS_PER_SECOND);
+  }
+
+  @Test
+  public void getCurrentPositionUs_withSkipSilenceEnabled_doesNotIncludeBufferedSilenceUntilPlayed()
+      throws Exception {
+    AtomicLong playoutPositionUs = new AtomicLong();
+    AudioSink.Listener mockListener = mock(AudioSink.Listener.class);
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(createPositionControllingAudioOutputProvider(playoutPositionUs))
+            .build();
+    defaultAudioSink.setListener(mockListener);
+    defaultAudioSink.setSkipSilenceEnabled(true);
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    ByteBuffer firstNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    ByteBuffer silenceBuffer = create1Sec44100HzSilenceBuffer();
+    ByteBuffer secondNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                secondNoisyBuffer,
+                /* presentationTimeUs= */ 1_200_000,
+                /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+
+    // Advance playout to 150ms (still within the first 200ms noisy buffer). The buffered skipped
+    // silence must not be added to the position or reported yet.
+    playoutPositionUs.set(150_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false)).isEqualTo(150_000);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockListener, never()).onSilenceSkipped();
+
+    // Advance playout to 500ms (past the 200ms noisy buffer and 280ms shortened silence, 20ms into
+    // the second 200ms noisy buffer). Now all 720ms of skipped silence is included.
+    playoutPositionUs.set(500_000);
+    long positionAfterSilenceUs = defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false);
+    assertThat(positionAfterSilenceUs).isEqualTo(1_220_000);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockListener).onSilenceSkipped();
+
+    // Advance playout to the end of all written audio.
+    playoutPositionUs.set(1_000_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
+        .isEqualTo(1_400_000);
+  }
+
+  @Test
+  public void
+      getCurrentPositionUs_withSkipSilenceEnabledAndMidStreamParameterChange_correctlyCountsSkippedSilence()
+          throws Exception {
+    AtomicLong playoutPositionUs = new AtomicLong();
+    AudioSink.Listener mockListener = mock(AudioSink.Listener.class);
+    // DefaultAudioProcessorChain uses a default SilenceSkippingAudioProcessor
+    // (minimumSilenceDurationUs = 100ms, silenceRetentionRatio = 0.2), which splits a 1000ms
+    // silence buffer into:
+    // - Kept (shortened) silence: 100ms + 0.2 * (1000ms - 100ms) = 280ms
+    // - Skipped (dropped) silence: 1000ms - 280ms = 720ms
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(createPositionControllingAudioOutputProvider(playoutPositionUs))
+            .build();
+    defaultAudioSink.setListener(mockListener);
+    defaultAudioSink.setSkipSilenceEnabled(true);
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    ByteBuffer firstNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    ByteBuffer firstSilenceBuffer = create1Sec44100HzSilenceBuffer();
+    ByteBuffer secondNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                firstSilenceBuffer,
+                /* presentationTimeUs= */ 200_000,
+                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                secondNoisyBuffer,
+                /* presentationTimeUs= */ 1_200_000,
+                /* encodedAccessUnitCount= */ 1));
+
+    // Trigger a mid-stream parameter change at media time 1_400_000us (playout position 680_000us:
+    // 200ms noise + 280ms shortened silence + 200ms noise), followed by another 1s silence buffer
+    // and 200ms noisy buffer.
+    defaultAudioSink.setPlaybackParameters(PlaybackParameters.DEFAULT);
+    ByteBuffer secondSilenceBuffer = create1Sec44100HzSilenceBuffer();
+    ByteBuffer thirdNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                secondSilenceBuffer,
+                /* presentationTimeUs= */ 1_400_000,
+                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                thirdNoisyBuffer,
+                /* presentationTimeUs= */ 2_400_000,
+                /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+
+    // Playout at 150ms (before the first silence): no skipped silence included yet.
+    playoutPositionUs.set(150_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false)).isEqualTo(150_000);
+
+    // Playout at 500ms (past the first shortened silence at 480ms, still before the 680ms
+    // parameter change checkpoint): includes the first 720ms of skipped silence.
+    playoutPositionUs.set(500_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
+        .isEqualTo(1_220_000);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockListener).onSilenceSkipped();
+
+    // Playout at 700ms (20ms past the 680ms parameter change checkpoint whose mediaTimeUs is
+    // 1_400_000us, before the second silence is skipped): must not double-count the first 720ms of
+    // skipped silence.
+    playoutPositionUs.set(700_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
+        .isEqualTo(1_420_000);
+
+    // Playout at 1_000ms (past the second shortened silence at 960ms, 40ms into the third noisy
+    // buffer): includes only the second 720ms of skipped silence since the 680ms checkpoint.
+    playoutPositionUs.set(1_000_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
+        .isEqualTo(2_440_000);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockListener, times(2)).onSilenceSkipped();
+  }
+
+  @Test
+  public void flush_withSkipSilenceEnabled_resetsPendingSilenceSkippingCheckpoints()
+      throws Exception {
+    AtomicLong playoutPositionUs = new AtomicLong();
+    AudioSink.Listener mockListener = mock(AudioSink.Listener.class);
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(createPositionControllingAudioOutputProvider(playoutPositionUs))
+            .build();
+    defaultAudioSink.setListener(mockListener);
+    defaultAudioSink.setSkipSilenceEnabled(true);
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    ByteBuffer firstNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    ByteBuffer silenceBuffer = create1Sec44100HzSilenceBuffer();
+    ByteBuffer secondNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                secondNoisyBuffer,
+                /* presentationTimeUs= */ 1_200_000,
+                /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+    playoutPositionUs.set(150_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false)).isEqualTo(150_000);
+
+    // Flush while the skipped silence checkpoint is queued ahead of the 150ms playout position.
+    defaultAudioSink.flush();
+    playoutPositionUs.set(0);
+    ByteBuffer resumedNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 600);
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                resumedNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+    playoutPositionUs.set(500_000);
+
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false)).isEqualTo(500_000);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockListener, never()).onSilenceSkipped();
+  }
+
+  @Test
+  public void
+      getCurrentPositionUs_withSkipSilenceEnabledAndBackpressureAtEndOfStream_includesTrailingSkippedSilence()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicLong playoutPositionUs = new AtomicLong();
+    AtomicBoolean blockWrites = new AtomicBoolean();
+    AudioSink.Listener mockListener = mock(AudioSink.Listener.class);
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (blockWrites.get()) {
+                  return false;
+                }
+                return super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+              }
+
+              @Override
+              public long getPositionUs() {
+                return playoutPositionUs.get();
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .setAudioOutputProvider(audioOutputProvider)
+            .build();
+    defaultAudioSink.setListener(mockListener);
+    defaultAudioSink.setSkipSilenceEnabled(true);
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    ByteBuffer noisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
+    // Use 480ms of silence: 280ms is skipped during handleBuffer() (below the 300ms reporting
+    // threshold), and the trailing 30ms stays buffered until queueEndOfStream() is called during
+    // playToEndOfStream() (skipping another ~24ms to cross the 300ms reporting threshold).
+    ByteBuffer silenceBuffer =
+        ByteBuffer.allocateDirect(
+                (SAMPLE_RATE_44_1 * 480 / 1000) * CHANNEL_COUNT_STEREO * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                noisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+
+    // First playToEndOfStream() queues EOS on the pipeline (which skips frames from the trailing
+    // 30ms of silence and outputs the final fade-in chunk) and hits write backpressure.
+    blockWrites.set(true);
+    defaultAudioSink.playToEndOfStream();
+    // Second playToEndOfStream() finishes draining the pending outputBuffer and ends the pipeline.
+    blockWrites.set(false);
+    defaultAudioSink.playToEndOfStream();
+
+    playoutPositionUs.set(500_000);
+    assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ true)).isEqualTo(679_999);
+    ShadowSystemClock.advanceBy(Duration.ofMillis(100));
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockListener).onSilenceSkipped();
   }
 
   @Test
@@ -3003,6 +3278,186 @@ public final class DefaultAudioSinkTest {
     assertThat(trackingProcessor.lastStreamMetadata.positionOffsetUs).isEqualTo(990_000);
   }
 
+  @Config(minSdk = 37)
+  @Test
+  public void
+      handleBuffer_spatializedMultichannelPcmWithChangingCodecProvenance_recreatesAudioOutput()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    ArrayList<AudioOutputProvider.OutputConfig> createdOutputConfigs = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+                .setAudioCapabilities(audioCapabilities)
+                .build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            createdOutputConfigs.add(config);
+            return super.getAudioOutput(config);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format pcm5Point1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(6)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+    ByteBuffer firstBuffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * 6 * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    ByteBuffer secondBuffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * 6 * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                firstBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    defaultAudioSink.play();
+    ShadowSystemClock.advanceBy(2, TimeUnit.SECONDS);
+
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
+            .setCodecProvenance(MimeTypes.AUDIO_AC4)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                secondBuffer,
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1));
+
+    assertThat(createdOutputConfigs).hasSize(2);
+    assertThat(createdOutputConfigs.get(0).codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+    assertThat(createdOutputConfigs.get(1).codecProvenance).isEqualTo(MimeTypes.AUDIO_AC4);
+  }
+
+  @Config(minSdk = 37)
+  @Test
+  public void handleBuffer_nonSpatializedStereoPcmWithChangingCodecProvenance_reusesAudioOutput()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    ArrayList<AudioOutputProvider.OutputConfig> createdOutputConfigs = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+                .setAudioCapabilities(audioCapabilities)
+                .build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            createdOutputConfigs.add(config);
+            return super.getAudioOutput(config);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format stereoPcm =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(stereoPcm)
+            .setCodecProvenance(MimeTypes.AUDIO_AAC)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1));
+
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(stereoPcm)
+            .setCodecProvenance(MimeTypes.AUDIO_OPUS)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+                /* encodedAccessUnitCount= */ 1));
+
+    assertThat(createdOutputConfigs).hasSize(1);
+    assertThat(createdOutputConfigs.get(0).codecProvenance).isNull();
+  }
+
+  @Config(minSdk = 37)
+  @Test
+  public void setAudioAttributes_withCodecProvenance_recomputesOutputConfigCodecProvenance()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            context,
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1));
+    ArrayList<AudioOutputProvider.OutputConfig> createdOutputConfigs = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(/* context= */ null)
+                .setAudioCapabilities(audioCapabilities)
+                .build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            createdOutputConfigs.add(config);
+            return super.getAudioOutput(config);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    defaultAudioSink.setAudioAttributes(
+        new AudioAttributes.Builder()
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
+            .build());
+    Format pcm5Point1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(6)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(SAMPLE_RATE_44_1 * 6 * BYTES_PER_FRAME_16_BIT)
+            .order(ByteOrder.nativeOrder());
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
+            .setCodecProvenance(MimeTypes.AUDIO_E_AC3_JOC)
+            .build());
+
+    defaultAudioSink.setAudioAttributes(
+        new AudioAttributes.Builder()
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_AUTO)
+            .build());
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+
+    assertThat(createdOutputConfigs).hasSize(1);
+    assertThat(createdOutputConfigs.get(0).codecProvenance).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
+  }
+
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }
@@ -3169,6 +3624,35 @@ public final class DefaultAudioSinkTest {
     return ByteBuffer.allocateDirect(
             SAMPLE_RATE_44_1 * CHANNEL_COUNT_STEREO * BYTES_PER_FRAME_16_BIT)
         .order(ByteOrder.nativeOrder());
+  }
+
+  /** Creates a non-silent buffer of the given duration for 44.1 kHz stereo 16-bit audio. */
+  private static ByteBuffer create44100HzNoiseBuffer(int durationMs) {
+    int frameCount = (SAMPLE_RATE_44_1 * durationMs) / 1000;
+    int byteCount = frameCount * CHANNEL_COUNT_STEREO * BYTES_PER_FRAME_16_BIT;
+    ByteBuffer buffer = ByteBuffer.allocateDirect(byteCount).order(ByteOrder.nativeOrder());
+    for (int i = 0; i < frameCount * CHANNEL_COUNT_STEREO; i++) {
+      buffer.putShort((short) 0x1000);
+    }
+    buffer.flip();
+    return buffer;
+  }
+
+  private static AudioOutputProvider createPositionControllingAudioOutputProvider(
+      AtomicLong playoutPositionUs) {
+    return new ForwardingAudioOutputProvider(
+        new AudioTrackAudioOutputProvider.Builder(ApplicationProvider.getApplicationContext())
+            .build()) {
+      @Override
+      public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+        return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+          @Override
+          public long getPositionUs() {
+            return playoutPositionUs.get();
+          }
+        };
+      }
+    };
   }
 
   private static AudioOutputProvider createByteCountingAudioOutputProvider(

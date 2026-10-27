@@ -15,6 +15,7 @@
 -->
 <resources>
 
+  <item name="exo_content_frame_container" type="id"/>
   <item name="exo_content_frame" type="id"/>
   <item name="exo_image" type="id"/>
   <item name="exo_shutter" type="id"/>

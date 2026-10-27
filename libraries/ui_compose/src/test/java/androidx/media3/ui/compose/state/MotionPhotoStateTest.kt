@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import android.annotation.SuppressLint
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -771,6 +772,27 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  fun config_whenTransitionDurationUpdated_updatesVisualStateTransitionDuration() =
+    runComposeUiTest {
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = null,
+            mediaItem = testMediaItem,
+            initialConfig = MotionPhotoConfig(transitionDurationMs = 450L),
+          )
+      }
+      waitForIdle()
+      assertThat(state.visualState.transitionDurationMs).isEqualTo(450L)
+
+      state.config = state.config.copy(transitionDurationMs = 100L)
+      waitForIdle()
+
+      assertThat(state.visualState.transitionDurationMs).isEqualTo(100L)
+    }
+
+  @Test
   fun config_whenResumeVideoFromPreviousPositionDisabledWhilePlayingMotion_doesNotRewindOrInterruptPlayback() =
     runComposeUiTest {
       val player = FakePlayer(bufferingDelayMs = 0)
@@ -799,25 +821,40 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  @SuppressLint("Range")
+  fun motionPhotoConfig_withNegativeTransitionDuration_throwsIllegalArgumentException() {
+    assertThrows(IllegalArgumentException::class.java) {
+      MotionPhotoConfig(transitionDurationMs = -1L)
+    }
+  }
+
+  @Test
   fun motionPhotoConfig_copyAndPresets_hasExpectedPropertiesAndEquality() {
     val defaultConfig = MotionPhotoConfig.DEFAULT
     assertThat(defaultConfig.isLooping).isFalse()
+    assertThat(defaultConfig.transitionDurationMs).isEqualTo(200L)
     assertThat(defaultConfig.resumeVideoFromPreviousPosition).isFalse()
     assertThat(defaultConfig).isEqualTo(MotionPhotoConfig())
     assertThat(defaultConfig.hashCode()).isEqualTo(MotionPhotoConfig().hashCode())
 
     val loopConfig = MotionPhotoConfig.LOOP
     assertThat(loopConfig.isLooping).isTrue()
+    assertThat(loopConfig.transitionDurationMs).isEqualTo(200L)
     assertThat(loopConfig.resumeVideoFromPreviousPosition).isFalse()
     assertThat(loopConfig).isEqualTo(defaultConfig.copy(isLooping = true))
     assertThat(loopConfig).isNotEqualTo(defaultConfig)
     assertThat(loopConfig.copy(isLooping = false)).isEqualTo(defaultConfig)
 
-    val customConfig = defaultConfig.copy(resumeVideoFromPreviousPosition = true)
+    val customConfig =
+      defaultConfig.copy(transitionDurationMs = 350L, resumeVideoFromPreviousPosition = true)
     assertThat(customConfig.isLooping).isFalse()
+    assertThat(customConfig.transitionDurationMs).isEqualTo(350L)
     assertThat(customConfig.resumeVideoFromPreviousPosition).isTrue()
     assertThat(customConfig).isNotEqualTo(defaultConfig)
     assertThat(customConfig.hashCode())
-      .isEqualTo(MotionPhotoConfig(resumeVideoFromPreviousPosition = true).hashCode())
+      .isEqualTo(
+        MotionPhotoConfig(transitionDurationMs = 350L, resumeVideoFromPreviousPosition = true)
+          .hashCode()
+      )
   }
 }

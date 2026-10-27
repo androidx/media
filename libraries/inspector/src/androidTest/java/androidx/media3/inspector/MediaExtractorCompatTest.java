@@ -298,14 +298,13 @@ public class MediaExtractorCompatTest {
 
   @Test
   public void getSampleTimeAndSize_withOutOfMemoryError_producesEndOfInput() throws IOException {
-    // This boolean guarantees that this test remains useful. The throwing read action is being
-    // called as a result of an implementation detail (trying to parse a container file with no
-    // tracks) that could change in the future. Counting on this implementation detail simplifies
-    // the test.
+    // Ensures the end of input is caused by the error and not by a missing read.
     AtomicBoolean outOfMemoryErrorWasThrown = new AtomicBoolean(false);
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
           extractorOutput.endTracks();
+          output.format(PLACEHOLDER_FORMAT_VIDEO);
           return Extractor.RESULT_CONTINUE;
         });
     fakeExtractor.addReadAction(
@@ -314,6 +313,8 @@ public class MediaExtractorCompatTest {
           throw new OutOfMemoryError();
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
     assertThat(outOfMemoryErrorWasThrown.get()).isTrue();
@@ -391,6 +392,71 @@ public class MediaExtractorCompatTest {
     // Test the same sample (and only that sample) is read after the seek to the start.
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(1);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+  }
+
+  @Test
+  public void advance_afterEndOfInput_stopsReadingUntilSeek() throws IOException {
+    fakeExtractor.setSeekStrategy(fakeExtractor::rewindReadActions);
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 0);
+          outputSample(outputs[0], /* timeUs= */ 7, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    fakeExtractor.addReadAction(MediaExtractorCompatTest::assertionFailureReadAction);
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+
+    mediaExtractorCompat.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+  }
+
+  @Test
+  public void advance_afterReadError_stopsReadingUntilSeek() throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          throw new IOException();
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 0);
+          outputSample(outputs[0], /* timeUs= */ 7, /* size= */ 1, /* offset= */ 0);
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    fakeExtractor.addReadAction(MediaExtractorCompatTest::assertionFailureReadAction);
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+
+    mediaExtractorCompat.seekTo(/* timeUs= */ 0, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC);
+
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
     assertThat(mediaExtractorCompat.advance()).isFalse();
   }
 
@@ -1103,7 +1169,6 @@ public class MediaExtractorCompatTest {
           extractorOutput.endTracks();
           return Extractor.RESULT_CONTINUE;
         });
-    mediaExtractorCompat.selectTrack(0);
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
           outputSampleData(outputs[0], encryptedSampleData);
@@ -1117,6 +1182,7 @@ public class MediaExtractorCompatTest {
         });
 
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
 
     MediaCodec.CryptoInfo platformCryptoInfo = new MediaCodec.CryptoInfo();
     assertThat(mediaExtractorCompat.getSampleCryptoInfo(platformCryptoInfo)).isTrue();
@@ -1347,7 +1413,7 @@ public class MediaExtractorCompatTest {
    * A functional interface for the {@link Extractor#read(ExtractorInput, PositionHolder)} method.
    */
   private interface ExtractorReadAction {
-    int read(ExtractorInput input, PositionHolder position);
+    int read(ExtractorInput input, PositionHolder position) throws IOException;
   }
 
   /** A functional interface for the {@link Extractor#seek(long, long)} method. */

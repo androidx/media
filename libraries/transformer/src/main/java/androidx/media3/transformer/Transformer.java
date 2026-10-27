@@ -843,7 +843,8 @@ public final class Transformer {
   private @MonotonicNonNull TransformerOutput transformerOutput;
   private @MonotonicNonNull String oldFilePath;
   private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
-  private @Nullable WatchdogTimer exportWatchdogTimer;
+  // Written on the application thread, read on the export operation's internal thread.
+  private volatile @Nullable WatchdogTimer exportWatchdogTimer;
 
   private Transformer(
       Context context,
@@ -1285,7 +1286,7 @@ public final class Transformer {
     if (maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET) {
       return;
     }
-    exportWatchdogTimer =
+    WatchdogTimer exportWatchdogTimer =
         new WatchdogTimer(
             maxDelayBetweenMuxerSamplesMs,
             () -> {
@@ -1298,21 +1299,31 @@ public final class Transformer {
                               maxDelayBetweenMuxerSamplesMs,
                               DebugTraceUtil.generateTraceSummary())),
                       ExportException.ERROR_CODE_MUXING_TIMEOUT);
-              if (currentExportOperation != null) {
-                currentExportOperation.endWithException(exportException);
-              } else {
-                // Fallback if the timeout hits before the operation is even created
-                exportOperationListener.onError(
-                    new ExportResult.Builder().build(), exportException);
-              }
+              applicationHandler.post(
+                  () -> {
+                    if (this.exportWatchdogTimer == null) {
+                      // The export has already ended or been cancelled.
+                      return;
+                    }
+                    if (currentExportOperation != null) {
+                      currentExportOperation.endWithException(exportException);
+                    } else {
+                      // Fallback if the timeout hits before the operation is even created
+                      exportOperationListener.onError(
+                          new ExportResult.Builder().build(), exportException);
+                    }
+                  });
             });
     exportWatchdogTimer.start();
+    // Only publish a started timer, as it is read on the export operation's internal thread.
+    this.exportWatchdogTimer = exportWatchdogTimer;
   }
 
   private void maybeStopExportWatchdogTimer() {
+    @Nullable WatchdogTimer exportWatchdogTimer = this.exportWatchdogTimer;
     if (exportWatchdogTimer != null) {
       exportWatchdogTimer.stop();
-      exportWatchdogTimer = null;
+      this.exportWatchdogTimer = null;
     }
   }
 
@@ -1554,11 +1565,13 @@ public final class Transformer {
 
     @Override
     public void onSampleWrittenOrDropped() {
+      // Called on the export operation's internal thread.
+      @Nullable WatchdogTimer exportWatchdogTimer = Transformer.this.exportWatchdogTimer;
       if (exportWatchdogTimer != null) {
         exportWatchdogTimer.reset();
-      } else {
-        checkState(maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET);
       }
+      // If exportWatchdogTimer is null, the export has either no watchdog configured or has
+      // already ended (completed, failed or cancelled), so late muxer events are ignored.
     }
   }
 }

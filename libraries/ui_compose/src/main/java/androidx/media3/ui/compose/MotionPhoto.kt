@@ -19,6 +19,7 @@ package androidx.media3.ui.compose
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -95,6 +96,11 @@ fun MotionPhoto(
   val photoAlpha by
     animateFloatAsState(
       targetValue = if (state.visualState.isPhotoVisible) 1f else 0f,
+      animationSpec =
+        tween(
+          durationMillis =
+            state.visualState.transitionDurationMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        ),
       label = "photoAlpha",
     )
   Box(modifier = modifier) {
