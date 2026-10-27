@@ -59,6 +59,10 @@ public final class AdPlaybackState {
    *
    * <p>Instances are immutable. Call the {@code with*} methods to get new instances that have the
    * required changes.
+   *
+   * <p>The public array fields may be shared between instances and must be treated as read-only.
+   * They must not be modified. When sharing an instance through an external API, {@link #copy()}
+   * can be used to obtain an instance with independent arrays to be safe.
    */
   public static final class AdGroup {
 
@@ -80,23 +84,59 @@ public final class AdPlaybackState {
     public final int originalCount;
 
     /**
+     * The URIs of the ads in the ad group.
+     *
+     * <p>The array may be shared between instances and must not be modified. When sharing an
+     * instance through an external API, {@link #copy()} can be used to obtain an instance with
+     * independent arrays to be safe.
+     *
      * @deprecated Use {@link #mediaItems} instead.
      */
     @Deprecated public final @Nullable Uri[] uris;
 
-    /** The {@link MediaItem} instances for each ad in the ad group, or null if not yet known. */
+    /**
+     * The {@link MediaItem} instances for each ad in the ad group, or null if not yet known.
+     *
+     * <p>The array may be shared between instances and must not be modified. When sharing an
+     * instance through an external API, {@link #copy()} can be used to obtain an instance with
+     * independent arrays to be safe.
+     */
     public final @Nullable MediaItem[] mediaItems;
 
-    /** The state of each ad in the ad group. */
+    /**
+     * The state of each ad in the ad group.
+     *
+     * <p>The array may be shared between instances and must not be modified. When sharing an
+     * instance through an external API, {@link #copy()} can be used to obtain an instance with
+     * independent arrays to be safe.
+     */
     public final @AdState int[] states;
 
-    /** The durations of each ad in the ad group, in microseconds. */
+    /**
+     * The durations of each ad in the ad group, in microseconds.
+     *
+     * <p>The array may be shared between instances and must not be modified. When sharing an
+     * instance through an external API, {@link #copy()} can be used to obtain an instance with
+     * independent arrays to be safe.
+     */
     public final long[] durationsUs;
 
-    /** The optional IDs of the ads. */
+    /**
+     * The optional IDs of the ads.
+     *
+     * <p>The array may be shared between instances and must not be modified. When sharing an
+     * instance through an external API, {@link #copy()} can be used to obtain an instance with
+     * independent arrays to be safe.
+     */
     public final @Nullable String[] ids;
 
-    /** The skip information for each ad in the ad group. */
+    /**
+     * The skip information for each ad in the ad group.
+     *
+     * <p>The array may be shared between instances and must not be modified. When sharing an
+     * instance through an external API, {@link #copy()} can be used to obtain an instance with
+     * independent arrays to be safe.
+     */
     public final @Nullable SkipInfo[] skipInfos;
 
     /**
@@ -398,13 +438,19 @@ public final class AdPlaybackState {
           isPlaceholder);
     }
 
-    /** Returns a new instance with the specified ad durations, in microseconds. */
+    /**
+     * Returns a new instance with the specified ad durations, in microseconds.
+     *
+     * <p>The passed array is copied and not retained by the returned instance.
+     */
     @CheckResult
     public AdGroup withAdDurationsUs(long[] durationsUs) {
       if (durationsUs.length < mediaItems.length) {
         durationsUs = copyDurationsUsWithSpaceForAdCount(durationsUs, mediaItems.length);
       } else if (count != C.LENGTH_UNSET && durationsUs.length > mediaItems.length) {
         durationsUs = Arrays.copyOf(durationsUs, mediaItems.length);
+      } else {
+        durationsUs = Arrays.copyOf(durationsUs, durationsUs.length);
       }
       return new AdGroup(
           timeUs,
@@ -720,7 +766,12 @@ public final class AdPlaybackState {
       return C.INDEX_UNSET;
     }
 
-    /** Returns a safe copy with all array fields copied into the new instance as new arrays. */
+    /**
+     * Returns a safe copy with all array fields copied into the new instance as new arrays.
+     *
+     * <p>This can be used when sharing an instance through an external API to be safe against
+     * modifications to the arrays of the copy affecting this instance.
+     */
     public AdGroup copy() {
       return new AdGroup(
           timeUs,
@@ -1232,8 +1283,10 @@ public final class AdPlaybackState {
   }
 
   /**
-   * Returns an new instance that is a safe deep copy of this instance in case an immutable object
-   * is used for {@link #adsId}.
+   * Returns a new instance that is a safe deep copy of this instance, with all array fields of all
+   * ad groups copied into new arrays, which can be used when sharing an instance through an
+   * external API to be safe against modifications to the arrays of the copy affecting this
+   * instance.
    */
   @CheckResult
   public AdPlaybackState copy() {
@@ -1711,35 +1764,15 @@ public final class AdPlaybackState {
   /**
    * Returns a copy of the ad playback state with the given ads ID.
    *
+   * <p>The returned instance is a safe deep copy with all array fields of all ad groups copied into
+   * new arrays, so that modifications to the arrays of the copy cannot affect the given instance.
+   *
    * @param adsId The new ads ID.
    * @param adPlaybackState The ad playback state to copy.
    * @return The new ad playback state.
    */
   public static AdPlaybackState fromAdPlaybackState(Object adsId, AdPlaybackState adPlaybackState) {
-    AdGroup[] adGroups =
-        new AdGroup[adPlaybackState.adGroupCount - adPlaybackState.removedAdGroupCount];
-    for (int i = 0; i < adGroups.length; i++) {
-      AdGroup adGroup = adPlaybackState.adGroups[i];
-      adGroups[i] =
-          new AdGroup(
-              adGroup.timeUs,
-              adGroup.count,
-              adGroup.originalCount,
-              Arrays.copyOf(adGroup.states, adGroup.states.length),
-              Arrays.copyOf(adGroup.mediaItems, adGroup.mediaItems.length),
-              Arrays.copyOf(adGroup.durationsUs, adGroup.durationsUs.length),
-              adGroup.contentResumeOffsetUs,
-              adGroup.isServerSideInserted,
-              adGroup.ids,
-              adGroup.skipInfos,
-              adGroup.isPlaceholder);
-    }
-    return new AdPlaybackState(
-        adsId,
-        adGroups,
-        adPlaybackState.adResumePositionUs,
-        adPlaybackState.contentDurationUs,
-        adPlaybackState.removedAdGroupCount);
+    return adPlaybackState.copy().withAdsId(adsId);
   }
 
   @Override

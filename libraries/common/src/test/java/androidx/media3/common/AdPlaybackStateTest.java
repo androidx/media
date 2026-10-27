@@ -1365,6 +1365,134 @@ public class AdPlaybackStateTest {
     }
   }
 
+  @Test
+  public void adGroup_withAdDurationsUs_doesNotRetainCallerArray() {
+    AdPlaybackState.AdGroup adGroup = new AdPlaybackState.AdGroup(/* timeUs= */ 0).withAdCount(2);
+    long[] sameLengthDurationsUs = new long[] {1, 2};
+    long[] shorterDurationsUs = new long[] {1};
+    long[] longerDurationsUs = new long[] {1, 2, 3};
+
+    AdPlaybackState.AdGroup sameLengthAdGroup = adGroup.withAdDurationsUs(sameLengthDurationsUs);
+    AdPlaybackState.AdGroup shorterAdGroup = adGroup.withAdDurationsUs(shorterDurationsUs);
+    AdPlaybackState.AdGroup longerAdGroup = adGroup.withAdDurationsUs(longerDurationsUs);
+    sameLengthDurationsUs[0] = 100;
+    sameLengthDurationsUs[1] = 200;
+    shorterDurationsUs[0] = 100;
+    longerDurationsUs[0] = 100;
+    longerDurationsUs[1] = 200;
+    longerDurationsUs[2] = 300;
+
+    assertThat(sameLengthAdGroup.durationsUs).isNotSameInstanceAs(sameLengthDurationsUs);
+    assertThat(sameLengthAdGroup.durationsUs).asList().containsExactly(1L, 2L).inOrder();
+    assertThat(shorterAdGroup.durationsUs).isNotSameInstanceAs(shorterDurationsUs);
+    assertThat(shorterAdGroup.durationsUs).asList().containsExactly(1L, C.TIME_UNSET).inOrder();
+    assertThat(longerAdGroup.durationsUs).isNotSameInstanceAs(longerDurationsUs);
+    assertThat(longerAdGroup.durationsUs).asList().containsExactly(1L, 2L).inOrder();
+  }
+
+  @Test
+  public void adGroup_withAdDurationsUs_withUnknownAdCountAndLongerArray_copiesFullArray() {
+    AdPlaybackState.AdGroup adGroup = new AdPlaybackState.AdGroup(/* timeUs= */ 0);
+    long[] durationsUs = new long[] {1, 2, 3};
+
+    AdPlaybackState.AdGroup updatedAdGroup = adGroup.withAdDurationsUs(durationsUs);
+    durationsUs[0] = 100;
+    durationsUs[1] = 200;
+    durationsUs[2] = 300;
+
+    assertThat(updatedAdGroup.count).isEqualTo(C.LENGTH_UNSET);
+    assertThat(updatedAdGroup.durationsUs).isNotSameInstanceAs(durationsUs);
+    assertThat(updatedAdGroup.durationsUs).asList().containsExactly(1L, 2L, 3L).inOrder();
+  }
+
+  @Test
+  public void withAdDurationsUs_perAdGroupAndMatrixOverloads_doNotRetainCallerArrays() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0, 10_000)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 2)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 2);
+    long[] perAdGroupDurationsUs = new long[] {1, 2};
+    long[][] durationsUsMatrix = new long[][] {new long[] {3, 4}, new long[] {5, 6}};
+
+    AdPlaybackState perAdGroupState =
+        adPlaybackState.withAdDurationsUs(/* adGroupIndex= */ 1, perAdGroupDurationsUs);
+    AdPlaybackState matrixState = adPlaybackState.withAdDurationsUs(durationsUsMatrix);
+    perAdGroupDurationsUs[0] = 100;
+    perAdGroupDurationsUs[1] = 200;
+    durationsUsMatrix[0][0] = 300;
+    durationsUsMatrix[0][1] = 400;
+    durationsUsMatrix[1][0] = 500;
+    durationsUsMatrix[1][1] = 600;
+
+    assertThat(perAdGroupState.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
+        .isNotSameInstanceAs(perAdGroupDurationsUs);
+    assertThat(perAdGroupState.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
+        .asList()
+        .containsExactly(1L, 2L)
+        .inOrder();
+    assertThat(matrixState.getAdGroup(/* adGroupIndex= */ 0).durationsUs)
+        .isNotSameInstanceAs(durationsUsMatrix[0]);
+    assertThat(matrixState.getAdGroup(/* adGroupIndex= */ 0).durationsUs)
+        .asList()
+        .containsExactly(3L, 4L)
+        .inOrder();
+    assertThat(matrixState.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
+        .isNotSameInstanceAs(durationsUsMatrix[1]);
+    assertThat(matrixState.getAdGroup(/* adGroupIndex= */ 1).durationsUs)
+        .asList()
+        .containsExactly(5L, 6L)
+        .inOrder();
+  }
+
+  @SuppressWarnings("deprecation") // testing deprecated field `uris`
+  @Test
+  public void fromAdPlaybackState_copiesAllArrayFieldsAndSetsAdsId() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId", 10_000L)
+            .withLivePostrollPlaceholderAppended(false)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/0-0"))
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad-0-0")
+            .withNewAdGroup(/* adGroupIndex= */ 1, 11_000)
+            .withAdCount(/* adGroupIndex= */ 1, 2)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/1-0"))
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 1,
+                MediaItem.fromUri("http://example.com/1-1"))
+            .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1, "ad-1-1")
+            .withAdSkipInfo(
+                /* adGroupIndex= */ 1,
+                /* adIndexInAdGroup= */ 0,
+                new AdPlaybackState.SkipInfo(
+                    /* skipOffsetUs= */ 500, /* skipDurationUs= */ 5000, "skip"))
+            .withNewAdGroup(/* adGroupIndex= */ 2, 12_000);
+
+    AdPlaybackState copy = AdPlaybackState.fromAdPlaybackState("newAdsId", adPlaybackState);
+
+    assertThat(copy.adsId).isEqualTo("newAdsId");
+    assertThat(copy).isEqualTo(adPlaybackState.withAdsId("newAdsId"));
+    assertThat(copy).isNotSameInstanceAs(adPlaybackState);
+    for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
+      AdPlaybackState.AdGroup adGroupCopy = copy.getAdGroup(adGroupIndex);
+      AdPlaybackState.AdGroup originalAdGroup = adPlaybackState.getAdGroup(adGroupIndex);
+      assertThat(adGroupCopy).isEqualTo(originalAdGroup);
+      assertThat(adGroupCopy).isNotSameInstanceAs(originalAdGroup);
+      assertThat(adGroupCopy.durationsUs).isNotSameInstanceAs(originalAdGroup.durationsUs);
+      assertThat(adGroupCopy.ids).isNotSameInstanceAs(originalAdGroup.ids);
+      assertThat(adGroupCopy.mediaItems).isNotSameInstanceAs(originalAdGroup.mediaItems);
+      assertThat(adGroupCopy.states).isNotSameInstanceAs(originalAdGroup.states);
+      assertThat(adGroupCopy.uris).isNotSameInstanceAs(originalAdGroup.uris);
+      assertThat(adGroupCopy.skipInfos).isNotSameInstanceAs(originalAdGroup.skipInfos);
+    }
+  }
+
   /**
    * If this test fails a new field of type array has been added to {@link AdPlaybackState.AdGroup}.
    * Make sure to update {@link AdPlaybackState.AdGroup#copy} and add a line in the test {@link

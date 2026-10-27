@@ -19,6 +19,10 @@
         `MimeTypes.getMediaMimeType`, fixing missing muxed Dolby TrueHD audio
         tracks during HLS chunkless preparation
         ([#3485](https://github.com/androidx/media/issues/3485)).
+    *   Fix `AdPlaybackState.withAdDurationsUs` to copy the passed array and
+        `AdPlaybackState.fromAdPlaybackState` to copy all array fields of the ad
+        groups, so that an instance can no longer be modified through retained
+        or shared arrays.
 *   ExoPlayer:
     *   Fix an issue where a renderer enabled early for an upcoming media period
         could start rendering before playback transitions to that period.
