@@ -82,8 +82,8 @@
     *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame`.
         Setting it to `false` allows fragments to start at non-key frames when
         video key frames are farther apart than the fragment duration. This only
-        takes effect if the video `Format.maxNumReorderSamples` is 0
-        ([#3450](https://github.com/androidx/media/pull/3450)).
+        takes effect if the video `Format.maxNumReorderSamples` is explicitly
+        set to 0 ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
         ads to resize and reposition the video player view within the ad

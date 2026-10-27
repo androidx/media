@@ -164,8 +164,9 @@ public final class FragmentedMp4Muxer implements Muxer {
      * than the fragment duration.
      *
      * <p>Setting this to {@code false} only takes effect if {@link Format#maxNumReorderSamples} of
-     * the video {@link Format} is {@code 0}. Otherwise, fragments only start at key frames. If
-     * video samples arrive out of order, fragments only start at key frames from that point on.
+     * the video {@link Format} is explicitly set to {@code 0}. Otherwise, fragments only start at
+     * key frames. If video samples arrive out of order, fragments only start at key frames from
+     * that point on.
      *
      * <p>Fragments that start at non-key frames are not listed as random access points in the
      * {@code mfra} box.
