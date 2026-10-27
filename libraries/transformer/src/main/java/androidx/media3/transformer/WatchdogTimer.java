@@ -15,9 +15,10 @@
  */
 package androidx.media3.transformer;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import androidx.annotation.GuardedBy;
 import androidx.media3.common.util.Util;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -31,8 +32,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <ul>
  *   <li>Call {@link #start()} once to start the timer.
  *   <li>Call {@link #reset()} periodically to reset the timer and prevent a timeout.
- *   <li>Call {@link #stop()} once to stop the timer.
+ *   <li>Call {@link #stop()} to stop the timer.
  * </ul>
+ *
+ * <p>This class is thread-safe. {@link #reset()} may be called from any thread, including before
+ * {@link #start()} or after {@link #stop()}, in which case it is a no-op.
  */
 /* package */ final class WatchdogTimer {
   /** A listener for timeout events. */
@@ -44,8 +48,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final long timeoutDurationMs;
   private final Listener listener;
   private final ScheduledExecutorService watchdogScheduledExecutorService;
+  private final Object lock;
 
+  @GuardedBy("lock")
   private @MonotonicNonNull ScheduledFuture<?> timeoutScheduledFuture;
+
+  @GuardedBy("lock")
+  private boolean stopped;
 
   /**
    * Creates an instance.
@@ -57,33 +66,63 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.timeoutDurationMs = timeoutDurationMs;
     this.listener = listener;
     watchdogScheduledExecutorService = Util.newSingleThreadScheduledExecutor("WatchdogTimer");
+    lock = new Object();
   }
 
-  /** Starts the watchdog timer. */
+  /**
+   * Starts the watchdog timer.
+   *
+   * <p>Must be called at most once, and not after {@link #stop()}.
+   */
   public void start() {
-    scheduleNewTimer();
+    synchronized (lock) {
+      checkState(!stopped);
+      checkState(timeoutScheduledFuture == null);
+      scheduleNewTimer();
+    }
   }
 
-  /** Resets the watchdog timer. */
+  /**
+   * Resets the watchdog timer.
+   *
+   * <p>Can be called from any thread. Does nothing if the timer has not been {@linkplain #start()
+   * started} or has been {@linkplain #stop() stopped}.
+   */
   public void reset() {
-    cancelExistingTimer();
-    scheduleNewTimer();
+    synchronized (lock) {
+      if (stopped || timeoutScheduledFuture == null) {
+        return;
+      }
+      cancelExistingTimer();
+      scheduleNewTimer();
+    }
   }
 
   /**
    * Stops the watchdog timer.
    *
-   * <p>The watchdog timer can not be used after its stopped.
+   * <p>The watchdog timer cannot be used after it is stopped. Calling this method more than once
+   * has no effect.
    */
   public void stop() {
-    cancelExistingTimer();
-    watchdogScheduledExecutorService.shutdownNow();
+    synchronized (lock) {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      cancelExistingTimer();
+      watchdogScheduledExecutorService.shutdownNow();
+    }
   }
 
+  @GuardedBy("lock")
   private void cancelExistingTimer() {
-    checkNotNull(timeoutScheduledFuture).cancel(/* mayInterruptIfRunning= */ false);
+    if (timeoutScheduledFuture != null) {
+      timeoutScheduledFuture.cancel(/* mayInterruptIfRunning= */ false);
+    }
   }
 
+  @GuardedBy("lock")
   private void scheduleNewTimer() {
     timeoutScheduledFuture =
         watchdogScheduledExecutorService.schedule(
