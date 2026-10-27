@@ -711,13 +711,14 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
-  public void writeSampleData_fragmentsBetweenKeyFramesEnabled_writesFragmentsAtNonKeyFrames()
-      throws Exception {
+  public void
+      writeSampleData_fragmentsNotRequiredToStartWithKeyFrame_writesFragmentsAtNonKeyFrames()
+          throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
       writeFakeVideoSamples(muxer, trackId, IN_ORDER_FRAME_INDICES);
     }
@@ -728,13 +729,12 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
-  public void writeSampleData_fragmentsBetweenKeyFramesDisabled_writesFragmentsAtKeyFramesOnly()
+  public void writeSampleData_fragmentsMustStartWithKeyFrame_writesFragmentsAtKeyFramesOnly()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FragmentedMp4Muxer muxer =
-        createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ false)) {
+        createMuxerWithShortFragments(outputFilePath, /* fragmentsMustStartWithKeyFrame= */ true)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
       writeFakeVideoSamples(muxer, trackId, IN_ORDER_FRAME_INDICES);
     }
@@ -751,7 +751,7 @@ public class FragmentedMp4MuxerEndToEndTest {
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       // The default maxNumReorderSamples is Format.NO_VALUE.
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       writeFakeVideoSamples(muxer, trackId, IN_ORDER_FRAME_INDICES);
@@ -764,14 +764,14 @@ public class FragmentedMp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeSampleData_fragmentsBetweenKeyFramesEnabledWithBFrames_writesFragmentsAtKeyFramesOnly()
+      writeSampleData_fragmentsNotRequiredToStartWithKeyFrameWithBFrames_writesFragmentsAtKeyFramesOnly()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Format videoFormat = FAKE_VIDEO_FORMAT.buildUpon().setMaxNumReorderSamples(2).build();
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(videoFormat);
       // Samples are in decode order I P B B P B B ...
       writeFakeVideoSamples(
@@ -785,13 +785,13 @@ public class FragmentedMp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeSampleData_fragmentsBetweenKeyFramesEnabledWithUnexpectedBFrames_fallsBackToKeyFramesOnly()
+      writeSampleData_fragmentsNotRequiredToStartWithKeyFrameWithUnexpectedBFrames_fallsBackToKeyFramesOnly()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       // The format declares no reordering, but B-frames appear after the first 6 samples.
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
       // Samples are in decode order I P P P P P P B B P B B ...
@@ -808,13 +808,13 @@ public class FragmentedMp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeSampleData_fragmentsBetweenKeyFramesEnabledWithAudio_writesFragmentsAtNonKeyFrames()
+      writeSampleData_fragmentsNotRequiredToStartWithKeyFrameWithAudio_writesFragmentsAtNonKeyFrames()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
       int audioTrackId = muxer.addTrack(MuxerTestUtil.FAKE_AUDIO_FORMAT);
       // Audio samples lag one frame behind video, so audio timestamps are often earlier than the
@@ -836,13 +836,13 @@ public class FragmentedMp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeSampleData_fragmentsBetweenKeyFramesEnabledWithDuplicateTimestamps_doesNotEndFragmentBetweenThem()
+      writeSampleData_fragmentsNotRequiredToStartWithKeyFrameWithDuplicateTimestamps_doesNotEndFragmentBetweenThem()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
       // The sixth sample has the same timestamp as the fifth, which is where the first fragment
       // would otherwise end.
@@ -857,13 +857,14 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
-  public void writeSampleData_fragmentsBetweenKeyFramesEnabledWithEmptySample_skipsEmptySample()
-      throws Exception {
+  public void
+      writeSampleData_fragmentsNotRequiredToStartWithKeyFrameWithEmptySample_skipsEmptySample()
+          throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(
-            outputFilePath, /* fragmentsBetweenKeyFramesEnabled= */ true)) {
+            outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT_WITHOUT_REORDERING);
       writeFakeVideoSamples(muxer, trackId, ImmutableList.of(0, 1, 2, 3, 4));
       // The pending samples span the fragment duration, but an empty sample must not end the
@@ -884,16 +885,16 @@ public class FragmentedMp4MuxerEndToEndTest {
   /**
    * Creates a {@link FragmentedMp4Muxer} with a 100 ms fragment duration and fixed timestamps.
    *
-   * <p>If {@code fragmentsBetweenKeyFramesEnabled} is {@code false}, the option is left at its
-   * default value.
+   * <p>If {@code fragmentsMustStartWithKeyFrame} is {@code true}, the option is left at its default
+   * value.
    */
   private static FragmentedMp4Muxer createMuxerWithShortFragments(
-      String outputFilePath, boolean fragmentsBetweenKeyFramesEnabled) throws IOException {
+      String outputFilePath, boolean fragmentsMustStartWithKeyFrame) throws IOException {
     FragmentedMp4Muxer.Builder builder =
         new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel())
             .setFragmentDurationMs(100);
-    if (fragmentsBetweenKeyFramesEnabled) {
-      builder.setFragmentsBetweenKeyFramesEnabled(true);
+    if (!fragmentsMustStartWithKeyFrame) {
+      builder.setFragmentsMustStartWithKeyFrame(false);
     }
     FragmentedMp4Muxer muxer = builder.build();
     muxer.addMetadataEntry(

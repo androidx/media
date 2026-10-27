@@ -101,7 +101,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final long fragmentDurationUs;
   private final boolean sampleCopyEnabled;
-  private final boolean fragmentsBetweenKeyFramesEnabled;
+  private final boolean fragmentsMustStartWithKeyFrame;
   private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final List<Track> tracks;
   private final LinearByteBufferAllocator linearByteBufferAllocator;
@@ -126,7 +126,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     AVCC format (which uses length prefixes).
    * @param fragmentDurationMs The fragment duration (in milliseconds).
    * @param sampleCopyEnabled Whether sample copying is enabled.
-   * @param fragmentsBetweenKeyFramesEnabled Whether fragments can start at non-key frames.
+   * @param fragmentsMustStartWithKeyFrame Whether fragments must start with a key frame.
    */
   public FragmentedMp4Writer(
       WritableByteChannel outputChannel,
@@ -134,13 +134,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       AnnexBToAvccConverter annexBToAvccConverter,
       long fragmentDurationMs,
       boolean sampleCopyEnabled,
-      boolean fragmentsBetweenKeyFramesEnabled) {
+      boolean fragmentsMustStartWithKeyFrame) {
     this.outputChannel = new PositionTrackingOutputChannel(outputChannel);
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     this.sampleCopyEnabled = sampleCopyEnabled;
-    this.fragmentsBetweenKeyFramesEnabled = fragmentsBetweenKeyFramesEnabled;
+    this.fragmentsMustStartWithKeyFrame = fragmentsMustStartWithKeyFrame;
     lastSampleDurationBehavior =
         LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
     tracks = new ArrayList<>();
@@ -172,7 +172,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         && track.parsedCsd == null) {
       track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
     }
-    if (fragmentsBetweenKeyFramesEnabled && track.equals(videoTrack) && !isSampleEmpty) {
+    if (!fragmentsMustStartWithKeyFrame && track.equals(videoTrack) && !isSampleEmpty) {
       // Format.maxNumReorderSamples is declared by the caller and isn't guaranteed to be accurate.
       // If samples arrive out of order, fall back to starting fragments only at key frames.
       if (lastVideoSampleTimeUs != C.TIME_UNSET
@@ -322,7 +322,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Returns whether a new fragment may start at the given non-key video sample. */
   private boolean shouldAllowFragmentStartAtNonKeyFrame(BufferInfo nextSampleBufferInfo) {
-    if (!fragmentsBetweenKeyFramesEnabled || videoSamplesMayBeReordered) {
+    if (fragmentsMustStartWithKeyFrame || videoSamplesMayBeReordered) {
       return false;
     }
     BufferInfo lastPendingSample =

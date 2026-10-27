@@ -98,7 +98,7 @@ public final class FragmentedMp4Muxer implements Muxer {
 
     private long fragmentDurationMs;
     private boolean sampleCopyEnabled;
-    private boolean fragmentsBetweenKeyFramesEnabled;
+    private boolean fragmentsMustStartWithKeyFrame;
 
     /**
      * @deprecated Use {@link FragmentedMp4Muxer.Builder#Builder(WritableByteChannel)} instead.
@@ -122,7 +122,7 @@ public final class FragmentedMp4Muxer implements Muxer {
       this.outputChannel = outputChannel;
       fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
       sampleCopyEnabled = true;
-      fragmentsBetweenKeyFramesEnabled = false;
+      fragmentsMustStartWithKeyFrame = true;
     }
 
     /**
@@ -156,31 +156,32 @@ public final class FragmentedMp4Muxer implements Muxer {
     }
 
     /**
-     * Sets whether fragments can start at non-key frames.
+     * Sets whether fragments must start with a key frame.
      *
-     * <p>When enabled, a new fragment starts once the pending video samples span the {@linkplain
-     * #setFragmentDurationMs fragment duration}, even if the next sample is not a key frame. This
-     * allows the output to grow while samples arrive when key frames are farther apart than the
-     * fragment duration.
+     * <p>If set to {@code false}, a new fragment starts once the pending video samples span the
+     * {@linkplain #setFragmentDurationMs fragment duration}, even if the next sample is not a key
+     * frame. This allows the output to grow while samples arrive when key frames are farther apart
+     * than the fragment duration.
      *
-     * <p>This option only takes effect if {@link Format#maxNumReorderSamples} of the video {@link
-     * Format} is {@code 0}. Otherwise, fragments only start at key frames.
+     * <p>Setting this to {@code false} only takes effect if {@link Format#maxNumReorderSamples} of
+     * the video {@link Format} is {@code 0}. Otherwise, fragments only start at key frames. If
+     * video samples arrive out of order, fragments only start at key frames from that point on.
      *
      * <p>Fragments that start at non-key frames are not listed as random access points in the
      * {@code mfra} box.
      *
-     * <p>The default value is {@code false}.
+     * <p>The default value is {@code true}.
      */
     @CanIgnoreReturnValue
-    public Builder setFragmentsBetweenKeyFramesEnabled(boolean enabled) {
-      this.fragmentsBetweenKeyFramesEnabled = enabled;
+    public Builder setFragmentsMustStartWithKeyFrame(boolean fragmentsMustStartWithKeyFrame) {
+      this.fragmentsMustStartWithKeyFrame = fragmentsMustStartWithKeyFrame;
       return this;
     }
 
     /** Builds a {@link FragmentedMp4Muxer} instance. */
     public FragmentedMp4Muxer build() {
       return new FragmentedMp4Muxer(
-          outputChannel, fragmentDurationMs, sampleCopyEnabled, fragmentsBetweenKeyFramesEnabled);
+          outputChannel, fragmentDurationMs, sampleCopyEnabled, fragmentsMustStartWithKeyFrame);
     }
   }
 
@@ -220,7 +221,7 @@ public final class FragmentedMp4Muxer implements Muxer {
       WritableByteChannel outputChannel,
       long fragmentDurationMs,
       boolean sampleCopyEnabled,
-      boolean fragmentsBetweenKeyFramesEnabled) {
+      boolean fragmentsMustStartWithKeyFrame) {
     metadataCollector = new MetadataCollector();
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
@@ -229,7 +230,7 @@ public final class FragmentedMp4Muxer implements Muxer {
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,
             sampleCopyEnabled,
-            fragmentsBetweenKeyFramesEnabled);
+            fragmentsMustStartWithKeyFrame);
     trackIdToTrack = new SparseArray<>();
   }
 
