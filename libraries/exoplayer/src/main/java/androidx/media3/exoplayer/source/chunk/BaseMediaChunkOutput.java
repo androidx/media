@@ -106,25 +106,25 @@ public final class BaseMediaChunkOutput implements TrackOutputProvider {
 
   private static final class SampleQueueHolder {
 
-    public final @C.TrackType int trackType;
-    public final SampleQueue sampleQueue;
+    private final @C.TrackType int trackType;
+    private final SampleQueue sampleQueue;
 
     private @MonotonicNonNull Integer trackId;
 
-    public SampleQueueHolder(@C.TrackType int trackType, SampleQueue sampleQueue) {
+    private SampleQueueHolder(@C.TrackType int trackType, SampleQueue sampleQueue) {
       this.trackType = trackType;
       this.sampleQueue = sampleQueue;
     }
 
-    public boolean isBound() {
+    private boolean isBound() {
       return trackId != null;
     }
 
-    public boolean isBoundTo(int trackId) {
+    private boolean isBoundTo(int trackId) {
       return this.trackId != null && this.trackId == trackId;
     }
 
-    public void bind(int trackId) {
+    private void bind(int trackId) {
       checkState(this.trackId == null);
       this.trackId = trackId;
     }
