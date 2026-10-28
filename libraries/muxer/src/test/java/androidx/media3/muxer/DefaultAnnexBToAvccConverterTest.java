@@ -70,7 +70,7 @@ public final class DefaultAnnexBToAvccConverterTest {
     ByteBuffer input = generateFakeNalUnitData(1000);
 
     AnnexBToAvccConverter annexBToAvccConverter = AnnexBToAvccConverter.DEFAULT;
-    assertThrows(IllegalStateException.class, () -> annexBToAvccConverter.process(input));
+    assertThrows(IllegalArgumentException.class, () -> annexBToAvccConverter.process(input));
   }
 
   @Test

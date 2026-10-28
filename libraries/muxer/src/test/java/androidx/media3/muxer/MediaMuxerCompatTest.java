@@ -184,6 +184,21 @@ public final class MediaMuxerCompatTest {
   }
 
   @Test
+  public void createMp4File_withUnsupportedTrack_throws() throws Exception {
+    String outputFilePath = tempFolder.newFile().getAbsolutePath();
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
+    MediaFormat unsupportedFormat =
+        MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_VP8, 1280, 720);
+
+    try {
+      assertThrows(
+          IllegalArgumentException.class, () -> mediaMuxerCompat.addTrack(unsupportedFormat));
+    } finally {
+      mediaMuxerCompat.release();
+    }
+  }
+
+  @Test
   public void createWebmFile_withUnsupportedTrack_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_WEBM);

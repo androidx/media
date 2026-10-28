@@ -727,6 +727,59 @@ import org.jspecify.annotations.Nullable;
     return BoxUtils.wrapBoxesIntoBox("uuid", ImmutableList.of(uuidBuffer, contents));
   }
 
+  /**
+   * Checks that a track with the given {@link Format} can be written, by creating its sample entry
+   * box.
+   *
+   * <p>Missing {@linkplain Format#initializationData codec-specific data} does not throw as it
+   * might be obtained from the bitstream later.
+   *
+   * @throws IllegalArgumentException If the track can not be written.
+   */
+  public static void checkFormatSupported(Format format) {
+    checkArgument(format.sampleMimeType != null, "The sample MIME type is not set.");
+    try {
+      switch (MimeTypes.getTrackType(format.sampleMimeType)) {
+        case C.TRACK_TYPE_VIDEO:
+          ByteBuffer unusedVideoSampleEntry = videoSampleEntry(format);
+          break;
+        case C.TRACK_TYPE_AUDIO:
+          ByteBuffer unusedAudioSampleEntry = audioSampleEntry(format);
+          break;
+        case C.TRACK_TYPE_METADATA:
+        case C.TRACK_TYPE_UNKNOWN:
+          ByteBuffer unusedMetadataSampleEntry = getMetadataSampleEntry(format);
+          break;
+        default:
+          throw new IllegalArgumentException("Unsupported track type");
+      }
+    } catch (MissingCodecSpecificDataException e) {
+      // Missing codec-specific data is valid at this point, as it might be obtained from the
+      // bitstream later. Malformed codec-specific data is invalid and throws above.
+    }
+  }
+
+  /**
+   * Evaluates {@code expression} and throws a {@link MissingCodecSpecificDataException} if the
+   * expression evaluates to {@code false}.
+   *
+   * @param expression A boolean expression.
+   * @param errorMessage The exception message.
+   * @throws MissingCodecSpecificDataException If {@code expression} is false.
+   */
+  private static void checkCodecSpecificDataPresent(boolean expression, String errorMessage) {
+    if (!expression) {
+      throw new MissingCodecSpecificDataException(errorMessage);
+    }
+  }
+
+  /** Exception thrown when required codec-specific data (CSD) is missing. */
+  private static final class MissingCodecSpecificDataException extends IllegalArgumentException {
+    private MissingCodecSpecificDataException(String message) {
+      super(message);
+    }
+  }
+
   /** Returns an audio sample entry box based on the MIME type. */
   public static ByteBuffer audioSampleEntry(Format format) {
     String fourcc = codecSpecificFourcc(format);
@@ -1506,7 +1559,7 @@ import org.jspecify.annotations.Nullable;
 
   /** Returns the avcC box as per ISO/IEC 14496-15: 5.3.3.1.2. */
   private static ByteBuffer avcCBox(Format format) {
-    checkArgument(
+    checkCodecSpecificDataPresent(
         format.initializationData.size() >= 2,
         "csd-0 and/or csd-1 not found in the format for avcC box.");
 
@@ -1534,8 +1587,13 @@ import org.jspecify.annotations.Nullable;
     sps.get(spsData);
     sps.rewind();
 
-    NalUnitUtil.SpsData h264SpsData =
-        NalUnitUtil.parseSpsNalUnit(spsData, /* nalOffset= */ 0, spsData.length);
+    NalUnitUtil.SpsData h264SpsData;
+    try {
+      h264SpsData = NalUnitUtil.parseSpsNalUnit(spsData, /* nalOffset= */ 0, spsData.length);
+    } catch (IllegalStateException | IndexOutOfBoundsException e) {
+      // The NAL unit bit reader throws these when reading beyond the end of a truncated SPS.
+      throw new IllegalArgumentException("Invalid SPS in csd-0 for avcC box.", e);
+    }
     contents.put((byte) h264SpsData.profileIdc); // AVCProfileIndication
     contents.put((byte) h264SpsData.constraintsFlagsAndReservedZero2Bits); // profile_compatibility
     contents.put((byte) h264SpsData.levelIdc); // AVCLevelIndication
@@ -1548,7 +1606,7 @@ import org.jspecify.annotations.Nullable;
 
     ImmutableList<ByteBuffer> csd1NalUnits = AnnexBUtils.findNalUnits(csd1ByteBuffer);
     // TODO: b/436789610 - Handle more than one PPS data.
-    checkState(!csd1NalUnits.isEmpty(), "PPS data not found in csd1 for avcC box.");
+    checkArgument(!csd1NalUnits.isEmpty(), "PPS data not found in csd1 for avcC box.");
 
     contents.put((byte) 0x01); // numOfPictureParameterSets
 
@@ -1562,7 +1620,8 @@ import org.jspecify.annotations.Nullable;
   }
 
   private static ByteBuffer dec3Box(Format format) {
-    checkArgument(!format.initializationData.isEmpty(), "csd-0 not found in format for dec3 box.");
+    checkCodecSpecificDataPresent(
+        !format.initializationData.isEmpty(), "csd-0 not found in format for dec3 box.");
     byte[] csd0 = format.initializationData.get(0);
     checkArgument(csd0.length > 0, "csd-0 is empty for dec3 box.");
     return BoxUtils.wrapIntoBox("dec3", ByteBuffer.wrap(csd0));
@@ -1571,7 +1630,7 @@ import org.jspecify.annotations.Nullable;
   /** Returns the hvcC box as per ISO/IEC 14496-15: 8.3.3.1.2. */
   private static ByteBuffer hvcCBox(Format format) {
     // For H.265, all three codec-specific NALUs (VPS, SPS, PPS) are packed into csd-0.
-    checkArgument(
+    checkCodecSpecificDataPresent(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for hvcC box.");
 
     byte[] csd0 = format.initializationData.get(0);
@@ -1583,11 +1642,16 @@ import org.jspecify.annotations.Nullable;
 
     ImmutableList<ByteBuffer> nalusWithEmulationPrevention =
         AnnexBUtils.findNalUnits(csd0ByteBuffer);
+    checkArgument(
+        nalusWithEmulationPrevention.size() >= 2,
+        "VPS and SPS data not found in csd-0 for hvcC box.");
 
     // Remove emulation prevention bytes to parse the actual csd-0 data.
     // For storing the csd-0 data into MP4 file, use original NALUs with emulation prevention bytes.
     List<ByteBuffer> nalusWithoutEmulationPrevention = new ArrayList<>();
     for (int i = 0; i < nalusWithEmulationPrevention.size(); i++) {
+      checkArgument(
+          nalusWithEmulationPrevention.get(i).hasRemaining(), "Empty NALU in csd-0 for hvcC box.");
       nalusWithoutEmulationPrevention.add(
           AnnexBUtils.stripEmulationPrevention(nalusWithEmulationPrevention.get(i)));
     }
@@ -1600,6 +1664,8 @@ import org.jspecify.annotations.Nullable;
     if (vps.get(vps.position()) != 0x40) {
       throw new IllegalArgumentException("First NALU in csd-0 is not the VPS.");
     }
+    // The VPS fields up to general_level_idc (byte 17) are read below.
+    checkArgument(vps.remaining() >= 18, "VPS in csd-0 is too short for hvcC box.");
 
     // general_profile_space (2 bits) + general_tier_flag (1 bit) + general_profile_idc (5 bits)
     contents.put(vps.get(6));
@@ -1623,9 +1689,15 @@ import org.jspecify.annotations.Nullable;
     sps.get(spsArray);
     sps.rewind();
 
-    NalUnitUtil.H265SpsData h265SpsData =
-        NalUnitUtil.parseH265SpsNalUnit(
-            spsArray, /* nalOffset= */ 0, /* nalLimit= */ spsArray.length, /* vpsData= */ null);
+    NalUnitUtil.H265SpsData h265SpsData;
+    try {
+      h265SpsData =
+          NalUnitUtil.parseH265SpsNalUnit(
+              spsArray, /* nalOffset= */ 0, /* nalLimit= */ spsArray.length, /* vpsData= */ null);
+    } catch (IllegalStateException | IndexOutOfBoundsException e) {
+      // The NAL unit bit reader throws these when reading beyond the end of a truncated SPS.
+      throw new IllegalArgumentException("Invalid SPS in csd-0 for hvcC box.", e);
+    }
 
     byte chromaFormat = (byte) (0xFC | h265SpsData.chromaFormatIdc); // First 6 bits reserved
     byte bitDepthLumaMinus8 =
@@ -1665,7 +1737,7 @@ import org.jspecify.annotations.Nullable;
   /** Returns the apvC box. */
   private static ByteBuffer apvCBox(Format format) {
     // For APV, the entire codec-specific box is packed into csd-0.
-    checkArgument(
+    checkCodecSpecificDataPresent(
         !format.initializationData.isEmpty(), "csd-0 is not found in the format for apvC box");
 
     byte[] csd0 = format.initializationData.get(0);
@@ -1683,6 +1755,8 @@ import org.jspecify.annotations.Nullable;
   /** Returns the av1C box. */
   private static ByteBuffer av1CBox(Format format) {
     // For AV1, the entire codec-specific box is packed into csd-0.
+    checkCodecSpecificDataPresent(
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for av1C box");
     byte[] csd0 = format.initializationData.get(0);
 
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
@@ -1715,7 +1789,7 @@ import org.jspecify.annotations.Nullable;
   /** Returns the vpcC box as per VP Codec ISO Media File Format Binding v1.0. */
   private static ByteBuffer vpcCBox(Format format) {
     // For VP9, the CodecPrivate or vpcCBox data is packed into csd-0.
-    checkArgument(
+    checkCodecSpecificDataPresent(
         !format.initializationData.isEmpty(), "csd-0 is not found in the format for vpcC box");
     byte[] csd0 = format.initializationData.get(0);
     checkArgument(csd0.length > 3, "csd-0 for vp9 is invalid.");
@@ -1774,6 +1848,9 @@ import org.jspecify.annotations.Nullable;
     for (int i = 0; i < csd0.length; i += 3) {
       int id = csd0[i];
       int dataIndex = i + 2;
+      if (id >= 1 && id <= 4) {
+        checkArgument(dataIndex < csd0.length, "csd-0 for vp9 is invalid.");
+      }
       switch (id) {
         case 1:
           profile = csd0[dataIndex];
@@ -1949,7 +2026,7 @@ import org.jspecify.annotations.Nullable;
 
   /** Returns the esds box. */
   private static ByteBuffer esdsBox(Format format) {
-    checkArgument(
+    checkCodecSpecificDataPresent(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for esds box.");
 
     byte[] csd0 = format.initializationData.get(0);
@@ -2056,6 +2133,8 @@ import org.jspecify.annotations.Nullable;
    * </ul>
    */
   private static ByteBuffer iacbBox(Format format) {
+    checkCodecSpecificDataPresent(
+        !format.initializationData.isEmpty(), "csd-0 not found in the format for iacb box.");
     checkArgument(
         format.initializationData.size() == 1,
         "Expected only 1 byte array of initialization data for IAMF codec, but found %s.",
@@ -2077,7 +2156,7 @@ import org.jspecify.annotations.Nullable;
    * converted from {@code csd-0} ({@code OpusHead} per RFC 7845 Section 5.1).
    */
   private static ByteBuffer dOpsBox(Format format) {
-    checkArgument(
+    checkCodecSpecificDataPresent(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
 
     int opusHeadSignatureLength = 8;
@@ -2097,7 +2176,7 @@ import org.jspecify.annotations.Nullable;
     // whereas RFC 7845 OpusHead uses version 1 and little-endian byte order
     // (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1).
     byte version = csd0Buffer.get();
-    checkState(version == 0 || version == 1);
+    checkArgument(version == 0 || version == 1, "Invalid OpusHead version in csd-0 for dOps box.");
     ByteBuffer contents = ByteBuffer.allocate(dOpsPayloadSize);
     contents.put((byte) 0); // Version (0 in dOps)
     contents.put(csd0Buffer.get()); // OutputChannelCount

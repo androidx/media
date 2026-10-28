@@ -18,6 +18,7 @@ package androidx.media3.muxer;
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
+import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_1;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
@@ -39,6 +40,7 @@ import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -146,21 +148,17 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createFragmentedMp4File_with8BitPcm_throws() throws Exception {
-    File outputFile = temporaryFolder.newFile();
+  public void addTrack_with8BitPcm_throws() throws Exception {
     Format pcmFormat =
         getPcmFormat(C.ENCODING_PCM_8BIT, /* channels= */ 1, /* sampleRate= */ 48_000);
-    ByteBuffer sampleBuffer = ByteBuffer.allocate(100);
-    BufferInfo bufferInfo =
-        new BufferInfo(/* presentationTimeUs= */ 0L, 100, C.BUFFER_FLAG_KEY_FRAME);
 
     try (FragmentedMp4Muxer muxer =
-        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFile).getChannel()).build()) {
-      int trackId = muxer.addTrack(pcmFormat);
-      // Header boxes and format validation are deferred until the first sample is written.
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> muxer.writeSampleData(trackId, sampleBuffer, bufferInfo));
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
+            .build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(pcmFormat));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
     }
   }
 
@@ -667,6 +665,81 @@ public class FragmentedMp4MuxerEndToEndTest {
         new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
             .build()) {
       assertThrows(MuxerException.class, () -> muxer.addTrack(dolbyVisionMalformedCodecsFormat));
+    }
+  }
+
+  @Test
+  public void addTrack_withoutSampleMimeType_throws() throws Exception {
+    Format formatWithoutMimeType = new Format.Builder().build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
+            .build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(formatWithoutMimeType));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withUnsupportedSampleMimeType_throws() throws Exception {
+    Format vp8Format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
+            .build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(vp8Format));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withUnsupportedTrackType_throws() throws Exception {
+    Format textFormat = new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
+            .build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(textFormat));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withInvalidCodecSpecificData_throws() throws Exception {
+    // Trailing zeros followed by data without a start code.
+    Format h264FormatWithInvalidNalUnits =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setInitializationData(
+                ImmutableList.of(
+                    Util.getBytesFromHexString("00000001ABCDEF0000AB0000CDEF00000000AB"),
+                    FAKE_CSD_1))
+            .build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
+            .build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(h264FormatWithInvalidNalUnits));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withoutCodecSpecificData_succeeds() throws Exception {
+    Format h264FormatWithoutCsd = FAKE_VIDEO_FORMAT.buildUpon().setInitializationData(null).build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
+            .build()) {
+      assertThat(muxer.addTrack(h264FormatWithoutCsd)).isAtLeast(0);
     }
   }
 

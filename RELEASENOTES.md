@@ -104,6 +104,9 @@
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
+    *   Validate the track `Format` when adding a track to `Mp4Muxer` or
+        `FragmentedMp4Muxer`, instead of failing later when writing samples or
+        closing the muxer.
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
         ads to resize and reposition the video player view within the ad

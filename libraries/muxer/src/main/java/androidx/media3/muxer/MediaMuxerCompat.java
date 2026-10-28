@@ -178,6 +178,7 @@ public final class MediaMuxerCompat {
    * @param format The {@link MediaFormat} of the track.
    * @return A track index for this track, which should be passed to {@link #writeSampleData(int,
    *     ByteBuffer, MediaCodec.BufferInfo)}.
+   * @throws IllegalArgumentException If the {@code format} is not supported.
    */
   public int addTrack(MediaFormat format) {
     checkState(!startedMuxer);
@@ -185,6 +186,10 @@ public final class MediaMuxerCompat {
       compatMetadataDelegate.handleAddTrackMetadata(format, muxer);
       return muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(format));
     } catch (MuxerException e) {
+      if (e.getCause() instanceof IllegalArgumentException) {
+        // Like MediaMuxer, throw an IllegalArgumentException for an unsupported format.
+        throw (IllegalArgumentException) e.getCause();
+      }
       throw new RuntimeException(e);
     }
   }

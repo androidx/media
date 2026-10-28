@@ -150,6 +150,30 @@ public final class MuxerUtil {
             || format.auxiliaryTrackType == C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA);
   }
 
+  /**
+   * Checks that a track with the given {@linkplain Format track format} can be written to an MP4
+   * file.
+   *
+   * <p>Missing {@linkplain Format#initializationData codec-specific data} does not throw as it
+   * might be obtained from the bitstream later.
+   *
+   * @param format The {@link Format} of the track.
+   * @throws MuxerException If the track format is not supported.
+   */
+  /* package */ static void checkMp4TrackFormatSupported(Format format) throws MuxerException {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+        && !Boxes.isDolbyVisionProfileSupported(format)) {
+      throw new MuxerException(
+          "Unsupported Dolby Vision profile for format: " + format,
+          new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
+    }
+    try {
+      Boxes.checkFormatSupported(format);
+    } catch (IllegalArgumentException e) {
+      throw new MuxerException("Unsupported track format: " + format, e);
+    }
+  }
+
   /** Returns the additional ftyp compatible brands that should be declared for the given tracks. */
   /* package */ static ImmutableList<String> getFtypCompatibleBrands(List<Track> tracks) {
     ImmutableSet.Builder<String> compatibleBrands = new ImmutableSet.Builder<>();

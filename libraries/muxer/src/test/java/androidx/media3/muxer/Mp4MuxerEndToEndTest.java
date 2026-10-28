@@ -21,6 +21,8 @@ import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
+import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
+import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_1;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
@@ -213,6 +215,174 @@ public class Mp4MuxerEndToEndTest {
 
     try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
       assertThrows(MuxerException.class, () -> muxer.addTrack(dolbyVisionMalformedCodecsFormat));
+    }
+  }
+
+  @Test
+  public void addTrack_withoutSampleMimeType_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format formatWithoutMimeType = new Format.Builder().build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(formatWithoutMimeType));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withUnsupportedSampleMimeType_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format vp8Format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(vp8Format));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withUnsupportedTrackType_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format textFormat = new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(textFormat));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withInvalidH264NalUnits_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // Trailing zeros followed by data without a start code.
+    Format h264FormatWithInvalidNalUnits =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setInitializationData(
+                ImmutableList.of(
+                    Util.getBytesFromHexString("00000001ABCDEF0000AB0000CDEF00000000AB"),
+                    FAKE_CSD_1))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(h264FormatWithInvalidNalUnits));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withTruncatedH264Sps_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format h264FormatWithTruncatedSps =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setInitializationData(
+                ImmutableList.of(Util.getBytesFromHexString("0000000167F4"), FAKE_CSD_1))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(h264FormatWithTruncatedSps));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withH264CsdWithoutPpsNalUnit_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format h264FormatWithoutPpsNalUnit =
+        FAKE_VIDEO_FORMAT
+            .buildUpon()
+            .setInitializationData(
+                ImmutableList.of(FAKE_CSD_0, Util.getBytesFromHexString("00000001")))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(h264FormatWithoutPpsNalUnit));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withH265CsdWithoutSps_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // csd-0 only contains a VPS NAL unit.
+    Format h265FormatWithoutSps =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setInitializationData(
+                ImmutableList.of(
+                    Util.getBytesFromHexString(
+                        "0000000140010C01FFFF016000000300B0000003000003005D")))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(h265FormatWithoutSps));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withTruncatedVp9CodecPrivate_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // The second feature (profile) is missing its length and data bytes.
+    Format vp9FormatWithTruncatedCodecPrivate =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_VP9)
+            .setInitializationData(ImmutableList.of(Util.getBytesFromHexString("02010A01")))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(
+              MuxerException.class, () -> muxer.addTrack(vp9FormatWithTruncatedCodecPrivate));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withInvalidOpusHeadVersion_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // "OpusHead" followed by version 2 and 10 header bytes.
+    Format opusFormatWithInvalidVersion =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48_000)
+            .setInitializationData(
+                ImmutableList.of(
+                    Util.getBytesFromHexString("4F70757348656164" + "02" + "02380180BB0000000000")))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> muxer.addTrack(opusFormatWithInvalidVersion));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  public void addTrack_withoutCodecSpecificData_succeeds() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Format h264FormatWithoutCsd = FAKE_VIDEO_FORMAT.buildUpon().setInitializationData(null).build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      assertThat(muxer.addTrack(h264FormatWithoutCsd)).isAtLeast(0);
     }
   }
 
@@ -470,19 +640,17 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4File_with8BitPcm_throws() throws Exception {
-    File outputFile = temporaryFolder.newFile();
+  public void addTrack_with8BitPcm_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
     Format pcmFormat =
         getPcmFormat(C.ENCODING_PCM_8BIT, /* channels= */ 1, /* sampleRate= */ 48_000);
-    ByteBuffer sampleBuffer = ByteBuffer.allocate(100);
-    BufferInfo bufferInfo =
-        new BufferInfo(/* presentationTimeUs= */ 0L, 100, C.BUFFER_FLAG_KEY_FRAME);
 
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFile.getPath())).build();
-    int audioTrack = mp4Muxer.addTrack(pcmFormat);
-    mp4Muxer.writeSampleData(audioTrack, sampleBuffer, bufferInfo);
-    // Moov box and format validation are deferred until the muxer is closed.
-    assertThrows(IllegalArgumentException.class, mp4Muxer::close);
+    try (Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      MuxerException exception =
+          assertThrows(MuxerException.class, () -> mp4Muxer.addTrack(pcmFormat));
+
+      assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+    }
   }
 
   @Test

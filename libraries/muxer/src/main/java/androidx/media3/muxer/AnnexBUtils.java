@@ -18,7 +18,6 @@ package androidx.media3.muxer;
 import static androidx.media3.muxer.Boxes.getDolbyVisionProfileAndLevel;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
 import androidx.media3.common.Format;
@@ -36,8 +35,8 @@ import org.jspecify.annotations.Nullable;
   /**
    * Splits a {@link ByteBuffer} into individual NAL units (0x000001 or 0x00000001 start code).
    *
-   * <p>An {@link IllegalStateException} is thrown if the NAL units are invalid. The NAL units are
-   * identified as per ITU-T H264 spec:Annex B.2.
+   * <p>An {@link IllegalArgumentException} is thrown if the NAL units are invalid. The NAL units
+   * are identified as per ITU-T H264 spec:Annex B.2.
    *
    * <p>The input buffer position remains unchanged after calling this method.
    */
@@ -193,7 +192,7 @@ import org.jspecify.annotations.Nullable;
       }
 
       // Otherwise the first 3 bytes must be 0.
-      checkState((fourBytes & 0xFFFFFF00) == 0, "Invalid Nal units");
+      checkArgument((fourBytes & 0xFFFFFF00) == 0, "Invalid Nal units");
 
       // Check if the last byte is 1. It then makes last three bytes 0x000001.
       if ((fourBytes & 0x000000FF) == 1) {
@@ -201,7 +200,7 @@ import org.jspecify.annotations.Nullable;
       }
 
       // Otherwise the last byte must be 0;
-      checkState((fourBytes & 0x000000FF) == 0, "Invalid Nal units");
+      checkArgument((fourBytes & 0x000000FF) == 0, "Invalid Nal units");
 
       // Last three zeroes can be a prefix of the NAL start code 0x000001.
       currentIndex = currentIndex + 1;
@@ -211,16 +210,16 @@ import org.jspecify.annotations.Nullable;
     // Last 3 bytes could be 0x000001.
     if (currentIndex <= input.limit() - THREE_BYTE_NAL_START_CODE_SIZE) {
       short firstTwoBytes = input.getShort(currentIndex);
-      checkState(firstTwoBytes == 0, "Invalid NAL units");
+      checkArgument(firstTwoBytes == 0, "Invalid NAL units");
       byte lastByte = input.get(currentIndex + 2);
       if (lastByte == 1) {
         return currentIndex;
       }
-      checkState(lastByte == 0, "Invalid NAL units");
+      checkArgument(lastByte == 0, "Invalid NAL units");
     } else {
       // Remaining bytes must be 0.
       while (currentIndex < input.limit()) {
-        checkState(input.get(currentIndex) == 0, "Invalid NAL units");
+        checkArgument(input.get(currentIndex) == 0, "Invalid NAL units");
         currentIndex++;
       }
     }

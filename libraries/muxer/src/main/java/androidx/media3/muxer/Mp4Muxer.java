@@ -17,6 +17,7 @@ package androidx.media3.muxer;
 
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.getAxteBoxHeader;
+import static androidx.media3.muxer.MuxerUtil.checkMp4TrackFormatSupported;
 import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksLengthMetadata;
 import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksOffsetMetadata;
 import static androidx.media3.muxer.MuxerUtil.isAuxiliaryTrack;
@@ -56,7 +57,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -502,7 +502,8 @@ public final class Mp4Muxer implements Muxer {
    * @param format The {@link Format} for the track.
    * @return A unique track id. The track id is non-negative. It should be used in {@link
    *     #writeSampleData}.
-   * @throws MuxerException If an error occurs while adding track.
+   * @throws MuxerException If the {@code format} is not supported or an error occurs while adding
+   *     the track.
    */
   @Override
   public int addTrack(Format format) throws MuxerException {
@@ -526,16 +527,11 @@ public final class Mp4Muxer implements Muxer {
    * @param format The {@link Format} for the track.
    * @return A unique track id. The track id is non-negative. It should be used in {@link
    *     #writeSampleData}.
-   * @throws MuxerException If an error occurs while adding track.
+   * @throws MuxerException If the {@code format} is not supported or an error occurs while adding
+   *     the track.
    */
   public int addTrack(int sortKey, Format format) throws MuxerException {
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
-        && !Boxes.isDolbyVisionProfileSupported(format)) {
-      throw new MuxerException(
-          "Unsupported Dolby Vision profile for format: " + format,
-          new IllegalArgumentException("Unsupported Dolby Vision codecs: " + format.codecs));
-    }
-    // TODO: b/561659631 - Validate track format eagerly when adding track.
+    checkMp4TrackFormatSupported(format);
     Track track;
     if (outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
         && isAuxiliaryTrack(format)) {
