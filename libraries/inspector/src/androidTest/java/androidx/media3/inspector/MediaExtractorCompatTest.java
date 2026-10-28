@@ -1311,6 +1311,37 @@ public class MediaExtractorCompatTest {
     assertThat(getOpenFileDescriptorCount(file)).isEqualTo(0);
   }
 
+  @Test
+  public void release_afterReadingSample_clearsTracksAndSampleState() throws IOException {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], /* sampleData...= */ (byte) 1, (byte) 2, (byte) 3);
+          outputSample(outputs[0], /* timeUs= */ 1000, /* size= */ 3, /* offset= */ 0);
+          return Extractor.RESULT_END_OF_INPUT;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+    assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(1);
+    assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(3);
+
+    mediaExtractorCompat.release();
+
+    assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(0);
+    assertThat(mediaExtractorCompat.getSampleTrackIndex()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.getSampleFlags()).isEqualTo(-1);
+    assertThat(mediaExtractorCompat.advance()).isFalse();
+  }
+
   // Happy-path extraction with the Context-less MediaExtractorCompat() constructor is tested by
   // MediaExtractorContractTest.
 

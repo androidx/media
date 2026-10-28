@@ -77,7 +77,7 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull SettableFuture<InternalResult> preparationFuture;
 
   @GuardedBy("lock")
-  private @MonotonicNonNull RetrievalTask retrievalTask;
+  private @Nullable RetrievalTask retrievalTask;
 
   @GuardedBy("lock")
   private boolean released;
@@ -190,7 +190,9 @@ import org.jspecify.annotations.Nullable;
                     synchronized (lock) {
                       if (retrievalTask != null) {
                         retrievalTask.release();
+                        retrievalTask = null;
                       }
+                      allFutures.clear();
                     }
                   },
                   directExecutor());
@@ -307,9 +309,9 @@ import org.jspecify.annotations.Nullable;
 
       private final MediaSourceCaller mediaSourceCaller;
       private final MediaSourceEventListener mediaSourceEventListener;
-      private @MonotonicNonNull MediaSource mediaSource;
-      private @MonotonicNonNull MediaPeriod mediaPeriod;
-      private @MonotonicNonNull Timeline timeline;
+      private @Nullable MediaSource mediaSource;
+      private @Nullable MediaPeriod mediaPeriod;
+      private @Nullable Timeline timeline;
       private boolean released;
 
       private MediaSourceHandlerCallback() {
@@ -339,10 +341,12 @@ import org.jspecify.annotations.Nullable;
           switch (msg.what) {
             case MESSAGE_PREPARE_SOURCE:
               MediaItem mediaItem = (MediaItem) msg.obj;
-              mediaSource = mediaSourceFactory.createMediaSource(mediaItem);
-              mediaSource.addEventListener(
+              MediaSource createdMediaSource = mediaSourceFactory.createMediaSource(mediaItem);
+              mediaSource = createdMediaSource;
+              createdMediaSource.addEventListener(
                   Util.createHandlerForCurrentLooper(), mediaSourceEventListener);
-              mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+              createdMediaSource.prepareSource(
+                  mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
               mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
               return true;
             case MESSAGE_CHECK_FOR_FAILURE:
@@ -366,14 +370,18 @@ import org.jspecify.annotations.Nullable;
               return true;
             case MESSAGE_RELEASE:
               try {
+                @Nullable MediaSource mediaSourceToRelease = mediaSource;
                 if (mediaPeriod != null) {
-                  checkNotNull(mediaSource).releasePeriod(mediaPeriod);
+                  checkNotNull(mediaSourceToRelease).releasePeriod(mediaPeriod);
                 }
-                if (mediaSource != null) {
-                  mediaSource.removeEventListener(mediaSourceEventListener);
-                  mediaSource.releaseSource(mediaSourceCaller);
+                if (mediaSourceToRelease != null) {
+                  mediaSourceToRelease.removeEventListener(mediaSourceEventListener);
+                  mediaSourceToRelease.releaseSource(mediaSourceCaller);
                 }
               } finally {
+                mediaPeriod = null;
+                mediaSource = null;
+                timeline = null;
                 mediaSourceHandler.removeCallbacksAndMessages(/* token= */ null);
                 SHARED_WORKER_THREAD.removeWorker();
                 released = true;

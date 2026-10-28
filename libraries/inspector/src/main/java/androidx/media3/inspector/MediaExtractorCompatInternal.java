@@ -393,8 +393,20 @@ import org.jspecify.annotations.Nullable;
       sampleQueues.valueAt(i).release();
     }
     sampleQueues.clear();
+    tracks.clear();
+    sampleMetadataQueue.release();
+    selectedTrackIndices.clear();
+    formatHolder.clear();
+    sampleHolderWithBufferReplacementDisabled.clear();
+    sampleHolderWithBufferReplacementDisabled.data = null;
+    sampleHolderWithBufferReplacementDisabled.supplementalData = null;
+    sampleHolderWithBufferReplacementEnabled.clear();
+    sampleHolderWithBufferReplacementEnabled.data = null;
+    sampleHolderWithBufferReplacementEnabled.supplementalData = null;
     progressiveMediaExtractor.release();
+    seekMap = null;
     pendingSeek = null;
+    httpRequestHeaders = null;
     DataSourceUtil.closeQuietly(currentDataSource);
     currentDataSource = null;
     if (duplicatedFileDescriptor != null) {
@@ -541,10 +553,13 @@ import org.jspecify.annotations.Nullable;
     buffer.limit(buffer.capacity());
     buffer.position(offset);
     sampleHolderWithBufferReplacementDisabled.data = buffer;
-    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
+    try {
+      peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
+    } finally {
+      sampleHolderWithBufferReplacementDisabled.data = null;
+    }
     buffer.flip();
     buffer.position(offset);
-    sampleHolderWithBufferReplacementDisabled.data = null;
     return buffer.remaining();
   }
 
@@ -1150,6 +1165,12 @@ import org.jspecify.annotations.Nullable;
         sampleMetadataPool.push(metadata);
       }
       sampleMetadataQueue.clear();
+    }
+
+    /** Clears both the queue and the internal recycling pool. */
+    private void release() {
+      sampleMetadataQueue.clear();
+      sampleMetadataPool.clear();
     }
 
     /** Returns whether the queue is empty. */
