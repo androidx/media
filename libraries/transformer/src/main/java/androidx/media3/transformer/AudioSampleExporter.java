@@ -202,10 +202,11 @@ import org.jspecify.annotations.Nullable;
     ByteBuffer encoderInputBufferData = checkNotNull(encoderInputBuffer.data);
     // Keep retrieving as much data from the AudioGraph but do not block if data is not yet
     // available.
-    while (!audioGraph.isEnded()
-        && audioGraph.getOutput().hasRemaining()
-        && encoderInputBufferData.remaining() > 0) {
+    while (encoderInputBufferData.remaining() > 0 && !audioGraph.isEnded()) {
       ByteBuffer audioGraphBuffer = audioGraph.getOutput();
+      if (!audioGraphBuffer.hasRemaining()) {
+        break;
+      }
       int audioDataSize = audioGraphBuffer.remaining();
       int bytesToRead = min(audioDataSize, encoderInputBufferData.remaining());
       int audioGraphBufferLimit = audioGraphBuffer.limit();
