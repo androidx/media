@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.annotation.IntDef
 import androidx.annotation.IntRange
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
@@ -411,19 +412,38 @@ internal constructor(
  *   completed, so that it happens underneath the opaque photo.
  * @property transitionDurationMs The duration of the alpha crossfade transition between the still
  *   photo and video in milliseconds. Must be non-negative.
+ * @property startBoundary The [PlaybackBoundary] anchor from which motion playback starts.
+ * @property startPositionOffsetMs The offset in milliseconds added to [startBoundary] to compute
+ *   the start position. Must be non-negative when [startBoundary] is [BOUNDARY_START_OF_VIDEO] and
+ *   non-positive when [startBoundary] is [BOUNDARY_END_OF_VIDEO]. A start position before the start
+ *   of the video is clamped to it. A start position at or beyond the end of the video (including
+ *   [BOUNDARY_END_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the still photo stays
+ *   visible and [MotionPhotoState.showPhoto] is left unchanged.
  */
-// TODO(b/544627271): Add playback boundaries (`startBoundary`, `startPositionOffsetMs`,
-// `endBoundary`, `endPositionOffsetMs`), custom key photo frame anchor timestamp
-// (`customImageAnchorTimestampMs`), and other presets in follow-up CLs.
+// TODO(b/544627271): Add end playback boundaries (`endBoundary`, `endPositionOffsetMs`), photo
+// frame metadata boundary (`BOUNDARY_PHOTO_FRAME`), custom key photo frame anchor timestamp
+// (`customImageAnchorTimestampMs`), and presets in follow-up CLs.
 @Immutable
 @RestrictTo(LIBRARY_GROUP)
 class MotionPhotoConfig(
   val isLooping: Boolean = false,
   val resumeVideoFromPreviousPosition: Boolean = false,
   @IntRange(from = 0) val transitionDurationMs: Long = DEFAULT_TRANSITION_DURATION_MS,
+  val startBoundary: @PlaybackBoundary Int = BOUNDARY_START_OF_VIDEO,
+  val startPositionOffsetMs: Long = 0L,
 ) {
+
   init {
     require(transitionDurationMs >= 0) { "transitionDurationMs must be non-negative." }
+    require(startBoundary == BOUNDARY_START_OF_VIDEO || startBoundary == BOUNDARY_END_OF_VIDEO) {
+      "Invalid startBoundary: $startBoundary"
+    }
+    require(startBoundary != BOUNDARY_START_OF_VIDEO || startPositionOffsetMs >= 0L) {
+      "startPositionOffsetMs must be non-negative when startBoundary is BOUNDARY_START_OF_VIDEO."
+    }
+    require(startBoundary != BOUNDARY_END_OF_VIDEO || startPositionOffsetMs <= 0L) {
+      "startPositionOffsetMs must be non-positive when startBoundary is BOUNDARY_END_OF_VIDEO."
+    }
   }
 
   /** Returns a copy of this [MotionPhotoConfig] with the given properties updated. */
@@ -431,11 +451,15 @@ class MotionPhotoConfig(
     isLooping: Boolean = this.isLooping,
     resumeVideoFromPreviousPosition: Boolean = this.resumeVideoFromPreviousPosition,
     @IntRange(from = 0) transitionDurationMs: Long = this.transitionDurationMs,
+    startBoundary: @PlaybackBoundary Int = this.startBoundary,
+    startPositionOffsetMs: Long = this.startPositionOffsetMs,
   ): MotionPhotoConfig =
     MotionPhotoConfig(
       isLooping = isLooping,
       resumeVideoFromPreviousPosition = resumeVideoFromPreviousPosition,
       transitionDurationMs = transitionDurationMs,
+      startBoundary = startBoundary,
+      startPositionOffsetMs = startPositionOffsetMs,
     )
 
   override fun equals(other: Any?): Boolean {
@@ -443,17 +467,41 @@ class MotionPhotoConfig(
     if (other !is MotionPhotoConfig) return false
     return isLooping == other.isLooping &&
       resumeVideoFromPreviousPosition == other.resumeVideoFromPreviousPosition &&
-      transitionDurationMs == other.transitionDurationMs
+      transitionDurationMs == other.transitionDurationMs &&
+      startBoundary == other.startBoundary &&
+      startPositionOffsetMs == other.startPositionOffsetMs
   }
 
   override fun hashCode(): Int {
     var result = isLooping.hashCode()
     result = 31 * result + resumeVideoFromPreviousPosition.hashCode()
     result = 31 * result + transitionDurationMs.hashCode()
+    result = 31 * result + startBoundary
+    result = 31 * result + startPositionOffsetMs.hashCode()
     return result
   }
 
+  /**
+   * Boundary anchor points for Motion Photo playback. One of [BOUNDARY_START_OF_VIDEO] or
+   * [BOUNDARY_END_OF_VIDEO].
+   *
+   * @see BOUNDARY_START_OF_VIDEO
+   * @see BOUNDARY_END_OF_VIDEO
+   */
+  @Retention(AnnotationRetention.SOURCE)
+  @Target(AnnotationTarget.TYPE)
+  @MustBeDocumented
+  @IntDef(BOUNDARY_START_OF_VIDEO, BOUNDARY_END_OF_VIDEO)
+  annotation class PlaybackBoundary
+
   companion object {
+    /** Boundary at the start of the video track (`0ms`). */
+    const val BOUNDARY_START_OF_VIDEO = 1
+
+    // 2 is reserved for BOUNDARY_PHOTO_FRAME (added in a follow-up CL).
+    /** Boundary at the end of the video track (`duration`). */
+    const val BOUNDARY_END_OF_VIDEO = 3
+
     /** Default crossfade transition duration in milliseconds. */
     const val DEFAULT_TRANSITION_DURATION_MS = 200L
 

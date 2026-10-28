@@ -1174,6 +1174,23 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  fun motionPhotoConfig_withInvalidStartBoundaryOrOffset_throwsIllegalArgumentException() {
+    assertThrows(IllegalArgumentException::class.java) { MotionPhotoConfig(startBoundary = 0) }
+    assertThrows(IllegalArgumentException::class.java) {
+      MotionPhotoConfig(
+        startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+        startPositionOffsetMs = -1L,
+      )
+    }
+    assertThrows(IllegalArgumentException::class.java) {
+      MotionPhotoConfig(
+        startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+        startPositionOffsetMs = 1L,
+      )
+    }
+  }
+
+  @Test
   @SuppressLint("Range")
   fun motionPhotoConfig_withNegativeTransitionDuration_throwsIllegalArgumentException() {
     assertThrows(IllegalArgumentException::class.java) {
@@ -1187,6 +1204,8 @@ class MotionPhotoStateTest {
     assertThat(defaultConfig.isLooping).isFalse()
     assertThat(defaultConfig.transitionDurationMs).isEqualTo(200L)
     assertThat(defaultConfig.resumeVideoFromPreviousPosition).isFalse()
+    assertThat(defaultConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_START_OF_VIDEO)
+    assertThat(defaultConfig.startPositionOffsetMs).isEqualTo(0L)
     assertThat(defaultConfig).isEqualTo(MotionPhotoConfig())
     assertThat(defaultConfig.hashCode()).isEqualTo(MotionPhotoConfig().hashCode())
 
@@ -1194,19 +1213,52 @@ class MotionPhotoStateTest {
     assertThat(loopConfig.isLooping).isTrue()
     assertThat(loopConfig.transitionDurationMs).isEqualTo(200L)
     assertThat(loopConfig.resumeVideoFromPreviousPosition).isFalse()
+    assertThat(loopConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_START_OF_VIDEO)
+    assertThat(loopConfig.startPositionOffsetMs).isEqualTo(0L)
     assertThat(loopConfig).isEqualTo(defaultConfig.copy(isLooping = true))
     assertThat(loopConfig).isNotEqualTo(defaultConfig)
     assertThat(loopConfig.copy(isLooping = false)).isEqualTo(defaultConfig)
 
     val customConfig =
-      defaultConfig.copy(transitionDurationMs = 350L, resumeVideoFromPreviousPosition = true)
+      defaultConfig.copy(
+        transitionDurationMs = 350L,
+        resumeVideoFromPreviousPosition = true,
+        startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+        startPositionOffsetMs = -250L,
+      )
     assertThat(customConfig.isLooping).isFalse()
     assertThat(customConfig.transitionDurationMs).isEqualTo(350L)
     assertThat(customConfig.resumeVideoFromPreviousPosition).isTrue()
+    assertThat(customConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_END_OF_VIDEO)
+    assertThat(customConfig.startPositionOffsetMs).isEqualTo(-250L)
     assertThat(customConfig).isNotEqualTo(defaultConfig)
+    assertThat(customConfig).isNotEqualTo(customConfig.copy(startPositionOffsetMs = -100L))
+    assertThat(customConfig.hashCode())
+      .isNotEqualTo(customConfig.copy(startPositionOffsetMs = -100L).hashCode())
+    assertThat(
+        customConfig.copy(
+          startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+          startPositionOffsetMs = 0L,
+        )
+      )
+      .isNotEqualTo(customConfig.copy(startPositionOffsetMs = 0L))
+    assertThat(
+        customConfig
+          .copy(
+            startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+            startPositionOffsetMs = 0L,
+          )
+          .hashCode()
+      )
+      .isNotEqualTo(customConfig.copy(startPositionOffsetMs = 0L).hashCode())
     assertThat(customConfig.hashCode())
       .isEqualTo(
-        MotionPhotoConfig(transitionDurationMs = 350L, resumeVideoFromPreviousPosition = true)
+        MotionPhotoConfig(
+            transitionDurationMs = 350L,
+            resumeVideoFromPreviousPosition = true,
+            startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+            startPositionOffsetMs = -250L,
+          )
           .hashCode()
       )
   }
