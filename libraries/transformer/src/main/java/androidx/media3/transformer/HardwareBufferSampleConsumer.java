@@ -32,6 +32,7 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -151,7 +152,11 @@ import org.jspecify.annotations.Nullable;
     }
     checkState(currentFormat != null);
     inputSurface.queueFrame(
-        presentationTimeUs, currentTimeOffsetUs, currentMediaItemIndex, currentFormat);
+        presentationTimeUs,
+        currentTimeOffsetUs,
+        currentMediaItemIndex,
+        currentFormat,
+        /* additionalMetadata= */ ImmutableMap.of());
     return true;
   }
 
