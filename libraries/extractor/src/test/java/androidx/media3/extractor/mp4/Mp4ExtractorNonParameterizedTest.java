@@ -410,6 +410,23 @@ public final class Mp4ExtractorNonParameterizedTest {
     assertThat(output.trackOutputs.get(0).lastFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
+  @Test
+  public void extract_aacWithEditListAndShortenedLastSample_populatesEncoderDelayAndPadding()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Mp4Extractor mp4Extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor, context, "media/mp4/bbb_1ch_16kHz_aac.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    FakeTrackOutput audioTrack = output.trackOutputs.get(0);
+    assertThat(audioTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(1_024);
+    assertThat(audioTrack.lastFormat.encoderPadding).isEqualTo(384);
+  }
+
   private static String getDumpFilePath(String inputFilePath, String suffix) {
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }

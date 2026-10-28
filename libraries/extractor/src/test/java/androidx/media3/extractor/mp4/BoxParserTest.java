@@ -491,6 +491,218 @@ public final class BoxParserTest {
     assertThat(sampleTable.durationUs).isEqualTo(1_000_000);
   }
 
+  @Test
+  public void parseStbl_withAacEditListAndShortenedLastSample_populatesEncoderPadding()
+      throws Exception {
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 44_100,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 132_357);
+    // (sample_count, delta) x2: 130 full frames and a last frame shortened to 261.
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 131, 130, 1_024, 1, 261);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(131);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(763);
+  }
+
+  @Test
+  public void parseStbl_withAacShortenedLastSampleAndCoarseMovieTimescale_populatesExactPadding()
+      throws Exception {
+    // FFmpeg writes a 1000 Hz movie timescale by default, so the edit list duration of 3001 ms only
+    // approximates the 132357 samples of the track.
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 1_000,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 3_001);
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 131, 130, 1_024, 1, 261);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(131);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(763);
+  }
+
+  @Test
+  public void parseStbl_withAacShortenedLastSampleAndShorterEditList_includesEditTrimInPadding()
+      throws Exception {
+    // The edit list ends one full frame before the shortened last sample.
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 44_100,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 131_333);
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 131, 130, 1_024, 1, 261);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(131);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(763 + 1_024);
+  }
+
+  @Test
+  public void parseStbl_withAacEditListAndTimestampGapBeforeLastSample_doesNotAddGapToPadding()
+      throws Exception {
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 44_100,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 3_072);
+    // (sample_count, delta) x3: 1024, 2048 (dropped frame gap), 1024.
+    Mp4Box.ContainerBox stblBox =
+        createAudioStblBox(/* sampleCount= */ 3, 1, 1_024, 1, 2_048, 1, 1_024);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(3);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void parseStbl_withAacEditListAndOnlyTwoSamples_doesNotAdjustEncoderPadding()
+      throws Exception {
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 44_100,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 2_048);
+    // (sample_count, delta) x2: 2048 (dropped frame gap), 1024. With only two samples there is no
+    // way to tell a shortened last sample from a gap before it.
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 2, 1, 2_048, 1, 1_024);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(2);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void parseStbl_withAacEditListAndLongerLastSample_doesNotAdjustEncoderPadding()
+      throws Exception {
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 44_100,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 3_524);
+    // (sample_count, delta) x2: two full frames and a last sample longer than a frame.
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 3, 2, 1_024, 1, 2_500);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(3);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void parseStbl_withAacEditListEndingSlightlyAfterLastSample_clampsEncoderPaddingToZero()
+      throws Exception {
+    // The edit list ends 1 timescale unit after the track, within the rounding tolerance.
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_AAC,
+            /* timescale= */ 44_100,
+            /* movieTimescale= */ 44_100,
+            /* editListMediaTime= */ 1_024,
+            /* editListDuration= */ 2_049);
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 3, 3, 1_024);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(3);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(1_024);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(0);
+  }
+
+  @Test
+  public void parseStbl_withNonAacEditListAndShortenedLastSample_doesNotAdjustEncoderPadding()
+      throws Exception {
+    Track track =
+        createAudioTrack(
+            MimeTypes.AUDIO_OPUS,
+            /* timescale= */ 48_000,
+            /* movieTimescale= */ 48_000,
+            /* editListMediaTime= */ 312,
+            /* editListDuration= */ 2_088);
+    // (sample_count, delta) x2: two full 20 ms frames and a last frame shortened to 480.
+    Mp4Box.ContainerBox stblBox = createAudioStblBox(/* sampleCount= */ 3, 2, 960, 1, 480);
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+
+    TrackSampleTable sampleTable =
+        BoxParser.parseStbl(track, stblBox, gaplessInfoHolder, /* omitTrackSampleTable= */ false);
+
+    assertThat(sampleTable.sampleCount).isEqualTo(3);
+    assertThat(gaplessInfoHolder.encoderDelay).isEqualTo(312);
+    assertThat(gaplessInfoHolder.encoderPadding).isEqualTo(0);
+  }
+
+  private static Track createAudioTrack(
+      String sampleMimeType,
+      int timescale,
+      int movieTimescale,
+      long editListMediaTime,
+      long editListDuration) {
+    return new Track.Builder()
+        .setType(C.TRACK_TYPE_AUDIO)
+        .setTimescale(timescale)
+        .setMovieTimescale(movieTimescale)
+        .setFormat(
+            new Format.Builder().setSampleMimeType(sampleMimeType).setSampleRate(timescale).build())
+        .setEditListDurations(ImmutableLongArray.of(editListDuration))
+        .setEditListMediaTimes(ImmutableLongArray.of(editListMediaTime))
+        .build();
+  }
+
+  /**
+   * Creates an stbl box with {@code sampleCount} samples in a single chunk, where {@code
+   * sttsEntries} are (sample_count, sample_delta) pairs.
+   */
+  private static Mp4Box.ContainerBox createAudioStblBox(int sampleCount, int... sttsEntries) {
+    Mp4Box.ContainerBox stblBox = new Mp4Box.ContainerBox(Mp4Box.TYPE_stbl, /* endPosition= */ 0);
+    stblBox.add(createFullBox(Mp4Box.TYPE_stsz, 100, sampleCount)); // sample_size, sample_count
+    stblBox.add(createFullBox(Mp4Box.TYPE_stco, 1, 0)); // entry_count, chunk_offset
+    // entry_count, first_chunk, samples_per_chunk, sample_description_index
+    stblBox.add(createFullBox(Mp4Box.TYPE_stsc, 1, 1, sampleCount, 1));
+    stblBox.add(
+        createFullBox(
+            Mp4Box.TYPE_stts, Ints.concat(new int[] {sttsEntries.length / 2}, sttsEntries)));
+    return stblBox;
+  }
+
   private static Mp4Box.LeafBox createFullBox(int type, int... fields) {
     ByteBuffer buffer =
         ByteBuffer.allocate(Mp4Box.FULL_HEADER_SIZE + fields.length * Integer.BYTES)

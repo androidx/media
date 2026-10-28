@@ -63,6 +63,11 @@
         ([#3471](https://github.com/androidx/media/issues/3471)).
     *   ADTS: Add `FLAG_DISABLE_ID3_METADATA` to `AdtsExtractor` to stop ID3
         data in the stream from being output as an `application/id3` track.
+    *   MP4: Fix gapless playback of AAC tracks whose muxer (such as FFmpeg)
+        shortens the last `stts` entry to exclude the encoder padding, which
+        caused the padding to be derived as 0 from the `elst` edit list and the
+        end of the last frame to be played
+        ([#3489](https://github.com/androidx/media/issues/3489)).
 *   Inspector:
     *   Fix an issue where cancelling the future returned by
         `MetadataRetriever.retrieveDurationUs()` prevented `close()` from

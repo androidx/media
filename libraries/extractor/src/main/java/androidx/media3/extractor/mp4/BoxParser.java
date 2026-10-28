@@ -19,6 +19,7 @@ import static androidx.media3.common.MimeTypes.getMimeTypeFromMp4ObjectType;
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -819,10 +820,37 @@ public final class BoxParser {
           editStartTime
               + Util.scaleLargeTimestamp(
                   track.editListDurations.get(0), track.timescale, track.movieTimescale);
-      if (canApplyEditWithGaplessInfo(timestamps, duration, editStartTime, editEndTime)) {
-        // Clamp padding to 0 to account for rounding errors where editEndTime is slightly
-        // greater than duration.
-        long paddingTimeUnits = max(0, duration - editEndTime);
+      long lastSampleDuration = duration - timestamps[timestamps.length - 1];
+      long previousSampleDuration =
+          timestamps[timestamps.length - 1] - timestamps[timestamps.length - 2];
+      // Some muxers (e.g. FFmpeg) shorten the last stts entry for AAC to exclude trailing encoder
+      // padding, even though the AAC decoder still outputs a full frame. Require the two preceding
+      // sample durations to match so that a timestamp gap is not mistaken for a shortened sample.
+      boolean isLastAacSampleShortened =
+          Objects.equals(sampleMimeType, MimeTypes.AUDIO_AAC)
+              && track.timescale == track.format.sampleRate
+              && timestamps.length >= 3
+              && timestamps[timestamps.length - 2] - timestamps[timestamps.length - 3]
+                  == previousSampleDuration
+              && lastSampleDuration > 0
+              && lastSampleDuration < previousSampleDuration;
+      long decodedDuration =
+          isLastAacSampleShortened
+              ? timestamps[timestamps.length - 1] + previousSampleDuration
+              : duration;
+      if (canApplyEditWithGaplessInfo(timestamps, decodedDuration, editStartTime, editEndTime)) {
+        long paddingTimeUnits;
+        long movieTimescaleUnit =
+            Util.scaleLargeTimestamp(1, track.timescale, track.movieTimescale);
+        if (isLastAacSampleShortened && abs(editEndTime - duration) <= max(1, movieTimescaleUnit)) {
+          // The edit ends at the shortened stts duration to within the precision of the movie
+          // timescale, so the shortened stts entry gives the padding exactly.
+          paddingTimeUnits = decodedDuration - duration;
+        } else {
+          // Clamp padding to 0 to account for rounding errors where editEndTime is slightly
+          // greater than decodedDuration.
+          paddingTimeUnits = max(0, decodedDuration - editEndTime);
+        }
         long encoderDelay =
             Util.scaleLargeTimestamp(
                 editStartTime - timestamps[0], track.format.sampleRate, track.timescale);
