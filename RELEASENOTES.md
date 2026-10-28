@@ -99,6 +99,11 @@
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
+    *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame`.
+        Setting it to `false` allows fragments to start at non-key frames when
+        video key frames are farther apart than the fragment duration. In this
+        mode, sample timestamps must not decrease within a track
+        ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
         ads to resize and reposition the video player view within the ad

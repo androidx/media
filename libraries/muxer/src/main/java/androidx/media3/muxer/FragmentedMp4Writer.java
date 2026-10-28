@@ -101,6 +101,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final long fragmentDurationUs;
   private final boolean sampleCopyEnabled;
+  private final boolean fragmentsMustStartWithKeyFrame;
   private final @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final List<Track> tracks;
   private final LinearByteBufferAllocator linearByteBufferAllocator;
@@ -123,18 +124,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     AVCC format (which uses length prefixes).
    * @param fragmentDurationMs The fragment duration (in milliseconds).
    * @param sampleCopyEnabled Whether sample copying is enabled.
+   * @param fragmentsMustStartWithKeyFrame Whether fragments must start with a key frame.
    */
   public FragmentedMp4Writer(
       WritableByteChannel outputChannel,
       MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
       long fragmentDurationMs,
-      boolean sampleCopyEnabled) {
+      boolean sampleCopyEnabled,
+      boolean fragmentsMustStartWithKeyFrame) {
     this.outputChannel = new PositionTrackingOutputChannel(outputChannel);
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
     this.sampleCopyEnabled = sampleCopyEnabled;
+    this.fragmentsMustStartWithKeyFrame = fragmentsMustStartWithKeyFrame;
     lastSampleDurationBehavior =
         LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
     tracks = new ArrayList<>();
@@ -157,13 +161,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
     checkState(!isClosed, "FragmentedMp4Writer is closed.");
-    if (bufferInfo.size > 0
+    boolean isSampleEmpty = bufferInfo.size == 0 || !byteBuffer.hasRemaining();
+    if (!isSampleEmpty
         && Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
         && track.format.initializationData.isEmpty()
         && track.parsedCsd == null) {
       track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
     }
-    if (shouldFlushPendingSamples(track, bufferInfo)) {
+    if (!isSampleEmpty && shouldFlushPendingSamples(track, bufferInfo)) {
       createFragment(/* nextFragmentFirstSampleTimeUs= */ bufferInfo.presentationTimeUs);
     }
     track.writeSampleData(byteBuffer, bufferInfo);
@@ -284,10 +289,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // If video track is present then fragment will be created based on group of pictures and
     // track's duration so far.
     if (videoTrack != null) {
-      // Video samples can be written only when complete group of pictures are present.
+      // Video samples can be written only when complete group of pictures are present, unless
+      // fragments may start at non-key frames. In that case, a new fragment only starts at a
+      // timestamp after the last pending sample, so that samples with the same timestamp stay in
+      // the same fragment.
       if (track.equals(videoTrack)
           && track.hadKeyframe
-          && ((nextSampleBufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) > 0)) {
+          && ((nextSampleBufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) > 0
+              || (!fragmentsMustStartWithKeyFrame
+                  && nextSampleBufferInfo.presentationTimeUs
+                      > checkNotNull(track.pendingSamplesBufferInfo.peekLast())
+                          .presentationTimeUs))) {
         BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
         BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
         return lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs
