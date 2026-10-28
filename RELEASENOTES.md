@@ -156,6 +156,10 @@
         `MediaItem.mediaMetadata` property to and from
         `MediaItem.mediaMetadata.extras`, and preserve custom extras in
         `MediaInfo.customData`.
+    *   Stop throwing exceptions in `DefaultMediaItemConverter` when a playback
+        URI is missing or conversion fails, preserving the media ID and metadata
+        in the `CastPlayer` timeline for Cast queue items without a playback
+        URI.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo

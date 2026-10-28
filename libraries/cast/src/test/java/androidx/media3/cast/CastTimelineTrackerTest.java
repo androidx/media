@@ -30,6 +30,7 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TimelineAsserts;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaMetadata;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
@@ -1334,6 +1335,68 @@ public class CastTimelineTrackerTest {
     // Cached duration from item 0 before queue end is preserved even though item 0 is not active.
     assertThat(reloadedTimeline.getWindow(0, new Window()).durationUs)
         .isEqualTo(Util.msToUs(5000L));
+  }
+
+  @Test
+  public void
+      getCastTimeline_queueItemWithoutPlaybackUri_populatesMediaItemWithoutLocalConfiguration() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaMetadata gmsMetadata = new MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE);
+    gmsMetadata.putString(MediaMetadata.KEY_TITLE, "Receiver Title");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("receiver_only_id")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setMetadata(gmsMetadata)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).setItemId(1).build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+
+    CastTimeline castTimeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    assertThat(castTimeline.getWindowCount()).isEqualTo(1);
+    Window window = castTimeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.mediaItem.mediaId).isEqualTo("receiver_only_id");
+    assertThat(window.mediaItem.localConfiguration).isNull();
+    assertThat(window.mediaItem.mediaMetadata.title.toString()).isEqualTo("Receiver Title");
+  }
+
+  @Test
+  public void getCastTimeline_queueItemWithNullMediaInfo_usesEmptyMediaItem() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo activeMediaInfo =
+        new MediaInfo.Builder("https://example.com/active.mp4")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    MediaQueueItem activeQueueItem =
+        new MediaQueueItem.Builder(activeMediaInfo).setItemId(1).build();
+    MediaQueueItem sparseQueueItem = mock(MediaQueueItem.class);
+    when(sparseQueueItem.getItemId()).thenReturn(2);
+    when(sparseQueueItem.getMedia()).thenReturn(null);
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1, 2});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(activeMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(activeQueueItem));
+    when(mockMediaQueue.getItemAtIndex(/* index= */ 1, /* fetchIfNeeded= */ true))
+        .thenReturn(sparseQueueItem);
+
+    CastTimeline castTimeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    assertThat(castTimeline.getWindowCount()).isEqualTo(2);
+    assertThat(castTimeline.getWindow(/* windowIndex= */ 1, new Window()).mediaItem)
+        .isEqualTo(MediaItem.EMPTY);
   }
 
   private MediaItem createMediaItem(int uid) {

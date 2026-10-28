@@ -16,7 +16,8 @@
 package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.net.Uri;
 import android.os.Bundle;
@@ -218,7 +219,8 @@ public class DefaultMediaItemConverterTest {
   }
 
   @Test
-  public void toMediaItem_noCustomData_fallbackWithNonUriContentIdAndNoContentUrl() {
+  public void
+      toMediaItem_noCustomDataAndNonUriContentIdAndNoContentUrl_returnsWithoutLocalConfiguration() {
     com.google.android.gms.cast.MediaMetadata gmsMetadata =
         new com.google.android.gms.cast.MediaMetadata(
             com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
@@ -230,9 +232,31 @@ public class DefaultMediaItemConverterTest {
             .setMetadata(gmsMetadata)
             .build();
     MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
-
     DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
-    assertThrows(IllegalArgumentException.class, () -> converter.toMediaItem(queueItem));
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("just_an_id");
+    assertThat(mediaItem.localConfiguration).isNull();
+    assertThat(mediaItem.mediaMetadata.title.toString()).isEqualTo("fallbackTitle");
+  }
+
+  @Test
+  public void toMediaItem_noCustomDataAndEmptyContentUrl_fallsBackToContentIdAsUri() {
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("http://example.com/id")
+            .setContentUrl("")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("http://example.com/id");
+    assertThat(mediaItem.localConfiguration.uri.toString()).isEqualTo("http://example.com/id");
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.VIDEO_MP4);
   }
 
   @Test
@@ -865,5 +889,231 @@ public class DefaultMediaItemConverterTest {
 
     assertThat(reconstructedEmpty.mediaMetadata.extras).isNull();
     assertThat(queueItemEmpty.getMedia().getCustomData().has("m3-extras")).isFalse();
+  }
+
+  @Test
+  public void toMediaItem_drmConfigurationWithoutLicenseUri_preservesDrmConfiguration() {
+    MediaItem item =
+        new MediaItem.Builder()
+            .setMediaId("drmId")
+            .setUri("http://example.com/video.mpd")
+            .setMimeType(MimeTypes.APPLICATION_MPD)
+            .setDrmConfiguration(
+                new MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                    .setLicenseRequestHeaders(ImmutableMap.of("Authorization", "Bearer token"))
+                    .build())
+            .build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    assertThat(reconstructedItem).isEqualTo(item);
+  }
+
+  @Test
+  public void toMediaItem_nonObjectMediaItemInCustomData_fallsBackToMediaInfo() throws Exception {
+    JSONObject customData = new JSONObject("{\"mediaItem\": \"not_an_object\"}");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("contentId");
+    assertThat(mediaItem.localConfiguration.uri).isEqualTo(Uri.parse("http://example.com/url"));
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.VIDEO_MP4);
+  }
+
+  @Test
+  public void toMediaItem_missingUriInCustomData_fallsBackToMediaInfo() throws Exception {
+    JSONObject customData = new JSONObject("{\"mediaItem\": {\"mediaId\": \"customId\"}}");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("contentId");
+    assertThat(mediaItem.localConfiguration.uri).isEqualTo(Uri.parse("http://example.com/url"));
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.VIDEO_MP4);
+  }
+
+  @Test
+  public void toMediaItem_missingMediaIdInCustomData_fallsBackToMediaInfo() throws Exception {
+    JSONObject customData =
+        new JSONObject("{\"mediaItem\": {\"uri\": \"http://example.com/custom.mp4\"}}");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("contentId");
+    assertThat(mediaItem.localConfiguration.uri).isEqualTo(Uri.parse("http://example.com/url"));
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.VIDEO_MP4);
+  }
+
+  @Test
+  public void
+      toMediaItem_invalidDrmUuidInCustomData_ignoresDrmConfigurationAndPreservesOtherFields()
+          throws Exception {
+    JSONObject customData =
+        new JSONObject(
+            "{\"mediaItem\": {"
+                + "\"uri\": \"http://example.com/custom.mpd\","
+                + "\"mediaId\": \"customId\","
+                + "\"mimeType\": \""
+                + MimeTypes.APPLICATION_MPD
+                + "\","
+                + "\"drmConfiguration\": {\"uuid\": \"not-a-valid-uuid\"},"
+                + "\"m3-liveConfiguration\": {\"m3-targetOffsetMs\": 5000}"
+                + "}}");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/fallback.mp4")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("customId");
+    assertThat(mediaItem.localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://example.com/custom.mpd"));
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.APPLICATION_MPD);
+    assertThat(mediaItem.localConfiguration.drmConfiguration).isNull();
+    assertThat(mediaItem.liveConfiguration.targetOffsetMs).isEqualTo(5000);
+  }
+
+  @Test
+  public void
+      toMediaItem_malformedLiveConfigurationInCustomData_ignoresLiveConfigurationAndPreservesOtherFields()
+          throws Exception {
+    JSONObject customData =
+        new JSONObject(
+            "{\"mediaItem\": {"
+                + "\"uri\": \"http://example.com/live.m3u8\","
+                + "\"mediaId\": \"customId\","
+                + "\"mimeType\": \""
+                + MimeTypes.APPLICATION_M3U8
+                + "\","
+                + "\"drmConfiguration\": {"
+                + "\"uuid\": \""
+                + C.WIDEVINE_UUID
+                + "\","
+                + "\"licenseUri\": \"http://example.com/license\","
+                + "\"requestHeaders\": {}"
+                + "},"
+                + "\"m3-liveConfiguration\": {\"m3-targetOffsetMs\": \"not_a_number\"}"
+                + "}}");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/fallback.mp4")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaId).isEqualTo("customId");
+    assertThat(mediaItem.localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://example.com/live.m3u8"));
+    assertThat(mediaItem.localConfiguration.mimeType).isEqualTo(MimeTypes.APPLICATION_M3U8);
+    assertThat(mediaItem.localConfiguration.drmConfiguration.scheme).isEqualTo(C.WIDEVINE_UUID);
+    assertThat(mediaItem.localConfiguration.drmConfiguration.licenseUri)
+        .isEqualTo(Uri.parse("http://example.com/license"));
+    assertThat(mediaItem.liveConfiguration).isEqualTo(MediaItem.LiveConfiguration.UNSET);
+  }
+
+  @Test
+  public void toMediaQueueItem_nonFiniteLivePlaybackSpeed_omitsCustomDataAndFallsBackToMediaInfo() {
+    MediaItem item =
+        new MediaItem.Builder()
+            .setMediaId("liveId")
+            .setUri("http://example.com/live.m3u8")
+            .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder()
+                    .setTargetOffsetMs(10000)
+                    .setMinPlaybackSpeed(Float.NaN)
+                    .build())
+            .build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(item);
+    MediaItem reconstructedItem = converter.toMediaItem(queueItem);
+
+    assertThat(reconstructedItem.mediaId).isEqualTo("liveId");
+    assertThat(reconstructedItem.localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://example.com/live.m3u8"));
+    assertThat(reconstructedItem.localConfiguration.mimeType).isEqualTo(MimeTypes.APPLICATION_M3U8);
+    assertThat(reconstructedItem.liveConfiguration).isEqualTo(MediaItem.LiveConfiguration.UNSET);
+  }
+
+  @Test
+  public void toMediaItem_nullMediaInfo_returnsEmptyMediaItem() {
+    MediaQueueItem queueItem = mock(MediaQueueItem.class);
+    when(queueItem.getMedia()).thenReturn(null);
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem).isSameInstanceAs(MediaItem.EMPTY);
+  }
+
+  @Test
+  public void
+      toMediaItem_drmConfigurationWithoutRequestHeadersInCustomData_preservesDrmConfiguration()
+          throws Exception {
+    JSONObject customData =
+        new JSONObject(
+            "{\"mediaItem\": {"
+                + "\"uri\": \"http://example.com/custom.mpd\","
+                + "\"mediaId\": \"customId\","
+                + "\"mimeType\": \""
+                + MimeTypes.APPLICATION_MPD
+                + "\","
+                + "\"drmConfiguration\": {"
+                + "\"uuid\": \""
+                + C.WIDEVINE_UUID
+                + "\","
+                + "\"licenseUri\": \"http://example.com/license\""
+                + "}"
+                + "}}");
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/fallback.mp4")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setCustomData(customData)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.localConfiguration.drmConfiguration.scheme).isEqualTo(C.WIDEVINE_UUID);
+    assertThat(mediaItem.localConfiguration.drmConfiguration.licenseUri)
+        .isEqualTo(Uri.parse("http://example.com/license"));
+    assertThat(mediaItem.localConfiguration.drmConfiguration.licenseRequestHeaders).isEmpty();
   }
 }

@@ -291,13 +291,7 @@ import org.jspecify.annotations.Nullable;
     ItemUid itemUid = getOrCreateItemUid(queueItem.getItemId(), queueItem.getMedia());
     @Nullable MediaItem mediaItem = getMediaItem(itemUid, mediaInfo);
     if (mediaItem == null || mediaItem == MediaItem.EMPTY) {
-      try {
-        mediaItem = mediaItemConverter.toMediaItem(queueItem);
-      } catch (Exception e) {
-        // TODO(b/524966241): Remove try/catch once the converter doesn't throw parsing
-        // exceptions.
-        Log.w(TAG, "Failed to convert MediaQueueItem to MediaItem");
-      }
+      mediaItem = mediaItemConverter.toMediaItem(queueItem);
     }
     updateItemData(
         itemUid,

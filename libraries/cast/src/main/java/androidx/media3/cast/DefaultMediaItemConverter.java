@@ -96,7 +96,9 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   @Override
   public MediaItem toMediaItem(MediaQueueItem mediaQueueItem) {
     @Nullable MediaInfo mediaInfo = mediaQueueItem.getMedia();
-    checkNotNull(mediaInfo);
+    if (mediaInfo == null) {
+      return MediaItem.EMPTY;
+    }
     androidx.media3.common.MediaMetadata.Builder metadataBuilder =
         new androidx.media3.common.MediaMetadata.Builder();
     @Nullable MediaMetadata metadata = mediaInfo.getMetadata();
@@ -189,26 +191,29 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
       metadataBuilder.setExtras(extras);
     }
 
+    androidx.media3.common.MediaMetadata mediaMetadata = metadataBuilder.build();
     // TODO: b/526548538 - Get rid of custom keys in media3 when equivalent CastSDK fields are
     // present.
     if (customData != null && customData.has(KEY_MEDIA_ITEM)) {
-      try {
-        return getMediaItem(customData, metadataBuilder.build());
-      } catch (RuntimeException e) {
-        Log.w(TAG, "Failed to parse customData, falling back to MediaInfo", e);
+      @Nullable MediaItem mediaItem = getMediaItem(customData, mediaMetadata);
+      if (mediaItem != null) {
+        return mediaItem;
       }
     }
-    return toMediaItemFallback(mediaInfo, metadataBuilder.build());
+    return toMediaItemFallback(mediaInfo, mediaMetadata);
   }
 
   private static MediaItem toMediaItemFallback(
       MediaInfo mediaInfo, androidx.media3.common.MediaMetadata mediaMetadata) {
     MediaItem.Builder builder = new MediaItem.Builder();
     String contentId = mediaInfo.getContentId();
-    builder.setMediaId(contentId);
-    String contentUrl = mediaInfo.getContentUrl();
-    if (contentUrl != null) {
-      builder.setUri(Uri.parse(contentUrl));
+    if (contentId != null) {
+      builder.setMediaId(contentId);
+    }
+    @Nullable String contentUrl = mediaInfo.getContentUrl();
+    @Nullable Uri uri = null;
+    if (contentUrl != null && !contentUrl.isEmpty()) {
+      uri = Uri.parse(contentUrl);
     } else if (contentId != null) {
       // The web sender SDK indicates the content url is optional and, if absent, the media id will
       // be used as media URL.
@@ -216,18 +221,16 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
       // https://developers.google.com/cast/docs/reference/web_sender/chrome.cast.media.MediaInfo#contentUrl
       Uri parsedContentId = Uri.parse(contentId);
       if (parsedContentId.getScheme() != null) {
-        builder.setUri(parsedContentId);
+        uri = parsedContentId;
       }
     }
-    if (mediaInfo.getContentType() != null) {
-      builder.setMimeType(mediaInfo.getContentType());
+    if (uri != null) {
+      builder.setUri(uri);
+      if (mediaInfo.getContentType() != null) {
+        builder.setMimeType(mediaInfo.getContentType());
+      }
     }
-    builder.setMediaMetadata(mediaMetadata);
-    MediaItem mediaItem = builder.build();
-    if (mediaItem.localConfiguration == null) {
-      throw new IllegalArgumentException("Insufficient media info to create a fallback MediaItem");
-    }
-    return mediaItem;
+    return builder.setMediaMetadata(mediaMetadata).build();
   }
 
   @Override
@@ -355,7 +358,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
 
   // Deserialization.
 
-  private static MediaItem getMediaItem(
+  private static @Nullable MediaItem getMediaItem(
       JSONObject customData, androidx.media3.common.MediaMetadata mediaMetadata) {
     try {
       JSONObject mediaItemJson = customData.getJSONObject(KEY_MEDIA_ITEM);
@@ -368,15 +371,24 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
         builder.setMimeType(mediaItemJson.getString(KEY_MIME_TYPE));
       }
       if (mediaItemJson.has(KEY_DRM_CONFIGURATION)) {
-        populateDrmConfiguration(mediaItemJson.getJSONObject(KEY_DRM_CONFIGURATION), builder);
+        try {
+          populateDrmConfiguration(mediaItemJson.getJSONObject(KEY_DRM_CONFIGURATION), builder);
+        } catch (JSONException | IllegalArgumentException e) {
+          Log.w(TAG, "Failed to parse drmConfiguration in customData", e);
+        }
       }
       if (mediaItemJson.has(KEY_LIVE_CONFIGURATION)) {
-        builder.setLiveConfiguration(
-            getLiveConfiguration(mediaItemJson.getJSONObject(KEY_LIVE_CONFIGURATION)));
+        try {
+          builder.setLiveConfiguration(
+              getLiveConfiguration(mediaItemJson.getJSONObject(KEY_LIVE_CONFIGURATION)));
+        } catch (JSONException e) {
+          Log.w(TAG, "Failed to parse liveConfiguration in customData", e);
+        }
       }
       return builder.build();
     } catch (JSONException e) {
-      throw new RuntimeException(e);
+      Log.w(TAG, "Failed to parse customData", e);
+      return null;
     }
   }
 
@@ -404,15 +416,19 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   private static void populateDrmConfiguration(JSONObject json, MediaItem.Builder mediaItem)
       throws JSONException {
     MediaItem.DrmConfiguration.Builder drmConfiguration =
-        new MediaItem.DrmConfiguration.Builder(UUID.fromString(json.getString(KEY_UUID)))
-            .setLicenseUri(json.getString(KEY_LICENSE_URI));
-    JSONObject requestHeadersJson = json.getJSONObject(KEY_REQUEST_HEADERS);
-    HashMap<String, String> requestHeaders = new HashMap<>();
-    for (Iterator<String> iterator = requestHeadersJson.keys(); iterator.hasNext(); ) {
-      String key = iterator.next();
-      requestHeaders.put(key, requestHeadersJson.getString(key));
+        new MediaItem.DrmConfiguration.Builder(UUID.fromString(json.getString(KEY_UUID)));
+    if (json.has(KEY_LICENSE_URI)) {
+      drmConfiguration.setLicenseUri(json.getString(KEY_LICENSE_URI));
     }
-    drmConfiguration.setLicenseRequestHeaders(requestHeaders);
+    if (json.has(KEY_REQUEST_HEADERS)) {
+      JSONObject requestHeadersJson = json.getJSONObject(KEY_REQUEST_HEADERS);
+      HashMap<String, String> requestHeaders = new HashMap<>();
+      for (Iterator<String> iterator = requestHeadersJson.keys(); iterator.hasNext(); ) {
+        String key = iterator.next();
+        requestHeaders.put(key, requestHeadersJson.getString(key));
+      }
+      drmConfiguration.setLicenseRequestHeaders(requestHeaders);
+    }
     mediaItem.setDrmConfiguration(drmConfiguration.build());
   }
 
@@ -431,7 +447,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
         json.put(KEY_MEDIA3_EXTRAS, customDataExtras);
       }
     } catch (JSONException e) {
-      throw new RuntimeException(e);
+      Log.w(TAG, "Failed to create customData", e);
     }
     return json;
   }
