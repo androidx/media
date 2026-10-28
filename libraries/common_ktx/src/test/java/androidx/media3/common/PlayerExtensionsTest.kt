@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
@@ -221,6 +222,33 @@ class PlayerExtensionsTest {
 
     assertThat(volumeFromInsideOnEventsJob.await()).isEqualTo(0.5f)
     listenJob.cancelAndJoin()
+    applicationThread.quit()
+  }
+
+  @Test
+  fun playerListen_startedOnAppThreadAndCancelledFromOtherThread_unregistersListener() = runTest {
+    val applicationThread = HandlerThread("app-thread")
+    applicationThread.start()
+    val applicationDispatcher = Handler(applicationThread.looper).asCoroutineDispatcher()
+    val player =
+      withContext(applicationDispatcher) {
+        PlayerWithListeners(TestExoPlayerBuilder(context).build())
+      }
+    val listenJob =
+      withContext(applicationDispatcher) {
+        // Start listening on the application thread, but in a coroutine whose dispatcher (the test
+        // dispatcher) is not confined to the application thread. This mirrors a Compose
+        // LaunchedEffect that is pumped from the main thread by the Compose test infrastructure.
+        this@runTest.launch(start = CoroutineStart.UNDISPATCHED) { player.listen { _ -> } }
+      }
+    assertThat(player.listeners).hasSize(1)
+
+    // Cancel from the test thread, which resumes the listening coroutine on the test dispatcher.
+    listenJob.cancelAndJoin()
+
+    assertThat(player.listeners).isEmpty()
+    assertThat(listenJob.isCancelled).isTrue()
+    assertThat(listenJob.isCompleted).isTrue()
     applicationThread.quit()
   }
 

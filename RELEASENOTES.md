@@ -23,6 +23,11 @@
         `AdPlaybackState.fromAdPlaybackState` to copy all array fields of the ad
         groups, so that an instance can no longer be modified through retained
         or shared arrays.
+    *   Fix `IllegalStateException` ("Player is accessed on the wrong thread.")
+        when `Player.listen` or `Player.listenTo` is cancelled from a thread
+        other than the player's application thread (for example, during Compose
+        UI test teardown)
+        ([#3005](https://github.com/androidx/media/issues/3005)).
 *   ExoPlayer:
     *   Fix an issue where a renderer enabled early for an upcoming media period
         could start rendering before playback transitions to that period.

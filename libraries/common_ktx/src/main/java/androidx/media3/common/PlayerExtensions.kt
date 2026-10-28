@@ -16,7 +16,6 @@
 
 package androidx.media3.common
 
-import android.os.Looper
 import androidx.core.os.HandlerCompat
 import androidx.media3.common.util.UnstableApi
 import java.util.concurrent.atomic.AtomicBoolean
@@ -42,15 +41,8 @@ import kotlinx.coroutines.withContext
  *   terminate due to an exception or cancellation.
  */
 @UnstableApi
-suspend fun Player.listen(onEvents: Player.(Player.Events) -> Unit): Nothing {
-  if (Looper.myLooper() == applicationLooper) {
-    listenImpl(null, onEvents)
-  } else {
-    withContext(HandlerCompat.createAsync(applicationLooper).asCoroutineDispatcher()) {
-      listenImpl(null, onEvents)
-    }
-  }
-}
+suspend fun Player.listen(onEvents: Player.(Player.Events) -> Unit): Nothing =
+  listenImpl(null, onEvents)
 
 /**
  * Continuously listens to the [Player.Listener.onEvents] callback, passing the received
@@ -81,13 +73,7 @@ suspend fun Player.listenTo(
   onEvents: Player.(Player.Events) -> Unit,
 ): Nothing {
   val playerEvents = Player.Events(FlagSet.Builder().add(firstEvent).addAll(*otherEvents).build())
-  if (Looper.myLooper() == applicationLooper) {
-    listenImpl(playerEvents, onEvents)
-  } else {
-    withContext(HandlerCompat.createAsync(applicationLooper).asCoroutineDispatcher()) {
-      listenImpl(playerEvents, onEvents)
-    }
-  }
+  listenImpl(playerEvents, onEvents)
 }
 
 /**
@@ -119,18 +105,20 @@ suspend fun Player.listenTo(
 private suspend fun Player.listenImpl(
   events: Player.Events?,
   onEvents: Player.(Player.Events) -> Unit,
-): Nothing {
-  lateinit var listener: PlayerListener
-  try {
-    suspendCancellableCoroutine { continuation ->
-      listener = PlayerListener(events, onEvents, continuation)
-      continuation.invokeOnCancellation { listener.isCancelled.set(true) }
-      addListener(listener)
+): Nothing =
+  withContext(HandlerCompat.createAsync(applicationLooper).asCoroutineDispatcher().immediate) {
+    var listener: PlayerListener? = null
+    try {
+      suspendCancellableCoroutine { continuation ->
+        val playerListener = PlayerListener(events, onEvents, continuation)
+        listener = playerListener
+        continuation.invokeOnCancellation { playerListener.isCancelled.set(true) }
+        addListener(playerListener)
+      }
+    } finally {
+      listener?.let { removeListener(it) }
     }
-  } finally {
-    removeListener(listener)
   }
-}
 
 private class PlayerListener(
   private val events: Player.Events?,
