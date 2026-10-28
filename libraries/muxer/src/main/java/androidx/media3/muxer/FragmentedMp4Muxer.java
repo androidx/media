@@ -273,7 +273,8 @@ public final class FragmentedMp4Muxer implements Muxer {
    * and the {@code bufferInfo} must not be modified after calling this method. Otherwise, they are
    * copied and it is safe to modify them after this method returns.
    *
-   * <p>Note: Out of order B-frames are currently not supported.
+   * <p>Out of order B-frames are supported, unless fragments may start at non-key frames (see
+   * {@link Builder#setFragmentsMustStartWithKeyFrame(boolean)}).
    *
    * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
