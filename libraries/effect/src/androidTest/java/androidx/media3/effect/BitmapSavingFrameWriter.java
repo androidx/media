@@ -41,6 +41,7 @@ import androidx.media3.test.utils.BitmapPixelTestUtil.ImageBuffer;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,8 +54,8 @@ import org.jspecify.annotations.Nullable;
  * #dequeueInputFrame} and restored upon {@link #queueInputFrame}).
  *
  * <p>All {@link FrameWriter} methods must be called on the same thread, which may differ from the
- * thread that constructs the instance. {@link #outputBitmaps} and {@link #configuredFormat} can be
- * safely read from any thread.
+ * thread that constructs the instance. {@link #outputBitmaps}, {@link #outputMetadata} and {@link
+ * #configuredFormat} can be safely read from any thread.
  */
 /* package */ final class BitmapSavingFrameWriter implements FrameWriter {
 
@@ -65,6 +66,15 @@ import org.jspecify.annotations.Nullable;
    * but must only be mutated by this writer.
    */
   public final List<Bitmap> outputBitmaps;
+
+  /**
+   * The {@linkplain Frame#getMetadata() metadata} of the queued {@link Frame} instances, in the
+   * order they were queued.
+   *
+   * <p>This list is backed by a {@link CopyOnWriteArrayList} and is safe to read from any thread,
+   * but must only be mutated by this writer.
+   */
+  public final List<Map<String, Object>> outputMetadata;
 
   /**
    * The most recent {@link Format} passed to {@link #configure}.
@@ -139,6 +149,7 @@ import org.jspecify.annotations.Nullable;
   private BitmapSavingFrameWriter(
       FrameWriter.Info info, long fenceTimeoutMs, FrameBackend frameBackend) {
     this.outputBitmaps = new CopyOnWriteArrayList<>();
+    this.outputMetadata = new CopyOnWriteArrayList<>();
     this.configuredFormat = new Format.Builder().build();
     this.info =
         (format, usage) ->
@@ -189,6 +200,7 @@ import org.jspecify.annotations.Nullable;
       }
     }
     outputBitmaps.add(frameBackend.createBitmap(frame));
+    outputMetadata.add(frame.getMetadata());
     hasCapacity = true;
     if (pendingWakeupListener != null && pendingWakeupExecutor != null) {
       Runnable wakeupListener = pendingWakeupListener;

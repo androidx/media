@@ -45,6 +45,7 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.ImagePlanesFrame;
@@ -52,6 +53,7 @@ import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.Executor;
@@ -60,6 +62,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Writes input texture frames to a {@link FrameWriter}.
+ *
+ * <p>Forwards {@link Frame#KEY_DISPLAY_TIME_NS} from the input frame to the output frame, so that
+ * the {@link FrameWriter} can present the frame at that time.
  *
  * <p>Supports {@link HardwareBufferFrame} and {@link PixelFormat#RGBA_8888}-based {@link
  * ImagePlanesFrame}.
@@ -185,6 +190,7 @@ import org.jspecify.annotations.Nullable;
         outputHardwareBufferFrame
             .buildUpon()
             .setContentTimeUs(inputFrame.presentationTimeUs)
+            .setMetadata(getOutputMetadata(inputFrame))
             .build();
     if (glWriteCompleteFence == null || glReadCompleteFence == null) {
       GLES20.glFinish();
@@ -224,11 +230,15 @@ import org.jspecify.annotations.Nullable;
     } catch (GlException e) {
       throw VideoFrameProcessingException.from(e);
     }
+    outputImagePlanesFrame =
+        outputImagePlanesFrame
+            .buildUpon()
+            .setContentTimeUs(inputFrame.presentationTimeUs)
+            .setMetadata(getOutputMetadata(inputFrame))
+            .build();
+    frameWriter.queueInputFrame(outputImagePlanesFrame, /* writeCompleteFence= */ null);
     // glReadPixels already synchronized all preceding GL commands, so no fences are needed.
     inputFrame.release(/* releaseFence= */ null);
-    outputImagePlanesFrame =
-        outputImagePlanesFrame.buildUpon().setContentTimeUs(inputFrame.presentationTimeUs).build();
-    frameWriter.queueInputFrame(outputImagePlanesFrame, /* writeCompleteFence= */ null);
     return true;
   }
 
@@ -480,5 +490,12 @@ import org.jspecify.annotations.Nullable;
         .setRotationDegrees(rotationDegrees)
         .setColorInfo(colorInfo)
         .build();
+  }
+
+  private static ImmutableMap<String, Object> getOutputMetadata(GlTextureFrame inputFrame) {
+    @Nullable Object displayTimeNs = inputFrame.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
+    return displayTimeNs != null
+        ? ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs)
+        : ImmutableMap.of();
   }
 }

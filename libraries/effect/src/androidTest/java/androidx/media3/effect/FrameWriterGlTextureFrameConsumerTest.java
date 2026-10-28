@@ -48,9 +48,11 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
@@ -691,6 +693,70 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 inputBitmap, actualBitmaps.get(0), testName.getMethodName()))
         .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 29)
+  public void queue_withDisplayTime_forwardsDisplayTime() throws Exception {
+    setUpHardwareBufferFrameConsumer();
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
+
+    queueFrameOnGlThread(
+        () ->
+            createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000)
+                .buildUpon()
+                .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, 123456789L))
+                .build());
+
+    assertThat(frameWriter.outputMetadata).hasSize(1);
+    assertThat(frameWriter.outputMetadata.get(0))
+        .containsEntry(Frame.KEY_DISPLAY_TIME_NS, 123456789L);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 29)
+  public void queue_withoutDisplayTime_forwardsNoDisplayTime() throws Exception {
+    setUpHardwareBufferFrameConsumer();
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
+
+    queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
+
+    assertThat(frameWriter.outputMetadata).hasSize(1);
+    assertThat(frameWriter.outputMetadata.get(0)).doesNotContainKey(Frame.KEY_DISPLAY_TIME_NS);
+  }
+
+  @Test
+  public void queue_imagePlanesFrameWithDisplayTime_forwardsDisplayTime() throws Exception {
+    frameWriter = BitmapSavingFrameWriter.createForImagePlanes(TIMEOUT_MS);
+    frameWriterGlTextureFrameConsumer =
+        new FrameWriterGlTextureFrameConsumer(
+            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+    Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
+
+    queueFrameOnGlThread(
+        () ->
+            createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000)
+                .buildUpon()
+                .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, 987654321L))
+                .build());
+
+    assertThat(frameWriter.outputMetadata).hasSize(1);
+    assertThat(frameWriter.outputMetadata.get(0))
+        .containsEntry(Frame.KEY_DISPLAY_TIME_NS, 987654321L);
+  }
+
+  @Test
+  public void queue_imagePlanesFrameWithoutDisplayTime_forwardsNoDisplayTime() throws Exception {
+    frameWriter = BitmapSavingFrameWriter.createForImagePlanes(TIMEOUT_MS);
+    frameWriterGlTextureFrameConsumer =
+        new FrameWriterGlTextureFrameConsumer(
+            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+    Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
+
+    queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
+
+    assertThat(frameWriter.outputMetadata).hasSize(1);
+    assertThat(frameWriter.outputMetadata.get(0)).doesNotContainKey(Frame.KEY_DISPLAY_TIME_NS);
   }
 
   @RequiresApi(29)

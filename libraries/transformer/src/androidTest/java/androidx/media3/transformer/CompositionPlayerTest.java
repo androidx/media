@@ -920,6 +920,48 @@ public class CompositionPlayerTest {
 
   @Test
   @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void compositionPlayer_withFrameProcessor_setsReleaseTimeInMetadataListener()
+      throws Exception {
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    Queue<Long> videoReleaseTimes = new ConcurrentLinkedQueue<>();
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(
+                                MediaItem.fromUri(
+                                    MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                            .setDurationUs(
+                                MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                            .build())))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              glFrameProcessorTestRule.createCompositionPlayerBuilder(applicationContext).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setVideoFrameMetadataListener(
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+                  videoReleaseTimes.add(releaseTimeNs));
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+          compositionPlayer.setComposition(composition);
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(videoReleaseTimes).isNotEmpty();
+    for (long releaseTimeNs : videoReleaseTimes) {
+      assertThat(releaseTimeNs).isNotEqualTo(C.TIME_UNSET);
+      assertThat(releaseTimeNs).isGreaterThan(0L);
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
   public void compositionPlayer_withFrameProcessor_playAfterEnded_doesNotTimeout()
       throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
