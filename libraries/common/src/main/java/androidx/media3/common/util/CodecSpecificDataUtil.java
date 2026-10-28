@@ -1300,6 +1300,7 @@ public final class CodecSpecificDataUtil {
     switch (codecProfileAndLevel.first) {
       case CodecProfileLevel.DolbyVisionProfileDvheDtr: // profile 4
       case CodecProfileLevel.DolbyVisionProfileDvheStn: // profile 5
+      case CodecProfileLevel.DolbyVisionProfileDvheDtb: // profile 7
       case CodecProfileLevel.DolbyVisionProfileDvheSt: // profile 8
         return MimeTypes.VIDEO_H265;
       case CodecProfileLevel.DolbyVisionProfileDvavSe: // profile 9

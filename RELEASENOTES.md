@@ -80,6 +80,11 @@
         37+ when playing spatialized multichannel PCM audio decoded from a
         compressed format.
 *   Video:
+    *   Allow falling back to an H.265/HEVC decoder for backward-compatible
+        Dolby Vision Profile 7 streams, and no longer fall back to an AV1
+        decoder for Profile 10 streams whose base layer signals full range with
+        unspecified transfer characteristics
+        ([#3486](https://github.com/androidx/media/issues/3486)).
 *   Text:
 *   Metadata:
 *   Image:

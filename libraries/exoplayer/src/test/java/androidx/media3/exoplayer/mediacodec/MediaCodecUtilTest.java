@@ -239,8 +239,32 @@ public final class MediaCodecUtilTest {
 
   @Test
   public void getAlternativeCodecMimeType_withNonFallbackCompatibleFormat_returnsNull() {
+    // Profile 7.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDvheDtbFullRangePq =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+    // Profile 7.0 with raw bitstream VUI (Full Range, Unspecified transfer) which does NOT allow
+    // fallback.
+    Format formatDvheDtbFullRangeUnspecifiedTransfer =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorTransfer(Format.NO_VALUE)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
     // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
-    Format formatDav1NoFallbackPossible =
+    Format formatDav1FullRangePq =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs("dav1.10.01")
@@ -251,8 +275,67 @@ public final class MediaCodecUtilTest {
                     .setColorRange(C.COLOR_RANGE_FULL)
                     .build())
             .build();
+    // Profile 10.0 with raw bitstream OBU (Full Range, Unspecified transfer) which does NOT allow
+    // fallback.
+    Format formatDav1FullRangeUnspecifiedTransfer =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorTransfer(Format.NO_VALUE)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+
+    String dvheDtbFullRangePqAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDvheDtbFullRangePq);
+    String dvheDtbFullRangeUnspecifiedTransferAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDvheDtbFullRangeUnspecifiedTransfer);
+    String dav1FullRangePqAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FullRangePq);
+    String dav1FullRangeUnspecifiedTransferAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FullRangeUnspecifiedTransfer);
+
+    assertThat(dvheDtbFullRangePqAlternative).isNull();
+    assertThat(dvheDtbFullRangeUnspecifiedTransferAlternative).isNull();
+    assertThat(dav1FullRangePqAlternative).isNull();
+    assertThat(dav1FullRangeUnspecifiedTransferAlternative).isNull();
+  }
+
+  @Test
+  public void
+      getAlternativeCodecMimeType_withFallbackCompatibleDolbyVisionFormat_returnsAlternativeMimeType() {
+    // Profile 7.6 (Limited Range PQ) which allows fallback to H.265.
+    Format formatDvheDtbLimitedRangePq =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
+    Format formatDvheDtbWithoutColorInfo =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .build();
+    Format formatDvheDtbFullRangeHlg =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
     // Profile 10.1 (Limited Range PQ) which allows fallback to AV1.
-    Format formatDav1FallbackToAv1 =
+    Format formatDav1LimitedRangePq =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs("dav1.10.01")
@@ -263,10 +346,42 @@ public final class MediaCodecUtilTest {
                     .setColorRange(C.COLOR_RANGE_LIMITED)
                     .build())
             .build();
+    Format formatDav1WithoutColorInfo =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .build();
+    Format formatDav1FullRangeHlg =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
 
-    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1NoFallbackPossible)).isNull();
-    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FallbackToAv1))
-        .isEqualTo(MimeTypes.VIDEO_AV1);
+    String dvheDtbLimitedRangePqAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDvheDtbLimitedRangePq);
+    String dvheDtbWithoutColorInfoAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDvheDtbWithoutColorInfo);
+    String dvheDtbFullRangeHlgAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDvheDtbFullRangeHlg);
+    String dav1LimitedRangePqAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDav1LimitedRangePq);
+    String dav1WithoutColorInfoAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDav1WithoutColorInfo);
+    String dav1FullRangeHlgAlternative =
+        MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FullRangeHlg);
+
+    assertThat(dvheDtbLimitedRangePqAlternative).isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(dvheDtbWithoutColorInfoAlternative).isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(dvheDtbFullRangeHlgAlternative).isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(dav1LimitedRangePqAlternative).isEqualTo(MimeTypes.VIDEO_AV1);
+    assertThat(dav1WithoutColorInfoAlternative).isEqualTo(MimeTypes.VIDEO_AV1);
+    assertThat(dav1FullRangeHlgAlternative).isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
   @Test

@@ -392,6 +392,30 @@ public class CodecSpecificDataUtilTest {
   @Test
   public void
       getDolbyVisionBaseLayerMimeType_withNonFallbackCompatibleFormat_returnsBaseEncoding() {
+    // Profile 7.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDvheDtbNoFallbackPossible =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+    // Profile 7.6 (Limited Range PQ) which allows fallback to H.265.
+    Format formatDvheDtbFallbackToHevc =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.06")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
     // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
     Format formatDav1NoFallbackPossible =
         new Format.Builder()
@@ -417,6 +441,11 @@ public class CodecSpecificDataUtilTest {
                     .build())
             .build();
 
+    assertThat(
+            CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDvheDtbNoFallbackPossible))
+        .isEqualTo(MimeTypes.VIDEO_H265);
+    assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDvheDtbFallbackToHevc))
+        .isEqualTo(MimeTypes.VIDEO_H265);
     assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1NoFallbackPossible))
         .isEqualTo(MimeTypes.VIDEO_AV1);
     assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1FallbackToAv1))

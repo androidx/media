@@ -456,9 +456,11 @@ public final class MediaCodecUtil {
     }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
       // H.264/AVC, H.265/HEVC or AV1 decoders can decode the base layer of some DV profiles.
-      // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
-      // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
-      // compatible and the second one is deprecated and is not always backward compatible.
+      // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn because it is
+      // not backward compatible, and can only be done for profiles
+      // CodecProfileLevel.DolbyVisionProfileDvheDtb and CodecProfileLevel.DolbyVisionProfileDvav110
+      // when they are not using the non-backward-compatible IPTPQc2 color format (indicated by full
+      // range ST2084 or unspecified transfer).
       @Nullable MediaCodecProfileAndLevel codecProfileAndLevel =
           CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null && codecProfileAndLevel.isSupportableByMediaCodec()) {
@@ -468,13 +470,17 @@ public final class MediaCodecUtil {
           return MimeTypes.VIDEO_H265;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
           return MimeTypes.VIDEO_H264;
-        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtb
+            || profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
           if (format.colorInfo != null
-              && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
+              && (format.colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
+                  || format.colorInfo.colorTransfer == Format.NO_VALUE)
               && format.colorInfo.colorRange == C.COLOR_RANGE_FULL) {
             return null;
           }
-          return MimeTypes.VIDEO_AV1;
+          return profile == CodecProfileLevel.DolbyVisionProfileDvheDtb
+              ? MimeTypes.VIDEO_H265
+              : MimeTypes.VIDEO_AV1;
         }
       }
     }
