@@ -15,9 +15,12 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -45,6 +48,42 @@ public final class PcmAudioUtil {
       int rampFrameCount) {
     ByteBuffer outputBuffer =
         ByteBuffer.allocateDirect(buffer.remaining()).order(ByteOrder.nativeOrder());
+    return rampUpVolume(
+        buffer, outputBuffer, pcmEncoding, pcmFrameSize, startFrameIndex, rampFrameCount);
+  }
+
+  /**
+   * Returns a {@link ByteBuffer} with linear volume ramping applied, using the provided {@code
+   * outputBuffer}.
+   *
+   * @param buffer The input buffer containing PCM frames. The buffer will be fully consumed by this
+   *     method.
+   * @param outputBuffer The buffer to write the ramped PCM data into. It must be a direct byte
+   *     buffer with native byte order and sufficient capacity. Its position and limit will be set
+   *     to contain the written data.
+   * @param pcmEncoding The {@link C.Encoding} of the PCM frames.
+   * @param pcmFrameSize The overall frame size of one PCM frame (including all channels).
+   * @param startFrameIndex The index of the first frame within the audio ramp duration (as
+   *     specified by {@code rampFrameCount}).
+   * @param rampFrameCount The overall ramp duration in number of frames.
+   * @return The {@link ByteBuffer} containing the modified PCM data.
+   */
+  @CanIgnoreReturnValue
+  @SuppressWarnings("ReferenceEquality")
+  public static ByteBuffer rampUpVolume(
+      ByteBuffer buffer,
+      ByteBuffer outputBuffer,
+      @C.Encoding int pcmEncoding,
+      int pcmFrameSize,
+      int startFrameIndex,
+      int rampFrameCount) {
+    checkArgument(buffer != outputBuffer, "Input and output buffers must be different");
+    checkArgument(
+        outputBuffer.isDirect() && outputBuffer.order() == ByteOrder.nativeOrder(),
+        "Output buffer must be direct and have native byte order");
+    checkArgument(
+        outputBuffer.capacity() >= buffer.remaining(), "Output buffer capacity must be sufficient");
+    outputBuffer.clear();
     int frameIndex = startFrameIndex;
     int frameStartPosition = buffer.position();
     while (buffer.hasRemaining() && frameIndex < rampFrameCount) {

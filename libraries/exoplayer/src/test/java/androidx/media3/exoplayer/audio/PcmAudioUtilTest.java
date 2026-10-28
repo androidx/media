@@ -16,12 +16,14 @@
 package androidx.media3.exoplayer.audio;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -304,6 +306,104 @@ public final class PcmAudioUtilTest {
     assertThat(buffer.getFloat()).isEqualTo(0f);
     assertThat(buffer.getFloat()).isEqualTo(0.5f);
     assertThat(buffer.getFloat()).isEqualTo(1f);
+  }
+
+  @Test
+  public void rampUpVolume_withInsufficientOutputBuffer_throwsIllegalArgumentException() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+    ByteBuffer outputBuffer = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            PcmAudioUtil.rampUpVolume(
+                buffer,
+                outputBuffer,
+                C.ENCODING_PCM_32BIT,
+                /* pcmFrameSize= */ 4,
+                /* startFrameIndex= */ 0,
+                /* rampFrameCount= */ 4));
+  }
+
+  @Test
+  public void rampUpVolume_withSameBuffer_throwsIllegalArgumentException() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            PcmAudioUtil.rampUpVolume(
+                buffer,
+                /* outputBuffer= */ buffer,
+                C.ENCODING_PCM_32BIT,
+                /* pcmFrameSize= */ 4,
+                /* startFrameIndex= */ 0,
+                /* rampFrameCount= */ 4));
+  }
+
+  @Test
+  public void rampUpVolume_withNonDirectOutputBuffer_throwsIllegalArgumentException() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+    ByteBuffer outputBuffer = ByteBuffer.allocate(16).order(ByteOrder.nativeOrder());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            PcmAudioUtil.rampUpVolume(
+                buffer,
+                outputBuffer,
+                C.ENCODING_PCM_32BIT,
+                /* pcmFrameSize= */ 4,
+                /* startFrameIndex= */ 0,
+                /* rampFrameCount= */ 4));
+  }
+
+  @Test
+  public void rampUpVolume_withNonNativeByteOrder_throwsIllegalArgumentException() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(16)
+            .order(
+                ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
+                    ? ByteOrder.LITTLE_ENDIAN
+                    : ByteOrder.BIG_ENDIAN);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            PcmAudioUtil.rampUpVolume(
+                buffer,
+                outputBuffer,
+                C.ENCODING_PCM_32BIT,
+                /* pcmFrameSize= */ 4,
+                /* startFrameIndex= */ 0,
+                /* rampFrameCount= */ 4));
+  }
+
+  @Test
+  public void rampUpVolume_withLargerOutputBuffer_setsCorrectLimit() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder());
+    for (int i = 0; i < 2; i++) {
+      PcmAudioUtil.write32BitIntPcm(buffer, Integer.MAX_VALUE, C.ENCODING_PCM_32BIT);
+    }
+    buffer.flip();
+    ByteBuffer outputBuffer = ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder());
+
+    ByteBuffer output =
+        PcmAudioUtil.rampUpVolume(
+            buffer,
+            outputBuffer,
+            C.ENCODING_PCM_32BIT,
+            /* pcmFrameSize= */ 4,
+            /* startFrameIndex= */ 0,
+            /* rampFrameCount= */ 4);
+
+    assertThat(output).isSameInstanceAs(outputBuffer);
+    assertThat(output.position()).isEqualTo(0);
+    assertThat(output.limit()).isEqualTo(8);
+    assertThat(PcmAudioUtil.readAs32BitIntPcm(output, C.ENCODING_PCM_32BIT)).isEqualTo(0);
+    assertThat(PcmAudioUtil.readAs32BitIntPcm(output, C.ENCODING_PCM_32BIT))
+        .isEqualTo(Integer.MAX_VALUE / 4);
   }
 
   @Test

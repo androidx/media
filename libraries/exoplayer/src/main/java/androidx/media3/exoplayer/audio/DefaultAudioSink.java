@@ -604,6 +604,7 @@ public final class DefaultAudioSink implements AudioSink {
   private @Nullable ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
   private ByteBuffer trimmedOutputBuffer;
+  private ByteBuffer volumeRampBuffer;
   private @Nullable ByteBuffer outputBuffer;
   private boolean handledEndOfStream;
   private boolean stoppedAudioOutput;
@@ -639,6 +640,7 @@ public final class DefaultAudioSink implements AudioSink {
     toFloatPcmAudioProcessor = new ToFloatPcmAudioProcessor();
     availableAudioProcessors = ImmutableList.of(channelMappingAudioProcessor);
     trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
+    volumeRampBuffer = AudioProcessor.EMPTY_BUFFER;
     volume = 1f;
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
@@ -1774,6 +1776,7 @@ public final class DefaultAudioSink implements AudioSink {
     toInt16PcmAudioProcessor.reset();
     toFloatPcmAudioProcessor.reset();
     trimmedOutputBuffer = AudioProcessor.EMPTY_BUFFER;
+    volumeRampBuffer = AudioProcessor.EMPTY_BUFFER;
 
     if (audioProcessingPipeline != null) {
       audioProcessingPipeline.reset();
@@ -2071,6 +2074,9 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   private ByteBuffer maybeRampUpVolume(ByteBuffer buffer) {
+    if (!buffer.hasRemaining()) {
+      return buffer;
+    }
     if (!configuration.isPcm()) {
       return buffer;
     }
@@ -2081,8 +2087,13 @@ public final class DefaultAudioSink implements AudioSink {
     if (writtenFrames >= rampFrameCount) {
       return buffer;
     }
+    int requiredSize = buffer.remaining();
+    if (volumeRampBuffer.capacity() < requiredSize) {
+      volumeRampBuffer = ByteBuffer.allocateDirect(requiredSize).order(ByteOrder.nativeOrder());
+    }
     return PcmAudioUtil.rampUpVolume(
         buffer,
+        volumeRampBuffer,
         configuration.outputConfig.encoding,
         configuration.outputPcmFrameSize,
         (int) writtenFrames,
