@@ -95,6 +95,11 @@
         decoder for Profile 10 streams whose base layer signals full range with
         unspecified transfer characteristics
         ([#3486](https://github.com/androidx/media/issues/3486)).
+    *   Fix decoder selection in `MediaCodecUtil` to avoid selecting primary
+        decoders that do not functionally support the format's profile (such as
+        a Dolby Vision decoder for a different profile) when no decoder fully
+        supports the format
+        ([#3486](https://github.com/androidx/media/issues/3486)).
 *   Text:
 *   Metadata:
 *   Image:

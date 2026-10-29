@@ -5657,6 +5657,44 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  public void
+      supportsFormat_withIncompatibleDolbyVisionDecoderAndNoFallback_returnsUnsupportedSubtype()
+          throws Exception {
+    Format formatDvProfile5 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.05.01")
+            .build();
+    MediaCodecSelector mediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (mimeType.equals(MimeTypes.VIDEO_DOLBY_VISION)) {
+            CodecCapabilities capabilitiesDolbyProfile4 =
+                createCodecCapabilities(DolbyVisionProfileDvheDtr, DolbyVisionLevelFhd30);
+            return ImmutableList.of(
+                MediaCodecInfo.newInstance(
+                    /* name= */ "dv-p4-codec",
+                    /* mimeType= */ mimeType,
+                    /* codecMimeType= */ mimeType,
+                    /* capabilities= */ capabilitiesDolbyProfile4,
+                    /* hardwareAccelerated= */ true,
+                    /* softwareOnly= */ false,
+                    /* vendor= */ false));
+          }
+          return ImmutableList.of();
+        };
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .build();
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    @Capabilities int capabilities = renderer.supportsFormat(formatDvProfile5);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_SUBTYPE);
+  }
+
+  @Test
   public void getDecoderInfo_withNonPerformantHardwareDecoder_returnsHardwareDecoderFirst()
       throws Exception {
     // AVC Format, Profile: 8, Level: 8192

@@ -228,25 +228,24 @@ public final class MediaCodecUtil {
     List<MediaCodecInfo> decoderInfos =
         mediaCodecSelector.getDecoderInfos(
             format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    List<MediaCodecInfo> alternativeDecoderInfos =
+        getAlternativeDecoderInfos(
+            mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
 
     List<MediaCodecInfo> filteredDecoderInfos =
         ImmutableList.<MediaCodecInfo>builder()
             .addAll(filterDecoderInfosByFormatSupport(context, decoderInfos, format))
-            .addAll(
-                getAlternativeDecoderInfosFilteredByFormatSupport(
-                    context,
-                    mediaCodecSelector,
-                    format,
-                    requiresSecureDecoder,
-                    requiresTunnelingDecoder))
+            .addAll(filterDecoderInfosByFormatSupport(context, alternativeDecoderInfos, format))
             .build();
 
     if (!filteredDecoderInfos.isEmpty()) {
       return filteredDecoderInfos;
     }
 
-    return getDecoderInfosSoftMatch(
-        mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
+    return ImmutableList.<MediaCodecInfo>builder()
+        .addAll(filterDecoderInfosByFunctionalFormatSupport(context, decoderInfos, format))
+        .addAll(alternativeDecoderInfos)
+        .build();
   }
 
   /**
@@ -317,6 +316,17 @@ public final class MediaCodecUtil {
     ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
     for (MediaCodecInfo decoderInfo : decoderInfos) {
       if (decoderInfo.isFormatSupported(context, format)) {
+        result.add(decoderInfo);
+      }
+    }
+    return result.build();
+  }
+
+  private static ImmutableList<MediaCodecInfo> filterDecoderInfosByFunctionalFormatSupport(
+      Context context, List<MediaCodecInfo> decoderInfos, Format format) {
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (MediaCodecInfo decoderInfo : decoderInfos) {
+      if (decoderInfo.isFormatFunctionallySupported(context, format)) {
         result.add(decoderInfo);
       }
     }
