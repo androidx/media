@@ -2605,13 +2605,19 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     List<MediaSessionCompat.QueueItem> initialQueue = controllerCompat.getQueue();
     connectMediaNotificationController(mediaSession);
     List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch queueNullLatch = new CountDownLatch(1);
+    CountDownLatch oneItemQueueLatch = new CountDownLatch(1);
     CountDownLatch twoItemsQueueLatch = new CountDownLatch(1);
     controllerCompat.registerCallback(
         new MediaControllerCompat.Callback() {
           @Override
           public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
             receivedQueues.add(queue);
-            if (queue != null && queue.size() == 2) {
+            if (queue == null) {
+              queueNullLatch.countDown();
+            } else if (queue.size() == 1) {
+              oneItemQueueLatch.countDown();
+            } else if (queue.size() == 2) {
               twoItemsQueueLatch.countDown();
             }
           }
@@ -2629,12 +2635,17 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                       .remove(Player.COMMAND_GET_TIMELINE)
                       .build());
               player.removeMediaItem(/* index= */ 1);
-              mediaSession.setAvailableCommands(
-                  mediaSession.getMediaNotificationControllerInfo(),
-                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                  ConnectionResult.DEFAULT_PLAYER_COMMANDS);
-              player.addMediaItem(mediaItem2);
             });
+    assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                mediaSession.setAvailableCommands(
+                    mediaSession.getMediaNotificationControllerInfo(),
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    ConnectionResult.DEFAULT_PLAYER_COMMANDS));
+    assertThat(oneItemQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation().runOnMainSync(() -> player.addMediaItem(mediaItem2));
 
     assertThat(twoItemsQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation().waitForIdleSync();
@@ -2717,13 +2728,16 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
     connectMediaNotificationController(mediaSession);
     List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
+    CountDownLatch queueNullLatch = new CountDownLatch(1);
     CountDownLatch restoredQueueLatch = new CountDownLatch(1);
     controllerCompat.registerCallback(
         new MediaControllerCompat.Callback() {
           @Override
           public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
             receivedQueues.add(queue);
-            if (queue != null) {
+            if (queue == null) {
+              queueNullLatch.countDown();
+            } else {
               restoredQueueLatch.countDown();
             }
           }
@@ -2732,19 +2746,22 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
 
     getInstrumentation()
         .runOnMainSync(
-            () -> {
-              mediaSession.setAvailableCommands(
-                  mediaSession.getMediaNotificationControllerInfo(),
-                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                  ConnectionResult.DEFAULT_PLAYER_COMMANDS
-                      .buildUpon()
-                      .remove(Player.COMMAND_GET_TIMELINE)
-                      .build());
-              mediaSession.setAvailableCommands(
-                  mediaSession.getMediaNotificationControllerInfo(),
-                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                  ConnectionResult.DEFAULT_PLAYER_COMMANDS);
-            });
+            () ->
+                mediaSession.setAvailableCommands(
+                    mediaSession.getMediaNotificationControllerInfo(),
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                        .buildUpon()
+                        .remove(Player.COMMAND_GET_TIMELINE)
+                        .build()));
+    assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    getInstrumentation()
+        .runOnMainSync(
+            () ->
+                mediaSession.setAvailableCommands(
+                    mediaSession.getMediaNotificationControllerInfo(),
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                    ConnectionResult.DEFAULT_PLAYER_COMMANDS));
 
     assertThat(restoredQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation().waitForIdleSync();
