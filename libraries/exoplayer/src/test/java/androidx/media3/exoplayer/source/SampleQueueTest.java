@@ -218,6 +218,43 @@ public final class SampleQueueTest {
   }
 
   @Test
+  public void sampleMetadata_capacityIncreasesAfterWrapAround_preservesSamples() {
+    int numberOfSamplesToInput = 3 * SampleQueue.SAMPLE_CAPACITY_INCREMENT + 1;
+    byte[] sampleData = TestUtil.buildTestData(numberOfSamplesToInput);
+
+    sampleQueue.format(FORMAT_1);
+    sampleQueue.sampleData(new ParsableByteArray(sampleData), /* length= */ numberOfSamplesToInput);
+    int discardedSampleCount = 0;
+    for (int i = 0; i < numberOfSamplesToInput; i++) {
+      sampleQueue.sourceId(i);
+      sampleQueue.sampleMetadata(
+          /* timeUs= */ i * 1000L,
+          /* flags= */ C.BUFFER_FLAG_KEY_FRAME,
+          /* size= */ 1,
+          /* offset= */ numberOfSamplesToInput - i - 1,
+          /* cryptoData= */ null);
+      if (i % 10 == 0) {
+        sampleQueue.skip(1);
+        sampleQueue.discardToRead();
+        discardedSampleCount++;
+      }
+    }
+
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    for (int i = discardedSampleCount; i < numberOfSamplesToInput; i++) {
+      assertThat(sampleQueue.peekSourceId()).isEqualTo(i);
+      assertReadSample(
+          /* timeUs= */ i * 1000L,
+          /* isKeyFrame= */ true,
+          /* isEncrypted= */ false,
+          /* sampleData= */ sampleData,
+          /* offset= */ i,
+          /* length= */ 1);
+    }
+    assertReadNothing(/* formatRequired= */ false);
+  }
+
+  @Test
   public void resetReleasesAllocations() {
     writeTestData();
     assertAllocationCount(10);
@@ -227,6 +264,30 @@ public final class SampleQueueTest {
 
   @Test
   public void readWithoutWrite() {
+    assertNoSamplesToRead(null);
+  }
+
+  @Test
+  public void emptyQueue_beforeAnySamplesQueued_handlesQueriesAndMutations() {
+    sampleQueue.sourceId(42);
+
+    assertThat(sampleQueue.peekSourceId()).isEqualTo(42);
+    assertThat(sampleQueue.seekTo(/* sampleIndex= */ 0)).isTrue();
+    assertThat(sampleQueue.seekTo(/* sampleIndex= */ 1)).isFalse();
+    assertThat(sampleQueue.seekTo(/* timeUs= */ 0, /* allowTimeBeyondBuffer= */ false)).isFalse();
+    assertThat(sampleQueue.seekTo(/* timeUs= */ 0, /* allowTimeBeyondBuffer= */ true)).isFalse();
+    assertThat(sampleQueue.getSkipCount(/* timeUs= */ 0, /* allowEndOfQueue= */ false))
+        .isEqualTo(0);
+    assertThat(sampleQueue.getSkipCount(/* timeUs= */ 0, /* allowEndOfQueue= */ true)).isEqualTo(0);
+    assertThat(sampleQueue.getFirstTimestampUs()).isEqualTo(MIN_VALUE);
+    assertThat(sampleQueue.getLargestQueuedTimestampUs()).isEqualTo(MIN_VALUE);
+    assertThat(sampleQueue.getLargestReadTimestampUs()).isEqualTo(MIN_VALUE);
+
+    sampleQueue.discardTo(
+        /* timeUs= */ 0, /* toKeyframe= */ false, /* stopAtReadPosition= */ false);
+    sampleQueue.discardToRead();
+    sampleQueue.discardToEnd();
+    sampleQueue.discardUpstreamSamples(/* discardFromIndex= */ 0);
     assertNoSamplesToRead(null);
   }
 

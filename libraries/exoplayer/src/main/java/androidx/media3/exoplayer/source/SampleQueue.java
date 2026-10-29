@@ -36,6 +36,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
 import androidx.media3.exoplayer.FormatHolder;
@@ -68,6 +69,9 @@ public class SampleQueue implements TrackOutput {
   }
 
   @VisibleForTesting /* package */ static final int SAMPLE_CAPACITY_INCREMENT = 1000;
+  private static final int INITIAL_SAMPLE_CAPACITY = 16;
+  private static final int[] EMPTY_INT_ARRAY = new int[0];
+  private static final @Nullable CryptoData[] EMPTY_CRYPTO_DATA_ARRAY = new CryptoData[0];
   private static final String TAG = "SampleQueue";
 
   /**
@@ -198,13 +202,13 @@ public class SampleQueue implements TrackOutput {
     this.drmEventDispatcher = drmEventDispatcher;
     sampleDataQueue = new SampleDataQueue(allocator);
     extrasHolder = new SampleExtrasHolder();
-    capacity = SAMPLE_CAPACITY_INCREMENT;
-    sourceIds = new long[capacity];
-    offsets = new long[capacity];
-    timesUs = new long[capacity];
-    flags = new int[capacity];
-    sizes = new int[capacity];
-    cryptoDatas = new CryptoData[capacity];
+    capacity = 0;
+    sourceIds = Util.EMPTY_LONG_ARRAY;
+    offsets = Util.EMPTY_LONG_ARRAY;
+    timesUs = Util.EMPTY_LONG_ARRAY;
+    flags = EMPTY_INT_ARRAY;
+    sizes = EMPTY_INT_ARRAY;
+    cryptoDatas = EMPTY_CRYPTO_DATA_ARRAY;
     sharedSampleMetadata =
         new SpannedData<>(/* removeCallback= */ metadata -> metadata.drmSessionReference.release());
     startTimeUs = Long.MIN_VALUE;
@@ -406,8 +410,7 @@ public class SampleQueue implements TrackOutput {
    * @return The source id.
    */
   public final synchronized long peekSourceId() {
-    int relativeReadIndex = getRelativeIndex(readPosition);
-    return hasNextSample() ? sourceIds[relativeReadIndex] : upstreamSourceId;
+    return hasNextSample() ? sourceIds[getRelativeIndex(readPosition)] : upstreamSourceId;
   }
 
   /** Returns the upstream {@link Format} in which samples are being queued. */
@@ -579,13 +582,15 @@ public class SampleQueue implements TrackOutput {
    */
   public final synchronized boolean seekTo(long timeUs, boolean allowTimeBeyondBuffer) {
     rewind();
+    if (!hasNextSample()) {
+      return false;
+    }
     int relativeReadIndex = getRelativeIndex(readPosition);
     long maxPossibleSeekTimeUs =
         readEndTimeUs != C.TIME_END_OF_SOURCE
             ? min(largestQueuedTimestampUs, readEndTimeUs)
             : largestQueuedTimestampUs;
-    if (!hasNextSample()
-        || timeUs < timesUs[relativeReadIndex]
+    if (timeUs < timesUs[relativeReadIndex]
         || (timeUs > maxPossibleSeekTimeUs && !allowTimeBeyondBuffer)) {
       return false;
     }
@@ -613,8 +618,11 @@ public class SampleQueue implements TrackOutput {
    * @return The number of samples that need to be skipped, which may be equal to 0.
    */
   public final synchronized int getSkipCount(long timeUs, boolean allowEndOfQueue) {
+    if (!hasNextSample()) {
+      return 0;
+    }
     int relativeReadIndex = getRelativeIndex(readPosition);
-    if (!hasNextSample() || timeUs < timesUs[relativeReadIndex]) {
+    if (timeUs < timesUs[relativeReadIndex]) {
       return 0;
     }
     if (timeUs > largestQueuedTimestampUs && allowEndOfQueue) {
@@ -956,6 +964,9 @@ public class SampleQueue implements TrackOutput {
     largestQueuedTimestampUs = max(largestQueuedTimestampUs, timeUs);
     updateReadEndTimeState(/* absoluteSampleIndex= */ getWriteIndex(), timeUs, sampleFlags);
 
+    if (length == capacity) {
+      growCapacity();
+    }
     int relativeEndIndex = getRelativeIndex(length);
     timesUs[relativeEndIndex] = timeUs;
     offsets[relativeEndIndex] = offset;
@@ -977,15 +988,22 @@ public class SampleQueue implements TrackOutput {
     }
 
     length++;
-    if (length == capacity) {
-      // Increase the capacity.
-      int newCapacity = capacity + SAMPLE_CAPACITY_INCREMENT;
-      long[] newSourceIds = new long[newCapacity];
-      long[] newOffsets = new long[newCapacity];
-      long[] newTimesUs = new long[newCapacity];
-      int[] newFlags = new int[newCapacity];
-      int[] newSizes = new int[newCapacity];
-      CryptoData[] newCryptoDatas = new CryptoData[newCapacity];
+  }
+
+  private void growCapacity() {
+    int newCapacity =
+        capacity == 0
+            ? INITIAL_SAMPLE_CAPACITY
+            : capacity < SAMPLE_CAPACITY_INCREMENT
+                ? min(capacity * 2, SAMPLE_CAPACITY_INCREMENT)
+                : capacity + SAMPLE_CAPACITY_INCREMENT;
+    long[] newSourceIds = new long[newCapacity];
+    long[] newOffsets = new long[newCapacity];
+    long[] newTimesUs = new long[newCapacity];
+    int[] newFlags = new int[newCapacity];
+    int[] newSizes = new int[newCapacity];
+    @Nullable CryptoData[] newCryptoDatas = new CryptoData[newCapacity];
+    if (capacity > 0) {
       int beforeWrap = capacity - relativeFirstIndex;
       System.arraycopy(offsets, relativeFirstIndex, newOffsets, 0, beforeWrap);
       System.arraycopy(timesUs, relativeFirstIndex, newTimesUs, 0, beforeWrap);
@@ -1000,15 +1018,15 @@ public class SampleQueue implements TrackOutput {
       System.arraycopy(sizes, 0, newSizes, beforeWrap, afterWrap);
       System.arraycopy(cryptoDatas, 0, newCryptoDatas, beforeWrap, afterWrap);
       System.arraycopy(sourceIds, 0, newSourceIds, beforeWrap, afterWrap);
-      offsets = newOffsets;
-      timesUs = newTimesUs;
-      flags = newFlags;
-      sizes = newSizes;
-      cryptoDatas = newCryptoDatas;
-      sourceIds = newSourceIds;
-      relativeFirstIndex = 0;
-      capacity = newCapacity;
     }
+    offsets = newOffsets;
+    timesUs = newTimesUs;
+    flags = newFlags;
+    sizes = newSizes;
+    cryptoDatas = newCryptoDatas;
+    sourceIds = newSourceIds;
+    relativeFirstIndex = 0;
+    capacity = newCapacity;
   }
 
   /**
