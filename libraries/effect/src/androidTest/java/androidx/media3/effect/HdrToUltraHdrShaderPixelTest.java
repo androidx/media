@@ -15,23 +15,17 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.effect.EffectsTestUtil.createFocusedEglContextWithFallback;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.TestUtil.PSNR_THRESHOLD;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.opengl.EGLContext;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.util.Pair;
@@ -47,6 +41,7 @@ import java.nio.ByteOrder;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -110,29 +105,23 @@ public final class HdrToUltraHdrShaderPixelTest {
               /* inputColor= */ Color.WHITE,
               /* expectedSdrColor= */ Color.WHITE));
 
+  @Rule public final GlTestRule glTestRule = new GlTestRule();
+
   private final Context context = getApplicationContext();
 
-  private @MonotonicNonNull EGLDisplay eglDisplay;
-  private @MonotonicNonNull EGLContext eglContext;
-  private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private @MonotonicNonNull GlProgram glProgram;
-  private int inputTexId;
   private int sdrTexId;
-  private int gainmapTexId;
   private int frameBuffer;
+  private int gainmapTexId;
 
   @Before
   public void setUp() throws Exception {
-    eglDisplay = GlUtil.getDefaultEglDisplay();
-    Pair<EGLContext, EGLSurface> eglContextAndSurface =
-        createFocusedEglContextWithFallback(
-            checkNotNull(eglDisplay), GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
-    eglContext = eglContextAndSurface.first;
-    placeholderEglSurface = eglContextAndSurface.second;
     assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
 
     // Same multiple-render-target layout as FrameExtractorInternal: an 8-bit RGBA SDR base on
-    // color attachment 0 and an 8-bit single-channel gain map on color attachment 1.
+    // color attachment 0 and an 8-bit single-channel gain map on color attachment 1. The gain map
+    // is attached before the framebuffer is first focused and cleared, because some drivers (seen
+    // on a Moto G Play 2023) don't write to color attachments that are added after that.
     sdrTexId = GlUtil.createTexture(WIDTH, HEIGHT, /* useHighPrecisionColorComponents= */ false);
     frameBuffer = GlUtil.createFboForTexture(sdrTexId);
     gainmapTexId = GlUtil.generateTexture();
@@ -160,13 +149,7 @@ public final class HdrToUltraHdrShaderPixelTest {
     GLES30.glDrawBuffers(/* n= */ 2, drawBuffers, /* offset= */ 0);
     GlUtil.checkGlError();
 
-    GlUtil.focusFramebuffer(
-        checkNotNull(eglDisplay),
-        checkNotNull(eglContext),
-        checkNotNull(placeholderEglSurface),
-        frameBuffer,
-        WIDTH,
-        HEIGHT);
+    GlUtil.focusFramebufferUsingCurrentContext(frameBuffer, WIDTH, HEIGHT);
     GlUtil.clearFocusedBuffers();
   }
 
@@ -174,9 +157,6 @@ public final class HdrToUltraHdrShaderPixelTest {
   public void tearDown() throws Exception {
     if (glProgram != null) {
       glProgram.delete();
-    }
-    if (inputTexId != 0) {
-      GlUtil.deleteTexture(inputTexId);
     }
     if (frameBuffer != 0) {
       GlUtil.deleteFbo(frameBuffer);
@@ -186,12 +166,6 @@ public final class HdrToUltraHdrShaderPixelTest {
     }
     if (gainmapTexId != 0) {
       GlUtil.deleteTexture(gainmapTexId);
-    }
-    if (eglDisplay != null && placeholderEglSurface != null) {
-      GlUtil.destroyEglSurface(eglDisplay, placeholderEglSurface);
-    }
-    if (eglDisplay != null && eglContext != null) {
-      GlUtil.destroyEglContext(eglDisplay, eglContext);
     }
   }
 
@@ -225,7 +199,7 @@ public final class HdrToUltraHdrShaderPixelTest {
   private Pair<Bitmap, Integer> drawFrameAndReadOutputs(int inputColor) throws Exception {
     Bitmap inputBitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
     inputBitmap.eraseColor(inputColor);
-    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    int inputTexId = glTestRule.createGlTextureFromBitmap(inputBitmap);
 
     glProgram =
         new GlProgram(

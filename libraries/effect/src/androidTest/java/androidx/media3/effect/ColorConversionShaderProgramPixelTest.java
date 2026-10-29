@@ -19,24 +19,17 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_LINEAR;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_LINEAR;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
-import static androidx.media3.effect.EffectsTestUtil.createFocusedEglContextWithFallback;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.TestUtil.PSNR_THRESHOLD;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.opengl.EGLContext;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
 import android.opengl.Matrix;
-import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.util.GlUtil;
@@ -49,6 +42,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterValuesProvide
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -155,55 +149,22 @@ public final class ColorConversionShaderProgramPixelTest {
               /* outputColorInfo= */ HDR_PQ,
               /* expectedColor= */ Color.MAGENTA));
 
+  @Rule public final GlTestRule glTestRule = new GlTestRule();
+
   private final Context context = getApplicationContext();
 
-  private @MonotonicNonNull EGLDisplay eglDisplay;
-  private @MonotonicNonNull EGLContext eglContext;
-  private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private @MonotonicNonNull ColorConversionShaderProgram colorConversionShaderProgram;
-  private int inputTexId;
-  private int outputTexId;
-  private int frameBuffer;
 
   @Before
   public void createGlObjects() throws Exception {
-    eglDisplay = GlUtil.getDefaultEglDisplay();
-    Pair<EGLContext, EGLSurface> eglContextAndSurface =
-        createFocusedEglContextWithFallback(
-            checkNotNull(eglDisplay), GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
-    eglContext = eglContextAndSurface.first;
-    placeholderEglSurface = eglContextAndSurface.second;
-
-    // All four conversions output electrical values in [0, 1], so an 8-bit output is enough.
-    outputTexId = GlUtil.createTexture(WIDTH, HEIGHT, /* useHighPrecisionColorComponents= */ false);
-    frameBuffer = GlUtil.createFboForTexture(outputTexId);
-    GlUtil.focusFramebuffer(
-        checkNotNull(eglDisplay),
-        checkNotNull(eglContext),
-        checkNotNull(placeholderEglSurface),
-        frameBuffer,
-        WIDTH,
-        HEIGHT);
-    GlUtil.clearFocusedBuffers();
+    // All conversions output electrical values in [0, 1], so an 8-bit output is enough.
+    glTestRule.createAndFocusTexture(WIDTH, HEIGHT, /* useHighPrecisionColorComponents= */ false);
   }
 
   @After
   public void release() throws Exception {
     if (colorConversionShaderProgram != null) {
       colorConversionShaderProgram.release();
-    }
-    if (inputTexId != 0) {
-      GlUtil.deleteTexture(inputTexId);
-    }
-    if (outputTexId != 0) {
-      GlUtil.deleteFbo(frameBuffer);
-      GlUtil.deleteTexture(outputTexId);
-    }
-    if (eglDisplay != null && placeholderEglSurface != null) {
-      GlUtil.destroyEglSurface(eglDisplay, placeholderEglSurface);
-    }
-    if (eglDisplay != null && eglContext != null) {
-      GlUtil.destroyEglContext(eglDisplay, eglContext);
     }
   }
 
@@ -239,7 +200,7 @@ public final class ColorConversionShaderProgramPixelTest {
       }
     }
     inputBitmap.eraseColor(Color.WHITE);
-    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    int inputTexId = glTestRule.createGlTextureFromBitmap(inputBitmap);
     // Scaling by (0.5, 0.5) shrinks the NDC quad [-1, 1] x [-1, 1] to [-0.5, 0.5] x [-0.5, 0.5],
     // and translating x by +0.5 shifts it to [0, 1] x [-0.5, 0.5].
     float[] scaleMatrix = GlUtil.create4x4IdentityMatrix();
@@ -276,7 +237,7 @@ public final class ColorConversionShaderProgramPixelTest {
       throws Exception {
     Bitmap inputBitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
     inputBitmap.eraseColor(inputColor);
-    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    int inputTexId = glTestRule.createGlTextureFromBitmap(inputBitmap);
 
     colorConversionShaderProgram =
         new ColorConversionShaderProgram(context, inputColorInfo, outputColorInfo);

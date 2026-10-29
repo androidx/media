@@ -15,11 +15,9 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.effect.EffectsTestUtil.createFocusedEglContextWithFallback;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceFp16;
@@ -32,10 +30,6 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.opengl.EGLContext;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
-import android.util.Pair;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
@@ -62,6 +56,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class AlphaScaleShaderProgramPixelTest {
   @Rule public final TestName testName = new TestName();
+  @Rule public final GlTestRule glTestRule = new GlTestRule();
+
   // TODO: b/262694346 - Use media3test_srgb instead of media3test, throughout our tests. This is
   //  this test image is intended to be interpreted as sRGB, but media3test is stored in a niche
   //  color transfer, which can make alpha tests more difficult to debug.
@@ -78,39 +74,20 @@ public final class AlphaScaleShaderProgramPixelTest {
   private final Context context = getApplicationContext();
 
   private String testId;
-  private @MonotonicNonNull EGLDisplay eglDisplay;
-  private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull AlphaScaleShaderProgram alphaScaleShaderProgram;
-  private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private int inputTexId;
   private int inputWidth;
   private int inputHeight;
 
   @Before
   public void createGlObjects() throws IOException, GlUtil.GlException {
-    eglDisplay = GlUtil.getDefaultEglDisplay();
-    Pair<EGLContext, EGLSurface> eglContextAndSurface =
-        createFocusedEglContextWithFallback(
-            checkNotNull(eglDisplay), GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
-    eglContext = eglContextAndSurface.first;
-    placeholderEglSurface = eglContextAndSurface.second;
-
     Bitmap inputBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
     inputWidth = inputBitmap.getWidth();
     inputHeight = inputBitmap.getHeight();
-    inputTexId = createGlTextureFromBitmap(inputBitmap);
+    inputTexId = glTestRule.createGlTextureFromBitmap(inputBitmap);
 
-    int outputTexId =
-        GlUtil.createTexture(inputWidth, inputHeight, /* useHighPrecisionColorComponents= */ false);
-    int frameBuffer = GlUtil.createFboForTexture(outputTexId);
-    GlUtil.focusFramebuffer(
-        checkNotNull(eglDisplay),
-        checkNotNull(eglContext),
-        checkNotNull(placeholderEglSurface),
-        frameBuffer,
-        inputWidth,
-        inputHeight);
-    GlUtil.clearFocusedBuffers();
+    glTestRule.createAndFocusTexture(
+        inputWidth, inputHeight, /* useHighPrecisionColorComponents= */ false);
   }
 
   @Before
@@ -119,15 +96,9 @@ public final class AlphaScaleShaderProgramPixelTest {
   }
 
   @After
-  public void release() throws GlUtil.GlException, VideoFrameProcessingException {
+  public void release() throws VideoFrameProcessingException {
     if (alphaScaleShaderProgram != null) {
       alphaScaleShaderProgram.release();
-    }
-    if (eglDisplay != null && placeholderEglSurface != null) {
-      GlUtil.destroyEglSurface(eglDisplay, placeholderEglSurface);
-    }
-    if (eglDisplay != null && eglContext != null) {
-      GlUtil.destroyEglContext(eglDisplay, eglContext);
     }
   }
 
@@ -220,19 +191,10 @@ public final class AlphaScaleShaderProgramPixelTest {
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
     int hlgWidth = hlgBitmap.getWidth();
     int hlgHeight = hlgBitmap.getHeight();
-    int hlgTexId = createGlTextureFromBitmap(hlgBitmap);
+    int hlgTexId = glTestRule.createGlTextureFromBitmap(hlgBitmap);
 
-    int outputTexId =
-        GlUtil.createTexture(hlgWidth, hlgHeight, /* useHighPrecisionColorComponents= */ true);
-    int frameBuffer = GlUtil.createFboForTexture(outputTexId);
-    GlUtil.focusFramebuffer(
-        checkNotNull(eglDisplay),
-        checkNotNull(eglContext),
-        checkNotNull(placeholderEglSurface),
-        frameBuffer,
-        hlgWidth,
-        hlgHeight);
-    GlUtil.clearFocusedBuffers();
+    glTestRule.createAndFocusTexture(
+        hlgWidth, hlgHeight, /* useHighPrecisionColorComponents= */ true);
 
     alphaScaleShaderProgram =
         (AlphaScaleShaderProgram)
@@ -250,9 +212,5 @@ public final class AlphaScaleShaderProgramPixelTest {
         getBitmapAveragePixelAbsoluteDifferenceFp16(hlgBitmap, actualBitmap);
     assertThat(averagePixelAbsoluteDifference)
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16);
-
-    GlUtil.deleteTexture(hlgTexId);
-    GlUtil.deleteTexture(outputTexId);
-    GlUtil.deleteFbo(frameBuffer);
   }
 }

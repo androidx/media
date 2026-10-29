@@ -19,10 +19,8 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
-import static androidx.media3.effect.EffectsTestUtil.createFocusedEglContextWithFallback;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromGlTexture;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createFp16BitmapFromFocusedGlFramebuffer;
-import static androidx.media3.test.utils.BitmapPixelTestUtil.createGlTextureFromBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmapUnpremultipliedAlpha;
@@ -36,10 +34,6 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.opengl.EGLContext;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
-import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -52,12 +46,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -76,43 +68,17 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/increase_brightness.png";
 
   @Rule public final TestName testName = new TestName();
+  @Rule public final GlTestRule glTestRule = new GlTestRule();
 
   private final Context context = getApplicationContext();
-  private final List<Integer> texturesToDelete = new ArrayList<>();
-  private final List<Integer> frameBuffersToDelete = new ArrayList<>();
 
   private String testId;
-  private @MonotonicNonNull EGLDisplay eglDisplay;
-  private @MonotonicNonNull EGLContext eglContext;
-  private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
 
   @Before
   public void setUp() throws Exception {
     testId = testName.getMethodName();
-    eglDisplay = GlUtil.getDefaultEglDisplay();
     glObjectsProvider = new DefaultGlObjectsProvider();
-    Pair<EGLContext, EGLSurface> eglContextAndSurface =
-        createFocusedEglContextWithFallback(
-            checkNotNull(eglDisplay), GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
-    eglContext = eglContextAndSurface.first;
-    placeholderEglSurface = eglContextAndSurface.second;
-  }
-
-  @After
-  public void tearDown() throws Exception {
-    for (int texId : texturesToDelete) {
-      GlUtil.deleteTexture(texId);
-    }
-    for (int frameBuffer : frameBuffersToDelete) {
-      GlUtil.deleteFbo(frameBuffer);
-    }
-    if (eglDisplay != null && placeholderEglSurface != null) {
-      GlUtil.destroyEglSurface(eglDisplay, placeholderEglSurface);
-    }
-    if (eglDisplay != null && eglContext != null) {
-      GlUtil.destroyEglContext(eglDisplay, eglContext);
-    }
   }
 
   @Test
@@ -124,8 +90,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
     int width = hlgBitmap.getWidth();
     int height = hlgBitmap.getHeight();
-    int texId = createGlTextureFromBitmap(hlgBitmap);
-    texturesToDelete.add(texId);
+    int texId = glTestRule.createGlTextureFromBitmap(hlgBitmap);
     GlTextureInfo textureInfo =
         new GlTextureInfo(
             texId, /* fboId= */ C.INDEX_UNSET, /* rboId= */ C.INDEX_UNSET, width, height);
@@ -196,10 +161,8 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     int width = hlgBitmap.getWidth();
     int height = hlgBitmap.getHeight();
     Bitmap backgroundBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGBA_F16);
-    int texId0 = createGlTextureFromBitmap(hlgBitmap);
-    int texId1 = createGlTextureFromBitmap(backgroundBitmap);
-    texturesToDelete.add(texId0);
-    texturesToDelete.add(texId1);
+    int texId0 = glTestRule.createGlTextureFromBitmap(hlgBitmap);
+    int texId1 = glTestRule.createGlTextureFromBitmap(backgroundBitmap);
 
     VideoCompositorSettings compositorSettings =
         new VideoCompositorSettings() {
@@ -278,15 +241,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     GlTextureFrame outputFrame = checkNotNull(outputFrameRef.get());
     assertThat(outputFrame.format.colorInfo).isEqualTo(BT2020_HLG);
 
-    int outputFbo = GlUtil.createFboForTexture(outputFrame.glTextureInfo.texId);
-    frameBuffersToDelete.add(outputFbo);
-    GlUtil.focusFramebuffer(
-        checkNotNull(eglDisplay),
-        checkNotNull(eglContext),
-        checkNotNull(placeholderEglSurface),
-        outputFbo,
-        width,
-        height);
+    glTestRule.createAndFocusFramebuffer(outputFrame.glTextureInfo.texId, width, height);
 
     Bitmap actualBitmap = createFp16BitmapFromFocusedGlFramebuffer(width, height);
     actualBitmap.setColorSpace(checkNotNull(hlgBitmap.getColorSpace()));
@@ -307,10 +262,8 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
         readBitmapUnpremultipliedAlpha(INCREASE_BRIGHTNESS_SDR_PNG_ASSET_PATH);
     int width = sdrBitmap.getWidth();
     int height = sdrBitmap.getHeight();
-    int texId0 = createGlTextureFromBitmap(sdrBitmap);
-    int texId1 = createGlTextureFromBitmap(backgroundBitmap);
-    texturesToDelete.add(texId0);
-    texturesToDelete.add(texId1);
+    int texId0 = glTestRule.createGlTextureFromBitmap(sdrBitmap);
+    int texId1 = glTestRule.createGlTextureFromBitmap(backgroundBitmap);
 
     VideoCompositorSettings compositorSettings =
         new VideoCompositorSettings() {
@@ -389,15 +342,7 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     GlTextureFrame outputFrame = checkNotNull(outputFrameRef.get());
     assertThat(outputFrame.format.colorInfo).isEqualTo(BT709_SRGB);
 
-    int outputFbo = GlUtil.createFboForTexture(outputFrame.glTextureInfo.texId);
-    frameBuffersToDelete.add(outputFbo);
-    GlUtil.focusFramebuffer(
-        checkNotNull(eglDisplay),
-        checkNotNull(eglContext),
-        checkNotNull(placeholderEglSurface),
-        outputFbo,
-        width,
-        height);
+    glTestRule.createAndFocusFramebuffer(outputFrame.glTextureInfo.texId, width, height);
 
     Bitmap actualBitmap =
         createUnpremultipliedArgb8888BitmapFromFocusedGlFramebuffer(width, height);
@@ -419,10 +364,8 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
     int height = foregroundBitmap.getHeight();
     Format sdrFormat =
         new Format.Builder().setColorInfo(BT709_SRGB).setWidth(width).setHeight(height).build();
-    int texId0 = createGlTextureFromBitmap(foregroundBitmap);
-    int texId1 = createGlTextureFromBitmap(backgroundBitmap);
-    texturesToDelete.add(texId0);
-    texturesToDelete.add(texId1);
+    int texId0 = glTestRule.createGlTextureFromBitmap(foregroundBitmap);
+    int texId1 = glTestRule.createGlTextureFromBitmap(backgroundBitmap);
     long framePresentationTimeUs = 1_000_000L;
 
     VideoCompositorSettings compositorSettings =
