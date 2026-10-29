@@ -42,8 +42,10 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
+import androidx.media3.transformer.TestUtil.FakeImageReaderAdapterFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -313,6 +315,28 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(Iterables.getLast(receivedFrames)).isEqualTo(END_OF_STREAM_ASYNC_FRAME);
   }
 
+  @Test
+  public void registerVideoFrame_withAdditionalMetadata_addsItToFrameMetadata() {
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+    sampleConsumer.onMediaItemChanged(
+        /* editedMediaItem= */ null,
+        /* durationUs= */ 100_000,
+        /* decodedFormat= */ format,
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    assertThat(
+            sampleConsumer.registerVideoFrame(
+                /* presentationTimeUs= */ 0,
+                /* additionalMetadata= */ ImmutableMap.of("additionalKey", "additionalValue")))
+        .isTrue();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(receivedFrames).hasSize(1);
+    assertThat(receivedFrames.get(0).frame.getMetadata())
+        .containsEntry("additionalKey", "additionalValue");
+  }
+
   private HardwareBufferSampleConsumer createSampleConsumer(Composition composition) {
     return createSampleConsumer(composition, /* sequenceIndex= */ composition.sequences.size() - 1);
   }
@@ -331,7 +355,8 @@ public class HardwareBufferSampleConsumerTest {
         handlerWrapper,
         frame -> receivedFrames.add(frame),
         error -> errorRef.set(error),
-        mockJniWrapper);
+        mockJniWrapper,
+        new FakeImageReaderAdapterFactory());
   }
 
   private static Composition createComposition(int itemCount) {

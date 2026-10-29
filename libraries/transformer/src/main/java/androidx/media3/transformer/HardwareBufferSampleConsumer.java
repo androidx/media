@@ -23,6 +23,7 @@ import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.os.Looper;
 import android.view.Surface;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.HandlerWrapper;
@@ -78,6 +79,31 @@ import org.jspecify.annotations.Nullable;
       Consumer<AsyncFrame> frameConsumer,
       Consumer<ExportException> errorConsumer,
       HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+    this(
+        composition,
+        sequenceIndex,
+        playbackLooper,
+        listenerHandler,
+        frameConsumer,
+        errorConsumer,
+        hardwareBufferJniWrapper,
+        new DefaultImageReaderAdapter.Factory());
+  }
+
+  /**
+   * Creates a new instance whose input surface uses an image reader from the given {@link
+   * ImageReaderAdapter.Factory}.
+   */
+  @VisibleForTesting
+  /* package */ HardwareBufferSampleConsumer(
+      Composition composition,
+      int sequenceIndex,
+      Looper playbackLooper,
+      HandlerWrapper listenerHandler,
+      Consumer<AsyncFrame> frameConsumer,
+      Consumer<ExportException> errorConsumer,
+      HardwareBufferJniWrapper hardwareBufferJniWrapper,
+      ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     // Modify the release times of frames exiting the hardwareBufferFrameReader to account for
@@ -107,7 +133,7 @@ import org.jspecify.annotations.Nullable;
             intermediateConsumer,
             playbackLooper,
             /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
-            new DefaultImageReaderAdapter.Factory(),
+            imageReaderAdapterFactory,
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
             listenerHandler,
             hardwareBufferJniWrapper);
@@ -147,6 +173,12 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public boolean registerVideoFrame(long presentationTimeUs) {
+    return registerVideoFrame(presentationTimeUs, /* additionalMetadata= */ ImmutableMap.of());
+  }
+
+  @Override
+  public boolean registerVideoFrame(
+      long presentationTimeUs, ImmutableMap<String, Object> additionalMetadata) {
     if (!inputSurface.canAcceptFrame()) {
       return false;
     }
@@ -156,7 +188,7 @@ import org.jspecify.annotations.Nullable;
         currentTimeOffsetUs,
         currentMediaItemIndex,
         currentFormat,
-        /* additionalMetadata= */ ImmutableMap.of());
+        additionalMetadata);
     return true;
   }
 

@@ -20,10 +20,13 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.graphics.Bitmap;
 import android.view.Surface;
 import androidx.annotation.IntDef;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
+import com.google.common.collect.ImmutableMap;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -191,6 +194,23 @@ public interface SampleConsumer {
    */
   default boolean registerVideoFrame(long presentationTimeUs) {
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Attempts to register a video frame to the consumer, with additional metadata of the frame.
+   *
+   * <p>Same as {@link #registerVideoFrame(long)}, but also passes metadata of the frame. The
+   * default implementation ignores the metadata.
+   *
+   * @param presentationTimeUs The presentation time of the frame to register, in microseconds.
+   * @param additionalMetadata The additional metadata of the frame.
+   * @return Whether the frame was successfully registered. If {@code false}, the caller should try
+   *     again later.
+   */
+  @RestrictTo(Scope.LIBRARY_GROUP)
+  default boolean registerVideoFrame(
+      long presentationTimeUs, ImmutableMap<String, Object> additionalMetadata) {
+    return registerVideoFrame(presentationTimeUs);
   }
 
   /**

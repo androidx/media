@@ -23,8 +23,10 @@ import android.media.metrics.LogSessionId;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.video.Frame;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.source.SampleStream;
+import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +42,10 @@ import org.jspecify.annotations.Nullable;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
   private final List<Long> decodeOnlyPresentationTimestamps;
+
+  /** The metadata of the frames queued to the decoder. */
+  private final FrameMetadataQueue pendingFrameMetadata;
+
   private final long expectedTimestampDeltaUs;
   private final @Nullable LogSessionId logSessionId;
 
@@ -61,6 +67,7 @@ import org.jspecify.annotations.Nullable;
     this.hdrMode = hdrMode;
     this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
+    pendingFrameMetadata = new FrameMetadataQueue();
     maxDecoderPendingFrameCount = C.INDEX_UNSET;
     nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
     expectedTimestampDeltaUs =
@@ -172,6 +179,11 @@ import org.jspecify.annotations.Nullable;
     if (inputBuffer.timeUs < getLastResetPositionUs() || exceedsStrictDuration) {
       decodeOnlyPresentationTimestamps.add(inputBuffer.timeUs);
     }
+    byte @Nullable [] hagcPayload = TransformerUtil.getHagcPayload(inputBuffer);
+    if (hagcPayload != null) {
+      pendingFrameMetadata.add(
+          inputBuffer.timeUs, ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, hagcPayload));
+    }
   }
 
   @Override
@@ -205,7 +217,9 @@ import org.jspecify.annotations.Nullable;
       return false;
     }
 
-    if (!sampleConsumer.registerVideoFrame(presentationTimeUs)) {
+    if (!sampleConsumer.registerVideoFrame(
+        presentationTimeUs,
+        pendingFrameMetadata.getMetadata(decoderOutputBufferInfo.presentationTimeUs))) {
       return false;
     }
 

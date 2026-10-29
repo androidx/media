@@ -654,6 +654,12 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     public boolean registerVideoFrame(long presentationTimeUs) {
+      return registerVideoFrame(presentationTimeUs, /* additionalMetadata= */ ImmutableMap.of());
+    }
+
+    @Override
+    public boolean registerVideoFrame(
+        long presentationTimeUs, ImmutableMap<String, Object> additionalMetadata) {
       checkState(trackType == C.TRACK_TYPE_VIDEO && decodeVideo);
       long globalTimestampUs = totalDurationUs + presentationTimeUs;
       if (isLooping && globalTimestampUs >= maxSequenceDurationUs) {
@@ -664,7 +670,7 @@ import org.jspecify.annotations.Nullable;
         return false;
       }
 
-      return sampleConsumer.registerVideoFrame(presentationTimeUs);
+      return sampleConsumer.registerVideoFrame(presentationTimeUs, additionalMetadata);
     }
 
     @Override

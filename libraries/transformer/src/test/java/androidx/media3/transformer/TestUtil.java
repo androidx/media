@@ -31,6 +31,7 @@ import android.os.Handler;
 import android.util.Rational;
 import android.view.Surface;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -59,10 +60,14 @@ import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.math.RoundingMode;
 import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -519,6 +524,82 @@ public final class TestUtil {
     @Override
     public ImageReaderAdapter create(int width, int height, int format, int maxImages, long usage) {
       return new FakeImageReaderAdapter();
+    }
+  }
+
+  /**
+   * An {@link AssetLoader.Listener} that records the frames registered to its {@link
+   * SampleConsumer}, with their metadata.
+   */
+  public static final class MetadataRecordingAssetLoaderListener implements AssetLoader.Listener {
+
+    /**
+     * The metadata of each registered video frame, keyed by the presentation time of the frame in
+     * microseconds.
+     */
+    public final Map<Long, ImmutableMap<String, Object>> metadataByFrameTimeUs;
+
+    /** Whether the end of the video input has been signaled. */
+    public final AtomicBoolean videoInputEnded;
+
+    /** The reported error, or {@code null} if there is none. */
+    public final AtomicReference<ExportException> exception;
+
+    MetadataRecordingAssetLoaderListener() {
+      metadataByFrameTimeUs = Collections.synchronizedMap(new HashMap<>());
+      videoInputEnded = new AtomicBoolean();
+      exception = new AtomicReference<>();
+    }
+
+    @Override
+    public void onDurationUs(long durationUs) {}
+
+    @Override
+    public void onTrackCount(int trackCount) {}
+
+    @Override
+    public boolean onTrackAdded(Format inputFormat, int supportedOutputTypes) {
+      return true;
+    }
+
+    @Override
+    public SampleConsumer onOutputFormat(Format format) {
+      return new SampleConsumer() {
+        private final Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+
+        @Override
+        public Surface getInputSurface() {
+          return surface;
+        }
+
+        @Override
+        public int getPendingVideoFrameCount() {
+          return 0;
+        }
+
+        @Override
+        public boolean registerVideoFrame(long presentationTimeUs) {
+          return registerVideoFrame(
+              presentationTimeUs, /* additionalMetadata= */ ImmutableMap.of());
+        }
+
+        @Override
+        public boolean registerVideoFrame(
+            long presentationTimeUs, ImmutableMap<String, Object> additionalMetadata) {
+          metadataByFrameTimeUs.put(presentationTimeUs, additionalMetadata);
+          return true;
+        }
+
+        @Override
+        public void signalEndOfVideoInput() {
+          videoInputEnded.set(true);
+        }
+      };
+    }
+
+    @Override
+    public void onError(ExportException exportException) {
+      exception.set(exportException);
     }
   }
 }
