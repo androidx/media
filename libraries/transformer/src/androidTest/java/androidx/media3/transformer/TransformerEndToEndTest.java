@@ -2034,7 +2034,7 @@ public class TransformerEndToEndTest {
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
-    // will be seen in result.exportResult.durationMs.
+    // will be seen in result.exportResult.approximateDurationMs.
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_000_000);
     FakeTrackOutput audioTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
@@ -2078,7 +2078,7 @@ public class TransformerEndToEndTest {
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
-    // will be seen in result.exportResult.durationMs.
+    // will be seen in result.exportResult.approximateDurationMs.
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_000_000);
     FakeTrackOutput audioTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
@@ -2121,7 +2121,7 @@ public class TransformerEndToEndTest {
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
-    // will be seen in result.exportResult.durationMs.
+    // will be seen in result.exportResult.approximateDurationMs.
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(1_000_000);
     FakeTrackOutput audioTrackOutput =
         getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
@@ -3045,7 +3045,7 @@ public class TransformerEndToEndTest {
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
-    // will be seen in result.exportResult.durationMs.
+    // will be seen in result.exportResult.approximateDurationMs.
     MetadataRetriever metadataRetriever =
         new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
     long actualDurationUs = metadataRetriever.retrieveDurationUs().get();

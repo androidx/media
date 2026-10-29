@@ -178,6 +178,10 @@
     *   Allow reordering playlist items with drag and drop in the session demo
         app.
 *   Remove deprecated symbols:
+    *   Remove `ExportResult.durationMs` and
+        `ExportResult.Builder.setDurationMs`. Use
+        `ExportResult.approximateDurationMs` and
+        `ExportResult.Builder.setApproximateDurationMs` instead.
 
 ## 1.12
 

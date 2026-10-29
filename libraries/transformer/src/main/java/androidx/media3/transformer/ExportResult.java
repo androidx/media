@@ -27,7 +27,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.errorprone.annotations.InlineMe;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -70,16 +69,6 @@ public final class ExportResult {
     public Builder addProcessedInputs(List<ProcessedInput> processedInputs) {
       this.processedInputsBuilder.addAll(processedInputs);
       return this;
-    }
-
-    /**
-     * @deprecated Use {@link #setApproximateDurationMs(long)} instead.
-     */
-    @InlineMe(replacement = "this.setApproximateDurationMs(durationMs)")
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder setDurationMs(long durationMs) {
-      return setApproximateDurationMs(durationMs);
     }
 
     /**
@@ -441,11 +430,6 @@ public final class ExportResult {
   public static final int CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED = 3;
 
   /**
-   * @deprecated Use {@link #approximateDurationMs} instead.
-   */
-  @Deprecated public final long durationMs;
-
-  /**
    * The approximate duration of the file in milliseconds, or {@link C#TIME_UNSET} if unset or
    * unknown.
    *
@@ -538,7 +522,6 @@ public final class ExportResult {
       @OptimizationResult int optimizationResult,
       @Nullable ExportException exportException) {
     this.processedInputs = processedInputs;
-    this.durationMs = approximateDurationMs;
     this.approximateDurationMs = approximateDurationMs;
     this.fileSizeBytes = fileSizeBytes;
     this.averageAudioBitrate = averageAudioBitrate;
