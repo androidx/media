@@ -1145,19 +1145,14 @@ public final class DefaultAudioSink implements AudioSink {
     } catch (InitializationException initialFailure) {
       int bufferSize = configuration.outputConfig.bufferSize;
 
-      int threshold = getMinimumRetryBufferSize();
       int frameSize =
           configuration.outputPcmFrameSize != C.LENGTH_UNSET ? configuration.outputPcmFrameSize : 1;
+      int threshold = getMinimumRetryBufferSize(frameSize);
 
       while (bufferSize > threshold) {
-        // Retry with a smaller buffer size, which is at least the threshold.
-        bufferSize = max(threshold, bufferSize / 2);
-
-        // Align bufferSize to frame size.
-        int partialFrameSize = bufferSize % frameSize;
-        if (partialFrameSize != 0) {
-          bufferSize += frameSize - partialFrameSize;
-        }
+        // Retry with a smaller buffer size, which is at least the threshold and aligned to the
+        // frame size.
+        bufferSize = Util.ceilDivide(max(threshold, bufferSize / 2), frameSize) * frameSize;
 
         OutputConfig retryConfiguration =
             configuration.outputConfig.buildUpon().setBufferSize(bufferSize).build();
@@ -1175,7 +1170,7 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
-  private int getMinimumRetryBufferSize() {
+  private int getMinimumRetryBufferSize(int frameSize) {
     int oneSecondBufferSize;
     if (Util.isEncodingLinearPcm(configuration.outputConfig.encoding)) {
       oneSecondBufferSize =
@@ -1197,7 +1192,9 @@ public final class DefaultAudioSink implements AudioSink {
 
     // The 1-second buffer size can be as large as the initial buffer size (e.g. for DTS-HD
     // passthrough without a known bitrate), which would prevent any retry.
-    return max(min(oneSecondBufferSize, AUDIO_OUTPUT_RETRY_FALLBACK_BUFFER_SIZE), minBufferSize);
+    int minRetryBufferSize =
+        max(min(oneSecondBufferSize, AUDIO_OUTPUT_RETRY_FALLBACK_BUFFER_SIZE), minBufferSize);
+    return Util.ceilDivide(minRetryBufferSize, frameSize) * frameSize;
   }
 
   private AudioOutput buildAudioOutput(OutputConfig outputConfig) throws InitializationException {
