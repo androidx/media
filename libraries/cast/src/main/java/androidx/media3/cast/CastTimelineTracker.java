@@ -33,6 +33,8 @@ import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,8 +53,9 @@ import org.jspecify.annotations.Nullable;
   private static final String TAG = "CastTlTracker";
   /* package */ static final String KEY_SYNTHETIC_ID = "m3-syntheticId";
 
-  // Maximum number of queue item IDs fetched from the remote client per pass. This is also the
-  // cache size configured on MediaQueue to prevent cache evictions during multi-pass fetching.
+  // TODO: b/579370960 - Remove MAX_FETCH_COUNT once MediaQueue#fetchItemsForIds in the Cast SDK no
+  // longer triggers concurrent overlapping requests (CastStatusCodes.REPLACED) and redundant
+  // re-fetches when passed more than its internal 20-item batch size.
   @VisibleForTesting /* package */ static final int MAX_FETCH_COUNT = 20;
 
   private final Map<ItemUid, ItemData> itemIdToData;
@@ -221,30 +224,32 @@ import org.jspecify.annotations.Nullable;
                 || !mediaStatus.getQueueItems().isEmpty());
 
     // Fetch missing item metadata starting from the current playback index forward.
-    // To prevent silent evictions in the MediaQueue fetch buffer (which is hard-capped at
-    // MediaQueue's internal DEFAULT_MAX_FETCH_COUNT = 20 items), we cap network fetch triggers per
-    // pass to MAX_FETCH_COUNT and fall back to cache-only lookups (fetchIfNeeded = false) for
-    // remaining items.
-    int fetchCount = 0;
+    // MediaQueue's internal cache and per-request batch size are bounded at 20 items, so we probe
+    // cached items via getItemAtIndex(i, /* fetchIfNeeded= */ false) without starting its debounce
+    // timer, and cap immediate batch network requests per pass to MAX_FETCH_COUNT via
+    // fetchItemsForIds (see b/579370960).
+    List<Integer> itemIdsToFetch = new ArrayList<>();
     for (int step = 0; step < itemIds.length; step++) {
       int i = (currentItemIndex + step) % itemIds.length;
       int itemId = itemIds[i];
       ItemUid uid = receiverItemIdToUid.get(itemId);
       ItemData itemData = uid != null ? itemIdToData.get(uid) : null;
       if (itemData == null || itemData.mediaItem == MediaItem.EMPTY) {
-        boolean fetchIfNeeded = fetchCount < MAX_FETCH_COUNT;
-        MediaQueueItem queueItem = mediaQueue.getItemAtIndex(i, fetchIfNeeded);
+        MediaQueueItem queueItem = mediaQueue.getItemAtIndex(i, /* fetchIfNeeded= */ false);
         if (queueItem != null) {
           updateItemDataFromQueueItem(queueItem);
         } else {
           if (itemId != currentItemId) {
             hasPendingQueueFetches = true;
           }
-          if (fetchIfNeeded) {
-            fetchCount++;
+          if (itemIdsToFetch.size() < MAX_FETCH_COUNT) {
+            itemIdsToFetch.add(itemId);
           }
         }
       }
+    }
+    if (!itemIdsToFetch.isEmpty()) {
+      mediaQueue.fetchItemsForIds(Ints.toArray(itemIdsToFetch));
     }
 
     // Process mediaStatus.getMediaInfo() after mediaStatus.getQueueItems()[...].getMedia(). Static

@@ -16,6 +16,9 @@
 package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -467,8 +470,8 @@ public class CastTimelineTrackerTest {
     when(mockMediaStatus.getMediaInfo()).thenReturn(queueItems[0].getMedia());
     // Simulate sliding window: getQueueItems only returns the first 2 items (0 and 1)
     when(mockMediaStatus.getQueueItems()).thenReturn(Arrays.asList(queueItems[0], queueItems[1]));
-    // Out-of-window item (index 2) is fetched on demand via mediaQueue.getItemAtIndex(2, true)
-    when(mockMediaQueue.getItemAtIndex(2, /* fetchIfNeeded= */ true)).thenReturn(queueItems[2]);
+    // Out-of-window item (index 2) is read from MediaQueue cache via getItemAtIndex(2, false)
+    when(mockMediaQueue.getItemAtIndex(2, /* fetchIfNeeded= */ false)).thenReturn(queueItems[2]);
 
     CastTimeline castTimeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
 
@@ -479,6 +482,7 @@ public class CastTimelineTrackerTest {
         .isEqualTo(playlistMediaItems.get(1));
     assertThat(castTimeline.getWindow(/* windowIndex= */ 2, new Window()).mediaItem)
         .isEqualTo(playlistMediaItems.get(2));
+    verify(mockMediaQueue, never()).fetchItemsForIds(any());
   }
 
   @Test
@@ -527,7 +531,7 @@ public class CastTimelineTrackerTest {
     when(mockResolvedStatus.getMediaInfo()).thenReturn(resolvedQueueItems[0].getMedia());
     when(mockResolvedStatus.getQueueItems())
         .thenReturn(Collections.singletonList(resolvedQueueItems[0]));
-    when(mockResolvedQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true))
+    when(mockResolvedQueue.getItemAtIndex(1, /* fetchIfNeeded= */ false))
         .thenReturn(resolvedQueueItems[1]);
 
     CastTimeline placeholderTimeline = placeholderTracker.getCastTimeline(mockPlaceholderClient);
@@ -673,11 +677,12 @@ public class CastTimelineTrackerTest {
     when(mockMediaStatus.getCurrentItemId()).thenReturn(0);
     when(mockMediaStatus.getMediaInfo()).thenReturn(queueItems[0].getMedia());
     when(mockMediaStatus.getQueueItems()).thenReturn(Arrays.asList(queueItems[0], queueItems[1]));
-    when(mockMediaQueue.getItemAtIndex(2, /* fetchIfNeeded= */ true)).thenReturn(null);
+    when(mockMediaQueue.getItemAtIndex(2, /* fetchIfNeeded= */ false)).thenReturn(null);
 
     CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
 
     assertThat(castTimelineTracker.hasPendingQueueFetches()).isTrue();
+    verify(mockMediaQueue).fetchItemsForIds(new int[] {2});
     assertThat(timeline.getWindowCount()).isEqualTo(3);
     assertThat(timeline.getWindow(/* windowIndex= */ 2, new Window()).mediaItem)
         .isEqualTo(MediaItem.EMPTY);
@@ -709,7 +714,7 @@ public class CastTimelineTrackerTest {
     when(mockInFlightStatus.getMediaInfo()).thenReturn(inFlightQueueItems[0].getMedia());
     when(mockInFlightStatus.getQueueItems())
         .thenReturn(Arrays.asList(inFlightQueueItems[0], inFlightQueueItems[1]));
-    when(mockInFlightQueue.getItemAtIndex(2, /* fetchIfNeeded= */ true)).thenReturn(null);
+    when(mockInFlightQueue.getItemAtIndex(2, /* fetchIfNeeded= */ false)).thenReturn(null);
 
     // Setup completed state (index 2 resolved from MediaQueue cache)
     CastTimelineTracker completedTracker = new CastTimelineTracker(mediaItemConverter);
@@ -733,12 +738,14 @@ public class CastTimelineTrackerTest {
     when(mockCompletedStatus.getMediaInfo()).thenReturn(completedQueueItems[0].getMedia());
     when(mockCompletedStatus.getQueueItems())
         .thenReturn(Arrays.asList(completedQueueItems[0], completedQueueItems[1]));
-    when(mockCompletedQueue.getItemAtIndex(2, /* fetchIfNeeded= */ true))
+    when(mockCompletedQueue.getItemAtIndex(2, /* fetchIfNeeded= */ false))
         .thenReturn(completedQueueItems[2]);
 
     CastTimeline inFlightTimeline = inFlightTracker.getCastTimeline(mockInFlightClient);
     CastTimeline completedTimeline = completedTracker.getCastTimeline(mockCompletedClient);
 
+    verify(mockInFlightQueue).fetchItemsForIds(new int[] {2});
+    verify(mockCompletedQueue, never()).fetchItemsForIds(any());
     assertThat(inFlightTimeline.equals(completedTimeline)).isFalse();
     assertThat(completedTimeline.getWindow(/* windowIndex= */ 2, new Window()).mediaItem)
         .isEqualTo(playlistMediaItems.get(2));
@@ -746,15 +753,17 @@ public class CastTimelineTrackerTest {
 
   @Test
   public void getCastTimeline_missingItemsExceedMaxFetchCount_capsNetworkFetchesAtMaxFetchCount() {
-    // Create a queue with more missing items than MAX_FETCH_COUNT
+    // Create a queue with more missing items than MAX_FETCH_COUNT, using non-identity receiver item
+    // IDs (1000 + i) to distinguish item IDs from queue indices.
     int overflowItems = 15;
     int totalItems = CastTimelineTracker.MAX_FETCH_COUNT + overflowItems;
     MediaQueueItem[] queueItems = new MediaQueueItem[totalItems];
     int[] itemIds = new int[totalItems];
     for (int i = 0; i < totalItems; i++) {
+      int receiverItemId = 1000 + i;
       MediaItem mediaItem = createMediaItem(i);
-      queueItems[i] = createMediaQueueItem(mediaItem, ItemUid.generateItemUid(), i);
-      itemIds[i] = i;
+      queueItems[i] = createMediaQueueItem(mediaItem, ItemUid.generateItemUid(), receiverItemId);
+      itemIds[i] = receiverItemId;
     }
     RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
     MediaQueue mockMediaQueue = mock(MediaQueue.class);
@@ -762,22 +771,52 @@ public class CastTimelineTrackerTest {
     when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
     when(mockMediaQueue.getItemIds()).thenReturn(itemIds);
     when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
-    when(mockMediaStatus.getCurrentItemId()).thenReturn(0);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(itemIds[0]);
     when(mockMediaStatus.getMediaInfo()).thenReturn(queueItems[0].getMedia());
     when(mockMediaStatus.getQueueItems()).thenReturn(Collections.singletonList(queueItems[0]));
 
     CastTimeline unused = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
 
-    // First MAX_FETCH_COUNT missing items (indices 1..MAX_FETCH_COUNT) requested with fetchIfNeeded
-    // = true
-    for (int i = 1; i <= CastTimelineTracker.MAX_FETCH_COUNT; i++) {
-      verify(mockMediaQueue).getItemAtIndex(i, /* fetchIfNeeded= */ true);
-    }
-    // Overflow missing items beyond MAX_FETCH_COUNT requested with fetchIfNeeded = false
-    for (int i = CastTimelineTracker.MAX_FETCH_COUNT + 1; i < totalItems; i++) {
+    assertThat(castTimelineTracker.hasPendingQueueFetches()).isTrue();
+    int[] expectedBatchIds = new int[CastTimelineTracker.MAX_FETCH_COUNT];
+    for (int i = 1; i < totalItems; i++) {
       verify(mockMediaQueue).getItemAtIndex(i, /* fetchIfNeeded= */ false);
-      verify(mockMediaQueue, never()).getItemAtIndex(i, /* fetchIfNeeded= */ true);
+      if (i <= CastTimelineTracker.MAX_FETCH_COUNT) {
+        expectedBatchIds[i - 1] = itemIds[i];
+      }
     }
+    verify(mockMediaQueue, never()).getItemAtIndex(anyInt(), eq(true));
+    verify(mockMediaQueue).fetchItemsForIds(expectedBatchIds);
+  }
+
+  @Test
+  public void getCastTimeline_missingItemsWrapAroundCurrentIndex_fetchesFromCurrentIndexForward() {
+    ImmutableList<MediaItem> playlist =
+        ImmutableList.of(
+            createMediaItem(0),
+            createMediaItem(1),
+            createMediaItem(2),
+            createMediaItem(3),
+            createMediaItem(4));
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(playlist);
+    MediaQueueItem queueItem2 =
+        new MediaQueueItem.Builder(registered.queueItems[2].getMedia()).setItemId(30).build();
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20, 30, 40, 50});
+    when(mockStatus.getCurrentItemId()).thenReturn(30);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem2.getMedia());
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem2));
+
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(castTimelineTracker.hasPendingQueueFetches()).isTrue();
+    verify(mockQueue).fetchItemsForIds(new int[] {40, 50, 10, 20});
+    verify(mockQueue, never()).getItemAtIndex(anyInt(), eq(true));
   }
 
   @Test
@@ -1191,11 +1230,12 @@ public class CastTimelineTrackerTest {
     when(mockStatus.getMediaInfo()).thenReturn(queueItem0.getMedia());
     // Pass 1: item 100 is in MediaStatus, item 101 is outside the initial window (uncached).
     when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0));
-    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true)).thenReturn(null);
+    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ false)).thenReturn(null);
 
     CastTimeline incompleteTimeline = castTimelineTracker.getCastTimeline(mockClient);
 
     assertThat(castTimelineTracker.hasPendingQueueFetches()).isTrue();
+    verify(mockQueue).fetchItemsForIds(new int[] {101});
     assertThat(incompleteTimeline.getWindowCount()).isEqualTo(2);
     // Item 100 was immediately present in MediaStatus, so it gets the foreign synthetic UID.
     assertThat(incompleteTimeline.getWindow(0, new Window()).uid)
@@ -1208,7 +1248,7 @@ public class CastTimelineTrackerTest {
     // Pass 2: MediaQueue finishes fetching item 101 (which carries "foreign-uid-1" from another
     // sender). Since "foreign-uid-1" was not registered in this sender's mediaItemsBySyntheticId,
     // the tracker must preserve placeholderUid1 to avoid UID churn while populating its MediaItem.
-    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true)).thenReturn(queueItem1);
+    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ false)).thenReturn(queueItem1);
 
     CastTimeline completeTimeline = castTimelineTracker.getCastTimeline(mockClient);
 
@@ -1242,7 +1282,7 @@ public class CastTimelineTrackerTest {
     when(mockStatus.getLoadingItemId()).thenReturn(20);
     when(mockStatus.getMediaInfo()).thenReturn(queueItem1.getMedia());
     when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0));
-    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ true)).thenReturn(queueItem1);
+    when(mockQueue.getItemAtIndex(1, /* fetchIfNeeded= */ false)).thenReturn(queueItem1);
 
     CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
 
