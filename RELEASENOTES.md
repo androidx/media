@@ -120,6 +120,10 @@
     *   Avoid redundant `MediaSession.setQueue(null)` calls on timeline updates
         when the platform session queue is already `null` (for example, when
         `Player.COMMAND_GET_TIMELINE` is unavailable).
+    *   Fix an issue where `MediaSessionService` did not let a service
+        implementation the option to recover properly by not attempting to
+        create a new session
+        ([#3490](https://github.com/androidx/media/issues/3490)).
 *   UI:
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap

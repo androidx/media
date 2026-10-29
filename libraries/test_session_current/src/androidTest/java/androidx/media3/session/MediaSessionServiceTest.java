@@ -81,10 +81,12 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
@@ -604,6 +606,135 @@ public class MediaSessionServiceTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(TestUtils.equals(controllerInfoList.get(0).getConnectionHints(), testHints))
         .isTrue();
+  }
+
+  @SuppressWarnings("deprecation") // Testing interoperability with the platform media session.
+  @Test
+  public void onStartCommand_nullIntentAfterOnCreate_appliesMediaNotificationControllerCommands()
+      throws Exception {
+    CountDownLatch serviceCreatedLatch = new CountDownLatch(1);
+    AtomicReference<ExoPlayer> playerRef = new AtomicReference<>();
+    AtomicReference<MediaSession> sessionRef = new AtomicReference<>();
+    AtomicReference<ControllerInfo> onGetSessionControllerInfoRef = new AtomicReference<>();
+    TestServiceRegistry.getInstance()
+        .setSessionServiceCallback(
+            new TestServiceRegistry.SessionServiceCallback() {
+              @Override
+              public void onCreated() {
+                MediaSessionService service =
+                    TestServiceRegistry.getInstance().getServiceInstance();
+                ExoPlayer player = new TestExoPlayerBuilder(service).build();
+                // Set up an initial playlist with two items.
+                player.setMediaItems(
+                    ImmutableList.of(
+                        MediaItem.fromUri("asset:///media/mp4/sample.mp4"),
+                        MediaItem.fromUri("asset:///media/mp4/sample.mp4")));
+                playerRef.set(player);
+                // Given the player has already two items this initial playlist is sent to the
+                // platform session when the Media3 session is built. The MediaSessionService
+                // doesn't know about the session yet and can't restrict the timeline.
+                // To avoid publishing the initial playlist to the platform session altogether, an
+                // app must populate the player's timeline only after the media notification
+                // controller has connected (e.g. in onPlaybackResumption).
+                MediaSession session =
+                    new MediaSession.Builder(service, player)
+                        .setId("stickyRestartTest")
+                        .setCallback(
+                            new MediaSession.Callback() {
+                              @Override
+                              public ListenableFuture<ConnectionResult> onConnectAsync(
+                                  MediaSession session, ControllerInfo controller) {
+                                if (session.isMediaNotificationController(controller)) {
+                                  // Remove COMMAND_GET_TIMELINE for media notification controller.
+                                  return immediateFuture(
+                                      new AcceptedResultBuilder(session, controller)
+                                          .setAvailablePlayerCommands(
+                                              ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                                                  .buildUpon()
+                                                  .remove(Player.COMMAND_GET_TIMELINE)
+                                                  .build())
+                                          .build());
+                                }
+                                return immediateFuture(
+                                    new AcceptedResultBuilder(session, controller).build());
+                              }
+                            })
+                        .build();
+                sessionRef.set(session);
+                serviceCreatedLatch.countDown();
+              }
+
+              @Override
+              public void onDestroyed() {}
+            });
+    TestServiceRegistry.getInstance()
+        .setOnGetSessionHandler(
+            controllerInfo -> {
+              onGetSessionControllerInfoRef.set(controllerInfo);
+              return sessionRef.get();
+            });
+    context.startService(new Intent(context, LocalMockMediaSessionService.class));
+    try {
+      assertThat(serviceCreatedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+      MediaSessionService service = TestServiceRegistry.getInstance().getServiceInstance();
+      MediaControllerCompat mediaControllerCompat =
+          new MediaControllerCompat(
+              context, MediaSessionCompat.Token.fromToken(sessionRef.get().getPlatformToken()));
+      // The controller's queue has two items before onStartCommand() is called. The media
+      // notification controller is not yet built or connected because the service doesn't know
+      // about the session before calling addSession(session).
+      @Nullable List<MediaSessionCompat.QueueItem> initialQueue = mediaControllerCompat.getQueue();
+      List<@Nullable List<MediaSessionCompat.QueueItem>> queueUpdates =
+          new CopyOnWriteArrayList<>();
+      CountDownLatch queueChangedLatch = new CountDownLatch(1);
+      mediaControllerCompat.registerCallback(
+          new MediaControllerCompat.Callback() {
+            @Override
+            public void onQueueChanged(@Nullable List<MediaSessionCompat.QueueItem> queue) {
+              queueUpdates.add(queue);
+              queueChangedLatch.countDown();
+            }
+          },
+          new Handler(Looper.getMainLooper()));
+
+      MainLooperTestRule.runOnMainSync(
+          () -> {
+            // Call onStartCommand() to build and connect the media notification controller.
+            int unused =
+                service.onStartCommand(/* intent= */ null, /* flags= */ 0, /* startId= */ 1);
+          });
+      assertThat(queueChangedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+      runPendingMainThreadMessages();
+
+      assertThat(initialQueue).hasSize(2);
+      AtomicInteger mediaItemCount = new AtomicInteger();
+      MainLooperTestRule.runOnMainSync(
+          () ->
+              mediaItemCount.set(
+                  service.getSessions().get(0).getPlayer().getCurrentTimeline().getWindowCount()));
+      assertThat(mediaItemCount.get()).isEqualTo(2);
+      assertThat(onGetSessionControllerInfoRef.get().getPackageName())
+          .isEqualTo(ControllerInfo.FALLBACK_PACKAGE_NAME);
+      assertThat(
+              onGetSessionControllerInfoRef
+                  .get()
+                  .getConnectionHints()
+                  .getString(MediaSessionService.CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE))
+          .isEqualTo(ControllerInfo.TYPE_CRASH_RECOVERY);
+      // Platform queue got cleared once the service enforces the removed timeline command.
+      assertThat(queueUpdates).containsExactly((Object) null);
+      assertThat(mediaControllerCompat.getQueue()).isNull();
+    } finally {
+      MainLooperTestRule.runOnMainSync(
+          () -> {
+            if (sessionRef.get() != null) {
+              sessionRef.get().release();
+            }
+            if (playerRef.get() != null) {
+              playerRef.get().release();
+            }
+          });
+    }
   }
 
   @Test

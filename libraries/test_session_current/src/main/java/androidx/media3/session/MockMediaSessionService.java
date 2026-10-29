@@ -92,11 +92,11 @@ public class MockMediaSessionService extends MediaSessionService {
 
   @Override
   public void onCreate() {
-    TestServiceRegistry.getInstance().setServiceInstance(this);
     super.onCreate();
     handlerThread = new HandlerThread("MockMediaSessionService");
     handlerThread.start();
     handler = new TestHandler(handlerThread.getLooper());
+    TestServiceRegistry.getInstance().setServiceInstance(this);
   }
 
   @Override

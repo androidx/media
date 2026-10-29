@@ -238,8 +238,9 @@ public abstract class MediaSessionService extends LifecycleService {
   /**
    * Key for {@link ControllerInfo#getConnectionHints()} to hint the type of a fallback controller.
    *
-   * <p>A fallback controller is created when a media button event starts the service and a session
-   * is requested through {@link #onGetSession(ControllerInfo)}.
+   * <p>A fallback controller is created when a media button event starts the service (or the
+   * service is restarted by the system with a {@code null} intent and no session has been added
+   * yet) and a session is requested through {@link #onGetSession(ControllerInfo)}.
    */
   @UnstableApi
   public static final String CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE =
@@ -319,19 +320,32 @@ public abstract class MediaSessionService extends LifecycleService {
    * session is {@linkplain MediaSession#release() released}. You don't need to manually call {@link
    * #addSession(MediaSession)} nor {@link #removeSession(MediaSession)}.
    *
-   * <p>There are two special cases where the {@link ControllerInfo#getPackageName()} returns a
-   * non-existent package name:
+   * <p>There are three special cases where {@link ControllerInfo#getPackageName()} does not return
+   * the caller's package name:
    *
    * <ul>
-   *   <li>When the service is started by a media button event. In such a case the {@linkplain
-   *       ControllerInfo#getConnectionHints() connection hints} are marked with a string bundle
-   *       entry with key {@link #CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} with value {@link
-   *       Intent#ACTION_MEDIA_BUTTON}. If the media button intent requests a specific session to be
-   *       started the requested session ID can be looked up as a string entry with key {@link
+   *   <li>When the service is started by a media button event. In such a case {@link
+   *       ControllerInfo#getPackageName()} returns the package name of the {@link
+   *       Intent#getComponent() ComponentName} of the intent targeting this service (and hence the
+   *       package name of the app itself), and the {@linkplain ControllerInfo#getConnectionHints()
+   *       connection hints} are marked with a string bundle entry with key {@link
+   *       #CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} with value {@link Intent#ACTION_MEDIA_BUTTON}.
+   *       If the media button intent requests a specific session to be started the requested
+   *       session ID can be looked up as a string entry with key {@link
    *       #CONNECTION_HINT_KEY_SESSION_ID} (optional). If you want to allow the service to be
    *       started by media button events, do not return {@code null}. Note that in such a case the
    *       {@link ControllerInfo} is a placeholder only and does not represent an actual controller
    *       that is connected to the service.
+   *   <li>When the service is restarted by the system after a service crash with a {@code null}
+   *       intent ({@link #START_STICKY}) when no session has been added yet. In such a case the
+   *       {@linkplain ControllerInfo#getPackageName() package name} is {@link
+   *       ControllerInfo#FALLBACK_PACKAGE_NAME} and the {@linkplain
+   *       ControllerInfo#getConnectionHints() connection hints} are marked with a string bundle
+   *       entry with key {@link #CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} with value {@link
+   *       ControllerInfo#TYPE_CRASH_RECOVERY}. If you want to add the session after a system
+   *       restart following a service crash, do not return {@code null} (returning {@code null}
+   *       stops the service). Note that in such a case the {@link ControllerInfo} is a placeholder
+   *       only and does not represent an actual controller that is connected to the service.
    *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@code
    *       android.support.v4.media.MediaBrowserCompat} tries to connect, the package name will be
    *       {@link android.service.media.MediaBrowserService#SERVICE_INTERFACE}. If you want to allow
@@ -341,8 +355,8 @@ public abstract class MediaSessionService extends LifecycleService {
    *       MediaLibraryService.MediaLibrarySession}.
    * </ul>
    *
-   * <p>For those special cases, the values returned by {@link ControllerInfo#getUid()} and {@link
-   * ControllerInfo#getConnectionHints()} have no meaning.
+   * <p>For those special cases, the values returned by {@link ControllerInfo#getUid()} have no
+   * meaning.
    *
    * <p>This method will be called on the main thread.
    *
@@ -526,6 +540,16 @@ public abstract class MediaSessionService extends LifecycleService {
    * intent will have the action {@link Intent#ACTION_MEDIA_BUTTON}. Override this method if this
    * service also needs to handle actions other than {@link Intent#ACTION_MEDIA_BUTTON}.
    *
+   * <p>When the system restarts the service after a crash with a {@code null} intent ({@link
+   * #START_STICKY}) and no session has been added yet, the default implementation calls {@link
+   * #onGetSession(ControllerInfo)} with a fallback {@link ControllerInfo} and adds the returned
+   * session to the service (or stops the service if {@link #onGetSession(ControllerInfo)} returns
+   * {@code null}). In this case, the fallback {@link ControllerInfo} has a {@linkplain
+   * ControllerInfo#getPackageName() package name} of {@link ControllerInfo#FALLBACK_PACKAGE_NAME}
+   * and its {@linkplain ControllerInfo#getConnectionHints() connection hints} contain a string
+   * entry with key {@link #CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} and value {@link
+   * ControllerInfo#TYPE_CRASH_RECOVERY}.
+   *
    * <p>This method will be called on the main thread.
    */
   @CallSuper
@@ -533,6 +557,20 @@ public abstract class MediaSessionService extends LifecycleService {
   public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
     super.onStartCommand(intent, flags, startId);
     if (intent == null) {
+      if (getSessions().isEmpty()) {
+        // After a START_STICKY restart (e.g. after a crash), intent is null and no controller has
+        // connected yet.
+        @Nullable MediaSession session =
+            onGetSession(
+                createFallbackControllerInfo(
+                    /* mediaButtonIntent= */ null, ControllerInfo.TYPE_CRASH_RECOVERY));
+        if (session == null) {
+          Log.w(TAG, "Ignoring null intent; onGetSession rejected crash recovery.");
+          stopSelf();
+          return START_STICKY;
+        }
+        addSession(session);
+      }
       return START_STICKY;
     }
 
@@ -541,7 +579,7 @@ public abstract class MediaSessionService extends LifecycleService {
     if (actionFactory.isMediaAction(intent) || actionFactory.isCustomAction(intent)) {
       @Nullable MediaSession session = uri != null ? getSessionByUri(uri) : null;
       if (session == null) {
-        session = onGetSession(createFallbackMediaButtonCaller(intent));
+        session = onGetSession(createFallbackControllerInfo(intent, Intent.ACTION_MEDIA_BUTTON));
         if (session == null) {
           if (!initialStartIntentProcessed) {
             // The app rejected to provide a session and the service was never started yet. We need
@@ -560,7 +598,7 @@ public abstract class MediaSessionService extends LifecycleService {
                 () -> {
                   ControllerInfo callerInfo = sessionImpl.getMediaNotificationControllerInfo();
                   if (callerInfo == null) {
-                    callerInfo = createFallbackMediaButtonCaller(intent);
+                    callerInfo = createFallbackControllerInfo(intent, Intent.ACTION_MEDIA_BUTTON);
                   }
                   if (!sessionImpl.onMediaButtonEvent(callerInfo, intent)) {
                     Log.d(TAG, "Ignored unrecognized media button intent.");
@@ -622,22 +660,26 @@ public abstract class MediaSessionService extends LifecycleService {
     }
   }
 
-  private static ControllerInfo createFallbackMediaButtonCaller(Intent mediaButtonIntent) {
-    @Nullable ComponentName componentName = mediaButtonIntent.getComponent();
+  private static ControllerInfo createFallbackControllerInfo(
+      @Nullable Intent mediaButtonIntent, String controllerType) {
+    @Nullable ComponentName componentName =
+        mediaButtonIntent != null ? mediaButtonIntent.getComponent() : null;
     String packageName =
         componentName != null
             ? componentName.getPackageName()
-            : "androidx.media3.session.MediaSessionService";
+            : ControllerInfo.FALLBACK_PACKAGE_NAME;
     Bundle connectionHints = new Bundle();
-    connectionHints.putString(CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE, Intent.ACTION_MEDIA_BUTTON);
-    Bundle extras = mediaButtonIntent.getExtras();
-    if (extras != null) {
-      connectionHints.putBundle(CONNECTION_HINT_KEY_INTENT_EXTRAS, extras);
-    }
-    Uri dataUri = mediaButtonIntent.getData();
-    if (dataUri != null) {
-      connectionHints.putString(
-          CONNECTION_HINT_KEY_SESSION_ID, MediaSessionImpl.getSessionId(dataUri));
+    connectionHints.putString(CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE, controllerType);
+    if (mediaButtonIntent != null) {
+      @Nullable Bundle extras = mediaButtonIntent.getExtras();
+      if (extras != null) {
+        connectionHints.putBundle(CONNECTION_HINT_KEY_INTENT_EXTRAS, extras);
+      }
+      @Nullable Uri dataUri = mediaButtonIntent.getData();
+      if (dataUri != null) {
+        connectionHints.putString(
+            CONNECTION_HINT_KEY_SESSION_ID, MediaSessionImpl.getSessionId(dataUri));
+      }
     }
     return new ControllerInfo(
         new MediaSessionManager.RemoteUserInfo(

@@ -54,6 +54,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.Shadows;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -998,6 +999,95 @@ public class MediaSessionServiceTest {
     serviceController.destroy();
   }
 
+  @Test
+  public void onStartCommand_nullIntent_addsSessionFromOnGetSessionAndConnectsNotification()
+      throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.session = session;
+
+    int startResult = service.onStartCommand(/* intent= */ null, /* flags= */ 0, /* startId= */ 1);
+    ShadowLooper.idleMainLooper();
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.prepare();
+    player.play();
+    runMainLooperUntil(service::isPlaybackOngoing);
+
+    assertThat(startResult).isEqualTo(MediaSessionService.START_STICKY);
+    assertThat(service.onGetSessionCallers).hasSize(1);
+    MediaSession.ControllerInfo caller = service.onGetSessionCallers.get(0);
+    assertThat(caller.getPackageName())
+        .isEqualTo(MediaSession.ControllerInfo.FALLBACK_PACKAGE_NAME);
+    assertThat(
+            caller
+                .getConnectionHints()
+                .getString(MediaSessionService.CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE))
+        .isEqualTo(MediaSession.ControllerInfo.TYPE_CRASH_RECOVERY);
+    assertThat(
+            caller
+                .getConnectionHints()
+                .containsKey(MediaSessionService.CONNECTION_HINT_KEY_INTENT_EXTRAS))
+        .isFalse();
+    assertThat(
+            caller
+                .getConnectionHints()
+                .containsKey(MediaSessionService.CONNECTION_HINT_KEY_SESSION_ID))
+        .isFalse();
+    assertThat(service.getSessions()).containsExactly(session);
+    assertThat(session.getMediaNotificationControllerInfo()).isNotNull();
+    assertThat(service.isPlaybackOngoing()).isTrue();
+
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void onStartCommand_nullIntentWithExistingSession_doesNotCallOnGetSession() {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.session = session;
+    service.addSession(session);
+
+    int startResult = service.onStartCommand(/* intent= */ null, /* flags= */ 0, /* startId= */ 1);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(startResult).isEqualTo(MediaSessionService.START_STICKY);
+    assertThat(service.onGetSessionCallers).isEmpty();
+    assertThat(service.getSessions()).containsExactly(session);
+
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void onStartCommand_nullIntentWhenOnGetSessionReturnsNull_stopsService() {
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+
+    int startResult = service.onStartCommand(/* intent= */ null, /* flags= */ 0, /* startId= */ 1);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(startResult).isEqualTo(MediaSessionService.START_STICKY);
+    assertThat(service.onGetSessionCallers).hasSize(1);
+    MediaSession.ControllerInfo caller = service.onGetSessionCallers.get(0);
+    assertThat(caller.getPackageName())
+        .isEqualTo(MediaSession.ControllerInfo.FALLBACK_PACKAGE_NAME);
+    assertThat(
+            caller
+                .getConnectionHints()
+                .getString(MediaSessionService.CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE))
+        .isEqualTo(MediaSession.ControllerInfo.TYPE_CRASH_RECOVERY);
+    assertThat(service.getSessions()).isEmpty();
+    assertThat(Shadows.shadowOf(service).isStoppedBySelf()).isTrue();
+    serviceController.destroy();
+  }
+
   private @Nullable StatusBarNotification getStatusBarNotification(int notificationId) {
     for (StatusBarNotification notification : notificationManager.getActiveNotifications()) {
       if (notification.getId() == notificationId) {
@@ -1008,9 +1098,13 @@ public class MediaSessionServiceTest {
   }
 
   private static final class TestService extends MediaSessionService {
+    private final List<MediaSession.ControllerInfo> onGetSessionCallers = new ArrayList<>();
+    private @Nullable MediaSession session;
+
     @Override
     public @Nullable MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
-      return null; // No need to support binding or pending intents for this test.
+      onGetSessionCallers.add(controllerInfo);
+      return session;
     }
   }
 

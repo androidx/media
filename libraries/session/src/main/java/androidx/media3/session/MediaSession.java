@@ -600,6 +600,25 @@ public class MediaSession {
      */
     public static final String LEGACY_CONTROLLER_PACKAGE_NAME = RemoteUserInfo.LEGACY_CONTROLLER;
 
+    /**
+     * The {@link #getPackageName()} of a fallback {@link ControllerInfo} created by {@link
+     * MediaSessionService} when a more specific package name is not available (for example, when
+     * the service is started by a media button intent without a component name, or restarted by the
+     * system after a crash).
+     */
+    @UnstableApi
+    public static final String FALLBACK_PACKAGE_NAME =
+        "androidx.media3.session.MediaSessionService";
+
+    /**
+     * The value for {@link MediaSessionService#CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} in {@link
+     * #getConnectionHints()} when a fallback {@link ControllerInfo} is created because {@link
+     * MediaSessionService} was restarted by the system after a crash with a {@code null} intent
+     * ({@link android.app.Service#START_STICKY}).
+     */
+    @UnstableApi
+    public static final String TYPE_CRASH_RECOVERY = "androidx.media3.session.sticky.crash";
+
     private final RemoteUserInfo remoteUserInfo;
     private final int libraryVersion;
     private final int interfaceVersion;
