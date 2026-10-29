@@ -1272,6 +1272,56 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  @SuppressWarnings("InlinedApi") // For MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleAac
+  public void getTrackFormat_withIamfAacCodecString_returnsProfileWithoutLevelOrAacProfile()
+      throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_AUDIO);
+          extractorOutput.endTracks();
+          output.format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.AUDIO_IAMF)
+                  .setCodecs("iamf.000.000.mp4a.40.2")
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleAac);
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_LEVEL)).isFalse();
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_AAC_PROFILE)).isFalse();
+  }
+
+  @Test
+  public void getTrackFormat_withAacCodecString_returnsProfileAndAacProfileWithoutLevel()
+      throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_AUDIO);
+          extractorOutput.endTracks();
+          output.format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.AUDIO_AAC)
+                  .setCodecs("mp4a.40.5")
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AACObjectHE);
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_AAC_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AACObjectHE);
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_LEVEL)).isFalse();
+  }
+
+  @Test
   public void getTrackFormat_withFrameRateRoundingToZero_omitsFrameRate() throws IOException {
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {

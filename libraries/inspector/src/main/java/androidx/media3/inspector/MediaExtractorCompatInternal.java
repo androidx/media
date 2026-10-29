@@ -44,6 +44,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
@@ -995,7 +996,12 @@ import org.jspecify.annotations.Nullable;
           CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       if (profileAndLevel != null) {
         mediaFormatResult.setInteger(MediaFormat.KEY_PROFILE, profileAndLevel.first);
-        mediaFormatResult.setInteger(MediaFormat.KEY_LEVEL, profileAndLevel.second);
+        if (profileAndLevel.second > 0) {
+          mediaFormatResult.setInteger(MediaFormat.KEY_LEVEL, profileAndLevel.second);
+        }
+        if (MimeTypes.AUDIO_AAC.equals(format.sampleMimeType)) {
+          mediaFormatResult.setInteger(MediaFormat.KEY_AAC_PROFILE, profileAndLevel.first);
+        }
       }
       return mediaFormatResult;
     }

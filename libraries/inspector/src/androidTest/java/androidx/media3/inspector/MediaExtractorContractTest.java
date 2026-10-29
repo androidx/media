@@ -25,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -454,6 +455,23 @@ public class MediaExtractorContractTest {
     assertThat(videoFormat.getInteger(MediaFormat.KEY_FRAME_RATE)).isEqualTo(30);
     assertThat(audioFormat.getString(MediaFormat.KEY_MIME)).isEqualTo(MimeTypes.AUDIO_AAC);
     assertThat(audioFormat.containsKey(MediaFormat.KEY_FRAME_RATE)).isFalse();
+  }
+
+  @Test
+  public void getTrackFormat_forAacTrack_returnsProfileAndAacProfileWithoutLevel()
+      throws IOException {
+    try (AssetFileDescriptor afd = context.getAssets().openFd("media/mp4/sample.mp4")) {
+      mediaExtractorProxy.setDataSource(afd);
+    }
+
+    MediaFormat audioFormat = mediaExtractorProxy.getTrackFormat(/* trackIndex= */ 1);
+
+    assertThat(audioFormat.getString(MediaFormat.KEY_MIME)).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(audioFormat.getInteger(MediaFormat.KEY_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+    assertThat(audioFormat.getInteger(MediaFormat.KEY_AAC_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+    assertThat(audioFormat.containsKey(MediaFormat.KEY_LEVEL)).isFalse();
   }
 
   @Test
