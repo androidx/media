@@ -22,6 +22,7 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
+import android.opengl.GLES20;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -126,6 +127,31 @@ import org.junit.runners.model.Statement;
         fboId,
         width,
         height);
+  }
+
+  /**
+   * Returns whether the device can render to textures with high precision color components.
+   *
+   * <p>OpenGL ES 3.0 and 3.1 only support rendering to {@code GL_RGBA16F} textures with the {@code
+   * GL_EXT_color_buffer_half_float} or {@code GL_EXT_color_buffer_float} extension.
+   *
+   * <p>The texture and framebuffer used for the check are deleted after the test.
+   */
+  public boolean isHighPrecisionRenderingSupported() throws GlUtil.GlException {
+    if (GlUtil.getContextMajorVersion() < 3) {
+      return false;
+    }
+    int[] boundFboId = new int[1];
+    GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, boundFboId, /* offset= */ 0);
+    int texId =
+        GlUtil.createTexture(
+            /* width= */ 1, /* height= */ 1, /* useHighPrecisionColorComponents= */ true);
+    texIds.add(texId);
+    int fboId = GlUtil.createFboForTexture(texId);
+    fboIds.add(fboId);
+    int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, boundFboId[0]);
+    return status == GLES20.GL_FRAMEBUFFER_COMPLETE;
   }
 
   private void createEglObjects() throws GlUtil.GlException {

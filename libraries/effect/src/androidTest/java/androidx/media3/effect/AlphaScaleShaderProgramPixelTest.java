@@ -187,6 +187,9 @@ public final class AlphaScaleShaderProgramPixelTest {
   @SdkSuppress(minSdkVersion = 33)
   public void noOpAlpha_withHdrHlgInput_matchesGoldenFile() throws Exception {
     assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
+    assumeTrue(
+        "Device does not support rendering to high precision textures",
+        glTestRule.isHighPrecisionRenderingSupported());
 
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
     int hlgWidth = hlgBitmap.getWidth();

@@ -156,6 +156,9 @@ public final class DefaultGlTextureFrameCompositorPixelTest {
   public void composite_twoHdrSequencesWithOpaqueOverlay_outputsCorrectTexture() throws Exception {
     Format hlgFormat = new Format.Builder().setColorInfo(BT2020_HLG).build();
     assumeTrue("Device does not support OpenGL ES 3.0", GlUtil.getContextMajorVersion() >= 3);
+    assumeTrue(
+        "Device does not support rendering to high precision textures",
+        glTestRule.isHighPrecisionRenderingSupported());
 
     Bitmap hlgBitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_HLG10_PNG_ASSET_PATH);
     int width = hlgBitmap.getWidth();
