@@ -19,7 +19,6 @@ import static java.lang.Math.min;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
@@ -39,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /** A {@link SubtitleParser} for DVB subtitles. */
@@ -101,8 +99,6 @@ public final class DvbParser implements SubtitleParser {
   private final DisplayDefinition defaultDisplayDefinition;
   private final ClutDefinition defaultClutDefinition;
   private final SubtitleService subtitleService;
-
-  private @MonotonicNonNull Bitmap bitmap;
 
   /**
    * Constructs an instance for the given initialization data.
@@ -168,29 +164,22 @@ public final class DvbParser implements SubtitleParser {
           ImmutableList.of(), /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET);
     }
 
-    // Update the canvas bitmap if necessary.
     DisplayDefinition displayDefinition =
         subtitleService.displayDefinition != null
             ? subtitleService.displayDefinition
             : defaultDisplayDefinition;
-    if (bitmap == null
-        || displayDefinition.width + 1 != bitmap.getWidth()
-        || displayDefinition.height + 1 != bitmap.getHeight()) {
-      bitmap =
-          Bitmap.createBitmap(
-              displayDefinition.width + 1, displayDefinition.height + 1, Bitmap.Config.ARGB_8888);
-      canvas.setBitmap(bitmap);
-    }
 
     // Build the cues.
     List<Cue> cues = new ArrayList<>();
     SparseArray<PageRegion> pageRegions = pageComposition.regions;
     for (int i = 0; i < pageRegions.size(); i++) {
-      // Save clean clipping state.
-      canvas.save();
       PageRegion pageRegion = pageRegions.valueAt(i);
       int regionId = pageRegions.keyAt(i);
       RegionComposition regionComposition = subtitleService.regions.get(regionId);
+      Bitmap regionBitmap =
+          Bitmap.createBitmap(
+              regionComposition.width, regionComposition.height, Bitmap.Config.ARGB_8888);
+      canvas.setBitmap(regionBitmap);
 
       // Clip drawing to the current region and display definition window.
       int baseHorizontalAddress =
@@ -199,13 +188,14 @@ public final class DvbParser implements SubtitleParser {
           pageRegion.verticalAddress + displayDefinition.verticalPositionMinimum;
       int clipRight =
           min(
-              baseHorizontalAddress + regionComposition.width,
-              displayDefinition.horizontalPositionMaximum);
+              regionComposition.width,
+              displayDefinition.horizontalPositionMaximum - baseHorizontalAddress);
       int clipBottom =
           min(
-              baseVerticalAddress + regionComposition.height,
-              displayDefinition.verticalPositionMaximum);
-      canvas.clipRect(baseHorizontalAddress, baseVerticalAddress, clipRight, clipBottom);
+              regionComposition.height,
+              displayDefinition.verticalPositionMaximum - baseVerticalAddress);
+      canvas.save();
+      canvas.clipRect(0, 0, clipRight, clipBottom);
       ClutDefinition clutDefinition = subtitleService.cluts.get(regionComposition.clutId);
       if (clutDefinition == null) {
         clutDefinition = subtitleService.ancillaryCluts.get(regionComposition.clutId);
@@ -228,8 +218,8 @@ public final class DvbParser implements SubtitleParser {
               objectData,
               clutDefinition,
               regionComposition.depth,
-              baseHorizontalAddress + regionObject.horizontalPosition,
-              baseVerticalAddress + regionObject.verticalPosition,
+              regionObject.horizontalPosition,
+              regionObject.verticalPosition,
               paint,
               canvas);
         }
@@ -245,23 +235,12 @@ public final class DvbParser implements SubtitleParser {
           color = clutDefinition.clutEntries2Bit[regionComposition.pixelCode2Bit];
         }
         fillRegionPaint.setColor(color);
-        canvas.drawRect(
-            baseHorizontalAddress,
-            baseVerticalAddress,
-            baseHorizontalAddress + regionComposition.width,
-            baseVerticalAddress + regionComposition.height,
-            fillRegionPaint);
+        canvas.drawRect(0, 0, regionComposition.width, regionComposition.height, fillRegionPaint);
       }
 
       cues.add(
           new Cue.Builder()
-              .setBitmap(
-                  Bitmap.createBitmap(
-                      bitmap,
-                      baseHorizontalAddress,
-                      baseVerticalAddress,
-                      regionComposition.width,
-                      regionComposition.height))
+              .setBitmap(regionBitmap)
               .setPosition((float) baseHorizontalAddress / displayDefinition.width)
               .setPositionAnchor(Cue.ANCHOR_TYPE_START)
               .setLine(
@@ -271,9 +250,8 @@ public final class DvbParser implements SubtitleParser {
               .setBitmapHeight((float) regionComposition.height / displayDefinition.height)
               .build());
 
-      canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-      // Restore clean clipping state.
       canvas.restore();
+      canvas.setBitmap(null);
     }
 
     return new CuesWithTiming(

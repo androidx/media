@@ -105,6 +105,9 @@
         supports the format
         ([#3486](https://github.com/androidx/media/issues/3486)).
 *   Text:
+    *   Reduce memory usage in `DvbParser` by rendering subtitle regions
+        directly into region-sized bitmaps instead of retaining a full-screen
+        scratch bitmap.
 *   Metadata:
 *   Image:
 *   DataSource:
