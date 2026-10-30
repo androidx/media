@@ -113,6 +113,10 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Fix a `NullPointerException` in `DefaultVideoFrameProcessor` when
+        flushing (for example, while seeking or scrubbing in
+        `CompositionPlayer`)
+        ([#3470](https://github.com/androidx/media/pull/3470)).
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:

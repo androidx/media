@@ -34,12 +34,12 @@ import androidx.media3.common.FrameInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -88,6 +88,7 @@ import org.jspecify.annotations.Nullable;
   private final Queue<FrameInfo> pendingFrames;
   private final ScheduledExecutorService scheduledExecutorService;
   private final boolean experimentalAdjustSurfaceTextureTransformationMatrix;
+  private final ConditionVariable allFramesReleasedCondition;
 
   // Must be accessed on the GL thread.
   private int externalShaderProgramInputCapacity;
@@ -100,7 +101,6 @@ import org.jspecify.annotations.Nullable;
   private boolean automaticReregistration;
 
   private @Nullable Future<?> forceSignalEndOfStreamFuture;
-  private @Nullable CountDownLatch releaseAllFramesLatch;
 
   private volatile boolean shouldRejectIncomingFrames;
   private volatile @Nullable RuntimeException releaseAllFramesException;
@@ -143,6 +143,8 @@ import org.jspecify.annotations.Nullable;
     textureTransformMatrix = new float[16];
     pendingFrames = new ConcurrentLinkedQueue<>();
     scheduledExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
+    allFramesReleasedCondition = new ConditionVariable();
+    allFramesReleasedCondition.open();
     surfaceTexture.setOnFrameAvailableListener(
         unused ->
             videoFrameProcessingTaskExecutor.submit(
@@ -154,8 +156,8 @@ import org.jspecify.annotations.Nullable;
                   if (shouldRejectIncomingFrames) {
                     surfaceTexture.updateTexImage();
                     pendingFrames.poll();
-                    if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
-                      releaseAllFramesLatch.countDown();
+                    if (pendingFrames.isEmpty()) {
+                      allFramesReleasedCondition.open();
                     }
                     return;
                   }
@@ -316,8 +318,7 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void releaseAllRegisteredFrames() {
     // Blocks the calling thread until all the registered frames are received and released.
-    CountDownLatch releaseAllFramesLatch = new CountDownLatch(1);
-    this.releaseAllFramesLatch = releaseAllFramesLatch;
+    allFramesReleasedCondition.close();
     videoFrameProcessingTaskExecutor.submit(
         () -> {
           try {
@@ -325,14 +326,12 @@ import org.jspecify.annotations.Nullable;
           } catch (RuntimeException e) {
             releaseAllFramesException = e;
             Log.e(TAG, "Failed to remove texture frames", e);
-            if (this.releaseAllFramesLatch != null) {
-              this.releaseAllFramesLatch.countDown();
-            }
+            allFramesReleasedCondition.open();
           }
         });
     try {
-      if (!releaseAllFramesLatch.await(SURFACE_TEXTURE_TIMEOUT_MS, MILLISECONDS)) {
-        Log.w(TAG, "Timeout reached while waiting for latch to be unblocked.");
+      if (!allFramesReleasedCondition.block(SURFACE_TEXTURE_TIMEOUT_MS)) {
+        Log.w(TAG, "Timeout reached while waiting for all registered frames to be released.");
       }
     } catch (InterruptedException e) {
       // Not re-thrown to not crash frame processing. Frame process can likely continue even when
@@ -340,7 +339,7 @@ import org.jspecify.annotations.Nullable;
       Thread.currentThread().interrupt();
       Log.w(TAG, "Interrupted when waiting for MediaCodec frames to arrive.");
     }
-    this.releaseAllFramesLatch = null;
+    allFramesReleasedCondition.open();
     if (releaseAllFramesException != null) {
       throw releaseAllFramesException;
     }
@@ -392,8 +391,8 @@ import org.jspecify.annotations.Nullable;
       surfaceTexture.updateTexImage();
       pendingFrames.remove();
     }
-    if (releaseAllFramesLatch != null && pendingFrames.isEmpty()) {
-      releaseAllFramesLatch.countDown();
+    if (pendingFrames.isEmpty()) {
+      allFramesReleasedCondition.open();
     }
   }
 
