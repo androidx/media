@@ -221,7 +221,9 @@ internal constructor(
         syncRepeatMode(currentPlayer)
         if (
           previousConfig.startBoundary != _config.startBoundary ||
-            previousConfig.startPositionOffsetMs != _config.startPositionOffsetMs
+            previousConfig.startPositionOffsetMs != _config.startPositionOffsetMs ||
+            previousConfig.endBoundary != _config.endBoundary ||
+            previousConfig.endPositionOffsetMs != _config.endPositionOffsetMs
         ) {
           updateClippingConfiguration(currentPlayer)
         }
@@ -507,28 +509,49 @@ internal constructor(
     return baseUs + Util.msToUs(_config.startPositionOffsetMs)
   }
 
+  private fun resolveEndPositionUs(): Long {
+    if (
+      _config.endBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO &&
+        _config.endPositionOffsetMs == 0L
+    ) {
+      return C.TIME_END_OF_SOURCE
+    }
+    val baseUs =
+      when (_config.endBoundary) {
+        MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L
+        else -> videoDurationUs
+      }
+    if (baseUs == C.TIME_UNSET) {
+      return C.TIME_UNSET
+    }
+    return baseUs + Util.msToUs(_config.endPositionOffsetMs)
+  }
+
   private fun updateClippingConfiguration(currentPlayer: Player) {
     if (!currentPlayer.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM)) {
       return
     }
     val isInitialSet = appliedClippingConfiguration == null
-    // TODO(b/544627271): Support custom end playback boundaries.
     val resolvedStartPositionUs = resolveStartPositionUs()
     // A start before the start of the video is clamped to it, as the player would do.
     val startPositionUs =
       if (resolvedStartPositionUs == C.TIME_UNSET) C.TIME_UNSET
       else maxOf(0L, resolvedStartPositionUs)
-    if (
+    val endPositionUs = resolveEndPositionUs()
+    val isStartOutOfBounds =
       startPositionUs == C.TIME_UNSET ||
         (videoDurationUs != C.TIME_UNSET && startPositionUs >= videoDurationUs)
-    ) {
-      // The unclipped item is prepared to learn the video duration. This is also needed when the
-      // start position cannot be resolved from an item that is loaded clipped, for example after
-      // binding to a player that does not report the original duration of a clipped period.
+    val isEndOutOfBounds =
+      endPositionUs == C.TIME_UNSET ||
+        (endPositionUs != C.TIME_END_OF_SOURCE && endPositionUs <= startPositionUs)
+    if (isStartOutOfBounds || isEndOutOfBounds) {
+      // The unclipped item is prepared to learn the video duration. This is also needed when a
+      // position cannot be resolved from an item that is loaded clipped, for example after binding
+      // to a player that does not report the original duration of a clipped period.
       val unclippedConfiguration = unclippedClippingConfiguration()
       if (
         isInitialSet ||
-          (startPositionUs == C.TIME_UNSET &&
+          ((startPositionUs == C.TIME_UNSET || endPositionUs == C.TIME_UNSET) &&
             appliedClippingConfiguration != unclippedConfiguration)
       ) {
         setMediaItemWithClippingConfiguration(currentPlayer, unclippedConfiguration)
@@ -547,7 +570,7 @@ internal constructor(
       mediaItem.clippingConfiguration
         .buildUpon()
         .setStartPositionUs(startPositionUs)
-        .setEndPositionUs(C.TIME_END_OF_SOURCE)
+        .setEndPositionUs(endPositionUs)
         .build()
     if (clippingConfiguration != appliedClippingConfiguration) {
       setMediaItemWithClippingConfiguration(currentPlayer, clippingConfiguration)
@@ -589,6 +612,9 @@ internal constructor(
 /**
  * Configuration for Motion Photo playback behavior.
  *
+ * Playback boundaries are applied through [MediaItem.ClippingConfiguration] and therefore require a
+ * [Player] that honors it (`ExoPlayer` does; players that ignore clipping play the whole video).
+ *
  * @property isLooping Whether the motion video should loop continuously instead of returning to the
  *   still photo when playback reaches the end. If the [Player] supports neither
  *   [Player.COMMAND_SET_REPEAT_MODE] nor [Player.COMMAND_SEEK_TO_DEFAULT_POSITION], playback
@@ -606,10 +632,16 @@ internal constructor(
  *   of the video is clamped to it. A start position at or beyond the end of the video (including
  *   [BOUNDARY_END_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the still photo stays
  *   visible and [MotionPhotoState.showPhoto] is left unchanged.
+ * @property endBoundary The [PlaybackBoundary] anchor at which motion playback ends.
+ * @property endPositionOffsetMs The offset in milliseconds added to [endBoundary] to compute the
+ *   end position. Must be non-negative when [endBoundary] is [BOUNDARY_START_OF_VIDEO] and
+ *   non-positive when [endBoundary] is [BOUNDARY_END_OF_VIDEO]. An end position beyond the end of
+ *   the video is clamped to it by the player. An end position at or before the start position
+ *   (including [BOUNDARY_START_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the
+ *   still photo stays visible and [MotionPhotoState.showPhoto] is left unchanged.
  */
-// TODO(b/544627271): Add end playback boundaries (`endBoundary`, `endPositionOffsetMs`), photo
-// frame metadata boundary (`BOUNDARY_PHOTO_FRAME`), custom key photo frame anchor timestamp
-// (`customImageAnchorTimestampMs`), and presets in follow-up CLs.
+// TODO(b/544627271): Add photo frame metadata boundary (`BOUNDARY_PHOTO_FRAME`), custom key photo
+// frame anchor timestamp (`customImageAnchorTimestampMs`), and presets in follow-up CLs.
 @Immutable
 @RestrictTo(LIBRARY_GROUP)
 class MotionPhotoConfig(
@@ -618,6 +650,8 @@ class MotionPhotoConfig(
   @IntRange(from = 0) val transitionDurationMs: Long = DEFAULT_TRANSITION_DURATION_MS,
   val startBoundary: @PlaybackBoundary Int = BOUNDARY_START_OF_VIDEO,
   val startPositionOffsetMs: Long = 0L,
+  val endBoundary: @PlaybackBoundary Int = BOUNDARY_END_OF_VIDEO,
+  val endPositionOffsetMs: Long = 0L,
 ) {
 
   init {
@@ -631,6 +665,15 @@ class MotionPhotoConfig(
     require(startBoundary != BOUNDARY_END_OF_VIDEO || startPositionOffsetMs <= 0L) {
       "startPositionOffsetMs must be non-positive when startBoundary is BOUNDARY_END_OF_VIDEO."
     }
+    require(endBoundary == BOUNDARY_START_OF_VIDEO || endBoundary == BOUNDARY_END_OF_VIDEO) {
+      "Invalid endBoundary: $endBoundary"
+    }
+    require(endBoundary != BOUNDARY_START_OF_VIDEO || endPositionOffsetMs >= 0L) {
+      "endPositionOffsetMs must be non-negative when endBoundary is BOUNDARY_START_OF_VIDEO."
+    }
+    require(endBoundary != BOUNDARY_END_OF_VIDEO || endPositionOffsetMs <= 0L) {
+      "endPositionOffsetMs must be non-positive when endBoundary is BOUNDARY_END_OF_VIDEO."
+    }
   }
 
   /** Returns a copy of this [MotionPhotoConfig] with the given properties updated. */
@@ -640,6 +683,8 @@ class MotionPhotoConfig(
     @IntRange(from = 0) transitionDurationMs: Long = this.transitionDurationMs,
     startBoundary: @PlaybackBoundary Int = this.startBoundary,
     startPositionOffsetMs: Long = this.startPositionOffsetMs,
+    endBoundary: @PlaybackBoundary Int = this.endBoundary,
+    endPositionOffsetMs: Long = this.endPositionOffsetMs,
   ): MotionPhotoConfig =
     MotionPhotoConfig(
       isLooping = isLooping,
@@ -647,6 +692,8 @@ class MotionPhotoConfig(
       transitionDurationMs = transitionDurationMs,
       startBoundary = startBoundary,
       startPositionOffsetMs = startPositionOffsetMs,
+      endBoundary = endBoundary,
+      endPositionOffsetMs = endPositionOffsetMs,
     )
 
   override fun equals(other: Any?): Boolean {
@@ -656,7 +703,9 @@ class MotionPhotoConfig(
       resumeVideoFromPreviousPosition == other.resumeVideoFromPreviousPosition &&
       transitionDurationMs == other.transitionDurationMs &&
       startBoundary == other.startBoundary &&
-      startPositionOffsetMs == other.startPositionOffsetMs
+      startPositionOffsetMs == other.startPositionOffsetMs &&
+      endBoundary == other.endBoundary &&
+      endPositionOffsetMs == other.endPositionOffsetMs
   }
 
   override fun hashCode(): Int {
@@ -665,6 +714,8 @@ class MotionPhotoConfig(
     result = 31 * result + transitionDurationMs.hashCode()
     result = 31 * result + startBoundary
     result = 31 * result + startPositionOffsetMs.hashCode()
+    result = 31 * result + endBoundary
+    result = 31 * result + endPositionOffsetMs.hashCode()
     return result
   }
 
