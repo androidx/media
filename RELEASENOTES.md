@@ -211,6 +211,10 @@
         and
         `EditedMediaItemSequence.Builder.experimentalSetForceVideoTrack(boolean)`.
         Use `EditedMediaItemSequence.Builder(Set)` instead.
+    *   Remove `EditedMediaItemSequence.forceAudioTrack`. Use
+        `trackTypes.contains(C.TRACK_TYPE_AUDIO)` instead.
+    *   Remove `EditedMediaItemSequence.forceVideoTrack`. Use
+        `trackTypes.contains(C.TRACK_TYPE_VIDEO)` instead.
     *   Remove `ExportResult.durationMs` and
         `ExportResult.Builder.setDurationMs`. Use
         `ExportResult.approximateDurationMs` and

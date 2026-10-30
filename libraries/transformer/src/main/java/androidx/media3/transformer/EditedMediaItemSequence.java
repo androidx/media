@@ -277,18 +277,6 @@ public final class EditedMediaItemSequence {
    */
   public final boolean isLooping;
 
-  // TODO: b/445884217 - Remove deprecated field.
-  /**
-   * @deprecated Use {@code trackTypes.contains(C.TRACK_TYPE_AUDIO)} instead.
-   */
-  @Deprecated public final boolean forceAudioTrack;
-
-  // TODO: b/445884217 - Remove deprecated field.
-  /**
-   * @deprecated Use {@code trackTypes.contains(C.TRACK_TYPE_VIDEO)} instead.
-   */
-  @Deprecated public final boolean forceVideoTrack;
-
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
     return new Builder(this);
@@ -361,8 +349,6 @@ public final class EditedMediaItemSequence {
     }
     this.trackTypes = trackTypes;
     this.isLooping = builder.isLooping;
-    this.forceAudioTrack = trackTypes.contains(C.TRACK_TYPE_AUDIO);
-    this.forceVideoTrack = trackTypes.contains(C.TRACK_TYPE_VIDEO);
   }
 
   /** Return whether any items are a {@linkplain Builder#addGap(long) gap}. */
