@@ -69,6 +69,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -89,7 +90,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       private final Context context;
       private @Nullable ColorInfo workingColorSpace;
       private @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
-      private @Nullable GlObjectsProvider glObjectsProvider;
+      private Supplier<GlObjectsProvider> glObjectsProviderSupplier;
       private @Nullable ExecutorService executorService;
       private FrameToGlTextureConverter.@Nullable Factory frameToGlTextureConverterFactory;
       private @Nullable GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
@@ -103,6 +104,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
        */
       public Builder(Context context) {
         this.context = context.getApplicationContext();
+        glObjectsProviderSupplier = DefaultGlObjectsProvider::new;
         glTextureFrameCompositorFactory =
             new DefaultGlTextureFrameCompositor.Factory(
                 new DefaultCompositorGlProgram.Factory(this.context));
@@ -161,26 +163,40 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       }
 
       /**
-       * Sets the {@link GlObjectsProvider} and the {@link ExecutorService} to execute OpenGL
-       * commands on.
+       * Sets a {@link Supplier} that provides a new {@link GlObjectsProvider} for each created
+       * {@link DefaultGlFrameProcessor}.
        *
-       * <p>If not set, each created {@link DefaultGlFrameProcessor} uses a new {@link
-       * DefaultGlObjectsProvider} and a new single-thread executor, and releases both when it's
-       * {@linkplain FrameProcessor#close closed}.
+       * <p>Each created {@link DefaultGlFrameProcessor} executes OpenGL commands on a new, internal
+       * single-thread executor, and releases its {@link GlObjectsProvider} on that executor's
+       * thread when it's {@linkplain FrameProcessor#close closed}. Every call to {@link
+       * Supplier#get()} must return a new {@link GlObjectsProvider} instance.
        *
-       * <p>If set, the caller owns both. After all the {@link DefaultGlFrameProcessor} instances
-       * created by the built {@link Factory} have been closed, the caller must release the {@link
-       * GlObjectsProvider} on the {@link ExecutorService}'s thread, and then {@linkplain
-       * ExecutorService#shutdown shut down} the {@link ExecutorService}.
+       * <p>The default value is {@code DefaultGlObjectsProvider::new}.
        *
-       * @param glObjectsProvider The {@link GlObjectsProvider}.
-       * @param executorService The {@link ExecutorService}.
+       * @param glObjectsProviderSupplier The {@link Supplier} of {@link GlObjectsProvider}
+       *     instances.
        * @return This builder.
        */
       @CanIgnoreReturnValue
-      public Builder setGlObjectsProviderAndExecutorService(
-          GlObjectsProvider glObjectsProvider, ExecutorService executorService) {
-        this.glObjectsProvider = glObjectsProvider;
+      public Builder setGlObjectsProviderSupplier(
+          Supplier<GlObjectsProvider> glObjectsProviderSupplier) {
+        this.glObjectsProviderSupplier = glObjectsProviderSupplier;
+        return this;
+      }
+
+      /**
+       * Sets the {@link ExecutorService} to execute OpenGL commands on.
+       *
+       * <p>If set, the caller owns the {@link ExecutorService} and must {@linkplain
+       * ExecutorService#shutdown shut it down} after all the {@link DefaultGlFrameProcessor}
+       * instances created by the built {@link Factory} have been closed.
+       *
+       * @param executorService The {@link ExecutorService}.
+       * @return This builder.
+       */
+      @VisibleForTesting
+      @CanIgnoreReturnValue
+      /* package */ Builder setExecutorService(ExecutorService executorService) {
         this.executorService = executorService;
         return this;
       }
@@ -269,7 +285,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     private final Context context;
     // The working color space set by the app, or null if it's resolved from the first input frame.
     private final @Nullable ColorInfo workingColorSpace;
-    private final @Nullable GlObjectsProvider glObjectsProvider;
+    private final Supplier<GlObjectsProvider> glObjectsProviderSupplier;
     private final @Nullable ExecutorService glExecutorService;
     private final FrameToGlTextureConverter.Factory frameToGlTextureConverterFactory;
     private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
@@ -282,7 +298,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     private Factory(Builder builder) {
       context = builder.context;
       workingColorSpace = builder.workingColorSpace;
-      glObjectsProvider = builder.glObjectsProvider;
+      glObjectsProviderSupplier = builder.glObjectsProviderSupplier;
       glExecutorService = builder.executorService;
       hardwareBufferJniWrapper = checkNotNull(builder.hardwareBufferJniWrapper);
       frameToGlTextureConverterFactory = checkNotNull(builder.frameToGlTextureConverterFactory);
@@ -299,9 +315,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           this.frameWriterGlTextureFrameConsumer != null
               ? this.frameWriterGlTextureFrameConsumer
               : new FrameWriterGlTextureFrameConsumer(context, output, hardwareBufferJniWrapper);
-      boolean shouldReleaseGlResources = this.glExecutorService == null;
-      GlObjectsProvider glObjectsProvider =
-          this.glObjectsProvider != null ? this.glObjectsProvider : new DefaultGlObjectsProvider();
+      boolean shouldShutdownGlExecutorService = this.glExecutorService == null;
+      GlObjectsProvider glObjectsProvider = glObjectsProviderSupplier.get();
       ExecutorService glExecutorService =
           this.glExecutorService != null
               ? this.glExecutorService
@@ -316,7 +331,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
           listenerExecutor,
           listener,
           workingColorSpace,
-          shouldReleaseGlResources,
+          shouldShutdownGlExecutorService,
           assumeSurfacelessContextExtensionSupported);
     }
 
@@ -463,7 +478,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final Object lock;
   // Accessed only on GL thread. This field is to avoid creating a new set on queueing every time.
   private final Set<Integer> activeSequenceIndices;
-  private final boolean shouldReleaseGlResources;
+  private final boolean shouldShutdownGlExecutorService;
   private final boolean assumeSurfacelessContextExtensionSupported;
 
   private @MonotonicNonNull GlTextureFrameAggregator frameAggregator;
@@ -500,7 +515,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       Executor listenerExecutor,
       Listener listener,
       @Nullable ColorInfo workingColorSpace,
-      boolean shouldReleaseGlResources,
+      boolean shouldShutdownGlExecutorService,
       boolean assumeSurfacelessContextExtensionSupported) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
@@ -511,7 +526,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     this.listenerExecutor = listenerExecutor;
     this.listener = listener;
     this.workingColorSpace = workingColorSpace;
-    this.shouldReleaseGlResources = shouldReleaseGlResources;
+    this.shouldShutdownGlExecutorService = shouldShutdownGlExecutorService;
     this.assumeSurfacelessContextExtensionSupported = assumeSurfacelessContextExtensionSupported;
     this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
     this.glTextureFramesQueuedDownstream = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -644,7 +659,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
             closeActions.add(postProcessingChain::close);
           }
           closeActions.add(frameWriterGlTextureFrameConsumer::close);
-          if (isGlSetup && shouldReleaseGlResources) {
+          if (isGlSetup) {
             closeActions.add(() -> releaseOpenGl(glObjectsProvider));
           }
           runAllAndAccumulateExceptions(closeActions.build().toArray(new ThrowingRunnable<?>[0]));
@@ -658,7 +673,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     } catch (ExecutionException | TimeoutException e) {
       errorConsumer.accept(VideoFrameProcessingException.from(e));
     } finally {
-      if (shouldReleaseGlResources) {
+      if (shouldShutdownGlExecutorService) {
         shutdownGlExecutorService(glExecutorService);
       }
     }

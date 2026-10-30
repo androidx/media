@@ -1496,27 +1496,70 @@ public final class DefaultGlFrameProcessorTest {
   }
 
   @Test
-  public void close_withGlObjectsProviderAndExecutorServiceSet_doesNotReleaseThem()
-      throws Exception {
+  public void
+      close_withGlObjectsProviderSupplierSet_releasesGlObjectsProviderAndTerminatesGlThread()
+          throws Exception {
     TestGlObjectsProvider glObjectsProvider = new TestGlObjectsProvider(/* failVersion3= */ false);
     DefaultGlFrameProcessor customProcessor =
-        createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(glObjectsProvider)
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
+            .setGlObjectsProviderSupplier(() -> glObjectsProvider)
             .build()
             .create(frameWriter, directExecutor(), createFailOnErrorListener());
     Frame frame = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
     fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
-
     assertThat(
             customProcessor.queue(
                 ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null))))
         .isTrue();
-
     assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
 
     customProcessor.close();
+    Thread glThread = checkNotNull(fakeFrameWriterGlTextureFrameConsumer.closeThread);
+    glThread.join(SYNC_TIMEOUT_MS);
 
-    assertThat(glObjectsProvider.releaseCalled.get()).isFalse();
-    assertThat(glExecutorService.isShutdown()).isFalse();
+    assertThat(glObjectsProvider.releaseCalled.get()).isTrue();
+    assertThat(glThread.isAlive()).isFalse();
+  }
+
+  @Test
+  public void
+      create_multipleProcessorsWithGlObjectsProviderSupplier_suppliesAndReleasesNewInstanceForEach()
+          throws Exception {
+    List<TestGlObjectsProvider> createdProviders = new ArrayList<>();
+    DefaultGlFrameProcessor.Factory factory =
+        createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
+            .setGlObjectsProviderSupplier(
+                () -> {
+                  TestGlObjectsProvider provider =
+                      new TestGlObjectsProvider(/* failVersion3= */ false);
+                  createdProviders.add(provider);
+                  return provider;
+                })
+            .build();
+    fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
+    DefaultGlFrameProcessor processor1 =
+        factory.create(frameWriter, directExecutor(), createFailOnErrorListener());
+    Frame frame1 = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+    assertThat(processor1.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null))))
+        .isTrue();
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
+    processor1.close();
+    checkNotNull(fakeFrameWriterGlTextureFrameConsumer.closeThread).join(SYNC_TIMEOUT_MS);
+
+    fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
+    DefaultGlFrameProcessor processor2 =
+        factory.create(frameWriter, directExecutor(), createFailOnErrorListener());
+    Frame frame2 = createFakeHardwareBufferFrame(/* sequenceIndex= */ 0, fakeEffect);
+    assertThat(processor2.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null))))
+        .isTrue();
+    assertThat(fakeFrameWriterGlTextureFrameConsumer.awaitFramesReceived(SYNC_TIMEOUT_MS)).isTrue();
+    processor2.close();
+    checkNotNull(fakeFrameWriterGlTextureFrameConsumer.closeThread).join(SYNC_TIMEOUT_MS);
+
+    assertThat(createdProviders).hasSize(2);
+    assertThat(createdProviders.get(0)).isNotSameInstanceAs(createdProviders.get(1));
+    assertThat(createdProviders.get(0).releaseCalled.get()).isTrue();
+    assertThat(createdProviders.get(1).releaseCalled.get()).isTrue();
   }
 
   @Test
@@ -1591,7 +1634,8 @@ public final class DefaultGlFrameProcessorTest {
       createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(
           GlObjectsProvider glObjectsProvider) {
     return createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
-        .setGlObjectsProviderAndExecutorService(glObjectsProvider, glExecutorService);
+        .setGlObjectsProviderSupplier(() -> glObjectsProvider)
+        .setExecutorService(glExecutorService);
   }
 
   private DefaultGlFrameProcessor.Factory.Builder

@@ -21,7 +21,6 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQ
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.effect.FrameProcessorUtils.RGBA_8888_BYTES_PER_PIXEL;
-import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
@@ -42,7 +41,6 @@ import android.hardware.HardwareBuffer;
 import androidx.annotation.ColorInt;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ConditionVariable;
@@ -100,7 +98,6 @@ public final class DefaultGlFrameProcessorTest {
   private final Context context = getApplicationContext();
 
   private @MonotonicNonNull List<HardwareBuffer> hardwareBuffersToClose;
-  private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
   private @MonotonicNonNull ListeningExecutorService glExecutorService;
   private @MonotonicNonNull ConditionVariable frameProcessedOrFailedCondition;
   private FakeFrameProcessor.@MonotonicNonNull Listener listener;
@@ -110,7 +107,6 @@ public final class DefaultGlFrameProcessorTest {
   @Before
   public void setUp() {
     hardwareBuffersToClose = new ArrayList<>();
-    glObjectsProvider = new DefaultGlObjectsProvider();
     glExecutorService = listeningDecorator(Executors.newSingleThreadExecutor());
     frameProcessedOrFailedCondition = new ConditionVariable();
     listener =
@@ -144,7 +140,6 @@ public final class DefaultGlFrameProcessorTest {
                       if (frameWriter != null) {
                         frameWriter.close();
                       }
-                      releaseOpenGl(glObjectsProvider);
                       return null;
                     })
                 .get(TEST_TIMEOUT_MS, MILLISECONDS),
@@ -235,7 +230,7 @@ public final class DefaultGlFrameProcessorTest {
     this.frameWriter = frameWriter;
     processor =
         new DefaultGlFrameProcessor.Factory.Builder(context)
-            .setGlObjectsProviderAndExecutorService(glObjectsProvider, glExecutorService)
+            .setExecutorService(glExecutorService)
             .build()
             .create(frameWriter, directExecutor(), listener);
   }
