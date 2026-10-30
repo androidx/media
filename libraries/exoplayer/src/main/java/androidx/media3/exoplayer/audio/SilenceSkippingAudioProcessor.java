@@ -74,11 +74,6 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor
    */
   public static final long DEFAULT_MAX_SILENCE_TO_KEEP_DURATION_US = 2_000_000;
 
-  /**
-   * @deprecated Specify silence behaviour via {@code silenceRetentionRatio} instead.
-   */
-  @Deprecated public static final long DEFAULT_PADDING_SILENCE_US = 20_000;
-
   /** Trimming states. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)

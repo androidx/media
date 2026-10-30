@@ -198,6 +198,8 @@
         `ExportResult.Builder.setDurationMs`. Use
         `ExportResult.approximateDurationMs` and
         `ExportResult.Builder.setApproximateDurationMs` instead.
+    *   Remove `SilenceSkippingAudioProcessor.DEFAULT_PADDING_SILENCE_US`.
+        Specify silence behaviour via `silenceRetentionRatio` instead.
 
 ## 1.12
 
