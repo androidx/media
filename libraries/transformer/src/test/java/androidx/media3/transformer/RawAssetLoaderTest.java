@@ -22,13 +22,9 @@ import static com.google.common.truth.Truth.assertThat;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
-import androidx.media3.common.OnInputFrameProcessedListener;
-import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
-import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -50,7 +46,7 @@ public class RawAssetLoaderTest {
   @Test
   public void rawAssetLoader_withOnlyAudioData_successfullyQueuesAudioData() {
     long audioDurationUs = 1_000;
-    FakeAudioSampleConsumer fakeAudioSampleConsumer = new FakeAudioSampleConsumer();
+    FakeSampleConsumer fakeAudioSampleConsumer = new FakeSampleConsumer();
     AssetLoader.Listener fakeAssetLoaderListener =
         new FakeAssetLoaderListener(fakeAudioSampleConsumer, /* videoSampleConsumer= */ null);
 
@@ -67,13 +63,13 @@ public class RawAssetLoaderTest {
             ByteBuffer.wrap(FAKE_AUDIO_DATA), /* presentationTimeUs= */ 100, /* isLast= */ false);
 
     assertThat(queuedAudioData).isTrue();
-    assertThat(fakeAudioSampleConsumer.inputBufferQueued).isTrue();
+    assertThat(fakeAudioSampleConsumer.queuedTimestamps).hasSize(1);
   }
 
   @Test
   public void rawAssetLoader_withOnlyVideoData_successfullyQueuesInputTexture() {
     long videoDurationUs = 1_000;
-    FakeVideoSampleConsumer fakeVideoSampleConsumer = new FakeVideoSampleConsumer();
+    FakeSampleConsumer fakeVideoSampleConsumer = new FakeSampleConsumer();
     AssetLoader.Listener fakeAssetLoaderListener =
         new FakeAssetLoaderListener(/* audioSampleConsumer= */ null, fakeVideoSampleConsumer);
 
@@ -90,7 +86,8 @@ public class RawAssetLoaderTest {
     rawAssetLoader.signalEndOfVideoInput();
 
     assertThat(queuedInputTexture).isTrue();
-    assertThat(fakeVideoSampleConsumer.inputTextureQueued).isTrue();
+    assertThat(fakeVideoSampleConsumer.queuedTimestamps).containsExactly(0L);
+    assertThat(fakeVideoSampleConsumer.isEnded).isTrue();
   }
 
   @Test
@@ -98,7 +95,7 @@ public class RawAssetLoaderTest {
     long audioDurationUs = 1_000;
     long audioSamplePresentationTimeUs = 100;
     AssetLoader.Listener fakeAssetLoaderListener =
-        new FakeAssetLoaderListener(new FakeAudioSampleConsumer(), /* videoSampleConsumer= */ null);
+        new FakeAssetLoaderListener(new FakeSampleConsumer(), /* videoSampleConsumer= */ null);
     ProgressHolder progressHolder = new ProgressHolder();
 
     RawAssetLoader rawAssetLoader =
@@ -123,7 +120,7 @@ public class RawAssetLoaderTest {
   public void getProgress_withOnlyAudioDataAndUnsetDuration_returnsUnavailableProgress() {
     long audioSamplePresentationTimeUs = 100;
     AssetLoader.Listener fakeAssetLoaderListener =
-        new FakeAssetLoaderListener(new FakeAudioSampleConsumer(), /* videoSampleConsumer= */ null);
+        new FakeAssetLoaderListener(new FakeSampleConsumer(), /* videoSampleConsumer= */ null);
     ProgressHolder progressHolder = new ProgressHolder();
 
     RawAssetLoader rawAssetLoader =
@@ -148,7 +145,7 @@ public class RawAssetLoaderTest {
     long videoDurationUs = 1_000;
     long videoSamplePresentationTimeUs = 100;
     AssetLoader.Listener fakeAssetLoaderListener =
-        new FakeAssetLoaderListener(/* audioSampleConsumer= */ null, new FakeVideoSampleConsumer());
+        new FakeAssetLoaderListener(/* audioSampleConsumer= */ null, new FakeSampleConsumer());
     ProgressHolder progressHolder = new ProgressHolder();
 
     RawAssetLoader rawAssetLoader =
@@ -174,7 +171,7 @@ public class RawAssetLoaderTest {
     long audioSamplePresentationTimeUs = 100;
     long videoSamplePresentationTimeUs = 500;
     AssetLoader.Listener fakeAssetLoaderListener =
-        new FakeAssetLoaderListener(new FakeAudioSampleConsumer(), new FakeVideoSampleConsumer());
+        new FakeAssetLoaderListener(new FakeSampleConsumer(), new FakeSampleConsumer());
     ProgressHolder progressHolder = new ProgressHolder();
 
     RawAssetLoader rawAssetLoader =
@@ -202,65 +199,5 @@ public class RawAssetLoaderTest {
     return new EditedMediaItem.Builder(new MediaItem.Builder().build())
         .setDurationUs(mediaDurationUs)
         .build();
-  }
-
-  private static class FakeAssetLoaderListener implements AssetLoader.Listener {
-    private final @Nullable SampleConsumer audioSampleConsumer;
-    private final @Nullable SampleConsumer videoSampleConsumer;
-
-    public FakeAssetLoaderListener(
-        @Nullable SampleConsumer audioSampleConsumer,
-        @Nullable SampleConsumer videoSampleConsumer) {
-      this.audioSampleConsumer = audioSampleConsumer;
-      this.videoSampleConsumer = videoSampleConsumer;
-    }
-
-    @Override
-    public void onDurationUs(long durationUs) {}
-
-    @Override
-    public void onTrackCount(int trackCount) {}
-
-    @Override
-    public boolean onTrackAdded(
-        Format inputFormat, @AssetLoader.SupportedOutputTypes int supportedOutputTypes) {
-      return true;
-    }
-
-    @Override
-    public @Nullable SampleConsumer onOutputFormat(Format format) {
-      return MimeTypes.isVideo(format.sampleMimeType) ? videoSampleConsumer : audioSampleConsumer;
-    }
-
-    @Override
-    public void onError(ExportException exportException) {}
-  }
-
-  private static class FakeAudioSampleConsumer implements SampleConsumer {
-    public boolean inputBufferQueued;
-
-    @Override
-    public DecoderInputBuffer getInputBuffer() {
-      return new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
-    }
-
-    @Override
-    public boolean queueInputBuffer() {
-      inputBufferQueued = true;
-      return true;
-    }
-  }
-
-  private static class FakeVideoSampleConsumer implements SampleConsumer {
-    public boolean inputTextureQueued;
-
-    @Override
-    public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
-      inputTextureQueued = true;
-      return INPUT_RESULT_SUCCESS;
-    }
-
-    @Override
-    public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {}
   }
 }

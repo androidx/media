@@ -26,8 +26,6 @@ import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.time.Duration;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowSystemClock;
@@ -38,68 +36,7 @@ public class TextureAssetLoaderTest {
 
   @Test
   public void textureAssetLoader_callsListenerCallbacksInRightOrder() throws Exception {
-    AtomicReference<Exception> exceptionRef = new AtomicReference<>();
-    AtomicBoolean isOutputFormatSet = new AtomicBoolean();
-    AssetLoader.Listener listener =
-        new AssetLoader.Listener() {
-
-          private volatile boolean isDurationSet;
-          private volatile boolean isTrackCountSet;
-          private volatile boolean isTrackAdded;
-
-          @Override
-          public void onDurationUs(long durationUs) {
-            // Sleep to increase the chances of the test failing.
-            sleep();
-            isDurationSet = true;
-          }
-
-          @Override
-          public void onTrackCount(int trackCount) {
-            // Sleep to increase the chances of the test failing.
-            sleep();
-            isTrackCountSet = true;
-          }
-
-          @Override
-          public boolean onTrackAdded(
-              Format inputFormat, @AssetLoader.SupportedOutputTypes int supportedOutputTypes) {
-            if (!isDurationSet) {
-              exceptionRef.set(
-                  new IllegalStateException("onTrackAdded() called before onDurationUs()"));
-            } else if (!isTrackCountSet) {
-              exceptionRef.set(
-                  new IllegalStateException("onTrackAdded() called before onTrackCount()"));
-            }
-            sleep();
-            isTrackAdded = true;
-            return false;
-          }
-
-          @Override
-          public SampleConsumer onOutputFormat(Format format) {
-            if (!isTrackAdded) {
-              exceptionRef.set(
-                  new IllegalStateException("onOutputFormat() called before onTrackAdded()"));
-            }
-            isOutputFormatSet.set(true);
-            return new FakeSampleConsumer();
-          }
-
-          @Override
-          public void onError(ExportException e) {
-            exceptionRef.set(e);
-          }
-
-          private void sleep() {
-            try {
-              Thread.sleep(10);
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              exceptionRef.set(e);
-            }
-          }
-        };
+    FakeAssetLoaderListener listener = new FakeAssetLoaderListener();
     TextureAssetLoader assetLoader = getAssetLoader(listener);
 
     runTextureAssetLoader(assetLoader);
@@ -107,10 +44,10 @@ public class TextureAssetLoaderTest {
         Looper.myLooper(),
         () -> {
           ShadowSystemClock.advanceBy(Duration.ofMillis(10));
-          return isOutputFormatSet.get() || exceptionRef.get() != null;
+          return listener.videoOutputFormat != null || listener.exceptionRef.get() != null;
         });
 
-    assertThat(exceptionRef.get()).isNull();
+    assertThat(listener.exceptionRef.get()).isNull();
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -133,19 +70,5 @@ public class TextureAssetLoaderTest {
     Format format = new Format.Builder().setWidth(10).setHeight(10).build();
     OnInputFrameProcessedListener frameProcessedListener = (unused, unused2) -> {};
     return new TextureAssetLoader(editedMediaItem, listener, format, frameProcessedListener);
-  }
-
-  private static final class FakeSampleConsumer implements SampleConsumer {
-
-    @Override
-    public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {}
-
-    @Override
-    public @InputResult int queueInputTexture(int texId, long presentationTimeUs) {
-      return INPUT_RESULT_SUCCESS;
-    }
-
-    @Override
-    public void signalEndOfVideoInput() {}
   }
 }
