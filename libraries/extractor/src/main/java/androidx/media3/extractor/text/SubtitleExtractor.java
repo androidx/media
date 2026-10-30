@@ -99,7 +99,6 @@ public class SubtitleExtractor implements Extractor {
   private @MonotonicNonNull IndexSeekMap seekMap;
   private int bytesRead;
   private @State int state;
-  private long[] timestamps;
   private long seekTimeUs;
 
   /**
@@ -129,7 +128,6 @@ public class SubtitleExtractor implements Extractor {
             : null;
     samples = new ArrayList<>();
     state = STATE_CREATED;
-    timestamps = Util.EMPTY_LONG_ARRAY;
     seekTimeUs = C.TIME_UNSET;
   }
 
@@ -178,6 +176,7 @@ public class SubtitleExtractor implements Extractor {
       if (inputFinished) {
         parseAndWriteToOutput();
         state = STATE_FINISHED;
+        scratchSampleArray.reset(Util.EMPTY_BYTE_ARRAY);
       }
     }
     if (state == STATE_SEEKING) {
@@ -185,6 +184,7 @@ public class SubtitleExtractor implements Extractor {
       if (inputFinished) {
         writeToOutput();
         state = STATE_FINISHED;
+        scratchSampleArray.reset(Util.EMPTY_BYTE_ARRAY);
       }
     }
     if (state == STATE_FINISHED) {
@@ -199,6 +199,8 @@ public class SubtitleExtractor implements Extractor {
     seekTimeUs = timeUs;
     if (state == STATE_EXTRACTING) {
       state = STATE_INITIALIZED;
+      bytesRead = 0;
+      subtitleData = Util.EMPTY_BYTE_ARRAY;
     }
     if (state == STATE_FINISHED) {
       state = STATE_SEEKING;
@@ -212,6 +214,9 @@ public class SubtitleExtractor implements Extractor {
       return;
     }
     subtitleParser.reset();
+    samples.clear();
+    subtitleData = Util.EMPTY_BYTE_ARRAY;
+    scratchSampleArray.reset(Util.EMPTY_BYTE_ARRAY);
     state = STATE_RELEASED;
   }
 
@@ -228,7 +233,10 @@ public class SubtitleExtractor implements Extractor {
   private boolean readFromInput(ExtractorInput input) throws IOException {
     if (subtitleData.length == bytesRead) {
       subtitleData =
-          Arrays.copyOf(subtitleData, /* newLength= */ subtitleData.length + DEFAULT_BUFFER_SIZE);
+          Arrays.copyOf(
+              subtitleData,
+              /* newLength= */ Math.max(
+                  subtitleData.length * 2, subtitleData.length + DEFAULT_BUFFER_SIZE));
     }
     int readResult =
         input.read(
@@ -243,7 +251,7 @@ public class SubtitleExtractor implements Extractor {
 
   /**
    * Parses the subtitle data and writes the samples to the output, and stores them in {@link
-   * #timestamps} and {@link #samples} to speed up any subsequent seeks.
+   * #samples} to speed up any subsequent seeks.
    *
    * <p>Also reassigns {@link #subtitleData} to an empty array once parsing is complete.
    */
@@ -276,10 +284,6 @@ public class SubtitleExtractor implements Extractor {
             }
           });
       Collections.sort(samples);
-      timestamps = new long[samples.size()];
-      for (int i = 0; i < samples.size(); i++) {
-        timestamps[i] = samples.get(i).timeUs;
-      }
       // Duration is exact after parsing all subtitle cues.
       if (maxEndTimeUs.get() != C.TIME_UNSET) {
         checkNotNull(trackOutput).durationUs(maxEndTimeUs.get());
@@ -288,9 +292,10 @@ public class SubtitleExtractor implements Extractor {
           checkNotNull(extractorOutput).seekMap(seekMap);
         }
       }
-      subtitleData = Util.EMPTY_BYTE_ARRAY;
     } catch (RuntimeException e) {
       throw ParserException.createForMalformedContainer("SubtitleParser failed.", e);
+    } finally {
+      subtitleData = Util.EMPTY_BYTE_ARRAY;
     }
   }
 
@@ -299,7 +304,10 @@ public class SubtitleExtractor implements Extractor {
         seekTimeUs == C.TIME_UNSET
             ? 0
             : Util.binarySearchFloor(
-                timestamps, seekTimeUs, /* inclusive= */ true, /* stayInBounds= */ true);
+                samples,
+                new Sample(seekTimeUs, Util.EMPTY_BYTE_ARRAY),
+                /* inclusive= */ true,
+                /* stayInBounds= */ true);
     for (int i = index; i < samples.size(); i++) {
       writeToOutput(samples.get(i));
     }
