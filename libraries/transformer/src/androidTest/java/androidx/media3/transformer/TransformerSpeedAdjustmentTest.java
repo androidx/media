@@ -26,7 +26,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.Presentation;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -624,20 +624,21 @@ public class TransformerSpeedAdjustmentTest {
         .inOrder();
   }
 
-  private static Effects glShaderProgramToEffects(GlShaderProgram program) {
-    return new Effects(ImmutableList.of(), ImmutableList.of((GlEffect) (c, useHdr) -> program));
-  }
-
   private static ImmutableList<Long> getTimestampsFromFile(
       String filePath, Context context, String testId) throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
 
     InputTimestampRecordingShaderProgram timestampRecorder =
         new InputTimestampRecordingShaderProgram();
+    // Only timestamps are checked, so downscale to keep concurrent decoding and encoding under the
+    // video hardware limits of low-end SoCs.
+    Effects effects =
+        new Effects(
+            /* audioProcessors= */ ImmutableList.of(),
+            /* videoEffects= */ ImmutableList.of(
+                (GlEffect) (c, useHdr) -> timestampRecorder, Presentation.createForHeight(360)));
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(filePath))
-            .setEffects(glShaderProgramToEffects(timestampRecorder))
-            .build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(filePath)).setEffects(effects).build();
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
