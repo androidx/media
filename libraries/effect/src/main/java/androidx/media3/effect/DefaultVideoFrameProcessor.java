@@ -160,14 +160,12 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       private GlTextureProducer.@MonotonicNonNull Listener textureOutputListener;
       private int textureOutputCapacity;
       private boolean enableReplayableCache;
-      private boolean requireRegisteringAllInputFrames;
       private boolean experimentalAdjustSurfaceTextureTransformationMatrix;
       private boolean experimentalRepeatInputBitmapWithoutResampling;
 
       /** Creates an instance. */
       public Builder() {
         sdrWorkingColorSpace = WORKING_COLOR_SPACE_DEFAULT;
-        requireRegisteringAllInputFrames = true;
         experimentalAdjustSurfaceTextureTransformationMatrix = true;
         experimentalRepeatInputBitmapWithoutResampling = true;
       }
@@ -179,7 +177,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         textureOutputListener = factory.textureOutputListener;
         textureOutputCapacity = factory.textureOutputCapacity;
         enableReplayableCache = factory.enableReplayableCache;
-        requireRegisteringAllInputFrames = !factory.repeatLastRegisteredFrame;
         experimentalAdjustSurfaceTextureTransformationMatrix =
             factory.experimentalAdjustSurfaceTextureTransformationMatrix;
         experimentalRepeatInputBitmapWithoutResampling =
@@ -198,40 +195,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       @CanIgnoreReturnValue
       public Builder setSdrWorkingColorSpace(@WorkingColorSpace int sdrWorkingColorSpace) {
         this.sdrWorkingColorSpace = sdrWorkingColorSpace;
-        return this;
-      }
-
-      /**
-       * Sets whether {@link VideoFrameProcessor#registerInputFrame() registering} every input frame
-       * is required.
-       *
-       * <p>The default value is {@code true}, meaning that all frames input to the {@link
-       * VideoFrameProcessor}'s input {@link #getInputSurface Surface} must be {@linkplain
-       * #registerInputFrame() registered} before they are rendered. In this mode the input format
-       * change between input streams is handled frame-exactly. If {@code false}, {@link
-       * #registerInputFrame} can be called only once for each {@linkplain #registerInputStream
-       * registered input stream} before rendering the first frame to the input {@link
-       * #getInputSurface() Surface}. The same registered {@link Format} is repeated for the
-       * subsequent frames. To ensure the format change between input streams is applied on the
-       * right frame, the caller needs to {@linkplain #registerInputStream register} the new input
-       * stream strictly after rendering all frames from the previous input stream. This mode should
-       * be used in streams where users don't have direct control over rendering frames, like in a
-       * camera feed.
-       *
-       * <p>Regardless of the value set, {@link #registerInputStream} must be called for each input
-       * stream to specify the format for upcoming frames before calling {@link
-       * #registerInputFrame()}.
-       *
-       * @param requireRegisteringAllInputFrames Whether registering every input frame is required.
-       * @deprecated For automatic frame registration ({@code
-       *     setRequireRegisteringAllInputFrames(false)}), use {@link
-       *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead. This call
-       *     can be removed otherwise.
-       */
-      @Deprecated
-      @CanIgnoreReturnValue
-      public Builder setRequireRegisteringAllInputFrames(boolean requireRegisteringAllInputFrames) {
-        this.requireRegisteringAllInputFrames = requireRegisteringAllInputFrames;
         return this;
       }
 
@@ -357,7 +320,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       public DefaultVideoFrameProcessor.Factory build() {
         return new DefaultVideoFrameProcessor.Factory(
             sdrWorkingColorSpace,
-            /* repeatLastRegisteredFrame= */ !requireRegisteringAllInputFrames,
             glObjectsProvider,
             executorService,
             textureOutputListener,
@@ -369,7 +331,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     }
 
     private final @WorkingColorSpace int sdrWorkingColorSpace;
-    private final boolean repeatLastRegisteredFrame;
     private final @Nullable GlObjectsProvider glObjectsProvider;
     private final @Nullable ExecutorService executorService;
     private final GlTextureProducer.@Nullable Listener textureOutputListener;
@@ -380,7 +341,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
     private Factory(
         @WorkingColorSpace int sdrWorkingColorSpace,
-        boolean repeatLastRegisteredFrame,
         @Nullable GlObjectsProvider glObjectsProvider,
         @Nullable ExecutorService executorService,
         GlTextureProducer.@Nullable Listener textureOutputListener,
@@ -389,7 +349,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         boolean experimentalAdjustSurfaceTextureTransformationMatrix,
         boolean experimentalRepeatInputBitmapWithoutResampling) {
       this.sdrWorkingColorSpace = sdrWorkingColorSpace;
-      this.repeatLastRegisteredFrame = repeatLastRegisteredFrame;
       this.glObjectsProvider = glObjectsProvider;
       this.executorService = executorService;
       this.textureOutputListener = textureOutputListener;
@@ -466,7 +425,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
                       enableReplayableCache,
                       textureOutputListener,
                       textureOutputCapacity,
-                      repeatLastRegisteredFrame,
                       experimentalAdjustSurfaceTextureTransformationMatrix,
                       experimentalRepeatInputBitmapWithoutResampling));
 
@@ -945,7 +903,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       boolean enableReplayableCache,
       GlTextureProducer.@Nullable Listener textureOutputListener,
       int textureOutputCapacity,
-      boolean repeatLastRegisteredFrame,
       boolean experimentalAdjustSurfaceTextureTransformationMatrix,
       boolean experimentalRepeatInputBitmapWithoutResampling)
       throws GlUtil.GlException, VideoFrameProcessingException {
@@ -979,7 +936,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
             /* errorListenerExecutor= */ videoFrameProcessorListenerExecutor,
             /* samplingShaderProgramErrorListener= */ listener::onError,
             sdrWorkingColorSpace,
-            repeatLastRegisteredFrame,
+            /* repeatLastRegisteredFrame= */ false,
             experimentalAdjustSurfaceTextureTransformationMatrix,
             experimentalRepeatInputBitmapWithoutResampling);
 

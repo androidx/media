@@ -194,6 +194,11 @@
     *   Allow reordering playlist items with drag and drop in the session demo
         app.
 *   Remove deprecated symbols:
+    *   Remove
+        `DefaultVideoFrameProcessor.Factory.Builder.setRequireRegisteringAllInputFrames(boolean)`.
+        Use
+        `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
+        instead.
     *   Remove `ExportResult.durationMs` and
         `ExportResult.Builder.setDurationMs`. Use
         `ExportResult.approximateDurationMs` and
