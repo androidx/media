@@ -2716,6 +2716,89 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
+  public void
+      handleBuffer_passthroughAudioOutputInitializationErrorUnknownBitrate_retryDownToFallbackSize()
+          throws Exception {
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
+    addHdmiDevice();
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> outputBufferSizes = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            outputBufferSizes.add(config.bufferSize);
+            throw new InitializationException();
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_DTS_HD)
+            .setChannelCount(DEFAULT_MAX_CHANNEL_COUNT)
+            .setSampleRate(48_000)
+            .build();
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
+
+    boolean bufferHandled =
+        defaultAudioSink.handleBuffer(
+            ByteBuffer.allocateDirect(1000).order(ByteOrder.nativeOrder()),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1);
+
+    assertThat(bufferHandled).isFalse();
+    // 2,250,000 is the default DTS-HD passthrough buffer and also its 1-sec buffer deduced from the
+    // DTS-HD max rate (18 Mbps / 8), so retries go down to the 1,000,000 fallback size instead.
+    assertThat(outputBufferSizes).containsExactly(2_250_000, 1_125_000, 1_000_000).inOrder();
+  }
+
+  @Test
+  public void
+      handleBuffer_pcmAudioOutputInitializationErrorWithOneSecondLargerThanFallbackSize_retriesDownToFrameAlignedFallbackSize()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> outputBufferSizes = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            outputBufferSizes.add(config.bufferSize);
+            throw new InitializationException();
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableFloatOutput(true)
+            .setEnableAudioOutputPlaybackParameters(true)
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_FLOAT)
+            .setChannelCount(6)
+            .setSampleRate(48_000)
+            .build();
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
+
+    boolean bufferHandled =
+        defaultAudioSink.handleBuffer(
+            ByteBuffer.allocateDirect(2400).order(ByteOrder.nativeOrder()),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1);
+
+    assertThat(bufferHandled).isFalse();
+    // 1-sec buffer for 6-ch 48kHz float PCM is 1,152,000 bytes (48,000 * 6 * 4), which is capped at
+    // the 1,000,000 fallback size and aligned up to the 24-byte frame size (1,000,008).
+    assertThat(outputBufferSizes)
+        .containsExactly(4_608_000, 2_304_000, 1_152_000, 1_000_008)
+        .inOrder();
+  }
+
+  @Test
   public void handleBuffer_recoverableWriteError_throwsWriteException() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AtomicBoolean writeShouldFail = new AtomicBoolean();
