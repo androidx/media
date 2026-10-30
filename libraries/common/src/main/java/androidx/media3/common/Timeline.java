@@ -1321,25 +1321,6 @@ public abstract class Timeline {
   }
 
   /**
-   * @deprecated Use {@link #getPeriodPositionUs(Window, Period, int, long, long)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  @InlineMe(
-      replacement =
-          "this.getPeriodPositionUs("
-              + "window, period, windowIndex, windowPositionUs, defaultPositionProjectionUs)")
-  public final @Nullable Pair<Object, Long> getPeriodPosition(
-      Window window,
-      Period period,
-      int windowIndex,
-      long windowPositionUs,
-      long defaultPositionProjectionUs) {
-    return getPeriodPositionUs(
-        window, period, windowIndex, windowPositionUs, defaultPositionProjectionUs);
-  }
-
-  /**
    * Calls {@link #getPeriodPositionUs(Window, Period, int, long)} with a zero default position
    * projection.
    */

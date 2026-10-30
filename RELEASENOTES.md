@@ -205,6 +205,9 @@
         `ExportResult.Builder.setApproximateDurationMs` instead.
     *   Remove `SilenceSkippingAudioProcessor.DEFAULT_PADDING_SILENCE_US`.
         Specify silence behaviour via `silenceRetentionRatio` instead.
+    *   Remove `Timeline.getPeriodPosition(Window, Period, int, long, long)`.
+        Use `Timeline.getPeriodPositionUs(Window, Period, int, long, long)`
+        instead.
 
 ## 1.12
 
