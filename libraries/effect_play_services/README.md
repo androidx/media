@@ -5,6 +5,20 @@ including video enhancement effects using
 [`EnhancementSession`](https://developers.google.com/android/reference/com/google/android/gms/media/effect/enhancement/EnhancementSession)
 and audio source separation using
 [StudioSound](https://developers.google.com/android/reference/com/google/android/gms/media/effect/studiosound/package-summary).
+The effects provided by this module are only available on devices with Google
+Play services.
+
+## License note
+
+Note that whilst the code in this repository is licensed under [Apache 2.0][],
+using this module requires depending on the Google Play services media effect
+libraries (`com.google.android.gms:play-services-media-effect-enhancement` and
+`com.google.android.gms:play-services-media-effect-studiosound`), which are
+licensed separately under the
+[Android Software Development Kit License Agreement][].
+
+[Apache 2.0]: ../../LICENSE
+[Android Software Development Kit License Agreement]: https://developer.android.com/studio/terms
 
 ## Getting the module
 

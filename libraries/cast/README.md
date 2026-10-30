@@ -5,6 +5,19 @@ app.
 
 [Player]: ../common/src/main/java/androidx/media3/common/Player.html
 
+## License note
+
+Note that whilst the code in this repository is licensed under [Apache 2.0][],
+using this module requires depending on the Google Cast SDK
+(`com.google.android.gms:play-services-cast-framework`), which is part of Google
+Play services, is licensed separately under the
+[Android Software Development Kit License Agreement][] and is subject to the
+[Google Cast SDK Additional Developer Terms of Service][].
+
+[Apache 2.0]: ../../LICENSE
+[Android Software Development Kit License Agreement]: https://developer.android.com/studio/terms
+[Google Cast SDK Additional Developer Terms of Service]: https://developers.google.com/cast/docs/terms
+
 ## Getting the module
 
 The easiest way to get the module is to add it as a gradle dependency:

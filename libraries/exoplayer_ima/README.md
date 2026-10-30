@@ -7,6 +7,19 @@ content played using ExoPlayer.
 [IMA]: https://developers.google.com/interactive-media-ads/docs/sdks/android/
 [AdsLoader]: ../exoplayer/src/main/java/androidx/media3/exoplayer/source/ads/AdsLoader.java
 
+## License note
+
+Note that whilst the code in this repository is licensed under [Apache 2.0][],
+using this module requires depending on the Interactive Media Ads SDK
+(`com.google.ads.interactivemedia.v3:interactivemedia`) and its Google Play
+services dependencies, which are licensed separately under the
+[Android Software Development Kit License Agreement][] and subject to the
+[Google Interactive Media Ads SDK Terms of Service][].
+
+[Apache 2.0]: ../../LICENSE
+[Android Software Development Kit License Agreement]: https://developer.android.com/studio/terms
+[Google Interactive Media Ads SDK Terms of Service]: https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/terms
+
 ## Getting the module
 
 The easiest way to get the module is to add it as a gradle dependency:

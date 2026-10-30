@@ -12,6 +12,18 @@ and is our recommended network stack for most use cases.
 [HttpDataSource]: ../datasource/src/main/java/androidx/media3/datasource/HttpDataSource.java
 [Cronet]: https://developer.android.com/guide/topics/connectivity/cronet
 
+## License note
+
+Note that whilst the code in this repository is licensed under [Apache 2.0][],
+this module depends by default on the Google Play services Cronet provider
+(`com.google.android.gms:play-services-cronet`), which is licensed separately
+under the [Android Software Development Kit License Agreement][]. See
+[Cronet implementations](#cronet-implementations) below for alternative Cronet
+implementations that do not depend on Google Play services.
+
+[Apache 2.0]: ../../LICENSE
+[Android Software Development Kit License Agreement]: https://developer.android.com/studio/terms
+
 ## Getting the module
 
 The easiest way to get the module is to add it as a gradle dependency:
