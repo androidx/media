@@ -22,11 +22,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.Util.msToUs
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createTestTracks
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -1174,6 +1177,291 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  fun rememberMotionPhotoState_withStartBoundaryStartOfVideoAndOffset_setsClippingStartPosition() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+
+      setContent {
+        val unused =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 200L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(200L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionUs)
+        .isEqualTo(200_000L)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withStartBoundaryEndOfVideoAndNegativeOffset_setsClippingRelativeToDuration() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+                startPositionOffsetMs = -300L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      // Before duration is known, the unclipped item is prepared for metadata resolution while
+      // keeping the photo visible and playback paused.
+      assertThat(player.currentMediaItem).isEqualTo(testMediaItem)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(0L)
+      assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      player.setDuration(player.currentTimeline.getWindow(0, Timeline.Window()).uid, 1_000L)
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(700L)
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+
+      // An offset that reaches before the start of the video is clamped to it.
+      state.config = state.config.copy(startPositionOffsetMs = -1_500L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(0L)
+      assertThat(state.showPhoto).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+
+      // A start at the end of the video leaves nothing to play: playback pauses and the photo is
+      // shown without mutating showPhoto or the clipped item on the player.
+      state.config = state.config.copy(startPositionOffsetMs = 0L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(0L)
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+
+      // Restoring a valid offset resumes playback.
+      state.config = state.config.copy(startPositionOffsetMs = -300L)
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(700L)
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun config_whenStartBoundaryUpdated_setsClippedMediaItemAndRestartsFromStartPosition() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 200L,
+              ),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(200L)
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      player.setPosition(300L)
+
+      state.config =
+        state.config.copy(
+          startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+          startPositionOffsetMs = -350L,
+        )
+      waitForIdle()
+
+      // The clipped item is set again, so playback restarts from the new start position and the
+      // photo covers the video until the first frame of the new range has rendered.
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(650L)
+      assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(player.playWhenReady).isTrue()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      // Without COMMAND_SET_MEDIA_ITEM, clipping updates are skipped.
+      player.removeCommands(Player.COMMAND_SET_MEDIA_ITEM)
+      state.config = state.config.copy(startPositionOffsetMs = -200L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(650L)
+
+      // An offset equal to the video duration leaves an empty playback range.
+      player.addCommands(Player.COMMAND_SET_MEDIA_ITEM)
+      state.config =
+        state.config.copy(
+          startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+          startPositionOffsetMs = 1_000L,
+        )
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun config_withClippedMediaItem_ignoresClippedDurationAndUsesOriginalDuration() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 600L,
+              ),
+          )
+      }
+      waitForIdle()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(600L)
+
+      // A prepared clipped item reports the clipped window length (400ms) as its duration and the
+      // duration of the whole video as the original duration of its period.
+      val uid = player.currentTimeline.getWindow(0, Timeline.Window()).uid
+      player.setDuration(uid, 400L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(600L)
+      assertThat(player.playWhenReady).isTrue()
+
+      player.setOriginalDuration(uid, 1_200L)
+      waitForIdle()
+      state.config =
+        state.config.copy(
+          startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+          startPositionOffsetMs = -300L,
+        )
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(900L)
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerAlreadyHoldsClippedMediaItem_adoptsClippingWithoutSettingItemAgain() =
+    runComposeUiTest {
+      // A player handed over across a configuration change already plays the clipped item.
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 800L,
+          mediaItem =
+            testMediaItem
+              .buildUpon()
+              .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder().setStartPositionMs(200L).build()
+              )
+              .build(),
+        )
+      player.setOriginalDuration("motion_photo", 1_000L)
+      player.pause()
+      player.setPosition(300L)
+      val clippedItemUid = player.currentTimeline.getWindow(0, Timeline.Window()).uid
+
+      setContent {
+        val unused =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                resumeVideoFromPreviousPosition = true,
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 200L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.currentTimeline.getWindow(0, Timeline.Window()).uid)
+        .isEqualTo(clippedItemUid)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(200L)
+      assertThat(player.currentPosition).isAtLeast(300L)
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenClippedMediaItemDoesNotReportOriginalDuration_preparesUnclippedItemToLearnDuration() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = C.TIME_UNSET,
+          mediaItem =
+            testMediaItem
+              .buildUpon()
+              .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder().setStartPositionMs(200L).build()
+              )
+              .build(),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 200L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      // The unclipped item is prepared to learn the duration while the photo stays visible.
+      assertThat(player.currentMediaItem).isEqualTo(testMediaItem)
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+
+      player.setDuration(player.currentTimeline.getWindow(0, Timeline.Window()).uid, 1_000L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(200L)
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
   fun motionPhotoConfig_withInvalidStartBoundaryOrOffset_throwsIllegalArgumentException() {
     assertThrows(IllegalArgumentException::class.java) { MotionPhotoConfig(startBoundary = 0) }
     assertThrows(IllegalArgumentException::class.java) {
@@ -1262,4 +1550,19 @@ class MotionPhotoStateTest {
           .hashCode()
       )
   }
+
+  private fun createSeekableFakePlayer(
+    durationMs: Long = 1_000L,
+    mediaItem: MediaItem = testMediaItem,
+  ): FakePlayer =
+    FakePlayer(
+      bufferingDelayMs = 0,
+      playlist =
+        listOf(
+          MediaItemData.Builder("motion_photo")
+            .setMediaItem(mediaItem)
+            .setDurationUs(msToUs(durationMs))
+            .build()
+        ),
+    )
 }
