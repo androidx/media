@@ -2886,8 +2886,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return True if the decoder is known to handle {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM}
    *     propagation incorrectly on the host device. False otherwise.
    */
-  // TODO: b/416719590 - Remove this suppression when the false positive is fixed.
-  @SuppressWarnings("ObsoleteSdkInt")
   private static boolean codecNeedsEosPropagationWorkaround(MediaCodecInfo codecInfo) {
     if (!MediaLibraryInfo.enableWorkarounds()) {
       return false;
