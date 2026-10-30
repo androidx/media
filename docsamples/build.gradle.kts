@@ -52,4 +52,6 @@ dependencies {
   implementation(project(":lib-transformer"))
   implementation(project(":lib-ui"))
   implementation(project(":lib-ui-compose-material3"))
+  implementation(project(":test-utils"))
+  implementation(libs.junit)
 }
