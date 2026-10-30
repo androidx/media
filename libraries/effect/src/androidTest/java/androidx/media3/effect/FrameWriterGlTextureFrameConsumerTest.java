@@ -759,6 +759,91 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     assertThat(frameWriter.outputMetadata.get(0)).doesNotContainKey(Frame.KEY_DISPLAY_TIME_NS);
   }
 
+  @Test
+  @SdkSuppress(minSdkVersion = 37)
+  public void queue_hdrOutputWithHagcMetadata_keepsHagcMetadata() throws Exception {
+    setUpHardwareBufferFrameConsumer();
+    byte[] hagcPayload = new byte[] {1, 2, 3, 4};
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                    /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
+                .buildUpon()
+                .setMetadata(ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, hagcPayload))
+                .build());
+
+    assertThat(frameWriter.outputMetadata.get(0).get(Frame.KEY_HDR_ST2094_50_INFO))
+        .isEqualTo(new byte[] {1, 2, 3, 4});
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37)
+  public void queue_hdrOutputWithoutHagcMetadata_forwardsNoMetadata() throws Exception {
+    setUpHardwareBufferFrameConsumer();
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                    /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
+                .buildUpon()
+                .setMetadata(ImmutableMap.of(Frame.KEY_PRESENTATION_TIME_US, 123456L))
+                .build());
+
+    assertThat(frameWriter.outputMetadata.get(0)).isEmpty();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37)
+  public void queue_sdrOutputWithHagcMetadata_dropsHagcMetadata() throws Exception {
+    setUpHardwareBufferFrameConsumer();
+    byte[] hagcPayload = new byte[] {1, 2, 3, 4};
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR)
+                .buildUpon()
+                .setMetadata(
+                    ImmutableMap.of(
+                        Frame.KEY_HDR_ST2094_50_INFO,
+                        hagcPayload,
+                        Frame.KEY_DISPLAY_TIME_NS,
+                        1_000_000_000L))
+                .build());
+
+    assertThat(frameWriter.outputMetadata.get(0))
+        .containsExactly(Frame.KEY_DISPLAY_TIME_NS, 1_000_000_000L);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37)
+  public void queue_hdrOutput_forwardsSelectedMetadata() throws Exception {
+    setUpHardwareBufferFrameConsumer();
+    byte[] hagcPayload = new byte[] {1, 2, 3};
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                    /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
+                .buildUpon()
+                .setMetadata(
+                    ImmutableMap.of(
+                        Frame.KEY_HDR_ST2094_50_INFO,
+                        hagcPayload,
+                        Frame.KEY_DISPLAY_TIME_NS,
+                        1_000_000_000L,
+                        Frame.KEY_PRESENTATION_TIME_US,
+                        123456L))
+                .build());
+
+    assertThat(frameWriter.outputMetadata.get(0).keySet())
+        .containsExactly(Frame.KEY_HDR_ST2094_50_INFO, Frame.KEY_DISPLAY_TIME_NS);
+    assertThat(frameWriter.outputMetadata.get(0).get(Frame.KEY_HDR_ST2094_50_INFO))
+        .isEqualTo(new byte[] {1, 2, 3});
+    assertThat(frameWriter.outputMetadata.get(0))
+        .containsEntry(Frame.KEY_DISPLAY_TIME_NS, 1_000_000_000L);
+  }
+
   @RequiresApi(29)
   private void setUpHardwareBufferFrameConsumer() {
     fakeJniWrapper = new ForwardingHardwareBufferJniWrapper();
@@ -830,7 +915,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
               try {
                 textureInfo.release();
               } catch (GlException e) {
-                // Ignore.
+                throw new AssertionError(e);
               }
             })
         .setFormat(

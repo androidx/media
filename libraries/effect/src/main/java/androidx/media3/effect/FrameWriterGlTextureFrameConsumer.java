@@ -63,8 +63,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * Writes input texture frames to a {@link FrameWriter}.
  *
- * <p>Forwards {@link Frame#KEY_DISPLAY_TIME_NS} from the input frame to the output frame, so that
- * the {@link FrameWriter} can present the frame at that time.
+ * <p>Forwards {@link Frame#KEY_DISPLAY_TIME_NS} and, on HDR output, {@link
+ * Frame#KEY_HDR_ST2094_50_INFO} (unchanged, even if the output transfer differs from the input's)
+ * from the input frame to the output frame. Other metadata is not forwarded to the {@link
+ * FrameWriter}.
  *
  * <p>Supports {@link HardwareBufferFrame} and {@link PixelFormat#RGBA_8888}-based {@link
  * ImagePlanesFrame}.
@@ -492,10 +494,18 @@ import org.jspecify.annotations.Nullable;
         .build();
   }
 
-  private static ImmutableMap<String, Object> getOutputMetadata(GlTextureFrame inputFrame) {
+  private ImmutableMap<String, Object> getOutputMetadata(GlTextureFrame inputFrame) {
+    ImmutableMap.Builder<String, Object> outputMetadata = ImmutableMap.builder();
     @Nullable Object displayTimeNs = inputFrame.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
-    return displayTimeNs != null
-        ? ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs)
-        : ImmutableMap.of();
+    if (displayTimeNs != null) {
+      outputMetadata.put(Frame.KEY_DISPLAY_TIME_NS, displayTimeNs);
+    }
+    boolean isHdrOutput = ColorInfo.isTransferHdr(checkNotNull(outputFormat).colorInfo);
+    @Nullable Object hagcMetadata =
+        isHdrOutput ? inputFrame.getMetadata().get(Frame.KEY_HDR_ST2094_50_INFO) : null;
+    if (hagcMetadata != null) {
+      outputMetadata.put(Frame.KEY_HDR_ST2094_50_INFO, hagcMetadata);
+    }
+    return outputMetadata.buildOrThrow();
   }
 }
