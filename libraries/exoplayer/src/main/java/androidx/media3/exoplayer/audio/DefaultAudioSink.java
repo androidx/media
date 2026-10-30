@@ -1652,7 +1652,6 @@ public final class DefaultAudioSink implements AudioSink {
   @RequiresApi(29)
   @Override
   public void setOffloadMode(@OffloadMode int offloadMode) {
-    checkState(SDK_INT >= 29);
     this.offloadMode = offloadMode;
   }
 

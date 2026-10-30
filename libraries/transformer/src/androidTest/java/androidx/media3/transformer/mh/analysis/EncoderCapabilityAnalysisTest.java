@@ -157,9 +157,8 @@ public class EncoderCapabilityAnalysisTest {
 
         capabilities.put(
             "supports_qp_bounds",
-            SDK_INT >= 31
-                && EncoderUtil.isFeatureSupported(
-                    encoderInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_QpBounds));
+            EncoderUtil.isFeatureSupported(
+                encoderInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_QpBounds));
 
         capabilities.put(
             "supports_hdr_editing",

@@ -112,11 +112,9 @@ public class AudioCapabilitiesTest {
             .setProfiles(expectedProfiles)
             .build();
     shadowOf(audioManager).addOutputDeviceWithDirectProfiles(device);
-    if (SDK_INT >= 33) {
-      shadowOf(audioManager)
-          .setAudioDevicesForAttributes(
-              AudioAttributes.DEFAULT.getPlatformAudioAttributes(), ImmutableList.of(device));
-    }
+    shadowOf(audioManager)
+        .setAudioDevicesForAttributes(
+            AudioAttributes.DEFAULT.getPlatformAudioAttributes(), ImmutableList.of(device));
 
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
