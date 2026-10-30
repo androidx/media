@@ -17,6 +17,7 @@
 package androidx.media3.test.utils
 
 import android.os.Looper
+import android.util.Pair
 import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
@@ -268,22 +269,80 @@ class FakePlayer(
   /**
    * Sets the duration of the media item in the playlist, in milliseconds.
    *
-   * @param uid Unique id of the media item whose duration is being set, or its [MediaItem.mediaId]
-   *   if the item was added without an explicit [MediaItemData.uid].
-   * @param durationMs The duration of the media item, in milliseconds, or {@link C#TIME_UNSET} if
+   * If the media item has a single explicit period (see [setOriginalDuration]), the period's
+   * duration is updated accordingly while its original duration is kept.
+   *
+   * @param uid Unique id of the media item whose duration is being set, its single period's
+   *   [androidx.media3.common.Timeline.getUidOfPeriod], or its [MediaItem.mediaId] if the item was
+   *   added without an explicit [MediaItemData.uid].
+   * @param durationMs The duration of the media item, in milliseconds, or [C.TIME_UNSET] if
    *   unknown.
    */
   fun setDuration(uid: Any, durationMs: Long) {
+    updateSinglePeriodMediaItemData(uid) { mediaItemData ->
+      val durationUs = msToUs(durationMs)
+      val builder = mediaItemData.buildUpon().setDurationUs(durationUs)
+      if (mediaItemData.periods.size == 1) {
+        val periodDurationUs =
+          getPeriodDurationUs(mediaItemData.positionInFirstPeriodUs, durationUs)
+        builder.setPeriods(
+          listOf(mediaItemData.periods[0].buildUpon().setDurationUs(periodDurationUs).build())
+        )
+      }
+      builder.build()
+    }
+  }
+
+  /**
+   * Sets the original duration of the single period of the media item in the playlist, in
+   * milliseconds, as reported by [androidx.media3.common.Timeline.Period.originalDurationUs].
+   *
+   * This models a media item that is played through a `ClippingMediaSource`: the duration of the
+   * media item (see [setDuration]) is the clipped duration, whereas the original duration is the
+   * duration of the whole underlying media before any clipping. The duration of the media item is
+   * not changed by this method.
+   *
+   * @param uid Unique id of the media item whose original duration is being set, its single
+   *   period's [androidx.media3.common.Timeline.getUidOfPeriod], or its [MediaItem.mediaId] if the
+   *   item was added without an explicit [MediaItemData.uid].
+   * @param originalDurationMs The original duration of the media item's single period before any
+   *   clipping, in milliseconds, or [C.TIME_UNSET] if unknown.
+   */
+  fun setOriginalDuration(uid: Any, originalDurationMs: Long) {
+    updateSinglePeriodMediaItemData(uid) { mediaItemData ->
+      val periodDurationUs =
+        getPeriodDurationUs(mediaItemData.positionInFirstPeriodUs, mediaItemData.durationUs)
+      val periodBuilder =
+        mediaItemData.periods.singleOrNull()?.buildUpon()
+          ?: PeriodData.Builder(mediaItemData.uid)
+            .setDurationUs(periodDurationUs)
+            .setIsPlaceholder(mediaItemData.isPlaceholder)
+      mediaItemData
+        .buildUpon()
+        .setPeriods(listOf(periodBuilder.setOriginalDurationUs(msToUs(originalDurationMs)).build()))
+        .build()
+    }
+  }
+
+  private fun getPeriodDurationUs(positionInFirstPeriodUs: Long, durationUs: Long): Long =
+    if (durationUs == C.TIME_UNSET) C.TIME_UNSET else positionInFirstPeriodUs + durationUs
+
+  private fun updateSinglePeriodMediaItemData(uid: Any, update: (MediaItemData) -> MediaItemData) {
     val index =
-      state.playlist.indexOfFirst { it.uid == uid }.takeIf { it != -1 }
-        ?: state.playlist.indexOfFirst { it.mediaItem.mediaId == uid }
+      state.playlist
+        .indexOfFirst {
+          it.uid == uid || (it.periods.size == 1 && Pair.create(it.uid, it.periods[0].uid) == uid)
+        }
+        .takeIf { it != -1 } ?: state.playlist.indexOfFirst { it.mediaItem.mediaId == uid }
     if (index == -1) {
       throw IllegalArgumentException("Playlist does not contain item with uid: $uid")
     }
-    val modifiedPlaylist = buildList {
-      addAll(state.playlist)
-      set(index, state.playlist[index].buildUpon().setDurationUs(msToUs(durationMs)).build())
+    val mediaItemData = state.playlist[index]
+    require(mediaItemData.periods.size <= 1) {
+      "Media item with uid $uid must have at most one period"
     }
+    val modifiedPlaylist = state.playlist.toMutableList()
+    modifiedPlaylist[index] = update(mediaItemData)
     state = state.buildUpon().setPlaylist(modifiedPlaylist).build()
     invalidateState()
   }

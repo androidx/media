@@ -19,6 +19,8 @@ package androidx.media3.test.utils
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.common.SimpleBasePlayer.PeriodData
+import androidx.media3.common.Timeline
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.TimeUnit
@@ -83,6 +85,94 @@ class FakePlayerTest {
     player.setDuration(uid, durationMs = 10_000L)
 
     assertThat(player.duration).isEqualTo(10_000L)
+  }
+
+  @Test
+  fun setOriginalDuration_afterSetDuration_isReportedByPeriodAndKeepsDuration() {
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("item_uid")
+              .setMediaItem(MediaItem.Builder().setMediaId("item_id").build())
+              .setPositionInFirstPeriodUs(200_000L)
+              .setIsPlaceholder(true)
+              .build()
+          )
+      )
+    player.setDuration("item_id", durationMs = 800L)
+
+    player.setOriginalDuration("item_id", originalDurationMs = 1_200L)
+
+    val period = player.currentTimeline.getPeriod(/* periodIndex= */ 0, Timeline.Period())
+    assertThat(period.originalDurationUs).isEqualTo(1_200_000L)
+    assertThat(period.durationUs).isEqualTo(1_000_000L)
+    assertThat(period.positionInWindowUs).isEqualTo(-200_000L)
+    assertThat(period.isPlaceholder).isTrue()
+    assertThat(player.duration).isEqualTo(800L)
+  }
+
+  @Test
+  fun setDuration_afterSetOriginalDuration_updatesPeriodDurationAndKeepsOriginalDuration() {
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(MediaItemData.Builder("item_uid").setPositionInFirstPeriodUs(200_000L).build())
+      )
+    player.setOriginalDuration("item_uid", originalDurationMs = 1_500L)
+    val periodUid = player.currentTimeline.getUidOfPeriod(/* periodIndex= */ 0)
+
+    player.setOriginalDuration(periodUid, originalDurationMs = 1_200L)
+    player.setDuration(periodUid, durationMs = 800L)
+
+    val period = player.currentTimeline.getPeriod(/* periodIndex= */ 0, Timeline.Period())
+    assertThat(period.durationUs).isEqualTo(1_000_000L)
+    assertThat(period.originalDurationUs).isEqualTo(1_200_000L)
+    assertThat(player.duration).isEqualTo(800L)
+  }
+
+  @Test
+  fun setDuration_withMultiplePeriods_throwsIllegalArgumentException() {
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("item_uid")
+              .setPeriods(
+                listOf(
+                  PeriodData.Builder("period_1").build(),
+                  PeriodData.Builder("period_2").build(),
+                )
+              )
+              .build()
+          )
+      )
+
+    assertThrows(IllegalArgumentException::class.java) {
+      player.setDuration("item_uid", durationMs = 800L)
+    }
+  }
+
+  @Test
+  fun setOriginalDuration_withMultiplePeriods_throwsIllegalArgumentException() {
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("item_uid")
+              .setPeriods(
+                listOf(
+                  PeriodData.Builder("period_1").build(),
+                  PeriodData.Builder("period_2").build(),
+                )
+              )
+              .build()
+          )
+      )
+
+    assertThrows(IllegalArgumentException::class.java) {
+      player.setOriginalDuration("item_uid", originalDurationMs = 1_000L)
+    }
   }
 
   @Test
