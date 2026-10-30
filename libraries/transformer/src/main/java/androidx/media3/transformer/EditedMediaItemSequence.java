@@ -24,7 +24,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Set;
@@ -239,42 +238,6 @@ public final class EditedMediaItemSequence {
     }
 
     /**
-     * @deprecated Use {@link #Builder(Set)} to set sequence track types instead.
-     */
-    // TODO: b/445884217 - Remove deprecated methods.
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder experimentalSetForceAudioTrack(boolean forceAudioTrack) {
-      checkState(trackTypes.contains(C.TRACK_TYPE_NONE));
-      if (forceAudioTrack) {
-        trackTypes =
-            new ImmutableSet.Builder<Integer>().addAll(trackTypes).add(C.TRACK_TYPE_AUDIO).build();
-      } else {
-        trackTypes =
-            Sets.difference(trackTypes, ImmutableSet.of(C.TRACK_TYPE_AUDIO)).immutableCopy();
-      }
-      return this;
-    }
-
-    /**
-     * @deprecated Use {@link #Builder(Set)} to set sequence track types instead.
-     */
-    // TODO: b/445884217 - Remove deprecated methods.
-    @Deprecated
-    @CanIgnoreReturnValue
-    public Builder experimentalSetForceVideoTrack(boolean forceVideoTrack) {
-      checkState(trackTypes.contains(C.TRACK_TYPE_NONE));
-      if (forceVideoTrack) {
-        trackTypes =
-            new ImmutableSet.Builder<Integer>().addAll(trackTypes).add(C.TRACK_TYPE_VIDEO).build();
-      } else {
-        trackTypes =
-            Sets.difference(trackTypes, ImmutableSet.of(C.TRACK_TYPE_VIDEO)).immutableCopy();
-      }
-      return this;
-    }
-
-    /**
      * Builds the {@link EditedMediaItemSequence}.
      *
      * <p>There must be at least one item in the sequence.
@@ -393,8 +356,8 @@ public final class EditedMediaItemSequence {
           !editedMediaItems.get(0).isGap()
               || trackTypes.contains(C.TRACK_TYPE_AUDIO)
               || trackTypes.contains(C.TRACK_TYPE_VIDEO),
-          "If the first item in the sequence is a Gap, then forceAudioTrack or forceVideoTrack flag"
-              + " must be set");
+          "If the first item in the sequence is a Gap, use Builder(Set) with the needed track"
+              + " types.");
     }
     this.trackTypes = trackTypes;
     this.isLooping = builder.isLooping;
@@ -419,11 +382,9 @@ public final class EditedMediaItemSequence {
     checkArgument(!items.isEmpty());
     // TODO: b/445884217 - Remove TRACK_TYPE_NONE logic
     if (this.trackTypes.contains(C.TRACK_TYPE_NONE)) {
-      return new EditedMediaItemSequence.Builder(items)
-          .setIsLooping(this.isLooping)
-          .experimentalSetForceAudioTrack(this.forceAudioTrack)
-          .experimentalSetForceVideoTrack(this.forceVideoTrack)
-          .build();
+      Builder builder = new EditedMediaItemSequence.Builder(items).setIsLooping(this.isLooping);
+      builder.trackTypes = this.trackTypes;
+      return builder.build();
     } else {
       return new EditedMediaItemSequence.Builder(this.trackTypes)
           .addItems(items)

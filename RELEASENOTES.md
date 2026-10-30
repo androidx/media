@@ -202,6 +202,11 @@
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
         instead.
+    *   Remove
+        `EditedMediaItemSequence.Builder.experimentalSetForceAudioTrack(boolean)`
+        and
+        `EditedMediaItemSequence.Builder.experimentalSetForceVideoTrack(boolean)`.
+        Use `EditedMediaItemSequence.Builder(Set)` instead.
     *   Remove `ExportResult.durationMs` and
         `ExportResult.Builder.setDurationMs`. Use
         `ExportResult.approximateDurationMs` and

@@ -379,14 +379,10 @@ import org.jspecify.annotations.Nullable;
           trackType == C.TRACK_TYPE_AUDIO
               ? "The preceding MediaItem does not contain any audio track. If the sequence starts"
                   + " with an item without audio track (like images), followed by items with"
-                  + " audio tracks, then"
-                  + " EditedMediaItemSequence.Builder.experimentalSetForceAudioTrack() needs to"
-                  + " be set to true."
+                  + " audio tracks, then sequence track types need to include C.TRACK_TYPE_AUDIO."
               : "The preceding MediaItem does not contain any video track. If the sequence starts"
                   + " with an item without video track (audio only), followed by items with video"
-                  + " tracks, then"
-                  + " EditedMediaItemSequence.Builder.experimentalSetForceVideoTrack() needs to"
-                  + " be set to true.";
+                  + " tracks, then sequence track types need to include C.TRACK_TYPE_VIDEO.";
       sampleConsumer = checkNotNull(sampleConsumersByTrackType.get(trackType), missingTrackMessage);
     }
     onMediaItemChanged(trackType, format);
