@@ -22,6 +22,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
@@ -337,6 +338,14 @@ import org.jspecify.annotations.Nullable;
       }
     }
 
+    // An audio or video wrapper that keeps exactly the same streams continues playing from its
+    // buffer, so the timestamp adjusters it initialized remain valid. In that case a change of the
+    // primary timestamp source, for example when video is re-enabled with a separate audio
+    // rendition, doesn't require resetting the timestamp adjusters and the other wrappers.
+    boolean keepTimestampAdjusters =
+        Flags.isEnabled(Flags.FLAG_KEEP_UNCHANGED_HLS_STREAMS_ON_TRACK_SELECTION)
+            && hasUnchangedAudioVideoWrapper(
+                streamChildIndices, selectionChildIndices, mayRetainStreamFlags);
     boolean forceReset = false;
     streamWrapperIndices.clear();
     // Select tracks for each child, copying the resulting streams back into a new streams array.
@@ -381,9 +390,10 @@ import org.jspecify.annotations.Nullable;
           // that the first wrapper will correspond to a variant, or else an audio rendition, or
           // else a text rendition, in that order.
           sampleStreamWrapper.setIsPrimaryTimestampSource(true);
-          if (wasReset
-              || enabledSampleStreamWrappers.length == 0
-              || sampleStreamWrapper != enabledSampleStreamWrappers[0]) {
+          if (!keepTimestampAdjusters
+              && (wasReset
+                  || enabledSampleStreamWrappers.length == 0
+                  || sampleStreamWrapper != enabledSampleStreamWrappers[0])) {
             // The wrapper responsible for initializing the timestamp adjusters was reset or
             // changed. We need to reset the timestamp adjuster provider and all other wrappers.
             timestampAdjusterProvider.reset();
@@ -412,6 +422,37 @@ import org.jspecify.annotations.Nullable;
                 enabledSampleStreamWrappersList,
                 sampleStreamWrapper -> sampleStreamWrapper.getTrackGroups().getTrackTypes()));
     return positionUs;
+  }
+
+  /**
+   * Returns whether a currently enabled audio or video wrapper keeps exactly the same, non-empty
+   * set of streams in a track selection.
+   */
+  private boolean hasUnchangedAudioVideoWrapper(
+      int[] streamChildIndices, int[] selectionChildIndices, boolean[] mayRetainStreamFlags) {
+    for (int i = 0; i < audioVideoSampleStreamWrapperCount; i++) {
+      if (!Util.contains(enabledSampleStreamWrappers, sampleStreamWrappers[i])) {
+        continue;
+      }
+      boolean hasStreams = false;
+      boolean unchanged = true;
+      for (int j = 0; j < selectionChildIndices.length; j++) {
+        boolean hadStream = streamChildIndices[j] == i;
+        boolean hasSelection = selectionChildIndices[j] == i;
+        if (hadStream != hasSelection || (hasSelection && !mayRetainStreamFlags[j])) {
+          unchanged = false;
+          break;
+        }
+        if (hadStream) {
+          hasStreams = true;
+        }
+      }
+      // All wrappers are enabled during preparation, but they don't have any streams yet.
+      if (unchanged && hasStreams) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
