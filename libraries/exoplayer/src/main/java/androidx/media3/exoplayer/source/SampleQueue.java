@@ -1233,7 +1233,13 @@ public class SampleQueue implements TrackOutput {
     }
     int consecutiveSamplesAfterEndCount =
         absoluteSampleIndex - readEndTimeAbsoluteIndexCandidate + 1;
-    boolean isKeyFrame = (sampleFlags & C.BUFFER_FLAG_KEY_FRAME) != 0;
+    // A key frame ends the read only when the reordering depth is unknown. An open-GOP key frame
+    // (an H.265 CRA, an H.264 non-IDR I frame) can be followed in decode order by pictures that
+    // are presented before it (RASL or leading pictures), so with a known depth the count above
+    // decides.
+    boolean isKeyFrame =
+        (sampleFlags & C.BUFFER_FLAG_KEY_FRAME) != 0
+            && (upstreamFormat == null || upstreamFormat.maxNumReorderSamples == NO_VALUE);
     boolean isLastSample = (sampleFlags & C.BUFFER_FLAG_LAST_SAMPLE) != 0;
     if ((consecutiveSamplesAfterEndCount >= getUpstreamMaxNumReorderSamples() + 1)
         || isKeyFrame

@@ -558,6 +558,95 @@ public final class SampleQueueTest {
   }
 
   @Test
+  public void readUnorderedSamplesWithOpenGopKeyframeAtEnd() {
+    Format sampleFormat =
+        new Format.Builder().setId(/* id= */ "openGop").setMaxNumReorderSamples(2).build();
+    Format[] sampleFormats = new Format[8];
+    Arrays.fill(sampleFormats, sampleFormat);
+    // An open-GOP key frame at the end time (an H.265 CRA at 3000), followed in decode order by its
+    // leading pictures (RASL at 2600 and 2300), which are presented before the end time, then by
+    // trailing pictures.
+    long[] sampleTimestamps = new long[] {0, 1000, 3000, 2600, 2300, 4000, 3600, 3300};
+    int[] sampleFlags =
+        new int[] {C.BUFFER_FLAG_KEY_FRAME, 0, C.BUFFER_FLAG_KEY_FRAME, 0, 0, 0, 0, 0};
+
+    sampleQueue.setReadEndTimeUs(3000);
+    writeTestData(DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, sampleFormats, sampleFlags);
+
+    // The key frame and its leading pictures are read: decoding the pictures before the end time
+    // needs them.
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 5,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        sampleFormats,
+        sampleFlags);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void readUnorderedSamplesWithClosedGopKeyframeAtEnd() {
+    Format sampleFormat =
+        new Format.Builder().setId(/* id= */ "closedGop").setMaxNumReorderSamples(2).build();
+    Format[] sampleFormats = new Format[8];
+    Arrays.fill(sampleFormats, sampleFormat);
+    // A key frame at the end time followed only by pictures presented after it.
+    long[] sampleTimestamps = new long[] {0, 2000, 1000, 3000, 5000, 4000, 3500, 6000};
+    int[] sampleFlags =
+        new int[] {C.BUFFER_FLAG_KEY_FRAME, 0, 0, C.BUFFER_FLAG_KEY_FRAME, 0, 0, 0, 0};
+
+    sampleQueue.setReadEndTimeUs(3000);
+    writeTestData(DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, sampleFormats, sampleFlags);
+
+    // The read ends at the key frame, as when key frames ended the read at once.
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 3,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        sampleFormats,
+        sampleFlags);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void readEndAtKeyframeWaitsForTheSamplesAfterIt() {
+    Format format =
+        new Format.Builder().setId(/* id= */ "reordered").setMaxNumReorderSamples(2).build();
+    writeFormat(format);
+    sampleQueue.setReadEndTimeUs(3000);
+    writeSample(DATA, /* timestampUs= */ 0, C.BUFFER_FLAG_KEY_FRAME);
+    writeSample(DATA, /* timestampUs= */ 1000, /* sampleFlags= */ 0);
+    writeSample(DATA, /* timestampUs= */ 3000, C.BUFFER_FLAG_KEY_FRAME);
+
+    // Pictures presented before the key frame may still follow it: nothing past it is read yet,
+    // and the end is not decided.
+    assertReadFormat(/* formatRequired= */ false, format);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        DATA.length);
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        DATA.length);
+    assertReadNothing(/* formatRequired= */ false);
+
+    writeSample(DATA, /* timestampUs= */ 4000, /* sampleFlags= */ 0);
+    writeSample(DATA, /* timestampUs= */ 3500, /* sampleFlags= */ 0);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
   public void readUnorderedSamplesWithEndBasedOnLastSample() {
     long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 5000, 6000};
     int[] sampleFlags =
