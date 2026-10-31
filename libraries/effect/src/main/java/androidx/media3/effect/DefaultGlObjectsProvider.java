@@ -97,6 +97,7 @@ public final class DefaultGlObjectsProvider implements GlObjectsProvider {
     for (int i = 0; i < createdEglContexts.size(); i++) {
       destroyEglContext(eglDisplay, createdEglContexts.get(i));
     }
+    createdEglContexts.clear();
     terminate(eglDisplay);
   }
 }
