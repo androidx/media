@@ -19,26 +19,38 @@ package androidx.media3.docsamples.ui
 
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Player.EVENT_AVAILABLE_COMMANDS_CHANGED
 import androidx.media3.common.listen
@@ -55,8 +67,12 @@ import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton as Material3PlayPauseButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.TRACK_FILTER_LANGUAGE
+import androidx.media3.ui.compose.state.TRACK_SELECTION_OFF
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPresentationState
+import androidx.media3.ui.compose.state.rememberTrackSelectionState
+import java.util.Locale
 
 // Code snippets for the Compose customization guide.
 
@@ -191,5 +207,49 @@ class ComposeCustomization {
       // bottomControls are left as default
     )
   }
+
   // [END android_compose_custom_player_slots]
+
+  // [START android_compose_track_selection_state]
+  @Composable
+  fun SubtitleMenu(player: Player, modifier: Modifier = Modifier) {
+    val state =
+      rememberTrackSelectionState(
+        player,
+        trackType = C.TRACK_TYPE_TEXT,
+        trackFilters = TRACK_FILTER_LANGUAGE,
+        hasOffOption = true,
+      )
+    // Hide the menu if the player can't change tracks or has no subtitles to choose from
+    if (!state.canSetTrackSelectionParameters || state.selectionOptions.size < 2) return
+
+    Column(modifier.selectableGroup()) {
+      for (option in state.selectionOptions) {
+        Row(
+          Modifier.fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .selectable(
+              selected = option.isSelected,
+              enabled = option.isSupported,
+              role = Role.RadioButton,
+              onClick = { state.selectOption(option) },
+            )
+            .padding(horizontal = 16.dp),
+          horizontalArrangement = Arrangement.spacedBy(16.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          RadioButton(selected = option.isSelected, onClick = null, enabled = option.isSupported)
+          Text(
+            text =
+              if (option.onOffState == TRACK_SELECTION_OFF) "Off"
+              else option.language?.let { Locale.forLanguageTag(it).displayName } ?: "Unknown",
+            color =
+              if (option.isSupported) Color.Unspecified
+              else LocalContentColor.current.copy(alpha = 0.38f),
+          )
+        }
+      }
+    }
+  }
+  // [END android_compose_track_selection_state]
 }
