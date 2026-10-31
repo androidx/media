@@ -56,6 +56,8 @@
         of `DISCONTINUITY_REASON_SKIP`, or not reported at all when
         `AdsMediaSource` uses lazy content source preparation.
 *   CompositionPlayer:
+    *   Fix silent audio after seeking to the current position while paused
+        ([#3482](https://github.com/androidx/media/issues/3482)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
