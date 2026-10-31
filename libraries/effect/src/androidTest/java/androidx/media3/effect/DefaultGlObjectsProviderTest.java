@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import androidx.media3.common.util.GlUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -29,13 +30,15 @@ public final class DefaultGlObjectsProviderTest {
   public void release_afterProviderIsReused_doesNotThrow() throws Exception {
     DefaultGlObjectsProvider glObjectsProvider = new DefaultGlObjectsProvider();
     EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
-    glObjectsProvider.createEglContext(
-        eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
+    EGLContext unusedFirstContext =
+        glObjectsProvider.createEglContext(
+            eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
     glObjectsProvider.release(eglDisplay);
 
     eglDisplay = GlUtil.getDefaultEglDisplay();
-    glObjectsProvider.createEglContext(
-        eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
+    EGLContext unusedSecondContext =
+        glObjectsProvider.createEglContext(
+            eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
     // Throws if the context destroyed by the first release is destroyed again.
     glObjectsProvider.release(eglDisplay);
   }
