@@ -66,6 +66,17 @@ public final class PgsParser implements SubtitleParser {
   }
 
   @Override
+  public void reset() {
+    buffer.reset(Util.EMPTY_BYTE_ARRAY);
+    inflatedBuffer.reset(Util.EMPTY_BYTE_ARRAY);
+    cueBuilder.reset();
+    if (inflater != null) {
+      inflater.end();
+      inflater = null;
+    }
+  }
+
+  @Override
   public void parse(
       byte[] data,
       int offset,
@@ -88,6 +99,8 @@ public final class PgsParser implements SubtitleParser {
         cues.add(cue);
       }
     }
+    buffer.reset(Util.EMPTY_BYTE_ARRAY);
+    cueBuilder.reset();
     output.accept(
         new CuesWithTiming(cues, /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET));
   }
@@ -267,7 +280,7 @@ public final class PgsParser implements SubtitleParser {
       bitmapY = 0;
       bitmapWidth = 0;
       bitmapHeight = 0;
-      bitmapData.reset(0);
+      bitmapData.reset(Util.EMPTY_BYTE_ARRAY);
       colorsSet = false;
     }
   }
