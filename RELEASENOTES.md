@@ -117,6 +117,9 @@
         flushing (for example, while seeking or scrubbing in
         `CompositionPlayer`)
         ([#3470](https://github.com/androidx/media/pull/3470)).
+    *   Fix `DefaultGlObjectsProvider.release` throwing a `GlException` when the
+        provider is reused after a release
+        ([#2016](https://github.com/androidx/media/issues/2016)).
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
