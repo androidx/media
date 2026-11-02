@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -38,6 +39,7 @@ public final class AacMuxer implements Muxer {
   private final AacWriter writer;
 
   private boolean isTrackAdded;
+  private boolean isClosed;
 
   /**
    * Creates an {@link AacMuxer} instance.
@@ -57,6 +59,7 @@ public final class AacMuxer implements Muxer {
    */
   @Override
   public int addTrack(Format format) {
+    checkState(!isClosed, "AacMuxer is closed.");
     checkArgument(Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_AAC));
     checkArgument(!isTrackAdded, "Only one track is supported.");
     writer.setFormat(format);
@@ -67,6 +70,7 @@ public final class AacMuxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "AacMuxer is closed.");
     try {
       checkArgument(isTrackAdded, "Track must be added before writing samples.");
       checkArgument(trackId == 0, "This track has not been added to the muxer.");
@@ -89,11 +93,16 @@ public final class AacMuxer implements Muxer {
    */
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "AacMuxer is closed.");
     throw new UnsupportedOperationException("Writing metadata is not supported for AacMuxer.");
   }
 
   @Override
   public void close() throws MuxerException {
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
     try {
       outputStream.close();
     } catch (IOException e) {

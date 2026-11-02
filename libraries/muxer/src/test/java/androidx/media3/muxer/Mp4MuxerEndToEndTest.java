@@ -24,6 +24,7 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_AUDIO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_1;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
+import static androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput.CLOSE_FAILURE_MESSAGE;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
@@ -55,6 +56,7 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -1648,14 +1650,65 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void close_afterClose_throws() throws Exception {
+  public void addMetadataEntry_afterClose_throws() throws Exception {
     Mp4Muxer mp4Muxer =
         new Mp4Muxer.Builder(
                 SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
             .build();
     mp4Muxer.close();
+    Mp4OrientationData orientationData = new Mp4OrientationData(/* orientation= */ 90);
 
-    assertThrows(IllegalStateException.class, mp4Muxer::close);
+    assertThrows(IllegalStateException.class, () -> mp4Muxer.addMetadataEntry(orientationData));
+  }
+
+  @Test
+  public void addTrackReference_afterClose_throws() throws Exception {
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(
+                SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
+            .build();
+    int videoTrackId = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+    int audioTrackId = mp4Muxer.addTrack(FAKE_AUDIO_FORMAT);
+    mp4Muxer.close();
+    ImmutableList<Integer> referencedTrackIds = ImmutableList.of(videoTrackId);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            mp4Muxer.addTrackReference(
+                audioTrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_CDSC, referencedTrackIds));
+  }
+
+  @Test
+  public void close_afterClose_doesNotChangeOutput() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(new FileOutputStream(outputFilePath))).build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ false);
+    int trackId = mp4Muxer.addTrack(FAKE_AUDIO_FORMAT);
+    mp4Muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    mp4Muxer.close();
+    byte[] outputAfterFirstClose = TestUtil.getByteArrayFromFilePath(outputFilePath);
+
+    mp4Muxer.close();
+
+    assertThat(TestUtil.getByteArrayFromFilePath(outputFilePath)).isEqualTo(outputAfterFirstClose);
+  }
+
+  @Test
+  public void close_whenOutputCloseFails_treatsMuxerAsClosed() throws Exception {
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(
+                new FailingCloseSeekableMuxerOutput(
+                    SeekableMuxerOutput.of(temporaryFolder.newFile().getPath())))
+            .build();
+
+    MuxerException exception = assertThrows(MuxerException.class, mp4Muxer::close);
+
+    assertThat(exception).hasCauseThat().hasMessageThat().isEqualTo(CLOSE_FAILURE_MESSAGE);
+    mp4Muxer.close();
+    assertThrows(IllegalStateException.class, () -> mp4Muxer.addTrack(FAKE_AUDIO_FORMAT));
   }
 
   private static ByteBuffer getTestSamplesForEncoding(@C.PcmEncoding int pcmEncoding) {

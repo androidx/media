@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.isPcmEncodingBigEndian;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_1;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
+import static androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput.CLOSE_FAILURE_MESSAGE;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static androidx.media3.test.utils.AssetInfo.AUDIO_ONLY_MP4_ASSET;
@@ -41,9 +42,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -611,13 +614,46 @@ public class FragmentedMp4MuxerEndToEndTest {
   }
 
   @Test
-  public void close_afterClose_throws() throws Exception {
+  public void addMetadataEntry_afterClose_throws() throws Exception {
     FragmentedMp4Muxer muxer =
         new FragmentedMp4Muxer.Builder(new FileOutputStream(temporaryFolder.newFile()).getChannel())
             .build();
     muxer.close();
+    Mp4OrientationData orientationData = new Mp4OrientationData(/* orientation= */ 90);
 
-    assertThrows(IllegalStateException.class, muxer::close);
+    assertThrows(IllegalStateException.class, () -> muxer.addMetadataEntry(orientationData));
+  }
+
+  @Test
+  public void close_afterClose_doesNotChangeOutput() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+    int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+    muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    muxer.close();
+    byte[] outputAfterFirstClose = TestUtil.getByteArrayFromFilePath(outputFilePath);
+
+    muxer.close();
+
+    assertThat(TestUtil.getByteArrayFromFilePath(outputFilePath)).isEqualTo(outputAfterFirstClose);
+  }
+
+  @Test
+  public void close_whenOutputCloseFails_treatsMuxerAsClosed() throws Exception {
+    FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(
+                new FailingCloseSeekableMuxerOutput(
+                    SeekableMuxerOutput.of(temporaryFolder.newFile().getPath())))
+            .build();
+
+    MuxerException exception = assertThrows(MuxerException.class, muxer::close);
+
+    assertThat(exception).hasCauseThat().hasMessageThat().isEqualTo(CLOSE_FAILURE_MESSAGE);
+    muxer.close();
+    assertThrows(IllegalStateException.class, () -> muxer.addTrack(FAKE_VIDEO_FORMAT));
   }
 
   @Test

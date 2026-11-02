@@ -17,6 +17,7 @@ package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerUtil.checkMp4TrackFormatSupported;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
 import androidx.media3.common.C;
@@ -191,6 +192,8 @@ public final class FragmentedMp4Muxer implements Muxer {
   private final MetadataCollector metadataCollector;
   private final SparseArray<Track> trackIdToTrack;
 
+  private boolean isClosed;
+
   private FragmentedMp4Muxer(
       WritableByteChannel outputChannel, long fragmentDurationMs, boolean sampleCopyEnabled) {
     metadataCollector = new MetadataCollector();
@@ -219,6 +222,7 @@ public final class FragmentedMp4Muxer implements Muxer {
    */
   @Override
   public int addTrack(Format format) throws MuxerException {
+    checkState(!isClosed, "FragmentedMp4Muxer is closed.");
     checkMp4TrackFormatSupported(format);
     Track track = fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);
     trackIdToTrack.append(track.id, track);
@@ -245,6 +249,7 @@ public final class FragmentedMp4Muxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "FragmentedMp4Muxer is closed.");
     try {
       fragmentedMp4Writer.writeSampleData(trackIdToTrack.get(trackId), byteBuffer, bufferInfo);
     } catch (IOException e) {
@@ -278,12 +283,17 @@ public final class FragmentedMp4Muxer implements Muxer {
    */
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "FragmentedMp4Muxer is closed.");
     checkArgument(MuxerUtil.isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 
   @Override
   public void close() throws MuxerException {
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
     try {
       fragmentedMp4Writer.close();
     } catch (IOException e) {

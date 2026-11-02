@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
+import static androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput.CLOSE_FAILURE_MESSAGE;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -23,6 +24,8 @@ import static org.junit.Assert.assertThrows;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.container.Mp4OrientationData;
+import androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -194,5 +197,67 @@ public class WavMuxerEndToEndTest {
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .getInt())
         .isEqualTo(4);
+  }
+
+  @Test
+  public void addTrack_afterClose_throws() throws Exception {
+    WavMuxer wavMuxer = new WavMuxer(SeekableMuxerOutput.of(temporaryFolder.newFile().getPath()));
+    wavMuxer.close();
+
+    assertThrows(IllegalStateException.class, () -> wavMuxer.addTrack(RAW_AUDIO_FORMAT));
+  }
+
+  @Test
+  public void writeSampleData_afterClose_throws() throws Exception {
+    WavMuxer wavMuxer = new WavMuxer(SeekableMuxerOutput.of(temporaryFolder.newFile().getPath()));
+    int trackId = wavMuxer.addTrack(RAW_AUDIO_FORMAT);
+    wavMuxer.close();
+    ByteBuffer sampleData = ByteBuffer.wrap(new byte[2]);
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 2, /* flags= */ 0);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> wavMuxer.writeSampleData(trackId, sampleData, bufferInfo));
+  }
+
+  @Test
+  public void addMetadataEntry_afterClose_throws() throws Exception {
+    WavMuxer wavMuxer = new WavMuxer(SeekableMuxerOutput.of(temporaryFolder.newFile().getPath()));
+    wavMuxer.close();
+    Mp4OrientationData orientationData = new Mp4OrientationData(/* orientation= */ 90);
+
+    assertThrows(IllegalStateException.class, () -> wavMuxer.addMetadataEntry(orientationData));
+  }
+
+  @Test
+  public void close_afterClose_doesNotChangeOutput() throws Exception {
+    String outputFilePath = temporaryFolder.newFile("muxeroutput.wav").getPath();
+    WavMuxer wavMuxer = new WavMuxer(SeekableMuxerOutput.of(outputFilePath));
+    int trackId = wavMuxer.addTrack(RAW_AUDIO_FORMAT);
+    wavMuxer.writeSampleData(
+        trackId,
+        ByteBuffer.wrap(createByteArray(1, 2, 3, 4)),
+        new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 4, /* flags= */ 0));
+    wavMuxer.close();
+    byte[] outputAfterFirstClose = TestUtil.getByteArrayFromFilePath(outputFilePath);
+
+    wavMuxer.close();
+
+    assertThat(TestUtil.getByteArrayFromFilePath(outputFilePath)).isEqualTo(outputAfterFirstClose);
+  }
+
+  @Test
+  public void close_whenOutputCloseFails_treatsMuxerAsClosed() throws Exception {
+    WavMuxer wavMuxer =
+        new WavMuxer(
+            new FailingCloseSeekableMuxerOutput(
+                SeekableMuxerOutput.of(temporaryFolder.newFile().getPath())));
+
+    MuxerException exception = assertThrows(MuxerException.class, wavMuxer::close);
+
+    assertThat(exception).hasCauseThat().hasMessageThat().isEqualTo(CLOSE_FAILURE_MESSAGE);
+    wavMuxer.close();
+    assertThrows(IllegalStateException.class, () -> wavMuxer.addTrack(RAW_AUDIO_FORMAT));
   }
 }

@@ -39,6 +39,57 @@ import java.util.Objects;
 /** Utilities for muxer test cases. */
 /* package */ class MuxerTestUtil {
 
+  /**
+   * A {@link SeekableMuxerOutput} that forwards all calls to another output, but throws an {@link
+   * IOException} from {@link #close()} after closing it.
+   */
+  public static final class FailingCloseSeekableMuxerOutput implements SeekableMuxerOutput {
+
+    public static final String CLOSE_FAILURE_MESSAGE = "Simulated close failure";
+
+    private final SeekableMuxerOutput output;
+
+    public FailingCloseSeekableMuxerOutput(SeekableMuxerOutput output) {
+      this.output = output;
+    }
+
+    @Override
+    public int write(ByteBuffer src) throws IOException {
+      return output.write(src);
+    }
+
+    @Override
+    public boolean isOpen() {
+      return output.isOpen();
+    }
+
+    @Override
+    public void close() throws IOException {
+      output.close();
+      throw new IOException(CLOSE_FAILURE_MESSAGE);
+    }
+
+    @Override
+    public long getPosition() throws IOException {
+      return output.getPosition();
+    }
+
+    @Override
+    public void setPosition(long position) throws IOException {
+      output.setPosition(position);
+    }
+
+    @Override
+    public long getSize() throws IOException {
+      return output.getSize();
+    }
+
+    @Override
+    public void truncate(long size) throws IOException {
+      output.truncate(size);
+    }
+  }
+
   public static final byte[] FAKE_CSD_0 =
       createByteArray(
           0x00, 0x00, 0x00, 0x01, 0x67, 0xF4, 0x00, 0x0A, 0x91, 0x9B, 0x2B, 0xF3, 0xCB, 0x36, 0x40,

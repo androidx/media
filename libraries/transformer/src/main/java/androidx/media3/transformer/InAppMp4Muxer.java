@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.ParcelFileDescriptor;
 import androidx.media3.common.C;
@@ -244,6 +245,7 @@ public final class InAppMp4Muxer implements Muxer {
   private final Set<Metadata.Entry> metadataEntries;
 
   private int videoTrackId;
+  private boolean isClosed;
 
   private InAppMp4Muxer(
       Mp4Muxer muxer, @Nullable MetadataProvider metadataProvider, long videoDurationUs) {
@@ -256,6 +258,7 @@ public final class InAppMp4Muxer implements Muxer {
 
   @Override
   public int addTrack(Format format) throws MuxerException {
+    checkState(!isClosed, "InAppMp4Muxer is closed.");
     int trackId = muxer.addTrack(format);
     if (MimeTypes.isVideo(format.sampleMimeType)) {
       muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
@@ -267,6 +270,7 @@ public final class InAppMp4Muxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "InAppMp4Muxer is closed.");
     if (videoDurationUs != C.TIME_UNSET
         && trackId == videoTrackId
         && bufferInfo.presentationTimeUs > videoDurationUs) {
@@ -284,23 +288,31 @@ public final class InAppMp4Muxer implements Muxer {
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "InAppMp4Muxer is closed.");
     if (MuxerUtil.isMetadataSupported(metadataEntry)) {
       metadataEntries.add(metadataEntry);
     }
   }
 
   @Override
+  @SuppressWarnings("TryWithResourcesVariable") // try (muxer) requires Java 9.
   public void close() throws MuxerException {
-    if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
-      BufferInfo bufferInfo =
-          new BufferInfo(
-              /* presentationTimeUs= */ videoDurationUs,
-              /* size= */ 0,
-              C.BUFFER_FLAG_END_OF_STREAM);
-      writeSampleData(videoTrackId, ByteBuffer.allocateDirect(0), bufferInfo);
+    if (isClosed) {
+      return;
     }
-    writeMetadata();
-    muxer.close();
+    isClosed = true;
+    // TODO: b/502167525 - Use try (muxer) once Media3 compiles with Java 11.
+    try (Mp4Muxer unused = muxer) {
+      if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
+        BufferInfo bufferInfo =
+            new BufferInfo(
+                /* presentationTimeUs= */ videoDurationUs,
+                /* size= */ 0,
+                C.BUFFER_FLAG_END_OF_STREAM);
+        muxer.writeSampleData(videoTrackId, ByteBuffer.allocateDirect(0), bufferInfo);
+      }
+      writeMetadata();
+    }
   }
 
   private void writeMetadata() {

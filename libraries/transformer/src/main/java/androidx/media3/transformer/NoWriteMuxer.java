@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -62,17 +64,26 @@ import java.nio.ByteBuffer;
     }
   }
 
+  private boolean isClosed;
+
   @Override
   public int addTrack(Format format) {
+    checkState(!isClosed, "NoWriteMuxer is closed.");
     return 0;
   }
 
   @Override
-  public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo) {}
+  public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo) {
+    checkState(!isClosed, "NoWriteMuxer is closed.");
+  }
 
   @Override
-  public void addMetadataEntry(Metadata.Entry metadataEntry) {}
+  public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "NoWriteMuxer is closed.");
+  }
 
   @Override
-  public void close() {}
+  public void close() {
+    isClosed = true;
+  }
 }

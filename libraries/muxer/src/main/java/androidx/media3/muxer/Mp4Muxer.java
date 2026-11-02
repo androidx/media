@@ -35,7 +35,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -421,8 +420,6 @@ public final class Mp4Muxer implements Muxer {
 
   // LINT.ThenChange(Boxes.java:codec_specific_boxes)
 
-  private static final String TAG = "Mp4Muxer";
-
   private final SeekableMuxerOutput muxerOutput;
   private final @Nullable Supplier<String> cacheFileSupplier;
   private final @LastSampleDurationBehavior int lastSampleDurationBehavior;
@@ -444,6 +441,7 @@ public final class Mp4Muxer implements Muxer {
   private @Nullable Mp4Writer auxiliaryTracksMp4Writer;
 
   private int nextTrackId;
+  private boolean isClosed;
 
   private Mp4Muxer(
       SeekableMuxerOutput seekableMuxerOutput,
@@ -531,6 +529,7 @@ public final class Mp4Muxer implements Muxer {
    *     the track.
    */
   public int addTrack(int sortKey, Format format) throws MuxerException {
+    checkState(!isClosed, "Mp4Muxer is closed.");
     checkMp4TrackFormatSupported(format);
     Track track;
     if (outputFileFormat == FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION
@@ -586,6 +585,7 @@ public final class Mp4Muxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "Mp4Muxer is closed.");
     checkArgument(trackId < trackIdToTrack.size(), "Track id is invalid");
     checkNotNull(byteBuffer);
     checkNotNull(bufferInfo);
@@ -628,6 +628,7 @@ public final class Mp4Muxer implements Muxer {
    */
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "Mp4Muxer is closed.");
     checkArgument(isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
@@ -646,6 +647,7 @@ public final class Mp4Muxer implements Muxer {
    */
   public void addTrackReference(
       int trackId, @TrackReferenceType int referenceType, List<Integer> referencedTrackIds) {
+    checkState(!isClosed, "Mp4Muxer is closed.");
     checkElementIndex(trackId, trackIdToTrack.size());
     checkArgument(referenceType == TRACK_REFERENCE_TYPE_CDSC);
     for (int i = 0; i < referencedTrackIds.size(); i++) {
@@ -657,6 +659,10 @@ public final class Mp4Muxer implements Muxer {
 
   @Override
   public void close() throws MuxerException {
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
     @Nullable MuxerException exception = null;
     try {
       finishWritingAuxiliaryTracks();
@@ -671,7 +677,7 @@ public final class Mp4Muxer implements Muxer {
       if (exception == null) {
         exception = new MuxerException("Failed to close output stream", e);
       } else {
-        Log.e(TAG, "Failed to close output stream", e);
+        exception.addSuppressed(e);
       }
     }
     if (cacheMuxerOutput != null) {
@@ -681,7 +687,7 @@ public final class Mp4Muxer implements Muxer {
         if (exception == null) {
           exception = new MuxerException("Failed to close the cache file output stream", e);
         } else {
-          Log.e(TAG, "Failed to close cache file output stream", e);
+          exception.addSuppressed(e);
         }
       }
     }

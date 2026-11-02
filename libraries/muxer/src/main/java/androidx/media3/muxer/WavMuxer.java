@@ -35,6 +35,7 @@ public final class WavMuxer implements Muxer {
   private final WavWriter wavWriter;
 
   private boolean trackAdded;
+  private boolean isClosed;
 
   /**
    * Creates an instance.
@@ -54,6 +55,7 @@ public final class WavMuxer implements Muxer {
    */
   @Override
   public int addTrack(Format format) {
+    checkState(!isClosed, "WavMuxer is closed.");
     checkState(!trackAdded);
     wavWriter.setFormat(format);
     trackAdded = true;
@@ -68,6 +70,7 @@ public final class WavMuxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "WavMuxer is closed.");
     try {
       checkArgument(trackId == 0);
       checkState(trackAdded);
@@ -79,11 +82,16 @@ public final class WavMuxer implements Muxer {
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "WavMuxer is closed.");
     throw new UnsupportedOperationException();
   }
 
   @Override
   public void close() throws MuxerException {
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
     try {
       wavWriter.close();
     } catch (IOException e) {

@@ -20,10 +20,16 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.verify;
 
 import android.os.ParcelFileDescriptor;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.container.Mp4OrientationData;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
+import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -33,6 +39,13 @@ import org.mockito.Mockito;
 /** Unit tests for {@link InAppMp4Muxer}. */
 @RunWith(AndroidJUnit4.class)
 public final class InAppMp4MuxerTest {
+
+  private static final Format VIDEO_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H264)
+          .setWidth(64)
+          .setHeight(64)
+          .build();
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -101,5 +114,51 @@ public final class InAppMp4MuxerTest {
     MuxerException exception = assertThrows(MuxerException.class, () -> factory.create(spyPfd));
     assertThat(exception).hasCauseThat().isInstanceOf(RuntimeException.class);
     verify(spyPfd).close();
+  }
+
+  @Test
+  public void addTrack_afterClose_throws() throws Exception {
+    InAppMp4Muxer muxer = new InAppMp4Muxer.Factory().create(temporaryFolder.newFile().getPath());
+    muxer.close();
+
+    assertThrows(IllegalStateException.class, () -> muxer.addTrack(VIDEO_FORMAT));
+  }
+
+  @Test
+  public void writeSampleData_afterCloseWithSampleAfterVideoDuration_throws() throws Exception {
+    InAppMp4Muxer muxer =
+        new InAppMp4Muxer.Factory()
+            .setVideoDurationUs(1_000)
+            .create(temporaryFolder.newFile().getPath());
+    int trackId = muxer.addTrack(VIDEO_FORMAT);
+    muxer.close();
+    ByteBuffer sampleData = ByteBuffer.allocate(0);
+    BufferInfo bufferInfo =
+        new BufferInfo(/* presentationTimeUs= */ 2_000, /* size= */ 0, /* flags= */ 0);
+
+    assertThrows(
+        IllegalStateException.class, () -> muxer.writeSampleData(trackId, sampleData, bufferInfo));
+  }
+
+  @Test
+  public void addMetadataEntry_afterClose_throws() throws Exception {
+    InAppMp4Muxer muxer = new InAppMp4Muxer.Factory().create(temporaryFolder.newFile().getPath());
+    muxer.close();
+    Mp4OrientationData orientationData = new Mp4OrientationData(/* orientation= */ 90);
+
+    assertThrows(IllegalStateException.class, () -> muxer.addMetadataEntry(orientationData));
+  }
+
+  @Test
+  public void close_afterClose_doesNotChangeOutput() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    InAppMp4Muxer muxer = new InAppMp4Muxer.Factory().create(outputFilePath);
+    int unusedTrackId = muxer.addTrack(VIDEO_FORMAT);
+    muxer.close();
+    byte[] outputAfterFirstClose = TestUtil.getByteArrayFromFilePath(outputFilePath);
+
+    muxer.close();
+
+    assertThat(TestUtil.getByteArrayFromFilePath(outputFilePath)).isEqualTo(outputAfterFirstClose);
   }
 }

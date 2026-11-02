@@ -74,6 +74,7 @@ public final class OggMuxer implements Muxer {
   private final OggWriter writer;
 
   private boolean isTrackAdded;
+  private boolean isClosed;
 
   private OggMuxer(WritableByteChannel outputChannel, String vendorString) {
     writer = new OggWriter(outputChannel, vendorString);
@@ -81,6 +82,7 @@ public final class OggMuxer implements Muxer {
 
   @Override
   public int addTrack(Format format) throws MuxerException {
+    checkState(!isClosed, "OggMuxer is closed.");
     checkArgument(isMimeTypeSupported(format));
     // Only one track is supported.
     checkState(!isTrackAdded);
@@ -97,6 +99,7 @@ public final class OggMuxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "OggMuxer is closed.");
     try {
       checkState(isTrackAdded);
       // Only one track is supported.
@@ -120,11 +123,16 @@ public final class OggMuxer implements Muxer {
    */
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "OggMuxer is closed.");
     throw new UnsupportedOperationException();
   }
 
   @Override
   public void close() throws MuxerException {
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
     try {
       writer.close();
     } catch (IOException e) {

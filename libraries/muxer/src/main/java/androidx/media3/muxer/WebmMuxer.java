@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -27,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A muxer for creating a WebM container file.
@@ -91,6 +93,7 @@ public final class WebmMuxer implements Muxer {
   private final WebmWriter writer;
   private final List<Track> trackIdToTrack;
   private int nextTrackId;
+  private boolean isClosed;
 
   private WebmMuxer(SeekableMuxerOutput seekableMuxerOutput, boolean sampleCopyEnabled) {
     this.seekableMuxerOutput = seekableMuxerOutput;
@@ -100,6 +103,7 @@ public final class WebmMuxer implements Muxer {
 
   @Override
   public int addTrack(Format format) {
+    checkState(!isClosed, "WebmMuxer is closed.");
     checkArgument(isMimeTypeSupported(format));
     Track track = writer.addTrack(nextTrackId++, format);
     trackIdToTrack.add(track);
@@ -127,6 +131,7 @@ public final class WebmMuxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isClosed, "WebmMuxer is closed.");
     Track track = trackIdToTrack.get(trackId);
     try {
       writer.writeSampleData(track, byteBuffer, bufferInfo);
@@ -142,20 +147,33 @@ public final class WebmMuxer implements Muxer {
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isClosed, "WebmMuxer is closed.");
     throw new UnsupportedOperationException();
   }
 
   @Override
   public void close() throws MuxerException {
+    if (isClosed) {
+      return;
+    }
+    isClosed = true;
+    @Nullable MuxerException exception = null;
     try {
       writer.close();
     } catch (IOException e) {
-      throw new MuxerException("Failed to close the writer.", e);
+      exception = new MuxerException("Failed to close the writer.", e);
     }
     try {
       seekableMuxerOutput.close();
     } catch (IOException e) {
-      throw new MuxerException("Failed to close the output.", e);
+      if (exception == null) {
+        exception = new MuxerException("Failed to close the output.", e);
+      } else {
+        exception.addSuppressed(e);
+      }
+    }
+    if (exception != null) {
+      throw exception;
     }
   }
 }

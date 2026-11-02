@@ -15,16 +15,20 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput.CLOSE_FAILURE_MESSAGE;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
@@ -128,13 +132,49 @@ public class WebmMuxerEndToEndTest {
   }
 
   @Test
-  public void close_afterClose_throws() throws Exception {
+  public void addMetadataEntry_afterClose_throws() throws Exception {
     WebmMuxer muxer =
         new WebmMuxer.Builder(
                 SeekableMuxerOutput.of(new FileOutputStream(temporaryFolder.newFile())))
             .build();
     muxer.close();
+    Mp4OrientationData orientationData = new Mp4OrientationData(/* orientation= */ 90);
 
-    assertThrows(IllegalStateException.class, muxer::close);
+    assertThrows(IllegalStateException.class, () -> muxer.addMetadataEntry(orientationData));
+  }
+
+  @Test
+  public void close_afterClose_doesNotChangeOutput() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    WebmMuxer muxer =
+        new WebmMuxer.Builder(SeekableMuxerOutput.of(new FileOutputStream(outputFilePath))).build();
+    int trackId =
+        muxer.addTrack(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build());
+    muxer.writeSampleData(
+        trackId,
+        ByteBuffer.wrap(new byte[10]),
+        new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 10, C.BUFFER_FLAG_KEY_FRAME));
+    muxer.close();
+    byte[] outputAfterFirstClose = TestUtil.getByteArrayFromFilePath(outputFilePath);
+
+    muxer.close();
+
+    assertThat(TestUtil.getByteArrayFromFilePath(outputFilePath)).isEqualTo(outputAfterFirstClose);
+  }
+
+  @Test
+  public void close_whenOutputCloseFails_treatsMuxerAsClosed() throws Exception {
+    WebmMuxer muxer =
+        new WebmMuxer.Builder(
+                new FailingCloseSeekableMuxerOutput(
+                    SeekableMuxerOutput.of(temporaryFolder.newFile().getPath())))
+            .build();
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build();
+
+    MuxerException exception = assertThrows(MuxerException.class, muxer::close);
+
+    assertThat(exception).hasCauseThat().hasMessageThat().isEqualTo(CLOSE_FAILURE_MESSAGE);
+    muxer.close();
+    assertThrows(IllegalStateException.class, () -> muxer.addTrack(format));
   }
 }

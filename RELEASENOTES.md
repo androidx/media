@@ -123,6 +123,10 @@
     *   Validate the track `Format` when adding a track to `Mp4Muxer` or
         `FragmentedMp4Muxer`, instead of failing later when writing samples or
         closing the muxer.
+    *   Make repeated calls to `Muxer.close()` a no-op in all library `Muxer`
+        implementations, and treat the muxer as closed even if `close()` throws.
+        Calling any other method after `close()` now throws an
+        `IllegalStateException`.
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
         ads to resize and reposition the video player view within the ad

@@ -92,6 +92,7 @@ public interface Muxer extends AutoCloseable {
    * @param format The {@link Format} of the track.
    * @return A track id for this track, which should be passed to {@link #writeSampleData}.
    * @throws MuxerException If the muxer encounters a problem while adding the track.
+   * @throws IllegalStateException If the muxer is closed.
    */
   int addTrack(Format format) throws MuxerException;
 
@@ -102,17 +103,25 @@ public interface Muxer extends AutoCloseable {
    * @param byteBuffer A buffer containing the sample data to write to the container.
    * @param bufferInfo The {@link BufferInfo} of the sample.
    * @throws MuxerException If the muxer fails to write the sample.
+   * @throws IllegalStateException If the muxer is closed.
    */
   void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException;
 
-  /** Adds {@linkplain Metadata.Entry metadata} about the output file. */
+  /**
+   * Adds {@linkplain Metadata.Entry metadata} about the output file.
+   *
+   * @param metadataEntry The {@link Metadata.Entry} to add.
+   * @throws IllegalStateException If the muxer is closed.
+   */
   void addMetadataEntry(Metadata.Entry metadataEntry);
 
   /**
    * Closes the file.
    *
-   * <p>The muxer cannot be used anymore once this method returns.
+   * <p>The muxer cannot be used anymore once this method is called, even if it throws.
+   * Implementations must make further calls to this method a no-op and, once it has been called,
+   * must throw an {@link IllegalStateException} from all other methods.
    *
    * @throws MuxerException If the muxer fails to finish writing the output.
    */

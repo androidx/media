@@ -137,6 +137,7 @@ public final class FrameworkMuxer implements Muxer {
 
   @Override
   public int addTrack(Format format) throws MuxerException {
+    checkState(!isReleased, "FrameworkMuxer is closed.");
     String sampleMimeType = checkNotNull(format.sampleMimeType);
     MediaFormat mediaFormat;
     boolean isVideo = MimeTypes.isVideo(sampleMimeType);
@@ -183,6 +184,7 @@ public final class FrameworkMuxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
+    checkState(!isReleased, "FrameworkMuxer is closed.");
     long presentationTimeUs = bufferInfo.presentationTimeUs;
     if (videoDurationUs != C.TIME_UNSET
         && trackId == videoTrackId
@@ -246,6 +248,7 @@ public final class FrameworkMuxer implements Muxer {
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
+    checkState(!isReleased, "FrameworkMuxer is closed.");
     if (metadataEntry instanceof Mp4LocationData) {
       mediaMuxer.setLocation(
           ((Mp4LocationData) metadataEntry).latitude, ((Mp4LocationData) metadataEntry).longitude);
@@ -254,6 +257,8 @@ public final class FrameworkMuxer implements Muxer {
 
   @Override
   public void close() throws MuxerException {
+    // TODO: b/578500878 - Release the muxer and treat it as closed if starting it or writing the
+    // end of stream sample fails.
     if (isReleased) {
       return;
     }
