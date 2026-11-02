@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
@@ -49,7 +50,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /** A helper for pre-caching a single media. */
@@ -385,7 +385,7 @@ public final class PreCacheHelper {
 
   private static final class ReleasableExecutorSupplier implements Supplier<ReleasableExecutor> {
     private final Handler preCacheHandler;
-    private @MonotonicNonNull DownloadCallback downloadCallback;
+    private @Nullable DownloadCallback downloadCallback;
 
     @GuardedBy("this")
     private int executorCount;
@@ -414,8 +414,9 @@ public final class PreCacheHelper {
           preCacheHandler.post(
               () -> {
                 checkState(wereExecutorsReleased());
-                if (downloadCallback != null) {
-                  downloadCallback.maybeSubmitPendingDownloadRequest();
+                DownloadCallback callback = this.downloadCallback;
+                if (callback != null) {
+                  callback.maybeSubmitPendingDownloadRequest();
                 }
               });
         }
@@ -427,6 +428,10 @@ public final class PreCacheHelper {
         return executorCount == 0;
       }
     }
+
+    public void release() {
+      downloadCallback = null;
+    }
   }
 
   private final class DownloadCallback implements DownloadHelper.Callback {
@@ -434,12 +439,11 @@ public final class PreCacheHelper {
     private final Object lock;
     private final long startPositionMs;
     private final long durationMs;
-    private final @Nullable ReleasableExecutorSupplier releasableExecutorSupplier;
-    private final DownloadHelper downloadHelper;
+    private @Nullable ReleasableExecutorSupplier releasableExecutorSupplier;
+    private @Nullable DownloadHelper downloadHelper;
 
     private boolean isPreparationOngoing;
-    private @Nullable DownloadRequest pendingDownloadRequest;
-    private @Nullable Downloader downloader;
+    private @Nullable DownloadRequest downloadRequest;
     private @Nullable Task downloaderTask;
 
     @GuardedBy("lock")
@@ -455,26 +459,30 @@ public final class PreCacheHelper {
         this.downloadHelper =
             downloadHelperFactory.create(testMediaSourceFactory.createMediaSource(mediaItem));
       } else {
-        this.releasableExecutorSupplier = new ReleasableExecutorSupplier(preCacheHandler);
-        downloadHelperFactory.setLoadExecutor(releasableExecutorSupplier);
+        ReleasableExecutorSupplier supplier = new ReleasableExecutorSupplier(preCacheHandler);
+        this.releasableExecutorSupplier = supplier;
+        downloadHelperFactory.setLoadExecutor(supplier);
         this.downloadHelper = downloadHelperFactory.create(mediaItem);
-        this.releasableExecutorSupplier.setDownloadCallback(this);
+        supplier.setDownloadCallback(this);
       }
       this.isPreparationOngoing = true;
-      this.downloadHelper.prepare(this);
+      checkNotNull(this.downloadHelper).prepare(this);
     }
 
     @Override
     public void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable) {
       checkState(Looper.myLooper() == preCacheHandler.getLooper());
-      checkState(helper == this.downloadHelper);
+      if (helper != this.downloadHelper) {
+        return;
+      }
       isPreparationOngoing = false;
       DownloadRequest downloadRequest =
           helper.getDownloadRequest(/* data= */ null, startPositionMs, durationMs);
-      downloadHelper.release();
+      helper.release();
+      downloadHelper = null;
       MediaItem updatedMediaItem = downloadRequest.toMediaItem(mediaItem.buildUpon());
       notifyListeners(listener -> listener.onPrepared(mediaItem, updatedMediaItem));
-      pendingDownloadRequest = downloadRequest;
+      this.downloadRequest = downloadRequest;
       if (releasableExecutorSupplier == null
           || releasableExecutorSupplier.wereExecutorsReleased()) {
         maybeSubmitPendingDownloadRequest();
@@ -484,9 +492,16 @@ public final class PreCacheHelper {
     @Override
     public void onPrepareError(DownloadHelper helper, IOException e) {
       checkState(Looper.myLooper() == preCacheHandler.getLooper());
-      checkState(helper == this.downloadHelper);
+      if (helper != this.downloadHelper) {
+        return;
+      }
       isPreparationOngoing = false;
-      downloadHelper.release();
+      helper.release();
+      downloadHelper = null;
+      if (releasableExecutorSupplier != null) {
+        releasableExecutorSupplier.release();
+        releasableExecutorSupplier = null;
+      }
       notifyListeners(listener -> listener.onPrepareError(mediaItem, e));
     }
 
@@ -497,8 +512,17 @@ public final class PreCacheHelper {
           return;
         }
       }
-      if (pendingDownloadRequest != null) {
-        downloader = downloaderFactory.createDownloader(pendingDownloadRequest);
+      if (releasableExecutorSupplier != null
+          && releasableExecutorSupplier.wereExecutorsReleased()) {
+        releasableExecutorSupplier.release();
+        releasableExecutorSupplier = null;
+      }
+      boolean canceled;
+      synchronized (lock) {
+        canceled = isCanceled;
+      }
+      if (downloadRequest != null && downloaderTask == null && !canceled) {
+        Downloader downloader = downloaderFactory.createDownloader(downloadRequest);
         downloaderTask =
             new Task(
                 downloader,
@@ -506,7 +530,6 @@ public final class PreCacheHelper {
                 DEFAULT_MIN_RETRY_COUNT,
                 /* downloadCallback= */ this);
         downloaderTask.start();
-        pendingDownloadRequest = null;
       }
     }
 
@@ -547,21 +570,30 @@ public final class PreCacheHelper {
       synchronized (lock) {
         isCanceled = true;
       }
-      pendingDownloadRequest = null;
-      downloadHelper.release();
+      DownloadHelper currentHelper = downloadHelper;
+      if (currentHelper != null) {
+        currentHelper.release();
+        downloadHelper = null;
+      }
       if (downloaderTask != null && downloaderTask.isRemove) {
         return;
       } else if (downloaderTask != null) {
         downloaderTask.cancel();
+        downloaderTask = null;
       }
-      if (removeCachedContent && downloader != null) {
+      if (removeCachedContent && downloadRequest != null) {
         downloaderTask =
             new Task(
-                downloader,
+                downloaderFactory.createDownloader(downloadRequest),
                 /* isRemove= */ true,
                 DEFAULT_MIN_RETRY_COUNT,
                 /* downloadCallback= */ this);
         downloaderTask.start();
+        downloadRequest = null;
+      }
+      if (releasableExecutorSupplier != null) {
+        releasableExecutorSupplier.release();
+        releasableExecutorSupplier = null;
       }
     }
 
@@ -660,8 +692,9 @@ public final class PreCacheHelper {
         finalException = e;
       }
 
-      if (downloadCallback != null) {
-        downloadCallback.onDownloadStopped(this);
+      DownloadCallback callback = this.downloadCallback;
+      if (callback != null) {
+        callback.onDownloadStopped(this);
       }
     }
 
@@ -670,8 +703,9 @@ public final class PreCacheHelper {
       this.contentLength = contentLength;
       this.bytesDownloaded = bytesDownloaded;
       this.percentDownloaded = percentDownloaded;
-      if (downloadCallback != null) {
-        downloadCallback.onDownloadProgress(this);
+      DownloadCallback callback = this.downloadCallback;
+      if (callback != null) {
+        callback.onDownloadProgress(this);
       }
     }
 

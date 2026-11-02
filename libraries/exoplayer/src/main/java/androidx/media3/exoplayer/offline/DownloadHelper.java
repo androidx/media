@@ -579,17 +579,32 @@ public final class DownloadHelper {
     if (mode != MODE_NOT_PREPARE) {
       mediaPreparer = new MediaPreparer(checkNotNull(mediaSource), /* downloadHelper= */ this);
     } else {
-      callbackHandler.post(() -> callback.onPrepared(this, /* tracksInfoAvailable= */ false));
+      callbackHandler.post(
+          () -> {
+            Callback currentCallback = this.callback;
+            if (currentCallback != null) {
+              currentCallback.onPrepared(this, /* tracksInfoAvailable= */ false);
+            }
+          });
     }
   }
 
   /** Releases the helper and all resources it is holding. */
+  @SuppressWarnings("nullness:assignment")
   public void release() {
     if (mediaPreparer != null) {
       mediaPreparer.release();
+      mediaPreparer = null;
+      isPreparedWithMedia = false;
     }
     trackSelector.release();
     rendererCapabilities.release();
+    callback = null;
+    trackGroupArrays = null;
+    mappedTrackInfos = null;
+    trackSelectionsByPeriodAndRenderer = null;
+    immutableTrackSelectionsByPeriodAndRenderer = null;
+    areTracksSelected = false;
   }
 
   /**
@@ -1080,11 +1095,24 @@ public final class DownloadHelper {
       setPreparedWithProgressiveSource();
     }
     checkNotNull(callbackHandler)
-        .post(() -> checkNotNull(callback).onPrepared(this, tracksInfoAvailable));
+        .post(
+            () -> {
+              Callback currentCallback = callback;
+              if (currentCallback != null) {
+                currentCallback.onPrepared(this, tracksInfoAvailable);
+              }
+            });
   }
 
   private void onMediaPreparationFailed(IOException error) {
-    checkNotNull(callbackHandler).post(() -> checkNotNull(callback).onPrepareError(this, error));
+    checkNotNull(callbackHandler)
+        .post(
+            () -> {
+              Callback currentCallback = callback;
+              if (currentCallback != null) {
+                currentCallback.onPrepareError(this, error);
+              }
+            });
   }
 
   @RequiresNonNull({
@@ -1305,6 +1333,7 @@ public final class DownloadHelper {
 
     // Handler.Callback
 
+    @SuppressWarnings("nullness:assignment")
     @Override
     public boolean handleMessage(Message msg) {
       switch (msg.what) {
@@ -1350,6 +1379,10 @@ public final class DownloadHelper {
           mediaSource.releaseSource(this);
           mediaSourceHandler.removeCallbacksAndMessages(null);
           mediaSourceThread.quit();
+          mediaPeriods = null;
+          pendingMediaPeriods.clear();
+          timeline = null;
+          seekMap = null;
           return true;
         default:
           return false;
