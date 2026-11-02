@@ -192,7 +192,7 @@ public class TransformerEndToEndTest {
   @Rule
   public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
-  private volatile @MonotonicNonNull TextureAssetLoader textureAssetLoader;
+  private volatile @MonotonicNonNull RawAssetLoader textureAssetLoader;
 
   @Before
   public void setUp() {
@@ -536,8 +536,9 @@ public class TransformerEndToEndTest {
           public void handleMessage(Message msg) {
             if (textureAssetLoader != null
                 && textureAssetLoader.queueInputTexture(texId1, /* presentationTimeUs= */ 0)) {
-              textureAssetLoader.queueInputTexture(
-                  texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
+              checkState(
+                  textureAssetLoader.queueInputTexture(
+                      texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2));
               textureAssetLoader.signalEndOfVideoInput();
               return;
             }
@@ -592,8 +593,9 @@ public class TransformerEndToEndTest {
           public void handleMessage(Message msg) {
             if (textureAssetLoader != null
                 && textureAssetLoader.queueInputTexture(texId1, /* presentationTimeUs= */ 0)) {
-              textureAssetLoader.queueInputTexture(
-                  texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2);
+              checkState(
+                  textureAssetLoader.queueInputTexture(
+                      texId2, /* presentationTimeUs= */ C.MICROS_PER_SECOND / 2));
               textureAssetLoader.signalEndOfVideoInput();
               return;
             }
@@ -3839,7 +3841,7 @@ public class TransformerEndToEndTest {
     }
 
     @Override
-    public TextureAssetLoader createAssetLoader(
+    public RawAssetLoader createAssetLoader(
         EditedMediaItem editedMediaItem,
         Looper looper,
         AssetLoader.Listener listener,
@@ -3855,7 +3857,8 @@ public class TransformerEndToEndTest {
             }
           };
       textureAssetLoader =
-          new TextureAssetLoader(editedMediaItem, listener, format, frameProcessedListener);
+          new RawAssetLoader(
+              editedMediaItem, listener, /* audioFormat= */ null, format, frameProcessedListener);
       return textureAssetLoader;
     }
   }

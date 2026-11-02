@@ -207,6 +207,8 @@
     *   Allow reordering playlist items with drag and drop in the session demo
         app.
 *   Remove deprecated symbols:
+    *   Remove `androidx.media3.transformer.TextureAssetLoader`. Use
+        `androidx.media3.transformer.RawAssetLoader` instead.
     *   Remove
         `DefaultVideoFrameProcessor.Factory.Builder.setRequireRegisteringAllInputFrames(boolean)`.
         Use
