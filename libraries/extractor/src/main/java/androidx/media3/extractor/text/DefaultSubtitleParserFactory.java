@@ -23,6 +23,7 @@ import androidx.media3.extractor.text.dvb.DvbParser;
 import androidx.media3.extractor.text.pgs.PgsParser;
 import androidx.media3.extractor.text.ssa.SsaParser;
 import androidx.media3.extractor.text.subrip.SubripParser;
+import androidx.media3.extractor.text.teletext.TeletextParser;
 import androidx.media3.extractor.text.ttml.TtmlParser;
 import androidx.media3.extractor.text.tx3g.Tx3gParser;
 import androidx.media3.extractor.text.vobsub.VobsubParser;
@@ -44,6 +45,7 @@ import org.jspecify.annotations.Nullable;
  *   <li>TX3G ({@link Tx3gParser})
  *   <li>PGS ({@link PgsParser})
  *   <li>DVB ({@link DvbParser})
+ *   <li>DVB Teletext ({@link TeletextParser})
  *   <li>TTML ({@link TtmlParser})
  * </ul>
  */
@@ -77,6 +79,7 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
         || Objects.equals(mimeType, MimeTypes.APPLICATION_PGS)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_VOBSUB)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_DVBSUBS)
+        || Objects.equals(mimeType, MimeTypes.APPLICATION_TELETEXT)
         || Objects.equals(mimeType, MimeTypes.APPLICATION_TTML);
   }
 
@@ -101,6 +104,8 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
           return VobsubParser.CUE_REPLACEMENT_BEHAVIOR;
         case MimeTypes.APPLICATION_DVBSUBS:
           return DvbParser.CUE_REPLACEMENT_BEHAVIOR;
+        case MimeTypes.APPLICATION_TELETEXT:
+          return TeletextParser.CUE_REPLACEMENT_BEHAVIOR;
         case MimeTypes.APPLICATION_TTML:
           return TtmlParser.CUE_REPLACEMENT_BEHAVIOR;
         default:
@@ -131,6 +136,8 @@ public final class DefaultSubtitleParserFactory implements SubtitleParser.Factor
           return new VobsubParser(format.initializationData);
         case MimeTypes.APPLICATION_DVBSUBS:
           return new DvbParser(format.initializationData);
+        case MimeTypes.APPLICATION_TELETEXT:
+          return new TeletextParser(format.initializationData, format.language);
         case MimeTypes.APPLICATION_TTML:
           return new TtmlParser();
         default:
