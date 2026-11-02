@@ -32,65 +32,78 @@ import org.junit.runner.RunWith;
 public final class OpusUtilTest {
 
   /** Ogg Packet Header in accordance with RFC 3533 for an Ogg ID Header Page. */
-  private static final byte[] OGG_ID_HEADER_PACKET_HEADER =
+  private static final byte[] oggIdHeaderPacketHeader =
       new byte[] {
         79, 103, 103, 83, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 28, -43, -59, -9, 1,
         19
       };
 
   /** Payload for Ogg ID Header Page in accordance with RFC 7845. */
-  private static final byte[] OGG_ID_HEADER_PAYLOAD =
+  private static final byte[] oggIdHeaderPayload =
       new byte[] {79, 112, 117, 115, 72, 101, 97, 100, 1, 2, 56, 1, -128, -69, 0, 0, 0, 0, 0};
 
   private static final int OGG_ID_HEADER_PRE_SKIP_SAMPLES = 312;
-  private static final byte[] OGG_ID_HEADER_PRE_SKIP_BYTES =
+  private static final byte[] oggIdHeaderPreSkipBytes =
       buildNativeOrderByteArray(sampleCountToNanoseconds(OGG_ID_HEADER_PRE_SKIP_SAMPLES));
   private static final int DEFAULT_SEEK_PRE_ROLL_SAMPLES = 3840;
-  private static final byte[] DEFAULT_SEEK_PRE_ROLL_BYTES =
+  private static final byte[] defaultSeekPreRollBytes =
       buildNativeOrderByteArray(sampleCountToNanoseconds(DEFAULT_SEEK_PRE_ROLL_SAMPLES));
 
   /** Ogg Packet Header in accordance with RFC 3533 for an Ogg Comment Header Page. */
-  private static final byte[] OGG_COMMENT_HEADER_PACKET_HEADER =
+  private static final byte[] oggCommentHeaderPacketHeader =
       new byte[] {
         79, 103, 103, 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 11, -103, 87, 83, 1,
         16
       };
 
+  /**
+   * Ogg Packet Header in accordance with RFC 3533 for an Ogg Comment Header Page that spans 2
+   * segments (255 + 16 = 271 bytes).
+   */
+  private static final byte[] oggCommentHeaderPacketHeaderMultipleSegments =
+      new byte[] {
+        79, 103, 103, 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 11, -103, 87, 83, 2,
+        -1, 16
+      };
+
   /** Payload for Ogg Comment Header Page with empty vendor and comment sections. */
-  private static final byte[] OGG_COMMENT_HEADER_PACKET_PAYLOAD =
+  private static final byte[] oggCommentHeaderPacketPayload =
       new byte[] {79, 112, 117, 115, 84, 97, 103, 115, 0, 0, 0, 0, 0, 0, 0, 0};
 
+  /** Payload for a 271-byte Ogg Comment Header Page that spans 2 segments. */
+  private static final byte[] oggCommentHeaderPacketPayloadMultipleSegments =
+      Bytes.concat(oggCommentHeaderPacketPayload, new byte[255]);
+
   /** Ogg Packet Header for an page of an Opus audio sample contained in a single segment. */
-  private static final byte[] OGG_OPUS_PACKET_HEADER_SINGLE_SEGMENT =
+  private static final byte[] oggOpusPacketHeaderSingleSegment =
       new byte[] {
         79, 103, 103, 83, 0, 0, -32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 54, -31, -124, 22,
         1, -22
       };
 
   /** Ogg Packet Header for an page of an Opus audio sample that takes up multiple segments. */
-  private static final byte[] OGG_OPUS_PACKET_HEADER_MULTIPLE_SEGMENTS =
+  private static final byte[] oggOpusPacketHeaderMultipleSegments =
       new byte[] {
         79, 103, 103, 83, 0, 0, -32, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 54, -31, -124, 22,
         2, -1, -22
       };
 
-  private static final byte[] OGG_OPUS_PACKET_PAYLOAD_CODE_ZERO_TOC = getBytesFromHexString("04");
-  private static final byte[] OGG_OPUS_PACKET_PAYLOAD_CODE_THREE_TOC =
-      getBytesFromHexString("078C");
+  private static final byte[] oggOpusPacketPayloadCodeZeroToc = getBytesFromHexString("04");
+  private static final byte[] oggOpusPacketPayloadCodeThreeToc = getBytesFromHexString("078C");
 
   @Test
   public void buildInitializationData_returnsExpectedHeaderWithPreSkipAndPreRoll() {
-    List<byte[]> initializationData = OpusUtil.buildInitializationData(OGG_ID_HEADER_PAYLOAD);
+    List<byte[]> initializationData = OpusUtil.buildInitializationData(oggIdHeaderPayload);
 
     assertThat(initializationData).hasSize(3);
-    assertThat(initializationData.get(0)).isEqualTo(OGG_ID_HEADER_PAYLOAD);
-    assertThat(initializationData.get(1)).isEqualTo(OGG_ID_HEADER_PRE_SKIP_BYTES);
-    assertThat(initializationData.get(2)).isEqualTo(DEFAULT_SEEK_PRE_ROLL_BYTES);
+    assertThat(initializationData.get(0)).isEqualTo(oggIdHeaderPayload);
+    assertThat(initializationData.get(1)).isEqualTo(oggIdHeaderPreSkipBytes);
+    assertThat(initializationData.get(2)).isEqualTo(defaultSeekPreRollBytes);
   }
 
   @Test
   public void getChannelCount_returnsChannelCount() {
-    int channelCount = OpusUtil.getChannelCount(OGG_ID_HEADER_PAYLOAD);
+    int channelCount = OpusUtil.getChannelCount(oggIdHeaderPayload);
 
     assertThat(channelCount).isEqualTo(2);
   }
@@ -99,12 +112,12 @@ public final class OpusUtilTest {
   public void parseOggPacketForPreAudioSampleByteCount_returnsExpectedByteCount() {
     byte[] packetData =
         Bytes.concat(
-            OGG_ID_HEADER_PACKET_HEADER,
-            OGG_ID_HEADER_PAYLOAD,
-            OGG_COMMENT_HEADER_PACKET_HEADER,
-            OGG_COMMENT_HEADER_PACKET_PAYLOAD,
-            OGG_OPUS_PACKET_HEADER_SINGLE_SEGMENT,
-            OGG_OPUS_PACKET_PAYLOAD_CODE_ZERO_TOC);
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeader,
+            oggCommentHeaderPacketPayload,
+            oggOpusPacketHeaderSingleSegment,
+            oggOpusPacketPayloadCodeZeroToc);
     ByteBuffer preAudioOggPacketsByteBuffer = ByteBuffer.wrap(packetData);
 
     int preAudioSampleByteCount =
@@ -114,15 +127,79 @@ public final class OpusUtilTest {
   }
 
   @Test
+  public void
+      parseOggPacketForPreAudioSampleByteCount_withMultiSegmentCommentHeader_returnsExpectedByteCount() {
+    byte[] packetData =
+        Bytes.concat(
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeaderMultipleSegments,
+            oggCommentHeaderPacketPayloadMultipleSegments,
+            oggOpusPacketHeaderSingleSegment,
+            oggOpusPacketPayloadCodeZeroToc);
+    ByteBuffer preAudioOggPacketsByteBuffer = ByteBuffer.wrap(packetData);
+
+    int preAudioSampleByteCount =
+        OpusUtil.parseOggPacketForPreAudioSampleByteCount(preAudioOggPacketsByteBuffer);
+
+    // ID header page: 28 + 19 = 47 bytes.
+    // Comment header page: 29 + 271 = 300 bytes.
+    assertThat(preAudioSampleByteCount).isEqualTo(347);
+  }
+
+  @Test
+  public void
+      parseOggPacketForPreAudioSampleByteCount_withNonZeroPosition_readsFromPositionWithoutModifyingIt() {
+    byte[] prefixPadding = new byte[10];
+    byte[] packetData =
+        Bytes.concat(
+            prefixPadding,
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeader,
+            oggCommentHeaderPacketPayload,
+            oggOpusPacketHeaderSingleSegment,
+            oggOpusPacketPayloadCodeZeroToc);
+    ByteBuffer preAudioOggPacketsByteBuffer = ByteBuffer.wrap(packetData);
+    preAudioOggPacketsByteBuffer.position(prefixPadding.length);
+
+    int preAudioSampleByteCount =
+        OpusUtil.parseOggPacketForPreAudioSampleByteCount(preAudioOggPacketsByteBuffer);
+
+    assertThat(preAudioSampleByteCount).isEqualTo(91);
+    assertThat(preAudioOggPacketsByteBuffer.position()).isEqualTo(prefixPadding.length);
+  }
+
+  @Test
+  public void
+      parseOggPacketForPreAudioSampleByteCount_audioPageAtNonZeroPosition_returnsZeroWithoutModifyingPosition() {
+    byte[] packetData =
+        Bytes.concat(
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggOpusPacketHeaderSingleSegment,
+            oggOpusPacketPayloadCodeZeroToc);
+    int audioPagePosition = oggIdHeaderPacketHeader.length + oggIdHeaderPayload.length;
+    ByteBuffer audioPageByteBuffer = ByteBuffer.wrap(packetData);
+    audioPageByteBuffer.position(audioPagePosition);
+
+    int preAudioSampleByteCount =
+        OpusUtil.parseOggPacketForPreAudioSampleByteCount(audioPageByteBuffer);
+
+    assertThat(preAudioSampleByteCount).isEqualTo(0);
+    assertThat(audioPageByteBuffer.position()).isEqualTo(audioPagePosition);
+  }
+
+  @Test
   public void parseOggPacketAudioSampleCount_withCodeZeroToc_returnsExpectedAudioSampleCount() {
     byte[] packetData =
         Bytes.concat(
-            OGG_ID_HEADER_PACKET_HEADER,
-            OGG_ID_HEADER_PAYLOAD,
-            OGG_COMMENT_HEADER_PACKET_HEADER,
-            OGG_COMMENT_HEADER_PACKET_PAYLOAD,
-            OGG_OPUS_PACKET_HEADER_SINGLE_SEGMENT,
-            OGG_OPUS_PACKET_PAYLOAD_CODE_ZERO_TOC);
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeader,
+            oggCommentHeaderPacketPayload,
+            oggOpusPacketHeaderSingleSegment,
+            oggOpusPacketPayloadCodeZeroToc);
     ByteBuffer oggPacketsByteBuffer = ByteBuffer.wrap(packetData);
 
     int audioSampleCount = OpusUtil.parseOggPacketAudioSampleCount(oggPacketsByteBuffer);
@@ -135,12 +212,12 @@ public final class OpusUtilTest {
       parseOggPacketAudioSampleCount_withMultipleOggPageSegments_returnsExpectedAudioSampleCount() {
     byte[] packetData =
         Bytes.concat(
-            OGG_ID_HEADER_PACKET_HEADER,
-            OGG_ID_HEADER_PAYLOAD,
-            OGG_COMMENT_HEADER_PACKET_HEADER,
-            OGG_COMMENT_HEADER_PACKET_PAYLOAD,
-            OGG_OPUS_PACKET_HEADER_MULTIPLE_SEGMENTS,
-            OGG_OPUS_PACKET_PAYLOAD_CODE_ZERO_TOC);
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeader,
+            oggCommentHeaderPacketPayload,
+            oggOpusPacketHeaderMultipleSegments,
+            oggOpusPacketPayloadCodeZeroToc);
     ByteBuffer oggPacketsByteBuffer = ByteBuffer.wrap(packetData);
 
     int audioSampleCount = OpusUtil.parseOggPacketAudioSampleCount(oggPacketsByteBuffer);
@@ -152,17 +229,39 @@ public final class OpusUtilTest {
   public void parseOggPacketAudioSampleCount_withCodeThreeToc_returnsExpectedAudioSampleCount() {
     byte[] packetData =
         Bytes.concat(
-            OGG_ID_HEADER_PACKET_HEADER,
-            OGG_ID_HEADER_PAYLOAD,
-            OGG_COMMENT_HEADER_PACKET_HEADER,
-            OGG_COMMENT_HEADER_PACKET_PAYLOAD,
-            OGG_OPUS_PACKET_HEADER_SINGLE_SEGMENT,
-            OGG_OPUS_PACKET_PAYLOAD_CODE_THREE_TOC);
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeader,
+            oggCommentHeaderPacketPayload,
+            oggOpusPacketHeaderSingleSegment,
+            oggOpusPacketPayloadCodeThreeToc);
     ByteBuffer oggPacketsByteBuffer = ByteBuffer.wrap(packetData);
 
     int audioSampleCount = OpusUtil.parseOggPacketAudioSampleCount(oggPacketsByteBuffer);
 
     assertThat(audioSampleCount).isEqualTo(5760);
+  }
+
+  @Test
+  public void
+      parseOggPacketAudioSampleCount_withMultiSegmentCommentHeaderAndNonZeroPosition_returnsExpectedAudioSampleCount() {
+    byte[] prefixPadding = new byte[10];
+    byte[] packetData =
+        Bytes.concat(
+            prefixPadding,
+            oggIdHeaderPacketHeader,
+            oggIdHeaderPayload,
+            oggCommentHeaderPacketHeaderMultipleSegments,
+            oggCommentHeaderPacketPayloadMultipleSegments,
+            oggOpusPacketHeaderMultipleSegments,
+            oggOpusPacketPayloadCodeThreeToc);
+    ByteBuffer oggPacketsByteBuffer = ByteBuffer.wrap(packetData);
+    oggPacketsByteBuffer.position(prefixPadding.length);
+
+    int audioSampleCount = OpusUtil.parseOggPacketAudioSampleCount(oggPacketsByteBuffer);
+
+    assertThat(audioSampleCount).isEqualTo(5760);
+    assertThat(oggPacketsByteBuffer.position()).isEqualTo(prefixPadding.length);
   }
 
   @Test

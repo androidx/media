@@ -75,11 +75,12 @@ public class OpusUtil {
    * @return Returns the number of audio samples in the packet.
    */
   public static int parseOggPacketAudioSampleCount(ByteBuffer buffer) {
-    // RFC 3433 section 6 - The Ogg page format.
+    // RFC 3533 section 6 - The Ogg page format.
     int preAudioPacketByteCount = parseOggPacketForPreAudioSampleByteCount(buffer);
-    int numPageSegments = buffer.get(/* index= */ 26 + preAudioPacketByteCount);
+    int audioPageOffset = buffer.position() + preAudioPacketByteCount;
+    int numPageSegments = buffer.get(/* index= */ audioPageOffset + 26) & 0xFF;
     // Skip Ogg header + segment table.
-    int indexFirstOpusPacket = 27 + numPageSegments + preAudioPacketByteCount;
+    int indexFirstOpusPacket = audioPageOffset + 27 + numPageSegments;
     long packetDurationUs =
         getPacketDurationUs(
             buffer.get(indexFirstOpusPacket),
@@ -88,29 +89,34 @@ public class OpusUtil {
   }
 
   /**
-   * Calculate the offset from the start of the buffer to audio sample Ogg packets.
+   * Calculates the offset from the buffer's position to audio sample Ogg packets.
+   *
+   * <p>The buffer's position is not modified.
    *
    * @param buffer containing the Ogg Encapsulated Opus audio bitstream.
-   * @return the offset before the Ogg packet containing audio samples.
+   * @return the offset from the buffer's position to the Ogg packet containing audio samples.
    */
   public static int parseOggPacketForPreAudioSampleByteCount(ByteBuffer buffer) {
-    // Parse Ogg Packet Type from Header at index 5
-    if ((buffer.get(/* index= */ 5) & 0x02) == 0) {
+    int position = buffer.position();
+    // Parse Ogg Packet Type from Header at offset 5
+    if ((buffer.get(/* index= */ position + 5) & 0x02) == 0) {
       // Ogg Page packet header type is not beginning of logical stream. Must be an Audio page.
       return 0;
     }
-    // ID Header Page size is Ogg packet header size + sum(lacing values: 1..number_page_segments).
-    int idHeaderPageSize = 28;
-    int idHeaderPageNumOfSegments = buffer.get(/* index= */ 26);
+    // ID Header Page size is Ogg page header size (27 + number_page_segments) +
+    // sum(lacing values: 1..number_page_segments).
+    int idHeaderPageNumOfSegments = buffer.get(/* index= */ position + 26) & 0xFF;
+    int idHeaderPageSize = 27 + idHeaderPageNumOfSegments;
     for (int i = 0; i < idHeaderPageNumOfSegments; i++) {
-      idHeaderPageSize += buffer.get(/* index= */ 27 + i);
+      idHeaderPageSize += buffer.get(/* index= */ position + 27 + i) & 0xFF;
     }
-    // Comment Header Page size is Ogg packet header size + sum(lacing values:
-    // 1..number_page_segments).
-    int commentHeaderPageSize = 28;
-    int commentHeaderPageSizeNumOfSegments = buffer.get(/* index= */ idHeaderPageSize + 26);
+    // Comment Header Page size is Ogg page header size (27 + number_page_segments) +
+    // sum(lacing values: 1..number_page_segments).
+    int commentHeaderPageSizeNumOfSegments =
+        buffer.get(/* index= */ position + idHeaderPageSize + 26) & 0xFF;
+    int commentHeaderPageSize = 27 + commentHeaderPageSizeNumOfSegments;
     for (int i = 0; i < commentHeaderPageSizeNumOfSegments; i++) {
-      commentHeaderPageSize += buffer.get(/* index= */ idHeaderPageSize + 27 + i);
+      commentHeaderPageSize += buffer.get(/* index= */ position + idHeaderPageSize + 27 + i) & 0xFF;
     }
     return idHeaderPageSize + commentHeaderPageSize;
   }
