@@ -53,6 +53,7 @@ public class Mp4PlaybackTest {
         Sample.forFile("midroll-5s.mp4"),
         Sample.forFile("postroll-5s.mp4"),
         Sample.forFile("preroll-5s.mp4"),
+        Sample.withTextSubtitles("preroll-5s-cea608.mp4", "eng"),
         Sample.forFile("pixel-motion-photo-2-hevc-tracks.mp4"),
         Sample.forFile("sample_ac3_fragmented.mp4"),
         Sample.forFile("sample_ac3.mp4"),
@@ -147,6 +148,13 @@ public class Mp4PlaybackTest {
     private static Sample forFile(String filename) {
       return new Sample(
           filename, /* subtitleLanguageToSelect= */ null, /* hasBitmapSubtitles= */ false);
+    }
+
+    private static Sample withTextSubtitles(String filename, String subtitleLanguageToSelect) {
+      return new Sample(
+          filename,
+          /* subtitleLanguageToSelect= */ subtitleLanguageToSelect,
+          /* hasBitmapSubtitles= */ false);
     }
 
     private static Sample withBitmapSubtitles(String filename, String subtitleLanguageToSelect) {

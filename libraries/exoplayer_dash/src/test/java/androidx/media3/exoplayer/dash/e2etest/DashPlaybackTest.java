@@ -24,7 +24,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -43,7 +42,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
-import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.AssetDataSource;
@@ -622,9 +620,6 @@ public final class DashPlaybackTest {
         applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
   }
 
-  // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
-  //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
-  //  actually only has data for one of them (CC1).
   @Test
   public void cea608_twoChannelsDeclared_englishSelected() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -652,9 +647,8 @@ public final class DashPlaybackTest {
     player.release();
     surface.release();
 
-    // Assert the output matches a stream that only declares CC1.
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
+        applicationContext, playbackOutput, "playbackdumps/dash/cea608_two_channels_en.dump");
     ArgumentCaptor<MediaLoadData> downstreamFormats = ArgumentCaptor.forClass(MediaLoadData.class);
     verify(analyticsListener, atLeastOnce())
         .onDownstreamFormatChanged(any(), downstreamFormats.capture());
@@ -667,10 +661,6 @@ public final class DashPlaybackTest {
     assertThat(downstreamTextFormat.accessibilityChannel).isEqualTo(1);
   }
 
-  // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
-  //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
-  //  actually only has data for one of them (CC1). That means this test, which selects CC2, can
-  //  currently only assert that no subtitles are output.
   @Test
   public void cea608_twoChannelsDeclared_spanishSelected() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -685,6 +675,7 @@ public final class DashPlaybackTest {
     player.setVideoSurface(surface);
     AnalyticsListener analyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(analyticsListener);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
     DefaultTrackSelector trackSelector =
         checkNotNull((DefaultTrackSelector) player.getTrackSelector());
@@ -697,11 +688,8 @@ public final class DashPlaybackTest {
     player.release();
     surface.release();
 
-    // TODO(b/576567383): Assert the actual output when we can use a test stream with real CC2 data.
-    ArgumentCaptor<CueGroup> cueGroups = ArgumentCaptor.forClass(CueGroup.class);
-    verify(analyticsListener, atLeast(0)).onCues(any(), cueGroups.capture());
-    assertThat(cueGroups.getAllValues().stream().flatMap(cueGroup -> cueGroup.cues.stream()))
-        .isEmpty();
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/cea608_two_channels_es.dump");
     ArgumentCaptor<MediaLoadData> downstreamFormats = ArgumentCaptor.forClass(MediaLoadData.class);
     verify(analyticsListener, atLeastOnce())
         .onDownstreamFormatChanged(any(), downstreamFormats.capture());
@@ -714,9 +702,6 @@ public final class DashPlaybackTest {
     assertThat(downstreamTextFormat.accessibilityChannel).isEqualTo(2);
   }
 
-  // TODO(b/576567383): Update this test to use a more realistic stream. At the moment the stream
-  //  declares multiple CEA-608 accessibility channels in its manifest, but the MP4 video file
-  //  actually only has data for one of them (CC1).
   @Test
   public void cea608_twoChannelsDeclaredReversed_englishSelected() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -745,9 +730,8 @@ public final class DashPlaybackTest {
     player.release();
     surface.release();
 
-    // Assert the output matches a stream that only declares CC1.
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/dash/cea608.dump");
+        applicationContext, playbackOutput, "playbackdumps/dash/cea608_two_channels_en.dump");
     ArgumentCaptor<MediaLoadData> downstreamFormats = ArgumentCaptor.forClass(MediaLoadData.class);
     verify(analyticsListener, atLeastOnce())
         .onDownstreamFormatChanged(any(), downstreamFormats.capture());
