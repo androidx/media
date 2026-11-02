@@ -5172,6 +5172,57 @@ public class RemoteCastPlayerTest {
     verify(mockListener, never()).onPlaybackStateChanged(anyInt());
   }
 
+  @Test
+  public void
+      onSessionStarted_whenStartedByIntentToJoin_notifiesAvailableWithStartedByIntentToJoinTrue() {
+    sessionManagerListener.onSessionEnded(mockCastSession, /* error= */ 0);
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+    when(mockCastSession.startedByIntentToJoin()).thenReturn(true);
+
+    sessionManagerListener.onSessionStarted(mockCastSession, /* sessionId= */ "session_id");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionAvailable(/* startedByIntentToJoin= */ true);
+  }
+
+  @Test
+  public void
+      onSessionStarted_whenNotStartedByIntentToJoin_notifiesAvailableWithStartedByIntentToJoinFalse() {
+    sessionManagerListener.onSessionEnded(mockCastSession, /* error= */ 0);
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+    when(mockCastSession.startedByIntentToJoin()).thenReturn(false);
+
+    sessionManagerListener.onSessionStarted(mockCastSession, /* sessionId= */ "session_id");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionAvailable(/* startedByIntentToJoin= */ false);
+  }
+
+  @Test
+  public void onSessionStarted_withLegacyListener_notifiesAvailable() {
+    class LegacyListener implements SessionAvailabilityListener {
+      boolean onCastSessionAvailableCalled = false;
+
+      @Override
+      public void onCastSessionAvailable() {
+        onCastSessionAvailableCalled = true;
+      }
+
+      @Override
+      public void onCastSessionUnavailable() {}
+    }
+    sessionManagerListener.onSessionEnded(mockCastSession, /* error= */ 0);
+    LegacyListener legacyListener = new LegacyListener();
+    remoteCastPlayer.setSessionAvailabilityListener(legacyListener);
+
+    sessionManagerListener.onSessionStarted(mockCastSession, /* sessionId= */ "session_id");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(legacyListener.onCastSessionAvailableCalled).isTrue();
+  }
+
   private void simulateNaturalQueueEnd() {
     when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
     when(mockRemoteMediaClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_FINISHED);

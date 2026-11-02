@@ -471,4 +471,137 @@ public final class CastPlayerTest {
     assertThat(castPlayer.getCurrentTimeline().isEmpty()).isTrue();
     assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
   }
+
+  @Test
+  public void
+      onCastSessionAvailable_whenSessionStartedByIntentToJoin_doesNotCallTransferCallback() {
+    when(mockCastSession.startedByIntentToJoin()).thenReturn(true);
+    CastPlayer.TransferCallback mockTransferCallback = mock(CastPlayer.TransferCallback.class);
+    castPlayer = castPlayerBuilder.setTransferCallback(mockTransferCallback).build();
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
+
+    verify(mockTransferCallback, never()).transferState(any(), any());
+  }
+
+  @Test
+  public void
+      onCastSessionAvailable_whenSessionStartedByIntentToJoin_preservesPlayingRemoteState() {
+    String remoteUrl = "https://example.com/remote.mp4";
+    MediaInfo remoteMediaInfo =
+        new MediaInfo.Builder(remoteUrl)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .build();
+    MediaQueueItem remoteQueueItem =
+        new MediaQueueItem.Builder(remoteMediaInfo).setItemId(1).build();
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(remoteQueueItem));
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(remoteMediaInfo);
+    when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_ALL);
+    when(mockMediaStatus.getPlaybackRate()).thenReturn(1.5d);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockCastSession.startedByIntentToJoin()).thenReturn(true);
+    castPlayer = castPlayerBuilder.build();
+    MediaItem localItem =
+        new MediaItem.Builder()
+            .setUri("https://example.com/local.mp4")
+            .setMimeType(MimeTypes.VIDEO_MP4)
+            .build();
+    castPlayer.setMediaItems(
+        ImmutableList.of(localItem), /* startIndex= */ 0, /* startPositionMs= */ 1234);
+    castPlayer.setPlayWhenReady(false);
+    castPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    castPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2.0f));
+    castPlayer.prepare();
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockRemoteMediaClient, never()).load(any(MediaLoadRequestData.class));
+    verify(mockRemoteMediaClient, never()).pause();
+    verify(mockRemoteMediaClient, never()).play();
+    verify(mockRemoteMediaClient, never()).queueSetRepeatMode(anyInt(), any());
+    verify(mockRemoteMediaClient, never()).setPlaybackRate(anyDouble(), any());
+    assertThat(castPlayer.getDeviceInfo().playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_REMOTE);
+    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ALL);
+    assertThat(castPlayer.getPlaybackParameters().speed).isEqualTo(1.5f);
+    assertThat(castPlayer.getMediaItemCount()).isEqualTo(1);
+    assertThat(castPlayer.getCurrentMediaItem().mediaId).isEqualTo(remoteUrl);
+    assertThat(localPlayer.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
+  }
+
+  @Test
+  public void onCastSessionAvailable_whenSessionStartedByIntentToJoin_preservesPausedRemoteState() {
+    String remoteUrl = "https://example.com/remote.mp4";
+    MediaInfo remoteMediaInfo =
+        new MediaInfo.Builder(remoteUrl)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .build();
+    MediaQueueItem remoteQueueItem =
+        new MediaQueueItem.Builder(remoteMediaInfo).setItemId(1).build();
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(remoteQueueItem));
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(remoteMediaInfo);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.isPaused()).thenReturn(true);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PAUSED);
+    when(mockCastSession.startedByIntentToJoin()).thenReturn(true);
+    castPlayer = castPlayerBuilder.build();
+    MediaItem localItem =
+        new MediaItem.Builder()
+            .setUri("https://example.com/local.mp4")
+            .setMimeType(MimeTypes.VIDEO_MP4)
+            .build();
+    castPlayer.setMediaItems(
+        ImmutableList.of(localItem), /* startIndex= */ 0, /* startPositionMs= */ 1234);
+    castPlayer.setPlayWhenReady(true);
+    castPlayer.prepare();
+
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockRemoteMediaClient, never()).load(any(MediaLoadRequestData.class));
+    verify(mockRemoteMediaClient, never()).play();
+    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    assertThat(castPlayer.getMediaItemCount()).isEqualTo(1);
+    assertThat(castPlayer.getCurrentMediaItem().mediaId).isEqualTo(remoteUrl);
+  }
+
+  @Test
+  public void
+      onCastSessionUnavailable_whenSessionStartedByIntentToJoin_transfersRemoteStateToLocal() {
+    String remoteUrl = "https://example.com/remote.mp4";
+    MediaInfo remoteMediaInfo =
+        new MediaInfo.Builder(remoteUrl)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .build();
+    MediaQueueItem remoteQueueItem =
+        new MediaQueueItem.Builder(remoteMediaInfo).setItemId(1).build();
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(remoteQueueItem));
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(remoteMediaInfo);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockCastSession.startedByIntentToJoin()).thenReturn(true);
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setMediaItem(MediaItem.fromUri("https://example.com/local.mp4"));
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
+    shadowOf(Looper.getMainLooper()).idle();
+
+    castSessionListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_ROUTE_CHANGE);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(castPlayer.getDeviceInfo().playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_LOCAL);
+    assertThat(localPlayer.getMediaItemCount()).isEqualTo(1);
+    assertThat(localPlayer.getCurrentMediaItem().mediaId).isEqualTo(remoteUrl);
+    assertThat(localPlayer.getPlayWhenReady()).isTrue();
+  }
 }

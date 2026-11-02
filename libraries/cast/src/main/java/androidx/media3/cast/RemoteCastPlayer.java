@@ -1820,17 +1820,20 @@ public final class RemoteCastPlayer extends BasePlayer {
     resetMaskingAndCacheState();
 
     if (remoteMediaClient != null) {
+      boolean startedByIntentToJoin = castSession != null && castSession.startedByIntentToJoin();
+      Log.i(TAG, "Cast session available, startedByIntentToJoin=" + startedByIntentToJoin);
       if (sessionAvailabilityListener != null) {
-        sessionAvailabilityListener.onCastSessionAvailable();
+        sessionAvailabilityListener.onCastSessionAvailable(startedByIntentToJoin);
       }
       if (internalSessionAvailabilityListener != null) {
-        internalSessionAvailabilityListener.onCastSessionAvailable();
+        internalSessionAvailabilityListener.onCastSessionAvailable(startedByIntentToJoin);
       }
       remoteMediaClient.getMediaQueue().registerCallback(mediaQueueCallback);
       remoteMediaClient.registerCallback(statusListener);
       remoteMediaClient.addProgressListener(statusListener, PROGRESS_REPORT_PERIOD_MS);
       updateInternalStateAndNotifyIfChanged();
     } else {
+      Log.i(TAG, "Cast session unavailable, reason=" + sessionUnavailableReason);
       if (sessionAvailabilityListener != null) {
         sessionAvailabilityListener.onCastSessionUnavailable(sessionUnavailableReason);
       }

@@ -51,8 +51,22 @@ public interface SessionAvailabilityListener {
   /** The Cast session was disconnected. */
   int SESSION_UNAVAILABLE_REASON_DISCONNECTED = 4;
 
-  /** Called when a cast session becomes available to the player. */
+  /**
+   * Called when a cast session becomes available to the player. This only gets called if {@link
+   * #onCastSessionAvailable(boolean)} is not implemented.
+   */
   void onCastSessionAvailable();
+
+  /**
+   * Called when a cast session becomes available to the player.
+   *
+   * @param startedByIntentToJoin Whether the session was started via an <a
+   *     href="https://developers.google.com/cast/docs/android_sender/intent_to_join">intent to
+   *     join</a> an existing Cast session.
+   */
+  default void onCastSessionAvailable(boolean startedByIntentToJoin) {
+    onCastSessionAvailable();
+  }
 
   /**
    * Called when the cast session becomes unavailable. This only gets called if

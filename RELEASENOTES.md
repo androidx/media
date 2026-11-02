@@ -196,6 +196,12 @@
         URI is missing or conversion fails, preserving the media ID and metadata
         in the `CastPlayer` timeline for Cast queue items without a playback
         URI.
+    *   Add `SessionAvailabilityListener.onCastSessionAvailable(boolean)` to
+        indicate whether an available Cast session was started via
+        [intent to join](https://developers.google.com/cast/docs/android_sender/intent_to_join),
+        and preserve remote playback state instead of overwriting it with local
+        player state when joining a Cast session via intent to join in
+        `CastPlayer`.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo

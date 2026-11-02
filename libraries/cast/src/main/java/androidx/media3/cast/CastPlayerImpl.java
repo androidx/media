@@ -17,6 +17,7 @@ package androidx.media3.cast;
 
 import androidx.media3.common.ForwardingSimpleBasePlayer;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Log;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -30,6 +31,8 @@ import com.google.common.util.concurrent.ListenableFuture;
  * local and remote playback, unlike {@link RemoteCastPlayer}, which supports only remote playback.
  */
 /* package */ final class CastPlayerImpl extends ForwardingSimpleBasePlayer {
+
+  private static final String TAG = "CastPlayerImpl";
 
   private final Player localPlayer;
   private final RemoteCastPlayer remotePlayer;
@@ -49,18 +52,23 @@ import com.google.common.util.concurrent.ListenableFuture;
     remotePlayer.setInternalSessionAvailabilityListener(sessionAvailabilityListener);
   }
 
-  private void updateActivePlayer(boolean shouldPauseOnTransfer) {
+  private void updateActivePlayer(boolean shouldTransferState, boolean shouldPauseOnTransfer) {
     Player previousPlayer = getPlayer();
     Player newPlayer = remotePlayer.isCastSessionAvailable() ? remotePlayer : localPlayer;
     if (previousPlayer == newPlayer) {
       return;
     }
-    transferCallback.transferState(previousPlayer, newPlayer);
-    if (shouldPauseOnTransfer) {
-      newPlayer.setPlayWhenReady(false);
-    }
-    if (previousPlayer.getPlaybackState() != STATE_IDLE) {
-      newPlayer.prepare();
+    if (shouldTransferState) {
+      transferCallback.transferState(previousPlayer, newPlayer);
+      if (shouldPauseOnTransfer) {
+        newPlayer.setPlayWhenReady(false);
+      }
+      if (previousPlayer.getPlaybackState() != STATE_IDLE) {
+        newPlayer.prepare();
+      }
+    } else {
+      Log.i(
+          TAG, "Joining Cast session via intent to join; skipping local-to-remote state transfer.");
     }
     previousPlayer.stop();
     setPlayer(newPlayer);
@@ -98,7 +106,17 @@ import com.google.common.util.concurrent.ListenableFuture;
 
     @Override
     public void onCastSessionAvailable() {
-      updateActivePlayer(/* shouldPauseOnTransfer= */ false);
+      // This should never be called as the overload that takes startedByIntentToJoin is
+      // implemented.
+      throw new IllegalStateException(
+          "onCastSessionAvailable() called when overload which takes startedByIntentToJoin is"
+              + " implemented.");
+    }
+
+    @Override
+    public void onCastSessionAvailable(boolean startedByIntentToJoin) {
+      updateActivePlayer(
+          /* shouldTransferState= */ !startedByIntentToJoin, /* shouldPauseOnTransfer= */ false);
     }
 
     @Override
@@ -112,6 +130,7 @@ import com.google.common.util.concurrent.ListenableFuture;
     public void onCastSessionUnavailable(
         @SessionAvailabilityListener.SessionUnavailableReason int reason) {
       updateActivePlayer(
+          /* shouldTransferState= */ true,
           /* shouldPauseOnTransfer= */ reason != SESSION_UNAVAILABLE_REASON_ROUTE_CHANGED);
     }
   }
