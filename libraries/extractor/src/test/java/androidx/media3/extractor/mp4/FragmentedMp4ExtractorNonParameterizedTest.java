@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.container.BoxUtils;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.SniffFailure;
@@ -110,6 +111,62 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
     assertThat(trackOutput.getSampleCount()).isEqualTo(9);
     assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(-7_000L);
     assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(25_000L);
+  }
+
+  @Test
+  public void read_withTimestampAdjusterAndEditListPreRoll_keepsPreRollBeforeFirstSampleTimestamp()
+      throws Exception {
+    // audio_init.mp4 has elst media_time=1024 (23_219 us at 44.1 kHz).
+    byte[] data =
+        Bytes.concat(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/cmaf/multi-segment/audio_init.mp4"),
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/cmaf/multi-segment/audio_1.m4s"));
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED,
+            /* flags= */ 0,
+            new TimestampAdjuster(/* firstSampleTimestampUs= */ 1_000_000),
+            /* sideloadedTrack= */ null,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* additionalEmsgTrackOutput= */ null);
+
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(extractor, data);
+
+    FakeTrackOutput trackOutput = output.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(12);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(1_000_000L - 23_219L);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(1_000_000L);
+    assertThat(trackOutput.getSampleTimeUs(2)).isEqualTo(1_000_000L + 23_219L);
+  }
+
+  @Test
+  public void read_withTimestampAdjusterAndNegativeTfdt_keepsPreRollBeforeFirstSampleTimestamp()
+      throws Exception {
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp4/sample_ac3_fragmented.mp4");
+    int tfdtTypeIndex = Bytes.indexOf(data, "tfdt".getBytes(US_ASCII));
+    // Set v1 tfdt baseMediaDecodeTime to -336 (-7000 us at 48 kHz).
+    System.arraycopy(Longs.toByteArray(-336L), 0, data, tfdtTypeIndex + 8, 8);
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED,
+            /* flags= */ 0,
+            new TimestampAdjuster(/* firstSampleTimestampUs= */ 1_000_000),
+            /* sideloadedTrack= */ null,
+            /* closedCaptionFormats= */ ImmutableList.of(),
+            /* additionalEmsgTrackOutput= */ null);
+
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(extractor, data);
+
+    FakeTrackOutput trackOutput = output.trackOutputs.get(0);
+    assertThat(trackOutput.getSampleCount()).isEqualTo(9);
+    assertThat(trackOutput.getSampleTimeUs(0)).isEqualTo(1_000_000L - 7_000L);
+    assertThat(trackOutput.getSampleTimeUs(1)).isEqualTo(1_000_000L + 25_000L);
   }
 
   // https://github.com/androidx/media/issues/3471

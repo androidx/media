@@ -1767,6 +1767,10 @@ public class FragmentedMp4Extractor implements Extractor {
     TrackOutput output = trackBundle.output;
     long sampleTimeUs = trackBundle.getCurrentSamplePresentationTimeUs();
     if (timestampAdjuster != null) {
+      if (sampleTimeUs < 0 && !timestampAdjuster.isInitialized()) {
+        // Initialize at presentation start (0) rather than pre-roll.
+        timestampAdjuster.adjustSampleTimestamp(/* timeUs= */ 0);
+      }
       sampleTimeUs = timestampAdjuster.adjustSampleTimestamp(sampleTimeUs);
     }
     boolean shouldOutputSample = true;
