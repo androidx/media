@@ -1532,7 +1532,62 @@ class MotionPhotoStateTest {
     }
 
   @Test
-  fun config_whenEndBoundaryUpdated_setsClippedMediaItemAndRestartsFromStartPosition() =
+  fun config_whenEndBoundaryUpdated_setsClippedMediaItemKeepingPosition() = runComposeUiTest {
+    val player = createSeekableFakePlayer(durationMs = 1_000L)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+          initialConfig =
+            MotionPhotoConfig(
+              startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+              startPositionOffsetMs = 100L,
+            ),
+        )
+    }
+    waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
+    val clippedItemUid = player.currentTimeline.getWindow(0, Timeline.Window()).uid
+    player.setPosition(250L)
+    assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs)
+      .isEqualTo(C.TIME_END_OF_SOURCE)
+    assertThat(state.visualState.isPhotoVisible).isFalse()
+
+    state.config =
+      state.config.copy(
+        endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+        endPositionOffsetMs = 600L,
+      )
+    waitForIdle()
+
+    // The start position is unchanged, so the clipped item is set again at the current position
+    // and the photo covers the video until the first frame of the new item has rendered.
+    assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(100L)
+    assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+    assertThat(player.currentTimeline.getWindow(0, Timeline.Window()).uid)
+      .isNotEqualTo(clippedItemUid)
+    assertThat(player.currentPosition).isAtLeast(250L)
+    assertThat(player.playWhenReady).isTrue()
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+    player.renderFirstFrame(true)
+    waitForIdle()
+    assertThat(state.visualState.isPhotoVisible).isFalse()
+
+    // An end boundary beyond the video duration is passed through and clamped by the player.
+    state.config = state.config.copy(endPositionOffsetMs = 1_500L)
+    waitForIdle()
+
+    assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(1_500L)
+    assertThat(player.playWhenReady).isTrue()
+    assertThat(state.showPhoto).isFalse()
+  }
+
+  @Test
+  fun config_whenEndBoundaryUpdatedToBeforeCurrentPosition_restartsFromStartPosition() =
     runComposeUiTest {
       val player = createSeekableFakePlayer(durationMs = 1_000L)
       lateinit var state: MotionPhotoState
@@ -1552,10 +1607,7 @@ class MotionPhotoStateTest {
       waitForIdle()
       player.renderFirstFrame(true)
       waitForIdle()
-      player.setPosition(250L)
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs)
-        .isEqualTo(C.TIME_END_OF_SOURCE)
-      assertThat(state.visualState.isPhotoVisible).isFalse()
+      player.setPosition(800L)
 
       state.config =
         state.config.copy(
@@ -1564,24 +1616,246 @@ class MotionPhotoStateTest {
         )
       waitForIdle()
 
-      // The clipped item is set again, so playback restarts from the start position and the photo
-      // covers the video until the first frame of the new range has rendered.
+      // The current position lies beyond the new range, so playback restarts from its start.
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(100L)
       assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
       assertThat(player.currentPosition).isEqualTo(0L)
       assertThat(player.playWhenReady).isTrue()
-      assertThat(state.visualState.isPhotoVisible).isTrue()
+    }
+
+  @Test
+  fun config_whenEndBoundaryUpdatedToCurrentPosition_restartsFromStartPosition() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 100L,
+              ),
+          )
+      }
+      waitForIdle()
       player.renderFirstFrame(true)
       waitForIdle()
-      assertThat(state.visualState.isPhotoVisible).isFalse()
+      // Paused so that the position does not advance before the config change is applied.
+      player.pause()
+      player.setPosition(500L)
 
-      // An end boundary beyond the video duration is passed through and clamped by the player.
-      state.config = state.config.copy(endPositionOffsetMs = 1_500L)
+      // The new range [100ms, 600ms] is exactly as long as the current position.
+      state.config =
+        state.config.copy(
+          endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+          endPositionOffsetMs = 600L,
+        )
       waitForIdle()
 
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(1_500L)
-      assertThat(player.playWhenReady).isTrue()
-      assertThat(state.showPhoto).isFalse()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+      assertThat(player.currentPosition).isEqualTo(0L)
+    }
+
+  @Test
+  fun config_whenEndBoundaryUpdatedToJustAfterCurrentPosition_keepsPosition() = runComposeUiTest {
+    val player = createSeekableFakePlayer(durationMs = 1_000L)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+          initialConfig =
+            MotionPhotoConfig(
+              startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+              startPositionOffsetMs = 100L,
+            ),
+        )
+    }
+    waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
+    // Paused so that the position does not advance before the config change is applied.
+    player.pause()
+    player.setPosition(499L)
+
+    // The new range [100ms, 600ms] is 1ms longer than the current position.
+    state.config =
+      state.config.copy(
+        endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+        endPositionOffsetMs = 600L,
+      )
+    waitForIdle()
+
+    assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+    assertThat(player.currentPosition).isEqualTo(499L)
+  }
+
+  @Test
+  fun config_whenStartAndEndBoundaryUpdated_restartsFromNewStartPosition() = runComposeUiTest {
+    val player = createSeekableFakePlayer(durationMs = 1_000L)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = false,
+          initialConfig =
+            MotionPhotoConfig(
+              startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+              startPositionOffsetMs = 100L,
+            ),
+        )
+    }
+    waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
+    player.setPosition(250L)
+
+    state.config =
+      state.config.copy(
+        startPositionOffsetMs = 200L,
+        endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+        endPositionOffsetMs = 600L,
+      )
+    waitForIdle()
+
+    assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(200L)
+    assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+    assertThat(player.currentPosition).isEqualTo(0L)
+    assertThat(player.playWhenReady).isTrue()
+  }
+
+  @Test
+  fun config_whenEndBoundaryUpdatedWhileShowingPhotoWithResumeFromPreviousPosition_keepsPosition() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                resumeVideoFromPreviousPosition = true,
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 100L,
+              ),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      state.showPhoto = true
+      waitForIdle()
+      player.setPosition(300L)
+      assertThat(player.playWhenReady).isFalse()
+
+      state.config =
+        state.config.copy(
+          endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+          endPositionOffsetMs = 600L,
+        )
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+      assertThat(player.currentPosition).isEqualTo(300L)
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.showPhoto).isTrue()
+    }
+
+  @Test
+  fun config_whenEndBoundaryUpdatedWhileShowingPhotoWithResumeFalse_restartsFromStartPosition() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                resumeVideoFromPreviousPosition = false,
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 100L,
+              ),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+      player.setPosition(300L)
+      state.showPhoto = true
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.currentPosition).isAtLeast(300L)
+      var seekCount = 0
+      player.addListener(
+        object : Player.Listener {
+          override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: @Player.DiscontinuityReason Int,
+          ) {
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+              seekCount++
+            }
+          }
+        }
+      )
+
+      state.config =
+        state.config.copy(
+          endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+          endPositionOffsetMs = 600L,
+        )
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+      assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(player.playWhenReady).isFalse()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+      assertThat(seekCount).isEqualTo(0)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerAlreadyHoldsMediaItemAndEndBoundaryChangesWithResumeFalse_setsItemAtDefaultPosition() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      player.pause()
+      player.setPosition(300L)
+      player.removeCommands(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+
+      setContent {
+        val unused =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                resumeVideoFromPreviousPosition = false,
+                endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                endPositionOffsetMs = 600L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+      assertThat(player.currentPosition).isEqualTo(0L)
     }
 
   @Test

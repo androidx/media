@@ -97,9 +97,10 @@ fun rememberMotionPhotoState(
  * [MediaItem.ClippingConfiguration]), this state holder replaces the playlist via
  * [Player.setMediaItem] so that [mediaItem] is the only item in the playlist, and prepares
  * playback. Playback boundary changes set [mediaItem] again with an updated
- * [MediaItem.ClippingConfiguration]. The start and end positions of [mediaItem]'s
- * [MediaItem.ClippingConfiguration] are overridden by the resolved boundaries. Callers should not
- * modify the [Player]'s playlist while it is bound to this state.
+ * [MediaItem.ClippingConfiguration], resuming from the current position when only the end changes.
+ * The start and end positions of [mediaItem]'s [MediaItem.ClippingConfiguration] are overridden by
+ * the resolved boundaries. Callers should not modify the [Player]'s playlist while it is bound to
+ * this state.
  *
  * This state holder also owns [Player.repeatMode] while bound: it is set to
  * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
@@ -275,7 +276,7 @@ internal constructor(
       appliedClippingConfiguration = loadedMediaItem.clippingConfiguration
       updateVideoDuration(currentPlayer)
     }
-    updateClippingConfiguration(currentPlayer)
+    updateClippingConfiguration(currentPlayer, isInitialBind = true)
     // Without COMMAND_SET_MEDIA_ITEM no new item was set, so an existing error is not stale.
     syncPlaybackState(
       currentPlayer,
@@ -527,7 +528,7 @@ internal constructor(
     return baseUs + Util.msToUs(_config.endPositionOffsetMs)
   }
 
-  private fun updateClippingConfiguration(currentPlayer: Player) {
+  private fun updateClippingConfiguration(currentPlayer: Player, isInitialBind: Boolean = false) {
     if (!currentPlayer.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM)) {
       return
     }
@@ -554,7 +555,11 @@ internal constructor(
           ((startPositionUs == C.TIME_UNSET || endPositionUs == C.TIME_UNSET) &&
             appliedClippingConfiguration != unclippedConfiguration)
       ) {
-        setMediaItemWithClippingConfiguration(currentPlayer, unclippedConfiguration)
+        setMediaItemWithClippingConfiguration(
+          currentPlayer,
+          unclippedConfiguration,
+          isInitialBind = isInitialBind,
+        )
       }
       isPlaybackRangeEmpty = true
       if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
@@ -573,7 +578,11 @@ internal constructor(
         .setEndPositionUs(endPositionUs)
         .build()
     if (clippingConfiguration != appliedClippingConfiguration) {
-      setMediaItemWithClippingConfiguration(currentPlayer, clippingConfiguration)
+      setMediaItemWithClippingConfiguration(
+        currentPlayer,
+        clippingConfiguration,
+        isInitialBind = isInitialBind,
+      )
     }
     if (wasPlaybackRangeEmpty) {
       syncPlaybackState(currentPlayer, allowPrepareOnError = false)
@@ -583,22 +592,51 @@ internal constructor(
   /**
    * Sets [mediaItem] with the given [clippingConfiguration] on [currentPlayer].
    *
-   * Clipping changes always go through [Player.setMediaItem]: with a stock
-   * `DefaultMediaSourceFactory`, an item that was prepared without clipping has no
-   * `ClippingMediaSource` around it, and [Player.replaceMediaItem] would then update the item in
-   * place without applying the new clipping (see
-   * `DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource`).
+   * A change that keeps the start position resumes from the current position (unless
+   * ([isInitialBind] or [_showPhoto]) is `true` and
+   * [MotionPhotoConfig.resumeVideoFromPreviousPosition] is `false`), while a change of the start
+   * position restarts from the new start. Either way, the still photo covers the video again until
+   * the first frame at the resumed position has rendered (`ContentFrame` covers the surface while
+   * the item is prepared again).
    */
+  // TODO(b/474538573): Update the clipping in place via Player.replaceMediaItem once
+  // ClippingMediaSource applies clipping changes without re-preparing the item. This also needs an
+  // item prepared without clipping to be wrapped in a ClippingMediaSource (see
+  // DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource).
   private fun setMediaItemWithClippingConfiguration(
     currentPlayer: Player,
     clippingConfiguration: MediaItem.ClippingConfiguration,
+    isInitialBind: Boolean = false,
   ) {
+    cancelDeferredRewind()
+    val clippedMediaItem =
+      mediaItem.buildUpon().setClippingConfiguration(clippingConfiguration).build()
+    val previousClippingConfiguration = appliedClippingConfiguration
+    val rangeDurationUs =
+      if (clippingConfiguration.endPositionUs == C.TIME_END_OF_SOURCE) C.TIME_UNSET
+      else clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs
+    val startPositionMs =
+      if (
+        ((!isInitialBind && !_showPhoto) || _config.resumeVideoFromPreviousPosition) &&
+          previousClippingConfiguration != null &&
+          previousClippingConfiguration.startPositionUs == clippingConfiguration.startPositionUs &&
+          currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+      ) {
+        val currentPositionMs = currentPlayer.currentPosition
+        // The player would clamp a position at or beyond the new end to that end and report
+        // STATE_ENDED immediately, so restart from the start of the range instead.
+        if (rangeDurationUs != C.TIME_UNSET && Util.msToUs(currentPositionMs) >= rangeDurationUs) {
+          C.TIME_UNSET
+        } else {
+          currentPositionMs
+        }
+      } else {
+        C.TIME_UNSET
+      }
     // Assigned before setMediaItem so that events delivered for the new item already see the
     // applied configuration.
     appliedClippingConfiguration = clippingConfiguration
-    currentPlayer.setMediaItem(
-      mediaItem.buildUpon().setClippingConfiguration(clippingConfiguration).build()
-    )
+    currentPlayer.setMediaItem(clippedMediaItem, startPositionMs)
     hasRenderedFirstFrame = false
   }
 
