@@ -67,6 +67,7 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.StyleSpan;
 import androidx.media.VolumeProviderCompat;
+import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -796,6 +797,49 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void setMetadata_withActiveQueueItem_notifiesTimelineChangedWithSourceUpdate()
+      throws Exception {
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
+    session.setQueue(testQueue);
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActiveQueueItemId(testQueue.get(1).getQueueId())
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Timeline> timelineRef = new AtomicReference<>();
+    AtomicInteger timelineChangeReasonRef = new AtomicInteger(C.INDEX_UNSET);
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(
+              Timeline timeline, @Player.TimelineChangeReason int reason) {
+            timelineRef.set(timeline);
+            timelineChangeReasonRef.set(reason);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    MediaMetadataCompat metadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putText(METADATA_KEY_TITLE, "updatedTitle")
+            .putLong(METADATA_KEY_DURATION, 10_000L)
+            .build();
+
+    session.setMetadata(metadataCompat);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(timelineChangeReasonRef.get())
+        .isEqualTo(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
+    Timeline.Window window =
+        timelineRef.get().getWindow(/* windowIndex= */ 1, new Timeline.Window());
+    assertThat(window.mediaItem.mediaMetadata.title.toString()).isEqualTo("updatedTitle");
+    assertThat(window.getDurationMs()).isEqualTo(10_000L);
+  }
+
+  @Test
   public void isPlayingAd_withMetadataWithAd_returnsTrue() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(1);
@@ -971,11 +1015,13 @@ public class MediaControllerWithMediaSessionCompatTest {
     session.setMetadata(testMetadataCompat);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(1);
+    AtomicInteger timelineChangeReasonRef = new AtomicInteger(C.INDEX_UNSET);
     Player.Listener listener =
         new Player.Listener() {
           @Override
           public void onTimelineChanged(
               Timeline timeline, @Player.TimelineChangeReason int reason) {
+            timelineChangeReasonRef.set(reason);
             latch.countDown();
           }
         };
@@ -987,6 +1033,8 @@ public class MediaControllerWithMediaSessionCompatTest {
             .build());
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(timelineChangeReasonRef.get())
+        .isEqualTo(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
 
     int mediaItemCount = threadTestRule.getHandler().postAndSync(controller::getMediaItemCount);
 

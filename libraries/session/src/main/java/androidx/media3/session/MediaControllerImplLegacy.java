@@ -2144,6 +2144,8 @@ import org.jspecify.annotations.Nullable;
       boolean hasPendingExtrasChange,
       Context context) {
     QueueTimeline currentTimeline;
+    @Player.TimelineChangeReason
+    int timelineChangeReason = Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
     MediaMetadata mediaMetadata;
     int currentMediaItemIndex;
     MediaMetadata playlistMetadata;
@@ -2208,6 +2210,8 @@ import org.jspecify.annotations.Nullable;
       } else if (currentMediaItemIndex != C.INDEX_UNSET) {
         currentTimeline = currentTimeline.copyWithClearedFakeMediaItem();
         if (hasMediaMetadataCompat) {
+          boolean hasNoQueueOrFakeItemChange =
+              !isQueueChanged && currentTimeline.equals(oldControllerInfo.playerInfo.timeline);
           MediaItem mediaItem =
               LegacyConversions.convertToMediaItem(
                   checkNotNull(currentTimeline.getMediaItemAt(currentMediaItemIndex)).mediaId,
@@ -2216,6 +2220,11 @@ import org.jspecify.annotations.Nullable;
           currentTimeline =
               currentTimeline.copyWithNewMediaItem(
                   /* replaceIndex= */ currentMediaItemIndex, mediaItem, durationMs);
+          if (hasNoQueueOrFakeItemChange
+              && !currentTimeline.equals(oldControllerInfo.playerInfo.timeline)) {
+            // Only the active item has changed (eg. duration)
+            timelineChangeReason = Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE;
+          }
         }
       } else {
         // There's queue, but no valid queue item ID nor current media item metadata.
@@ -2342,6 +2351,7 @@ import org.jspecify.annotations.Nullable;
 
     return createControllerInfo(
         currentTimeline,
+        timelineChangeReason,
         mediaMetadata,
         currentMediaItemIndex,
         playlistMetadata,
@@ -2509,6 +2519,7 @@ import org.jspecify.annotations.Nullable;
 
   private static ControllerInfo createControllerInfo(
       QueueTimeline currentTimeline,
+      @Player.TimelineChangeReason int timelineChangeReason,
       MediaMetadata mediaMetadata,
       int currentMediaItemIndex,
       MediaMetadata playlistMetadata,
@@ -2568,7 +2579,7 @@ import org.jspecify.annotations.Nullable;
             /* shuffleModeEnabled= */ shuffleModeEnabled,
             /* videoSize= */ VideoSize.UNKNOWN,
             /* timeline= */ currentTimeline,
-            /* timelineChangeReason= */ PlayerInfo.TIMELINE_CHANGE_REASON_DEFAULT,
+            /* timelineChangeReason= */ timelineChangeReason,
             /* playlistMetadata= */ playlistMetadata,
             /* volume= */ 1.0f,
             /* unmuteVolume= */ 1.0f,

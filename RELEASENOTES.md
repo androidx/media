@@ -144,6 +144,10 @@
         implementation the option to recover properly by not attempting to
         create a new session
         ([#3490](https://github.com/androidx/media/issues/3490)).
+    *   Report `Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE` instead of
+        `Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED` when a legacy
+        `MediaSessionCompat` metadata update modifies the active queue item's
+        metadata or duration without changing the queue.
 *   UI:
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap
