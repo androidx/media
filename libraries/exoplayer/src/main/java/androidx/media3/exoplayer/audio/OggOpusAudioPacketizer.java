@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.audio;
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import androidx.media3.common.Flags;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
@@ -73,20 +74,108 @@ public final class OggOpusAudioPacketizer {
    *     items, then it also contains the Opus pre-skip and seek pre-roll values in that order.
    */
   public void packetize(DecoderInputBuffer inputBuffer, List<byte[]> initializationData) {
-    checkNotNull(inputBuffer.data);
-    if (inputBuffer.data.limit() - inputBuffer.data.position() == 0) {
+    ByteBuffer inputData = checkNotNull(inputBuffer.data);
+    if (inputData.limit() - inputData.position() == 0) {
       return;
     }
-    byte @Nullable [] providedOggIdHeaderPayloadBytes =
-        pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER
-                && (initializationData.size() == 1 || initializationData.size() == 3)
-            ? initializationData.get(0)
-            : null;
-    outputBuffer = packetizeInternal(inputBuffer.data, providedOggIdHeaderPayloadBytes);
-    inputBuffer.clear();
-    inputBuffer.ensureSpaceForWrite(outputBuffer.remaining());
-    inputBuffer.data.put(outputBuffer);
-    inputBuffer.flip();
+
+    int oggIdHeaderPageSize = 0;
+    byte @Nullable [] providedOggIdHeaderPayloadBytes = null;
+    if (pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER) {
+      providedOggIdHeaderPayloadBytes =
+          (initializationData.size() == 1 || initializationData.size() == 3)
+              ? initializationData.get(0)
+              : null;
+      oggIdHeaderPageSize =
+          providedOggIdHeaderPayloadBytes != null
+              ? OGG_PACKET_HEADER_LENGTH + providedOggIdHeaderPayloadBytes.length
+              : OGG_DEFAULT_ID_HEADER_PAGE.length;
+    }
+
+    if (Flags.isEnabled(Flags.FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION)) {
+      int numSamples = OpusUtil.parsePacketAudioSampleCount(inputData);
+
+      int position = inputData.position();
+      int limit = inputData.limit();
+      int inputBufferSize = limit - position;
+
+      // inputBufferSize divisible by 255 requires extra '0' terminating lacing value
+      int numSegments = (inputBufferSize + 255) / 255;
+      int headerSize = 27 + numSegments;
+
+      int audioPageOffset =
+          pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER
+              ? oggIdHeaderPageSize + OGG_DEFAULT_COMMENT_HEADER_PAGE.length
+              : 0;
+      int payloadShiftOffset = audioPageOffset + headerSize;
+      int outputPacketSize = payloadShiftOffset + inputBufferSize;
+
+      // Set position to limit so that ensureSpaceForWrite preserves the data up to limit.
+      inputData.position(limit);
+      inputBuffer.ensureSpaceForWrite(Math.max(0, outputPacketSize - limit));
+
+      ByteBuffer buffer = inputBuffer.data;
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+      buffer.limit(Math.max(limit, outputPacketSize));
+
+      // Shift Opus payload to its final position
+      if (payloadShiftOffset > position) {
+        for (int i = inputBufferSize - 1; i >= 0; i--) {
+          buffer.put(payloadShiftOffset + i, buffer.get(position + i));
+        }
+      } else if (payloadShiftOffset < position) {
+        for (int i = 0; i < inputBufferSize; i++) {
+          buffer.put(payloadShiftOffset + i, buffer.get(position + i));
+        }
+      }
+
+      inputBuffer.clear();
+
+      if (pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER) {
+        if (providedOggIdHeaderPayloadBytes != null) {
+          writeOggIdHeaderPage(buffer, /* idHeaderPayloadBytes= */ providedOggIdHeaderPayloadBytes);
+        } else {
+          buffer.put(OGG_DEFAULT_ID_HEADER_PAGE);
+        }
+        buffer.put(OGG_DEFAULT_COMMENT_HEADER_PAGE);
+      }
+
+      granulePosition += numSamples;
+
+      writeOggPacketHeader(
+          buffer, granulePosition, pageSequenceNumber, numSegments, /* isIdHeaderPacket= */ false);
+
+      int bytesLeft = inputBufferSize;
+      for (int i = 0; i < numSegments; i++) {
+        if (bytesLeft >= 255) {
+          buffer.put((byte) 255);
+          bytesLeft -= 255;
+        } else {
+          buffer.put((byte) bytesLeft);
+          bytesLeft = 0;
+        }
+      }
+
+      buffer.position(outputPacketSize);
+      inputBuffer.flip();
+
+      int checksum =
+          Util.crc32(
+              buffer,
+              /* start= */ audioPageOffset,
+              /* end= */ outputPacketSize,
+              /* initialValue= */ 0);
+      buffer.putInt(audioPageOffset + CHECKSUM_INDEX, checksum);
+
+      pageSequenceNumber++;
+    } else {
+      outputBuffer =
+          packetizeInternal(inputData, providedOggIdHeaderPayloadBytes, oggIdHeaderPageSize);
+      inputBuffer.clear();
+      inputBuffer.ensureSpaceForWrite(outputBuffer.remaining());
+      inputBuffer.data.put(outputBuffer);
+      inputBuffer.flip();
+    }
   }
 
   /** Resets the packetizer. */
@@ -107,10 +196,14 @@ public final class OggOpusAudioPacketizer {
    * @param providedOggIdHeaderPayloadBytes containing the Ogg ID Header Page payload. Expected to
    *     be {@code null} if {@link #pageSequenceNumber} is not {@link
    *     #FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER}.
+   * @param oggIdHeaderPageSize the size of the Ogg ID Header Page in bytes, or 0 if {@link
+   *     #pageSequenceNumber} is not {@link #FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER}.
    * @return {@link ByteBuffer} containing Ogg packet
    */
   private ByteBuffer packetizeInternal(
-      ByteBuffer inputBuffer, byte @Nullable [] providedOggIdHeaderPayloadBytes) {
+      ByteBuffer inputBuffer,
+      byte @Nullable [] providedOggIdHeaderPayloadBytes,
+      int oggIdHeaderPageSize) {
     int position = inputBuffer.position();
     int limit = inputBuffer.limit();
     int inputBufferSize = limit - position;
@@ -123,12 +216,7 @@ public final class OggOpusAudioPacketizer {
 
     // If first audio sample in stream, then the packetizer will add Ogg ID Header and Comment
     // Header Pages. Include additional page lengths in buffer size calculation.
-    int oggIdHeaderPageSize = 0;
     if (pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER) {
-      oggIdHeaderPageSize =
-          providedOggIdHeaderPayloadBytes != null
-              ? OGG_PACKET_HEADER_LENGTH + providedOggIdHeaderPayloadBytes.length
-              : OGG_DEFAULT_ID_HEADER_PAGE.length;
       outputPacketSize += oggIdHeaderPageSize + OGG_DEFAULT_COMMENT_HEADER_PAGE.length;
     }
 
@@ -177,20 +265,20 @@ public final class OggOpusAudioPacketizer {
     if (pageSequenceNumber == FIRST_AUDIO_SAMPLE_PAGE_SEQUENCE_NUMBER) {
       checksum =
           Util.crc32(
-              buffer.array(),
-              /* start= */ buffer.arrayOffset()
+              buffer,
+              /* start= */ buffer.position()
                   + oggIdHeaderPageSize
                   + OGG_DEFAULT_COMMENT_HEADER_PAGE.length,
-              /* end= */ buffer.limit() - buffer.position(),
+              /* end= */ buffer.limit(),
               /* initialValue= */ 0);
       buffer.putInt(
           oggIdHeaderPageSize + OGG_DEFAULT_COMMENT_HEADER_PAGE.length + CHECKSUM_INDEX, checksum);
     } else {
       checksum =
           Util.crc32(
-              buffer.array(),
-              /* start= */ buffer.arrayOffset(),
-              /* end= */ buffer.limit() - buffer.position(),
+              buffer,
+              /* start= */ buffer.position(),
+              /* end= */ buffer.limit(),
               /* initialValue= */ 0);
       buffer.putInt(CHECKSUM_INDEX, checksum);
     }
@@ -219,8 +307,8 @@ public final class OggOpusAudioPacketizer {
     buffer.put(idHeaderPayloadBytes);
     int checksum =
         Util.crc32(
-            buffer.array(),
-            /* start= */ buffer.arrayOffset(),
+            buffer,
+            /* start= */ 0,
             /* end= */ OGG_PACKET_HEADER_LENGTH + idHeaderPayloadBytes.length,
             /* initialValue= */ 0);
     buffer.putInt(/* index= */ CHECKSUM_INDEX, checksum);

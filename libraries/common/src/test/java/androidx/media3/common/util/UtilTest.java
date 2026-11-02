@@ -1142,6 +1142,33 @@ public class UtilTest {
   }
 
   @Test
+  public void crc32_withByteBuffer_returnsUpdatedCrc32() {
+    ByteBuffer buffer =
+        ByteBuffer.wrap(new byte[] {0x00, 0x5F, 0x78, 0x04, 0x7B, 0x5F}, 1, 5).slice();
+    int start = 1;
+    int end = 4;
+    int initialValue = 0xFFFFFFFF;
+
+    int result = Util.crc32(buffer, start, end, initialValue);
+
+    assertThat(result).isEqualTo(0x67CE9747);
+  }
+
+  @Test
+  public void crc32_withDirectByteBuffer_returnsUpdatedCrc32() {
+    byte[] data = new byte[] {0x5F, 0x78, 0x04, 0x7B, 0x5F};
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length);
+    buffer.put(data).flip();
+    int start = 1;
+    int end = 4;
+    int initialValue = 0xFFFFFFFF;
+
+    int result = Util.crc32(buffer, start, end, initialValue);
+
+    assertThat(result).isEqualTo(0x67CE9747);
+  }
+
+  @Test
   public void crc8_returnsUpdatedCrc8() {
     byte[] bytes = {0x5F, 0x78, 0x04, 0x7B, 0x5F};
     int start = 1;

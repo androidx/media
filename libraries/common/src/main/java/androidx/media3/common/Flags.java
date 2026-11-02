@@ -123,6 +123,7 @@ public final class Flags {
    *   <li>{@link #FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE}
    *   <li>{@link #FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT}
    *   <li>{@link #FLAG_IMAGE_READER_PLACEHOLDER_SURFACE}
+   *   <li>{@link #FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION}
    * </ul>
    */
   @Documented
@@ -143,6 +144,7 @@ public final class Flags {
         FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE,
         FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT,
         FLAG_IMAGE_READER_PLACEHOLDER_SURFACE,
+        FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION,
       })
   public @interface Flag {}
 
@@ -284,7 +286,16 @@ public final class Flags {
   @ExperimentalApi // TODO(b/573961294): Remove this flag.
   public static final int FLAG_IMAGE_READER_PLACEHOLDER_SURFACE = 12;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 13;
+  /**
+   * Flag to enable in-place buffer manipulation in {@code OggOpusAudioPacketizer}.
+   *
+   * <p>When enabled, {@code OggOpusAudioPacketizer} writes Ogg page headers directly into the input
+   * buffer instead of allocating an intermediate output buffer.
+   */
+  @ExperimentalApi // TODO(b/577053786): Remove this flag (earliest cleanup: 2026-12-24).
+  public static final int FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION = 13;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 14;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

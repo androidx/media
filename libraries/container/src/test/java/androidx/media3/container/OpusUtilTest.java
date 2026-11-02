@@ -729,6 +729,20 @@ public final class OpusUtilTest {
     assertThat(config31SampleCount).isEqualTo(1920);
   }
 
+  @Test
+  public void parsePacketAudioSampleCount_withNonZeroPosition_readsFromPosition() {
+    ByteBuffer singleByteTocBuffer = getByteBuffer("078C04");
+    singleByteTocBuffer.position(2);
+    ByteBuffer twoByteTocBuffer = getByteBuffer("04078C");
+    twoByteTocBuffer.position(1);
+
+    int singleByteTocSampleCount = OpusUtil.parsePacketAudioSampleCount(singleByteTocBuffer);
+    int twoByteTocSampleCount = OpusUtil.parsePacketAudioSampleCount(twoByteTocBuffer);
+
+    assertThat(singleByteTocSampleCount).isEqualTo(480);
+    assertThat(twoByteTocSampleCount).isEqualTo(5760);
+  }
+
   private static long sampleCountToNanoseconds(long sampleCount) {
     return (sampleCount * C.NANOS_PER_SECOND) / OpusUtil.SAMPLE_RATE;
   }

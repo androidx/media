@@ -3422,6 +3422,32 @@ public final class Util {
   }
 
   /**
+   * Returns the result of updating a CRC-32 with the specified bytes in a "most significant bit
+   * first" order.
+   *
+   * <p>The buffer's position and limit are not modified.
+   *
+   * @param buffer Buffer containing the bytes to update the crc value with.
+   * @param start The index of the first byte in the byte range to update the crc with.
+   * @param end The index after the last byte in the byte range to update the crc with.
+   * @param initialValue The initial value for the crc calculation.
+   * @return The result of updating the initial value with the specified bytes.
+   */
+  @UnstableApi
+  public static int crc32(ByteBuffer buffer, int start, int end, int initialValue) {
+    if (buffer.hasArray() && start >= 0 && end <= buffer.limit()) {
+      int arrayOffset = buffer.arrayOffset();
+      return crc32(buffer.array(), arrayOffset + start, arrayOffset + end, initialValue);
+    }
+    for (int i = start; i < end; i++) {
+      initialValue =
+          (initialValue << 8)
+              ^ CRC32_BYTES_MSBF[((initialValue >>> 24) ^ (buffer.get(i) & 0xFF)) & 0xFF];
+    }
+    return initialValue;
+  }
+
+  /**
    * Returns the result of updating a CRC-16 with the specified bytes in a "most significant bit
    * first" order.
    *

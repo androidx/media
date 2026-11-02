@@ -125,7 +125,9 @@ public class OpusUtil {
    */
   public static int parsePacketAudioSampleCount(ByteBuffer buffer) {
     long packetDurationUs =
-        getPacketDurationUs(buffer.get(0), buffer.limit() > 1 ? buffer.get(1) : 0);
+        getPacketDurationUs(
+            buffer.get(buffer.position()),
+            buffer.limit() - buffer.position() > 1 ? buffer.get(buffer.position() + 1) : 0);
     return (int) (packetDurationUs * SAMPLE_RATE / C.MICROS_PER_SECOND);
   }
 
