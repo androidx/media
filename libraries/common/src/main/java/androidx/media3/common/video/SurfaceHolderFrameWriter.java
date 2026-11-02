@@ -413,22 +413,27 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
     long releaseTimeNs;
 
     synchronized (lock) {
+      if (this.imageWriter != imageWriterFromFrame) {
+        // The ImageWriter has changed since this frame was dequeued. The previous writer was
+        // closed and this image can no longer be used.
+        if (writeCompleteFence != null) {
+          writeCompleteFence.close();
+        }
+        releaseFrameResources(frame);
+        return;
+      }
+
       if (writeCompleteFence != null && SDK_INT >= 33) {
         try {
           image.setFence(writeCompleteFence.asSyncFence());
         } catch (IOException e) {
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
-          writeCompleteFence.close();
           releaseFrameResources(frame);
           return;
+        } finally {
+          // The image holds its own duplicate of the fence file descriptor.
+          writeCompleteFence.close();
         }
-      }
-
-      if (this.imageWriter != imageWriterFromFrame) {
-        // The ImageWriter has changed since this frame was dequeued. The previous writer was
-        // closed and this image can no longer be used.
-        releaseFrameResources(frame);
-        return;
       }
 
       if (SDK_INT >= 28) {

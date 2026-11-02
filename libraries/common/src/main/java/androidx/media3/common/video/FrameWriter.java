@@ -81,6 +81,9 @@ public interface FrameWriter extends AutoCloseable {
    * <p>The queued frame must have been previously {@link #dequeueInputFrame dequeued} from this
    * writer.
    *
+   * <p>The {@code FrameWriter} takes ownership of the {@code writeCompleteFence} and is responsible
+   * for closing it.
+   *
    * @param frame The filled frame to queue.
    * @param writeCompleteFence A {@link SyncFenceWrapper} that will signal when the caller has
    *     finished writing to the frame, or {@code null} if the write was synchronous.

@@ -20,11 +20,15 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assume.assumeFalse;
 
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.media3.common.C;
@@ -33,6 +37,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.FakeHardwareBufferNativeHelpers;
 import androidx.media3.test.utils.ImageReaderSurfaceHolder;
@@ -583,6 +588,48 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     }
   }
 
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queueInputFrame_withFenceAfterSurfaceDestroyed_dropsFrameAndClosesFence()
+      throws Exception {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
+    SyncFenceWrapper writeCompleteFence = createWriteCompleteFence();
+    frameWriter.surfaceDestroyed(surfaceHolder);
+
+    frameWriter.queueInputFrame(asyncFrame.frame, writeCompleteFence);
+
+    // The writer owns the fence and closes it when it drops the stale frame.
+    assertThat(writeCompleteFence.asSyncFence().isValid()).isFalse();
+    // The dropped frame is never rendered, so the latch isn't counted down.
+    assertThat(listener.renderedLatch.getCount()).isEqualTo(1);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queueInputFrame_withFence_closesFence() throws Exception {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+    AsyncFrame asyncFrame = dequeueInputFrameWithTimeout(frameWriter);
+    SyncFenceWrapper writeCompleteFence = createWriteCompleteFence();
+
+    frameWriter.queueInputFrame(asyncFrame.frame, writeCompleteFence);
+
+    // The image holds its own duplicate of the fence, so the writer closes the fence it was given.
+    assertThat(writeCompleteFence.asSyncFence().isValid()).isFalse();
+  }
+
   @SuppressWarnings("PatternMatchingInstanceof") // TODO(b/561916275): Remove when issue is fixed.
   private static Frame createOutputFrame(Frame frame, long displayTimeNs, long contentTimeUs) {
     if (frame instanceof HardwareBufferFrame) {
@@ -629,6 +676,23 @@ public final class SurfaceHolderFrameWriterAndroidTest {
   private void waitExecutorIdle(ExecutorService executor) throws Exception {
     Future<?> future = executor.submit(() -> {});
     future.get(TEST_TIMEOUT_MS, MILLISECONDS);
+  }
+
+  /** Returns a native sync fence created on a temporary EGL context. */
+  private static SyncFenceWrapper createWriteCompleteFence() throws GlUtil.GlException {
+    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
+    EGLContext eglContext = GlUtil.createEglContext(eglDisplay);
+    EGLSurface eglSurface = GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
+    try {
+      ImmutableList<SyncFenceWrapper> fences = GlUtil.createSyncFences(/* count= */ 1);
+      assumeFalse("Native sync fences are not supported.", fences.isEmpty());
+      return fences.get(0);
+    } finally {
+      // The fence owns a native fence file descriptor that stays valid after the EGL objects are
+      // destroyed. GlUtil.createSyncFences() already destroys its EGLSync before returning.
+      GlUtil.destroyEglSurface(eglDisplay, eglSurface);
+      GlUtil.destroyEglContext(eglDisplay, eglContext);
+    }
   }
 
   private static class FakeListener implements SurfaceHolderFrameWriter.Listener {
