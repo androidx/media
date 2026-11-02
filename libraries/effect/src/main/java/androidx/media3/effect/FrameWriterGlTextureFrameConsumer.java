@@ -20,6 +20,8 @@ import static androidx.media3.common.ColorInfo.isWideColorGamut;
 import static androidx.media3.common.video.Frame.USAGE_GPU_COLOR_OUTPUT;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
 import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
@@ -55,6 +57,7 @@ import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -76,6 +79,8 @@ import org.jspecify.annotations.Nullable;
 
   private static final String TAG = "FrameWriterGlTexCons";
   private static final long OUTPUT_USAGE = USAGE_GPU_COLOR_OUTPUT;
+  private static final ColorInfo HDR_BT2020_HLG_LIMITED =
+      BT2020_HLG.buildUpon().setColorRange(C.COLOR_RANGE_LIMITED).build();
 
   private final Context context;
   private final FrameWriter frameWriter;
@@ -105,7 +110,11 @@ import org.jspecify.annotations.Nullable;
       GlTextureFrame inputFrame, Executor listenerExecutor, Runnable wakeupListener)
       throws VideoFrameProcessingException {
     if (!isFrameWriterConfigured) {
-      outputFormat = establishOutputFormat(inputFrame.format);
+      @Nullable Format resolvedOutputFormat = resolveOutputFormat(inputFrame);
+      if (resolvedOutputFormat == null) {
+        throw new VideoFrameProcessingException(inputFrame.format.toString());
+      }
+      outputFormat = resolvedOutputFormat;
       frameWriter.configure(outputFormat, OUTPUT_USAGE);
       isFrameWriterConfigured = true;
     }
@@ -328,31 +337,77 @@ import org.jspecify.annotations.Nullable;
     GlUtil.checkGlError();
   }
 
-  /** Establishes the output format based on the first frame. */
-  private Format establishOutputFormat(Format inputFormat) {
-    ColorInfo outputColorInfo = resolveOutputColorInfo(checkNotNull(inputFormat.colorInfo));
-    // This only sets the tags of the output format, the pixel values don't change. SDR pixels are
-    // sRGB encoded, which is preferred for RGB content throughout Android, even where it's only
-    // labeled "RGB". Some encoders don't accept an sRGB tag, so SDR output is tagged with the SDR
-    // (BT.709) transfer instead. Encoders output limited range for both SDR and HDR.
-    // TODO(b/545572413): Allow converting outputting to other gamut, for example BT.601.
-    ColorInfo frameWriterColorInfo =
-        isWideColorGamut(outputColorInfo)
-            ? outputColorInfo.buildUpon().setColorRange(C.COLOR_RANGE_LIMITED).build()
-            : ColorInfo.SDR_BT709_LIMITED;
-    int rotationDegrees =
-        calculateOutputRotationDegrees(
-            inputFormat.buildUpon().setColorInfo(frameWriterColorInfo).build());
-    int outputWidth = rotationDegrees == 90 ? inputFormat.height : inputFormat.width;
-    int outputHeight = rotationDegrees == 90 ? inputFormat.width : inputFormat.height;
+  /**
+   * Resolves the output format based on the first frame, or returns {@code null} if no appropriate
+   * format is found.
+   *
+   * <p>If the preferred color space is not supported by the {@link FrameWriter}, SDR is supported
+   * at the same size, and no explicit {@link ColorConversion} was applied, falls back to SDR.
+   */
+  private @Nullable Format resolveOutputFormat(GlTextureFrame inputFrame) {
+    Format inputFormat = inputFrame.format;
+    ColorInfo preferredColorInfo = getPreferredOutputColorInfo(checkNotNull(inputFormat.colorInfo));
+
+    @Nullable Format preferredFormat = findSupportedOutputFormat(inputFormat, preferredColorInfo);
+    if (preferredFormat != null) {
+      return preferredFormat;
+    }
+
+    if (!preferredColorInfo.equals(ColorInfo.SDR_BT709_LIMITED)) {
+      @Nullable Format sdrFormat =
+          findSupportedOutputFormat(inputFormat, ColorInfo.SDR_BT709_LIMITED);
+      if (sdrFormat != null) {
+        if (hasExplicitColorConversion(inputFrame)) {
+          return null;
+        }
+        Log.w(
+            TAG,
+            "The FrameWriter does not support " + preferredColorInfo + ". Falling back to SDR.");
+        return sdrFormat;
+      }
+    }
+
+    // TODO: b/570487705 - Info can't tell whether the size or the color is unsupported, so keep the
+    //  preferred color and let the FrameWriter adjust the format. This violates the configure()
+    //  contract (b/567532525).
     return updateFormat(
         inputFormat,
-        outputWidth,
-        outputHeight,
+        inputFormat.width,
+        inputFormat.height,
+        /* rotationDegrees= */ 0,
+        preferredColorInfo);
+  }
+
+  private @Nullable Format findSupportedOutputFormat(Format inputFormat, ColorInfo colorInfo) {
+    Format format =
+        updateFormat(
+            inputFormat,
+            inputFormat.width,
+            inputFormat.height,
+            /* rotationDegrees= */ 0,
+            colorInfo);
+    if (frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
+      return format;
+    }
+    if (inputFormat.width < inputFormat.height) {
+      // If frameWriter doesn't support portrait, try rotating the input by 90 degrees to swap to
+      // landscape dimensions supported by the encoder. Setting rotation degrees to zero because the
+      // encoder doesn't rotate the frame and thus the value is irrelevant. Here we use the swapped
+      // dimension to check encoder capability.
+      Format formatRotate90 =
+          updateFormat(
+              inputFormat,
+              /* width= */ inputFormat.height,
+              /* height= */ inputFormat.width,
+              /* rotationDegrees= */ 0,
+              colorInfo);
+      if (frameWriter.getInfo().isSupported(formatRotate90, OUTPUT_USAGE)) {
         // Sets the degrees that the player needs to rotate. If we rotated 90 degrees, the player
         // needs to rotate -90 degrees, which is equivalent to rotating it 270 degrees.
-        /* rotationDegrees= */ (360 - rotationDegrees) % 360,
-        frameWriterColorInfo);
+        return formatRotate90.buildUpon().setRotationDegrees(270).build();
+      }
+    }
+    return null;
   }
 
   /** Reconfigures the shader program if the input size or color space changed. */
@@ -373,7 +428,12 @@ import org.jspecify.annotations.Nullable;
 
     int inputTextureWidth = inputFrame.glTextureInfo.width;
     int inputTextureHeight = inputFrame.glTextureInfo.height;
-    ColorInfo outputColorInfo = resolveOutputColorInfo(inputColorInfo);
+    // Derive the shader output color from the configured outputFormat (which may have fallen back
+    // to SDR), using BT709_SRGB for SDR because ColorConversionShaderProgram requires the sRGB
+    // transfer.
+    ColorInfo configuredColorInfo = checkNotNull(checkNotNull(outputFormat).colorInfo);
+    ColorInfo outputColorInfo =
+        isWideColorGamut(configuredColorInfo) ? configuredColorInfo : BT709_SRGB;
 
     // Force physical rotation to match the logical rotation of the established output format.
     // The output format stores the rotation that player applies. We convert it back to the degrees
@@ -415,6 +475,34 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  private static ColorInfo getPreferredOutputColorInfo(ColorInfo inputColorInfo) {
+    // This only sets the tags of the output format, the pixel values don't change. SDR pixels are
+    // sRGB encoded, which is preferred for RGB content throughout Android, even where it's only
+    // labeled "RGB". Some encoders don't accept an sRGB tag, so SDR output is tagged with the SDR
+    // (BT.709) transfer instead. Encoders output limited range for both SDR and HDR.
+    // TODO(b/545572413): Allow converting outputting to other gamut, for example BT.601.
+    return isWideColorGamut(inputColorInfo) ? HDR_BT2020_HLG_LIMITED : ColorInfo.SDR_BT709_LIMITED;
+  }
+
+  private static boolean hasExplicitColorConversion(GlTextureFrame frame) {
+    return containsColorConversion(frame, KEY_ITEM_EFFECTS)
+        || containsColorConversion(frame, KEY_COMPOSITION_EFFECTS);
+  }
+
+  private static boolean containsColorConversion(GlTextureFrame frame, String effectKey) {
+    @Nullable Object effects = frame.getMetadata().get(effectKey);
+    if (!(effects instanceof List<?>)) {
+      return false;
+    }
+    List<?> effectList = (List<?>) effects;
+    for (int i = 0; i < effectList.size(); i++) {
+      if (effectList.get(i) instanceof ColorConversion) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Creates a texture and an FBO for it, deleting the texture if the FBO can't be created. */
   private static GlTextureInfo createTextureWithFbo(
       int width, int height, boolean useHighPrecisionColorComponents)
@@ -434,53 +522,6 @@ import org.jspecify.annotations.Nullable;
       }
       throw VideoFrameProcessingException.from(e);
     }
-  }
-
-  /**
-   * Returns the electrical {@link ColorInfo} that frames arriving in {@code inputColorInfo} are
-   * written in.
-   *
-   * <p>Frames in a linear color space are converted to HLG for BT.2020, and to sRGB for BT.709.
-   * Frames that are already electrical, for example because a {@link ColorConversion} was applied,
-   * are written unchanged.
-   */
-  private static ColorInfo resolveOutputColorInfo(ColorInfo inputColorInfo) {
-    if (inputColorInfo.colorTransfer != C.COLOR_TRANSFER_LINEAR) {
-      return inputColorInfo;
-    }
-    return isWideColorGamut(inputColorInfo) ? BT2020_HLG : BT709_SRGB;
-  }
-
-  private int calculateOutputRotationDegrees(Format format) {
-    if (format.width >= format.height) {
-      // Input is landscape, no rotation needed.
-      return 0;
-    }
-
-    if (frameWriter.getInfo().isSupported(format, OUTPUT_USAGE)) {
-      // Portrait is supported, no rotation needed.
-      return 0;
-    }
-
-    // If frameWriter doesn't support portrait, try rotating the input by 90 degrees to swap to
-    // landscape dimensions supported by the encoder.
-    int rotatedWidth = format.height;
-    int rotatedHeight = format.width;
-    Format formatRotate90 =
-        // Setting rotation degrees to zero because the encoder doesn't rotate the frame and thus
-        // the value is irrelevant. Here we use the swapped dimension to check encoder capability.
-        updateFormat(
-            format,
-            rotatedWidth,
-            rotatedHeight,
-            /* rotationDegrees= */ 0,
-            checkNotNull(format.colorInfo));
-    if (frameWriter.getInfo().isSupported(formatRotate90, OUTPUT_USAGE)) {
-      return 90;
-    }
-
-    // Fallback if nothing is supported.
-    return 0;
   }
 
   private static Format updateFormat(

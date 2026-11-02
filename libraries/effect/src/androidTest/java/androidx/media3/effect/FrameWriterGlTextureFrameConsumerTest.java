@@ -16,6 +16,11 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_LINEAR;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.effect.FrameProcessorUtils.releaseOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.setupOpenGl;
 import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorService;
@@ -30,6 +35,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -49,13 +55,18 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameWriter;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -65,7 +76,7 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Instrumentation test for {@link FrameWriterGlTextureFrameConsumer}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class FrameWriterGlTextureFrameConsumerTest {
 
   private static final String TEST_IMAGE_ASSET = "media/png/first_frame_1920x1080.png";
@@ -79,6 +90,9 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   private static final float DIFFUSE_WHITE_BT2020_LINEAR = 1f;
   // BT.2408 diffuse white HLG signal level.
   private static final float DIFFUSE_WHITE_HLG = 0.75f;
+  // BT.2446 Method C tone maps BT.2408 diffuse white (203 nits) to 154 nits (0.7593 of SDR peak
+  // white), and srgbOetf(0.7593) = 0.8857.
+  private static final float DIFFUSE_WHITE_TONE_MAPPED_SRGB = 0.8857f;
   // sRGB OETF applied to 0.5: 1.055 * 0.5^(1 / 2.4) - 0.055.
   private static final float HALF_LINEAR_SRGB = 0.7354f;
   private static final float PIXEL_TOLERANCE = 2f;
@@ -141,7 +155,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_copiesPixelsCorrectly() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
     glExecutorService
@@ -174,7 +188,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_multipleFrames_copiesPixelsCorrectly() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap inputBitmap1 = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
     Bitmap inputBitmap2 = inputBitmap1.copy(Bitmap.Config.ARGB_8888, /* isMutable= */ true);
     new Canvas(inputBitmap2).drawColor(Color.BLUE);
@@ -224,7 +238,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @SdkSuppress(minSdkVersion = 29)
   public void queue_whenFrameWriterHasNoCapacity_returnsFalseAndDoesNotWriteFrame()
       throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     // BitmapSavingFrameWriter has capacity for 1 frame; dequeuing without queuing back exhausts it.
     Format format = new Format.Builder().setWidth(BITMAP_WIDTH).setHeight(BITMAP_HEIGHT).build();
     glExecutorService
@@ -256,7 +270,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @SdkSuppress(minSdkVersion = 29)
   public void queue_retriedOnWakeupWhenFrameWriterRegainsCapacity_copiesPixelsCorrectly()
       throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     // BitmapSavingFrameWriter has capacity for 1 frame; dequeuing without queuing back exhausts it.
     Format format = new Format.Builder().setWidth(BITMAP_WIDTH).setHeight(BITMAP_HEIGHT).build();
     AsyncFrame dequeuedFrame =
@@ -369,7 +383,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_landscapeThenPortrait_outputsCorrectBitmaps() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap inputBitmap1 = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET); // 1920x1080
     Matrix matrix = new Matrix();
     matrix.postRotate(90);
@@ -433,7 +447,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_portraitThenLandscape_outputsCorrectBitmaps() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap originalBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET); // 1920x1080
     Matrix matrix = new Matrix();
     matrix.postRotate(90);
@@ -500,7 +514,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_hdrLinearInputAndUnsetOutput_convertsToHlg() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     queueFrameOnGlThread(
         () ->
             createSolidGrayGlTextureFrame(
@@ -518,7 +532,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_sdrLinearInputAndUnsetOutput_convertsToSrgb() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     queueFrameOnGlThread(
         () ->
             createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR));
@@ -535,7 +549,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_srgbInputAndUnsetOutput_writesPixelsUnchanged() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_SRGB));
 
@@ -549,7 +563,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_hlgInputAndUnsetOutput_writesPixelsUnchanged() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
 
@@ -563,7 +577,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_hdrLinearThenHlgInputAndUnsetOutput_convertsOnlyLinearFrame() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     queueFrameOnGlThread(
         () ->
             createSolidGrayGlTextureFrame(
@@ -586,7 +600,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_hdrLinearLandscapeThenPortrait_convertsToHlgAndPillarboxes() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     int landscapeWidth = 32;
     int landscapeHeight = 16;
     int portraitWidth = 16;
@@ -698,7 +712,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_withDisplayTime_forwardsDisplayTime() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(
@@ -716,7 +730,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_withoutDisplayTime_forwardsNoDisplayTime() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
@@ -762,7 +776,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 37)
   public void queue_hdrOutputWithHagcMetadata_keepsHagcMetadata() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     byte[] hagcPayload = new byte[] {1, 2, 3, 4};
 
     queueFrameOnGlThread(
@@ -780,7 +794,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 37)
   public void queue_hdrOutputWithoutHagcMetadata_forwardsNoMetadata() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
 
     queueFrameOnGlThread(
         () ->
@@ -796,7 +810,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 37)
   public void queue_sdrOutputWithHagcMetadata_dropsHagcMetadata() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     byte[] hagcPayload = new byte[] {1, 2, 3, 4};
 
     queueFrameOnGlThread(
@@ -818,7 +832,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 37)
   public void queue_hdrOutput_forwardsSelectedMetadata() throws Exception {
-    setUpHardwareBufferFrameConsumer();
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     byte[] hagcPayload = new byte[] {1, 2, 3};
 
     queueFrameOnGlThread(
@@ -844,10 +858,157 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         .containsEntry(Frame.KEY_DISPLAY_TIME_NS, 1_000_000_000L);
   }
 
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queue_hdrLinearInputWhenHlgUnsupported_fallsBackToSdr() throws Exception {
+    setUpHardwareBufferFrameConsumer(
+        /* info= */ (format, usage) -> !ColorInfo.isTransferHdr(format.colorInfo));
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
+
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_TONE_MAPPED_SRGB * 255,
+        testName.getMethodName());
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queue_hlgInputWithoutColorConversionWhenHlgUnsupported_fallsBackToSdr()
+      throws Exception {
+    setUpHardwareBufferFrameConsumer(
+        /* info= */ (format, usage) -> !ColorInfo.isTransferHdr(format.colorInfo));
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                /* value= */ DIFFUSE_WHITE_HLG,
+                BT2020_HLG,
+                /* metadata= */ ImmutableMap.of(
+                    KEY_ITEM_EFFECTS,
+                    ImmutableList.of(new Contrast(/* contrast= */ 0f)),
+                    KEY_COMPOSITION_EFFECTS,
+                    ImmutableList.of(new Contrast(/* contrast= */ 0f)))));
+
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_TONE_MAPPED_SRGB * 255,
+        testName.getMethodName());
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queue_hlgInputWithExplicitColorConversionWhenHlgUnsupported_throwsWithoutConfiguring(
+      @TestParameter({KEY_ITEM_EFFECTS, KEY_COMPOSITION_EFFECTS}) String effectKey)
+      throws Exception {
+    setUpHardwareBufferFrameConsumer(
+        /* info= */ (format, usage) -> !ColorInfo.isTransferHdr(format.colorInfo));
+
+    ExecutionException thrownException =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                queueFrameOnGlThread(
+                    () ->
+                        createSolidGrayGlTextureFrame(
+                            /* value= */ DIFFUSE_WHITE_HLG,
+                            BT2020_HLG,
+                            /* metadata= */ ImmutableMap.of(
+                                effectKey, ImmutableList.of(ColorConversion.create(BT2020_HLG))))));
+
+    assertThat(thrownException).hasCauseThat().isInstanceOf(VideoFrameProcessingException.class);
+    assertThat(frameWriter.configuredFormat).isEqualTo(new Format.Builder().build());
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queue_portraitHdrLinearInputWhenPortraitUnsupported_rotatesToLandscapeAndKeepsHlg()
+      throws Exception {
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> format.width >= format.height);
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(
+                /* width= */ 16,
+                /* height= */ 32,
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
+                BT2020_LINEAR));
+
+    Format configuredFormat = frameWriter.configuredFormat;
+    assertThat(configuredFormat.width).isEqualTo(32);
+    assertThat(configuredFormat.height).isEqualTo(16);
+    assertThat(configuredFormat.rotationDegrees).isEqualTo(270);
+    assertThat(configuredFormat.colorInfo).isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_HLG * 255,
+        testName.getMethodName());
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queue_hdrLinearThenSrgbInput_convertsBothFramesToHlg() throws Exception {
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
+    // 0.5 linear SDR (101.58 nits / 1000 nits) converted to HLG via inverse OOTF and HLG OETF:
+    // hlgOetf(pow(0.5 * 0.2031521, 1 / 1.2)) = hlgOetf(0.1490) = 0.6327.
+    float halfLinearHlg = 0.6327f;
+
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
+    queueFrameOnGlThread(
+        () -> createSolidGrayGlTextureFrame(/* value= */ HALF_LINEAR_SRGB, BT709_SRGB));
+
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
+    assertThat(actualBitmaps).hasSize(2);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ DIFFUSE_WHITE_HLG * 255,
+        testName.getMethodName() + "_frame1");
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(1),
+        /* expectedComponent= */ halfLinearHlg * 255,
+        testName.getMethodName() + "_frame2");
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void queue_srgbThenHdrLinearInput_convertsSecondFrameToSdr() throws Exception {
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
+
+    queueFrameOnGlThread(() -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, BT709_SRGB));
+    queueFrameOnGlThread(
+        () ->
+            createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
+
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    assertThat(actualBitmaps).hasSize(2);
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(0),
+        /* expectedComponent= */ 0.5f * 255,
+        testName.getMethodName() + "_frame1");
+    assertBitmapIsSolidGray(
+        actualBitmaps.get(1),
+        /* expectedComponent= */ DIFFUSE_WHITE_TONE_MAPPED_SRGB * 255,
+        testName.getMethodName() + "_frame2");
+  }
+
   @RequiresApi(29)
-  private void setUpHardwareBufferFrameConsumer() {
+  private void setUpHardwareBufferFrameConsumer(FrameWriter.Info info) {
     fakeJniWrapper = new ForwardingHardwareBufferJniWrapper();
-    frameWriter = BitmapSavingFrameWriter.createForHardwareBuffer(TIMEOUT_MS);
+    frameWriter = BitmapSavingFrameWriter.createForHardwareBuffer(info, TIMEOUT_MS);
     frameWriterGlTextureFrameConsumer =
         new FrameWriterGlTextureFrameConsumer(context, frameWriter, fakeJniWrapper);
   }
@@ -857,14 +1018,17 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     glExecutorService
         .submit(
             () -> {
+              GlTextureFrame frame = frameSupplier.get();
               try {
                 assertThat(
                         frameWriterGlTextureFrameConsumer.queue(
-                            frameSupplier.get(), directExecutor(), /* wakeupListener= */ () -> {}))
+                            frame, directExecutor(), /* wakeupListener= */ () -> {}))
                     .isTrue();
-              } catch (Exception e) {
-                throw new AssertionError(e);
+              } catch (Throwable t) {
+                frame.release(/* releaseFence= */ null);
+                throw t;
               }
+              return null;
             })
         .get(TIMEOUT_MS, MILLISECONDS);
   }
@@ -893,7 +1057,14 @@ public final class FrameWriterGlTextureFrameConsumerTest {
    */
   private static GlTextureFrame createSolidGrayGlTextureFrame(float value, ColorInfo colorInfo)
       throws GlException {
-    return createSolidGrayGlTextureFrame(SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT, value, colorInfo);
+    return createSolidGrayGlTextureFrame(
+        SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT, value, colorInfo, /* metadata= */ ImmutableMap.of());
+  }
+
+  private static GlTextureFrame createSolidGrayGlTextureFrame(
+      float value, ColorInfo colorInfo, Map<String, Object> metadata) throws GlException {
+    return createSolidGrayGlTextureFrame(
+        SOLID_FRAME_WIDTH, SOLID_FRAME_HEIGHT, value, colorInfo, metadata);
   }
 
   /**
@@ -902,6 +1073,13 @@ public final class FrameWriterGlTextureFrameConsumerTest {
    */
   private static GlTextureFrame createSolidGrayGlTextureFrame(
       int width, int height, float value, ColorInfo colorInfo) throws GlException {
+    return createSolidGrayGlTextureFrame(
+        width, height, value, colorInfo, /* metadata= */ ImmutableMap.of());
+  }
+
+  private static GlTextureFrame createSolidGrayGlTextureFrame(
+      int width, int height, float value, ColorInfo colorInfo, Map<String, Object> metadata)
+      throws GlException {
     int texId = GlUtil.createTexture(width, height, useHighPrecisionColorComponents(colorInfo));
     int fboId = GlUtil.createFboForTexture(texId);
     GlUtil.focusFramebufferUsingCurrentContext(fboId, width, height);
@@ -920,6 +1098,7 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             })
         .setFormat(
             new Format.Builder().setWidth(width).setHeight(height).setColorInfo(colorInfo).build())
+        .setMetadata(metadata)
         .build();
   }
 
