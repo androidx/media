@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
@@ -23,10 +24,14 @@ import static androidx.media3.transformer.Composition.KEY_COMPOSITION;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.Effect;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.Frame;
+import androidx.media3.effect.ColorConversion;
 import androidx.media3.effect.DefaultGlFrameProcessor;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 /**
  * Metadata included on frames in {@link CompositionPlayer}.
@@ -39,25 +44,6 @@ import com.google.common.collect.ImmutableMap;
 @Deprecated // TODO: b/498547782 - Remove once all callers migrate to Frame metadata keys.
 public class CompositionFrameMetadata {
 
-  /** Converts the {@link CompositionFrameMetadata} to a map for {@link Frame#getMetadata()}. */
-  @RequiresApi(26)
-  public static ImmutableMap<String, Object> asFrameMetadata(
-      CompositionFrameMetadata compositionFrameMetadata) {
-    Composition composition = compositionFrameMetadata.composition;
-    int sequenceIndex = compositionFrameMetadata.sequenceIndex;
-    int itemIndex = compositionFrameMetadata.itemIndex;
-    EditedMediaItem editedMediaItem =
-        composition.sequences.get(sequenceIndex).editedMediaItems.get(itemIndex);
-    return new ImmutableMap.Builder<String, Object>()
-        .put(KEY_COMPOSITION, composition)
-        .put(KEY_COMPOSITION_SEQUENCE_INDEX, sequenceIndex)
-        .put(KEY_COMPOSITION_ITEM_INDEX, itemIndex)
-        .put(KEY_ITEM_EFFECTS, editedMediaItem.effects.videoEffects)
-        .put(KEY_COMPOSITOR_SETTINGS, composition.videoCompositorSettings)
-        .put(KEY_COMPOSITION_EFFECTS, composition.effects.videoEffects)
-        .buildOrThrow();
-  }
-
   /**
    * Metadata key for storing the composition frame metadata.
    *
@@ -67,6 +53,8 @@ public class CompositionFrameMetadata {
    */
   @Deprecated
   public static final String KEY_COMPOSITION_FRAME_METADATA = "KEY_COMPOSITION_FRAME_METADATA";
+
+  private static final ColorConversion SDR_COLOR_CONVERSION = ColorConversion.create(BT709_SRGB);
 
   /** The {@link Composition} that this frame belongs to. */
   public final Composition composition;
@@ -85,5 +73,37 @@ public class CompositionFrameMetadata {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     this.itemIndex = itemIndex;
+  }
+
+  /** Converts the {@link CompositionFrameMetadata} to a map for {@link Frame#getMetadata()}. */
+  @RequiresApi(26)
+  public static ImmutableMap<String, Object> asFrameMetadata(
+      CompositionFrameMetadata compositionFrameMetadata) {
+    Composition composition = compositionFrameMetadata.composition;
+    int sequenceIndex = compositionFrameMetadata.sequenceIndex;
+    int itemIndex = compositionFrameMetadata.itemIndex;
+    EditedMediaItem editedMediaItem =
+        composition.sequences.get(sequenceIndex).editedMediaItems.get(itemIndex);
+    return new ImmutableMap.Builder<String, Object>()
+        .put(KEY_COMPOSITION, composition)
+        .put(KEY_COMPOSITION_SEQUENCE_INDEX, sequenceIndex)
+        .put(KEY_COMPOSITION_ITEM_INDEX, itemIndex)
+        .put(KEY_ITEM_EFFECTS, editedMediaItem.effects.videoEffects)
+        .put(KEY_COMPOSITOR_SETTINGS, composition.videoCompositorSettings)
+        .put(KEY_COMPOSITION_EFFECTS, maybeAddColorConversionEffect(composition))
+        .buildOrThrow();
+  }
+
+  private static ImmutableList<Effect> maybeAddColorConversionEffect(Composition composition) {
+    ImmutableList<Effect> compositionEffects = composition.effects.videoEffects;
+    if (composition.hdrMode != Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL
+        || (!compositionEffects.isEmpty()
+            && Iterables.getLast(compositionEffects) instanceof ColorConversion)) {
+      return compositionEffects;
+    }
+    return new ImmutableList.Builder<Effect>()
+        .addAll(compositionEffects)
+        .add(SDR_COLOR_CONVERSION)
+        .build();
   }
 }

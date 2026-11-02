@@ -148,6 +148,12 @@ import java.util.function.Consumer;
           colorTransformationBuilder.add((RgbMatrix) glEffect);
           continue;
         }
+        // Skip no-op ColorConversion effects (for example, when SDR color conversion is appended on
+        // an SDR working color space).
+        if (glEffect instanceof ColorConversion
+            && ((ColorConversion) glEffect).getOutputColorInfo().equals(currentColorSpace)) {
+          continue;
+        }
 
         ImmutableList<GlMatrixTransformation> matrixTransformations =
             matrixTransformationBuilder.build();

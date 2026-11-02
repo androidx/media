@@ -28,6 +28,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.MetricsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Converts frames from an input color space to an electrical output color space.
@@ -81,6 +82,31 @@ public final class ColorConversion implements GlEffect, MetricsProvider {
         "ColorConversion is only supported by DefaultGlFrameProcessor.");
   }
 
+  // MetricsProvider implementation.
+
+  @Override
+  @RestrictTo(LIBRARY_GROUP)
+  public void populateMetrics(MetricConsumer consumer) {
+    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_COLOR);
+  }
+
+  @Override
+  public boolean equals(@Nullable Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof ColorConversion)) {
+      return false;
+    }
+    ColorConversion that = (ColorConversion) o;
+    return outputColorInfo.equals(that.outputColorInfo);
+  }
+
+  @Override
+  public int hashCode() {
+    return outputColorInfo.hashCode();
+  }
+
   /**
    * Returns a {@link GlShaderProgram} that converts frames from {@code inputColorInfo} to this
    * effect's output color space.
@@ -100,14 +126,6 @@ public final class ColorConversion implements GlEffect, MetricsProvider {
   /** Returns the {@link ColorInfo} this effect converts frames to. */
   /* package */ ColorInfo getOutputColorInfo() {
     return outputColorInfo;
-  }
-
-  // MetricsProvider implementation.
-
-  @Override
-  @RestrictTo(LIBRARY_GROUP)
-  public void populateMetrics(MetricConsumer consumer) {
-    consumer.setCategory(MetricConsumer.CATEGORY_EFFECT_COLOR);
   }
 
   private static boolean hasSameColorSpaceAndTransfer(ColorInfo colorInfo, ColorInfo other) {

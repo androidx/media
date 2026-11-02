@@ -258,6 +258,20 @@ public final class GlTextureFrameProcessorChainTest {
     assertThat(queueFrameAndGetEffectUseHdr(BT709_LINEAR)).isFalse();
   }
 
+  @Test
+  public void queue_withNoOpColorConversion_bypassesProcessorCreation() throws Exception {
+    GlTextureFrame frame =
+        createGlTextureFrameWithEffects(ImmutableList.of(ColorConversion.create(BT709_SRGB)));
+
+    boolean queued =
+        glTextureFrameProcessorChain.queue(
+            frame, glExecutorService, /* wakeupListener= */ () -> {});
+
+    assertThat(queued).isTrue();
+    assertThat(downstreamFrameConsumer.framesReceived).isEqualTo(1);
+    assertThat(downstreamFrameConsumer.lastReceivedFrame).isSameInstanceAs(frame);
+  }
+
   /**
    * Queues a frame with a single {@link GlEffect} through a chain configured with the given {@code
    * workingColorSpace}, and returns the {@code useHdr} value the chain used to create the effect's

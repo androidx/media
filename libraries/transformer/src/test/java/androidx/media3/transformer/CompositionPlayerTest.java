@@ -20,6 +20,7 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_12_5FPS;
@@ -100,6 +101,7 @@ import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.ColorConversion;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlFrameProcessor;
 import androidx.media3.effect.SpeedChangeEffect;
@@ -1827,6 +1829,52 @@ public class CompositionPlayerTest {
         .isEqualTo(composition.videoCompositorSettings);
     assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS))
         .isEqualTo(composition.effects.videoEffects);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26)
+  public void
+      play_withFrameProcessorAndHdrModeToneMapUsingOpenGl_populatesSdrColorConversionInCompositionEffects()
+          throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+    FramesEvent framesEvent = (FramesEvent) frameProcessor.getQueuedEvents().get(0);
+    Frame frame = framesEvent.frames.get(0).frame;
+    ImmutableMap<String, Object> metadata = frame.getMetadata();
+    assertThat(metadata.get(DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS))
+        .isEqualTo(ImmutableList.of(ColorConversion.create(BT709_SRGB)));
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 26)
+  public void
+      setComposition_withFrameProcessorAndHdrModeToneMapUsingMediaCodec_throwsIllegalStateException() {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC)
+            .build();
+    player = createTestHardwareBufferCompositionPlayerBuilder(frameProcessorFactory).build();
+
+    assertThrows(IllegalStateException.class, () -> player.setComposition(composition));
   }
 
   @Test

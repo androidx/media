@@ -161,4 +161,15 @@ public final class ColorConversionTest {
 
     assertThat(categoryRef.get()).isEqualTo(MetricsProvider.MetricConsumer.CATEGORY_EFFECT_COLOR);
   }
+
+  @Test
+  public void equals_withSameAndDifferentOutputColorInfo_returnsExpectedResult() {
+    ColorConversion srgbConversion1 = ColorConversion.create(BT709_SRGB);
+    ColorConversion srgbConversion2 = ColorConversion.create(BT709_SRGB);
+    ColorConversion hlgConversion = ColorConversion.create(BT2020_HLG);
+
+    assertThat(srgbConversion1).isEqualTo(srgbConversion2);
+    assertThat(srgbConversion1.hashCode()).isEqualTo(srgbConversion2.hashCode());
+    assertThat(srgbConversion1).isNotEqualTo(hlgConversion);
+  }
 }

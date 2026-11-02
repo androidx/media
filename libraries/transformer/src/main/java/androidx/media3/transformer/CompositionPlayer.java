@@ -1626,8 +1626,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     SequenceRenderersFactory renderersFactory;
     Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier = () -> null;
     if (frameProcessor != null) {
-      // TODO: b/449956936 - Support MediaCodec tone mapping with packet consumer.
-      checkState(!requestMediaCodecToneMapping);
+      // MediaCodec tone mapping is not supported with FrameProcessor.
+      checkState(
+          !requestMediaCodecToneMapping,
+          "HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC is not supported with"
+              + " FrameProcessor.Factory.");
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
       // HardwareBufferFrameReader.
       final FrameAggregator currentFrameAggregator = frameAggregator;

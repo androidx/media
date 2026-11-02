@@ -363,6 +363,9 @@ public final class Transformer {
      * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor}
      * instances.
      *
+     * <p>{@link Composition#HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC} is not supported when a
+     * {@link FrameProcessor.Factory} is set.
+     *
      * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
      * @return This builder.
      */
@@ -1329,6 +1332,11 @@ public final class Transformer {
 
   @EnsuresNonNull({"this.composition", "this.originalComposition", "this.transformerOutput"})
   private void initialize(Composition composition, TransformerOutput transformerOutput) {
+    checkState(
+        frameProcessorFactory == null
+            || composition.hdrMode != Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC,
+        "HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC is not supported with"
+            + " FrameProcessor.Factory.");
     maybeInitializeExportWatchdogTimer();
     this.originalComposition = composition;
     this.composition = applyPreProcessingEffects(composition);

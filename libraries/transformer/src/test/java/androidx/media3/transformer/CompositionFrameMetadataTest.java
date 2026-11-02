@@ -15,6 +15,8 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT2020_HLG;
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITOR_SETTINGS;
@@ -28,6 +30,7 @@ import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.effect.ColorConversion;
 import androidx.media3.effect.Presentation;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -62,6 +65,53 @@ public final class CompositionFrameMetadataTest {
     assertThat(map).containsEntry(KEY_COMPOSITOR_SETTINGS, composition.videoCompositorSettings);
     assertThat(map).containsEntry(KEY_COMPOSITION_EFFECTS, composition.effects.videoEffects);
     assertThat(map).containsEntry(KEY_ITEM_EFFECTS, ImmutableList.of(testEffect));
+  }
+
+  @Test
+  public void
+      asFrameMetadata_hdrModeToneMapUsingOpenGl_appendsSdrColorConversionToCompositionEffects() {
+    Effect presentation = Presentation.createForHeight(720);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item)))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(presentation)))
+            .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+            .build();
+    CompositionFrameMetadata metadata =
+        new CompositionFrameMetadata(composition, /* sequenceIndex= */ 0, /* itemIndex= */ 0);
+
+    ImmutableMap<String, Object> map = CompositionFrameMetadata.asFrameMetadata(metadata);
+
+    assertThat(map)
+        .containsEntry(
+            KEY_COMPOSITION_EFFECTS,
+            ImmutableList.of(presentation, ColorConversion.create(BT709_SRGB)));
+  }
+
+  @Test
+  public void
+      asFrameMetadata_hdrModeToneMapUsingOpenGlAndCompositionColorConversion_doesNotAppendSdrColorConversion() {
+    ColorConversion hlgColorConversion = ColorConversion.create(BT2020_HLG);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item)))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(hlgColorConversion)))
+            .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+            .build();
+    CompositionFrameMetadata metadata =
+        new CompositionFrameMetadata(composition, /* sequenceIndex= */ 0, /* itemIndex= */ 0);
+
+    ImmutableMap<String, Object> map = CompositionFrameMetadata.asFrameMetadata(metadata);
+
+    assertThat(map).containsEntry(KEY_COMPOSITION_EFFECTS, ImmutableList.of(hlgColorConversion));
   }
 
   @Test
