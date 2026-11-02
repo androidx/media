@@ -66,12 +66,15 @@ public final class Dav1dDecoderTest {
   /**
    * Minimum API level for tests that render to a {@link Surface}.
    *
-   * <p>On the x86 emulator images below API 29, software-rendering YV12 frames through {@code
-   * ANativeWindow_lock}/{@code unlockAndPost} corrupts the native heap and the process later
-   * crashes inside libdav1d's picture pool allocator ({@code dav1d_mem_pool_pop}). This reproduces
-   * with the unmodified JNI code and does not occur on API 29+ emulators or on real devices.
+   * <p>On the legacy x86 emulator images below API 30, locking a {@code HAL_PIXEL_FORMAT_YV12}
+   * buffer via {@code ANativeWindow_lock} triggers a heap buffer overflow in {@code
+   * gralloc.ranchu.so} ({@code gralloc_lock} allocates {@code width * height * 3} bytes for a
+   * temporary buffer when {@code ANDROID_EMU_yuv_cache} is unavailable, but reads {@code GL_RGBA}
+   * {@code width * height * 4} bytes into it). This corrupts the native heap and causes subsequent
+   * crashes in libdav1d (such as {@code dav1d_mem_pool_pop} or {@code dav1d_ref_dec}). It does not
+   * occur on API 30+ emulators or on real devices.
    */
-  private static final int MIN_API_FOR_SURFACE_RENDERING = 29;
+  private static final int MIN_API_FOR_SURFACE_RENDERING = 30;
 
   private static FakeTrackOutput sdr8BitVideoTrack;
   private static FakeTrackOutput hdr10BitVideoTrack;
