@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.TransformerUtil.releaseMuxerWrapperQuietly;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
@@ -48,7 +49,6 @@ import org.jspecify.annotations.Nullable;
   private final int maxFramesInEncoder;
   private final ExportOperation.Listener listener;
   private final FallbackListener fallbackListener;
-  private final HandlerWrapper applicationHandler;
   private final DebugViewProvider debugViewProvider;
   private final Clock clock;
 
@@ -63,8 +63,7 @@ import org.jspecify.annotations.Nullable;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final ExportResult.Builder exportResultBuilder;
   private final ComponentListener componentListener;
-
-  private @Nullable TransformerInternal transformerInternal;
+  private final ExportOperationRunner runner;
 
   public DefaultExportOperation(
       Context context,
@@ -99,7 +98,6 @@ import org.jspecify.annotations.Nullable;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
     this.fallbackListener = fallbackListener;
-    this.applicationHandler = applicationHandler;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.frameProcessorFactory = frameProcessorFactory;
@@ -111,10 +109,39 @@ import org.jspecify.annotations.Nullable;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
     exportResultBuilder = new ExportResult.Builder();
     componentListener = new ComponentListener();
+    runner =
+        new ExportOperationRunner(
+            "Transformer:DefaultExport", clock, applicationHandler, componentListener);
   }
 
   @Override
   public void start() {
+    runner.start(this::startInternal);
+  }
+
+  @Override
+  public @ProgressState int getProgress(ProgressHolder progressHolder) {
+    @Nullable TransformerInternal transformerInternal = runner.getTransformerInternal();
+    return transformerInternal == null
+        ? Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY
+        : transformerInternal.getProgress(progressHolder);
+  }
+
+  @Override
+  public void cancel() {
+    // Blocks until the export has been released, closing the file descriptor, so that the
+    // MediaStore entry can be safely deleted below. The entry also needs deleting if the export
+    // completed but its result was dropped because of the cancellation.
+    runner.cancel();
+    outputResolver.deleteIfPresent();
+  }
+
+  @Override
+  public void endWithException(ExportException exportException) {
+    runner.endWithException(exportException);
+  }
+
+  private void startInternal() throws ExportException {
     MuxerWrapper muxerWrapper;
     try {
       muxerWrapper =
@@ -125,87 +152,98 @@ import org.jspecify.annotations.Nullable;
               /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
               /* appendVideoFormat= */ null);
     } catch (IOException e) {
-      listener.onError(
-          exportResultBuilder.build(),
-          ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED));
-      return;
+      throw ExportException.createForMuxer(e, ExportException.ERROR_CODE_MUXING_FAILED);
     }
-    transformerInternal =
-        new TransformerInternal(
-            context,
-            composition,
-            transformationRequest,
-            assetLoaderFactory,
-            audioMixerFactory,
-            videoFrameProcessorFactory,
-            encoderFactory,
-            allowedEncodingRotationDegrees,
-            maxFramesInEncoder,
-            muxerWrapper,
-            componentListener,
-            fallbackListener,
-            applicationHandler,
-            debugViewProvider,
-            clock,
-            frameProcessorFactory,
-            hardwareBufferJniWrapper,
-            /* videoSampleTimestampOffsetUs= */ 0,
-            logSessionId,
-            applyMp4EditListTrim,
-            /* forceRemuxing= */ false);
-    transformerInternal.start();
-  }
-
-  @Override
-  public @ProgressState int getProgress(ProgressHolder progressHolder) {
-    return transformerInternal == null
-        ? Transformer.PROGRESS_STATE_NOT_STARTED
-        : transformerInternal.getProgress(progressHolder);
-  }
-
-  @Override
-  public void cancel() {
-    if (transformerInternal != null) {
-      // Blocks until the export pipeline has ended, releasing the muxer and closing the file
-      // descriptor, so that the MediaStore entry can be safely deleted below.
-      transformerInternal.cancel();
+    TransformerInternal transformerInternal;
+    try {
+      transformerInternal =
+          new TransformerInternal(
+              context,
+              composition,
+              transformationRequest,
+              assetLoaderFactory,
+              audioMixerFactory,
+              videoFrameProcessorFactory,
+              encoderFactory,
+              allowedEncodingRotationDegrees,
+              maxFramesInEncoder,
+              muxerWrapper,
+              runner.getTransformerInternalListener(),
+              fallbackListener,
+              runner.getInternalHandlerThread(),
+              debugViewProvider,
+              clock,
+              frameProcessorFactory,
+              hardwareBufferJniWrapper,
+              /* videoSampleTimestampOffsetUs= */ 0,
+              logSessionId,
+              applyMp4EditListTrim,
+              /* forceRemuxing= */ false);
+    } catch (RuntimeException e) {
+      // The muxer is only released by the TransformerInternal when it ends, so release it here
+      // to close the output file descriptor.
+      releaseMuxerWrapperQuietly(muxerWrapper);
+      throw e;
     }
-    outputResolver.deleteIfPresent();
+    runner.startTransformerInternal(transformerInternal);
   }
 
-  @Override
-  public void endWithException(ExportException exportException) {
-    checkNotNull(transformerInternal).endWithException(exportException);
+  private void reportCompletedInternal() {
+    ExportResult exportResult = exportResultBuilder.build();
+    // Publish the output on the application thread, so that it isn't published if the export is
+    // cancelled before the callback runs.
+    runner.reportCompleted(
+        () -> {
+          outputResolver.clearPendingFlag();
+          listener.onCompleted(exportResult);
+        });
   }
 
+  private void reportErrorInternal(ExportException exportException) {
+    ExportResult exportResult = exportResultBuilder.setExportException(exportException).build();
+    runner.reportError(() -> listener.onError(exportResult, exportException));
+  }
+
+  /**
+   * Listener for components ({@link ExportOperationRunner} and {@link MuxerWrapper}). All methods
+   * are called on the internal thread.
+   */
   private final class ComponentListener
-      implements TransformerInternal.Listener, MuxerWrapper.Listener {
+      implements ExportOperationRunner.Listener, MuxerWrapper.Listener {
 
-    // TransformerInternal.Listener implementation
+    // ExportOperationRunner.Listener implementation
 
     @Override
-    public void onCompleted(
+    public void onTransformerInternalCompleted(
         ImmutableList<ProcessedInput> processedInputs,
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName) {
-      outputResolver.clearPendingFlag();
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
-      listener.onCompleted(exportResultBuilder.build());
+      reportCompletedInternal();
     }
 
     @Override
-    @SuppressWarnings("UngroupedOverloads") // Grouped by interface.
-    public void onError(
+    public void onTransformerInternalError(
         ImmutableList<ProcessedInput> processedInputs,
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName,
         ExportException exportException) {
-      outputResolver.deleteIfPresent();
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
-      listener.onError(
-          exportResultBuilder.setExportException(exportException).build(), exportException);
+      reportErrorInternal(exportException);
+    }
+
+    @Override
+    public void onStageError(ExportException exportException) {
+      reportErrorInternal(exportException);
+    }
+
+    @Override
+    public void onReleased(boolean discardOutput) {
+      if (discardOutput) {
+        outputResolver.deleteIfPresent();
+      }
     }
 
     // MuxerWrapper.Listener implementation
@@ -225,7 +263,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onEnded(long approximateDurationMs) {
       exportResultBuilder.setApproximateDurationMs(approximateDurationMs);
-      checkNotNull(transformerInternal).endWithCompletion();
+      checkNotNull(runner.getTransformerInternal()).endWithCompletion();
     }
 
     @Override
@@ -234,9 +272,8 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @SuppressWarnings("UngroupedOverloads") // Grouped by interface.
     public void onError(ExportException exportException) {
-      endWithException(exportException);
+      runner.endWithException(exportException);
     }
   }
 }

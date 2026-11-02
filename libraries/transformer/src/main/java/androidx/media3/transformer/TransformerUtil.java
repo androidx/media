@@ -45,6 +45,7 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
@@ -59,6 +60,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.muxer.Muxer;
+import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -94,6 +96,8 @@ public final class TransformerUtil {
             }
           },
           /* acquireFence= */ null);
+
+  private static final String TAG = "TransformerUtil";
 
   private TransformerUtil() {}
 
@@ -331,6 +335,18 @@ public final class TransformerUtil {
       // The MuxerWrapper rotation is clockwise while the ScaleAndRotateTransformation rotation
       // is counterclockwise.
       muxerWrapper.setAdditionalRotationDegrees(360 - round(rotationDegrees));
+    }
+  }
+
+  /**
+   * Releases the {@link MuxerWrapper} with {@link MuxerWrapper#MUXER_RELEASE_REASON_CANCELLED},
+   * logging any failure.
+   */
+  /* package */ static void releaseMuxerWrapperQuietly(MuxerWrapper muxerWrapper) {
+    try {
+      muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
+    } catch (MuxerException | RuntimeException e) {
+      Log.w(TAG, "Error releasing the muxer.", e);
     }
   }
 

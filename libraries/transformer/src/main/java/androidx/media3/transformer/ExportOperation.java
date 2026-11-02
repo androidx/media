@@ -20,16 +20,26 @@ package androidx.media3.transformer;
  *
  * <p>Implementations handle specific types of export operations, such as resumed exports or
  * trim-optimized export operations.
+ *
+ * <p>Unless otherwise specified, methods must be called on the application thread, which is the
+ * thread of {@link Transformer#getApplicationLooper()}. Each implementation owns an internal thread
+ * on which the export work is performed.
  */
 /* package */ interface ExportOperation {
 
   /** A listener for {@link ExportOperation} events. */
   interface Listener {
-    /** Called when the export operation is successfully completed. */
+    /**
+     * Called when the export operation is successfully completed.
+     *
+     * <p>Called on the application thread. Not called after {@link #cancel()}.
+     */
     void onCompleted(ExportResult exportResult);
 
     /**
      * Called when an error occurs during the export operation.
+     *
+     * <p>Called on the application thread. Not called after {@link #cancel()}.
      *
      * @param exportResult The {@link ExportResult} of the export, which may contain partial
      *     information.
@@ -37,7 +47,12 @@ package androidx.media3.transformer;
      */
     void onError(ExportResult exportResult, ExportException exportException);
 
-    /** Called when a sample has been written or dropped by the muxer. */
+    /**
+     * Called when a sample has been written or dropped by the muxer.
+     *
+     * <p>Called on the internal thread of the export operation. Implementations must be thread-safe
+     * and cheap, as this method is called once per muxed sample.
+     */
     void onSampleWrittenOrDropped();
   }
 
@@ -55,7 +70,12 @@ package androidx.media3.transformer;
   @Transformer.ProgressState
   int getProgress(ProgressHolder progressHolder);
 
-  /** Cancels the export operation. */
+  /**
+   * Cancels the export operation.
+   *
+   * <p>This method blocks until the resources of the export operation have been released. No
+   * terminal {@link Listener} callback is invoked after this method returns.
+   */
   void cancel();
 
   /**

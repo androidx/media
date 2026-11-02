@@ -36,8 +36,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Internal helper for resolving {@link TransformerOutput} options to low-level handles.
  *
- * <p>This class is not thread-safe. All instance methods must be called on the {@link Transformer}
- * application thread.
+ * <p>This class is not thread-safe. Instance methods are called on the internal thread of the
+ * export operation while the export runs, and on the application thread once the export has been
+ * released, but never concurrently.
  */
 @UnstableApi
 /* package */ final class TransformerOutputResolver {

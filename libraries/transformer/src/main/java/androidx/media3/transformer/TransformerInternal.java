@@ -85,6 +85,13 @@ import org.jspecify.annotations.Nullable;
 
 /* package */ final class TransformerInternal {
 
+  /**
+   * Listener for export events.
+   *
+   * <p>All methods are called on the internal thread, after this instance has released its
+   * resources. Implementations must not throw: any exception thrown from these methods cannot be
+   * reported through this listener anymore, because the export has already ended.
+   */
   public interface Listener {
 
     void onCompleted(
@@ -132,7 +139,6 @@ import org.jspecify.annotations.Nullable;
   private final boolean compositionHasLoopingSequence;
   private final CapturingEncoderFactory encoderFactory;
   private final Listener listener;
-  private final HandlerWrapper applicationHandler;
   private final Clock clock;
 
   private final FrameProcessor.@Nullable Factory frameProcessorFactory;
@@ -145,6 +151,7 @@ import org.jspecify.annotations.Nullable;
    */
   private final long videoSampleTimestampOffsetUs;
 
+  // Owned by the caller, which quits it once the export has ended.
   private final HandlerThread internalHandlerThread;
   private final HandlerWrapper internalHandler;
   private final List<SequenceAssetLoader> sequenceAssetLoaders;
@@ -212,7 +219,7 @@ import org.jspecify.annotations.Nullable;
       MuxerWrapper muxerWrapper,
       Listener listener,
       FallbackListener fallbackListener,
-      HandlerWrapper applicationHandler,
+      HandlerThread internalHandlerThread,
       DebugViewProvider debugViewProvider,
       Clock clock,
       FrameProcessor.@Nullable Factory frameProcessorFactory,
@@ -227,7 +234,7 @@ import org.jspecify.annotations.Nullable;
     this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
-    this.applicationHandler = applicationHandler;
+    this.internalHandlerThread = internalHandlerThread;
     this.clock = clock;
     this.frameProcessorFactory = frameProcessorFactory;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
@@ -248,8 +255,6 @@ import org.jspecify.annotations.Nullable;
             + Util.DEVICE_DEBUG_INFO
             + "] "
             + Flags.getLogString());
-    internalHandlerThread = new HandlerThread("Transformer:Internal");
-    internalHandlerThread.start();
     sequenceAssetLoaders = new ArrayList<>();
     Looper internalLooper = internalHandlerThread.getLooper();
     assetLoaderLock = new Object();
@@ -327,17 +332,26 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void cancel() {
-    synchronized (releaseLock) {
+    if (Looper.myLooper() == internalHandlerThread.getLooper()) {
+      // Already on the internal thread, so release directly instead of blocking on it.
       if (released) {
         return;
       }
-      verifyInternalThreadAlive();
-      internalHandler
-          .obtainMessage(MSG_END, END_REASON_CANCELLED, /* unused */ 0, /* exportException */ null)
-          .sendToTarget();
+      endInternal(END_REASON_CANCELLED, /* exportException= */ null);
+    } else {
+      synchronized (releaseLock) {
+        if (released) {
+          return;
+        }
+        verifyInternalThreadAlive();
+        internalHandler
+            .obtainMessage(
+                MSG_END, END_REASON_CANCELLED, /* unused */ 0, /* exportException */ null)
+            .sendToTarget();
+      }
+      clock.onThreadBlocked();
+      canceledConditionVariable.blockUninterruptible();
     }
-    clock.onThreadBlocked();
-    canceledConditionVariable.blockUninterruptible();
     canceledConditionVariable.close();
     if (cancelException != null) {
       throw cancelException;
@@ -490,9 +504,6 @@ import org.jspecify.annotations.Nullable;
           cancelException = e;
         }
       }
-      // Quit thread lazily so that all events that got triggered when releasing the AssetLoader are
-      // still delivered.
-      internalHandler.post(internalHandlerThread::quitSafely);
     }
 
     if (forCancellation) {
@@ -514,26 +525,19 @@ import org.jspecify.annotations.Nullable;
         Log.w(TAG, "Export error after export ended", exception);
         return;
       }
-      ExportException finalException = exception;
-      checkState(
-          applicationHandler.post(
-              () ->
-                  listener.onError(
-                      processedInputsBuilder.build(),
-                      encoderFactory.getAudioEncoderName(),
-                      encoderFactory.getVideoEncoderName(),
-                      finalException)));
+      listener.onError(
+          processedInputsBuilder.build(),
+          encoderFactory.getAudioEncoderName(),
+          encoderFactory.getVideoEncoderName(),
+          exception);
     } else {
       if (releasedPreviously) {
         return;
       }
-      checkState(
-          applicationHandler.post(
-              () ->
-                  listener.onCompleted(
-                      processedInputsBuilder.build(),
-                      encoderFactory.getAudioEncoderName(),
-                      encoderFactory.getVideoEncoderName())));
+      listener.onCompleted(
+          processedInputsBuilder.build(),
+          encoderFactory.getAudioEncoderName(),
+          encoderFactory.getVideoEncoderName());
     }
   }
 

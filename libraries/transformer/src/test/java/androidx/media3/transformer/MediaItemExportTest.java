@@ -59,6 +59,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -110,6 +111,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -119,6 +121,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
@@ -945,6 +948,143 @@ public final class MediaItemExportTest {
     verify(mockListener1).onCompleted(compositionArgumentCaptor.capture(), any());
     verify(mockListener2, never()).onCompleted(any(Composition.class), any());
     verify(mockListener3).onCompleted(eq(compositionArgumentCaptor.getValue()), any());
+  }
+
+  @Test
+  public void start_cancelledImmediately_doesNotReportResult() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    AtomicInteger completedCount = new AtomicInteger();
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    completedCount.incrementAndGet();
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    throw new AssertionError(exportException);
+                  }
+                })
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+
+    transformer.start(mediaItem, outputDir.newFile("first").getPath());
+    transformer.cancel();
+    // Run a second export to completion so the application looper stays active long enough for any
+    // stale callback from the cancelled export to be delivered.
+    transformer.start(mediaItem, outputDir.newFile("second").getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.exportException).isNull();
+    assertThat(completedCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void cancel_whileCreatingAssetLoader_releasesAssetLoaderWithoutReportingResult()
+      throws Exception {
+    CountDownLatch assetLoaderCreationStartedLatch = new CountDownLatch(1);
+    CountDownLatch applicationThreadBlockedLatch = new CountDownLatch(1);
+    AtomicBoolean assetLoaderStarted = new AtomicBoolean();
+    AtomicBoolean assetLoaderReleased = new AtomicBoolean();
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setClock(
+                new FakeClock(/* isAutoAdvancing= */ true) {
+                  @Override
+                  public synchronized void onThreadBlocked() {
+                    super.onThreadBlocked();
+                    if (Looper.myLooper() == Looper.getMainLooper()) {
+                      applicationThreadBlockedLatch.countDown();
+                    }
+                  }
+                })
+            .setAssetLoaderFactory(
+                (editedMediaItem, looper, listener, compositionSettings) -> {
+                  assetLoaderCreationStartedLatch.countDown();
+                  // Keep creating the AssetLoader until cancel() blocks.
+                  Uninterruptibles.awaitUninterruptibly(applicationThreadBlockedLatch);
+                  return new AssetLoader() {
+                    @Override
+                    public void start() {
+                      assetLoaderStarted.set(true);
+                    }
+
+                    @Override
+                    public @Transformer.ProgressState int getProgress(
+                        ProgressHolder progressHolder) {
+                      return PROGRESS_STATE_NOT_STARTED;
+                    }
+
+                    @Override
+                    public ImmutableMap<Integer, String> getDecoderNames() {
+                      return ImmutableMap.of();
+                    }
+
+                    @Override
+                    public void release() {
+                      assetLoaderReleased.set(true);
+                    }
+                  };
+                })
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    throw new AssertionError("Unexpected onCompleted");
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    throw new AssertionError(exportException);
+                  }
+                })
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    runLooperUntil(
+        transformer.getApplicationLooper(), () -> assetLoaderCreationStartedLatch.getCount() == 0);
+
+    transformer.cancel();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(assetLoaderStarted.get()).isFalse();
+    assertThat(assetLoaderReleased.get()).isTrue();
+  }
+
+  @Test
+  public void start_assetLoaderCreationThrows_createsAssetLoaderOffMainThreadAndReportsError()
+      throws Exception {
+    IllegalStateException assetLoaderException =
+        new IllegalStateException("AssetLoader creation failed");
+    AtomicReference<@Nullable Looper> assetLoaderCreationLooper = new AtomicReference<>();
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setAssetLoaderFactory(
+                (editedMediaItem, looper, listener, compositionSettings) -> {
+                  assetLoaderCreationLooper.set(Looper.myLooper());
+                  throw assetLoaderException;
+                })
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ExportException exception =
+        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+
+    assertThat(assetLoaderCreationLooper.get()).isNotNull();
+    assertThat(assetLoaderCreationLooper.get()).isNotEqualTo(Looper.getMainLooper());
+    assertThat(exception.errorCode).isEqualTo(ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK);
+    assertThat(exception).hasCauseThat().isSameInstanceAs(assetLoaderException);
   }
 
   @Test

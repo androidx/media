@@ -23,11 +23,13 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.media.metrics.LogSessionId;
+import android.os.HandlerThread;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
@@ -152,6 +154,7 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull ResumeMetadata resumeMetadata;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
   private @Nullable TransformerInternal transformerInternal;
+  private @Nullable ApplicationThreadListener applicationThreadListener;
   private @Nullable MuxerWrapper remuxingMuxerWrapper;
 
   public ResumedExportOperation(
@@ -247,7 +250,11 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void cancel() {
     if (transformerInternal != null) {
-      transformerInternal.cancel();
+      try {
+        transformerInternal.cancel();
+      } finally {
+        checkNotNull(applicationThreadListener).quitInternalThreadLazily();
+      }
     }
     if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
       getResumeMetadataFuture.cancel(/* mayInterruptIfRunning= */ false);
@@ -402,6 +409,13 @@ import org.jspecify.annotations.Nullable;
       long initialTimestampOffsetUs,
       boolean forceRemuxing) {
     DebugTraceUtil.reset();
+    // TODO: b/478798649 - Run this operation on its own internal thread instead of driving each
+    //  stage from the application thread.
+    HandlerThread internalHandlerThread = new HandlerThread("Transformer:ResumedExport");
+    internalHandlerThread.start();
+    ApplicationThreadListener applicationThreadListener =
+        new ApplicationThreadListener(internalHandlerThread);
+    this.applicationThreadListener = applicationThreadListener;
     transformerInternal =
         new TransformerInternal(
             context,
@@ -416,9 +430,9 @@ import org.jspecify.annotations.Nullable;
             allowedEncodingRotationDegrees,
             maxFramesInEncoder,
             muxerWrapper,
-            componentListener,
+            applicationThreadListener,
             fallbackListener,
-            applicationHandler,
+            internalHandlerThread,
             debugViewProvider,
             clock,
             frameProcessorFactory,
@@ -454,6 +468,57 @@ import org.jspecify.annotations.Nullable;
         return PROGRESS_STATE_UNAVAILABLE;
       default:
         throw new IllegalStateException();
+    }
+  }
+
+  /**
+   * Forwards {@link TransformerInternal.Listener} events, which are called on the internal thread,
+   * to the {@link ComponentListener} on the application thread, and quits the internal thread once
+   * the export has ended.
+   */
+  // TODO: b/478798649 - Remove once this operation runs on its own internal thread.
+  private final class ApplicationThreadListener implements TransformerInternal.Listener {
+
+    private final HandlerThread internalHandlerThread;
+    private final HandlerWrapper internalHandler;
+
+    private ApplicationThreadListener(HandlerThread internalHandlerThread) {
+      this.internalHandlerThread = internalHandlerThread;
+      internalHandler =
+          clock.createHandler(internalHandlerThread.getLooper(), /* callback= */ null);
+    }
+
+    @Override
+    public void onCompleted(
+        ImmutableList<ProcessedInput> processedInputs,
+        @Nullable String audioEncoderName,
+        @Nullable String videoEncoderName) {
+      checkState(
+          applicationHandler.post(
+              () ->
+                  componentListener.onCompleted(
+                      processedInputs, audioEncoderName, videoEncoderName)));
+      quitInternalThreadLazily();
+    }
+
+    @Override
+    public void onError(
+        ImmutableList<ProcessedInput> processedInputs,
+        @Nullable String audioEncoderName,
+        @Nullable String videoEncoderName,
+        ExportException exportException) {
+      checkState(
+          applicationHandler.post(
+              () ->
+                  componentListener.onError(
+                      processedInputs, audioEncoderName, videoEncoderName, exportException)));
+      quitInternalThreadLazily();
+    }
+
+    private void quitInternalThreadLazily() {
+      // Quit the thread lazily so that all events that got triggered when releasing the
+      // AssetLoader are still delivered.
+      boolean unused = internalHandler.post(internalHandlerThread::quitSafely);
     }
   }
 
