@@ -91,8 +91,8 @@ AudioSink:
     channel[1] = -1697145383
   buffer #21:
     time = 1000000421000
-    channel[0] = 1722274801
-    channel[1] = 1722274801
+    channel[0] = 1407580178
+    channel[1] = 1407580178
   buffer #22:
     time = 1000000441000
     channel[0] = 180814993
@@ -287,8 +287,8 @@ AudioSink:
     channel[1] = -2017463389
   buffer #70:
     time = 1000001401000
-    channel[0] = 700908190
-    channel[1] = 1542831522
+    channel[0] = -702912003
+    channel[1] = 139011329
   buffer #71:
     time = 1000001421000
     channel[0] = 1892094833
