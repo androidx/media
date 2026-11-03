@@ -232,6 +232,121 @@ public class DefaultHlsPlaylistTrackerTest {
   }
 
   @Test
+  public void start_playlistCanSkipAndProgramDateTimeRemoved_keepsSegmentStartTimes()
+      throws IOException, TimeoutException, InterruptedException {
+    String fullPlaylist =
+        "#EXTM3U\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:9\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence10.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence11.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence12.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence13.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence14.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence15.ts\n";
+    // The first two segments, including the one with the EXT-X-PROGRAM-DATE-TIME, were removed.
+    String deltaPlaylist =
+        "#EXTM3U\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:9\n"
+            + "#EXT-X-MEDIA-SEQUENCE:12\n"
+            + "#EXT-X-SKIP:SKIPPED-SEGMENTS=2\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence14.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence15.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence16.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence17.ts\n";
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8", "/media0/playlist.m3u8", "/media0/playlist.m3u8?_HLS_skip=YES"
+            },
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT),
+            new MockResponse().setResponseCode(200).setBody(fullPlaylist),
+            new MockResponse().setResponseCode(200).setBody(deltaPlaylist));
+
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 2);
+
+    assertRequestUrlsCalled(httpUrls);
+    HlsMediaPlaylist initialPlaylist = mediaPlaylists.get(0);
+    HlsMediaPlaylist mergedPlaylist = mediaPlaylists.get(1);
+    assertThat(mergedPlaylist.mediaSequence).isEqualTo(12);
+    assertThat(mergedPlaylist.hasProgramDateTime).isTrue();
+    // fileSequence12.ts and fileSequence13.ts are in both playlists and keep their start times.
+    for (int i = 0; i < 2; i++) {
+      assertThat(mergedPlaylist.segments.get(i).url)
+          .isEqualTo(initialPlaylist.segments.get(i + 2).url);
+      assertThat(mergedPlaylist.startTimeUs + mergedPlaylist.segments.get(i).relativeStartTimeUs)
+          .isEqualTo(
+              initialPlaylist.startTimeUs
+                  + initialPlaylist.segments.get(i + 2).relativeStartTimeUs);
+    }
+  }
+
+  @Test
+  public void start_playlistNotOverlappingWithoutProgramDateTime_continuesAfterPreviousPlaylist()
+      throws IOException, TimeoutException, InterruptedException {
+    String initialPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:3\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence10.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence11.ts\n";
+    // The refreshed playlist starts right after the previous one, so no segments overlap, and it
+    // has no EXT-X-PROGRAM-DATE-TIME.
+    String refreshedPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:3\n"
+            + "#EXT-X-MEDIA-SEQUENCE:12\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence12.ts\n"
+            + "#EXTINF:4.00000,\n"
+            + "fileSequence13.ts\n";
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/multivariant.m3u8", "/media0/playlist.m3u8", "/media0/playlist.m3u8"},
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT),
+            new MockResponse().setResponseCode(200).setBody(initialPlaylistString),
+            new MockResponse().setResponseCode(200).setBody(refreshedPlaylistString));
+
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 2);
+
+    assertRequestUrlsCalled(httpUrls);
+    HlsMediaPlaylist initialPlaylist = mediaPlaylists.get(0);
+    HlsMediaPlaylist refreshedPlaylist = mediaPlaylists.get(1);
+    // fileSequence12.ts starts where fileSequence11.ts ends.
+    assertThat(refreshedPlaylist.startTimeUs).isEqualTo(initialPlaylist.getEndTimeUs());
+  }
+
+  @Test
   public void start_playlistCanSkip_missingSegments_reloadsWithoutSkipping()
       throws IOException, TimeoutException, InterruptedException {
     List<HttpUrl> httpUrls =

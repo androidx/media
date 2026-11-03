@@ -1526,8 +1526,17 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         && previousMediaPlaylist.hasProgramDateTime) {
       // An EXT-X-PROGRAM-DATE-TIME can be removed from the new playlist if the segment it belonged
       // to was removed. Make sure we propagate the start time from the previous playlist in such a
-      // case.
-      playlistStartTimeUs = previousMediaPlaylist.startTimeUs;
+      // case, using the start time of the segment that is now the first segment of the playlist.
+      // If the playlists don't overlap, the start time is left for the playlist tracker to resolve.
+      int firstSegmentIndexInPreviousPlaylist =
+          (int) (mediaSequence - previousMediaPlaylist.mediaSequence);
+      if (firstSegmentIndexInPreviousPlaylist >= 0
+          && firstSegmentIndexInPreviousPlaylist < previousMediaPlaylist.segments.size()) {
+        playlistStartTimeUs =
+            previousMediaPlaylist.startTimeUs
+                + previousMediaPlaylist.segments.get(firstSegmentIndexInPreviousPlaylist)
+                    .relativeStartTimeUs;
+      }
     }
     return new HlsMediaPlaylist(
         playlistType,
