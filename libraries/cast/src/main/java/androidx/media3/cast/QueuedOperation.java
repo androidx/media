@@ -27,6 +27,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.PlayerTransferState;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
@@ -258,14 +259,20 @@ import org.jspecify.annotations.Nullable;
           continue;
         }
         MediaItem mediaItem = mediaItems.get(i);
+        boolean isLive = !mediaItem.liveConfiguration.equals(MediaItem.LiveConfiguration.UNSET);
+        long durationUs =
+            !isLive && mediaItem.mediaMetadata.durationMs != null
+                ? Util.msToUs(mediaItem.mediaMetadata.durationMs)
+                : C.TIME_UNSET;
+        boolean isSeekable = durationUs != C.TIME_UNSET;
         newUids.add(uid);
         newItemIdToData.put(
             uid,
             new ItemData(
-                /* durationUs= */ C.TIME_UNSET,
+                durationUs,
                 /* defaultPositionUs= */ mediaItem.clippingConfiguration.startPositionUs,
-                /* isLive= */ false,
-                /* isSeekable= */ false,
+                isLive,
+                isSeekable,
                 mediaItem,
                 UNKNOWN_CONTENT_ID));
       }

@@ -3663,7 +3663,13 @@ public class RemoteCastPlayerTest {
     updateTimeLine(
         ImmutableList.of(mediaItem2, unexpectedMediaItem),
         new int[] {2, 3},
-        /* currentItemId= */ 2);
+        /* currentItemId= */ 2,
+        /* streamTypes= */ new int[] {
+          MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED
+        },
+        /* durationsMs= */ new long[] {0, C.TIME_UNSET},
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(remoteCastPlayer.getMediaItemCount()).isEqualTo(2);

@@ -59,6 +59,16 @@ import org.jspecify.annotations.Nullable;
   @VisibleForTesting /* package */ static final int MAX_FETCH_COUNT = 20;
 
   private final Map<ItemUid, ItemData> itemIdToData;
+  // Tracks the receiver-resolved live vs. buffered stream type per ItemUid (absent if not yet
+  // resolved from mediaStatus.getMediaInfo() while PLAYING or PAUSED), because
+  // MediaQueueItem.getMedia() entries in mediaStatus.getQueueItems() do not receive runtime
+  // stream-type updates from the receiver.
+  private final Map<ItemUid, Boolean> resolvedLiveByUid;
+  // Tracks the receiver-resolved VOD manifest duration per ItemUid from mediaStatus.getMediaInfo()
+  // while PLAYING or PAUSED, so MediaQueueItem.getMedia() entries (and mediaStatus.getMediaInfo()
+  // during IDLE or BUFFERING) carrying the initial catalog duration do not overwrite the manifest
+  // duration.
+  private final Map<ItemUid, Long> resolvedDurationUsByUid;
   // TODO: b/553993066 - Evict entries when items are removed from the timeline to avoid unbounded
   // growth during long-running sessions.
   private final Map<ItemUid, MediaItem> mediaItemsBySyntheticId;
@@ -80,6 +90,8 @@ import org.jspecify.annotations.Nullable;
   public CastTimelineTracker(MediaItemConverter mediaItemConverter) {
     this.mediaItemConverter = mediaItemConverter;
     itemIdToData = new HashMap<>();
+    resolvedLiveByUid = new HashMap<>();
+    resolvedDurationUsByUid = new HashMap<>();
     mediaItemsBySyntheticId = new HashMap<>();
     receiverItemIdToUid = new SparseArray<>();
     uidToReceiverItemId = new HashMap<>();
@@ -109,6 +121,8 @@ import org.jspecify.annotations.Nullable;
   /** Resets all item data and UID mappings. */
   public void reset() {
     itemIdToData.clear();
+    resolvedLiveByUid.clear();
+    resolvedDurationUsByUid.clear();
     mediaItemsBySyntheticId.clear();
     receiverItemIdToUid.clear();
     uidToReceiverItemId.clear();
@@ -207,8 +221,8 @@ import org.jspecify.annotations.Nullable;
       updateItemDataFromQueueItem(queueItem);
     }
 
-    int currentItemId = CastUtils.getCurrentOrLoadingItemId(remoteMediaClient);
-    int currentItemIndex = Util.linearSearch(itemIds, currentItemId);
+    int currentOrLoadingItemId = CastUtils.getCurrentOrLoadingItemId(remoteMediaClient);
+    int currentItemIndex = Util.linearSearch(itemIds, currentOrLoadingItemId);
     if (currentItemIndex == C.INDEX_UNSET) {
       // This is not expected to happen, but prevents us from running out of bounds in the following
       // loop.
@@ -220,7 +234,7 @@ import org.jspecify.annotations.Nullable;
     // treat the resulting empty timeline as a complete receiver state.
     hasPendingQueueFetches =
         itemIds.length == 0
-            && (currentItemId != MediaQueueItem.INVALID_ITEM_ID
+            && (currentOrLoadingItemId != MediaQueueItem.INVALID_ITEM_ID
                 || !mediaStatus.getQueueItems().isEmpty());
 
     // Fetch missing item metadata starting from the current playback index forward.
@@ -239,7 +253,7 @@ import org.jspecify.annotations.Nullable;
         if (queueItem != null) {
           updateItemDataFromQueueItem(queueItem);
         } else {
-          if (itemId != currentItemId) {
+          if (itemId != currentOrLoadingItemId) {
             hasPendingQueueFetches = true;
           }
           if (itemIdsToFetch.size() < MAX_FETCH_COUNT) {
@@ -257,15 +271,28 @@ import org.jspecify.annotations.Nullable;
     // from buffered to live upon manifest loading). Updating from mediaStatus.getMediaInfo() second
     // ensures that active runtime playback state is preserved and not overwritten by stale queue
     // item metadata.
-    MediaInfo currentMediaInfo = checkNotNull(mediaStatus.getMediaInfo());
-    ItemUid currentItemUid = getOrCreateItemUid(currentItemId, currentMediaInfo);
-    @Nullable MediaItem mediaItem = getMediaItem(currentItemUid, currentMediaInfo);
-    updateItemData(
-        currentItemUid,
-        mediaItem != null ? mediaItem : MediaItem.EMPTY,
-        currentMediaInfo,
-        currentMediaInfo.getContentId(),
-        /* defaultPositionUs= */ C.TIME_UNSET);
+    //
+    // Skip this update when mediaStatus.getLoadingItemId() is valid because Media3 already treats
+    // the loading item as the current item (currentOrLoadingItemId), whereas
+    // mediaStatus.getCurrentItemId() (and mediaStatus.getMediaInfo()) does not update until the
+    // item finishes loading. Skipping prevents overriding the loading item's data with a
+    // mismatched item's MediaInfo.
+    if (mediaStatus.getLoadingItemId() == MediaQueueItem.INVALID_ITEM_ID) {
+      MediaInfo currentMediaInfo = checkNotNull(mediaStatus.getMediaInfo());
+      ItemUid currentItemUid = getOrCreateItemUid(currentOrLoadingItemId, currentMediaInfo);
+      @Nullable MediaItem mediaItem = getMediaItem(currentItemUid, currentMediaInfo);
+      int playerState = remoteMediaClient.getPlayerState();
+      boolean isMediaInfoResolved =
+          playerState == MediaStatus.PLAYER_STATE_PLAYING
+              || playerState == MediaStatus.PLAYER_STATE_PAUSED;
+      updateItemData(
+          currentItemUid,
+          mediaItem != null ? mediaItem : MediaItem.EMPTY,
+          currentMediaInfo,
+          currentMediaInfo.getContentId(),
+          /* defaultPositionUs= */ C.TIME_UNSET,
+          isMediaInfoResolved);
+    }
 
     ImmutableList.Builder<ItemUid> uids = ImmutableList.builderWithExpectedSize(itemIds.length);
     for (int itemId : itemIds) {
@@ -303,7 +330,8 @@ import org.jspecify.annotations.Nullable;
         mediaItem != null ? mediaItem : MediaItem.EMPTY,
         mediaInfo,
         contentId,
-        defaultPositionUs);
+        defaultPositionUs,
+        /* isMediaInfoResolved= */ false);
   }
 
   private void updateItemData(
@@ -311,32 +339,94 @@ import org.jspecify.annotations.Nullable;
       MediaItem mediaItem,
       @Nullable MediaInfo mediaInfo,
       String contentId,
-      long defaultPositionUs) {
+      long defaultPositionUs,
+      boolean isMediaInfoResolved) {
     ItemData previousData = itemIdToData.get(uid);
     if (previousData == null) {
       previousData = ItemData.EMPTY;
-    }
-    long durationUs = CastUtils.getStreamDurationUs(mediaInfo);
-    if (durationUs == C.TIME_UNSET) {
-      durationUs = previousData.durationUs;
-    }
-    boolean isLive =
-        mediaInfo == null
-            ? previousData.isLive
-            : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE;
-    boolean isSeekable = durationUs != C.TIME_UNSET;
-    if (defaultPositionUs == C.TIME_UNSET) {
-      defaultPositionUs = previousData.defaultPositionUs;
     }
     // The media item can be empty if it originates from another sender. We use previous data as
     // itemIdToData is populated when all media items from the queue are updated.
     if (mediaItem == MediaItem.EMPTY) {
       mediaItem = previousData.mediaItem;
     }
+
+    if (isMediaInfoResolved && mediaInfo != null) {
+      if (mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE) {
+        resolvedLiveByUid.put(uid, true);
+        resolvedDurationUsByUid.remove(uid);
+      } else {
+        if (mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_BUFFERED) {
+          resolvedLiveByUid.put(uid, false);
+        }
+        long activeDurationUs = CastUtils.getStreamDurationUs(mediaInfo);
+        if (activeDurationUs != C.TIME_UNSET) {
+          resolvedDurationUsByUid.put(uid, activeDurationUs);
+        }
+      }
+    }
+
+    // Prefer resolvedLiveByUid (and resolvedDurationUsByUid in getNonLiveDurationUs) over
+    // mediaInfo: once an item has been resolved from active PLAYING/PAUSED playback, subsequent
+    // updates from MediaQueueItem.getMedia() (or during IDLE/BUFFERING) still carry the initial
+    // streamType and catalog streamDuration.
+    @Nullable Boolean resolvedLive = resolvedLiveByUid.get(uid);
+    boolean isLiveStream =
+        resolvedLive != null
+            ? resolvedLive
+            : (mediaInfo == null
+                    ? previousData.isLive
+                    : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE)
+                || !mediaItem.liveConfiguration.equals(MediaItem.LiveConfiguration.UNSET);
+
+    long durationUs;
+    boolean isLive;
+    boolean isSeekable;
+    if (isLiveStream) {
+      durationUs = C.TIME_UNSET;
+      isLive = true;
+      isSeekable = false;
+    } else {
+      durationUs = getNonLiveDurationUs(uid, mediaInfo, previousData, mediaItem);
+      isLive = false;
+      isSeekable = durationUs != C.TIME_UNSET;
+    }
+
+    if (defaultPositionUs == C.TIME_UNSET) {
+      defaultPositionUs = previousData.defaultPositionUs;
+    }
     itemIdToData.put(
         uid,
         previousData.copyWithNewValues(
             durationUs, defaultPositionUs, isLive, isSeekable, mediaItem, contentId));
+  }
+
+  /**
+   * Returns the duration in microseconds for a non-live item, preferring the manifest duration
+   * recorded during active playback over {@code mediaInfo} (which may be a {@link
+   * MediaQueueItem#getMedia()} entry or an active {@link MediaStatus#getMediaInfo()} instance),
+   * cached {@code previousData}, and {@link MediaItem#mediaMetadata}.
+   */
+  private long getNonLiveDurationUs(
+      ItemUid uid, @Nullable MediaInfo mediaInfo, ItemData previousData, MediaItem mediaItem) {
+    // Prefer the manifest-resolved duration over mediaInfo, which for inactive queue items (and
+    // during IDLE) still reports the static catalog streamDuration from MediaQueueItem.getMedia().
+    @Nullable Long resolvedDurationUs = resolvedDurationUsByUid.get(uid);
+    if (resolvedDurationUs != null) {
+      return resolvedDurationUs;
+    }
+    long streamDurationUs = CastUtils.getStreamDurationUs(mediaInfo);
+    if (streamDurationUs != C.TIME_UNSET) {
+      return streamDurationUs;
+    }
+    if (!previousData.isLive && previousData.durationUs != C.TIME_UNSET) {
+      return previousData.durationUs;
+    }
+    @Nullable Long metadataDurationMs = mediaItem.mediaMetadata.durationMs;
+    if (metadataDurationMs != null) {
+      return Util.msToUs(metadataDurationMs);
+    }
+    return C.TIME_UNSET;
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
@@ -352,6 +442,8 @@ import org.jspecify.annotations.Nullable;
         receiverItemIdToUid.removeAt(i);
         uidToReceiverItemId.remove(uid);
         mediaItemsBySyntheticId.remove(uid);
+        resolvedLiveByUid.remove(uid);
+        resolvedDurationUsByUid.remove(uid);
         ItemData data = itemIdToData.remove(uid);
         if (data != null) {
           mediaItemsByContentId.remove(data.contentId);
@@ -416,6 +508,8 @@ import org.jspecify.annotations.Nullable;
       // match maskedSnapshot and prevent recomposition once fetches complete.
       uidToReceiverItemId.remove(uid);
       itemIdToData.remove(uid);
+      resolvedLiveByUid.remove(uid);
+      resolvedDurationUsByUid.remove(uid);
       uid = syntheticUid;
     } else {
       return uid;

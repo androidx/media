@@ -213,6 +213,10 @@
         and preserve remote playback state instead of overwriting it with local
         player state when joining a Cast session via intent to join in
         `CastPlayer`.
+    *   Populate `MediaInfo` and timeline durations from
+        `MediaMetadata.durationMs` for non-live items in
+        `DefaultMediaItemConverter` and `RemoteCastPlayer`, and retain
+        receiver-resolved durations and live stream status across queue seeks.
 *   Test Utilities:
 *   Demo app:
     *   Allow reordering playlist items with drag and drop in the session demo

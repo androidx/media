@@ -27,6 +27,7 @@ import androidx.media3.cast.QueuedOperation.SeekOperation;
 import androidx.media3.cast.QueuedOperation.SetMediaItemsOperation;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
@@ -96,6 +97,68 @@ public final class QueuedOperationTest {
     Window window1 = snapshot.timeline.getWindow(/* windowIndex= */ 1, new Window());
     assertThat(window0.defaultPositionUs).isEqualTo(5_000_000L);
     assertThat(window1.defaultPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void setMediaItems_createMaskedSnapshot_withDurationMs_setsWindowDuration() {
+    MediaItem item1 =
+        createMediaItem("id1")
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(63_000L).build())
+            .build();
+    MediaItem item2 = createMediaItem("id2");
+    SetMediaItemsOperation operation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(item1, item2), /* startIndex= */ 0, /* startPositionMs= */ 0L);
+
+    QueueSnapshot snapshot = operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+
+    Window window0 = snapshot.timeline.getWindow(/* windowIndex= */ 0, new Window());
+    Window window1 = snapshot.timeline.getWindow(/* windowIndex= */ 1, new Window());
+    assertThat(window0.durationUs).isEqualTo(63_000_000L);
+    assertThat(window0.isSeekable).isTrue();
+    assertThat(window0.isDynamic).isFalse();
+    assertThat(window0.isLive()).isFalse();
+    assertThat(window1.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window1.isSeekable).isFalse();
+    assertThat(window1.isDynamic).isTrue();
+    assertThat(window1.isLive()).isFalse();
+  }
+
+  @Test
+  public void
+      setMediaItems_createMaskedSnapshot_withLiveConfiguration_setsWindowIsLiveAndUnsetDuration() {
+    MediaItem liveItemWithDuration =
+        createMediaItem("live1")
+            .buildUpon()
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(5_000L).build())
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(63_000L).build())
+            .build();
+    MediaItem liveItemWithoutDuration =
+        createMediaItem("live2")
+            .buildUpon()
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(5_000L).build())
+            .build();
+    SetMediaItemsOperation operation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(liveItemWithDuration, liveItemWithoutDuration),
+            /* startIndex= */ 0,
+            /* startPositionMs= */ 0L);
+
+    QueueSnapshot snapshot = operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+
+    Window window0 = snapshot.timeline.getWindow(/* windowIndex= */ 0, new Window());
+    Window window1 = snapshot.timeline.getWindow(/* windowIndex= */ 1, new Window());
+    assertThat(window0.isLive()).isTrue();
+    assertThat(window0.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window0.isSeekable).isFalse();
+    assertThat(window0.isDynamic).isTrue();
+    assertThat(window1.isLive()).isTrue();
+    assertThat(window1.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window1.isSeekable).isFalse();
+    assertThat(window1.isDynamic).isTrue();
   }
 
   @Test

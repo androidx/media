@@ -28,12 +28,12 @@ import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TimelineAsserts;
 import com.google.android.gms.cast.MediaInfo;
-import com.google.android.gms.cast.MediaMetadata;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
@@ -1383,8 +1383,10 @@ public class CastTimelineTrackerTest {
     RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
     MediaQueue mockMediaQueue = mock(MediaQueue.class);
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
-    MediaMetadata gmsMetadata = new MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE);
-    gmsMetadata.putString(MediaMetadata.KEY_TITLE, "Receiver Title");
+    com.google.android.gms.cast.MediaMetadata gmsMetadata =
+        new com.google.android.gms.cast.MediaMetadata(
+            com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
+    gmsMetadata.putString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE, "Receiver Title");
     MediaInfo mediaInfo =
         new MediaInfo.Builder("receiver_only_id")
             .setContentType(MimeTypes.VIDEO_MP4)
@@ -1437,6 +1439,579 @@ public class CastTimelineTrackerTest {
     assertThat(castTimeline.getWindowCount()).isEqualTo(2);
     assertThat(castTimeline.getWindow(/* windowIndex= */ 1, new Window()).mediaItem)
         .isEqualTo(MediaItem.EMPTY);
+  }
+
+  @Test
+  public void
+      getCastTimeline_withMediaMetadataDurationAndUnknownReceiverDuration_fallsBackToMetadata() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem itemWithMetadataDuration =
+        createMediaItem(0)
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(63_000L).build())
+            .build();
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(itemWithMetadataDuration));
+    // Simulate a receiver queue item where streamDuration was reset to UNKNOWN_DURATION (-1).
+    MediaInfo receiverMediaInfo =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(MediaInfo.UNKNOWN_DURATION)
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(receiverMediaInfo).setItemId(10).build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getMediaInfo()).thenReturn(receiverMediaInfo);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window = timeline.getWindow(0, new Window());
+    assertThat(window.durationUs).isEqualTo(Util.msToUs(63_000L));
+    assertThat(window.isSeekable).isTrue();
+    assertThat(window.isDynamic).isFalse();
+  }
+
+  @Test
+  public void
+      getCastTimeline_liveStreamWithMediaMetadataDuration_doesNotFallBackToMetadataDuration() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem unconfiguredLiveItemWithDuration =
+        createMediaItem(0)
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(63_000L).build())
+            .build();
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(unconfiguredLiveItemWithDuration));
+    MediaInfo staleQueueMediaInfo =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(63_000L)
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_NONE)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    MediaQueueItem queueItem =
+        new MediaQueueItem.Builder(staleQueueMediaInfo).setItemId(10).build();
+    MediaInfo activeLiveMediaInfo =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(MediaInfo.UNKNOWN_DURATION)
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockStatus.getMediaInfo()).thenReturn(activeLiveMediaInfo);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window = timeline.getWindow(0, new Window());
+    assertThat(window.isLive()).isTrue();
+    assertThat(window.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window.isSeekable).isFalse();
+    assertThat(window.isDynamic).isTrue();
+  }
+
+  @Test
+  public void
+      getCastTimeline_vodManifestDurationResolved_retainsManifestDurationOverCatalogQueueItem() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem item0 =
+        createMediaItem(0)
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(185_000L).build())
+            .build();
+    MediaItem item1 =
+        createMediaItem(1)
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(60_000L).build())
+            .build();
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item0, item1));
+    // Static queue items retain the sender's pre-manifest catalog duration (185_000 ms).
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    MediaInfo manifestResolvedMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(185_680L)
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(queueItem0.getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(manifestResolvedMediaInfo0);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0, queueItem1));
+
+    CastTimeline timelineOnItem0 = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(timelineOnItem0.getWindow(0, new Window()).durationUs)
+        .isEqualTo(Util.msToUs(185_680L));
+
+    // Advance playback to item 20 while item 10 remains in mediaStatus.getQueueItems() with its
+    // static catalog duration (185_000 ms).
+    when(mockStatus.getCurrentItemId()).thenReturn(20);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem1.getMedia());
+
+    CastTimeline timelineOnItem1 = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window0 = timelineOnItem1.getWindow(0, new Window());
+    assertThat(window0.durationUs).isEqualTo(Util.msToUs(185_680L));
+    assertThat(window0.isLive()).isFalse();
+    assertThat(window0.isSeekable).isTrue();
+    assertThat(window0.isDynamic).isFalse();
+  }
+
+  @Test
+  public void getCastTimeline_unconfiguredLiveStreamAdvancesToNextItem_retainsLiveState(
+      @TestParameter({
+            "-1" /* STREAM_TYPE_INVALID */,
+            "0" /* STREAM_TYPE_NONE */,
+            "1" /* STREAM_TYPE_BUFFERED */
+          })
+          int staleQueueStreamType) {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem unconfiguredLiveItem =
+        createMediaItem(0)
+            .buildUpon()
+            .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(60_000L).build())
+            .build();
+    MediaItem vodItem = createMediaItem(1);
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(unconfiguredLiveItem, vodItem));
+    MediaInfo staleQueueMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(60_000L)
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(staleQueueStreamType)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(staleQueueMediaInfo0).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    MediaInfo activeLiveMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(MediaInfo.UNKNOWN_DURATION)
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(activeLiveMediaInfo0);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0, queueItem1));
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
+
+    // Advance to item 20 while item 10 stays in mediaStatus.getQueueItems() with stale streamType.
+    MediaInfo activeVodMediaInfo1 =
+        new MediaInfo.Builder("http://www.google.com/1")
+            .setStreamDuration(30_000L)
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(registered.queueItems[1].getMedia().getCustomData())
+            .build();
+    when(mockStatus.getCurrentItemId()).thenReturn(20);
+    when(mockStatus.getMediaInfo()).thenReturn(activeVodMediaInfo1);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window0 = timeline.getWindow(0, new Window());
+    assertThat(window0.isLive()).isTrue();
+    assertThat(window0.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window0.isSeekable).isFalse();
+    assertThat(window0.isDynamic).isTrue();
+  }
+
+  @Test
+  public void getCastTimeline_configuredLiveItemResolvedToBuffered_transitionsToVodAndPersists() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem configuredItem =
+        createMediaItem(0)
+            .buildUpon()
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(5_000L).build())
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(60_000L).build())
+            .build();
+    MediaItem secondItem = createMediaItem(1);
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(configuredItem, secondItem));
+    // Static queue item 10 retains STREAM_TYPE_LIVE from toMediaQueueItem().
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    MediaInfo resolvedBufferedMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(65_000L)
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(queueItem0.getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(resolvedBufferedMediaInfo0);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0, queueItem1));
+
+    CastTimeline activeTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window activeWindow0 = activeTimeline.getWindow(0, new Window());
+    assertThat(activeWindow0.isLive()).isFalse();
+    assertThat(activeWindow0.durationUs).isEqualTo(Util.msToUs(65_000L));
+    assertThat(activeWindow0.isSeekable).isTrue();
+    assertThat(activeWindow0.isDynamic).isFalse();
+
+    // Advance to item 20; item 10 must stay VOD despite static queueItem0 having STREAM_TYPE_LIVE.
+    when(mockStatus.getCurrentItemId()).thenReturn(20);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem1.getMedia());
+
+    CastTimeline subsequentTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window inactiveWindow0 = subsequentTimeline.getWindow(0, new Window());
+    assertThat(inactiveWindow0.isLive()).isFalse();
+    assertThat(inactiveWindow0.durationUs).isEqualTo(Util.msToUs(65_000L));
+    assertThat(inactiveWindow0.isSeekable).isTrue();
+    assertThat(inactiveWindow0.isDynamic).isFalse();
+
+    // Seek back to item 10 while receiver is in PLAYER_STATE_BUFFERING and
+    // mediaStatus.getMediaInfo() temporarily echoes the static MediaQueueItem (STREAM_TYPE_LIVE).
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem0.getMedia());
+
+    CastTimeline bufferingSeekBackTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window bufferingWindow0 = bufferingSeekBackTimeline.getWindow(0, new Window());
+    assertThat(bufferingWindow0.isLive()).isFalse();
+    assertThat(bufferingWindow0.durationUs).isEqualTo(Util.msToUs(65_000L));
+    assertThat(bufferingWindow0.isSeekable).isTrue();
+    assertThat(bufferingWindow0.isDynamic).isFalse();
+  }
+
+  @Test
+  public void getCastTimeline_seekingBackToResolvedVodItemWhileBuffering_retainsManifestDuration() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem item0 =
+        createMediaItem(0)
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(185_000L).build())
+            .build();
+    MediaItem item1 = createMediaItem(1);
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item0, item1));
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    MediaInfo manifestResolvedMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(185_680L)
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(queueItem0.getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(manifestResolvedMediaInfo0);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0, queueItem1));
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
+
+    // Seek back to item 10: receiver enters PLAYER_STATE_BUFFERING before parsing the manifest and
+    // echoes static queueItem0 (streamType=NONE, streamDuration=185_000 ms).
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem0.getMedia());
+
+    CastTimeline bufferingTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window0 = bufferingTimeline.getWindow(0, new Window());
+    assertThat(window0.durationUs).isEqualTo(Util.msToUs(185_680L));
+    assertThat(window0.isLive()).isFalse();
+    assertThat(window0.isSeekable).isTrue();
+    assertThat(window0.isDynamic).isFalse();
+  }
+
+  @Test
+  public void
+      getCastTimeline_seekingBackToResolvedLiveStreamWhileLoadingOrBuffering_retainsLiveState(
+          @TestParameter TransitionState transitionState) {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem unconfiguredLiveItem =
+        createMediaItem(0)
+            .buildUpon()
+            .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(60_000L).build())
+            .build();
+    MediaItem vodItem = createMediaItem(1);
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(unconfiguredLiveItem, vodItem));
+    MediaInfo staleBufferedQueueMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(60_000L)
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(staleBufferedQueueMediaInfo0).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registered.queueItems[1].getMedia()).setItemId(20).build();
+    MediaInfo activeLiveMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(MediaInfo.UNKNOWN_DURATION)
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .setCustomData(registered.queueItems[0].getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(activeLiveMediaInfo0);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0, queueItem1));
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
+
+    // Seek back to item 10 while receiver is loading/buffering and mediaStatus.getMediaInfo()
+    // temporarily echoes the static MediaQueueItem (STREAM_TYPE_BUFFERED).
+    switch (transitionState) {
+      case LOADING_ITEM_ID:
+        when(mockStatus.getCurrentItemId()).thenReturn(20);
+        when(mockStatus.getLoadingItemId()).thenReturn(10);
+        break;
+      case PLAYER_STATE_LOADING:
+        when(mockStatus.getCurrentItemId()).thenReturn(10);
+        when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+        when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_LOADING);
+        break;
+      case PLAYER_STATE_BUFFERING:
+        when(mockStatus.getCurrentItemId()).thenReturn(10);
+        when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+        when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+        break;
+    }
+    when(mockStatus.getMediaInfo()).thenReturn(staleBufferedQueueMediaInfo0);
+
+    CastTimeline loadingTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window0 = loadingTimeline.getWindow(0, new Window());
+    assertThat(window0.isLive()).isTrue();
+    assertThat(window0.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(window0.isSeekable).isFalse();
+    assertThat(window0.isDynamic).isTrue();
+  }
+
+  @Test
+  public void getCastTimeline_loadingVodItemWhileMediaInfoStillLive_doesNotPersistLiveState() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaInfo liveMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/live")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaInfo vodMediaInfo1 =
+        new MediaInfo.Builder("http://www.google.com/vod")
+            .setStreamDuration(45_000L)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_NONE)
+            .build();
+    MediaQueueItem queueItem0 = new MediaQueueItem.Builder(liveMediaInfo0).setItemId(10).build();
+    MediaQueueItem queueItem1 = new MediaQueueItem.Builder(vodMediaInfo1).setItemId(20).build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0, queueItem1));
+    // Item 20 is loading while mediaStatus.getMediaInfo() still reports item 10 (STREAM_TYPE_LIVE).
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(20);
+    when(mockStatus.getMediaInfo()).thenReturn(liveMediaInfo0);
+
+    CastTimeline loadingTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window loadingWindow1 = loadingTimeline.getWindow(1, new Window());
+    assertThat(loadingWindow1.isLive()).isFalse();
+    assertThat(loadingWindow1.durationUs).isEqualTo(Util.msToUs(45_000L));
+    assertThat(loadingWindow1.isSeekable).isTrue();
+    assertThat(loadingWindow1.isDynamic).isFalse();
+
+    // Loading completes for item 20; its MediaInfo has STREAM_TYPE_NONE and 45s duration.
+    when(mockStatus.getCurrentItemId()).thenReturn(20);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(vodMediaInfo1);
+
+    CastTimeline loadedTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window window1 = loadedTimeline.getWindow(1, new Window());
+    assertThat(window1.isLive()).isFalse();
+    assertThat(window1.durationUs).isEqualTo(Util.msToUs(45_000L));
+    assertThat(window1.isSeekable).isTrue();
+    assertThat(window1.isDynamic).isFalse();
+  }
+
+  @Test
+  public void
+      getCastTimeline_loadingUnplayedItemWhileMediaInfoStillOutgoingVod_doesNotInheritDuration() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaInfo outgoingVodMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/vod0")
+            .setStreamDuration(180_000L)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    MediaInfo unplayedMediaInfo1 =
+        new MediaInfo.Builder("http://www.google.com/vod1")
+            .setStreamDuration(MediaInfo.UNKNOWN_DURATION)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_NONE)
+            .build();
+    MediaInfo thirdVodMediaInfo2 =
+        new MediaInfo.Builder("http://www.google.com/vod2")
+            .setStreamDuration(30_000L)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(outgoingVodMediaInfo0).setItemId(10).build();
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(unplayedMediaInfo1).setItemId(20).build();
+    MediaQueueItem queueItem2 =
+        new MediaQueueItem.Builder(thirdVodMediaInfo2).setItemId(30).build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10, 20, 30});
+    when(mockStatus.getQueueItems())
+        .thenReturn(ImmutableList.of(queueItem0, queueItem1, queueItem2));
+    // Item 20 is loading while mediaStatus.getMediaInfo() still reports outgoing 180s item 10.
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(20);
+    when(mockStatus.getMediaInfo()).thenReturn(outgoingVodMediaInfo0);
+
+    CastTimeline loadingTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    Window loadingWindow1 = loadingTimeline.getWindow(1, new Window());
+    assertThat(loadingWindow1.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(loadingWindow1.isLive()).isFalse();
+    assertThat(loadingWindow1.isSeekable).isFalse();
+    assertThat(loadingWindow1.isDynamic).isTrue();
+
+    // User skips to item 30 before item 20 finishes loading; item 20 stays C.TIME_UNSET.
+    when(mockStatus.getCurrentItemId()).thenReturn(30);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(thirdVodMediaInfo2);
+
+    CastTimeline skippedTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(skippedTimeline.getWindow(1, new Window()).durationUs).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getCastTimeline_idlePlayerStateWithCatalogMediaInfo_retainsManifestDuration(
+      @TestParameter IdleReason idleReason) {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaQueue mockQueue = mock(MediaQueue.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    when(mockClient.getMediaQueue()).thenReturn(mockQueue);
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    MediaItem item0 =
+        createMediaItem(0)
+            .buildUpon()
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(185_000L).build())
+            .build();
+    CastTimelineTracker.RegisteredMediaItems registered =
+        castTimelineTracker.registerMediaItems(ImmutableList.of(item0));
+    MediaQueueItem queueItem0 =
+        new MediaQueueItem.Builder(registered.queueItems[0].getMedia()).setItemId(10).build();
+    MediaInfo manifestResolvedMediaInfo0 =
+        new MediaInfo.Builder("http://www.google.com/0")
+            .setStreamDuration(185_680L)
+            .setContentType(MimeTypes.AUDIO_MPEG)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setCustomData(queueItem0.getMedia().getCustomData())
+            .build();
+    when(mockQueue.getItemIds()).thenReturn(new int[] {10});
+    when(mockStatus.getCurrentItemId()).thenReturn(10);
+    when(mockStatus.getLoadingItemId()).thenReturn(MediaQueueItem.INVALID_ITEM_ID);
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    when(mockStatus.getMediaInfo()).thenReturn(manifestResolvedMediaInfo0);
+    when(mockStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem0));
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockClient);
+
+    // Receiver enters PLAYER_STATE_IDLE while mediaStatus.getMediaInfo() echoes static queueItem0
+    // (catalog duration 185_000 ms).
+    when(mockClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockClient.getIdleReason()).thenReturn(idleReason.value);
+    when(mockStatus.getMediaInfo()).thenReturn(queueItem0.getMedia());
+
+    CastTimeline idleTimeline = castTimelineTracker.getCastTimeline(mockClient);
+
+    assertThat(idleTimeline.getWindow(0, new Window()).durationUs).isEqualTo(Util.msToUs(185_680L));
+  }
+
+  private enum TransitionState {
+    LOADING_ITEM_ID,
+    PLAYER_STATE_LOADING,
+    PLAYER_STATE_BUFFERING
+  }
+
+  private enum IdleReason {
+    FINISHED(MediaStatus.IDLE_REASON_FINISHED),
+    CANCELED(MediaStatus.IDLE_REASON_CANCELED),
+    INTERRUPTED(MediaStatus.IDLE_REASON_INTERRUPTED),
+    ERROR(MediaStatus.IDLE_REASON_ERROR);
+
+    final int value;
+
+    IdleReason(int value) {
+      this.value = value;
+    }
   }
 
   private MediaItem createMediaItem(int uid) {

@@ -71,6 +71,7 @@ public class DefaultMediaItemConverterTest {
                     .setReleaseYear(2024)
                     .setReleaseMonth(5)
                     .setReleaseDay(27)
+                    .setDurationMs(10_000L)
                     .build())
             .setMimeType(MimeTypes.APPLICATION_MPD)
             .setDrmConfiguration(
@@ -1115,5 +1116,70 @@ public class DefaultMediaItemConverterTest {
     assertThat(mediaItem.localConfiguration.drmConfiguration.licenseUri)
         .isEqualTo(Uri.parse("http://example.com/license"));
     assertThat(mediaItem.localConfiguration.drmConfiguration.licenseRequestHeaders).isEmpty();
+  }
+
+  @Test
+  public void toMediaQueueItem_withDurationMs_setsStreamDuration() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(63_000L).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getStreamDuration()).isEqualTo(63_000L);
+  }
+
+  @Test
+  public void toMediaQueueItem_withLiveConfigurationAndDurationMs_doesNotSetStreamDuration() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com/live.m3u8")
+            .setLiveConfiguration(
+                new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(10_000L).build())
+            .setMediaMetadata(new MediaMetadata.Builder().setDurationMs(63_000L).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getStreamType()).isEqualTo(MediaInfo.STREAM_TYPE_LIVE);
+    assertThat(queueItem.getMedia().getStreamDuration()).isEqualTo(MediaInfo.UNKNOWN_DURATION);
+  }
+
+  @Test
+  public void toMediaItem_withStreamDuration_setsDurationMs() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/url")
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setStreamDuration(63_000L)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaMetadata.durationMs).isEqualTo(63_000L);
+  }
+
+  @Test
+  public void toMediaItem_withLiveStreamTypeAndStreamDuration_doesNotSetDurationMs() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaInfo mediaInfo =
+        new MediaInfo.Builder("contentId")
+            .setContentUrl("http://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .setStreamDuration(63_000L)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(mediaInfo).build();
+
+    MediaItem mediaItem = converter.toMediaItem(queueItem);
+
+    assertThat(mediaItem.mediaMetadata.durationMs).isNull();
   }
 }

@@ -140,6 +140,11 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
         }
       }
     }
+    long streamDurationMs = mediaInfo.getStreamDuration();
+    if (mediaInfo.getStreamType() != MediaInfo.STREAM_TYPE_LIVE
+        && streamDurationMs != MediaInfo.UNKNOWN_DURATION) {
+      metadataBuilder.setDurationMs(streamDurationMs);
+    }
 
     // Deserialization of MediaItem.mediaMetadata.extras:
     // 1. Predefined Cast SDK fields are extracted directly from MediaMetadata using
@@ -313,6 +318,8 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
             .setCustomData(getCustomData(mediaItem, customDataExtras));
     if (isExplicitlyLive) {
       mediaInfoBuilder.setStreamType(MediaInfo.STREAM_TYPE_LIVE);
+    } else if (mediaItem.mediaMetadata.durationMs != null) {
+      mediaInfoBuilder.setStreamDuration(mediaItem.mediaMetadata.durationMs);
     }
     MediaInfo mediaInfo = mediaInfoBuilder.build();
     return new MediaQueueItem.Builder(mediaInfo).build();
