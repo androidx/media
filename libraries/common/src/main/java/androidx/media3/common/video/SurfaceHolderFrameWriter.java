@@ -437,8 +437,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       }
 
       if (SDK_INT >= 28) {
-        if (!tryPrepareHardwareBufferFrameForQueueing(
-            (DefaultHardwareBufferFrame) frame, internalImage, image)) {
+        if (!tryPrepareHardwareBufferFrameForQueueing((DefaultHardwareBufferFrame) frame)) {
           return;
         }
       }
@@ -482,7 +481,10 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   @RequiresApi(28)
   @GuardedBy("lock")
   private boolean tryPrepareHardwareBufferFrameForQueueing(
-      DefaultHardwareBufferFrame hardwareBufferFrame, InternalImage internalImage, Image image) {
+      DefaultHardwareBufferFrame hardwareBufferFrame) {
+    InternalImage internalImage =
+        (InternalImage) checkNotNull(hardwareBufferFrame.getInternalImage());
+    Image image = internalImage.image;
     if (internalImage.needsCopy) {
       checkState(hardwareBufferNativeHelpers != null);
       checkNotNull(hardwareBufferPool);
