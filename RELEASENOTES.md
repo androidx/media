@@ -57,6 +57,9 @@
         `AdsMediaSource` uses lazy content source preparation.
 *   CompositionPlayer:
 *   Transformer:
+    *   Add CodecDB (`androidx.media3.transformer.codecdb`), which recommends
+        video encoder configurations (codec, encoder settings and bitrate) for
+        the current device from measured encoder quality data.
 *   Track Selection:
 *   Extractors:
     *   ADTS: Fix `AdtsExtractor` deriving the audio format from a false sync

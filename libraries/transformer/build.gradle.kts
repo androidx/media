@@ -42,6 +42,7 @@ dependencies {
   testImplementation(project(":lib-inspector"))
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.truth)
+  testImplementation(libs.guava.testlib)
   testImplementation(project(":lib-inspector"))
   androidTestRuntimeOnly(libs.dexmaker.mockito)
   androidTestImplementation(libs.junit)
