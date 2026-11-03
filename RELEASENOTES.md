@@ -227,6 +227,8 @@
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.transformer.TextureAssetLoader`. Use
         `androidx.media3.transformer.RawAssetLoader` instead.
+    *   Remove public `DefaultDecoderFactory` constructors. Use
+        `DefaultDecoderFactory.Builder` instead.
     *   Remove
         `DefaultVideoFrameProcessor.Factory.Builder.setRequireRegisteringAllInputFrames(boolean)`.
         Use

@@ -180,31 +180,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
   private final boolean shouldConfigureOperatingRate;
   private final MediaCodecSelector mediaCodecSelector;
 
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultDecoderFactory(Context context) {
-    this(new Builder(context));
-  }
-
-  /**
-   * Creates a new factory that selects the most preferred decoder, optionally falling back to less
-   * preferred decoders if initialization fails.
-   *
-   * @param context The context.
-   * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
-   *     initialization fails. This may result in using a decoder that is less efficient or slower
-   *     than the primary decoder.
-   * @param listener Listener for codec initialization errors.
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultDecoderFactory(Context context, boolean enableDecoderFallback, Listener listener) {
-    this(
-        new Builder(context).setEnableDecoderFallback(enableDecoderFallback).setListener(listener));
-  }
-
   private DefaultDecoderFactory(Builder builder) {
     this.context = builder.context;
     this.enableDecoderFallback = builder.enableDecoderFallback;
