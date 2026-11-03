@@ -133,6 +133,11 @@ public final class DefaultAudioMixer implements AudioMixer {
   private MixingBuffer[] mixingBuffers;
   private long mixerStartTimeUs;
 
+  // Scratch arrays for SourceInfo.mixInt16, shared by all sources and only ever grown.
+  private byte[] int16Input = new byte[0];
+  private byte[] int16Mixing = new byte[0];
+  private float[] int16Frame = new float[0];
+
   /** Limit (in frames) of source audio that can be queued, relative to the mixer start. */
   private long inputLimit;
 
@@ -326,8 +331,11 @@ public final class DefaultAudioMixer implements AudioMixer {
         break;
       }
     }
-    DebugTraceUtil.logEvent(
-        COMPONENT_AUDIO_MIXER, EVENT_ACCEPTED_INPUT, C.TIME_UNSET, "source(%s)", sourceId);
+    // Avoid allocating the varargs array and taking the lock for every buffer when not tracing.
+    if (DebugTraceUtil.enableTracing) {
+      DebugTraceUtil.logEvent(
+          COMPONENT_AUDIO_MIXER, EVENT_ACCEPTED_INPUT, C.TIME_UNSET, "source(%s)", sourceId);
+    }
   }
 
   @Override
@@ -367,12 +375,14 @@ public final class DefaultAudioMixer implements AudioMixer {
     outputPosition = newOutputPosition;
     updateInputFrameLimit();
 
-    DebugTraceUtil.logEvent(
-        COMPONENT_AUDIO_MIXER,
-        DebugTraceUtil.EVENT_PRODUCED_OUTPUT,
-        C.TIME_UNSET,
-        "bytesOutput=%s",
-        outputBuffer.remaining());
+    if (DebugTraceUtil.enableTracing) {
+      DebugTraceUtil.logEvent(
+          COMPONENT_AUDIO_MIXER,
+          DebugTraceUtil.EVENT_PRODUCED_OUTPUT,
+          C.TIME_UNSET,
+          "bytesOutput=%s",
+          outputBuffer.remaining());
+    }
     maybeLogMixerEnded();
     return outputBuffer;
   }
@@ -502,6 +512,14 @@ public final class DefaultAudioMixer implements AudioMixer {
         AudioFormat mixingAudioFormat) {
       checkArgument(newPosition >= position);
       int framesToMix = (int) (newPosition - position);
+      if (audioFormat.encoding == C.ENCODING_PCM_16BIT
+          && mixingAudioFormat.encoding == C.ENCODING_PCM_16BIT
+          && sourceBuffer.order() == ByteOrder.LITTLE_ENDIAN
+          && mixingBuffer.order() == ByteOrder.LITTLE_ENDIAN) {
+        mixInt16(sourceBuffer, mixingBuffer, framesToMix);
+        position = newPosition;
+        return;
+      }
       AudioMixingUtil.mix(
           sourceBuffer,
           audioFormat,
@@ -512,6 +530,56 @@ public final class DefaultAudioMixer implements AudioMixer {
           /* accumulate= */ true,
           clipFloatOutput);
       position = newPosition;
+    }
+
+    /**
+     * Equivalent to {@link AudioMixingUtil#mix} with {@code accumulate} set, for 16-bit PCM input
+     * and output in little-endian buffers.
+     *
+     * <p>The output is bit-identical, as the same float operations are applied in the same order,
+     * but the samples are bulk-copied to and from scratch arrays instead of being accessed one by
+     * one through the buffers, and no allocation happens once the scratch arrays are large enough.
+     * The buffer positions are advanced as {@link AudioMixingUtil#mix} advances them.
+     */
+    private void mixInt16(ByteBuffer sourceBuffer, ByteBuffer mixingBuffer, int framesToMix) {
+      ChannelMixingMatrix matrix = channelMixingMatrix;
+      int inputChannels = matrix.getInputChannelCount();
+      int outputChannels = matrix.getOutputChannelCount();
+      int inputBytes = framesToMix * inputChannels * 2;
+      int mixingBytes = framesToMix * outputChannels * 2;
+      if (int16Input.length < inputBytes) {
+        int16Input = new byte[inputBytes];
+      }
+      if (int16Mixing.length < mixingBytes) {
+        int16Mixing = new byte[mixingBytes];
+      }
+      if (int16Frame.length < inputChannels) {
+        int16Frame = new float[inputChannels];
+      }
+      byte[] in = int16Input;
+      byte[] mix = int16Mixing;
+      float[] frame = int16Frame;
+      sourceBuffer.get(in, 0, inputBytes);
+      int mixingStart = mixingBuffer.position();
+      mixingBuffer.get(mix, 0, mixingBytes);
+      int i = 0;
+      int m = 0;
+      for (int f = 0; f < framesToMix; f++) {
+        for (int c = 0; c < inputChannels; c++, i += 2) {
+          frame[c] = (short) ((in[i] & 0xFF) | (in[i + 1] << 8));
+        }
+        for (int o = 0; o < outputChannels; o++, m += 2) {
+          float out = (short) ((mix[m] & 0xFF) | (mix[m + 1] << 8));
+          for (int c = 0; c < inputChannels; c++) {
+            out += frame[c] * matrix.getMixingCoefficient(c, o);
+          }
+          short s = (short) Util.constrainValue(out, Short.MIN_VALUE, Short.MAX_VALUE);
+          mix[m] = (byte) s;
+          mix[m + 1] = (byte) (s >> 8);
+        }
+      }
+      mixingBuffer.position(mixingStart);
+      mixingBuffer.put(mix, 0, mixingBytes);
     }
   }
 }

@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static androidx.media3.test.utils.TestUtil.createFloatArray;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.min;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -25,6 +26,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
+import java.util.Arrays;
+import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,6 +65,8 @@ public final class DefaultAudioMixerTest {
       new AudioFormat(SAMPLE_RATE, /* channelCount= */ 2, C.ENCODING_PCM_FLOAT);
   private static final AudioFormat AUDIO_FORMAT_STEREO_PCM_16BIT =
       new AudioFormat(SAMPLE_RATE, /* channelCount= */ 2, C.ENCODING_PCM_16BIT);
+  private static final AudioFormat AUDIO_FORMAT_MONO_PCM_16BIT =
+      new AudioFormat(SAMPLE_RATE, /* channelCount= */ 1, C.ENCODING_PCM_16BIT);
 
   @Parameter public boolean outputSilenceWithNoSources;
 
@@ -482,5 +489,112 @@ public final class DefaultAudioMixerTest {
     mixer.addSource(AUDIO_FORMAT_STEREO_PCM_FLOAT, /* startTimeUs= */ -1_000);
 
     assertThat(mixer.getOutput().remaining()).isEqualTo(0);
+  }
+
+  @Test
+  public void output_withInt16LittleEndianSources_isBitIdenticalToBigEndianSources()
+      throws Exception {
+    // Little-endian 16-bit sources are mixed through scratch arrays, big-endian ones through
+    // AudioMixingUtil. The random full-range samples of two sources clip. With a stereo output the
+    // mono source is upmixed; with a mono output the stereo source is downmixed, so each output
+    // sample sums several scaled terms and the order of the float operations matters.
+    int frameCount = 20_011;
+    short[] stereoSamples = createRandomSamples(/* seed= */ 1, /* count= */ 2 * frameCount);
+    short[] monoSamples = createRandomSamples(/* seed= */ 2, /* count= */ frameCount);
+
+    for (AudioFormat outputFormat :
+        new AudioFormat[] {AUDIO_FORMAT_STEREO_PCM_16BIT, AUDIO_FORMAT_MONO_PCM_16BIT}) {
+      for (boolean useConstantPowerMixingMatrices : new boolean[] {false, true}) {
+        byte[] littleEndianOutput =
+            mixInt16Sources(
+                outputFormat,
+                useConstantPowerMixingMatrices,
+                ByteOrder.LITTLE_ENDIAN,
+                stereoSamples,
+                monoSamples);
+        byte[] bigEndianOutput =
+            mixInt16Sources(
+                outputFormat,
+                useConstantPowerMixingMatrices,
+                ByteOrder.BIG_ENDIAN,
+                stereoSamples,
+                monoSamples);
+
+        assertThat(littleEndianOutput).hasLength(frameCount * outputFormat.bytesPerFrame);
+        assertThat(littleEndianOutput).isEqualTo(bigEndianOutput);
+        assertThat(countClippedSamples(littleEndianOutput)).isGreaterThan(0);
+      }
+    }
+  }
+
+  private byte[] mixInt16Sources(
+      AudioFormat outputFormat,
+      boolean useConstantPowerMixingMatrices,
+      ByteOrder sourceOrder,
+      short[] stereoSamples,
+      short[] monoSamples)
+      throws Exception {
+    AudioMixer mixer =
+        new DefaultAudioMixer.Factory(
+                outputSilenceWithNoSources,
+                /* clipFloatOutput= */ true,
+                useConstantPowerMixingMatrices)
+            .create();
+    mixer.configure(outputFormat, /* bufferSizeMs= */ 50, /* startTimeUs= */ 0);
+    int stereoSourceId = mixer.addSource(AUDIO_FORMAT_STEREO_PCM_16BIT, /* startTimeUs= */ 0);
+    int monoSourceId = mixer.addSource(AUDIO_FORMAT_MONO_PCM_16BIT, /* startTimeUs= */ 0);
+    ByteBuffer stereoBuffer = createInt16Buffer(stereoSamples, sourceOrder);
+    ByteBuffer monoBuffer = createInt16Buffer(monoSamples, sourceOrder);
+    ByteBuffer output = ByteBuffer.allocate(stereoSamples.length * 2);
+
+    // Chunks of 37 frames do not divide the 50 frame buffer, so mixed ranges cross its limit. The
+    // mono source is queued first, so the stereo source is mixed onto non-zero samples.
+    while (stereoBuffer.hasRemaining() || monoBuffer.hasRemaining()) {
+      queueInputUpTo(mixer, monoSourceId, monoBuffer, /* maxBytes= */ 37 * 2);
+      queueInputUpTo(mixer, stereoSourceId, stereoBuffer, /* maxBytes= */ 37 * 4);
+      output.put(mixer.getOutput());
+    }
+    ByteBuffer remainingOutput = mixer.getOutput();
+    while (remainingOutput.hasRemaining()) {
+      output.put(remainingOutput);
+      remainingOutput = mixer.getOutput();
+    }
+    return Arrays.copyOf(output.array(), output.position());
+  }
+
+  private static void queueInputUpTo(
+      AudioMixer mixer, int sourceId, ByteBuffer sourceBuffer, int maxBytes) {
+    int limit = sourceBuffer.limit();
+    sourceBuffer.limit(min(limit, sourceBuffer.position() + maxBytes));
+    mixer.queueInput(sourceId, sourceBuffer);
+    sourceBuffer.limit(limit);
+  }
+
+  private static short[] createRandomSamples(long seed, int count) {
+    Random random = new Random(seed);
+    short[] samples = new short[count];
+    for (int i = 0; i < count; i++) {
+      samples[i] = (short) random.nextInt();
+    }
+    return samples;
+  }
+
+  private static ByteBuffer createInt16Buffer(short[] samples, ByteOrder order) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(samples.length * 2).order(order);
+    buffer.asShortBuffer().put(samples);
+    return buffer;
+  }
+
+  private static int countClippedSamples(byte[] nativeOrderInt16) {
+    ShortBuffer samples =
+        ByteBuffer.wrap(nativeOrderInt16).order(ByteOrder.nativeOrder()).asShortBuffer();
+    int count = 0;
+    while (samples.hasRemaining()) {
+      short sample = samples.get();
+      if (sample == Short.MAX_VALUE || sample == Short.MIN_VALUE) {
+        count++;
+      }
+    }
+    return count;
   }
 }
