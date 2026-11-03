@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Util.putInt24;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -31,6 +32,9 @@ import android.graphics.Bitmap.Config;
 import android.graphics.Color;
 import android.media.MediaCodec;
 import android.net.Uri;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.Parcel;
@@ -45,8 +49,10 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.DataSource;
@@ -102,6 +108,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
+import org.junit.AssumptionViolatedException;
 import org.junit.function.ThrowingRunnable;
 import org.mockito.Mockito;
 
@@ -1114,6 +1121,29 @@ public class TestUtil {
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(() -> surfaceView.set(new SurfaceView(context)));
     return surfaceView.get();
+  }
+
+  /**
+   * Returns a native sync fence created on a temporary EGL context.
+   *
+   * <p>The calling thread has no current EGL context after this method returns.
+   *
+   * @throws AssumptionViolatedException If native sync fences are not supported.
+   */
+  public static SyncFenceWrapper createSyncFence() throws GlUtil.GlException {
+    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
+    EGLContext eglContext = GlUtil.createEglContext(eglDisplay);
+    EGLSurface eglSurface = GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
+    try {
+      ImmutableList<SyncFenceWrapper> fences = GlUtil.createSyncFences(/* count= */ 1);
+      assumeFalse("Native sync fences are not supported.", fences.isEmpty());
+      return fences.get(0);
+    } finally {
+      // The fence owns a native fence file descriptor that stays valid after the EGL objects are
+      // destroyed. GlUtil.createSyncFences() already destroys its EGLSync before returning.
+      GlUtil.destroyEglSurface(eglDisplay, eglSurface);
+      GlUtil.destroyEglContext(eglDisplay, eglContext);
+    }
   }
 
   /**

@@ -197,9 +197,11 @@ public class EncoderFrameWriter implements FrameWriter {
         image.setFence(writeCompleteFence.asSyncFence());
       } catch (IOException e) {
         image.close();
-        writeCompleteFence.close();
         listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
         return;
+      } finally {
+        // The image holds its own duplicate of the fence file descriptor.
+        writeCompleteFence.close();
       }
     }
     checkNotNull(imageWriter).queueInputImage(image);

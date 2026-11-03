@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.test.utils.TestUtil.createSyncFence;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
@@ -32,6 +33,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.EncoderFrameWriter.Listener;
 import androidx.test.core.app.ApplicationProvider;
@@ -214,6 +216,20 @@ public class EncoderFrameWriterAndroidTest {
 
     // Verify the listener received the callback.
     assertThat(endOfStreamSignaled.get()).isTrue();
+    assertThat(errorException.get()).isNull();
+  }
+
+  @Test
+  public void queueInputFrame_withFence_closesFence() throws Exception {
+    encoderFrameWriter.configure(TEST_ENCODING_FORMAT, Frame.USAGE_VIDEO_ENCODE);
+    AsyncFrame asyncFrame =
+        encoderFrameWriter.dequeueInputFrame(/* wakeupExecutor= */ directExecutor(), () -> {});
+    SyncFenceWrapper writeCompleteFence = createSyncFence();
+
+    encoderFrameWriter.queueInputFrame(asyncFrame.frame, writeCompleteFence);
+
+    // The image holds its own duplicate of the fence, so the writer closes the fence it was given.
+    assertThat(writeCompleteFence.asSyncFence().isValid()).isFalse();
     assertThat(errorException.get()).isNull();
   }
 }
