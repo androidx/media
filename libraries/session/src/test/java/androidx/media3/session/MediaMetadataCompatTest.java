@@ -23,6 +23,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadata;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.text.Html;
@@ -111,6 +112,48 @@ public final class MediaMetadataCompatTest {
 
     assertThat(data).isNotNull();
     assertThat(data.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void getMostRelevantArtworkBitmapData_withNullDisplayIcon_returnsAlbumArt() {
+    Bitmap albumArt =
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888);
+    MediaMetadataCompat metadata =
+        new MediaMetadataCompat.Builder()
+            .putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, null)
+            .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, albumArt)
+            .build();
+
+    byte[] data = metadata.getMostRelevantArtworkBitmapData();
+
+    assertThat(data).isNotNull();
+    assertThat(data.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void getMostRelevantArtworkUri_withNullDisplayIconUri_returnsAlbumArtUri() {
+    MediaMetadataCompat metadata =
+        new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, null)
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, "content://artwork/1")
+            .build();
+
+    Uri artworkUri = metadata.getMostRelevantArtworkUri();
+
+    assertThat(artworkUri).isEqualTo(Uri.parse("content://artwork/1"));
+  }
+
+  @Test
+  public void getMostRelevantArtworkUri_withEmptyDisplayIconUri_returnsAlbumArtUri() {
+    MediaMetadataCompat metadata =
+        new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, "")
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, "content://artwork/1")
+            .build();
+
+    Uri artworkUri = metadata.getMostRelevantArtworkUri();
+
+    assertThat(artworkUri).isEqualTo(Uri.parse("content://artwork/1"));
   }
 
   @Test

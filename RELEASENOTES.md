@@ -154,6 +154,10 @@
         `Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED` when a legacy
         `MediaSessionCompat` metadata update modifies the active queue item's
         metadata or duration without changing the queue.
+    *   Fix missing artwork for legacy sessions that set a `null`
+        `METADATA_KEY_DISPLAY_ICON` (or artwork URI) alongside a valid
+        `METADATA_KEY_ALBUM_ART`: null artwork values are now skipped when
+        converting legacy metadata.
 *   UI:
     *   Add a `subtitles` Composable slot to `ContentFrame` and `Player`, with
         default support in `media3-ui-compose-material3` for rendering bitmap

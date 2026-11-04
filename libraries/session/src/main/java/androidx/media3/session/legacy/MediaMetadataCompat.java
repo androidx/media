@@ -25,6 +25,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.text.TextUtils;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.StringDef;
 import androidx.collection.ArrayMap;
@@ -609,19 +610,23 @@ public final class MediaMetadataCompat implements Parcelable {
     return bmp;
   }
 
+  /** Returns the value of the first key with a non-null bitmap, or null if there is none. */
   private @Nullable Bitmap getFirstBitmap(String... keys) {
     for (String key : keys) {
-      if (containsKey(key)) {
-        return getBitmap(key);
+      @Nullable Bitmap bitmap = getBitmap(key);
+      if (bitmap != null) {
+        return bitmap;
       }
     }
     return null;
   }
 
+  /** Returns the value of the first key with a non-empty string, or null if there is none. */
   private @Nullable String getFirstString(String... keys) {
     for (String key : keys) {
-      if (containsKey(key)) {
-        return getString(key);
+      @Nullable String value = getString(key);
+      if (!TextUtils.isEmpty(value)) {
+        return value;
       }
     }
     return null;
