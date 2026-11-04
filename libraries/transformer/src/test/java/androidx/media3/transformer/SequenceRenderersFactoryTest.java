@@ -20,6 +20,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.o
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AVC;
+import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.EditedMediaItemSequence.withVideoFrom;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
@@ -335,6 +336,8 @@ public final class SequenceRenderersFactoryTest {
                 .getMetadata()
                 .get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA);
     assertThat(metadata.itemIndex).isEqualTo(0);
+    assertThat(receivedFrames.get(0).frame.getMetadata().get(KEY_COMPOSITION_ITEM_INDEX))
+        .isEqualTo(0);
   }
 
   private static SequenceRenderersFactory createFactoryForHardwareBuffer(

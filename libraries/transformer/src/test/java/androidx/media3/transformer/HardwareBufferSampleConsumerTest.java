@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
@@ -111,6 +112,7 @@ public class HardwareBufferSampleConsumerTest {
       assertThat(getPresentationTimeUs(frame)).isEqualTo(expectedPresentationTimeUs);
       assertThat(frame.frame.getContentTimeUs()).isEqualTo(expectedPresentationTimeUs);
       assertThat(getDisplayTimeNs(frame)).isEqualTo(expectedPresentationTimeUs * 1000);
+      assertThat(getItemIndex(frame)).isEqualTo(0);
       assertThat(getCompositionFrameMetadata(frame).itemIndex).isEqualTo(0);
       // For bitmaps, the format is currently hardcoded in HardwareBufferFrameReader.
       assertThat(frame.frame.getFormat()).isNotNull();
@@ -155,6 +157,7 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(getPresentationTimeUs(frame)).isEqualTo(0);
     assertThat(frame.frame.getContentTimeUs()).isEqualTo(item1DurationUs);
     assertThat(getDisplayTimeNs(frame)).isEqualTo(item1DurationUs * 1000);
+    assertThat(getItemIndex(frame)).isEqualTo(1);
     assertThat(getCompositionFrameMetadata(frame).itemIndex).isEqualTo(1);
   }
 
@@ -184,6 +187,7 @@ public class HardwareBufferSampleConsumerTest {
     AsyncFrame frame1 = receivedFrames.get(0);
     assertThat(frame1.frame.getContentTimeUs()).isEqualTo(0);
     assertThat(getDisplayTimeNs(frame1)).isEqualTo(0);
+    assertThat(getItemIndex(frame1)).isEqualTo(0);
     assertThat(getCompositionFrameMetadata(frame1).itemIndex).isEqualTo(0);
 
     for (AsyncFrame frame : receivedFrames) {
@@ -210,6 +214,7 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(getPresentationTimeUs(frame2)).isEqualTo(0);
     assertThat(frame2.frame.getContentTimeUs()).isEqualTo(item1DurationUs);
     assertThat(getDisplayTimeNs(frame2)).isEqualTo(item1DurationUs * 1000);
+    assertThat(getItemIndex(frame2)).isEqualTo(1);
     assertThat(getCompositionFrameMetadata(frame2).itemIndex).isEqualTo(1);
 
     for (AsyncFrame frame : receivedFrames) {
@@ -237,6 +242,7 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(getPresentationTimeUs(frame3)).isEqualTo(0);
     assertThat(frame3.frame.getContentTimeUs()).isEqualTo(expectedOffsetUs3);
     assertThat(getDisplayTimeNs(frame3)).isEqualTo(expectedOffsetUs3 * 1000);
+    assertThat(getItemIndex(frame3)).isEqualTo(2);
     assertThat(getCompositionFrameMetadata(frame3).itemIndex).isEqualTo(2);
   }
 
@@ -263,6 +269,7 @@ public class HardwareBufferSampleConsumerTest {
       shadowOf(handlerThread.getLooper()).idle();
 
       assertThat(receivedFrames).hasSize(1);
+      assertThat(getItemIndex(receivedFrames.get(0))).isEqualTo(expectedItemIndex);
       assertThat(getCompositionFrameMetadata(receivedFrames.get(0)).itemIndex)
           .isEqualTo(expectedItemIndex);
       releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
@@ -389,6 +396,10 @@ public class HardwareBufferSampleConsumerTest {
 
   private static long getDisplayTimeNs(AsyncFrame asyncFrame) {
     return checkNotNull((Long) asyncFrame.frame.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS));
+  }
+
+  private static int getItemIndex(AsyncFrame asyncFrame) {
+    return checkNotNull((Integer) asyncFrame.frame.getMetadata().get(KEY_COMPOSITION_ITEM_INDEX));
   }
 
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.

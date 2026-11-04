@@ -15,6 +15,8 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
+import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_EXPECT_NO_FRAMES;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
@@ -757,9 +759,17 @@ public class FrameAggregatorTest {
         createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 33_333);
     // Item 2: presentation time resets to 0 -> 33_333, sequence time continues 66_667 -> 100_000
     AsyncFrame primary3 =
-        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 66_667);
+        createFrame(
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 66_667,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 1);
     AsyncFrame primary4 =
-        createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 100_000);
+        createFrame(
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 100_000,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 1);
     // Secondary Sequence with one item
     AsyncFrame secondary1 =
         createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0);
@@ -821,9 +831,17 @@ public class FrameAggregatorTest {
         createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 33_333);
     // Item 2: presentation time resets to 0 -> 33_333, sequence time continues 66_667 -> 100_000
     AsyncFrame secondary3 =
-        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 66_667);
+        createFrame(
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 66_667,
+            /* sequenceIndex= */ 1,
+            /* itemIndex= */ 1);
     AsyncFrame secondary4 =
-        createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 100_000);
+        createFrame(
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 100_000,
+            /* sequenceIndex= */ 1,
+            /* itemIndex= */ 1);
 
     // Queue primary frames
     frameAggregator.queueFrame(primary1, /* sequenceIndex= */ 0);
@@ -878,9 +896,17 @@ public class FrameAggregatorTest {
         createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 33_333);
     // Item 2: presentation time resets to 0 -> 33_333, sequence time continues 66_667 -> 100_000
     AsyncFrame secondary3 =
-        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 66_667);
+        createFrame(
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 66_667,
+            /* sequenceIndex= */ 1,
+            /* itemIndex= */ 1);
     AsyncFrame secondary4 =
-        createFrame(/* presentationTimeUs= */ 33_333, /* sequencePresentationTimeUs= */ 100_000);
+        createFrame(
+            /* presentationTimeUs= */ 33_333,
+            /* sequencePresentationTimeUs= */ 100_000,
+            /* sequenceIndex= */ 1,
+            /* itemIndex= */ 1);
 
     frameAggregator.queueFrame(primary1, /* sequenceIndex= */ 0);
     frameAggregator.queueFrame(primary2, /* sequenceIndex= */ 0);
@@ -2060,7 +2086,8 @@ public class FrameAggregatorTest {
             /* numFrames= */ 2,
             /* frameRate= */ 30,
             /* sequenceIndex= */ 0,
-            /* sequencePresentationTimeOffsetUs= */ 90_000);
+            /* sequencePresentationTimeOffsetUs= */ 90_000,
+            /* itemIndex= */ 1);
 
     item1Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
     item2Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
@@ -2120,7 +2147,8 @@ public class FrameAggregatorTest {
             /* numFrames= */ 2,
             /* frameRate= */ 30,
             /* sequenceIndex= */ 0,
-            /* sequencePresentationTimeOffsetUs= */ 90_000);
+            /* sequencePresentationTimeOffsetUs= */ 90_000,
+            /* itemIndex= */ 1);
 
     item1Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
     item2Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
@@ -2150,6 +2178,260 @@ public class FrameAggregatorTest {
             /* sequenceIndex= */ 0,
             /* presentationTimeUs= */ 0,
             /* sequencePresentationTimeUs= */ 90_000));
+  }
+
+  @Test
+  public void
+      queueFrame_withFrameRateAcrossItemBoundaryAndTickInOutgoingItem_prioritizesOutgoingItemFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(10, 1),
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 10 FPS):
+     *
+     * Virtual Ticks: [ Tick 0: 0us ]                    [ Tick 1: 100_000us ]    [ Tick 2: 200_000us ]
+     * ------------------------------------------------------------------------------------------------
+     * Seq 0:         |-- 0us --| (33_333us) |-- 66_667us --| | (110_000us) ... |-- 210_000us --|
+     *                \__________ Item 1 (0..110_000us) ____/ \______ Item 2 (110_000us..) ______/
+     */
+
+    List<AsyncFrame> item1Frames =
+        createFrameList(
+            /* numFrames= */ 3,
+            /* frameRate= */ 30,
+            /* sequenceIndex= */ 0,
+            /* sequencePresentationTimeOffsetUs= */ 0,
+            /* itemIndex= */ 0);
+    List<AsyncFrame> item2Frames =
+        createFrameList(
+            /* numFrames= */ 4,
+            /* frameRate= */ 30,
+            /* sequenceIndex= */ 0,
+            /* sequencePresentationTimeOffsetUs= */ 110_000,
+            /* itemIndex= */ 1);
+
+    item1Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
+    item2Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
+
+    assertThat(outputFrames).hasSize(3);
+
+    // Virtual Tick 0 (0us): Matches Item 1 Frame 0 (SeqPTS = 0us).
+    assertOutputPacket(
+        outputFrames.get(0),
+        /* expectedSize= */ 1,
+        /* expectedTimeUs= */ 0,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0));
+    assertThat(getItemIndex(outputFrames.get(0).get(0))).isEqualTo(0);
+
+    // Virtual Tick 1 (100_000us): Even though Item 2 Frame 0 (SeqPTS = 110_000us, diff = 10_000us)
+    // is closer to 100_000us than Item 1 Frame 2 (SeqPTS = 66_667us, diff = 33_333us), the tick
+    // at 100_000us is still within Item 1 (< 110_000us), so Item 1 Frame 2 is prioritized.
+    assertOutputPacket(
+        outputFrames.get(1),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 100_000,
+        /* expectedSequencePresentationTimeUs= */ 100_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 66_667,
+            /* sequencePresentationTimeUs= */ 66_667));
+    assertThat(getItemIndex(outputFrames.get(1).get(0))).isEqualTo(0);
+
+    // Virtual Tick 2 (200_000us): Now within Item 2, matches closest Item 2 Frame 3 (SeqPTS =
+    // 210_000us, PTS = 100_000us), retimed by -10_000us to PTS = 90_000us.
+    assertOutputPacket(
+        outputFrames.get(2),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 90_000,
+        /* expectedSequencePresentationTimeUs= */ 200_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 100_000,
+            /* sequencePresentationTimeUs= */ 210_000));
+    assertThat(getItemIndex(outputFrames.get(2).get(0))).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      queueFrame_withFrameRateAcrossItemBoundaryAndTickInIncomingItem_prioritizesIncomingItemFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(10, 1),
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+
+    /*
+     * Pacing / Retiming Timeline (Target Virtual Clock: 10 FPS):
+     *
+     * Virtual Ticks: [ Tick 0: 0us ]              [ Tick 1: 100_000us ]
+     * -----------------------------------------------------------------------
+     * Seq 0:         |-- 0us --|    (95_000us) |  |       |-- 120_000us --|
+     *                \__ Item 1 (0..98_000us) _/  \__ Item 2 (98_000us..) __/
+     */
+
+    AsyncFrame item1Frame0 =
+        createFrame(
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 0);
+    AsyncFrame item1Frame1 =
+        createFrame(
+            /* presentationTimeUs= */ 95_000,
+            /* sequencePresentationTimeUs= */ 95_000,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 0);
+    // Item 2 starts at sequence offset 98_000us; its first frame is at item-relative 22_000us
+    // (sequence time 120_000us).
+    AsyncFrame item2Frame0 =
+        createFrame(
+            /* presentationTimeUs= */ 22_000,
+            /* sequencePresentationTimeUs= */ 120_000,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 1);
+
+    frameAggregator.queueFrame(item1Frame0, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(item1Frame1, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(item2Frame0, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2);
+
+    // Virtual Tick 1 (100_000us): Even though Item 1 Frame 1 (SeqPTS = 95_000us, diff = 5_000us)
+    // is closer to 100_000us than Item 2 Frame 0 (SeqPTS = 120_000us, diff = 20_000us), the tick
+    // at 100_000us is already within Item 2 (>= 98_000us), so Item 2 Frame 0 is prioritized and
+    // Item 1 Frame 1 is released.
+    assertOutputPacket(
+        outputFrames.get(1),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 2_000,
+        /* expectedSequencePresentationTimeUs= */ 100_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 22_000,
+            /* sequencePresentationTimeUs= */ 120_000));
+    assertThat(getItemIndex(outputFrames.get(1).get(0))).isEqualTo(1);
+    assertThat(releasedFrameTimestamps).contains(95_000L);
+  }
+
+  @Test
+  public void
+      queueFrame_withFrameRateAcrossSingleItemLoopBoundaryAndTickInOutgoingIteration_prioritizesOutgoingIterationFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(10, 1),
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+    List<AsyncFrame> iteration0Frames =
+        createFrameList(
+            /* numFrames= */ 3,
+            /* frameRate= */ 30,
+            /* sequenceIndex= */ 0,
+            /* sequencePresentationTimeOffsetUs= */ 0,
+            /* itemIndex= */ 0);
+    List<AsyncFrame> iteration1Frames =
+        createFrameList(
+            /* numFrames= */ 4,
+            /* frameRate= */ 30,
+            /* sequenceIndex= */ 0,
+            /* sequencePresentationTimeOffsetUs= */ 110_000,
+            /* itemIndex= */ 0);
+
+    iteration0Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
+    iteration1Frames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
+
+    assertThat(outputFrames).hasSize(3);
+    assertOutputPacket(
+        outputFrames.get(0),
+        /* expectedSize= */ 1,
+        /* expectedTimeUs= */ 0,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0));
+    // Virtual Tick 1 (100_000us) is still within loop iteration 0 (< 110_000us), so iteration 0's
+    // last frame (SeqPTS = 66_667us) is prioritized over iteration 1's closer first frame (SeqPTS =
+    // 110_000us) even though KEY_COMPOSITION_ITEM_INDEX is 0 for both iterations.
+    assertOutputPacket(
+        outputFrames.get(1),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 100_000,
+        /* expectedSequencePresentationTimeUs= */ 100_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 66_667,
+            /* sequencePresentationTimeUs= */ 66_667));
+    assertOutputPacket(
+        outputFrames.get(2),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 90_000,
+        /* expectedSequencePresentationTimeUs= */ 200_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 100_000,
+            /* sequencePresentationTimeUs= */ 210_000));
+  }
+
+  @Test
+  public void
+      queueFrame_withFrameRateAcrossSingleItemLoopBoundaryAndTickInIncomingIteration_prioritizesIncomingIterationFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* frameRate= */ new Rational(10, 1),
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+    AsyncFrame iteration0Frame0 =
+        createFrame(
+            /* presentationTimeUs= */ 0,
+            /* sequencePresentationTimeUs= */ 0,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 0);
+    AsyncFrame iteration0Frame1 =
+        createFrame(
+            /* presentationTimeUs= */ 95_000,
+            /* sequencePresentationTimeUs= */ 95_000,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 0);
+    // Loop iteration 1 starts at sequence offset 98_000us with itemIndex = 0; its first frame is at
+    // item-relative 22_000us (sequence time 120_000us).
+    AsyncFrame iteration1Frame0 =
+        createFrame(
+            /* presentationTimeUs= */ 22_000,
+            /* sequencePresentationTimeUs= */ 120_000,
+            /* sequenceIndex= */ 0,
+            /* itemIndex= */ 0);
+
+    frameAggregator.queueFrame(iteration0Frame0, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(iteration0Frame1, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(iteration1Frame0, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2);
+    // Virtual Tick 1 (100_000us) is already within loop iteration 1 (>= 98_000us), so iteration 1's
+    // first frame (SeqPTS = 120_000us) is prioritized over iteration 0's closer frame (SeqPTS =
+    // 95_000us) even though KEY_COMPOSITION_ITEM_INDEX is 0 for both iterations.
+    assertOutputPacket(
+        outputFrames.get(1),
+        /* expectedSize= */ 1,
+        /* expectedPresentationTimeUs= */ 2_000,
+        /* expectedSequencePresentationTimeUs= */ 100_000,
+        new SourceFrame(
+            /* sequenceIndex= */ 0,
+            /* presentationTimeUs= */ 22_000,
+            /* sequencePresentationTimeUs= */ 120_000));
+    assertThat(releasedFrameTimestamps).contains(95_000L);
   }
 
   @Test
@@ -2336,6 +2618,12 @@ public class FrameAggregatorTest {
 
   private AsyncFrame createFrame(
       long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex) {
+    return createFrame(
+        presentationTimeUs, sequencePresentationTimeUs, sequenceIndex, /* itemIndex= */ 0);
+  }
+
+  private AsyncFrame createFrame(
+      long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex, int itemIndex) {
     DefaultHardwareBufferFrame frame =
         new DefaultHardwareBufferFrame.Builder(
                 placeholderBuffer,
@@ -2348,6 +2636,10 @@ public class FrameAggregatorTest {
                     presentationTimeUs,
                     Frame.KEY_DISPLAY_TIME_NS,
                     sequencePresentationTimeUs * 1_000L,
+                    KEY_COMPOSITION_SEQUENCE_INDEX,
+                    sequenceIndex,
+                    KEY_COMPOSITION_ITEM_INDEX,
+                    itemIndex,
                     "SOURCE_FRAME_METADATA",
                     new SourceFrame(sequenceIndex, presentationTimeUs, sequencePresentationTimeUs)))
             .setInternalImage(this)
@@ -2357,11 +2649,19 @@ public class FrameAggregatorTest {
 
   private List<AsyncFrame> createFrameList(int numFrames, float frameRate, int sequenceIndex) {
     return createFrameList(
-        numFrames, frameRate, sequenceIndex, /* sequencePresentationTimeOffsetUs= */ 0);
+        numFrames,
+        frameRate,
+        sequenceIndex,
+        /* sequencePresentationTimeOffsetUs= */ 0,
+        /* itemIndex= */ 0);
   }
 
   private List<AsyncFrame> createFrameList(
-      int numFrames, float frameRate, int sequenceIndex, long sequencePresentationTimeOffsetUs) {
+      int numFrames,
+      float frameRate,
+      int sequenceIndex,
+      long sequencePresentationTimeOffsetUs,
+      int itemIndex) {
     List<AsyncFrame> frames = new ArrayList<>();
     for (int i = 0; i < numFrames; i++) {
       long timeUs = Math.round(i * 1_000_000.0 / frameRate);
@@ -2369,7 +2669,8 @@ public class FrameAggregatorTest {
           createFrame(
               /* presentationTimeUs= */ timeUs,
               /* sequencePresentationTimeUs= */ sequencePresentationTimeOffsetUs + timeUs,
-              sequenceIndex));
+              sequenceIndex,
+              itemIndex));
     }
     return frames;
   }
@@ -2380,6 +2681,10 @@ public class FrameAggregatorTest {
 
   private static long getPresentationTimeUs(AsyncFrame asyncFrame) {
     return (Long) asyncFrame.frame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US);
+  }
+
+  private static int getItemIndex(AsyncFrame asyncFrame) {
+    return (Integer) asyncFrame.frame.getMetadata().get(KEY_COMPOSITION_ITEM_INDEX);
   }
 
   private static void registerAllSequences(FrameAggregator frameAggregator, int numSequences) {

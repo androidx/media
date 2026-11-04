@@ -285,8 +285,7 @@ import org.jspecify.annotations.Nullable;
         // In the frameRate-unset case, physical Sequence 0 defines the primary output presentation
         // timestamp. Under a virtual clock, primary track frames may be duplicated and those new
         // frames must be retimed. We retime all the frames here for the sake of consistency and
-        // simplicity. Note that the maximum timestamp shift is bounded by the inter-frame
-        // duration of the track.
+        // simplicity.
         if (frameRate != null) {
           long referenceContentTimeUs = referenceFrame.frame.getContentTimeUs();
           long shiftDeltaUs = referenceContentTimeUs - matchedFrame.getContentTimeUs();
@@ -505,7 +504,9 @@ import org.jspecify.annotations.Nullable;
      *
      * <p>When {@code aggregationStrategy} is {@link #STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET},
      * retains the previous frame relative to {@code targetFrame} and selects the closer frame
-     * between the previous and following frames, breaking ties in favor of the previous frame.
+     * between the previous and following frames, breaking ties in favor of the previous frame. If
+     * the previous and following frames belong to different media items, selects the frame whose
+     * media item contains {@code targetFrame}'s sequence presentation timestamp.
      *
      * <p>When {@code aggregationStrategy} is {@link #STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET}, this
      * method iterates through the frame queue, releasing any frames with presentation timestamps
@@ -563,6 +564,14 @@ import org.jspecify.annotations.Nullable;
       if (frames.size() >= 2) {
         AsyncFrame previousFrame = firstFrame;
         AsyncFrame nextFrame = Iterables.get(frames, 1);
+        if (areFromDifferentMediaItems(previousFrame, nextFrame)) {
+          if (targetTimeUs < getItemStartTimeUs(nextFrame)) {
+            return previousFrame;
+          }
+          frames.remove();
+          TransformerUtil.releaseIfNeeded(previousFrame.frame, /* releaseFence= */ null);
+          return nextFrame;
+        }
         long previousDiffUs = targetTimeUs - previousFrame.frame.getContentTimeUs();
         long nextDiffUs = nextFrame.frame.getContentTimeUs() - targetTimeUs;
         if (nextDiffUs < previousDiffUs) {
@@ -574,6 +583,19 @@ import org.jspecify.annotations.Nullable;
       }
 
       return null;
+    }
+
+    private static boolean areFromDifferentMediaItems(
+        AsyncFrame previousFrame, AsyncFrame nextFrame) {
+      // Compares item start times rather than KEY_COMPOSITION_ITEM_INDEX so that consecutive
+      // iterations of a single-item looping sequence are treated as distinct items.
+      return getItemStartTimeUs(previousFrame) != getItemStartTimeUs(nextFrame);
+    }
+
+    private static long getItemStartTimeUs(AsyncFrame asyncFrame) {
+      long presentationTimeUs =
+          (long) checkNotNull(asyncFrame.frame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US));
+      return asyncFrame.frame.getContentTimeUs() - presentationTimeUs;
     }
 
     /**

@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
@@ -302,6 +303,9 @@ public class HardwareBufferFrameReaderTest {
 
     assertThat(receivedFrames).hasSize(CAPACITY);
     assertFramePresentationTimes(receivedFrames, /* firstFrameIndex= */ 0, sequenceOffsetUs);
+    for (AsyncFrame frame : receivedFrames) {
+      assertThat(frame.frame.getMetadata().get(KEY_COMPOSITION_ITEM_INDEX)).isEqualTo(1);
+    }
 
     releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();

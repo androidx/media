@@ -114,6 +114,7 @@ import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl.FrameTimingEvaluator;
 import androidx.media3.test.utils.CapturingFrameProcessor;
+import androidx.media3.test.utils.CapturingFrameProcessor.EosEvent;
 import androidx.media3.test.utils.CapturingFrameProcessor.FramesEvent;
 import androidx.media3.test.utils.EditedMediaItemAssetInfo;
 import androidx.media3.test.utils.FakeClock;
@@ -132,6 +133,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -3456,6 +3458,118 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void
+      playback_withVideoFrameAggregationParametersAndNextItemStartClipped_matchesFramesFromActiveItemAroundBoundary()
+          throws Exception {
+    EditedMediaItem firstItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_15FPS.uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(110_000L)
+                            .build())
+                    .build())
+            .setDurationUs(MP4_15FPS.videoDurationUs)
+            .build();
+    EditedMediaItem secondItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_15FPS.uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000L)
+                            .setEndPositionUs(500_000L)
+                            .build())
+                    .build())
+            .setDurationUs(MP4_15FPS.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(firstItem, secondItem)))
+            .setVideoFrameAggregationParameters(
+                new VideoFrameAggregationParameters.Builder().setFrameRate(FPS_10).build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    ImmutableList<Frame> frames = getQueuedFrames(frameProcessor, /* sequenceIndex= */ 0);
+    // At tick 100_000us (still within firstItem [0, 110_000us)), firstItem's last frame at 66_666us
+    // is further from 100_000us than secondItem's first clipped frame at 110_000us, but the output
+    // frame at 100_000us must still match firstItem (itemIndex = 0).
+    assertThat(frames.stream().map(Frame::getContentTimeUs))
+        .containsExactly(0L, 100_000L, 200_000L, 300_000L)
+        .inOrder();
+    assertThat(
+            frames.stream()
+                .map(frame -> frame.getMetadata().get(Composition.KEY_COMPOSITION_ITEM_INDEX)))
+        .containsExactly(0, 0, 1, 1)
+        .inOrder();
+  }
+
+  @Test
+  public void
+      playback_withVideoFrameAggregationParametersAndSingleItemLoopingSequence_matchesFramesFromActiveLoopIteration()
+          throws Exception {
+    EditedMediaItem primaryItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_15FPS.uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(350_000L)
+                            .build())
+                    .build())
+            .setDurationUs(MP4_15FPS.videoDurationUs)
+            .build();
+    EditedMediaItem loopingItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_15FPS.uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(110_000L)
+                            .build())
+                    .build())
+            .setDurationUs(MP4_15FPS.videoDurationUs)
+            .build();
+    EditedMediaItemSequence loopingSecondarySequence =
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+            .addItem(loopingItem)
+            .setIsLooping(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(primaryItem)),
+                loopingSecondarySequence)
+            .setVideoFrameAggregationParameters(
+                new VideoFrameAggregationParameters.Builder().setFrameRate(FPS_10).build())
+            .build();
+    player = setupAndPrepareHardwareBufferPlayer(composition, frameProcessorFactory);
+    CapturingFrameProcessor frameProcessor = frameProcessorFactory.getCreatedProcessor();
+
+    player.play();
+    advance(player).untilState(STATE_ENDED);
+
+    ImmutableList<Frame> secondaryFrames = getQueuedFrames(frameProcessor, /* sequenceIndex= */ 1);
+    // Loop iterations start at 0us, 110_000us, and 220_000us. Ticks at 100_000us (in iteration 0)
+    // and 200_000us (in iteration 1) must match the active iteration's frame at item-relative
+    // 66_666us (retimed to 100_000us and 90_000us) rather than the next iteration's closer frame at
+    // item-relative 0us (which would retime to -10_000us and -20_000us).
+    assertThat(secondaryFrames.stream().map(Frame::getContentTimeUs))
+        .containsExactly(0L, 100_000L, 200_000L, 300_000L)
+        .inOrder();
+    assertThat(
+            secondaryFrames.stream()
+                .map(frame -> frame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US)))
+        .containsExactly(0L, 100_000L, 90_000L, 80_000L)
+        .inOrder();
+  }
+
+  @Test
   public void playback_withFrameProcessorAndGapAtStartInAudioVideoSequence_queuesExpectedFrames()
       throws Exception {
     EditedMediaItem videoItem =
@@ -3997,6 +4111,20 @@ public class CompositionPlayerTest {
           }
           return true;
         });
+  }
+
+  private static ImmutableList<Frame> getQueuedFrames(
+      CapturingFrameProcessor frameProcessor, int sequenceIndex) {
+    return frameProcessor.getQueuedEvents().stream()
+        .filter(event -> !(event instanceof EosEvent))
+        .flatMap(event -> ((FramesEvent) event).frames.stream())
+        .map(asyncFrame -> asyncFrame.frame)
+        .filter(
+            frame ->
+                Objects.equals(
+                    frame.getMetadata().get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX),
+                    sequenceIndex))
+        .collect(toImmutableList());
   }
 
   private static ImmutableList<ImmutableList<Long>> getTimestamps(
