@@ -21,15 +21,14 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static androidx.media3.transformer.TransformerUtil.releaseMuxerWrapperQuietly;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.media.metrics.LogSessionId;
-import android.os.HandlerThread;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
@@ -47,9 +46,6 @@ import androidx.media3.transformer.Transformer.ProgressState;
 import androidx.media3.transformer.TransmuxTranscodeHelper.ResumeMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -134,7 +130,6 @@ import org.jspecify.annotations.Nullable;
   private final int maxFramesInEncoder;
   private final ExportOperation.Listener listener;
   private final FallbackListener fallbackListener;
-  private final HandlerWrapper applicationHandler;
   private final DebugViewProvider debugViewProvider;
   private final Clock clock;
 
@@ -149,12 +144,14 @@ import org.jspecify.annotations.Nullable;
   private final String oldFilePath;
   private final ExportResult.Builder exportResultBuilder;
   private final ComponentListener componentListener;
+  private final ExportOperationRunner runner;
+
+  // Written on the internal thread, read on the application thread.
+  private volatile CurrentStage currentStage;
+
+  // Must only be accessed from the internal thread.
   private @ExportState int state;
-  private @MonotonicNonNull ListenableFuture<ResumeMetadata> getResumeMetadataFuture;
   private @MonotonicNonNull ResumeMetadata resumeMetadata;
-  private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
-  private @Nullable TransformerInternal transformerInternal;
-  private @Nullable ApplicationThreadListener applicationThreadListener;
   private @Nullable MuxerWrapper remuxingMuxerWrapper;
 
   public ResumedExportOperation(
@@ -193,7 +190,6 @@ import org.jspecify.annotations.Nullable;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listener = listener;
     this.fallbackListener = fallbackListener;
-    this.applicationHandler = applicationHandler;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.frameProcessorFactory = frameProcessorFactory;
@@ -205,19 +201,28 @@ import org.jspecify.annotations.Nullable;
     this.oldFilePath = oldFilePath;
     exportResultBuilder = new ExportResult.Builder();
     componentListener = new ComponentListener();
+    runner =
+        new ExportOperationRunner(
+            "Transformer:ResumedExport", clock, applicationHandler, componentListener);
     state = STATE_PROCESS_FULL_INPUT;
+    currentStage = new CurrentStage(state, /* transformerInternal= */ null);
   }
 
   @Override
   public void start() {
-    remuxProcessedVideo();
+    runner.start(this::remuxProcessedVideoInternal);
   }
 
   @Override
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
+    // Read once, as the current stage is replaced on the internal thread.
+    CurrentStage currentStage = this.currentStage;
+    @ExportState int state = currentStage.state;
+    @Nullable TransformerInternal transformerInternal = currentStage.transformerInternal;
+
     if (state == STATE_PROCESS_FULL_INPUT) {
       return getNextAccumulatedProgress(
-          /* progressSoFar= */ 0, /* nextProgressWeight= */ 1, progressHolder);
+          transformerInternal, /* progressSoFar= */ 0, /* nextProgressWeight= */ 1, progressHolder);
     }
 
     float remuxProcessedVideoProgressWeight = 0.15f;
@@ -228,16 +233,17 @@ import org.jspecify.annotations.Nullable;
     float progressSoFar = 0f;
     if (state == STATE_REMUX_PROCESSED_VIDEO) {
       return getNextAccumulatedProgress(
-          progressSoFar, remuxProcessedVideoProgressWeight, progressHolder);
+          transformerInternal, progressSoFar, remuxProcessedVideoProgressWeight, progressHolder);
     }
     progressSoFar = remuxProcessedVideoProgressWeight * 100;
     if (state == STATE_PROCESS_REMAINING_VIDEO) {
       return getNextAccumulatedProgress(
-          progressSoFar, processRemainingVideoProgressWeight, progressHolder);
+          transformerInternal, progressSoFar, processRemainingVideoProgressWeight, progressHolder);
     }
     progressSoFar += processRemainingVideoProgressWeight * 100;
     if (state == STATE_PROCESS_AUDIO) {
-      return getNextAccumulatedProgress(progressSoFar, processAudioProgressWeight, progressHolder);
+      return getNextAccumulatedProgress(
+          transformerInternal, progressSoFar, processAudioProgressWeight, progressHolder);
     }
     progressSoFar += processAudioProgressWeight * 100;
 
@@ -249,74 +255,54 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void cancel() {
-    if (transformerInternal != null) {
-      try {
-        transformerInternal.cancel();
-      } finally {
-        checkNotNull(applicationThreadListener).quitInternalThreadLazily();
-      }
-    }
-    if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
-      getResumeMetadataFuture.cancel(/* mayInterruptIfRunning= */ false);
-    }
-    if (copyOutputFuture != null && !copyOutputFuture.isDone()) {
-      copyOutputFuture.cancel(/* mayInterruptIfRunning= */ false);
-    }
+    runner.cancel();
   }
 
   @Override
   public void endWithException(ExportException exportException) {
-    checkNotNull(transformerInternal).endWithException(exportException);
+    runner.endWithException(exportException);
   }
 
-  private void remuxProcessedVideo() {
+  private void remuxProcessedVideoInternal() {
     state = STATE_REMUX_PROCESSED_VIDEO;
-    getResumeMetadataFuture =
-        TransmuxTranscodeHelper.getResumeMetadataAsync(
-            context, checkNotNull(oldFilePath), checkNotNull(composition));
-    Futures.addCallback(
-        getResumeMetadataFuture,
-        new FutureCallback<ResumeMetadata>() {
-          @Override
-          public void onSuccess(TransmuxTranscodeHelper.ResumeMetadata resumeMetadata) {
-            // If there is no video track to remux or the last sync sample is actually the first
-            // sample, then start the normal Export.
-            if (resumeMetadata.lastSyncSampleTimestampUs == C.TIME_UNSET
-                || resumeMetadata.lastSyncSampleTimestampUs == 0) {
-              processFullInput();
-              return;
-            }
+    ResumeMetadata resumeMetadata;
+    try {
+      resumeMetadata =
+          TransmuxTranscodeHelper.getResumeMetadata(
+              context, checkNotNull(oldFilePath), checkNotNull(composition));
+    } catch (IOException | RuntimeException e) {
+      // In case of error fallback to normal Export.
+      processFullInputInternal();
+      return;
+    }
+    // If there is no video track to remux or the last sync sample is actually the first
+    // sample, then start the normal Export.
+    if (resumeMetadata.lastSyncSampleTimestampUs == C.TIME_UNSET
+        || resumeMetadata.lastSyncSampleTimestampUs == 0) {
+      processFullInputInternal();
+      return;
+    }
 
-            ResumedExportOperation.this.resumeMetadata = resumeMetadata;
+    this.resumeMetadata = resumeMetadata;
 
-            remuxingMuxerWrapper =
-                new MuxerWrapper(
-                    checkNotNull(outputFilePath),
-                    muxerFactory,
-                    componentListener,
-                    MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
-                    /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ resumeMetadata.videoFormat);
+    remuxingMuxerWrapper =
+        new MuxerWrapper(
+            checkNotNull(outputFilePath),
+            muxerFactory,
+            componentListener,
+            MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ resumeMetadata.videoFormat);
 
-            startInternal(
-                TransmuxTranscodeHelper.createVideoOnlyComposition(
-                    oldFilePath,
-                    /* clippingEndPositionUs= */ resumeMetadata.lastSyncSampleTimestampUs),
-                checkNotNull(remuxingMuxerWrapper),
-                /* initialTimestampOffsetUs= */ 0,
-                /* forceRemuxing= */ true);
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            // In case of error fallback to normal Export.
-            processFullInput();
-          }
-        },
-        applicationHandler::post);
+    startInternal(
+        TransmuxTranscodeHelper.createVideoOnlyComposition(
+            oldFilePath, /* clippingEndPositionUs= */ resumeMetadata.lastSyncSampleTimestampUs),
+        checkNotNull(remuxingMuxerWrapper),
+        /* initialTimestampOffsetUs= */ 0,
+        /* forceRemuxing= */ true);
   }
 
-  private void processFullInput() {
+  private void processFullInputInternal() {
     state = STATE_PROCESS_FULL_INPUT;
     startInternal(
         checkNotNull(composition),
@@ -331,7 +317,7 @@ import org.jspecify.annotations.Nullable;
         /* forceRemuxing= */ false);
   }
 
-  private void processRemainingVideo() {
+  private void processRemainingVideoInternal() {
     state = STATE_PROCESS_REMAINING_VIDEO;
     Composition videoOnlyComposition =
         TransmuxTranscodeHelper.buildUponComposition(
@@ -349,11 +335,11 @@ import org.jspecify.annotations.Nullable;
         /* forceRemuxing= */ false);
   }
 
-  private void processAudio() {
+  private void processAudioInternal() {
     // Skip audio processing for video only composition. Resume operation is supported only for a
     // single sequence composition.
     if (!composition.sequences.get(0).trackTypes.contains(C.TRACK_TYPE_AUDIO)) {
-      listener.onCompleted(exportResultBuilder.build());
+      reportCompletedInternal();
       return;
     }
 
@@ -377,30 +363,19 @@ import org.jspecify.annotations.Nullable;
   }
 
   // TODO: b/308253384 - Move copy output logic into MuxerWrapper.
-  private void copyOutput() {
+  private void copyOutputInternal() throws ExportException {
     state = STATE_COPY_OUTPUT;
-    copyOutputFuture =
-        TransmuxTranscodeHelper.copyFileAsync(
-            new File(checkNotNull(oldFilePath)), new File(checkNotNull(outputFilePath)));
-
-    Futures.addCallback(
-        copyOutputFuture,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {
-            listener.onCompleted(exportResultBuilder.build());
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            ExportException exception =
-                ExportException.createForUnexpected(
-                    new IOException("Copy output task failed for the resumed export", t));
-            exportResultBuilder.setExportException(exception);
-            listener.onError(exportResultBuilder.build(), exception);
-          }
-        },
-        applicationHandler::post);
+    currentStage = new CurrentStage(state, /* transformerInternal= */ null);
+    // If cancel() is called, the copy stops early and the runner skips the result.
+    try {
+      TransmuxTranscodeHelper.copyFile(
+          new File(checkNotNull(oldFilePath)),
+          new File(checkNotNull(outputFilePath)),
+          runner::isCancelled);
+    } catch (IOException e) {
+      throw ExportException.createForUnexpected(e);
+    }
+    reportCompletedInternal();
   }
 
   private void startInternal(
@@ -409,14 +384,7 @@ import org.jspecify.annotations.Nullable;
       long initialTimestampOffsetUs,
       boolean forceRemuxing) {
     DebugTraceUtil.reset();
-    // TODO: b/478798649 - Run this operation on its own internal thread instead of driving each
-    //  stage from the application thread.
-    HandlerThread internalHandlerThread = new HandlerThread("Transformer:ResumedExport");
-    internalHandlerThread.start();
-    ApplicationThreadListener applicationThreadListener =
-        new ApplicationThreadListener(internalHandlerThread);
-    this.applicationThreadListener = applicationThreadListener;
-    transformerInternal =
+    TransformerInternal transformerInternal =
         new TransformerInternal(
             context,
             composition,
@@ -430,9 +398,9 @@ import org.jspecify.annotations.Nullable;
             allowedEncodingRotationDegrees,
             maxFramesInEncoder,
             muxerWrapper,
-            applicationThreadListener,
+            runner.getTransformerInternalListener(),
             fallbackListener,
-            internalHandlerThread,
+            runner.getInternalHandlerThread(),
             debugViewProvider,
             clock,
             frameProcessorFactory,
@@ -441,11 +409,27 @@ import org.jspecify.annotations.Nullable;
             logSessionId,
             applyMp4EditListTrim,
             forceRemuxing);
-    transformerInternal.start();
+    runner.startTransformerInternal(transformerInternal);
+    // Published together with the state, so that getProgress() doesn't combine the state of one
+    // stage with the TransformerInternal of another.
+    currentStage = new CurrentStage(state, transformerInternal);
   }
 
-  private @ProgressState int getNextAccumulatedProgress(
-      float progressSoFar, float nextProgressWeight, ProgressHolder progressHolder) {
+  private void reportCompletedInternal() {
+    ExportResult exportResult = exportResultBuilder.build();
+    runner.reportCompleted(() -> listener.onCompleted(exportResult));
+  }
+
+  private void reportErrorInternal(ExportException exportException) {
+    ExportResult exportResult = exportResultBuilder.setExportException(exportException).build();
+    runner.reportError(() -> listener.onError(exportResult, exportException));
+  }
+
+  private static @ProgressState int getNextAccumulatedProgress(
+      @Nullable TransformerInternal transformerInternal,
+      float progressSoFar,
+      float nextProgressWeight,
+      ProgressHolder progressHolder) {
     if (transformerInternal == null) {
       progressHolder.progress = round(progressSoFar);
       return progressSoFar == 0
@@ -472,102 +456,66 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * Forwards {@link TransformerInternal.Listener} events, which are called on the internal thread,
-   * to the {@link ComponentListener} on the application thread, and quits the internal thread once
-   * the export has ended.
+   * Listener for components ({@link ExportOperationRunner} and {@link MuxerWrapper}). All methods
+   * are called on the internal thread.
    */
-  // TODO: b/478798649 - Remove once this operation runs on its own internal thread.
-  private final class ApplicationThreadListener implements TransformerInternal.Listener {
-
-    private final HandlerThread internalHandlerThread;
-    private final HandlerWrapper internalHandler;
-
-    private ApplicationThreadListener(HandlerThread internalHandlerThread) {
-      this.internalHandlerThread = internalHandlerThread;
-      internalHandler =
-          clock.createHandler(internalHandlerThread.getLooper(), /* callback= */ null);
-    }
-
-    @Override
-    public void onCompleted(
-        ImmutableList<ProcessedInput> processedInputs,
-        @Nullable String audioEncoderName,
-        @Nullable String videoEncoderName) {
-      checkState(
-          applicationHandler.post(
-              () ->
-                  componentListener.onCompleted(
-                      processedInputs, audioEncoderName, videoEncoderName)));
-      quitInternalThreadLazily();
-    }
-
-    @Override
-    public void onError(
-        ImmutableList<ProcessedInput> processedInputs,
-        @Nullable String audioEncoderName,
-        @Nullable String videoEncoderName,
-        ExportException exportException) {
-      checkState(
-          applicationHandler.post(
-              () ->
-                  componentListener.onError(
-                      processedInputs, audioEncoderName, videoEncoderName, exportException)));
-      quitInternalThreadLazily();
-    }
-
-    private void quitInternalThreadLazily() {
-      // Quit the thread lazily so that all events that got triggered when releasing the
-      // AssetLoader are still delivered.
-      boolean unused = internalHandler.post(internalHandlerThread::quitSafely);
-    }
-  }
-
   private final class ComponentListener
-      implements TransformerInternal.Listener, MuxerWrapper.Listener {
+      implements ExportOperationRunner.Listener, MuxerWrapper.Listener {
 
-    // TransformerInternal.Listener implementation
+    // ExportOperationRunner.Listener implementation
 
     @Override
-    public void onCompleted(
+    public void onTransformerInternalCompleted(
         ImmutableList<ProcessedInput> processedInputs,
         @Nullable String audioEncoderName,
-        @Nullable String videoEncoderName) {
+        @Nullable String videoEncoderName)
+        throws ExportException {
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
       // TODO: b/213341814 - Add event flags for Transformer events.
-      transformerInternal = null;
       if (state == STATE_REMUX_PROCESSED_VIDEO) {
-        processRemainingVideo();
+        processRemainingVideoInternal();
       } else if (state == STATE_PROCESS_REMAINING_VIDEO) {
         remuxingMuxerWrapper = null;
-        processAudio();
+        processAudioInternal();
       } else if (state == STATE_PROCESS_AUDIO) {
-        copyOutput();
+        copyOutputInternal();
       } else {
-        listener.onCompleted(exportResultBuilder.build());
+        reportCompletedInternal();
       }
     }
 
     @Override
-    @SuppressWarnings("UngroupedOverloads") // Grouped by interface.
-    public void onError(
+    public void onTransformerInternalError(
         ImmutableList<ProcessedInput> processedInputs,
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName,
         ExportException exportException) {
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
-
       if (exportException.errorCode == ERROR_CODE_MUXING_APPEND) {
         remuxingMuxerWrapper = null;
-        transformerInternal = null;
         exportResultBuilder.reset();
         exportResultBuilder.setOptimizationResult(OPTIMIZATION_FAILED_FORMAT_MISMATCH);
-        processFullInput();
+        processFullInputInternal();
         return;
       }
-      listener.onError(
-          exportResultBuilder.setExportException(exportException).build(), exportException);
+      reportErrorInternal(exportException);
+    }
+
+    @Override
+    public void onStageError(ExportException exportException) {
+      reportErrorInternal(exportException);
+    }
+
+    @Override
+    public void onReleased(boolean discardOutput) {
+      if (remuxingMuxerWrapper != null) {
+        // The export may have ended while the partially muxed output was kept open for the next
+        // stage.
+        releaseMuxerWrapperQuietly(remuxingMuxerWrapper);
+        remuxingMuxerWrapper = null;
+      }
     }
 
     // MuxerWrapper.Listener implementation
@@ -587,7 +535,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onEnded(long approximateDurationMs) {
       exportResultBuilder.setApproximateDurationMs(approximateDurationMs);
-      checkNotNull(transformerInternal).endWithCompletion();
+      checkNotNull(runner.getTransformerInternal()).endWithCompletion();
     }
 
     @Override
@@ -596,9 +544,21 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
-    @SuppressWarnings("UngroupedOverloads") // Grouped by interface.
     public void onError(ExportException exportException) {
-      endWithException(exportException);
+      runner.endWithException(exportException);
+    }
+  }
+
+  /** The stage whose progress is reported by {@link #getProgress}. */
+  private static final class CurrentStage {
+
+    private final @ExportState int state;
+    private final @Nullable TransformerInternal transformerInternal;
+
+    private CurrentStage(
+        @ExportState int state, @Nullable TransformerInternal transformerInternal) {
+      this.state = state;
+      this.transformerInternal = transformerInternal;
     }
   }
 }

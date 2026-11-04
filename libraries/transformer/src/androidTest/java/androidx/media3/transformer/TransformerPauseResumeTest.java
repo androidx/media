@@ -27,6 +27,8 @@ import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Effect;
@@ -560,6 +562,56 @@ public class TransformerPauseResumeTest {
   }
 
   @Test
+  public void resumeAndGetProgress_polledContinuously_neverGoesBackwards() throws Exception {
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
+    Composition composition =
+        buildSingleSequenceComposition(
+            /* clippingStartPositionMs= */ 0,
+            /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
+            /* mediaItemsInSequence= */ 1);
+    Queue<Integer> progressStates = new ConcurrentLinkedDeque<>();
+    Queue<Integer> progresses = new ConcurrentLinkedDeque<>();
+
+    resumeAndPollProgress(composition, progressStates, progresses);
+
+    assertThat(progressStates)
+        .containsExactly(PROGRESS_STATE_WAITING_FOR_AVAILABILITY, PROGRESS_STATE_AVAILABLE)
+        .inOrder();
+    assertThat(progresses).isInOrder();
+  }
+
+  @Test
+  public void resumeAndGetProgress_videoOnlyPolledContinuously_neverGoesBackwards()
+      throws Exception {
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
+    Composition composition =
+        buildSingleSequenceComposition(
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            /* clippingStartPositionMs= */ 0,
+            /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
+            /* mediaItemsInSequence= */ 1);
+    Queue<Integer> progressStates = new ConcurrentLinkedDeque<>();
+    Queue<Integer> progresses = new ConcurrentLinkedDeque<>();
+
+    resumeAndPollProgress(composition, progressStates, progresses);
+
+    assertThat(progressStates)
+        .containsExactly(PROGRESS_STATE_WAITING_FOR_AVAILABILITY, PROGRESS_STATE_AVAILABLE)
+        .inOrder();
+    assertThat(progresses).isInOrder();
+  }
+
+  @Test
   public void resumeAndGetProgress_afterImmediateCancellation_startsFromLowPercentage()
       throws Exception {
     assumeFalse(shouldSkipDevice());
@@ -740,6 +792,79 @@ public class TransformerPauseResumeTest {
             getActualMediaDurationUs(resultWithResume.filePath)
                 - getActualMediaDurationUs(resultWithoutResume.filePath))
         .isLessThan(maxDiffExpectedInDurationUs);
+  }
+
+  /**
+   * Cancels an export of {@code composition} once some samples are written, then resumes it and
+   * records the distinct progress states and values, polling {@link Transformer#getProgress} on the
+   * application thread every 10 ms until the resumed export ends.
+   */
+  private void resumeAndPollProgress(
+      Composition composition, Queue<Integer> progressStates, Queue<Integer> progresses)
+      throws Exception {
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
+    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
+    // Block here until timeout reached or latch is counted down.
+    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException(
+          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
+    }
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    transformerExceptionFuture.set(null);
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    transformerExceptionFuture.set(exportException);
+                  }
+                })
+            .build();
+    // Start with PROGRESS_STATE_WAITING_FOR_AVAILABILITY as the first progress might directly be
+    // PROGRESS_STATE_AVAILABLE.
+    progressStates.add(PROGRESS_STATE_WAITING_FOR_AVAILABILITY);
+    Handler applicationHandler = new Handler(Looper.getMainLooper());
+    Runnable pollProgress =
+        new Runnable() {
+          @Override
+          public void run() {
+            if (transformerExceptionFuture.isDone()) {
+              return;
+            }
+            ProgressHolder progressHolder = new ProgressHolder();
+            int progressState = transformer.getProgress(progressHolder);
+            if (Iterables.getLast(progressStates) != progressState) {
+              progressStates.add(progressState);
+            }
+            if (progressState == PROGRESS_STATE_AVAILABLE
+                && (progresses.isEmpty()
+                    || Iterables.getLast(progresses) != progressHolder.progress)) {
+              progresses.add(progressHolder.progress);
+            }
+            applicationHandler.postDelayed(this, /* delayMillis= */ 10);
+          }
+        };
+    String secondOutputPath = temporaryFolder.newFile("SecondOutput.mp4").getAbsolutePath();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              transformer.resume(composition, secondOutputPath, firstOutputPath);
+              applicationHandler.post(pollProgress);
+            });
+
+    assertThat(transformerExceptionFuture.get()).isNull();
   }
 
   private long getActualMediaDurationUs(String filePath)

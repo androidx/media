@@ -145,6 +145,15 @@ import org.jspecify.annotations.Nullable;
     return transformerInternal;
   }
 
+  /**
+   * Returns whether {@link #cancel()} has been called.
+   *
+   * <p>Can be called from any thread. A long-running {@link Stage} can use this to return early.
+   */
+  public boolean isCancelled() {
+    return isCancelled;
+  }
+
   /** Posts the first {@link Stage} to the internal thread. */
   public void start(Stage firstStage) {
     checkState(internalHandler.post(() -> runStage(firstStage)));

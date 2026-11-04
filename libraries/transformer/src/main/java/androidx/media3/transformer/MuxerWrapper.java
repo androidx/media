@@ -158,6 +158,7 @@ import org.jspecify.annotations.Nullable;
 
   private boolean isReady;
   private boolean isEnded;
+  private boolean isReleased;
   private @C.TrackType int previousTrackType;
   private long minTrackTimeUs;
   private long minEndedTrackTimeUs;
@@ -731,15 +732,20 @@ import org.jspecify.annotations.Nullable;
    * <p>The resources are always released when the {@code releaseReason} is {@link
    * #MUXER_RELEASE_REASON_CANCELLED} or {@link #MUXER_RELEASE_REASON_ERROR}.
    *
+   * <p>Does nothing if the resources have already been released.
+   *
    * @param releaseReason The reason to release the muxer.
    * @throws MuxerException If the underlying {@link Muxer} fails to finish writing the output and
    *     the {@code releaseReason} is not {@link #MUXER_RELEASE_REASON_CANCELLED}.
    */
   public void finishWritingAndMaybeRelease(@MuxerReleaseReason int releaseReason)
       throws MuxerException {
-    if (releaseReason == MUXER_RELEASE_REASON_COMPLETED && muxerMode == MUXER_MODE_MUX_PARTIAL) {
+    if (isReleased
+        || (releaseReason == MUXER_RELEASE_REASON_COMPLETED
+            && muxerMode == MUXER_MODE_MUX_PARTIAL)) {
       return;
     }
+    isReleased = true;
     isReady = false;
     try {
       if (muxer != null) {

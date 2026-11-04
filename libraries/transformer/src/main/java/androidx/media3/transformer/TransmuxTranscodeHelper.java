@@ -23,9 +23,9 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.io.File;
@@ -66,6 +66,9 @@ import org.jspecify.annotations.Nullable;
       this.videoFormat = videoFormat;
     }
   }
+
+  // Large enough to copy efficiently, small enough that cancel() isn't blocked for long.
+  private static final int COPY_BUFFER_SIZE = 64 * 1024;
 
   public static ListenableFuture<Mp4Info> getMp4Info(
       Context context, String filePath, long timeUs) {
@@ -254,103 +257,71 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * Returns a {@link ListenableFuture} that provides {@link ResumeMetadata} for given input.
+   * Returns the {@link ResumeMetadata} for the given input.
    *
    * @param context The {@link Context}.
    * @param filePath The old file path to resume the export from.
    * @param composition The {@link Composition} to export.
-   * @return A {@link ListenableFuture} that provides {@link ResumeMetadata}.
+   * @return The {@link ResumeMetadata}.
+   * @throws IOException If an error occurs reading the input.
    */
-  public static ListenableFuture<ResumeMetadata> getResumeMetadataAsync(
-      Context context, String filePath, Composition composition) {
-    SettableFuture<ResumeMetadata> resumeMetadataSettableFuture = SettableFuture.create();
-    new Thread("TransmuxTranscodeHelper:ResumeMetadata") {
-      @Override
-      public void run() {
-        try {
-          if (resumeMetadataSettableFuture.isCancelled()) {
-            return;
-          }
-          Mp4Info mp4Info = Mp4Info.create(context, filePath);
-          long lastSyncSampleTimestampUs = mp4Info.lastSyncSampleTimestampUs;
+  public static ResumeMetadata getResumeMetadata(
+      Context context, String filePath, Composition composition) throws IOException {
+    Mp4Info mp4Info = Mp4Info.create(context, filePath);
+    long lastSyncSampleTimestampUs = mp4Info.lastSyncSampleTimestampUs;
 
-          ImmutableList.Builder<Pair<Integer, Long>> firstMediaItemIndexAndOffsetInfoBuilder =
-              new ImmutableList.Builder<>();
-          if (lastSyncSampleTimestampUs != C.TIME_UNSET) {
-            for (int compositionSequenceIndex = 0;
-                compositionSequenceIndex < composition.sequences.size();
-                compositionSequenceIndex++) {
-              ImmutableList<EditedMediaItem> editedMediaItemList =
-                  composition.sequences.get(compositionSequenceIndex).editedMediaItems;
-              long remainingDurationUsToSkip = lastSyncSampleTimestampUs;
-              int editedMediaItemIndex = 0;
-              long mediaItemOffset = 0L;
-              while (editedMediaItemIndex < editedMediaItemList.size()
-                  && remainingDurationUsToSkip > 0) {
-                long mediaItemDuration =
-                    getMediaItemDurationUs(
-                        context, editedMediaItemList.get(editedMediaItemIndex).mediaItem);
-                if (mediaItemDuration > remainingDurationUsToSkip) {
-                  mediaItemOffset = remainingDurationUsToSkip;
-                  break;
-                }
-
-                remainingDurationUsToSkip -= mediaItemDuration;
-                editedMediaItemIndex++;
-              }
-              firstMediaItemIndexAndOffsetInfoBuilder.add(
-                  new Pair<>(editedMediaItemIndex, mediaItemOffset));
-            }
+    ImmutableList.Builder<Pair<Integer, Long>> firstMediaItemIndexAndOffsetInfoBuilder =
+        new ImmutableList.Builder<>();
+    if (lastSyncSampleTimestampUs != C.TIME_UNSET) {
+      for (int compositionSequenceIndex = 0;
+          compositionSequenceIndex < composition.sequences.size();
+          compositionSequenceIndex++) {
+        ImmutableList<EditedMediaItem> editedMediaItemList =
+            composition.sequences.get(compositionSequenceIndex).editedMediaItems;
+        long remainingDurationUsToSkip = lastSyncSampleTimestampUs;
+        int editedMediaItemIndex = 0;
+        long mediaItemOffset = 0L;
+        while (editedMediaItemIndex < editedMediaItemList.size() && remainingDurationUsToSkip > 0) {
+          long mediaItemDuration =
+              getMediaItemDurationUs(
+                  context, editedMediaItemList.get(editedMediaItemIndex).mediaItem);
+          if (mediaItemDuration > remainingDurationUsToSkip) {
+            mediaItemOffset = remainingDurationUsToSkip;
+            break;
           }
-          resumeMetadataSettableFuture.set(
-              new ResumeMetadata(
-                  lastSyncSampleTimestampUs,
-                  firstMediaItemIndexAndOffsetInfoBuilder.build(),
-                  mp4Info.videoFormat));
-        } catch (Exception ex) {
-          resumeMetadataSettableFuture.setException(ex);
+
+          remainingDurationUsToSkip -= mediaItemDuration;
+          editedMediaItemIndex++;
         }
+        firstMediaItemIndexAndOffsetInfoBuilder.add(
+            new Pair<>(editedMediaItemIndex, mediaItemOffset));
       }
-    }.start();
-
-    return resumeMetadataSettableFuture;
+    }
+    return new ResumeMetadata(
+        lastSyncSampleTimestampUs,
+        firstMediaItemIndexAndOffsetInfoBuilder.build(),
+        mp4Info.videoFormat);
   }
 
-  /** Copies {@link File} content from source to destination asynchronously. */
-  public static ListenableFuture<Void> copyFileAsync(File source, File destination) {
-    SettableFuture<Void> copyFileSettableFuture = SettableFuture.create();
-    new Thread("TransmuxTranscodeHelper:CopyFile") {
-      @Override
-      public void run() {
-        if (copyFileSettableFuture.isCancelled()) {
-          return;
-        }
-        InputStream input = null;
-        OutputStream output = null;
-        try {
-          input = new FileInputStream(source);
-          output = new FileOutputStream(destination);
-          ByteStreams.copy(input, output);
-          copyFileSettableFuture.set(null);
-        } catch (Exception ex) {
-          copyFileSettableFuture.setException(ex);
-        } finally {
-          try {
-            if (input != null) {
-              input.close();
-            }
-            if (output != null) {
-              output.close();
-            }
-          } catch (IOException exception) {
-            // If the file copy was successful then this exception can be ignored and if there
-            // was some other error during copy operation then that exception has already been
-            // propagated in the catch block.
-          }
-        }
+  /**
+   * Copies {@link File} content from source to destination.
+   *
+   * @param source The {@link File} to copy from.
+   * @param destination The {@link File} to copy to.
+   * @param isCancelled Whether to stop copying. Checked before copying each chunk, so that copying
+   *     a large file can be stopped early, leaving the destination partially written.
+   * @throws IOException If an error occurs while copying.
+   */
+  public static void copyFile(File source, File destination, Supplier<Boolean> isCancelled)
+      throws IOException {
+    try (InputStream input = new FileInputStream(source);
+        OutputStream output = new FileOutputStream(destination)) {
+      byte[] buffer = new byte[COPY_BUFFER_SIZE];
+      int bytesRead;
+      while (!isCancelled.get() && (bytesRead = input.read(buffer)) != -1) {
+        output.write(buffer, /* off= */ 0, bytesRead);
       }
-    }.start();
-    return copyFileSettableFuture;
+    }
   }
 
   private static long getMediaItemDurationUs(Context context, MediaItem mediaItem)

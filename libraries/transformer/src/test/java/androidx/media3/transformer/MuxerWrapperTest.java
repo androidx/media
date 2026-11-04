@@ -43,6 +43,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Rule;
@@ -790,6 +791,61 @@ public class MuxerWrapperTest {
 
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
     muxerWrapper = null;
+  }
+
+  @Test
+  public void finishWritingAndMaybeRelease_afterResourcesReleased_doesNotCloseMuxerAgain()
+      throws Exception {
+    AtomicInteger closeCount = new AtomicInteger();
+    Muxer.Factory closeCountingMuxerFactory =
+        new Muxer.Factory() {
+          @Override
+          public Muxer create(String path) {
+            return new Muxer() {
+              @Override
+              public int addTrack(Format format) {
+                return 0;
+              }
+
+              @Override
+              public void writeSampleData(
+                  int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo) {}
+
+              @Override
+              public void addMetadataEntry(Metadata.Entry metadataEntry) {}
+
+              @Override
+              public void close() {
+                closeCount.incrementAndGet();
+              }
+            };
+          }
+
+          @Override
+          public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+            return ImmutableList.of(VIDEO_H264);
+          }
+        };
+    muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            closeCountingMuxerFactory,
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    muxerWrapper.writeSample(
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_ERROR);
+
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
+
+    assertThat(closeCount.get()).isEqualTo(1);
   }
 
   @Test

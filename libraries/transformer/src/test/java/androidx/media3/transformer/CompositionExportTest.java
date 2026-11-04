@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ONLY;
@@ -30,22 +31,33 @@ import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getCompositionDumpFilePath;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
+import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.test.utils.DumpFileAsserts;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Uninterruptibles;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -879,6 +891,177 @@ public class CompositionExportTest {
                     .build(),
                 /* outputFilePath= */ "fakePath",
                 /* oldFilePath= */ "fakePath"));
+  }
+
+  @Test
+  public void resume_withInvalidOldFile_fallsBackToFullExport() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(TRACK_TYPE_AUDIO, TRACK_TYPE_VIDEO))
+                    .addItem(new EditedMediaItem.Builder(mediaItem).build())
+                    .build())
+            .build();
+
+    transformer.resume(
+        composition,
+        outputDir.newFile("output").getPath(),
+        /* oldFilePath= */ outputDir.newFile("empty").getPath());
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.exportException).isNull();
+    DumpFileAsserts.assertOutput(
+        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_VIDEO));
+  }
+
+  @Test
+  public void resume_assetLoaderCreationFailsAfterRemuxingProcessedVideo_reportsError()
+      throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    AtomicReference<ExportResult> exportResultRef = new AtomicReference<>();
+    // The previously exported file is remuxed using a default asset loader. This factory is only
+    // used from the second stage onwards, when the remaining video is processed.
+    AssetLoader.Factory throwingAssetLoaderFactory =
+        new AssetLoader.Factory() {
+          @Override
+          public AssetLoader createAssetLoader(
+              EditedMediaItem editedMediaItem,
+              Looper looper,
+              AssetLoader.Listener listener,
+              AssetLoader.CompositionSettings compositionSettings) {
+            throw new IllegalStateException("Asset loader creation failed.");
+          }
+        };
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .setAssetLoaderFactory(throwingAssetLoaderFactory)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    exportResultRef.set(exportResult);
+                  }
+                })
+            .build();
+    String oldFilePath = ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
+    MediaItem mediaItem = MediaItem.fromUri(oldFilePath);
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(TRACK_TYPE_AUDIO, TRACK_TYPE_VIDEO))
+                    .addItem(new EditedMediaItem.Builder(mediaItem).build())
+                    .build())
+            .build();
+
+    transformer.resume(composition, outputDir.newFile().getPath(), oldFilePath);
+    ExportException exportException =
+        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+
+    assertThat(exportException).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    // The error is reported after the first stage, which remuxes the old file, has completed.
+    ExportResult exportResult = checkNotNull(exportResultRef.get());
+    assertThat(exportResult.processedInputs).hasSize(1);
+    assertThat(
+            checkNotNull(exportResult.processedInputs.get(0).mediaItem.localConfiguration)
+                .uri
+                .toString())
+        .isEqualTo(oldFilePath);
+  }
+
+  @Test
+  public void resume_cancelledDuringSecondStage_releasesAssetLoaderWithoutStartingNextStage()
+      throws Exception {
+    CountDownLatch assetLoaderCreationStartedLatch = new CountDownLatch(1);
+    CountDownLatch applicationThreadBlockedLatch = new CountDownLatch(1);
+    AtomicInteger assetLoaderCreationCount = new AtomicInteger();
+    AtomicBoolean assetLoaderStarted = new AtomicBoolean();
+    AtomicBoolean assetLoaderReleased = new AtomicBoolean();
+    // The previously exported file is remuxed using a default asset loader. This factory is only
+    // used from the second stage onwards, when the remaining video is processed.
+    AssetLoader.Factory blockingAssetLoaderFactory =
+        (editedMediaItem, looper, listener, compositionSettings) -> {
+          assetLoaderCreationCount.incrementAndGet();
+          assetLoaderCreationStartedLatch.countDown();
+          // Keep creating the AssetLoader until cancel() blocks.
+          Uninterruptibles.awaitUninterruptibly(applicationThreadBlockedLatch);
+          return new AssetLoader() {
+            @Override
+            public void start() {
+              assetLoaderStarted.set(true);
+            }
+
+            @Override
+            public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
+              return PROGRESS_STATE_NOT_STARTED;
+            }
+
+            @Override
+            public ImmutableMap<Integer, String> getDecoderNames() {
+              return ImmutableMap.of();
+            }
+
+            @Override
+            public void release() {
+              assetLoaderReleased.set(true);
+            }
+          };
+        };
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setClock(
+                new FakeClock(/* isAutoAdvancing= */ true) {
+                  @Override
+                  public synchronized void onThreadBlocked() {
+                    super.onThreadBlocked();
+                    if (Looper.myLooper() == Looper.getMainLooper()) {
+                      applicationThreadBlockedLatch.countDown();
+                    }
+                  }
+                })
+            .setMuxerFactory(new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false))
+            .setAssetLoaderFactory(blockingAssetLoaderFactory)
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    throw new AssertionError("Unexpected onCompleted");
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    throw new AssertionError(exportException);
+                  }
+                })
+            .build();
+    String oldFilePath = ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S;
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        ImmutableSet.of(TRACK_TYPE_AUDIO, TRACK_TYPE_VIDEO))
+                    .addItem(new EditedMediaItem.Builder(MediaItem.fromUri(oldFilePath)).build())
+                    .build())
+            .build();
+    transformer.resume(composition, outputDir.newFile().getPath(), oldFilePath);
+    runLooperUntil(
+        transformer.getApplicationLooper(), () -> assetLoaderCreationStartedLatch.getCount() == 0);
+
+    transformer.cancel();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertThat(assetLoaderCreationCount.get()).isEqualTo(1);
+    assertThat(assetLoaderStarted.get()).isFalse();
+    assertThat(assetLoaderReleased.get()).isTrue();
   }
 
   @Test
