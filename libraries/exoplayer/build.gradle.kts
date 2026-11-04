@@ -36,7 +36,6 @@ dependencies {
   api(project(":lib-extractor"))
   api(project(":lib-database"))
   implementation(libs.androidx.annotation)
-  implementation(libs.androidx.exifinterface)
   androidTestRuntimeOnly(libs.dexmaker.mockito)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(project(":test-utils"))
