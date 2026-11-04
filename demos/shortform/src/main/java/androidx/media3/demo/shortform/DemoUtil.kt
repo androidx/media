@@ -21,7 +21,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.Cache
-import androidx.media3.datasource.cache.NoOpCacheEvictor
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import java.io.File
 
@@ -29,6 +29,7 @@ import java.io.File
 object DemoUtil {
 
   private const val PRECACHE_CONTENT_DIRECTORY = "precache"
+  private const val MAX_CACHE_SIZE_BYTES = 100L * 1024 * 1024
 
   private lateinit var databaseProvider: DatabaseProvider
 
@@ -41,7 +42,11 @@ object DemoUtil {
     if (!::downloadCache.isInitialized) {
       val downloadContentDirectory = File(getDownloadDirectory(context), PRECACHE_CONTENT_DIRECTORY)
       downloadCache =
-        SimpleCache(downloadContentDirectory, NoOpCacheEvictor(), getDatabaseProvider(context))
+        SimpleCache(
+          downloadContentDirectory,
+          LeastRecentlyUsedCacheEvictor(MAX_CACHE_SIZE_BYTES),
+          getDatabaseProvider(context),
+        )
     }
     return downloadCache
   }

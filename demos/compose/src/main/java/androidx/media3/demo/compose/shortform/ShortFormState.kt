@@ -32,7 +32,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.PlayerPool
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.Cache
-import androidx.media3.datasource.cache.NoOpCacheEvictor
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -144,6 +144,7 @@ internal class ShortFormState(
 
   private companion object {
     private const val PRECACHE_CONTENT_DIRECTORY = "precache"
+    private const val MAX_CACHE_SIZE_BYTES = 100L * 1024 * 1024
     private val lock = Any()
 
     @GuardedBy("lock") private var downloadCache: Cache? = null
@@ -158,7 +159,7 @@ internal class ShortFormState(
             val downloadContentDirectory = File(downloadDirectory, PRECACHE_CONTENT_DIRECTORY)
             SimpleCache(
                 downloadContentDirectory,
-                NoOpCacheEvictor(),
+                LeastRecentlyUsedCacheEvictor(MAX_CACHE_SIZE_BYTES),
                 StandaloneDatabaseProvider(appContext),
               )
               .also { downloadCache = it }

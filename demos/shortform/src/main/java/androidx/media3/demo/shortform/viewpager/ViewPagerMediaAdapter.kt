@@ -167,8 +167,8 @@ class ViewPagerMediaAdapter(
           break
         }
         val mediaItem = mediaItemDatabase.get(index)
-        mediaItems.add(mediaItemDatabase.get(index))
-        rankingDataList.add(startIndex)
+        mediaItems.add(mediaItem)
+        rankingDataList.add(index)
         currentMediaItemsAndIndexes.addFirst(Pair(mediaItem, index))
         Log.d(TAG, "addMediaItems: Adding item at index $index")
       }
