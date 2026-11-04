@@ -237,36 +237,19 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
 
   @Override
   public Info getInfo() {
-    // PQ SurfaceView output is supported from API 33, but HLG output is supported from API 34.
-    // By returning false for HLG on API < 34, we signal the pipeline to fall back (e.g., converting
-    // HLG to PQ) so that HLG input can still be displayed.
-    return (format, usageFlags) ->
-        format.colorInfo != null
-            && format.width > 0
-            && format.height > 0
-            && isPixelFormatSupported(format.pixelFormat)
-            && (!ColorInfo.isTransferHdr(format.colorInfo)
-                || (format.colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-                    ? SDK_INT >= 34
-                    : SDK_INT >= 33));
+    return (format, usageFlags) -> isFormatSupported(format);
   }
 
   /**
    * {@inheritDoc}
    *
    * <p>If {@link Format#pixelFormat} is unset (i.e. {@link Format#NO_VALUE}), it defaults to {@link
-   * ImageFormat#YV12} below API 28, {@link HardwareBuffer#RGBA_1010102} for HDR on API 28+, or
+   * ImageFormat#YV12} below API 28, {@link HardwareBuffer#RGBA_1010102} for HDR on API 34+, or
    * {@link HardwareBuffer#RGBA_8888} for SDR on API 28+.
    */
   @Override
   public void configure(Format format, @Frame.Usage long usage) {
-    checkArgument(format.colorInfo != null);
-    checkArgument(format.width > 0);
-    checkArgument(format.height > 0);
-    checkArgument(
-        isPixelFormatSupported(format.pixelFormat),
-        "Only ImageFormat.YV12 or Format.NO_VALUE is supported below API 28, but got: %s",
-        format.pixelFormat);
+    checkArgument(isFormatSupported(format), "Unsupported format: %s", format);
     synchronized (lock) {
       if (format.equals(currentFormat) && usage == currentUsageFlags) {
         return;
@@ -574,16 +557,7 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       if (currentFormat == null) {
         return;
       }
-      int expectedPixelFormat = currentFormat.pixelFormat;
-      if (expectedPixelFormat == Format.NO_VALUE) {
-        if (SDK_INT < 28) {
-          expectedPixelFormat = ImageFormat.YV12;
-        } else if (ColorInfo.isTransferHdr(currentFormat.colorInfo)) {
-          expectedPixelFormat = HardwareBuffer.RGBA_1010102;
-        } else {
-          expectedPixelFormat = HardwareBuffer.RGBA_8888;
-        }
-      }
+      int expectedPixelFormat = getPixelFormat(currentFormat);
       if (width != currentFormat.width
           || height != currentFormat.height
           || format != expectedPixelFormat) {
@@ -771,16 +745,45 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   }
 
   /**
-   * Returns whether {@code pixelFormat} is supported.
+   * Returns whether {@code format} is supported.
    *
    * <p>Below API 28, frames are written as {@link ImagePlanesFrame} through an {@link ImageWriter}
-   * configured with {@link ImageFormat#YV12}, so only that format, or an unset {@link
-   * Format#NO_VALUE}, is supported.
+   * configured with {@link ImageFormat#YV12}, so only that resolved pixel format is supported.
    *
-   * <p>From API 28, the pixel format is forwarded to the {@link SurfaceHolder} and the dequeued
+   * <p>PQ {@code SurfaceView} output is supported from API 33, and HLG output is supported from API
+   * 34.
+   *
+   * <p>On API 28 to 33 (inclusive), {@link ImageWriter} does not support {@link
+   * HardwareBuffer#RGBA_1010102}.
+   *
+   * <p>From API 34, the pixel format is forwarded to the {@link SurfaceHolder} and the dequeued
    * {@link HardwareBuffer}, so it is not constrained here.
    */
-  private static boolean isPixelFormatSupported(int pixelFormat) {
-    return SDK_INT >= 28 || pixelFormat == Format.NO_VALUE || pixelFormat == ImageFormat.YV12;
+  private static boolean isFormatSupported(Format format) {
+    if (format.colorInfo == null || format.width <= 0 || format.height <= 0) {
+      return false;
+    }
+    if (ColorInfo.isTransferHdr(format.colorInfo)
+        && (format.colorInfo.colorTransfer == C.COLOR_TRANSFER_HLG ? SDK_INT < 34 : SDK_INT < 33)) {
+      // PQ SurfaceView output is supported from API 33, but HLG output is supported from API 34.
+      return false;
+    }
+    int pixelFormat = getPixelFormat(format);
+    if (SDK_INT < 28) {
+      return pixelFormat == ImageFormat.YV12;
+    }
+    return SDK_INT >= 34 || pixelFormat != HardwareBuffer.RGBA_1010102;
+  }
+
+  private static int getPixelFormat(Format format) {
+    if (format.pixelFormat != Format.NO_VALUE) {
+      return format.pixelFormat;
+    }
+    if (SDK_INT < 28) {
+      return ImageFormat.YV12;
+    }
+    return ColorInfo.isTransferHdr(format.colorInfo)
+        ? HardwareBuffer.RGBA_1010102
+        : HardwareBuffer.RGBA_8888;
   }
 }

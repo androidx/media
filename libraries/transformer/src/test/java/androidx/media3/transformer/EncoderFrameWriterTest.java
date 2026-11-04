@@ -17,11 +17,15 @@ package androidx.media3.transformer;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.junit.Assert.assertThrows;
 
+import android.hardware.HardwareBuffer;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -47,6 +51,18 @@ public class EncoderFrameWriterTest {
           .setSampleMimeType(MimeTypes.VIDEO_H264)
           .setWidth(1920)
           .setHeight(1080)
+          .build();
+  private static final Format HDR_VIDEO_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H265)
+          .setWidth(1920)
+          .setHeight(1080)
+          .setColorInfo(
+              new ColorInfo.Builder()
+                  .setColorSpace(C.COLOR_SPACE_BT2020)
+                  .setColorRange(C.COLOR_RANGE_LIMITED)
+                  .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                  .build())
           .build();
 
   private EncoderFrameWriter encoderFrameWriter;
@@ -141,6 +157,53 @@ public class EncoderFrameWriterTest {
     boolean isSupported = encoderFrameWriter.getInfo().isSupported(VIDEO_FORMAT, /* usage= */ 0L);
 
     assertThat(isSupported).isFalse();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void isSupported_hdrFormatOnApi33_returnsFalse() {
+    fakeEncoderFactory.setIsSupportedToReturn(true);
+
+    boolean isSupported =
+        encoderFrameWriter.getInfo().isSupported(HDR_VIDEO_FORMAT, /* usage= */ 0L);
+
+    assertThat(isSupported).isFalse();
+    assertThat(fakeEncoderFactory.checkedFormats).isEmpty();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void isSupported_rgba1010102PixelFormatOnApi33_returnsFalse() {
+    fakeEncoderFactory.setIsSupportedToReturn(true);
+    Format rgba1010102Format =
+        VIDEO_FORMAT.buildUpon().setPixelFormat(HardwareBuffer.RGBA_1010102).build();
+
+    boolean isSupported =
+        encoderFrameWriter.getInfo().isSupported(rgba1010102Format, /* usage= */ 0L);
+
+    assertThat(isSupported).isFalse();
+    assertThat(fakeEncoderFactory.checkedFormats).isEmpty();
+  }
+
+  @Test
+  @Config(sdk = 34)
+  public void isSupported_hdrFormatOnApi34_returnsTrueWhenSupportedByEncoder() {
+    fakeEncoderFactory.setIsSupportedToReturn(true);
+
+    boolean isSupported =
+        encoderFrameWriter.getInfo().isSupported(HDR_VIDEO_FORMAT, /* usage= */ 0L);
+
+    assertThat(isSupported).isTrue();
+    assertThat(fakeEncoderFactory.checkedFormats).containsExactly(HDR_VIDEO_FORMAT);
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void configure_hdrFormatOnApi33_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> encoderFrameWriter.configure(HDR_VIDEO_FORMAT, /* usage= */ 0L));
+    assertThat(fakeEncoderFactory.createdFormats).isEmpty();
   }
 
   @Test

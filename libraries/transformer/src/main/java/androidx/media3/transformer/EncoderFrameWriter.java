@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,6 +47,8 @@ import org.jspecify.annotations.Nullable;
  * An implementation of {@link FrameWriter} that uses an {@link ImageWriter} to forward frames to a
  * {@linkplain DefaultCodec encoder} via {@link Surface}. Sets the {@link
  * HardwareBuffer#USAGE_VIDEO_ENCODE} flag on the buffers.
+ *
+ * <p>HDR output (using {@link HardwareBuffer#RGBA_1010102}) is supported from API 34.
  */
 @RequiresApi(33)
 @ExperimentalApi // TODO: b/498176910 - Remove once FrameWriter is production ready.
@@ -114,7 +117,8 @@ public class EncoderFrameWriter implements FrameWriter {
 
   @Override
   public Info getInfo() {
-    return (format, usage) -> encoderFactory.isVideoFormatSupported(format);
+    return (format, usage) ->
+        isPixelFormatSupported(format) && encoderFactory.isVideoFormatSupported(format);
   }
 
   @SuppressLint("WrongConstant") // Using usage as @Usage constant.
@@ -123,6 +127,9 @@ public class EncoderFrameWriter implements FrameWriter {
   public void configure(Format format, @Usage long usage) {
     checkState(imageWriter == null);
     checkState(encoder == null);
+    checkArgument(
+        isPixelFormatSupported(format),
+        "HardwareBuffer.RGBA_1010102 is only supported from API 34.");
 
     Format encoderFormat = listener.onConfigure(format);
     try {
@@ -138,13 +145,7 @@ public class EncoderFrameWriter implements FrameWriter {
 
     this.configurationFormat = nonNullEncoder.getConfigurationFormat();
 
-    int pixelFormat = configurationFormat.pixelFormat;
-    if (pixelFormat == Format.NO_VALUE) {
-      pixelFormat =
-          ColorInfo.isTransferHdr(configurationFormat.colorInfo)
-              ? HardwareBuffer.RGBA_1010102
-              : HardwareBuffer.RGBA_8888;
-    }
+    int pixelFormat = getPixelFormat(configurationFormat);
 
     imageWriter =
         new ImageWriter.Builder(encoderInputSurface)
@@ -239,5 +240,19 @@ public class EncoderFrameWriter implements FrameWriter {
       wakeupExecutor = null;
       wakeupListener = null;
     }
+  }
+
+  private static boolean isPixelFormatSupported(Format format) {
+    // ImageWriter only supports HardwareBuffer.RGBA_1010102 from API 34.
+    return SDK_INT >= 34 || getPixelFormat(format) != HardwareBuffer.RGBA_1010102;
+  }
+
+  private static int getPixelFormat(Format format) {
+    if (format.pixelFormat != Format.NO_VALUE) {
+      return format.pixelFormat;
+    }
+    return ColorInfo.isTransferHdr(format.colorInfo)
+        ? HardwareBuffer.RGBA_1010102
+        : HardwareBuffer.RGBA_8888;
   }
 }

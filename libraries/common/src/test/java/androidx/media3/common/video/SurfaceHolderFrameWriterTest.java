@@ -262,35 +262,75 @@ public final class SurfaceHolderFrameWriterTest {
   }
 
   @Test
-  @Config(maxSdk = 32)
-  public void getInfo_hdrFormatBelowApi33_returnsFalse() {
-    Format format =
+  @Config(maxSdk = 33)
+  public void getInfo_hdrFormatBelowApi34_returnsFalse() {
+    Format pqFormat =
         new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
-    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
-  }
-
-  @Test
-  @Config(sdk = 33)
-  public void getInfo_hdrFormatOnApi33_returnsTrue() {
-    Format format =
-        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
-    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
-  }
-
-  @Test
-  @Config(sdk = 33)
-  public void getInfo_hlgFormatOnApi33_returnsFalse() {
-    Format format =
+    Format hlgFormat =
         new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(HLG_COLOR_INFO).build();
+
+    assertThat(frameWriter.getInfo().isSupported(pqFormat, /* usage= */ 0L)).isFalse();
+    assertThat(frameWriter.getInfo().isSupported(hlgFormat, /* usage= */ 0L)).isFalse();
+  }
+
+  @Test
+  @Config(maxSdk = 32)
+  public void getInfo_hdrFormatWithRgba8888PixelFormatBelowApi33_returnsFalse() {
+    Format pqFormat =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(PQ_COLOR_INFO)
+            .setPixelFormat(HardwareBuffer.RGBA_8888)
+            .build();
+    Format hlgFormat =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(HLG_COLOR_INFO)
+            .setPixelFormat(HardwareBuffer.RGBA_8888)
+            .build();
+
+    assertThat(frameWriter.getInfo().isSupported(pqFormat, /* usage= */ 0L)).isFalse();
+    assertThat(frameWriter.getInfo().isSupported(hlgFormat, /* usage= */ 0L)).isFalse();
+  }
+
+  @Test
+  @Config(sdk = 34)
+  public void getInfo_hdrFormatOnApi34_returnsTrue() {
+    Format pqFormat =
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
+    Format hlgFormat =
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(HLG_COLOR_INFO).build();
+
+    assertThat(frameWriter.getInfo().isSupported(pqFormat, /* usage= */ 0L)).isTrue();
+    assertThat(frameWriter.getInfo().isSupported(hlgFormat, /* usage= */ 0L)).isTrue();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void getInfo_rgba1010102PixelFormatOnApi33_returnsFalse() {
+    Format format = DEFAULT_FORMAT.buildUpon().setPixelFormat(HardwareBuffer.RGBA_1010102).build();
+
     assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
   }
 
   @Test
   @Config(sdk = 34)
-  public void getInfo_hlgFormatOnApi34_returnsTrue() {
-    Format format =
-        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(HLG_COLOR_INFO).build();
+  public void getInfo_rgba1010102PixelFormatOnApi34_returnsTrue() {
+    Format format = DEFAULT_FORMAT.buildUpon().setPixelFormat(HardwareBuffer.RGBA_1010102).build();
+
     assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void configure_hdrFormatOnApi33_throwsIllegalArgumentException() {
+    Format pqFormat =
+        new Format.Builder().setWidth(WIDTH).setHeight(HEIGHT).setColorInfo(PQ_COLOR_INFO).build();
+
+    assertThrows(
+        IllegalArgumentException.class, () -> frameWriter.configure(pqFormat, /* usage= */ 0));
   }
 
   @Test
