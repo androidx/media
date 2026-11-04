@@ -119,15 +119,16 @@ public final class DefaultExtractorInput implements ExtractorInput {
 
   @Override
   public int peek(byte[] target, int offset, int length) throws IOException {
-    ensureSpaceForPeek(length);
     int peekBufferRemainingBytes = peekBufferLength - peekBufferPosition;
     int bytesPeeked;
     if (peekBufferRemainingBytes == 0) {
+      ensureSpaceForPeek(min(length, SCRATCH_SPACE_SIZE));
+      int currentPeekLength = min(length, peekBuffer.length - peekBufferPosition);
       bytesPeeked =
           readFromUpstream(
               peekBuffer,
               peekBufferPosition,
-              length,
+              currentPeekLength,
               /* bytesAlreadyRead= */ 0,
               /* allowEndOfInput= */ true);
       if (bytesPeeked == C.RESULT_END_OF_INPUT) {
@@ -159,11 +160,13 @@ public final class DefaultExtractorInput implements ExtractorInput {
 
   @Override
   public boolean advancePeekPosition(int length, boolean allowEndOfInput) throws IOException {
-    ensureSpaceForPeek(length);
     int bytesPeeked = peekBufferLength - peekBufferPosition;
     while (bytesPeeked < length) {
+      ensureSpaceForPeek(bytesPeeked + min(length - bytesPeeked, SCRATCH_SPACE_SIZE));
+      int currentPeekLength = min(length, peekBuffer.length - peekBufferPosition);
       bytesPeeked =
-          readFromUpstream(peekBuffer, peekBufferPosition, length, bytesPeeked, allowEndOfInput);
+          readFromUpstream(
+              peekBuffer, peekBufferPosition, currentPeekLength, bytesPeeked, allowEndOfInput);
       if (bytesPeeked == C.RESULT_END_OF_INPUT) {
         return false;
       }

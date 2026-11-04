@@ -20,15 +20,22 @@ import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.getByteArray;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
+import android.net.Uri;
+import androidx.media3.common.C;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.datasource.ByteArrayDataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.media3.extractor.metadata.id3.CommentFrame;
+import androidx.media3.extractor.metadata.id3.Id3Decoder;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
+import java.io.EOFException;
 import java.io.IOException;
 import org.jspecify.annotations.Nullable;
 import org.junit.Test;
@@ -180,6 +187,65 @@ public final class Id3PeekerTest {
     @Nullable Metadata metadata = id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, 128);
 
     assertThat(metadata).isNull();
+    assertThat(input.getPeekPosition()).isEqualTo(0);
+  }
+
+  @Test
+  public void peekId3Data_withInvalidMinorVersion_returnsNull() throws IOException {
+    Id3Peeker id3Peeker = new Id3Peeker();
+    byte[] data = new byte[] {'I', 'D', '3', 3, (byte) 0xFF, 0, 0, 0, 0, 4, 0, 0, 0, 0};
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+
+    @Nullable Metadata metadata = id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, 128);
+
+    assertThat(metadata).isNull();
+    assertThat(input.getPeekPosition()).isEqualTo(0);
+  }
+
+  @Test
+  public void peekId3Data_withInvalidSynchSafeSize_returnsNull() throws IOException {
+    Id3Peeker id3Peeker = new Id3Peeker();
+    byte[] data = new byte[] {'I', 'D', '3', 3, 0, 0, (byte) 0x80, 0, 0, 4, 0, 0, 0, 0};
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+
+    @Nullable Metadata metadata = id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, 128);
+
+    assertThat(metadata).isNull();
+    assertThat(input.getPeekPosition()).isEqualTo(0);
+  }
+
+  @Test
+  public void peekId3Data_withNoFramesPredicate_advancesPeekPositionAndReturnsNull()
+      throws IOException {
+    Id3Peeker id3Peeker = new Id3Peeker();
+    byte[] apicBytes =
+        getByteArray(ApplicationProvider.getApplicationContext(), "media/id3/apic.id3");
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(apicBytes).build();
+
+    @Nullable Metadata metadata =
+        id3Peeker.peekId3Data(input, Id3Decoder.NO_FRAMES_PREDICATE, /* maxTagPeekBytes= */ 0);
+
+    assertThat(metadata).isNull();
+    assertThat(input.getPeekPosition()).isEqualTo(apicBytes.length);
+  }
+
+  // https://github.com/androidx/media/issues/3502
+  @Test
+  public void peekId3Data_withTruncatedTagAndUnknownInputLength_throwsEofException()
+      throws IOException {
+    Id3Peeker id3Peeker = new Id3Peeker();
+    byte[] data =
+        Bytes.concat(
+            new byte[] {'I', 'D', '3', 3, 0, 0, 0x69, 0x73, 0x20, 0x69}, buildTestData(166));
+    ByteArrayDataSource dataSource = new ByteArrayDataSource(data);
+    long unused = dataSource.open(new DataSpec(Uri.parse("data://test")));
+    DefaultExtractorInput input =
+        new DefaultExtractorInput(dataSource, /* position= */ 0, /* length= */ C.LENGTH_UNSET);
+
+    assertThrows(
+        EOFException.class,
+        () ->
+            id3Peeker.peekId3Data(input, /* id3FramePredicate= */ null, /* maxTagPeekBytes= */ 0));
   }
 
   private static void assertApicFramesEqual(ApicFrame actual, ApicFrame expected) {

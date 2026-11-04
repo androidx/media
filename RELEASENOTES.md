@@ -76,6 +76,9 @@
         caused the padding to be derived as 0 from the `elst` edit list and the
         end of the last frame to be played
         ([#3489](https://github.com/androidx/media/issues/3489)).
+    *   Fix large upfront peek buffer allocations and `OutOfMemoryError` when
+        sniffing corrupt or non-media files that start with `ID3`
+        ([#3502](https://github.com/androidx/media/issues/3502)).
 *   Inspector:
     *   Fix an issue where cancelling the future returned by
         `MetadataRetriever.retrieveDurationUs()` prevented `close()` from

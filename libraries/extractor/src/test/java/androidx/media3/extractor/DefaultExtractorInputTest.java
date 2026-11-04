@@ -19,6 +19,7 @@ import static androidx.media3.common.C.RESULT_END_OF_INPUT;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import android.net.Uri;
@@ -603,6 +604,33 @@ public class DefaultExtractorInputTest {
     } catch (EOFException e) {
       // Expected.
     }
+  }
+
+  // https://github.com/androidx/media/issues/3502
+  @Test
+  public void advancePeekPosition_beyondEndOfInputWithLargeLength_throwsEofException()
+      throws Exception {
+    DefaultExtractorInput input = createDefaultExtractorInput();
+
+    assertThrows(EOFException.class, () -> input.advancePeekPosition(Integer.MAX_VALUE / 2));
+    assertThat(input.getPeekPosition()).isEqualTo(0);
+  }
+
+  @Test
+  public void peekFully_largeLengthAcrossMultipleBufferResizes_peeksExpectedBytes()
+      throws Exception {
+    byte[] sourceData = new byte[200 * 1024];
+    Arrays.fill(sourceData, (byte) 0x5A);
+    FakeDataSource testDataSource = new FakeDataSource();
+    testDataSource.getDataSet().newDefaultData().appendReadData(sourceData);
+    testDataSource.open(new DataSpec(Uri.parse(TEST_URI)));
+    DefaultExtractorInput input = new DefaultExtractorInput(testDataSource, 0, sourceData.length);
+    byte[] target = new byte[sourceData.length];
+
+    input.peekFully(target, /* offset= */ 0, target.length);
+
+    assertThat(input.getPeekPosition()).isEqualTo(sourceData.length);
+    assertThat(target).isEqualTo(sourceData);
   }
 
   private static FakeDataSource buildDataSource() throws Exception {

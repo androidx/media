@@ -15,11 +15,10 @@
  */
 package androidx.media3.extractor.ts;
 
-import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_HEADER_LENGTH;
-import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_TAG;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -28,9 +27,12 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.Id3Peeker;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.metadata.id3.Id3Decoder;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
 
 /** Extracts data from (E-)AC-3 bitstreams. */
@@ -65,22 +67,12 @@ public final class Ac3Extractor implements Extractor {
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
     // Skip any ID3 headers.
-    ParsableByteArray scratch = new ParsableByteArray(ID3_HEADER_LENGTH);
-    int startPosition = 0;
-    while (true) {
-      input.peekFully(scratch.getData(), /* offset= */ 0, ID3_HEADER_LENGTH);
-      scratch.setPosition(0);
-      if (scratch.readUnsignedInt24() != ID3_TAG) {
-        break;
-      }
-      scratch.skipBytes(3); // version, flags
-      int length = scratch.readSynchSafeInt();
-      startPosition += 10 + length;
-      input.advancePeekPosition(length);
-    }
-    input.resetPeekPosition();
-    input.advancePeekPosition(startPosition);
+    Id3Peeker id3Peeker = new Id3Peeker();
+    Metadata unused =
+        id3Peeker.peekId3Data(input, Id3Decoder.NO_FRAMES_PREDICATE, /* maxTagPeekBytes= */ 0);
+    int startPosition = Ints.checkedCast(input.getPeekPosition() - input.getPosition());
 
+    ParsableByteArray scratch = new ParsableByteArray(6);
     int headerPosition = startPosition;
     int validFramesCount = 0;
     while (true) {
