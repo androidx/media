@@ -171,6 +171,10 @@
         This is a breaking change on an unstable API.
     *   Support `AdViewProvider.getAdVideoView()` in `PlayerView` by wrapping
         `exo_content_frame` in `exo_content_frame_container`.
+    *   Reduce memory usage in `SubtitleView` by releasing cached subtitle
+        bitmaps and text layouts when cues are cleared, and fix an issue where
+        stale subtitle text could remain visible when a cue has insufficient
+        width to lay out.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

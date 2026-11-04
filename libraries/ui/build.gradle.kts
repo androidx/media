@@ -34,5 +34,6 @@ dependencies {
   testImplementation(project(":lib-exoplayer"))
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(project(":test-utils"))
+  testImplementation(libs.guava.testlib)
   testImplementation(libs.robolectric)
 }

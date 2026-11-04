@@ -43,7 +43,6 @@ import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.text.SubtitleStyle;
 import androidx.media3.common.util.Log;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -92,12 +91,12 @@ import org.jspecify.annotations.Nullable;
   private int parentBottom;
 
   // Derived drawing variables.
-  private @MonotonicNonNull StaticLayout textLayout;
-  private @MonotonicNonNull StaticLayout edgeLayout;
+  private @Nullable StaticLayout textLayout;
+  private @Nullable StaticLayout edgeLayout;
   private int textLeft;
   private int textTop;
   private int textPaddingX;
-  private @MonotonicNonNull Rect bitmapRect;
+  private @Nullable Rect bitmapRect;
 
   @SuppressWarnings("ResourceType")
   public SubtitlePainter(Context context) {
@@ -166,6 +165,7 @@ import org.jspecify.annotations.Nullable;
     if (isTextCue) {
       if (TextUtils.isEmpty(cue.text)) {
         // Nothing to draw.
+        reset();
         return;
       }
       windowColor = cue.windowColorSet ? cue.windowColor : style.windowColor;
@@ -223,6 +223,9 @@ import org.jspecify.annotations.Nullable;
     this.parentTop = cueBoxTop;
     this.parentRight = cueBoxRight;
     this.parentBottom = cueBoxBottom;
+    this.textLayout = null;
+    this.edgeLayout = null;
+    this.bitmapRect = null;
 
     if (isTextCue) {
       checkNotNull(cueText);
@@ -232,6 +235,18 @@ import org.jspecify.annotations.Nullable;
       setupBitmapLayout();
     }
     drawLayout(canvas, isTextCue);
+  }
+
+  /** Releases cached references to the last rendered cue, bitmap, styling, and layouts. */
+  public void reset() {
+    cueText = null;
+    cueTextAlignment = null;
+    cueBitmap = null;
+    textDirectionHeuristic = null;
+    textPaint.setTypeface(null);
+    textLayout = null;
+    edgeLayout = null;
+    bitmapRect = null;
   }
 
   @RequiresNonNull({"cueText", "textDirectionHeuristic"})
@@ -299,7 +314,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     Alignment textAlignment = cueTextAlignment == null ? Alignment.ALIGN_CENTER : cueTextAlignment;
-    textLayout =
+    StaticLayout textLayout =
         new StaticLayout(
             cueText, textPaint, availableWidth, textAlignment, spacingMult, spacingAdd, true);
     int textHeight = textLayout.getHeight();

@@ -76,9 +76,12 @@ import org.jspecify.annotations.Nullable;
     this.textSizeType = textSizeType;
     this.bottomPaddingFraction = bottomPaddingFraction;
     this.textDirectionHeuristic = textDirectionHeuristic;
-    // Ensure we have sufficient painters.
+    // Ensure we have sufficient painters, and reset any unused painters.
     while (painters.size() < cues.size()) {
       painters.add(new SubtitlePainter(getContext()));
+    }
+    for (int i = cues.size(); i < painters.size(); i++) {
+      painters.get(i).reset();
     }
     // Invalidate to trigger drawing.
     invalidate();
@@ -100,6 +103,7 @@ import org.jspecify.annotations.Nullable;
     int bottom = rawViewHeight - getPaddingBottom();
     if (bottom <= top || right <= left) {
       // No space to draw subtitles.
+      resetAllPainters();
       return;
     }
     int viewHeightMinusPadding = bottom - top;
@@ -108,6 +112,7 @@ import org.jspecify.annotations.Nullable;
         CueUtil.resolveTextSize(textSizeType, textSize, rawViewHeight, viewHeightMinusPadding);
     if (defaultViewTextSizePx <= 0) {
       // Text has no height.
+      resetAllPainters();
       return;
     }
 
@@ -176,5 +181,11 @@ import org.jspecify.annotations.Nullable;
         // Fall through
     }
     return cueBuilder.build();
+  }
+
+  private void resetAllPainters() {
+    for (int i = 0; i < painters.size(); i++) {
+      painters.get(i).reset();
+    }
   }
 }
