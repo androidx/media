@@ -204,6 +204,14 @@ import org.jspecify.annotations.Nullable;
   @VisibleForTesting /* package */ static final int METRIC_FILTER_SAMPLE_COUNT = 302;
   @VisibleForTesting /* package */ static final int METRIC_OVERLAY_COUNT = 303;
 
+  // Metric key for versioning the effect and audio processor metrics schema in Atom 1279 (uses the
+  // top ID of the 300-399 Media3 Metric range in enums.proto).
+  @VisibleForTesting /* package */ static final int METRIC_SCHEMA_VERSION = 399;
+
+  // Current schema version value logged with METRIC_SCHEMA_VERSION. Increment whenever the way
+  // effect or audio processor metrics are collected, categorized, or encoded changes.
+  @VisibleForTesting /* package */ static final long CURRENT_METRICS_SCHEMA_VERSION = 1L;
+
   private static final String TAG = "EditingMetricsCollector";
   // TODO: b/386328723 - Add missing error codes to EditingEndedEvent.ErrorCode.
   private static final SparseIntArray ERROR_CODE_CONVERSION_MAP = new SparseIntArray();
@@ -630,16 +638,18 @@ import org.jspecify.annotations.Nullable;
     bundle.putIntArray(KEY_COMPONENTS, componentsArray);
     bundle.putIntArray(KEY_COMPONENT_SCOPES, scopesArray);
 
-    if (!metrics.metricKeys.isEmpty()) {
-      int[] metricsArray = new int[metrics.metricKeys.size()];
-      long[] metricValuesArray = new long[metrics.metricValues.size()];
-      for (int i = 0; i < metrics.metricKeys.size(); i++) {
-        metricsArray[i] = metrics.metricKeys.get(i);
-        metricValuesArray[i] = metrics.metricValues.get(i);
-      }
-      bundle.putIntArray(KEY_METRICS, metricsArray);
-      bundle.putLongArray(KEY_METRIC_VALUES, metricValuesArray);
+    int metricsCount = metrics.metricKeys.size() + 1; // +1 for the schema version.
+    int[] metricsArray = new int[metricsCount];
+    long[] metricValuesArray = new long[metricsCount];
+    // Must be first: server-side predicates use FIRST(metrics) and FIRST(metric_values).
+    metricsArray[0] = METRIC_SCHEMA_VERSION;
+    metricValuesArray[0] = CURRENT_METRICS_SCHEMA_VERSION;
+    for (int i = 0; i < metrics.metricKeys.size(); i++) {
+      metricsArray[i + 1] = metrics.metricKeys.get(i);
+      metricValuesArray[i + 1] = metrics.metricValues.get(i);
     }
+    bundle.putIntArray(KEY_METRICS, metricsArray);
+    bundle.putLongArray(KEY_METRIC_VALUES, metricValuesArray);
 
     metricsReporter.reportEffectMetrics(bundle);
   }
