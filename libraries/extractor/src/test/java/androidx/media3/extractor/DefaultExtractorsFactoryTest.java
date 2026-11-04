@@ -20,6 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.datasource.ByteArrayDataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.avi.AviExtractor;
 import androidx.media3.extractor.avif.AvifExtractor;
@@ -169,6 +171,35 @@ public final class DefaultExtractorsFactoryTest {
         .isInstanceOf(JpegExtractor.class);
     input.resetPeekPosition();
     assertThat(new Mp3Extractor().sniff(input)).isTrue();
+  }
+
+  // https://github.com/androidx/media/issues/3502
+  @Test
+  public void createExtractors_corruptId3PrefixInShortInput_rejectsAllExtractors()
+      throws Exception {
+    byte[] data =
+        Arrays.copyOf(
+            new byte[] {'I', 'D', '3', ' ', 't', 'h', 'i', 's', ' ', 'i'}, /* newLength= */ 176);
+    ByteArrayDataSource dataSource = new ByteArrayDataSource(data);
+    long length = dataSource.open(new DataSpec(Uri.parse("data://test")));
+    DefaultExtractorInput input = new DefaultExtractorInput(dataSource, /* position= */ 0, length);
+    Extractor[] extractors = new DefaultExtractorsFactory().createExtractors();
+
+    @Nullable Extractor matchedExtractor = null;
+    for (Extractor extractor : extractors) {
+      input.resetPeekPosition();
+      try {
+        if (extractor.sniff(input)) {
+          matchedExtractor = extractor;
+          break;
+        }
+      } catch (EOFException e) {
+        // Ignore EOF during sniffing.
+      }
+    }
+
+    assertThat(matchedExtractor).isNull();
+    assertThat(input.getPosition()).isEqualTo(0);
   }
 
   private static List<Class<? extends Extractor>> getUnderlyingExtractorClasses(

@@ -25,6 +25,8 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.id3.Id3Decoder;
 import androidx.media3.extractor.metadata.id3.Id3Decoder.FramePredicate;
+import com.google.common.math.IntMath;
+import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.EOFException;
 import java.io.IOException;
@@ -90,17 +92,19 @@ public final class Id3Peeker {
         break;
       }
 
-      if (metadata == null) {
+      int framesStartPeekOffset = Ints.checkedCast(input.getPeekPosition() - input.getPosition());
+      input.advancePeekPosition(framesLength);
+      if (metadata == null && id3FramePredicate != Id3Decoder.NO_FRAMES_PREDICATE) {
+        input.resetPeekPosition();
+        input.advancePeekPosition(framesStartPeekOffset);
         byte[] id3Data = new byte[tagLength];
         System.arraycopy(scratch.getData(), id3HeaderStartInScratch, id3Data, 0, ID3_HEADER_LENGTH);
         input.peekFully(id3Data, ID3_HEADER_LENGTH, framesLength);
 
         metadata = new Id3Decoder(id3FramePredicate).decode(id3Data, tagLength);
-      } else {
-        input.advancePeekPosition(framesLength);
       }
 
-      peekedId3Bytes += tagLength;
+      peekedId3Bytes = IntMath.checkedAdd(peekedId3Bytes, tagLength);
     }
 
     input.resetPeekPosition();
@@ -142,7 +146,11 @@ public final class Id3Peeker {
       if (scratch.peekUnsignedInt24() == Id3Decoder.ID3_TAG) {
         scratch.skipBytes(3);
         int majorVersion = scratch.readUnsignedByte();
-        if (Id3Decoder.isSupportedMajorVersion(majorVersion)) {
+        int minorVersion = scratch.readUnsignedByte();
+        scratch.skipBytes(1); // Skip flags.
+        if (Id3Decoder.isSupportedMajorVersion(majorVersion)
+            && minorVersion < 0xFF
+            && (scratch.peekInt() & 0x80808080) == 0) {
           scratch.setPosition(headerStartIndexInScratch);
           return true;
         }

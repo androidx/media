@@ -23,6 +23,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
@@ -35,9 +36,12 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.Id3Peeker;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.metadata.id3.Id3Decoder;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
+import com.google.common.primitives.Ints;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -127,6 +131,7 @@ public final class AdtsExtractor implements Extractor {
   private final ParsableByteArray packetBuffer;
   private final ParsableByteArray scratch;
   private final ParsableBitArray scratchBits;
+  private final Id3Peeker id3Peeker;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
 
@@ -161,6 +166,7 @@ public final class AdtsExtractor implements Extractor {
     // Allocate scratch space for an ID3 header. The same buffer is also used to read 4 byte values.
     scratch = new ParsableByteArray(ID3_HEADER_LENGTH);
     scratchBits = new ParsableBitArray(scratch.getData());
+    id3Peeker = new Id3Peeker();
   }
 
   // Extractor implementation.
@@ -291,20 +297,9 @@ public final class AdtsExtractor implements Extractor {
   }
 
   private int peekId3Header(ExtractorInput input) throws IOException {
-    int firstFramePosition = 0;
-    while (true) {
-      input.peekFully(scratch.getData(), /* offset= */ 0, ID3_HEADER_LENGTH);
-      scratch.setPosition(0);
-      if (scratch.readUnsignedInt24() != ID3_TAG) {
-        break;
-      }
-      scratch.skipBytes(3);
-      int length = scratch.readSynchSafeInt();
-      firstFramePosition += ID3_HEADER_LENGTH + length;
-      input.advancePeekPosition(length);
-    }
-    input.resetPeekPosition();
-    input.advancePeekPosition(firstFramePosition);
+    Metadata unused =
+        id3Peeker.peekId3Data(input, Id3Decoder.NO_FRAMES_PREDICATE, /* maxTagPeekBytes= */ 0);
+    int firstFramePosition = Ints.checkedCast(input.getPeekPosition() - input.getPosition());
     if (this.firstFramePosition == C.INDEX_UNSET) {
       this.firstFramePosition = firstFramePosition;
     }
