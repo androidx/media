@@ -80,9 +80,8 @@ import org.jspecify.annotations.Nullable;
   private final ParsableByteArray scratch;
 
   private @MonotonicNonNull ExtractorOutput extractorOutput;
-  private @MonotonicNonNull MotionPhotoMetadata motionPhotoMetadata;
-  private @MonotonicNonNull ExtractorInput lastExtractorInput;
-  private @MonotonicNonNull StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
+  private @Nullable ExtractorInput lastExtractorInput;
+  private @Nullable StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
   private @Nullable Mp4Extractor mp4Extractor;
 
   private @State int state;
@@ -158,23 +157,17 @@ import org.jspecify.annotations.Nullable;
       mp4StartPosition = C.INDEX_UNSET;
       xmpOffset = C.INDEX_UNSET;
       xmpLength = 0;
-      iinfPayload = null;
-      ilocPayload = null;
-      if (mp4Extractor != null) {
-        mp4Extractor.release();
-        mp4Extractor = null;
-      }
+      releaseResources();
     } else if (state == STATE_READING_MOTION_PHOTO_VIDEO) {
+      lastExtractorInput = null;
+      mp4ExtractorStartOffsetExtractorInput = null;
       checkNotNull(mp4Extractor).seek(position, timeUs);
     }
   }
 
   @Override
   public void release() {
-    if (mp4Extractor != null) {
-      mp4Extractor.release();
-      mp4Extractor = null;
-    }
+    releaseResources();
   }
 
   private boolean readAtomHeader(ExtractorInput input) throws IOException {
@@ -242,8 +235,11 @@ import org.jspecify.annotations.Nullable;
           new Mp4Extractor(
               SubtitleParser.Factory.UNSUPPORTED, FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE);
     }
-    mp4ExtractorStartOffsetExtractorInput = new StartOffsetExtractorInput(input, mp4StartPosition);
-    if (mp4Extractor.sniff(mp4ExtractorStartOffsetExtractorInput)) {
+    StartOffsetExtractorInput startOffsetInput =
+        new StartOffsetExtractorInput(input, mp4StartPosition);
+    if (mp4Extractor.sniff(startOffsetInput)) {
+      lastExtractorInput = input;
+      mp4ExtractorStartOffsetExtractorInput = startOffsetInput;
       mp4Extractor.init(
           new StartOffsetExtractorOutput(mp4StartPosition, checkNotNull(extractorOutput)));
       state = STATE_READING_MOTION_PHOTO_VIDEO;
@@ -254,16 +250,18 @@ import org.jspecify.annotations.Nullable;
 
   private int readMotionPhotoVideo(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
-    if (mp4ExtractorStartOffsetExtractorInput == null || input != lastExtractorInput) {
+    @Nullable StartOffsetExtractorInput startOffsetInput = mp4ExtractorStartOffsetExtractorInput;
+    if (startOffsetInput == null || input != lastExtractorInput) {
       lastExtractorInput = input;
-      mp4ExtractorStartOffsetExtractorInput =
-          new StartOffsetExtractorInput(input, mp4StartPosition);
+      startOffsetInput = new StartOffsetExtractorInput(input, mp4StartPosition);
+      mp4ExtractorStartOffsetExtractorInput = startOffsetInput;
     }
-    @ReadResult
-    int readResult =
-        checkNotNull(mp4Extractor).read(mp4ExtractorStartOffsetExtractorInput, seekPosition);
+    @ReadResult int readResult = checkNotNull(mp4Extractor).read(startOffsetInput, seekPosition);
     if (readResult == RESULT_SEEK) {
       seekPosition.position += mp4StartPosition;
+    } else if (readResult == RESULT_END_OF_INPUT) {
+      lastExtractorInput = null;
+      mp4ExtractorStartOffsetExtractorInput = null;
     }
     return readResult;
   }
@@ -271,7 +269,7 @@ import org.jspecify.annotations.Nullable;
   private void setupMotionPhotoMetadata(long photoPresentationTimestampUs) {
     long boxStartPosition = mp4StartPosition - mpvdHeaderSize;
     long mpvdPayloadSize = atomSize - mpvdHeaderSize;
-    motionPhotoMetadata =
+    MotionPhotoMetadata motionPhotoMetadata =
         new MotionPhotoMetadata(
             /* photoStartPosition= */ 0,
             /* photoSize= */ boxStartPosition,
@@ -298,8 +296,10 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void processIinfAndIloc() {
-    ParsableByteArray iinfPayload = this.iinfPayload;
-    ParsableByteArray ilocPayload = this.ilocPayload;
+    @Nullable ParsableByteArray iinfPayload = this.iinfPayload;
+    @Nullable ParsableByteArray ilocPayload = this.ilocPayload;
+    this.iinfPayload = null;
+    this.ilocPayload = null;
     if (iinfPayload == null || ilocPayload == null) {
       return;
     }
@@ -416,8 +416,20 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void endReading() {
+    releaseResources();
     checkNotNull(extractorOutput).endTracks();
     extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ C.TIME_UNSET));
     state = STATE_ENDED;
+  }
+
+  private void releaseResources() {
+    iinfPayload = null;
+    ilocPayload = null;
+    lastExtractorInput = null;
+    mp4ExtractorStartOffsetExtractorInput = null;
+    if (mp4Extractor != null) {
+      mp4Extractor.release();
+      mp4Extractor = null;
+    }
   }
 }
