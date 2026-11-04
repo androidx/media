@@ -26,7 +26,6 @@ android {
 }
 
 dependencies {
-  implementation(libs.androidx.annotation)
   api(project(":lib-common"))
   api(project(":lib-effect"))
   api(libs.lottie)

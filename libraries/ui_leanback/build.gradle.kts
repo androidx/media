@@ -20,6 +20,5 @@ android { namespace = "androidx.media3.ui.leanback" }
 
 dependencies {
   api(project(":lib-common"))
-  implementation(libs.androidx.annotation)
   implementation(libs.androidx.leanback)
 }

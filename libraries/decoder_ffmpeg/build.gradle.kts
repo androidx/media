@@ -33,7 +33,6 @@ dependencies {
   api(project(":lib-decoder"))
   // TODO(b/203752526): Remove this dependency.
   implementation(project(":lib-exoplayer"))
-  implementation(libs.androidx.annotation)
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
   androidTestImplementation(project(":test-utils"))

@@ -24,7 +24,6 @@ dependencies {
   api(libs.ktor.client.core)
   api(project(":lib-common"))
   api(project(":lib-datasource"))
-  implementation(libs.androidx.annotation)
   implementation(libs.kotlinx.coroutines.core)
   androidTestRuntimeOnly(libs.dexmaker.mockito)
   androidTestImplementation(project(":test-utils"))

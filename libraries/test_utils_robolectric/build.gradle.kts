@@ -19,7 +19,6 @@ plugins {
 android { namespace = "androidx.media3.test.utils.robolectric" }
 
 dependencies {
-  implementation(libs.androidx.annotation)
   implementation(libs.robolectric)
   api(project(":lib-exoplayer"))
   api(project(":lib-transformer"))
