@@ -377,8 +377,12 @@ public final class EditingMetricsCollectorTest {
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENT_SCOPES))
         .asList()
         .containsExactly(1);
-    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
-    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_SCHEMA_VERSION);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION);
   }
 
   @Test
@@ -401,8 +405,33 @@ public final class EditingMetricsCollectorTest {
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENT_SCOPES))
         .asList()
         .containsExactly(1);
-    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
-    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_SCHEMA_VERSION);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION);
+  }
+
+  @Test
+  public void onExportSuccess_withEffectsAndQuantitativeMetrics_putsSchemaVersionAtFirstIndex() {
+    AtomicReference<PersistableBundle> bundleReference = new AtomicReference<>();
+    EditingMetricsCollector collector = createCollectorForEffectMetrics(bundleReference);
+    ScaleAndRotateTransformation scaleAndRotate =
+        new ScaleAndRotateTransformation.Builder().setRotationDegrees(90).build();
+    Composition composition = createCompositionWithVideoEffects(scaleAndRotate);
+
+    collector.onExportSuccess(
+        composition, createDefaultExportResult(), /* isExportResumed= */ false);
+
+    PersistableBundle bundle = bundleReference.get();
+    assertThat(bundle).isNotNull();
+    int[] metrics = bundle.getIntArray(EditingMetricsCollector.KEY_METRICS);
+    long[] metricValues = bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES);
+    assertThat(metrics).isNotNull();
+    assertThat(metricValues).isNotNull();
+    assertThat(metrics[0]).isEqualTo(EditingMetricsCollector.METRIC_SCHEMA_VERSION);
+    assertThat(metricValues[0]).isEqualTo(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION);
   }
 
   @Test
@@ -423,10 +452,14 @@ public final class EditingMetricsCollectorTest {
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
         .asList()
-        .containsExactly(EditingMetricsCollector.METRIC_ROTATION_DEGREES);
+        .containsExactly(
+            EditingMetricsCollector.METRIC_SCHEMA_VERSION,
+            EditingMetricsCollector.METRIC_ROTATION_DEGREES)
+        .inOrder();
     assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
         .asList()
-        .containsExactly(90L);
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION, 90L)
+        .inOrder();
   }
 
   @Test
@@ -447,12 +480,13 @@ public final class EditingMetricsCollectorTest {
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
         .asList()
         .containsExactly(
+            EditingMetricsCollector.METRIC_SCHEMA_VERSION,
             EditingMetricsCollector.METRIC_ROTATION_DEGREES,
             EditingMetricsCollector.METRIC_ROTATION_DEGREES)
         .inOrder();
     assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
         .asList()
-        .containsExactly(90L, 180L)
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION, 90L, 180L)
         .inOrder();
   }
 
@@ -474,10 +508,14 @@ public final class EditingMetricsCollectorTest {
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_CONVOLUTION);
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
         .asList()
-        .containsExactly(EditingMetricsCollector.METRIC_FILTER_SAMPLE_COUNT);
+        .containsExactly(
+            EditingMetricsCollector.METRIC_SCHEMA_VERSION,
+            EditingMetricsCollector.METRIC_FILTER_SAMPLE_COUNT)
+        .inOrder();
     assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
         .asList()
-        .containsExactly(21L);
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION, 21L)
+        .inOrder();
   }
 
   @Test
@@ -497,10 +535,14 @@ public final class EditingMetricsCollectorTest {
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_OVERLAY);
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
         .asList()
-        .containsExactly(EditingMetricsCollector.METRIC_OVERLAY_COUNT);
+        .containsExactly(
+            EditingMetricsCollector.METRIC_SCHEMA_VERSION,
+            EditingMetricsCollector.METRIC_OVERLAY_COUNT)
+        .inOrder();
     assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
         .asList()
-        .containsExactly(0L);
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION, 0L)
+        .inOrder();
   }
 
   @Test
@@ -521,10 +563,14 @@ public final class EditingMetricsCollectorTest {
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH);
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
         .asList()
-        .containsExactly(EditingMetricsCollector.METRIC_SPEED_MULTIPLIER);
+        .containsExactly(
+            EditingMetricsCollector.METRIC_SCHEMA_VERSION,
+            EditingMetricsCollector.METRIC_SPEED_MULTIPLIER)
+        .inOrder();
     assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
         .asList()
-        .containsExactly(15000L);
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION, 15000L)
+        .inOrder();
   }
 
   @Test
@@ -542,8 +588,12 @@ public final class EditingMetricsCollectorTest {
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
         .asList()
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_AUDIO_SPEED_AND_PITCH);
-    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
-    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_SCHEMA_VERSION);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION);
   }
 
   @Test
@@ -587,8 +637,12 @@ public final class EditingMetricsCollectorTest {
     assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_COMPONENTS))
         .asList()
         .containsExactly(EditingMetricsCollector.COMPONENT_MEDIA3_EFFECT_SPATIAL);
-    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS)).isNull();
-    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES)).isNull();
+    assertThat(bundle.getIntArray(EditingMetricsCollector.KEY_METRICS))
+        .asList()
+        .containsExactly(EditingMetricsCollector.METRIC_SCHEMA_VERSION);
+    assertThat(bundle.getLongArray(EditingMetricsCollector.KEY_METRIC_VALUES))
+        .asList()
+        .containsExactly(EditingMetricsCollector.CURRENT_METRICS_SCHEMA_VERSION);
   }
 
   @Test
