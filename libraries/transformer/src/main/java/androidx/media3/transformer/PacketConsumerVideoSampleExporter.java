@@ -30,6 +30,8 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.LongSparseArray;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -37,6 +39,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.HandlerExecutor;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Util;
@@ -65,6 +68,7 @@ import org.jspecify.annotations.Nullable;
 /* package */ final class PacketConsumerVideoSampleExporter extends SampleExporter {
 
   private static final String DEFAULT_OUTPUT_MIME_TYPE = MimeTypes.VIDEO_H265;
+  private static final byte[] hagcT35Header = CodecSpecificDataUtil.getHagcT35Header();
 
   private final DecoderInputBuffer encoderOutputBuffer;
   private final Consumer<ExportException> errorConsumer;
@@ -75,6 +79,11 @@ import org.jspecify.annotations.Nullable;
 
   private final Queue<ImmutableList<AsyncFrame>> pendingPackets;
   private final InFlightFrameManager inFlightFrameManager;
+  private final Object lock;
+
+  @GuardedBy("lock")
+  private final LongSparseArray<byte[]> hagcPayloadsByPresentationTimeUs;
+
   private boolean hasPendingEos;
   private volatile boolean released;
 
@@ -115,6 +124,8 @@ import org.jspecify.annotations.Nullable;
     this.errorConsumer = errorConsumer;
     this.pendingPackets = new ArrayDeque<>();
     this.inFlightFrameManager = new InFlightFrameManager();
+    this.lock = new Object();
+    this.hagcPayloadsByPresentationTimeUs = new LongSparseArray<>();
     finalFramePresentationTimeUs = C.TIME_UNSET;
     lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
     encoderOutputBuffer =
@@ -168,7 +179,9 @@ import org.jspecify.annotations.Nullable;
     }
     frameProcessor =
         frameProcessorFactory.create(
-            frameWriter, listenerExecutor, /* listener= */ componentListener);
+            thisRef.new MetadataRecordingFrameWriter(frameWriter),
+            listenerExecutor,
+            /* listener= */ componentListener);
 
     frameAggregator =
         new FrameAggregator(
@@ -256,6 +269,9 @@ import org.jspecify.annotations.Nullable;
     released = true;
     releasePendingPackets();
     inFlightFrameManager.releaseAll();
+    synchronized (lock) {
+      hagcPayloadsByPresentationTimeUs.clear();
+    }
     for (int i = 0; i < sampleConsumers.size(); i++) {
       sampleConsumers.get(i).release();
     }
@@ -306,6 +322,18 @@ import org.jspecify.annotations.Nullable;
     encoderOutputBuffer.timeUs = bufferInfo.presentationTimeUs;
     encoderOutputBuffer.setFlags(bufferInfo.flags);
     lastMuxerInputBufferTimestampUs = bufferInfo.presentationTimeUs;
+
+    byte @Nullable [] payload;
+    synchronized (lock) {
+      // Removed in releaseMuxerInputBuffer() once the muxer accepts the sample.
+      payload = hagcPayloadsByPresentationTimeUs.get(bufferInfo.presentationTimeUs);
+    }
+    if (payload != null) {
+      encoderOutputBuffer.resetSupplementalData(hagcT35Header.length + payload.length);
+      checkNotNull(encoderOutputBuffer.supplementalData).put(hagcT35Header).put(payload).flip();
+      encoderOutputBuffer.addFlag(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    }
+
     return encoderOutputBuffer;
   }
 
@@ -313,6 +341,9 @@ import org.jspecify.annotations.Nullable;
   protected void releaseMuxerInputBuffer() throws ExportException {
     if (lastMuxerInputBufferTimestampUs == 0) {
       hasMuxedTimestampZero = true;
+    }
+    synchronized (lock) {
+      hagcPayloadsByPresentationTimeUs.remove(lastMuxerInputBufferTimestampUs);
     }
     if (encoder != null) {
       encoder.releaseOutputBuffer(/* render= */ false);
@@ -493,6 +524,58 @@ import org.jspecify.annotations.Nullable;
               formatBuilder.setSampleMimeType(requestedSampleMimeType).build(),
               muxerSupportedSampleMimeTypes);
       return formatBuilder.setSampleMimeType(sampleMimeType).build();
+    }
+  }
+
+  /**
+   * A {@link FrameWriter} that records {@linkplain Frame#KEY_HDR_ST2094_50_INFO HAGC (ST 2094-50)
+   * payloads} by presentation time on the GL thread in {@link #queueInputFrame} before forwarding
+   * frames to the wrapped {@link FrameWriter}, so {@link #getMuxerInputBuffer()} can attach them on
+   * the Transformer internal thread.
+   */
+  /* package */ final class MetadataRecordingFrameWriter implements FrameWriter {
+
+    private final FrameWriter frameWriter;
+
+    /* package */ MetadataRecordingFrameWriter(FrameWriter frameWriter) {
+      this.frameWriter = frameWriter;
+    }
+
+    @Override
+    public Info getInfo() {
+      return frameWriter.getInfo();
+    }
+
+    @Override
+    public void configure(Format format, @Frame.Usage long usage) {
+      frameWriter.configure(format, usage);
+    }
+
+    @Override
+    public @Nullable AsyncFrame dequeueInputFrame(
+        Executor wakeupExecutor, Runnable wakeupListener) {
+      return frameWriter.dequeueInputFrame(wakeupExecutor, wakeupListener);
+    }
+
+    @Override
+    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
+      @Nullable Object hagcPayload = frame.getMetadata().get(Frame.KEY_HDR_ST2094_50_INFO);
+      if (hagcPayload instanceof byte[]) {
+        synchronized (lock) {
+          hagcPayloadsByPresentationTimeUs.put(frame.getContentTimeUs(), (byte[]) hagcPayload);
+        }
+      }
+      frameWriter.queueInputFrame(frame, writeCompleteFence);
+    }
+
+    @Override
+    public void signalEndOfStream() {
+      frameWriter.signalEndOfStream();
+    }
+
+    @Override
+    public void close() {
+      frameWriter.close();
     }
   }
 }

@@ -2432,5 +2432,13 @@ public final class CodecSpecificDataUtil {
     return false;
   }
 
+  /**
+   * Returns a new copy of the ITU-T T.35 header that prefixes HAGC (ST 2094-50) metadata, which is
+   * {@link #HAGC_T35_HEADER_LENGTH} bytes long.
+   */
+  public static byte[] getHagcT35Header() {
+    return expectedHagcPayloadPrefix.clone();
+  }
+
   private CodecSpecificDataUtil() {}
 }

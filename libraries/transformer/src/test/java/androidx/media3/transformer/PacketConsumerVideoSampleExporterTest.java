@@ -23,6 +23,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.graphics.PixelFormat;
+import android.media.MediaCodec;
+import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.media3.common.C;
@@ -33,13 +35,19 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
+import androidx.media3.common.video.Frame;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.FakeFrameWriter;
 import androidx.media3.test.utils.FakeHardwareBufferJniWrapper;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.transformer.PacketConsumerVideoSampleExporter.FrameWriterEncoderFactory;
+import androidx.media3.transformer.PacketConsumerVideoSampleExporter.MetadataRecordingFrameWriter;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -303,11 +311,112 @@ public final class PacketConsumerVideoSampleExporterTest {
                 .build());
   }
 
+  @Test
+  public void queueInputFrame_withHagcPayload_forwardsFrameAndAttachesSupplementalData()
+      throws Exception {
+    setUpEncoderWithOutputBuffer(/* presentationTimeUs= */ 12_345);
+    FakeFrameWriter fakeFrameWriter = new FakeFrameWriter();
+    MetadataRecordingFrameWriter frameWriter =
+        exporter.new MetadataRecordingFrameWriter(fakeFrameWriter);
+    Frame frame =
+        createFrame(
+            /* contentTimeUs= */ 12_345,
+            ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, new byte[] {1, 2, 3}));
+
+    frameWriter.queueInputFrame(frame, /* writeCompleteFence= */ null);
+    DecoderInputBuffer muxerInputBuffer = checkNotNull(exporter.getMuxerInputBuffer());
+
+    assertThat(fakeFrameWriter.queuedFrames).containsExactly(frame);
+    assertThat(muxerInputBuffer.hasSupplementalData()).isTrue();
+    byte[] supplementalData = new byte[checkNotNull(muxerInputBuffer.supplementalData).remaining()];
+    muxerInputBuffer.supplementalData.get(supplementalData);
+    // 5-byte HAGC (ST 2094-50) ITU-T T.35 header followed by the {1, 2, 3} payload queued above.
+    assertThat(supplementalData)
+        .isEqualTo(new byte[] {(byte) 0xB5, 0x00, (byte) 0x90, 0x00, 0x01, 1, 2, 3});
+  }
+
+  @Test
+  public void queueInputFrame_withoutHagcPayload_forwardsFrameWithoutSupplementalData()
+      throws Exception {
+    setUpEncoderWithOutputBuffer(/* presentationTimeUs= */ 12_345);
+    FakeFrameWriter fakeFrameWriter = new FakeFrameWriter();
+    MetadataRecordingFrameWriter frameWriter =
+        exporter.new MetadataRecordingFrameWriter(fakeFrameWriter);
+    Frame frame = createFrame(/* contentTimeUs= */ 12_345, /* metadata= */ ImmutableMap.of());
+
+    frameWriter.queueInputFrame(frame, /* writeCompleteFence= */ null);
+    DecoderInputBuffer muxerInputBuffer = checkNotNull(exporter.getMuxerInputBuffer());
+
+    assertThat(fakeFrameWriter.queuedFrames).containsExactly(frame);
+    assertThat(muxerInputBuffer.hasSupplementalData()).isFalse();
+  }
+
+  @Test
+  public void getMuxerInputBuffer_retriedForSameBuffer_keepsHagcPayload() throws Exception {
+    setUpEncoderWithOutputBuffer(/* presentationTimeUs= */ 12_345);
+    MetadataRecordingFrameWriter frameWriter =
+        exporter.new MetadataRecordingFrameWriter(new FakeFrameWriter());
+    frameWriter.queueInputFrame(
+        createFrame(
+            /* contentTimeUs= */ 12_345,
+            ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, new byte[] {1, 2, 3})),
+        /* writeCompleteFence= */ null);
+
+    boolean firstBufferHasSupplementalData =
+        checkNotNull(exporter.getMuxerInputBuffer()).hasSupplementalData();
+    // Request the same buffer again, simulating the muxer not accepting the previous call.
+    boolean secondBufferHasSupplementalData =
+        checkNotNull(exporter.getMuxerInputBuffer()).hasSupplementalData();
+    exporter.releaseMuxerInputBuffer();
+    boolean bufferAfterReleaseHasSupplementalData =
+        checkNotNull(exporter.getMuxerInputBuffer()).hasSupplementalData();
+
+    assertThat(firstBufferHasSupplementalData).isTrue();
+    assertThat(secondBufferHasSupplementalData).isTrue();
+    assertThat(bufferAfterReleaseHasSupplementalData).isFalse();
+  }
+
+  private void setUpEncoderWithOutputBuffer(long presentationTimeUs) throws ExportException {
+    Codec encoder =
+        createFactory(
+                /* requestedSampleMimeType= */ MimeTypes.VIDEO_H264,
+                /* muxerSupportedSampleMimeTypes= */ ImmutableList.of(MimeTypes.VIDEO_H264))
+            .createForVideoEncoding(LANDSCAPE_FORMAT, /* logSessionId= */ null);
+    int bufferSize = 10;
+    BufferInfo bufferInfo = new BufferInfo();
+    bufferInfo.set(
+        /* newOffset= */ 0,
+        /* newSize= */ bufferSize,
+        presentationTimeUs,
+        MediaCodec.BUFFER_FLAG_KEY_FRAME);
+    when(encoder.getOutputBuffer()).thenReturn(ByteBuffer.allocateDirect(bufferSize));
+    when(encoder.getOutputBufferInfo()).thenReturn(bufferInfo);
+  }
+
   private FrameWriterEncoderFactory createFactory(
       String requestedSampleMimeType, List<String> muxerSupportedSampleMimeTypes) {
     return exporter
     .new FrameWriterEncoderFactory(
         fakeEncoderFactory, requestedSampleMimeType, muxerSupportedSampleMimeTypes);
+  }
+
+  private static Frame createFrame(long contentTimeUs, ImmutableMap<String, Object> metadata) {
+    return new Frame() {
+      @Override
+      public Format getFormat() {
+        return LANDSCAPE_FORMAT;
+      }
+
+      @Override
+      public ImmutableMap<String, Object> getMetadata() {
+        return metadata;
+      }
+
+      @Override
+      public long getContentTimeUs() {
+        return contentTimeUs;
+      }
+    };
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {
