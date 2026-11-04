@@ -22,11 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.ui.compose.testutils.createPlayerWithTracks
 import androidx.media3.ui.compose.testutils.createTestTracks
 import androidx.media3.ui.compose.testutils.createTestTracksWithLanguages
+import androidx.media3.ui.compose.testutils.createVideoFormat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -54,7 +57,9 @@ class TrackSelectionStateTest {
   @Test
   fun selectionOptions_otherTrackTypesExistButNotTargetType_returnsEmpty() {
     val player =
-      createPlayerWithTracks(tracks = createTestTracksWithLanguages("audio/mp4", "en", "fr", "es"))
+      createPlayerWithTracks(
+        tracks = createTestTracksWithLanguages(MimeTypes.AUDIO_AAC, "en", "fr", "es")
+      )
     val paramState = TrackSelectionParametersState(player)
     val state = TrackSelectionState(paramState, C.TRACK_TYPE_VIDEO, TRACK_FILTER_RESOLUTION)
 
@@ -85,7 +90,18 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectionOptions_withResolutionFilter_filtersOptionsByResolution() {
-    val state = createTrackSelectionState(trackFilters = TRACK_FILTER_RESOLUTION)
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H264),
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H265),
+            createVideoFormat(1280, 720, MimeTypes.VIDEO_H264),
+            createVideoFormat(854, 480, MimeTypes.VIDEO_H264),
+            createVideoFormat(640, 360, MimeTypes.VIDEO_VP9),
+          )
+      )
+    val state = createTrackSelectionState(trackFilters = TRACK_FILTER_RESOLUTION, tracks = tracks)
 
     val options = state.selectionOptions
 
@@ -96,13 +112,24 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectionOptions_withMimeTypeFilter_filtersOptionsByMimeType() {
-    val state = createTrackSelectionState(trackFilters = TRACK_FILTER_MIME_TYPE)
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H264),
+            createVideoFormat(1280, 720, MimeTypes.VIDEO_H264),
+            createVideoFormat(1280, 720, MimeTypes.VIDEO_H265),
+            createVideoFormat(640, 360, MimeTypes.VIDEO_VP9),
+          )
+      )
+    val state = createTrackSelectionState(trackFilters = TRACK_FILTER_MIME_TYPE, tracks = tracks)
 
     val options = state.selectionOptions
 
     assertThat(options).hasSize(3)
     val mimeTypes = options.map { it.sampleMimeType }
-    assertThat(mimeTypes).containsExactly("video/mp4", "video/x-matroska", "video/quicktime")
+    assertThat(mimeTypes)
+      .containsExactly(MimeTypes.VIDEO_H264, MimeTypes.VIDEO_H265, MimeTypes.VIDEO_VP9)
   }
 
   @Test
@@ -111,7 +138,7 @@ class TrackSelectionStateTest {
       createTrackSelectionState(
         trackType = C.TRACK_TYPE_AUDIO,
         trackFilters = TRACK_FILTER_LANGUAGE,
-        tracks = createTestTracksWithLanguages("audio/mp4", "en", "fr", "es"),
+        tracks = createTestTracksWithLanguages(MimeTypes.AUDIO_AAC, "en", "fr", "es"),
       )
 
     val options = state.selectionOptions
@@ -127,7 +154,7 @@ class TrackSelectionStateTest {
       createTrackSelectionState(
         trackType = C.TRACK_TYPE_TEXT,
         trackFilters = TRACK_FILTER_LANGUAGE,
-        tracks = createTestTracksWithLanguages("text/vtt", "en", "es"),
+        tracks = createTestTracksWithLanguages(MimeTypes.TEXT_VTT, "en", "es"),
       )
 
     val options = state.selectionOptions
@@ -139,8 +166,24 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectionOptions_withMultipleFilters_returnsFlattenedCombinedOptions() {
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H264),
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H265),
+            createVideoFormat(1280, 720, MimeTypes.VIDEO_H264),
+            createVideoFormat(1280, 720, MimeTypes.VIDEO_H265),
+            createVideoFormat(854, 480, MimeTypes.VIDEO_H264),
+            createVideoFormat(854, 480, MimeTypes.VIDEO_H265),
+            createVideoFormat(640, 360, MimeTypes.VIDEO_VP9),
+          )
+      )
     val state =
-      createTrackSelectionState(trackFilters = TRACK_FILTER_RESOLUTION or TRACK_FILTER_MIME_TYPE)
+      createTrackSelectionState(
+        trackFilters = TRACK_FILTER_RESOLUTION or TRACK_FILTER_MIME_TYPE,
+        tracks = tracks,
+      )
 
     val options = state.selectionOptions
 
@@ -148,59 +191,64 @@ class TrackSelectionStateTest {
     val combinations = options.map { (it.width to it.height) to it.sampleMimeType }
     assertThat(combinations)
       .containsExactly(
-        (1920 to 1080) to "video/mp4",
-        (1920 to 1080) to "video/x-matroska",
-        (1280 to 720) to "video/mp4",
-        (1280 to 720) to "video/x-matroska",
-        (854 to 480) to "video/mp4",
-        (854 to 480) to "video/x-matroska",
-        (640 to 360) to "video/quicktime",
+        (1920 to 1080) to MimeTypes.VIDEO_H264,
+        (1920 to 1080) to MimeTypes.VIDEO_H265,
+        (1280 to 720) to MimeTypes.VIDEO_H264,
+        (1280 to 720) to MimeTypes.VIDEO_H265,
+        (854 to 480) to MimeTypes.VIDEO_H264,
+        (854 to 480) to MimeTypes.VIDEO_H265,
+        (640 to 360) to MimeTypes.VIDEO_VP9,
       )
   }
 
   @Test
   fun selectionOptions_withMissingFilterMetadata_includesInvalidTracksAsNull() {
-    val state =
-      createTrackSelectionState(
-        trackFilters = TRACK_FILTER_RESOLUTION,
-        tracks = createTestTracks(includeMissingDataTrack = true),
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080),
+            createVideoFormat(1280, 720),
+            Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build(),
+          )
       )
+    val state = createTrackSelectionState(trackFilters = TRACK_FILTER_RESOLUTION, tracks = tracks)
 
     val options = state.selectionOptions
 
-    assertThat(options).hasSize(5)
+    assertThat(options).hasSize(3)
     val hasNullOption = options.any { it.width == null || it.height == null }
     assertThat(hasNullOption).isTrue()
   }
 
   @Test
   fun selectionOptions_withUnsupportedTracks_marksOptionsAsUnsupported() {
-    val unsupportedStates =
-      intArrayOf(
-        C.FORMAT_HANDLED,
-        C.FORMAT_HANDLED,
-        C.FORMAT_HANDLED,
-        C.FORMAT_HANDLED,
-        C.FORMAT_HANDLED,
-        C.FORMAT_HANDLED,
-        C.FORMAT_EXCEEDS_CAPABILITIES,
+    val tracks =
+      createTestTracks(
+        videoFormats = listOf(createVideoFormat(1920, 1080), createVideoFormat(640, 360)),
+        videoHandledStates = intArrayOf(C.FORMAT_HANDLED, C.FORMAT_EXCEEDS_CAPABILITIES),
       )
-    val tracks = createTestTracks(videoHandledStates = unsupportedStates)
     val state = createTrackSelectionState(tracks = tracks, trackFilters = TRACK_FILTER_RESOLUTION)
-    val videoGroup = tracks.groups.first { it.type == C.TRACK_TYPE_VIDEO }
-    val unsupportedFormat = videoGroup.getTrackFormat(6)
 
     val options = state.selectionOptions
-    val option = options.first {
-      it.width == unsupportedFormat.width && it.height == unsupportedFormat.height
-    }
+    val option = options.first { it.width == 640 && it.height == 360 }
 
     assertThat(option.isSupported).isFalse()
   }
 
   @Test
   fun selectionOptions_withSelectedTracks_marksOptionsAsSelected() {
-    val tracks = createTestTracks(selectedVideoTrackIndex = 0)
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080),
+            createVideoFormat(1280, 720),
+            createVideoFormat(854, 480),
+            createVideoFormat(640, 360),
+          ),
+        selectedVideoTrackIndex = 0,
+      )
     val state = createTrackSelectionState(trackFilters = TRACK_FILTER_RESOLUTION, tracks = tracks)
 
     val options = state.selectionOptions
@@ -212,7 +260,8 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectedOption_textNoPreferredLanguagesOrOverrides_selectsAutoOption() {
-    val player = createPlayerWithTracks(tracks = createTestTracksWithLanguages("text/vtt", "en"))
+    val player =
+      createPlayerWithTracks(tracks = createTestTracksWithLanguages(MimeTypes.TEXT_VTT, "en"))
     val paramState = TrackSelectionParametersState(player)
     val state =
       TrackSelectionState(
@@ -231,7 +280,7 @@ class TrackSelectionStateTest {
       TrackSelectionParameters.DEFAULT.buildUpon().setPreferredTextLanguage("en").build()
     val player =
       createPlayerWithTracks(
-        tracks = createTestTracksWithLanguages("text/vtt", "en", selectedLanguage = "en"),
+        tracks = createTestTracksWithLanguages(MimeTypes.TEXT_VTT, "en", selectedLanguage = "en"),
         params = initialParams,
       )
     val paramState = TrackSelectionParametersState(player)
@@ -253,7 +302,8 @@ class TrackSelectionStateTest {
       TrackSelectionParameters.DEFAULT.buildUpon().setPreferredAudioLanguage("en").build()
     val player =
       createPlayerWithTracks(
-        tracks = createTestTracksWithLanguages("audio/mp4", "en", "fr", selectedLanguage = "en"),
+        tracks =
+          createTestTracksWithLanguages(MimeTypes.AUDIO_AAC, "en", "fr", selectedLanguage = "en"),
         params = initialParams,
       )
     val paramState = TrackSelectionParametersState(player)
@@ -287,7 +337,9 @@ class TrackSelectionStateTest {
   @Test
   fun selectedOption_video_withMimeTypeConstraintButOnlyResolutionFilterEnabled_selectsAutoOption() {
     val initialParams =
-      TrackSelectionParameters.DEFAULT.buildUpon().setPreferredVideoMimeType("video/mp4").build()
+      TrackSelectionParameters.DEFAULT.buildUpon()
+        .setPreferredVideoMimeType(MimeTypes.VIDEO_H264)
+        .build()
     val player = createPlayerWithTracks(tracks = createTestTracks(), params = initialParams)
     val paramState = TrackSelectionParametersState(player)
     val state =
@@ -304,12 +356,19 @@ class TrackSelectionStateTest {
   @Test
   fun selectedOption_video_withMimeTypeConstraintAndMimeTypeFilterEnabled_selectsMimeTypeOption() {
     val initialParams =
-      TrackSelectionParameters.DEFAULT.buildUpon().setPreferredVideoMimeType("video/mp4").build()
-    val player =
-      createPlayerWithTracks(
-        tracks = createTestTracks(selectedVideoTrackIndex = 0),
-        params = initialParams,
+      TrackSelectionParameters.DEFAULT.buildUpon()
+        .setPreferredVideoMimeType(MimeTypes.VIDEO_H264)
+        .build()
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H264),
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H265),
+          ),
+        selectedVideoTrackIndex = 0,
       )
+    val player = createPlayerWithTracks(tracks = tracks, params = initialParams)
     val paramState = TrackSelectionParametersState(player)
     val state =
       TrackSelectionState(
@@ -320,7 +379,7 @@ class TrackSelectionStateTest {
       )
 
     assertThat(state.selectedOption?.onOffState).isEqualTo(TRACK_SELECTION_ON)
-    assertThat(state.selectedOption?.sampleMimeType).isEqualTo("video/mp4")
+    assertThat(state.selectedOption?.sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264)
   }
 
   @Test
@@ -337,7 +396,11 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectedOption_withHasAutoOptionFalse_returnsActiveTrackOption() {
-    val tracks = createTestTracks(selectedVideoTrackIndex = 0)
+    val tracks =
+      createTestTracks(
+        videoFormats = listOf(createVideoFormat(1920, 1080), createVideoFormat(1280, 720)),
+        selectedVideoTrackIndex = 0,
+      )
     val state =
       createTrackSelectionState(
         trackFilters = TRACK_FILTER_RESOLUTION,
@@ -353,7 +416,8 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectedOption_onSelectOption_updatesSelectedOptionProperty() = runComposeUiTest {
-    val player = createPlayerWithTracks(tracks = createTestTracks())
+    val videoFormats = listOf(createVideoFormat(1920, 1080), createVideoFormat(1280, 720))
+    val player = createPlayerWithTracks(tracks = createTestTracks(videoFormats = videoFormats))
     lateinit var state: TrackSelectionState
     setContent {
       state = rememberTrackSelectionState(player, C.TRACK_TYPE_VIDEO, TRACK_FILTER_RESOLUTION)
@@ -362,7 +426,7 @@ class TrackSelectionStateTest {
     val option1080p = options.first { it.width == 1920 }
 
     state.selectOption(option1080p)
-    player.setTracks(createTestTracks(selectedVideoTrackIndex = 0))
+    player.setTracks(createTestTracks(videoFormats = videoFormats, selectedVideoTrackIndex = 0))
     waitForIdle()
 
     assertThat(state.selectedOption).isEqualTo(state.selectionOptions.first { it.width == 1920 })
@@ -371,7 +435,8 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectedOption_onExternalParametersUpdate_updatesSync() = runComposeUiTest {
-    val player = createPlayerWithTracks(tracks = createTestTracks())
+    val videoFormats = listOf(createVideoFormat(1920, 1080), createVideoFormat(1280, 720))
+    val player = createPlayerWithTracks(tracks = createTestTracks(videoFormats = videoFormats))
     lateinit var state: TrackSelectionState
     setContent {
       state = rememberTrackSelectionState(player, C.TRACK_TYPE_VIDEO, TRACK_FILTER_RESOLUTION)
@@ -379,7 +444,7 @@ class TrackSelectionStateTest {
     val newParams = TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoSize(1920, 1080).build()
 
     player.setTrackSelectionParameters(newParams)
-    player.setTracks(createTestTracks(selectedVideoTrackIndex = 0))
+    player.setTracks(createTestTracks(videoFormats = videoFormats, selectedVideoTrackIndex = 0))
     waitForIdle()
 
     val expectedOption = state.selectionOptions.first { it.width == 1920 }
@@ -432,7 +497,7 @@ class TrackSelectionStateTest {
         .build()
     val player =
       createPlayerWithTracks(
-        tracks = createTestTracksWithLanguages("text/vtt", "en", selectedLanguage = "en"),
+        tracks = createTestTracksWithLanguages(MimeTypes.TEXT_VTT, "en", selectedLanguage = "en"),
         params = initialParams,
       )
     lateinit var state: TrackSelectionState
@@ -459,7 +524,7 @@ class TrackSelectionStateTest {
   fun selectOption_textWithLanguage_setsPreferredTextLanguage() = runComposeUiTest {
     val player =
       createPlayerWithTracks(
-        tracks = createTestTracksWithLanguages("text/vtt", "en", selectedLanguage = "en")
+        tracks = createTestTracksWithLanguages(MimeTypes.TEXT_VTT, "en", selectedLanguage = "en")
       )
     lateinit var state: TrackSelectionState
     setContent {
@@ -484,7 +549,15 @@ class TrackSelectionStateTest {
 
   @Test
   fun selectOption_withValidOption_appliesPreferencesToPlayerParams() {
-    val player = createPlayerWithTracks(tracks = createTestTracks())
+    val tracks =
+      createTestTracks(
+        videoFormats =
+          listOf(
+            createVideoFormat(1920, 1080, MimeTypes.VIDEO_H264),
+            createVideoFormat(1280, 720, MimeTypes.VIDEO_H265),
+          )
+      )
+    val player = createPlayerWithTracks(tracks = tracks)
     val paramState = TrackSelectionParametersState(player)
     val state =
       TrackSelectionState(
@@ -494,14 +567,15 @@ class TrackSelectionStateTest {
       )
     val options = state.selectionOptions
     val option1080pMp4 = options.first {
-      it.width == 1920 && it.height == 1080 && it.sampleMimeType == "video/mp4"
+      it.width == 1920 && it.height == 1080 && it.sampleMimeType == MimeTypes.VIDEO_H264
     }
 
     state.selectOption(option1080pMp4)
 
     assertThat(player.trackSelectionParameters.maxVideoWidth).isEqualTo(1920)
     assertThat(player.trackSelectionParameters.maxVideoHeight).isEqualTo(1080)
-    assertThat(player.trackSelectionParameters.preferredVideoMimeTypes).containsExactly("video/mp4")
+    assertThat(player.trackSelectionParameters.preferredVideoMimeTypes)
+      .containsExactly(MimeTypes.VIDEO_H264)
   }
 
   @Test
@@ -515,7 +589,7 @@ class TrackSelectionStateTest {
         isSelected = false,
         width = 1920,
         height = 1080,
-        sampleMimeType = "video/mp4",
+        sampleMimeType = MimeTypes.VIDEO_H264,
       )
 
     state.selectOption(unknownOption)
@@ -530,7 +604,8 @@ class TrackSelectionStateTest {
       TrackSelectionParameters.DEFAULT.buildUpon().setPreferredAudioLanguage("en").build()
     val player =
       createPlayerWithTracks(
-        tracks = createTestTracksWithLanguages("audio/mp4", "en", "fr", selectedLanguage = "en"),
+        tracks =
+          createTestTracksWithLanguages(MimeTypes.AUDIO_AAC, "en", "fr", selectedLanguage = "en"),
         params = initialParams,
       )
     val paramState = TrackSelectionParametersState(player)

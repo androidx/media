@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
@@ -75,13 +76,16 @@ class TrackSelectionParametersStateTest {
     setContent { state = rememberTrackSelectionParametersState(player) }
 
     val newParams =
-      TrackSelectionParameters.DEFAULT.buildUpon().setPreferredVideoMimeTypes("video/avc").build()
+      TrackSelectionParameters.DEFAULT.buildUpon()
+        .setPreferredVideoMimeTypes(MimeTypes.VIDEO_H264)
+        .build()
 
     state.updateTrackSelectionParameters(newParams)
     waitForIdle()
 
     assertThat(state.trackSelectionParameters).isEqualTo(newParams)
-    assertThat(player.trackSelectionParameters.preferredVideoMimeTypes).containsExactly("video/avc")
+    assertThat(player.trackSelectionParameters.preferredVideoMimeTypes)
+      .containsExactly(MimeTypes.VIDEO_H264)
   }
 
   @Test
@@ -106,7 +110,9 @@ class TrackSelectionParametersStateTest {
       setContent { state = rememberTrackSelectionParametersState(player) }
 
       val newParams =
-        TrackSelectionParameters.DEFAULT.buildUpon().setPreferredVideoMimeTypes("video/avc").build()
+        TrackSelectionParameters.DEFAULT.buildUpon()
+          .setPreferredVideoMimeTypes(MimeTypes.VIDEO_H264)
+          .build()
 
       state.updateTrackSelectionParameters(newParams)
       waitForIdle()

@@ -18,44 +18,32 @@ package androidx.media3.ui.compose.testutils
 
 import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 
-/** Creates a standard set of tracks for testing. */
+/**
+ * Creates a set of tracks for testing: a video track group with [videoFormats], an English AAC
+ * audio track and a Spanish WebVTT text track.
+ *
+ * By default, the video track group contains a 1080p and a 720p H.264 format. Tests that assert on
+ * specific video formats should pass them in [videoFormats].
+ */
 internal fun createTestTracks(
+  videoFormats: List<Format> = listOf(createVideoFormat(1920, 1080), createVideoFormat(1280, 720)),
   selectedVideoTrackIndex: Int? = null,
-  includeMissingDataTrack: Boolean = false,
   videoHandledStates: IntArray? = null,
 ): Tracks {
-  val baseFormats =
-    listOf(
-        Triple(1920, 1080, "video/mp4"),
-        Triple(1920, 1080, "video/x-matroska"),
-        Triple(1280, 720, "video/mp4"),
-        Triple(1280, 720, "video/x-matroska"),
-        Triple(854, 480, "video/mp4"),
-        Triple(854, 480, "video/x-matroska"),
-        Triple(640, 360, "video/quicktime"),
-      )
-      .map { (w, h, mime) ->
-        Format.Builder().setWidth(w).setHeight(h).setSampleMimeType(mime).build()
-      }
-
-  val videoFormats =
-    if (includeMissingDataTrack) {
-      baseFormats + Format.Builder().setSampleMimeType("video/mp4").build()
-    } else {
-      baseFormats
-    }
   val videoTrackGroup = TrackGroup(*videoFormats.toTypedArray())
 
-  val audioFormat = Format.Builder().setSampleMimeType("audio/mp4").setLanguage("en").build()
+  val audioFormat =
+    Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setLanguage("en").build()
   val audioTrackGroup = TrackGroup(audioFormat)
 
-  val textFormat = Format.Builder().setSampleMimeType("text/vtt").setLanguage("es").build()
+  val textFormat = Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).setLanguage("es").build()
   val textTrackGroup = TrackGroup(textFormat)
 
-  val trackCount = if (includeMissingDataTrack) 8 else 7
+  val trackCount = videoFormats.size
   val defaultHandledStates = IntArray(trackCount) { C.FORMAT_HANDLED }
   val actualHandledStates = videoHandledStates ?: defaultHandledStates
   val isSelectedArray = BooleanArray(trackCount) { it == selectedVideoTrackIndex }
@@ -84,6 +72,14 @@ internal fun createTestTracks(
     )
   )
 }
+
+/** Creates a video [Format] with the specified resolution and sample MIME type. */
+internal fun createVideoFormat(
+  width: Int,
+  height: Int,
+  sampleMimeType: String = MimeTypes.VIDEO_H264,
+): Format =
+  Format.Builder().setWidth(width).setHeight(height).setSampleMimeType(sampleMimeType).build()
 
 /** Creates a set of tracks with specific languages for testing language-based selection. */
 internal fun createTestTracksWithLanguages(
