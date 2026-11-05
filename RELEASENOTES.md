@@ -236,6 +236,8 @@
     *   Allow reordering playlist items with drag and drop in the session demo
         app.
 *   Remove deprecated symbols:
+    *   Remove `androidx.media3.session.BitmapLoader`. Use
+        `androidx.media3.common.util.BitmapLoader` instead.
     *   Remove `androidx.media3.transformer.TextureAssetLoader`. Use
         `androidx.media3.transformer.RawAssetLoader` instead.
     *   Remove public `DefaultDecoderFactory` constructors. Use
