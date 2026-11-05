@@ -243,6 +243,8 @@
         `androidx.media3.common.util.BitmapLoader` instead.
     *   Remove `androidx.media3.transformer.TextureAssetLoader`. Use
         `androidx.media3.transformer.RawAssetLoader` instead.
+    *   Remove `BaseMediaSource.createEventDispatcher(MediaPeriodId, long)`. Use
+        `BaseMediaSource.createEventDispatcher(MediaPeriodId)` instead.
     *   Remove public `DefaultDecoderFactory` constructors. Use
         `DefaultDecoderFactory.Builder` instead.
     *   Remove `DefaultLoadErrorHandlingPolicy.DEFAULT_TRACK_BLACKLIST_MS`. Use

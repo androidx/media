@@ -128,19 +128,6 @@ public abstract class BaseMediaSource implements MediaSource {
    * Note: The {@code mediaTimeOffsetMs} passed to this method is ignored and not added to media
    * times in any way.
    *
-   * @deprecated Use {@link #createEventDispatcher(MediaPeriodId)} instead.
-   */
-  @Deprecated
-  protected final MediaSourceEventListener.EventDispatcher createEventDispatcher(
-      MediaPeriodId mediaPeriodId, long mediaTimeOffsetMs) {
-    checkNotNull(mediaPeriodId);
-    return eventDispatcher.withParameters(/* windowIndex= */ 0, mediaPeriodId);
-  }
-
-  /**
-   * Note: The {@code mediaTimeOffsetMs} passed to this method is ignored and not added to media
-   * times in any way.
-   *
    * @deprecated Use {@link #createEventDispatcher(int, MediaPeriodId)} instead.
    */
   @Deprecated
