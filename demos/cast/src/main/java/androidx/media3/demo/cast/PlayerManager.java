@@ -234,12 +234,12 @@ import java.util.ArrayList;
   // CastPlayer.SessionAvailabilityListener implementation.
 
   @Override
-  public void onCastSessionAvailable() {
+  public void onCastSessionAvailable(boolean startedByIntentToJoin) {
     setCurrentPlayer(remoteCastPlayer);
   }
 
   @Override
-  public void onCastSessionUnavailable() {
+  public void onCastSessionUnavailable(@SessionUnavailableReason int reason) {
     setCurrentPlayer(localPlayer);
   }
 

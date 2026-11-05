@@ -54,31 +54,45 @@ public interface SessionAvailabilityListener {
   /**
    * Called when a cast session becomes available to the player. This only gets called if {@link
    * #onCastSessionAvailable(boolean)} is not implemented.
+   *
+   * @deprecated Use {@link #onCastSessionAvailable(boolean)} instead, which indicates whether an
+   *     ongoing session is being joined to avoid overwriting the remote playback state with local
+   *     state.
    */
-  void onCastSessionAvailable();
+  @Deprecated
+  default void onCastSessionAvailable() {}
 
   /**
    * Called when a cast session becomes available to the player.
    *
    * @param startedByIntentToJoin Whether the session was started via an <a
    *     href="https://developers.google.com/cast/docs/android_sender/intent_to_join">intent to
-   *     join</a> an existing Cast session.
+   *     join</a> an existing Cast session. When {@code true}, the app is joining an ongoing remote
+   *     session, so callers transferring playback state should avoid overwriting the remote state
+   *     with the local player state.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   default void onCastSessionAvailable(boolean startedByIntentToJoin) {
     onCastSessionAvailable();
   }
 
   /**
-   * Called when the cast session becomes unavailable. This only gets called if
-   * onCastSessionUnavailable(@CastPlayer.CastSessionChangeReason int reason) is not implemented
+   * Called when the cast session becomes unavailable. This only gets called if {@link
+   * #onCastSessionUnavailable(int)} is not implemented.
+   *
+   * @deprecated Use {@link #onCastSessionUnavailable(int)} instead, which provides the {@link
+   *     SessionUnavailableReason} to help determine how playback state should be transferred back
+   *     to the local player (for example, whether to pause playback).
    */
-  void onCastSessionUnavailable();
+  @Deprecated
+  default void onCastSessionUnavailable() {}
 
   /**
    * Called when the cast session becomes unavailable with the specified reason. The reason can
    * affect the player state transfer. For example, a "Stop Casting" button press or a disconnection
    * typically require the playback to pause.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated listener method.
   default void onCastSessionUnavailable(@SessionUnavailableReason int reason) {
     onCastSessionUnavailable();
   }

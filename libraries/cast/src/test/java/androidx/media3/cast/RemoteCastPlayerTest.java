@@ -3130,12 +3130,10 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated listener method.
   public void onCastSessionUnavailable_notifiesLegacyListener() {
     class LegacyListener implements SessionAvailabilityListener {
       boolean onCastSessionUnavailableCalled = false;
-
-      @Override
-      public void onCastSessionAvailable() {}
 
       @Override
       public void onCastSessionUnavailable() {
@@ -5207,6 +5205,7 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated listener method.
   public void onSessionStarted_withLegacyListener_notifiesAvailable() {
     class LegacyListener implements SessionAvailabilityListener {
       boolean onCastSessionAvailableCalled = false;
@@ -5215,9 +5214,6 @@ public class RemoteCastPlayerTest {
       public void onCastSessionAvailable() {
         onCastSessionAvailableCalled = true;
       }
-
-      @Override
-      public void onCastSessionUnavailable() {}
     }
     sessionManagerListener.onSessionEnded(mockCastSession, /* error= */ 0);
     LegacyListener legacyListener = new LegacyListener();

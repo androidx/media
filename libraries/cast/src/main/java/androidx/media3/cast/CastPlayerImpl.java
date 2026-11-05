@@ -105,25 +105,9 @@ import com.google.common.util.concurrent.ListenableFuture;
   private class SessionAvailabilityListenerImpl implements SessionAvailabilityListener {
 
     @Override
-    public void onCastSessionAvailable() {
-      // This should never be called as the overload that takes startedByIntentToJoin is
-      // implemented.
-      throw new IllegalStateException(
-          "onCastSessionAvailable() called when overload which takes startedByIntentToJoin is"
-              + " implemented.");
-    }
-
-    @Override
     public void onCastSessionAvailable(boolean startedByIntentToJoin) {
       updateActivePlayer(
           /* shouldTransferState= */ !startedByIntentToJoin, /* shouldPauseOnTransfer= */ false);
-    }
-
-    @Override
-    public void onCastSessionUnavailable() {
-      // This should never be called as the overload that takes a reason is implemented.
-      throw new IllegalStateException(
-          "onCastSessionUnavailable() called when overload which takes reason is implemented.");
     }
 
     @Override
