@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
-import com.google.common.primitives.Booleans;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.EOFException;
 import java.io.IOException;
@@ -270,9 +269,13 @@ public final class FakeExtractorInput implements ExtractorInput {
       boolean[] partiallySatisfiedTargetPositions =
           isPeek ? partiallySatisfiedTargetPeekPositions : partiallySatisfiedTargetReadPositions;
       if (targetPosition >= partiallySatisfiedTargetPositions.length) {
+        int doubledLength =
+            partiallySatisfiedTargetPositions.length > Integer.MAX_VALUE / 2
+                ? Integer.MAX_VALUE
+                : partiallySatisfiedTargetPositions.length * 2;
         partiallySatisfiedTargetPositions =
-            Booleans.ensureCapacity(
-                partiallySatisfiedTargetPositions, targetPosition + 1, /* padding= */ 0);
+            Arrays.copyOf(
+                partiallySatisfiedTargetPositions, max(targetPosition + 1, doubledLength));
         if (isPeek) {
           partiallySatisfiedTargetPeekPositions = partiallySatisfiedTargetPositions;
         } else {

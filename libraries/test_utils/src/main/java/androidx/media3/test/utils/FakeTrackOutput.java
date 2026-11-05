@@ -23,6 +23,7 @@ import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.test.utils.Dumper.Dumpable;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   private final ArrayList<Dumpable> dumpables;
   private final ByteArrayOutputStream sampleData;
 
+  private byte[] scratchData;
   private byte @Nullable [] cachedSampleData;
   private int formatCount;
   private boolean receivedSampleInFormat;
@@ -65,6 +67,7 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     sampleInfos = new ArrayList<>();
     dumpables = new ArrayList<>();
     sampleData = new ByteArrayOutputStream();
+    scratchData = Util.EMPTY_BYTE_ARRAY;
     formatCount = 0;
     receivedSampleInFormat = true;
     durationUs = C.TIME_UNSET;
@@ -108,15 +111,17 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   public int sampleData(
       DataReader input, int length, boolean allowEndOfInput, @SampleDataPart int sampleDataPart)
       throws IOException {
-    byte[] newData = new byte[length];
-    int bytesAppended = input.read(newData, 0, length);
+    if (scratchData.length < length) {
+      scratchData = new byte[length];
+    }
+    int bytesAppended = input.read(scratchData, /* offset= */ 0, length);
     if (bytesAppended == C.RESULT_END_OF_INPUT) {
       if (allowEndOfInput) {
         return C.RESULT_END_OF_INPUT;
       }
       throw new EOFException();
     }
-    sampleData.write(newData, 0, bytesAppended);
+    sampleData.write(scratchData, /* off= */ 0, bytesAppended);
     cachedSampleData = null;
     return bytesAppended;
   }

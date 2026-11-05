@@ -18,6 +18,7 @@ package androidx.media3.extractor;
 import static androidx.media3.common.C.BUFFER_FLAG_KEY_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -58,7 +59,7 @@ public final class SingleSampleExtractor implements Extractor {
    */
   public static final int IMAGE_TRACK_ID = 1024;
 
-  private static final int FIXED_READ_LENGTH = 1024;
+  private static final int MAX_READ_LENGTH = C.DEFAULT_BUFFER_SEGMENT_SIZE;
 
   private int size;
   private @State int state;
@@ -122,8 +123,19 @@ public final class SingleSampleExtractor implements Extractor {
   }
 
   private void readSegment(ExtractorInput input) throws IOException {
+    long inputLength = input.getLength();
+    long inputPosition = input.getPosition();
+    int bytesToRead;
+    if (inputLength == C.LENGTH_UNSET || inputPosition > inputLength) {
+      // Unknown or underreported input length.
+      bytesToRead = MAX_READ_LENGTH;
+    } else if (inputPosition == inputLength) {
+      bytesToRead = 1;
+    } else {
+      bytesToRead = (int) min(MAX_READ_LENGTH, inputLength - inputPosition);
+    }
     int result =
-        checkNotNull(trackOutput).sampleData(input, FIXED_READ_LENGTH, /* allowEndOfInput= */ true);
+        checkNotNull(trackOutput).sampleData(input, bytesToRead, /* allowEndOfInput= */ true);
     if (result == C.RESULT_END_OF_INPUT) {
       state = STATE_ENDED;
       @C.BufferFlags int flags = BUFFER_FLAG_KEY_FRAME;
