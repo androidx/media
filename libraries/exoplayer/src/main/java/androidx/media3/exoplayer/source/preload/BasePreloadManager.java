@@ -458,6 +458,9 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
           PreloadStatusT targetPreloadStatus =
               getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
           if (targetPreloadStatus == null) {
+            if (mediaSourceHolderMap.get(updatedMediaSource) == null) {
+              releaseSourceInternal(updatedMediaSource);
+            }
             return;
           }
           MediaSourceHolder sourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaItem));
@@ -551,15 +554,28 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   /**
    * Releases the given {@link MediaSourceHolder}.
    *
+   * <p>The default implementation marks the holder as released and calls {@link
+   * #releaseSourceInternal(MediaSource)} on its media source.
+   *
    * @param mediaSourceHolder The {@link MediaSourceHolder} to remove.
    */
   @CallSuper
   protected void releaseMediaSourceHolderInternal(MediaSourceHolder mediaSourceHolder) {
     mediaSourceHolder.release();
+    releaseSourceInternal(mediaSourceHolder.getMediaSource());
   }
 
   /** Releases the preload manager, see {@link #release()}. */
   protected void releaseInternal() {}
+
+  /**
+   * Releases the given {@link MediaSource}.
+   *
+   * <p>Called when a {@link MediaSourceHolder} is released, when its {@link MediaSource} is
+   * replaced, or when an updated {@link MediaSource} passed to {@link #onMediaSourceUpdated} is
+   * unused.
+   */
+  protected void releaseSourceInternal(MediaSource mediaSource) {}
 
   /**
    * Starts to preload the {@link MediaSource} at the head of the priority list.
@@ -616,8 +632,17 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
       return mediaSource;
     }
 
-    public synchronized void setMediaSource(MediaSource mediaSource) {
-      this.mediaSource = mediaSource;
+    public void setMediaSource(MediaSource mediaSource) {
+      @Nullable MediaSource oldMediaSource = null;
+      synchronized (this) {
+        if (this.mediaSource != mediaSource) {
+          oldMediaSource = this.mediaSource;
+        }
+        this.mediaSource = mediaSource;
+      }
+      if (oldMediaSource != null) {
+        releaseSourceInternal(oldMediaSource);
+      }
     }
 
     @Override

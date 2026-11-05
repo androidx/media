@@ -745,6 +745,15 @@ public final class DefaultPreloadManager
   }
 
   @Override
+  protected void releaseSourceInternal(MediaSource mediaSource) {
+    if (releaseCalled) {
+      return;
+    }
+    checkArgument(mediaSource instanceof PreloadMediaSource);
+    ((PreloadMediaSource) mediaSource).releasePreloadMediaSource();
+  }
+
+  @Override
   protected void releaseMediaSourceHolderInternal(MediaSourceHolder mediaSourceHolder) {
     if (releaseCalled) {
       return;
@@ -753,7 +762,6 @@ public final class DefaultPreloadManager
     checkArgument(mediaSourceHolder instanceof PreloadMediaSourceHolder);
     PreloadMediaSourceHolder preloadMediaSourceHolder =
         (PreloadMediaSourceHolder) mediaSourceHolder;
-    preloadMediaSourceHolder.getMediaSource().releasePreloadMediaSource();
     if (preloadMediaSourceHolder.preCacheHelper != null) {
       preloadMediaSourceHolder.preCacheHelper.release(/* removeCachedContent= */ true);
       preloadMediaSourceHolder.preCacheHelper = null;
@@ -995,12 +1003,6 @@ public final class DefaultPreloadManager
     @Override
     public synchronized PreloadMediaSource getMediaSource() {
       return (PreloadMediaSource) super.getMediaSource();
-    }
-
-    @Override
-    public synchronized void setMediaSource(MediaSource mediaSource) {
-      getMediaSource().releasePreloadMediaSource();
-      super.setMediaSource(mediaSource);
     }
   }
 }

@@ -65,6 +65,7 @@ internal class ShortFormState(
 
       override fun getTargetPreloadStatus(rankingData: Int) =
         when (abs(rankingData - currentPlayingIndex)) {
+          0,
           1 -> DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 3000L)
           in 2..playerPoolCapacity ->
             DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 1000L)
