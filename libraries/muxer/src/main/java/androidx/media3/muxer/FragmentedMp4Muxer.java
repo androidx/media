@@ -130,8 +130,9 @@ public final class FragmentedMp4Muxer implements Muxer {
     /**
      * Sets the fragment duration (in milliseconds).
      *
-     * <p>The muxer will attempt to create fragments of the given duration but the actual duration
-     * might be greater depending upon the frequency of sync samples.
+     * <p>The muxer will attempt to create fragments of the given duration, but when {@linkplain
+     * #setFragmentsMustStartWithKeyFrame(boolean) fragments must start with a key frame} (the
+     * default), the actual duration might be greater depending upon the frequency of sync samples.
      *
      * <p>The default value is {@link #DEFAULT_FRAGMENT_DURATION_MS}.
      */
