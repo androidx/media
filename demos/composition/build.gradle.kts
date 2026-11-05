@@ -47,7 +47,6 @@ dependencies {
   implementation(project(":lib-effect-play-services"))
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-exoplayer-dash"))
-  implementation(project(":lib-muxer"))
   implementation(project(":lib-transformer"))
   implementation(project(":lib-inspector"))
   implementation(project(":lib-ui-compose-material3"))

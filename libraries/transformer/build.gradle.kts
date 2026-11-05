@@ -27,7 +27,6 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation)
-  implementation(libs.androidx.concurrent.futures)
   implementation(project(":lib-datasource"))
   implementation(project(":lib-container"))
   api(project(":lib-exoplayer"))
@@ -43,7 +42,6 @@ dependencies {
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.truth)
   testImplementation(libs.guava.testlib)
-  testImplementation(project(":lib-inspector"))
   androidTestRuntimeOnly(libs.dexmaker.mockito)
   androidTestImplementation(libs.junit)
   androidTestImplementation(libs.androidx.test.runner)
