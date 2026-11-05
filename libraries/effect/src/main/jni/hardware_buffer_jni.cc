@@ -5,6 +5,7 @@
 #include <android/hardware_buffer_jni.h>
 #include <android/log.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #endif  //  __ANDROID__
@@ -327,6 +328,171 @@ jboolean nativeIsNv21(JNIEnv* env, jobject /* this */, jobject uBuffer,
   return vPtr < uPtr;
 }
 
+namespace {
+
+enum class ChromaLayout {
+  kPlanar,
+  kNv12,
+  kNv21,
+};
+
+bool hasSufficientPlaneCapacity(JNIEnv* env, jobject buffer, jint offset,
+                                jint rowStride, size_t width, size_t height,
+                                size_t pixelStride) {
+  const jlong capacity = env->GetDirectBufferCapacity(buffer);
+  if (capacity < 0 || offset < 0 || rowStride <= 0) {
+    return false;
+  }
+  const uint64_t minRowBytes = static_cast<uint64_t>(width) * pixelStride;
+  if (static_cast<uint64_t>(rowStride) < minRowBytes) {
+    return false;
+  }
+  const uint64_t minFinalRowBytes =
+      static_cast<uint64_t>(width - 1) * pixelStride + 1;
+  const uint64_t requiredBytes =
+      static_cast<uint64_t>(offset) +
+      static_cast<uint64_t>(height - 1) * static_cast<uint64_t>(rowStride) +
+      minFinalRowBytes;
+  return requiredBytes <= static_cast<uint64_t>(capacity);
+}
+
+void convertPlanarChromaRow(const uint8_t* srcRow0, const uint8_t* srcRow1,
+                            size_t chromaWidth, uint8_t* dstURow,
+                            uint8_t* dstVRow) {
+  for (size_t x = 0; x < chromaWidth; ++x) {
+    dstURow[x] = (srcRow0[4 * x + 1] + srcRow1[4 * x + 1] + 1) >> 1;
+    dstVRow[x] = (srcRow0[4 * x + 3] + srcRow1[4 * x + 3] + 1) >> 1;
+  }
+}
+
+void convertNv12ChromaRow(const uint8_t* srcRow0, const uint8_t* srcRow1,
+                          size_t chromaWidth, uint8_t* dstUvRow) {
+  for (size_t x = 0; x < chromaWidth; ++x) {
+    dstUvRow[2 * x] = (srcRow0[4 * x + 1] + srcRow1[4 * x + 1] + 1) >> 1;
+    dstUvRow[2 * x + 1] = (srcRow0[4 * x + 3] + srcRow1[4 * x + 3] + 1) >> 1;
+  }
+}
+
+void convertNv21ChromaRow(const uint8_t* srcRow0, const uint8_t* srcRow1,
+                          size_t chromaWidth, uint8_t* dstVuRow) {
+  for (size_t x = 0; x < chromaWidth; ++x) {
+    dstVuRow[2 * x] = (srcRow0[4 * x + 3] + srcRow1[4 * x + 3] + 1) >> 1;
+    dstVuRow[2 * x + 1] = (srcRow0[4 * x + 1] + srcRow1[4 * x + 1] + 1) >> 1;
+  }
+}
+
+}  // namespace
+
+jboolean nativeConvertYuy2ToYuv420Planes(
+    JNIEnv* env, jobject /* this */, jobject packedYuy2Buffer,
+    jint packedOffset, jint width, jint height, jobject yBuffer, jint yOffset,
+    jint yRowStride, jobject uBuffer, jint uOffset, jint uRowStride,
+    jobject vBuffer, jint vOffset, jint vRowStride, jint chromaPixelStride) {
+  const auto* packedPtr = static_cast<const uint8_t*>(
+      env->GetDirectBufferAddress(packedYuy2Buffer));
+  auto* yPtr = static_cast<uint8_t*>(env->GetDirectBufferAddress(yBuffer));
+  auto* uPtr = static_cast<uint8_t*>(env->GetDirectBufferAddress(uBuffer));
+  auto* vPtr = static_cast<uint8_t*>(env->GetDirectBufferAddress(vBuffer));
+  if (!packedPtr || !yPtr || !uPtr || !vPtr) {
+    LOGE("GetDirectBufferAddress returned null for YUY2 conversion.");
+    return JNI_FALSE;
+  }
+  if (chromaPixelStride != 1 && chromaPixelStride != 2) {
+    LOGE("chromaPixelStride must be 1 or 2, got: %d", chromaPixelStride);
+    return JNI_FALSE;
+  }
+  if (chromaPixelStride == 2 && uRowStride != vRowStride) {
+    LOGE("Semi-planar U and V row strides must match.");
+    return JNI_FALSE;
+  }
+  if (width <= 0 || height <= 0) {
+    LOGE("Invalid dimensions: %dx%d", width, height);
+    return JNI_FALSE;
+  }
+
+  const size_t imageWidth = static_cast<size_t>(width);
+  const size_t imageHeight = static_cast<size_t>(height);
+  const size_t chromaWidth = (imageWidth + 1) / 2;
+  const size_t chromaHeight = (imageHeight + 1) / 2;
+  const uint64_t packedRowBytes = static_cast<uint64_t>(chromaWidth) * 4;
+
+  const jlong packedCapacity = env->GetDirectBufferCapacity(packedYuy2Buffer);
+  const uint64_t requiredPackedBytes =
+      static_cast<uint64_t>(packedOffset) + imageHeight * packedRowBytes;
+  const bool hasPackedCapacity =
+      packedCapacity >= 0 && packedOffset >= 0 &&
+      requiredPackedBytes <= static_cast<uint64_t>(packedCapacity);
+  const bool hasYCapacity =
+      hasSufficientPlaneCapacity(env, yBuffer, yOffset, yRowStride, imageWidth,
+                                 imageHeight, /*pixelStride=*/1);
+  const bool hasUCapacity = hasSufficientPlaneCapacity(
+      env, uBuffer, uOffset, uRowStride, chromaWidth, chromaHeight,
+      static_cast<size_t>(chromaPixelStride));
+  const bool hasVCapacity = hasSufficientPlaneCapacity(
+      env, vBuffer, vOffset, vRowStride, chromaWidth, chromaHeight,
+      static_cast<size_t>(chromaPixelStride));
+  if (!hasPackedCapacity || !hasYCapacity || !hasUCapacity || !hasVCapacity) {
+    LOGE("Insufficient direct ByteBuffer capacity for YUY2 conversion.");
+    return JNI_FALSE;
+  }
+
+  const uint8_t* packedBase = packedPtr + packedOffset;
+  uint8_t* yBase = yPtr + yOffset;
+  uint8_t* uBase = uPtr + uOffset;
+  uint8_t* vBase = vPtr + vOffset;
+
+  ChromaLayout chromaLayout = ChromaLayout::kPlanar;
+  if (chromaPixelStride == 2) {
+    const uintptr_t uAddr = reinterpret_cast<uintptr_t>(uBase);
+    const uintptr_t vAddr = reinterpret_cast<uintptr_t>(vBase);
+    if (uAddr + 1 != vAddr && vAddr + 1 != uAddr) {
+      LOGE("Semi-planar U and V buffers must be interleaved 1 byte apart.");
+      return JNI_FALSE;
+    }
+    chromaLayout = (vAddr < uAddr) ? ChromaLayout::kNv21 : ChromaLayout::kNv12;
+  }
+
+  // Each 4-byte YUY2 macropixel is [Y0, U, Y1, V]: luma samples are at even
+  // byte offsets (2 * x), U is at 4 * x + 1, and V is at 4 * x + 3.
+  for (size_t y = 0; y < imageHeight; ++y) {
+    const uint8_t* srcRow = packedBase + y * packedRowBytes;
+    uint8_t* dstYRow = yBase + y * static_cast<size_t>(yRowStride);
+    for (size_t x = 0; x < imageWidth; ++x) {
+      dstYRow[x] = srcRow[2 * x];
+    }
+
+    if (y % 2 == 0) {
+      const size_t chromaRow = y / 2;
+      // If height is odd, the final row has no odd partner; passing srcRow
+      // twice averages the row with itself ((v + v + 1) >> 1 == v).
+      const uint8_t* srcRowNext =
+          (y + 1 < imageHeight) ? (srcRow + packedRowBytes) : srcRow;
+      // Separate helpers let the compiler auto-vectorize each loop, since
+      // NV12/NV21 write via one pointer instead of overlapping uBase/vBase.
+      switch (chromaLayout) {
+        case ChromaLayout::kPlanar:
+          convertPlanarChromaRow(
+              srcRow, srcRowNext, chromaWidth,
+              uBase + chromaRow * static_cast<size_t>(uRowStride),
+              vBase + chromaRow * static_cast<size_t>(vRowStride));
+          break;
+        case ChromaLayout::kNv12:
+          convertNv12ChromaRow(
+              srcRow, srcRowNext, chromaWidth,
+              uBase + chromaRow * static_cast<size_t>(uRowStride));
+          break;
+        case ChromaLayout::kNv21:
+          convertNv21ChromaRow(
+              srcRow, srcRowNext, chromaWidth,
+              vBase + chromaRow * static_cast<size_t>(vRowStride));
+          break;
+      }
+    }
+  }
+
+  return JNI_TRUE;
+}
+
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
@@ -370,6 +536,10 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
        reinterpret_cast<void*>(nativeCopyHardwareBufferToHardwareBuffer)},
       {"nativeIsNv21", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Z",
        reinterpret_cast<void*>(nativeIsNv21)},
+      {"nativeConvertYuy2ToYuv420Planes",
+       "(Ljava/nio/ByteBuffer;IIILjava/nio/ByteBuffer;IILjava/nio/ByteBuffer;"
+       "IILjava/nio/ByteBuffer;III)Z",
+       reinterpret_cast<void*>(nativeConvertYuy2ToYuv420Planes)},
   };
   if (env->RegisterNatives(clazz, kMethods,
                            sizeof(kMethods) / sizeof(kMethods[0])) < 0) {

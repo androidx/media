@@ -54,6 +54,9 @@ public final class FrameProcessorUtils {
 
   private static final String TAG = "FrameProcessorUtils";
   private static final long TIMEOUT_MS = 500;
+  private static final int YUV_420_BYTES_PER_SAMPLE = 1;
+  private static final int LUMA_PIXEL_STRIDE = 1;
+  private static final int PLANAR_CHROMA_PIXEL_STRIDE = 1;
 
   /** Data class holding handles to {@code EglImage}, texture ID and frame buffer object ID. */
   public static final class EglImageTextureWrapper {
@@ -91,6 +94,7 @@ public final class FrameProcessorUtils {
   public static final int OPEN_GL_VERSION_3 = 3;
 
   /* package */ static final int RGBA_8888_BYTES_PER_PIXEL = 4;
+  /* package */ static final int SEMI_PLANAR_CHROMA_PIXEL_STRIDE = 2;
 
   /**
    * Sets up the OpenGL context on the current thread.
@@ -350,18 +354,64 @@ public final class FrameProcessorUtils {
         planes.size() == 1 && planes.get(0).getPixelStride() == RGBA_8888_BYTES_PER_PIXEL,
         "Expected 1 plane with pixelStride of %s for RGBA_8888",
         RGBA_8888_BYTES_PER_PIXEL);
-    validatePlaneDimensions(planes.get(0), width, height);
+    validatePlaneDimensions(planes.get(0), width, height, RGBA_8888_BYTES_PER_PIXEL);
   }
 
   /**
-   * Validates the row stride and remaining buffer capacity of a non-interleaved {@link Plane}.
-   *
-   * <p>Checks that {@code plane} (where each sample occupies {@link Plane#getPixelStride()} bytes)
-   * can hold {@code width} by {@code height} pixels at its {@linkplain Plane#getPixelStride() pixel
-   * stride} and {@linkplain Plane#getRowStride() row stride}.
+   * Validates planar or semi-planar 8-bit YUV 4:2:0 planes for a {@code width}-by-{@code height}
+   * frame.
    */
-  /* package */ static void validatePlaneDimensions(Plane plane, int width, int height) {
-    validatePlaneDimensions(plane, width, height, /* bytesPerSample= */ plane.getPixelStride());
+  /* package */ static void validateYuv420Planes(List<Plane> planes, int width, int height) {
+    checkArgument(planes.size() == 3, "Expected 3 planes for YUV 4:2:0, got: %s", planes.size());
+    if (planes.get(1).getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE) {
+      validateSemiPlanarYuv420Planes(planes, width, height);
+    } else {
+      validatePlanarYuv420Planes(planes, width, height);
+    }
+  }
+
+  /** Validates planar 8-bit YUV 4:2:0 planes for a {@code width}-by-{@code height} frame. */
+  /* package */ static void validatePlanarYuv420Planes(List<Plane> planes, int width, int height) {
+    checkArgument(planes.size() == 3, "Expected 3 planes for YUV 4:2:0, got: %s", planes.size());
+    checkArgument(
+        planes.get(0).getPixelStride() == LUMA_PIXEL_STRIDE
+            && planes.get(1).getPixelStride() == PLANAR_CHROMA_PIXEL_STRIDE
+            && planes.get(2).getPixelStride() == PLANAR_CHROMA_PIXEL_STRIDE,
+        "Expected luma pixelStride %s and chroma pixelStride %s for planar YUV",
+        LUMA_PIXEL_STRIDE,
+        PLANAR_CHROMA_PIXEL_STRIDE);
+    validateYuv420PlaneDimensions(planes, width, height);
+  }
+
+  /** Validates semi-planar 8-bit YUV 4:2:0 planes for a {@code width}-by-{@code height} frame. */
+  /* package */ static void validateSemiPlanarYuv420Planes(
+      List<Plane> planes, int width, int height) {
+    checkArgument(planes.size() == 3, "Expected 3 planes for YUV 4:2:0, got: %s", planes.size());
+    Plane uPlane = planes.get(1);
+    Plane vPlane = planes.get(2);
+    checkArgument(
+        planes.get(0).getPixelStride() == LUMA_PIXEL_STRIDE
+            && uPlane.getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE
+            && vPlane.getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE,
+        "Expected luma pixelStride %s and chroma pixelStride %s for semi-planar YUV",
+        LUMA_PIXEL_STRIDE,
+        SEMI_PLANAR_CHROMA_PIXEL_STRIDE);
+    checkArgument(
+        uPlane.getRowStride() == vPlane.getRowStride(),
+        "U and V planes of interleaved chroma must have the same rowStride, got %s and %s",
+        uPlane.getRowStride(),
+        vPlane.getRowStride());
+    validateYuv420PlaneDimensions(planes, width, height);
+  }
+
+  private static void validateYuv420PlaneDimensions(List<Plane> planes, int width, int height) {
+    validatePlaneDimensions(planes.get(0), width, height, YUV_420_BYTES_PER_SAMPLE);
+
+    // Round up odd dimensions so the subsampled UV planes cover the full Y plane.
+    int chromaWidth = (width + 1) / 2;
+    int chromaHeight = (height + 1) / 2;
+    validatePlaneDimensions(planes.get(1), chromaWidth, chromaHeight, YUV_420_BYTES_PER_SAMPLE);
+    validatePlaneDimensions(planes.get(2), chromaWidth, chromaHeight, YUV_420_BYTES_PER_SAMPLE);
   }
 
   /**
@@ -372,8 +422,9 @@ public final class FrameProcessorUtils {
    * height} samples at its {@linkplain Plane#getPixelStride() pixel stride} and {@linkplain
    * Plane#getRowStride() row stride}.
    */
-  /* package */ static void validatePlaneDimensions(
+  private static void validatePlaneDimensions(
       Plane plane, int width, int height, int bytesPerSample) {
+    checkArgument(width > 0 && height > 0, "Invalid plane dimensions: %sx%s", width, height);
     ByteBuffer buffer = plane.getBuffer();
     int rowStride = plane.getRowStride();
     int pixelStride = plane.getPixelStride();

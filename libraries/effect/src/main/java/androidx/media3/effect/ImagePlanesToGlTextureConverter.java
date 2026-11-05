@@ -17,10 +17,12 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.util.GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE;
 import static androidx.media3.common.util.GlUtil.checkGlError;
+import static androidx.media3.effect.FrameProcessorUtils.SEMI_PLANAR_CHROMA_PIXEL_STRIDE;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorComponents;
-import static androidx.media3.effect.FrameProcessorUtils.validatePlaneDimensions;
+import static androidx.media3.effect.FrameProcessorUtils.validatePlanarYuv420Planes;
 import static androidx.media3.effect.FrameProcessorUtils.validateRgba8888Planes;
+import static androidx.media3.effect.FrameProcessorUtils.validateSemiPlanarYuv420Planes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -65,10 +67,6 @@ import org.jspecify.annotations.Nullable;
  */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 /* package */ final class ImagePlanesToGlTextureConverter implements FrameToGlTextureConverter {
-
-  private static final int LUMA_BYTES_PER_PIXEL = 1;
-  private static final int CHROMA_BYTES_PER_SAMPLE = 1;
-  private static final int SEMI_PLANAR_CHROMA_PIXEL_STRIDE = 2;
 
   private final Context context;
   private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
@@ -432,11 +430,6 @@ import org.jspecify.annotations.Nullable;
     private void validateFrame(ImagePlanesFrame frame) {
       Format inputFormat = frame.getFormat();
       checkArgument(
-          inputFormat.width > 0 && inputFormat.height > 0,
-          "Unsupported frame dimensions: %sx%s",
-          inputFormat.width,
-          inputFormat.height);
-      checkArgument(
           !ColorInfo.isWideColorGamut(inputFormat.colorInfo),
           "Unsupported color space: %s",
           inputFormat.colorInfo);
@@ -596,27 +589,13 @@ import org.jspecify.annotations.Nullable;
 
   private final class PlanarYuvPlaneRenderer extends PlaneRenderer {
 
-    private static final int PLANAR_CHROMA_PIXEL_STRIDE = 1;
-
     private PlanarYuvPlaneRenderer() {
       super(R.raw.fragment_shader_yuv_planar_es2, /* planeTextureCount= */ 3);
     }
 
     @Override
     /* package */ void validatePlanes(List<Plane> planes, int width, int height) {
-      checkArgument(
-          planes.get(0).getPixelStride() == LUMA_BYTES_PER_PIXEL
-              && planes.get(1).getPixelStride() == PLANAR_CHROMA_PIXEL_STRIDE
-              && planes.get(2).getPixelStride() == PLANAR_CHROMA_PIXEL_STRIDE,
-          "Expected luma pixelStride %s and chroma pixelStride %s for planar YUV",
-          LUMA_BYTES_PER_PIXEL,
-          PLANAR_CHROMA_PIXEL_STRIDE);
-      validatePlaneDimensions(planes.get(0), width, height);
-      // Round up odd dimensions so the subsampled UV planes cover the full Y plane.
-      int chromaWidth = (width + 1) / 2;
-      int chromaHeight = (height + 1) / 2;
-      validatePlaneDimensions(planes.get(1), chromaWidth, chromaHeight);
-      validatePlaneDimensions(planes.get(2), chromaWidth, chromaHeight);
+      validatePlanarYuv420Planes(planes, width, height);
     }
 
     @Override
@@ -675,26 +654,7 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     /* package */ void validatePlanes(List<Plane> planes, int width, int height) {
-      checkArgument(
-          planes.get(0).getPixelStride() == LUMA_BYTES_PER_PIXEL
-              && planes.get(1).getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE
-              && planes.get(2).getPixelStride() == SEMI_PLANAR_CHROMA_PIXEL_STRIDE,
-          "Expected luma pixelStride %s and chroma pixelStride %s for semi-planar YUV",
-          LUMA_BYTES_PER_PIXEL,
-          SEMI_PLANAR_CHROMA_PIXEL_STRIDE);
-      validatePlaneDimensions(planes.get(0), width, height);
-      // Round up odd dimensions so the subsampled UV planes cover the full Y plane.
-      int chromaWidth = (width + 1) / 2;
-      int chromaHeight = (height + 1) / 2;
-      Plane uPlane = planes.get(1);
-      Plane vPlane = planes.get(2);
-      validatePlaneDimensions(uPlane, chromaWidth, chromaHeight, CHROMA_BYTES_PER_SAMPLE);
-      validatePlaneDimensions(vPlane, chromaWidth, chromaHeight, CHROMA_BYTES_PER_SAMPLE);
-      checkArgument(
-          uPlane.getRowStride() == vPlane.getRowStride(),
-          "U and V planes of interleaved chroma must have the same rowStride, got %s and %s",
-          uPlane.getRowStride(),
-          vPlane.getRowStride());
+      validateSemiPlanarYuv420Planes(planes, width, height);
     }
 
     @Override

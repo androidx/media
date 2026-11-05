@@ -18,11 +18,14 @@ package androidx.media3.effect
 import android.graphics.Bitmap
 import android.hardware.HardwareBuffer
 import androidx.annotation.RequiresApi
+import androidx.annotation.RestrictTo
+import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.video.HardwareBufferNativeHelpers
+import androidx.media3.common.video.ImagePlanesFrame.Plane
 import java.nio.ByteBuffer
 
-/** Wrapper for [HardwareBuffer] interaction and native [ByteBuffer] query JNI methods. */
+/** Wrapper for [HardwareBuffer] interaction and native [ByteBuffer] JNI methods. */
 @ExperimentalApi // TODO: b/474075198: Remove once FrameConsumer API is stable.
 interface HardwareBufferJniWrapper : HardwareBufferNativeHelpers {
   /** Creates an EGLImage from a [HardwareBuffer]. */
@@ -79,6 +82,39 @@ interface HardwareBufferJniWrapper : HardwareBufferNativeHelpers {
    * The default implementation throws [UnsupportedOperationException].
    */
   fun nativeIsNv21(uBuffer: ByteBuffer, vBuffer: ByteBuffer): Boolean {
+    throw UnsupportedOperationException()
+  }
+
+  /**
+   * Converts a YUY2 [ByteBuffer] into 8-bit YUV 4:2:0 [planes][Plane] (Y, U, V).
+   *
+   * Reads 4-byte `[Y0, U, Y1, V]` macropixels (two pixels sharing horizontal chroma) from
+   * [yuy2Buffer] starting at its [position][ByteBuffer.position] (`ceil(width / 2) * 4` bytes per
+   * row; when [width] is odd, the final macropixel's `Y1` byte is ignored). Writes luma to every
+   * row and averages adjacent even and odd rows for 4:2:0 chroma (`(even + odd + 1) >> 1`, or the
+   * final row alone when [height] is odd), supporting planar (I420, YV12) and semi-planar (NV12,
+   * NV21) [outputPlanes] without modifying buffer positions or limits. For a `4x2` frame:
+   * ```
+   * Input yuy2Buffer (8 bytes/row):
+   *   Row 0: [Y0, U0, Y1, V0, Y2, U1, Y3, V1]
+   *   Row 1: [Y4, U2, Y5, V2, Y6, U3, Y7, V3]
+   *
+   * Output planes:
+   *   Y (4x2): [Y0, Y1, Y2, Y3]    U (2x1): [(U0+U2+1)>>1, (U1+U3+1)>>1]
+   *            [Y4, Y5, Y6, Y7]    V (2x1): [(V0+V2+1)>>1, (V1+V3+1)>>1]
+   * ```
+   *
+   * All buffers must be [direct][ByteBuffer.isDirect]. The default implementation throws
+   * [UnsupportedOperationException].
+   */
+  // TODO(b/531653682): Remove LIBRARY_GROUP restriction when ImagePlanesFrame is published.
+  @RestrictTo(LIBRARY_GROUP)
+  fun convertYuy2ToYuv420Planes(
+    yuy2Buffer: ByteBuffer,
+    width: Int,
+    height: Int,
+    outputPlanes: List<@JvmSuppressWildcards Plane>,
+  ) {
     throw UnsupportedOperationException()
   }
 }
