@@ -21,4 +21,14 @@
     <string name="media_route_button_connecting">Cast. Connecting</string>
     <!-- Content description for the media route button when it is in the connected state. [CHAR LIMIT=60] -->
     <string name="media_route_button_connected">Cast. Connected</string>
+    <!-- Content description for the media route button when it is in the error state. [CHAR LIMIT=60] -->
+    <string name="media_route_button_error">Cast. Error</string>
+    <!-- Title for the dialog shown when casting fails due to Cast SDK load failure. [CHAR LIMIT=40] -->
+    <string name="media_route_button_error_dialog_title">Can\'t cast media</string>
+    <!-- Message for the dialog shown when casting fails due to Cast SDK load failure. [CHAR LIMIT=180] -->
+    <string name="media_route_button_error_dialog_message">Try updating Google Play services and restarting your device. If this doesn\'t solve your issue, try using a device that supports casting.</string>
+    <!-- Link text to learn more about updating Google Play services. [CHAR LIMIT=50] -->
+    <string name="media_route_button_error_dialog_learn_more">Learn more about updating Google Play services</string>
+    <!-- Button text to acknowledge and dismiss the cast error dialog. [CHAR LIMIT=20] -->
+    <string name="media_route_button_error_dialog_ok">OK</string>
 </resources>

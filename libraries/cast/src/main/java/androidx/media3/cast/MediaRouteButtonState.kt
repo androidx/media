@@ -26,7 +26,7 @@ import androidx.media3.common.util.UnstableApi
 @UnstableApi
 class MediaRouteButtonState {
   /**
-   * Whether the device picker is visible.
+   * Whether the device picker or Cast loading error dialog (see [MediaRouteButton]) is visible.
    *
    * NOTE: This state is only relevant for the non-System picker and would always be `false` if the
    * System Output Switcher is launched instead of the in-app picker.

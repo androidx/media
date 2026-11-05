@@ -16,11 +16,16 @@
 package androidx.media3.cast
 
 import android.app.Application
+import android.app.UiModeManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.view.ContextThemeWrapper
 import androidx.compose.runtime.Composable
@@ -30,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.media3.cast.test.R as TestR
 import androidx.mediarouter.media.MediaRouteSelector
@@ -61,6 +67,7 @@ import org.mockito.junit.MockitoRule
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
+import org.robolectric.shadows.ShadowLooper
 
 import org.junit.Ignore
 
@@ -137,7 +144,7 @@ class MediaRouteButtonTest {
     }
 
   @Test
-  fun initializeMediaRouteButton_notInitialized_notThrowsException() = runTest {
+  fun initializeMediaRouteButton_asyncInitializationPending_contentIsNotComposed() = runTest {
     cast.initialize(mockCastContextInitializer)
     val isContentComposed = AtomicBoolean(false)
     val content: @Composable MediaRouterState.() -> Unit = { isContentComposed.set(true) }
@@ -174,7 +181,7 @@ class MediaRouteButtonTest {
   }
 
   @Test
-  fun initializeMediaRouteButton_withFailedInit_contentIsNotComposed() = runTest {
+  fun initializeMediaRouteButton_withFailedInit_onPhone_contentIsComposed() = runTest {
     cast.initialize(mockCastContextInitializer)
     val exception = RuntimeException("Failed to load")
     castContextTaskCompletionSource.setException(exception)
@@ -185,7 +192,183 @@ class MediaRouteButtonTest {
     composeTestRule.waitForIdle()
 
     assertThat(cast.castContextLoadFailure).isEqualTo(exception)
-    assertThat(isContentComposed.get()).isFalse()
+    assertThat(isContentComposed.get()).isTrue()
+  }
+
+  @Test
+  fun initializeMediaRouteButton_asyncInitFailsAfterComposition_recomposesToErrorState() {
+    cast.initialize(mockCastContextInitializer)
+    val buttonContentDescription = context.getString(R.string.media_route_button_error)
+    composeTestRule.setContent { MediaRouteButton() }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).assertDoesNotExist()
+    val exception = RuntimeException("Failed to load")
+
+    castContextTaskCompletionSource.setException(exception)
+    ShadowLooper.idleMainLooper()
+    composeTestRule.waitForIdle()
+
+    assertThat(cast.castContextLoadFailure).isEqualTo(exception)
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).assertIsDisplayed()
+  }
+
+  @Test
+  fun initializeMediaRouteButton_withFailedInit_onTv_contentIsNotComposed() = runTest {
+    val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
+    shadowOf(uiModeManager).setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION)
+    try {
+      cast.initialize(mockCastContextInitializer)
+      val exception = RuntimeException("Failed to load")
+      castContextTaskCompletionSource.setException(exception)
+      val isContentComposed = AtomicBoolean(false)
+      val content: @Composable MediaRouterState.() -> Unit = { isContentComposed.set(true) }
+
+      composeTestRule.setContent { MediaRouteButtonContainer(content) }
+      composeTestRule.waitForIdle()
+
+      assertThat(cast.castContextLoadFailure).isEqualTo(exception)
+      assertThat(isContentComposed.get()).isFalse()
+    } finally {
+      shadowOf(uiModeManager).setCurrentModeType(Configuration.UI_MODE_TYPE_NORMAL)
+    }
+  }
+
+  @Test
+  fun initializeMediaRouteButton_withFailedInit_onAutomotive_contentIsNotComposed() = runTest {
+    val pm = context.packageManager
+    shadowOf(pm).setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, true)
+    try {
+      cast.initialize(mockCastContextInitializer)
+      val exception = RuntimeException("Failed to load")
+      castContextTaskCompletionSource.setException(exception)
+      val isContentComposed = AtomicBoolean(false)
+      val content: @Composable MediaRouterState.() -> Unit = { isContentComposed.set(true) }
+
+      composeTestRule.setContent { MediaRouteButtonContainer(content) }
+      composeTestRule.waitForIdle()
+
+      assertThat(cast.castContextLoadFailure).isEqualTo(exception)
+      assertThat(isContentComposed.get()).isFalse()
+    } finally {
+      shadowOf(pm).setSystemFeature(PackageManager.FEATURE_AUTOMOTIVE, false)
+    }
+  }
+
+  @Test
+  fun initializeMediaRouteButton_withFailedInit_onWear_contentIsNotComposed() = runTest {
+    val pm = context.packageManager
+    shadowOf(pm).setSystemFeature(PackageManager.FEATURE_WATCH, true)
+    try {
+      cast.initialize(mockCastContextInitializer)
+      val exception = RuntimeException("Failed to load")
+      castContextTaskCompletionSource.setException(exception)
+      val isContentComposed = AtomicBoolean(false)
+      val content: @Composable MediaRouterState.() -> Unit = { isContentComposed.set(true) }
+
+      composeTestRule.setContent { MediaRouteButtonContainer(content) }
+      composeTestRule.waitForIdle()
+
+      assertThat(cast.castContextLoadFailure).isEqualTo(exception)
+      assertThat(isContentComposed.get()).isFalse()
+    } finally {
+      shadowOf(pm).setSystemFeature(PackageManager.FEATURE_WATCH, false)
+    }
+  }
+
+  @Test
+  fun initializeMediaRouteButton_withFailedInit_onPhone_showsErrorButtonAndDialog() {
+    cast.initialize(mockCastContextInitializer)
+    castContextTaskCompletionSource.setException(RuntimeException("Failed to load"))
+    val buttonContentDescription = context.getString(R.string.media_route_button_error)
+    val state = MediaRouteButtonState()
+
+    composeTestRule.setContent { MediaRouteButton(state = state) }
+
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).assertIsDisplayed()
+    assertThat(state.isPickerVisible).isFalse()
+
+    // Clicking the button opens the CastErrorDialog
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).performClick()
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isPickerVisible).isTrue()
+    composeTestRule
+      .onNodeWithText(context.getString(R.string.media_route_button_error_dialog_title))
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithText(context.getString(R.string.media_route_button_error_dialog_message))
+      .assertIsDisplayed()
+    composeTestRule
+      .onNodeWithText(context.getString(R.string.media_route_button_error_dialog_learn_more))
+      .assertIsDisplayed()
+    val okButton =
+      composeTestRule.onNodeWithText(context.getString(R.string.media_route_button_error_dialog_ok))
+    okButton.assertIsDisplayed()
+
+    // Clicking OK dismisses the dialog
+    okButton.performClick()
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isPickerVisible).isFalse()
+    composeTestRule
+      .onNodeWithText(context.getString(R.string.media_route_button_error_dialog_title))
+      .assertDoesNotExist()
+  }
+
+  @Test
+  fun initializeMediaRouteButton_withFailedInit_clickLearnMore_startsIntent() {
+    cast.initialize(mockCastContextInitializer)
+    castContextTaskCompletionSource.setException(RuntimeException("Failed to load"))
+    val buttonContentDescription = context.getString(R.string.media_route_button_error)
+    val state = MediaRouteButtonState()
+
+    composeTestRule.setContent { MediaRouteButton(state = state) }
+
+    composeTestRule.onNodeWithContentDescription(buttonContentDescription).performClick()
+    composeTestRule.waitForIdle()
+    assertThat(state.isPickerVisible).isTrue()
+
+    composeTestRule
+      .onNodeWithText(context.getString(R.string.media_route_button_error_dialog_learn_more))
+      .performClick()
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isPickerVisible).isFalse()
+    composeTestRule
+      .onNodeWithText(context.getString(R.string.media_route_button_error_dialog_title))
+      .assertDoesNotExist()
+
+    val shadowApplication = shadowOf(ApplicationProvider.getApplicationContext<Application>())
+    val startedIntent: Intent? = shadowApplication.nextStartedActivity
+    assertThat(startedIntent).isNotNull()
+    assertThat(startedIntent?.action).isEqualTo(Intent.ACTION_VIEW)
+    assertThat(startedIntent?.data)
+      .isEqualTo(Uri.parse("https://support.google.com/googleplay/answer/9037938"))
+  }
+
+  @Test
+  fun initializeMediaRouteButton_uninitialized_throwsException() {
+    var caughtException: Throwable? = null
+    try {
+      composeTestRule.setContent { MediaRouteButton() }
+    } catch (e: Throwable) {
+      caughtException = e
+    }
+
+    assertThat(caughtException).isNotNull()
+    var isExpectedException = false
+    var current: Throwable? = caughtException
+    while (current != null) {
+      if (
+        current is IllegalStateException &&
+          current.message?.contains("Must initialize Cast prior to using it") == true
+      ) {
+        isExpectedException = true
+        break
+      }
+      current = current.cause
+    }
+    assertThat(isExpectedException).isTrue()
   }
 
   @Test

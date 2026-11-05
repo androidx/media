@@ -15,14 +15,24 @@
  */
 package androidx.media3.cast
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.util.TypedValue
 import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.R as AppCompatR
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -33,8 +43,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.media3.cast.Cast.MediaRouteSelectorListener
+import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.mediarouter.app.MediaRouteChooserDialog
 import androidx.mediarouter.app.MediaRouteControllerDialog
 import androidx.mediarouter.app.SystemOutputSwitcherDialogController
@@ -52,6 +67,11 @@ import androidx.mediarouter.media.MediaRouter.RouteInfo
  * controller dialog to control the remote playback. The default behavior prioritizes launching the
  * system's route chooser / controller dialog if available and falls back to an in-app dialog
  * otherwise.
+ *
+ * If the Cast context fails to load (see [Cast.getCastContextLoadFailure]), the button is hidden on
+ * TV, Automotive, and Wear OS devices, and remains visible on other form factors (such as phones
+ * and tablets), where clicking it displays an in-app Cast loading error dialog prompting the user
+ * to update Google Play services.
  *
  * The button's tint color can be customized by providing a
  * [androidx.compose.material3.LocalContentColor] in the composition hierarchy.
@@ -97,28 +117,103 @@ fun MediaRouteButton(
   state: MediaRouteButtonState = rememberMediaRouteButtonState(),
 ) {
   CastUtils.verifyMainThread()
+  val context = LocalContext.current
   MediaRouteButtonContainer {
     IconButton(
       onClick = {
-        val routerParams = mediaRouter.routerParams
-        val isOutputSwitcherEnabled =
-          routerParams != null &&
-            routerParams.isOutputSwitcherEnabled &&
-            routerParams.isMediaTransferReceiverEnabled
-        val outputSwitcherLaunched =
-          isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)
-        // If the system output switcher was launched we don't show the media route dialogs.
-        state.isPickerVisible = !outputSwitcherLaunched
+        if (castInitializationFailed) {
+          state.isPickerVisible = true
+        } else {
+          val routerParams = mediaRouter.routerParams
+          val isOutputSwitcherEnabled =
+            routerParams != null &&
+              routerParams.isOutputSwitcherEnabled &&
+              routerParams.isMediaTransferReceiverEnabled
+          val outputSwitcherLaunched =
+            isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)
+          // If the system output switcher was launched we don't show the media route dialogs.
+          state.isPickerVisible = !outputSwitcherLaunched
+        }
       },
-      modifier,
+      modifier = modifier,
+      enabled = isReady || castInitializationFailed,
     ) {
       mediaRouteButtonIcon()
     }
-    if (state.isPickerVisible) {
+    if (state.isPickerVisible && isReady) {
       MediaRouteDialog(onDismissRequest = { state.isPickerVisible = false })
+    }
+    if (state.isPickerVisible && castInitializationFailed) {
+      CastErrorDialog(onDismissRequest = { state.isPickerVisible = false })
     }
   }
 }
+
+private const val TAG = "Media3MediaRouteButton"
+private const val LEARN_MORE_URL = "https://support.google.com/googleplay/answer/9037938"
+
+@Composable
+private fun CastErrorDialog(onDismissRequest: () -> Unit) {
+  val context = LocalContext.current
+  AlertDialog(
+    onDismissRequest = onDismissRequest,
+    title = { Text(stringResource(R.string.media_route_button_error_dialog_title)) },
+    text = {
+      Column {
+        Text(stringResource(R.string.media_route_button_error_dialog_message))
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+          text = stringResource(R.string.media_route_button_error_dialog_learn_more),
+          color = MaterialTheme.colorScheme.primary,
+          style = MaterialTheme.typography.labelLarge,
+          modifier =
+            Modifier.clickable(role = Role.Button) {
+              onDismissRequest()
+              val intent =
+                Intent(Intent.ACTION_VIEW, LEARN_MORE_URL.toUri()).apply {
+                  addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+              try {
+                context.startActivity(intent)
+              } catch (e: ActivityNotFoundException) {
+                Log.w(
+                  TAG,
+                  "Failed to launch intent to learn more about updating Google Play services",
+                  e,
+                )
+              }
+            },
+        )
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = onDismissRequest) {
+        Text(stringResource(R.string.media_route_button_error_dialog_ok))
+      }
+    },
+  )
+}
+
+private val mediaRouteButtonIcon: @Composable MediaRouterState.() -> Unit =
+  @Composable {
+    if (castInitializationFailed) {
+      Icon(
+        painter = painterResource(R.drawable.media_route_button_disconnected),
+        contentDescription = stringResource(R.string.media_route_button_error),
+      )
+    } else {
+      val (iconRes, descRes) =
+        when (connectionState) {
+          RouteInfo.CONNECTION_STATE_CONNECTED ->
+            R.drawable.media_route_button_connected to R.string.media_route_button_connected
+          RouteInfo.CONNECTION_STATE_CONNECTING ->
+            R.drawable.media_route_button_disconnected to R.string.media_route_button_connecting
+          else ->
+            R.drawable.media_route_button_disconnected to R.string.media_route_button_disconnected
+        }
+      Icon(painter = painterResource(iconRes), contentDescription = stringResource(descRes))
+    }
+  }
 
 @Composable
 private fun MediaRouterState.MediaRouteDialog(onDismissRequest: () -> Unit) {
@@ -161,45 +256,49 @@ private fun MediaRouterState.MediaRouteControllerDialog(onDismissRequest: () -> 
 @VisibleForTesting
 internal fun MediaRouteButtonContainer(content: @Composable MediaRouterState.() -> Unit) {
   val context = LocalContext.current
+  val showButtonUponCastInitError = remember(context) { showButtonUponCastInitError(context) }
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
+  var castInitializationFailed by remember { mutableStateOf(false) }
+
   DisposableEffect(context) {
     val cast = Cast.getSingletonInstance(context)
     cast.ensureInitialized(context)
+
     val mediaRouteSelectorListener: MediaRouteSelectorListener =
       object : MediaRouteSelectorListener() {
         override fun onMediaRouteSelectorChanged(mediaRouteSelector: MediaRouteSelector) {
           selector = mediaRouteSelector
+          // Catch asynchronous initialization failures
+          // Resets castInitializationFailed to false on success, or true if loading failed
+          castInitializationFailed = cast.castContextLoadFailure != null
         }
       }
+
     val currentSelector = cast.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener)
     if (currentSelector != null) {
       selector = currentSelector
     }
+
+    // Check if it already failed asynchronously before the listener was added
+    if (cast.castContextLoadFailure != null) {
+      castInitializationFailed = true
+    }
     onDispose { cast.unregisterListener(mediaRouteSelectorListener) }
   }
-  if (!selector.isEmpty) {
-    rememberMediaRouterState(context, selector).content()
+
+  // On form factors that don't support casting (e.g. TV, Automotive, Wear OS), hide the button
+  // if CastContext failed to load. On supported form factors (e.g. phones and tablets), keep the
+  // button visible so users can tap it to see the recovery dialog.
+  val isButtonVisible =
+    (!selector.isEmpty && !castInitializationFailed) ||
+      (castInitializationFailed && showButtonUponCastInitError)
+  if (isButtonVisible) {
+    rememberMediaRouterState(context, selector, castInitializationFailed).content()
   }
 }
 
-private val mediaRouteButtonIcon: @Composable MediaRouterState.() -> Unit =
-  @Composable {
-    val painter =
-      when (connectionState) {
-        RouteInfo.CONNECTION_STATE_CONNECTED ->
-          painterResource(R.drawable.media_route_button_connected)
-        else -> painterResource(R.drawable.media_route_button_disconnected)
-      }
-    val contentDescription =
-      when (connectionState) {
-        RouteInfo.CONNECTION_STATE_CONNECTED ->
-          stringResource(R.string.media_route_button_connected)
-        RouteInfo.CONNECTION_STATE_CONNECTING ->
-          stringResource(R.string.media_route_button_connecting)
-        else -> stringResource(R.string.media_route_button_disconnected)
-      }
-    Icon(painter, contentDescription)
-  }
+private fun showButtonUponCastInitError(context: Context): Boolean =
+  !Util.isTv(context) && !Util.isAutomotive(context) && !Util.isWear(context)
 
 /**
  * Returns the theme to be used for the media route dialogs.

@@ -274,8 +274,6 @@ public class Cast {
    * Returns the error that caused the cast context load to fail. Returns null if initialization has
    * not failed or hasn't completed.
    */
-  // TODO: b/459879564 - Use this method to show an appropriate error message in Cast UI
-  // affordances.
   public @Nullable Throwable getCastContextLoadFailure() {
     return castContextLoadFailure;
   }

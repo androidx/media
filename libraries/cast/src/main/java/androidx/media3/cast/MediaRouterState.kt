@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
 import androidx.mediarouter.media.MediaRouter.RouteInfo
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [MediaRouterState] and launches a coroutine to monitor the state of the
@@ -33,16 +34,21 @@ import androidx.mediarouter.media.MediaRouter.RouteInfo
  *
  * @param context The current [Context].
  * @param selector The [MediaRouteSelector] to be used for monitoring the state of the
- *   [MediaRouter]. The selector must not be empty.
+ *   [MediaRouter].
+ * @param castInitializationFailed Whether Cast initialization failed.
  * @return The [MediaRouterState] that is remembered and updated when the state of the [MediaRouter]
  *   changes.
  */
 @Composable
 internal fun rememberMediaRouterState(
   context: Context,
-  selector: MediaRouteSelector,
+  selector: MediaRouteSelector = MediaRouteSelector.EMPTY,
+  castInitializationFailed: Boolean = false,
 ): MediaRouterState {
-  val mediaRouterState = remember(context, selector) { MediaRouterState(context, selector) }
+  val mediaRouterState =
+    remember(context, selector, castInitializationFailed) {
+      MediaRouterState(context, selector, castInitializationFailed)
+    }
   LaunchedEffect(mediaRouterState) { mediaRouterState.observe() }
   return mediaRouterState
 }
@@ -53,8 +59,15 @@ internal fun rememberMediaRouterState(
  * This class handles the platform callback registration and exposes reactive states representing
  * the current active remote routing connection.
  */
-internal class MediaRouterState(val context: Context, val selector: MediaRouteSelector) {
+internal class MediaRouterState(
+  val context: Context,
+  val selector: MediaRouteSelector = MediaRouteSelector.EMPTY,
+  val castInitializationFailed: Boolean = false,
+) {
   val mediaRouter: MediaRouter = MediaRouter.getInstance(context)
+
+  val isReady: Boolean
+    get() = !castInitializationFailed && !selector.isEmpty
 
   var isConnectedToRemote by mutableStateOf(isConnectedToRemote(mediaRouter))
     private set
@@ -69,8 +82,12 @@ internal class MediaRouterState(val context: Context, val selector: MediaRouteSe
    * which also removes the [MediaRouter] callback to clean up resources.
    */
   suspend fun observe(): Nothing {
-    updateMediaRouteState()
-    mediaRouter.observeCallback(selector) { updateMediaRouteState() }
+    if (isReady) {
+      updateMediaRouteState()
+      mediaRouter.observeCallback(selector) { updateMediaRouteState() }
+    } else {
+      awaitCancellation()
+    }
   }
 
   private fun updateMediaRouteState() {
