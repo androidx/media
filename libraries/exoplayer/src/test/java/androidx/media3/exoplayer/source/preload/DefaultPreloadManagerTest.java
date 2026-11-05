@@ -36,6 +36,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -43,10 +44,12 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.LoadControl;
@@ -1288,6 +1291,124 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
+  public void onMediaSourceUpdated_replacesMediaSource_releasesReplacedMediaSource() {
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
+    FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactorySupplier(createMediaSourceFactorySupplier(fakeMediaSourceFactory))
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("mediaId").setUri("http://exoplayer.dev/video").build();
+    preloadManager.add(mediaItem, /* rankingData= */ 1);
+    FakeMediaSource originalSource = fakeMediaSourceFactory.getLastCreatedSource();
+    originalSource.setAllowPreparation(false);
+    preloadManager.invalidate();
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+    MediaItem updatedItem =
+        new MediaItem.Builder().setMediaId("updated").setUri("http://exoplayer.dev/video2").build();
+    PreloadMediaSource updatedMediaSource =
+        (PreloadMediaSource)
+            preloadManager
+                .createMediaSourceHolder(updatedItem, /* mediaSource= */ null, /* rankingData= */ 2)
+                .getMediaSource();
+
+    preloadManager.onMediaSourceUpdated(mediaItem, updatedMediaSource);
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+
+    assertThat(preloadManager.getMediaSource(mediaItem)).isSameInstanceAs(updatedMediaSource);
+    originalSource.assertReleased();
+  }
+
+  @Test
+  public void remove_afterOnMediaSourceUpdated_releasesUpdatedMediaSource() {
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
+    FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactorySupplier(createMediaSourceFactorySupplier(fakeMediaSourceFactory))
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("mediaId").setUri("http://exoplayer.dev/video").build();
+    preloadManager.add(mediaItem, /* rankingData= */ 1);
+    FakeMediaSource originalSource = fakeMediaSourceFactory.getLastCreatedSource();
+    originalSource.setAllowPreparation(false);
+    preloadManager.invalidate();
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+    MediaItem updatedItem =
+        new MediaItem.Builder().setMediaId("updated").setUri("http://exoplayer.dev/video2").build();
+    PreloadMediaSource updatedMediaSource =
+        (PreloadMediaSource)
+            preloadManager
+                .createMediaSourceHolder(updatedItem, /* mediaSource= */ null, /* rankingData= */ 2)
+                .getMediaSource();
+    FakeMediaSource updatedFakeSource = fakeMediaSourceFactory.getLastCreatedSource();
+    updatedFakeSource.setAllowPreparation(false);
+    updatedMediaSource.preload(/* startPositionUs= */ 0);
+    shadowOf(preloadThread.getLooper()).idle();
+    preloadManager.onMediaSourceUpdated(mediaItem, updatedMediaSource);
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+
+    boolean removed = preloadManager.remove(mediaItem);
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+
+    assertThat(removed).isTrue();
+    originalSource.assertReleased();
+    updatedFakeSource.assertReleased();
+  }
+
+  @Test
+  public void onMediaSourceUpdated_notPreloading_releasesUpdatedMediaSource() {
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_NOT_PRELOADED;
+    FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactorySupplier(createMediaSourceFactorySupplier(fakeMediaSourceFactory))
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("mediaId").setUri("http://exoplayer.dev/video").build();
+    preloadManager.add(mediaItem, /* rankingData= */ 1);
+    preloadManager.invalidate();
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+    MediaItem updatedItem =
+        new MediaItem.Builder().setMediaId("updated").setUri("http://exoplayer.dev/video2").build();
+    PreloadMediaSource updatedMediaSource =
+        (PreloadMediaSource)
+            preloadManager
+                .createMediaSourceHolder(updatedItem, /* mediaSource= */ null, /* rankingData= */ 2)
+                .getMediaSource();
+    FakeMediaSource updatedFakeSource = fakeMediaSourceFactory.getLastCreatedSource();
+    updatedFakeSource.setAllowPreparation(false);
+    updatedMediaSource.preload(/* startPositionUs= */ 0);
+    shadowOf(preloadThread.getLooper()).idle();
+
+    preloadManager.onMediaSourceUpdated(mediaItem, updatedMediaSource);
+    shadowOf(Looper.getMainLooper()).idle();
+    shadowOf(preloadThread.getLooper()).idle();
+
+    assertThat(preloadManager.getMediaSource(mediaItem)).isNotSameInstanceAs(updatedMediaSource);
+    updatedFakeSource.assertReleased();
+  }
+
+  @Test
   public void remove_byMediaSources_heldSourceRemovedAndReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
@@ -1689,6 +1810,27 @@ public class DefaultPreloadManagerTest {
       dataSource.close();
     }
     return data.length;
+  }
+
+  private static MediaSourceFactorySupplier createMediaSourceFactorySupplier(
+      MediaSource.Factory mediaSourceFactory) {
+    return new MediaSourceFactorySupplier() {
+      @Override
+      public MediaSourceFactorySupplier setCache(@Nullable Cache cache) {
+        return this;
+      }
+
+      @Override
+      public MediaSourceFactorySupplier setDataSourceFactory(
+          DataSource.@Nullable Factory dataSourceFactory) {
+        return this;
+      }
+
+      @Override
+      public MediaSource.Factory get() {
+        return mediaSourceFactory;
+      }
+    };
   }
 
   private static class TestPreloadManagerListener implements PreloadManagerListener {
