@@ -20,7 +20,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
@@ -39,16 +38,6 @@ public final class DefaultMuxer implements Muxer {
     /** Creates an instance. */
     public Factory() {
       this.muxerFactory = new InAppMp4Muxer.Factory();
-    }
-
-    /**
-     * @deprecated Use {@link #setVideoDurationUs(long)} instead. Note that a conversion from
-     *     milliseconds to microseconds is required to migrate to {@link #setVideoDurationUs(long)}.
-     */
-    @Deprecated
-    public Factory(long videoDurationMs) {
-      this.muxerFactory =
-          new InAppMp4Muxer.Factory().setVideoDurationUs(Util.msToUs(videoDurationMs));
     }
 
     /**

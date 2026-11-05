@@ -249,6 +249,8 @@
         `DefaultDecoderFactory.Builder` instead.
     *   Remove `DefaultLoadErrorHandlingPolicy.DEFAULT_TRACK_BLACKLIST_MS`. Use
         `DefaultLoadErrorHandlingPolicy.DEFAULT_TRACK_EXCLUSION_MS` instead.
+    *   Remove `DefaultMuxer.Factory(long)`. Use
+        `DefaultMuxer.Factory.setVideoDurationUs(long)` instead.
     *   Remove
         `DefaultVideoFrameProcessor.Factory.Builder.setRequireRegisteringAllInputFrames(boolean)`.
         Use
