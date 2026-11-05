@@ -19,11 +19,13 @@
 package androidx.media3.docsamples.session
 
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -52,6 +54,53 @@ object ControlPlaybackKt {
     val player = ExoPlayer.Builder(context).build()
     val mediaSession = MediaSession.Builder(context, player).build()
     // [END create_media_session]
+  }
+
+  @OptIn(UnstableApi::class)
+  fun publishPlaylistMetadata(player: Player) {
+    // [START publish_playlist_metadata]
+    // 1. Declare the playlist descriptive metadata on the Player
+    val playlistMetadata =
+      MediaMetadata.Builder()
+        .setTitle("Morning Vibes")
+        .setArtworkUri(Uri.parse("https://example.com/image/morning-vibes"))
+        .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+        .build()
+    player.setPlaylistMetadata(playlistMetadata)
+
+    // 2. Mark the playing track(s) with the playlistId it belongs to
+    val trackItem =
+      MediaItem.Builder()
+        .setMediaId("foobar:track:6rqhFgbbKwnb9MLmUQDhG6")
+        .setMediaMetadata(
+          MediaMetadata.Builder()
+            .setTitle("Example Track")
+            .setArtist("Example Artist")
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+            .setPlaylistId("37i9dQZF1DX76Wlfdnj7AP")
+            .build()
+        )
+        .build()
+    player.setMediaItem(trackItem)
+    // [END publish_playlist_metadata]
+  }
+
+  fun resumePlaylist(controller: MediaController) {
+    // [START resume_playlist]
+    val playlistItem =
+      MediaItem.Builder()
+        .setMediaId("37i9dQZF1DX76Wlfdnj7AP")
+        .setMediaMetadata(
+          MediaMetadata.Builder()
+            .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+            .setIsPlayable(true)
+            .build()
+        )
+        .build()
+    controller.setMediaItem(playlistItem)
+    controller.prepare()
+    controller.play()
+    // [END resume_playlist]
   }
 
   fun commandButton() {

@@ -16,11 +16,13 @@
 package androidx.media3.docsamples.session;
 
 import android.content.Context;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.annotation.OptIn;
 import androidx.media3.common.ForwardingSimpleBasePlayer;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
@@ -53,6 +55,51 @@ public class ControlPlayback {
     ExoPlayer player = new ExoPlayer.Builder(context).build();
     MediaSession mediaSession = new MediaSession.Builder(context, player).build();
     // [END create_media_session]
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  public void publishPlaylistMetadata(Player player) {
+    // [START publish_playlist_metadata]
+    // 1. Declare the playlist descriptive metadata on the Player
+    MediaMetadata playlistMetadata =
+        new MediaMetadata.Builder()
+            .setTitle("Morning Vibes")
+            .setArtworkUri(Uri.parse("https://example.com/image/morning-vibes"))
+            .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+            .build();
+    player.setPlaylistMetadata(playlistMetadata);
+
+    // 2. Mark the playing track(s) with the playlistId it belongs to
+    MediaItem trackItem =
+        new MediaItem.Builder()
+            .setMediaId("foobar:track:6rqhFgbbKwnb9MLmUQDhG6")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setTitle("Example Track")
+                    .setArtist("Example Artist")
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+                    .setPlaylistId("37i9dQZF1DX76Wlfdnj7AP")
+                    .build())
+            .build();
+    player.setMediaItem(trackItem);
+    // [END publish_playlist_metadata]
+  }
+
+  public void resumePlaylist(MediaController controller) {
+    // [START resume_playlist]
+    MediaItem playlistItem =
+        new MediaItem.Builder()
+            .setMediaId("37i9dQZF1DX76Wlfdnj7AP")
+            .setMediaMetadata(
+                new MediaMetadata.Builder()
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+                    .setIsPlayable(true)
+                    .build())
+            .build();
+    controller.setMediaItem(playlistItem);
+    controller.prepare();
+    controller.play();
+    // [END resume_playlist]
   }
 
   public void commandButton() {
