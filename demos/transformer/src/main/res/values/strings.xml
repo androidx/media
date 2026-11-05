@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string name="app_name" translatable="false">Transformer Demo</string>
+  <string name="app_name" translatable="false">Media3 Transformer Demo</string>
   <string name="configuration" translatable="false">Configuration</string>
   <string name="select_preset_title" translatable="false">Choose preset input</string>
   <string name="select_local_file_title">Choose local file</string>
