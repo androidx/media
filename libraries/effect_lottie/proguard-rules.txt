@@ -1,0 +1,4 @@
+# Proguard rules specific to the effect-lottie module.
+
+# Lottie transitively depends on Okio 1.x, which references javax.annotation.Nullable.
+-dontwarn javax.annotation.**

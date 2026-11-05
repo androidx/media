@@ -13,7 +13,3 @@
 -keepclassmembers class androidx.media3.decoder.midi.MidiExtractor {
   <init>();
 }
-
-# Don't warn about checkerframework and jsr305 annotations
--dontwarn org.checkerframework.**
--dontwarn javax.annotation.**

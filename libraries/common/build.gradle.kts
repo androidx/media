@@ -36,12 +36,8 @@ dependencies {
   api(libs.guava) {
     // Exclude dependencies that are only used by Guava at compile time
     // (but declared as runtime deps) [internal b/168188131].
-    exclude(group = "com.google.code.findbugs", module = "jsr305")
-    exclude(group = "org.checkerframework", module = "checker-compat-qual")
-    exclude(group = "org.checkerframework", module = "checker-qual")
     exclude(group = "com.google.errorprone", module = "error_prone_annotations")
     exclude(group = "com.google.j2objc", module = "j2objc-annotations")
-    exclude(group = "org.codehaus.mojo", module = "animal-sniffer-annotations")
   }
   api(libs.androidx.annotation.experimental)
   api(libs.jspecify)

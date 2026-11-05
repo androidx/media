@@ -52,11 +52,9 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       // when it parses Guava and other dependencies, without bundling them in the release.
       val annotationLibs =
         listOf(
-          "jsr305", // E.g. javax.annotation.meta.When.MAYBE
           "errorprone-annotations",
           "checkerframework-qual",
           "j2objc-annotations", // E.g. j2objc.annotations.ReflectionSupport.Level.FULL
-          "animal-sniffer-annotations",
         )
 
       for (libName in annotationLibs) {

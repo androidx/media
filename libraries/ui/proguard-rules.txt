@@ -47,7 +47,3 @@
   public android.support.v7.app.AlertDialog$Builder setNegativeButton(int, android.content.DialogInterface$OnClickListener);
   public android.support.v7.app.AlertDialog create();
 }
-
-# Don't warn about checkerframework and jsr305 annotations
--dontwarn org.checkerframework.**
--dontwarn javax.annotation.**
