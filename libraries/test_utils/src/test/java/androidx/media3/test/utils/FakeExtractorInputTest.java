@@ -18,7 +18,9 @@ package androidx.media3.test.utils;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -64,5 +66,49 @@ public final class FakeExtractorInputTest {
     input.readFully(destination, 0, 1);
 
     assertThrows(IllegalStateException.class, () -> input.advancePeekPosition(3));
+  }
+
+  @Test
+  public void read_partialReadsWithSameTargetBeyondDataLength_partiallySatisfiesThenReadsRemaining()
+      throws Exception {
+    byte[] data = TestUtil.buildTestData(5);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder().setData(data).setSimulatePartialReads(true).build();
+    byte[] destination = new byte[10];
+
+    int firstBytesRead = input.read(destination, /* offset= */ 0, /* length= */ 10);
+    int secondBytesRead = input.read(destination, /* offset= */ 1, /* length= */ 9);
+    int endResult = input.read(destination, /* offset= */ 5, /* length= */ 10);
+
+    assertThat(firstBytesRead).isEqualTo(1);
+    assertThat(secondBytesRead).isEqualTo(4);
+    assertThat(endResult).isEqualTo(C.RESULT_END_OF_INPUT);
+    assertThat(Arrays.copyOf(destination, data.length)).isEqualTo(data);
+  }
+
+  @Test
+  public void read_partialReadsWithConstantLengthBeyondDataLength_readsOneByteAtATimeUntilEnd()
+      throws Exception {
+    byte[] data = TestUtil.buildTestData(15);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder().setData(data).setSimulatePartialReads(true).build();
+    byte[] scratch = new byte[20];
+    byte[] destination = new byte[data.length];
+    int totalBytesRead = 0;
+    int readCallCount = 0;
+
+    while (true) {
+      int bytesRead = input.read(scratch, /* offset= */ 0, scratch.length);
+      if (bytesRead == C.RESULT_END_OF_INPUT) {
+        break;
+      }
+      System.arraycopy(scratch, /* srcPos= */ 0, destination, totalBytesRead, bytesRead);
+      totalBytesRead += bytesRead;
+      readCallCount++;
+    }
+
+    assertThat(readCallCount).isEqualTo(data.length);
+    assertThat(totalBytesRead).isEqualTo(data.length);
+    assertThat(destination).isEqualTo(data);
   }
 }
