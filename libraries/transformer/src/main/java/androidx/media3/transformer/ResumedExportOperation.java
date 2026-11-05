@@ -146,11 +146,10 @@ import org.jspecify.annotations.Nullable;
   private final ComponentListener componentListener;
   private final ExportOperationRunner runner;
 
-  // Written on the internal thread, read on the application thread.
+  // Written on the internal thread, read on multiple threads.
   private volatile CurrentStage currentStage;
 
   // Must only be accessed from the internal thread.
-  private @ExportState int state;
   private @MonotonicNonNull ResumeMetadata resumeMetadata;
   private @Nullable MuxerWrapper remuxingMuxerWrapper;
 
@@ -204,8 +203,7 @@ import org.jspecify.annotations.Nullable;
     runner =
         new ExportOperationRunner(
             "Transformer:ResumedExport", clock, applicationHandler, componentListener);
-    state = STATE_PROCESS_FULL_INPUT;
-    currentStage = new CurrentStage(state, /* transformerInternal= */ null);
+    currentStage = new CurrentStage(STATE_PROCESS_FULL_INPUT, /* transformerInternal= */ null);
   }
 
   @Override
@@ -264,7 +262,6 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void remuxProcessedVideoInternal() {
-    state = STATE_REMUX_PROCESSED_VIDEO;
     ResumeMetadata resumeMetadata;
     try {
       resumeMetadata =
@@ -295,6 +292,7 @@ import org.jspecify.annotations.Nullable;
             /* appendVideoFormat= */ resumeMetadata.videoFormat);
 
     startInternal(
+        STATE_REMUX_PROCESSED_VIDEO,
         TransmuxTranscodeHelper.createVideoOnlyComposition(
             oldFilePath, /* clippingEndPositionUs= */ resumeMetadata.lastSyncSampleTimestampUs),
         checkNotNull(remuxingMuxerWrapper),
@@ -303,8 +301,8 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void processFullInputInternal() {
-    state = STATE_PROCESS_FULL_INPUT;
     startInternal(
+        STATE_PROCESS_FULL_INPUT,
         checkNotNull(composition),
         new MuxerWrapper(
             checkNotNull(outputFilePath),
@@ -318,7 +316,6 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void processRemainingVideoInternal() {
-    state = STATE_PROCESS_REMAINING_VIDEO;
     Composition videoOnlyComposition =
         TransmuxTranscodeHelper.buildUponComposition(
             checkNotNull(composition),
@@ -329,6 +326,7 @@ import org.jspecify.annotations.Nullable;
     remuxingMuxerWrapper.changeToAppendMode();
 
     startInternal(
+        STATE_PROCESS_REMAINING_VIDEO,
         videoOnlyComposition,
         remuxingMuxerWrapper,
         /* initialTimestampOffsetUs= */ checkNotNull(resumeMetadata).lastSyncSampleTimestampUs,
@@ -343,8 +341,6 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    state = STATE_PROCESS_AUDIO;
-
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             checkNotNull(oldFilePath),
@@ -355,6 +351,7 @@ import org.jspecify.annotations.Nullable;
             /* appendVideoFormat= */ null);
 
     startInternal(
+        STATE_PROCESS_AUDIO,
         TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
             checkNotNull(composition), checkNotNull(outputFilePath)),
         muxerWrapper,
@@ -364,8 +361,7 @@ import org.jspecify.annotations.Nullable;
 
   // TODO: b/308253384 - Move copy output logic into MuxerWrapper.
   private void copyOutputInternal() throws ExportException {
-    state = STATE_COPY_OUTPUT;
-    currentStage = new CurrentStage(state, /* transformerInternal= */ null);
+    currentStage = new CurrentStage(STATE_COPY_OUTPUT, /* transformerInternal= */ null);
     // If cancel() is called, the copy stops early and the runner skips the result.
     try {
       TransmuxTranscodeHelper.copyFile(
@@ -379,6 +375,7 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void startInternal(
+      @ExportState int state,
       Composition composition,
       MuxerWrapper muxerWrapper,
       long initialTimestampOffsetUs,
@@ -473,6 +470,7 @@ import org.jspecify.annotations.Nullable;
       ExportResultUtil.updateProcessingDetails(
           exportResultBuilder, processedInputs, audioEncoderName, videoEncoderName);
       // TODO: b/213341814 - Add event flags for Transformer events.
+      @ExportState int state = currentStage.state;
       if (state == STATE_REMUX_PROCESSED_VIDEO) {
         processRemainingVideoInternal();
       } else if (state == STATE_PROCESS_REMAINING_VIDEO) {
