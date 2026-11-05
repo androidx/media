@@ -43,6 +43,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
@@ -413,7 +414,7 @@ import org.jspecify.annotations.Nullable;
    *
    * <p>The number of tracks must be {@linkplain #setTrackCount(int) set} before any format is added
    * and all the formats must be added before any samples can be {@linkplain #writeSample(int,
-   * ByteBuffer, boolean, long) written}.
+   * DecoderInputBuffer) written}.
    *
    * <p>{@link Muxer#addMetadataEntry(Metadata.Entry)} is called if the {@link Format#metadata} is
    * present.
@@ -577,9 +578,7 @@ import org.jspecify.annotations.Nullable;
    * Attempts to write a sample to the muxer.
    *
    * @param trackType The {@link C.TrackType} of the sample.
-   * @param data The sample to write.
-   * @param isKeyFrame Whether the sample is a key frame.
-   * @param presentationTimeUs The presentation time of the sample in microseconds.
+   * @param buffer The sample to write. Its {@link DecoderInputBuffer#data} must not be null.
    * @return Whether the sample was successfully written, or dropped if configured to drop the
    *     sample via {@code dropSamplesBeforeFirstVideoSample}. {@code false} if samples of other
    *     {@linkplain C.TrackType track types} should be written first to ensure the files track
@@ -589,9 +588,11 @@ import org.jspecify.annotations.Nullable;
    *     non-ended} track of the given {@link C.TrackType}.
    * @throws MuxerException If the underlying {@link Muxer} fails to write the sample.
    */
-  public boolean writeSample(
-      @C.TrackType int trackType, ByteBuffer data, boolean isKeyFrame, long presentationTimeUs)
+  public boolean writeSample(@C.TrackType int trackType, DecoderInputBuffer buffer)
       throws MuxerException {
+    ByteBuffer data = checkNotNull(buffer.data);
+    boolean isKeyFrame = buffer.isKeyFrame();
+    long presentationTimeUs = buffer.timeUs;
     checkArgument(contains(trackTypeToInfo, trackType));
     TrackInfo trackInfo = trackTypeToInfo.get(trackType);
     boolean canWriteSample = canWriteSample(trackType, presentationTimeUs);
@@ -662,7 +663,7 @@ import org.jspecify.annotations.Nullable;
 
   /**
    * Attempts to notify the muxer that all the samples have been {@linkplain #writeSample(int,
-   * ByteBuffer, boolean, long) written} for a given track.
+   * DecoderInputBuffer) written} for a given track.
    *
    * @param trackType The {@link C.TrackType}.
    */

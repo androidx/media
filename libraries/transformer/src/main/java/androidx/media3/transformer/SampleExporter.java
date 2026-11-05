@@ -137,11 +137,7 @@ import org.jspecify.annotations.Nullable;
     }
 
     try {
-      if (!muxerWrapper.writeSample(
-          outputTrackType,
-          checkNotNull(muxerInputBuffer.data),
-          muxerInputBuffer.isKeyFrame(),
-          muxerInputBuffer.timeUs)) {
+      if (!muxerWrapper.writeSample(outputTrackType, muxerInputBuffer)) {
         return false;
       }
     } catch (MuxerException e) {
