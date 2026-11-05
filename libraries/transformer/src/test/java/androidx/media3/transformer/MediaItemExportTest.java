@@ -1341,32 +1341,59 @@ public final class MediaItemExportTest {
   @Ignore("TODO: b/294389961 - Add valid assertion for whether exporter expects decoded/encoded.")
   public void start_withAssetLoaderAlwaysDecoding_exporterExpectsDecoded() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    AtomicReference<SampleConsumer> sampleConsumerRef = new AtomicReference<>();
+    Format audioFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setSampleRate(44100)
+            .setChannelCount(2)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    FakeAssetLoader.Factory assetLoaderFactory =
+        new FakeAssetLoader.Factory(ImmutableList.of(audioFormat), SUPPORTED_OUTPUT_TYPE_DECODED);
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)
-            .setAssetLoaderFactory(
-                new FakeAssetLoader.Factory(SUPPORTED_OUTPUT_TYPE_DECODED, sampleConsumerRef))
+            .setAssetLoaderFactory(assetLoaderFactory)
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
 
     transformer.start(mediaItem, outputDir.newFile().getPath());
-    runLooperUntil(transformer.getApplicationLooper(), () -> sampleConsumerRef.get() != null);
+    runLooperUntil(
+        transformer.getApplicationLooper(),
+        () ->
+            !assetLoaderFactory.createdAssetLoaders.isEmpty()
+                && assetLoaderFactory
+                    .createdAssetLoaders
+                    .get(0)
+                    .sampleConsumersByTrackType
+                    .containsKey(C.TRACK_TYPE_AUDIO));
 
     // Can never be false.
-    assertThat(sampleConsumerRef.get()).isNotInstanceOf(EncodedSampleExporter.class);
+    assertThat(
+            assetLoaderFactory
+                .createdAssetLoaders
+                .get(0)
+                .sampleConsumersByTrackType
+                .get(C.TRACK_TYPE_AUDIO))
+        .isNotInstanceOf(EncodedSampleExporter.class);
   }
 
   @Test
   public void start_withAssetLoaderNotDecodingAndDecodingNeeded_completesWithError()
       throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Format audioFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setSampleRate(44100)
+            .setChannelCount(2)
+            .build();
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)
             .setAssetLoaderFactory(
                 new FakeAssetLoader.Factory(
-                    SUPPORTED_OUTPUT_TYPE_ENCODED, /* sampleConsumerRef= */ null))
+                    ImmutableList.of(audioFormat), SUPPORTED_OUTPUT_TYPE_ENCODED))
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
     EditedMediaItem editedMediaItem =
@@ -2011,80 +2038,5 @@ public final class MediaItemExportTest {
         extractor.release();
       }
     }
-  }
-
-  private static final class FakeAssetLoader implements AssetLoader {
-
-    public static final class Factory implements AssetLoader.Factory {
-
-      private final @SupportedOutputTypes int supportedOutputTypes;
-      private final @Nullable AtomicReference<SampleConsumer> sampleConsumerRef;
-
-      public Factory(
-          @SupportedOutputTypes int supportedOutputTypes,
-          @Nullable AtomicReference<SampleConsumer> sampleConsumerRef) {
-        this.supportedOutputTypes = supportedOutputTypes;
-        this.sampleConsumerRef = sampleConsumerRef;
-      }
-
-      @Override
-      public AssetLoader createAssetLoader(
-          EditedMediaItem editedMediaItem,
-          Looper looper,
-          Listener listener,
-          CompositionSettings compositionSettings) {
-        return new FakeAssetLoader(listener, supportedOutputTypes, sampleConsumerRef);
-      }
-    }
-
-    private final AssetLoader.Listener listener;
-    private final @SupportedOutputTypes int supportedOutputTypes;
-    private final @Nullable AtomicReference<SampleConsumer> sampleConsumerRef;
-
-    public FakeAssetLoader(
-        Listener listener,
-        @SupportedOutputTypes int supportedOutputTypes,
-        @Nullable AtomicReference<SampleConsumer> sampleConsumerRef) {
-      this.listener = listener;
-      this.supportedOutputTypes = supportedOutputTypes;
-      this.sampleConsumerRef = sampleConsumerRef;
-    }
-
-    @Override
-    public void start() {
-      listener.onDurationUs(10_000_000);
-      listener.onTrackCount(1);
-      Format format =
-          new Format.Builder()
-              .setSampleMimeType(MimeTypes.AUDIO_AAC)
-              .setSampleRate(44100)
-              .setChannelCount(2)
-              .build();
-      try {
-        if (listener.onTrackAdded(format, supportedOutputTypes)) {
-          format = format.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build();
-        }
-
-        SampleConsumer sampleConsumer = listener.onOutputFormat(format);
-        if (sampleConsumerRef != null) {
-          sampleConsumerRef.set(sampleConsumer);
-        }
-      } catch (ExportException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    @Override
-    public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
-      return PROGRESS_STATE_NOT_STARTED;
-    }
-
-    @Override
-    public ImmutableMap<Integer, String> getDecoderNames() {
-      return ImmutableMap.of();
-    }
-
-    @Override
-    public void release() {}
   }
 }
