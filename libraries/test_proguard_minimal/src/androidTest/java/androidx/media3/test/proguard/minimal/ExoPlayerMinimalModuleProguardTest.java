@@ -33,8 +33,8 @@ import org.junit.runner.RunWith;
  * <ul>
  *   <li>Build-time validation: R8 enforces the {@code -checkdiscard} rules in {@code
  *       proguard-checkdiscard-rules.pgcfg} (failing the build if {@code
- *       SingleInputVideoGraph$Factory} or {@code DefaultVideoFrameProcessor$Factory$Builder} is
- *       retained).
+ *       SingleInputVideoGraph$Factory}, {@code DefaultVideoFrameProcessor$Factory$Builder}, or
+ *       {@code SonivoxWaveData} is retained).
  *   <li>Runtime validation: Verifies basic player execution, unused class stripping, and resource
  *       stripping.
  * </ul>
@@ -87,6 +87,14 @@ public final class ExoPlayerMinimalModuleProguardTest {
 
     assertTrue(
         getRawResourceAvailableBytes(resources, "fragment_shader_copy_es2", packageName) <= 1);
+  }
+
+  @Test
+  public void midiWaveDataResource_isStrippedOrEmpty() throws Exception {
+    Resources resources = getApplicationContext().getResources();
+    String packageName = getApplicationContext().getPackageName();
+
+    assertTrue(getRawResourceAvailableBytes(resources, "sonivox_wave_data", packageName) <= 1);
   }
 
   private static int getRawResourceAvailableBytes(

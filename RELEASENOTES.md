@@ -200,6 +200,9 @@
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
+    *   Move Sonivox wavetable data from `assets/` to `res/raw/` so that Android
+        resource shrinking strips the wavetable resource when MIDI playback is
+        unused.
 *   Leanback extension:
 *   Cast extension:
     *   Fix an issue where `RemoteCastPlayer` load requests were dropped by

@@ -38,9 +38,10 @@ dependencies {
   coreLibraryDesugaring(libs.desugar.jdk.libs)
   compileOnly(libs.androidx.annotation)
   implementation(project(":lib-exoplayer"))
-  // Explicit dependency on lib-effect so R8 verifies that unused effect classes
-  // are discarded at build time.
+  // Explicit dependency on lib-effect and lib-decoder-midi so R8 verifies that
+  // unused classes and raw resources are discarded at build time.
   implementation(project(":lib-effect"))
+  implementation(project(":lib-decoder-midi"))
   androidTestImplementation(libs.androidx.test.core)
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.runner)

@@ -3,3 +3,6 @@
 # Assert that effect module classes are discarded when setVideoEffects is not called.
 -checkdiscard class androidx.media3.effect.SingleInputVideoGraph$Factory
 -checkdiscard class androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
+
+# Assert that MIDI decoder wavetable data is discarded when MidiRenderer is not used.
+-checkdiscard class androidx.media3.decoder.midi.SonivoxWaveData

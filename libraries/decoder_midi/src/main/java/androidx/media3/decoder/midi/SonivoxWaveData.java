@@ -17,10 +17,10 @@
 package androidx.media3.decoder.midi;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.content.Context;
+import android.content.res.Resources;
 import com.google.common.io.BaseEncoding;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -88,12 +88,11 @@ import java.io.InputStreamReader;
   private static final int SONIVOX_SAMPLE_RATE = 22050;
 
   /**
-   * Loads the wave table data from file {@code sonivox_byte_wave.dat} which must be bundled in
-   * assets.
+   * Loads the wave table data from raw resource {@code R.raw.sonivox_wave_data}.
    *
    * @param context The application context.
    * @return The wave table data.
-   * @throws MidiDecoderException If there is an error while loading the file.
+   * @throws MidiDecoderException If there is an error while loading the resource.
    */
   public static short[] loadWaveTableData(Context context) throws MidiDecoderException {
     byte[] bytes = loadWaveTableFile(context);
@@ -112,7 +111,7 @@ import java.io.InputStreamReader;
 
   private static byte[] loadWaveTableFile(Context context) throws MidiDecoderException {
     try (InputStream inputStream =
-        checkNotNull(context.getAssets().open("sonivox_wave_data.dat"))) {
+        context.getResources().openRawResource(R.raw.sonivox_wave_data)) {
       StringBuilder fileContents = new StringBuilder();
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       String line;
@@ -123,7 +122,7 @@ import java.io.InputStreamReader;
         fileContents.append(line);
       }
       return BaseEncoding.base16().decode(fileContents.toString());
-    } catch (IOException e) {
+    } catch (IOException | Resources.NotFoundException e) {
       throw new MidiDecoderException("Could not load wave table data", e);
     }
   }
