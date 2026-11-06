@@ -106,6 +106,66 @@ public class SlidingPercentileBandwidthStatisticTest {
   }
 
   @Test
+  public void getBandwidthEstimate_repeatedEqualBitrates_preservesEverySampleWeight() {
+    SlidingPercentileBandwidthStatistic statistic =
+        new SlidingPercentileBandwidthStatistic(/* maxSampleCount= */ 5, /* percentile= */ 0.7);
+
+    // Four equal-weight slow samples place the 70th percentile inside the 1 Mbps group.
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+
+    assertThat(statistic.getBandwidthEstimate()).isEqualTo(1_000_000);
+  }
+
+  @Test
+  public void getBandwidthEstimate_equalBitratesWithDifferentByteCounts_preservesBothWeights() {
+    SlidingPercentileBandwidthStatistic statistic =
+        new SlidingPercentileBandwidthStatistic(/* maxSampleCount= */ 5, /* percentile= */ 0.5);
+
+    // The two 1 Mbps samples have weights 100 and 10. The median lies between their centers.
+    statistic.addSample(/* bytes= */ 10_000, /* durationUs= */ 80_000);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+
+    assertThat(statistic.getBandwidthEstimate()).isEqualTo(1_000_000);
+  }
+
+  @Test
+  public void getBandwidthEstimate_evictingOneEqualBitrateSample_keepsTheOtherSample() {
+    SlidingPercentileBandwidthStatistic statistic =
+        new SlidingPercentileBandwidthStatistic(/* maxSampleCount= */ 3, /* percentile= */ 0.7);
+
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    // Only the first 10 Mbps sample is evicted; the second remains in the three-sample window.
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+
+    // Equal weights put the percentile 60% of the way from 1 Mbps to the remaining 10 Mbps sample.
+    assertThat(statistic.getBandwidthEstimate()).isEqualTo(6_400_000);
+  }
+
+  @Test
+  public void reset_afterEqualBitratesAndEviction_doesNotRetainOldWeights() {
+    SlidingPercentileBandwidthStatistic statistic =
+        new SlidingPercentileBandwidthStatistic(/* maxSampleCount= */ 3, /* percentile= */ 0.7);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+
+    statistic.reset();
+
+    assertThat(statistic.getBandwidthEstimate())
+        .isEqualTo(BandwidthEstimator.ESTIMATE_NOT_AVAILABLE);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 400);
+    assertThat(statistic.getBandwidthEstimate()).isEqualTo(2_000_000);
+  }
+
+  @Test
   public void reset_withSamplesAdded_returnsNoEstimate() {
     SlidingPercentileBandwidthStatistic statistic =
         new SlidingPercentileBandwidthStatistic(/* maxSampleCount= */ 10, /* percentile= */ 0.5);
