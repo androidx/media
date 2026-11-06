@@ -33,15 +33,16 @@ import org.junit.runner.RunWith;
 /**
  * Unit tests for {@link HagcMetadata}.
  *
- * <p>Payloads are written as hex strings, with one group per syntax element (or per byte of packed
- * flags) of Annex C of SMPTE ST 2094-50.
+ * <p>Payloads are written as hex strings, with one group per syntax element of Annex C of SMPTE ST
+ * 2094-50, per byte of packed flags, or per pair of chromaticity coordinates.
  */
 @RunWith(AndroidJUnit4.class)
 public final class HagcMetadataTest {
 
   /**
-   * The tolerance for values computed with floating point arithmetic, which is smaller than one
-   * encoding step of any syntax element. Decoded values are compared exactly.
+   * The tolerance for values computed with floating point arithmetic. It's smaller than one
+   * encoding step of any syntax element, so comparing decoded values within it, as {@link
+   * #assertGainCurveIsApproximately} does, still catches a wrongly decoded value.
    */
   private static final float TOLERANCE = 1e-6f;
 
@@ -83,17 +84,9 @@ public final class HagcMetadataTest {
         .isEqualTo(new float[] {0.708f, 0.292f, 0.17f, 0.797f, 0.131f, 0.046f, 0.3127f, 0.329f});
     assertThat(toneMap.gainApplicationColorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
     assertThat(toneMap.alternateImages).hasSize(2);
-    ComponentMix maxComponentMix =
-        new ComponentMix(
-            /* red= */ 0,
-            /* green= */ 0,
-            /* blue= */ 0,
-            /* max= */ 1,
-            /* min= */ 0,
-            /* component= */ 0);
     AlternateImage alternateImage0 = toneMap.alternateImages.get(0);
     assertThat(alternateImage0.hdrHeadroom).isEqualTo(0f);
-    assertThat(alternateImage0.componentMix).isEqualTo(maxComponentMix);
+    assertThat(alternateImage0.componentMix).isEqualTo(ComponentMix.MAX);
     assertGainCurveIsApproximately(
         alternateImage0.gainCurve,
         new float[][] {
@@ -109,7 +102,7 @@ public final class HagcMetadataTest {
         });
     AlternateImage alternateImage1 = toneMap.alternateImages.get(1);
     assertThat(alternateImage1.hdrHeadroom).isWithin(TOLERANCE).of(0.12302276f);
-    assertThat(alternateImage1.componentMix).isEqualTo(maxComponentMix);
+    assertThat(alternateImage1.componentMix).isEqualTo(ComponentMix.MAX);
     assertGainCurveIsApproximately(
         alternateImage1.gainCurve,
         new float[][] {
@@ -190,6 +183,368 @@ public final class HagcMetadataTest {
   }
 
   @Test
+  public void parse_payloadFromSampleWithIt35Track_returnsDecodedValues() throws Exception {
+    // The payload of the first frame of media/mp4/sample_with_it35_track.mp4, which has three
+    // alternate images that share a custom component mix and the x coordinates of 16 control
+    // points with explicit slopes. The expected values are decoded as specified in Clause C.3.
+    byte[] payload =
+        getBytesFromHexString(
+            "00402F923B0000FC19A7423605CB61A878000A000B000F001D00360060009E00F5016901FE02B8039B04AC"
+                + "05EE0765091600CD00D500F601A302F50551083A0B510E4010D0137016CC1BAF217F27A62F921F"
+                + "E922DB32261E8A164D1BB0232D27042FEB34FC387335B3332A339035AD2D760FDB006D00710086"
+                + "00F101DA03890585077A09160A590BB10DBE1127155919CD1FB72ACF2D89397C29131CBF238C2B"
+                + "F4329639923DA73EB93B313846385A3A0F2D761FB70034003700400074010202190341042B0486"
+                + "047E0480052306F709700C190FDB37AA39614004367D25882DDE366F40FD4429475B459741823E"
+                + "333DCA3EE32D76");
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertThat(metadata.hdrReferenceWhiteNits)
+        .isEqualTo(HagcMetadata.DEFAULT_HDR_REFERENCE_WHITE_NITS);
+    HeadroomAdaptiveToneMap toneMap = metadata.headroomAdaptiveToneMap;
+    assertThat(toneMap.baselineHdrHeadroom).isEqualTo(1.2178f);
+    assertThat(toneMap.gainApplicationSpaceChromaticities)
+        .isEqualTo(new float[] {0.708f, 0.292f, 0.17f, 0.797f, 0.131f, 0.046f, 0.3127f, 0.329f});
+    assertThat(toneMap.gainApplicationColorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(toneMap.alternateImages).hasSize(3);
+    assertThat(toneMap.alternateImages.get(0).hdrHeadroom).isEqualTo(0f);
+    assertThat(toneMap.alternateImages.get(1).hdrHeadroom).isEqualTo(0.4059f);
+    assertThat(toneMap.alternateImages.get(2).hdrHeadroom).isEqualTo(0.8119f);
+    ComponentMix expectedComponentMix =
+        new ComponentMix(
+            /* red= */ 0.13134f,
+            /* green= */ 0.339f,
+            /* blue= */ 0.02966f,
+            /* max= */ 0.5f,
+            /* min= */ 0,
+            /* component= */ 0);
+    for (AlternateImage alternateImage : toneMap.alternateImages) {
+      assertThat(alternateImage.componentMix).isEqualTo(expectedComponentMix);
+    }
+    assertGainCurveIsApproximately(
+        toneMap.alternateImages.get(0).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {0.01f, -0.0205f, -1.1566733f},
+          {0.011f, -0.0213f, -1.0135301f},
+          {0.015f, -0.0246f, -0.48363423f},
+          {0.029f, -0.0419f, -1.2309387f},
+          {0.054f, -0.0757f, -1.8383263f},
+          {0.096f, -0.1361f, -1.4050583f},
+          {0.158f, -0.2106f, -0.99912775f},
+          {0.245f, -0.2897f, -0.8408857f},
+          {0.361f, -0.3648f, -0.5466903f},
+          {0.51f, -0.4304f, -0.4076853f},
+          {0.696f, -0.4976f, -0.3200063f},
+          {0.923f, -0.5836f, -0.38918015f},
+          {1.196f, -0.7087f, -0.45593706f},
+          {1.518f, -0.8575f, -0.4452287f},
+          {1.893f, -1.015f, -0.38978317f},
+          {2.326f, -1.2178f, -0.6202679f},
+        });
+    assertGainCurveIsApproximately(
+        toneMap.alternateImages.get(1).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {0.01f, -0.0109f, -0.7055531f},
+          {0.011f, -0.0113f, -0.6179743f},
+          {0.015f, -0.0134f, -0.29469535f},
+          {0.029f, -0.0241f, -0.7652494f},
+          {0.054f, -0.0474f, -1.3369708f},
+          {0.096f, -0.0905f, -0.98269725f},
+          {0.158f, -0.1413f, -0.6679262f},
+          {0.245f, -0.1914f, -0.47163063f},
+          {0.361f, -0.2326f, -0.29260993f},
+          {0.51f, -0.2649f, -0.19592033f},
+          {0.696f, -0.2993f, -0.17120259f},
+          {0.923f, -0.3518f, -0.253689f},
+          {1.196f, -0.4391f, -0.3243409f},
+          {1.518f, -0.5465f, -0.3224131f},
+          {1.893f, -0.6605f, -0.28080487f},
+          {2.326f, -0.8119f, -0.6202679f},
+        });
+    assertGainCurveIsApproximately(
+        toneMap.alternateImages.get(2).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {0.01f, -0.0052f, -0.33945426f},
+          {0.011f, -0.0055f, -0.29725796f},
+          {0.015f, -0.0064f, -0.14160888f},
+          {0.029f, -0.0116f, -0.3690186f},
+          {0.054f, -0.0258f, -0.8991407f},
+          {0.096f, -0.0537f, -0.6077705f},
+          {0.158f, -0.0833f, -0.37040734f},
+          {0.245f, -0.1067f, -0.11950831f},
+          {0.361f, -0.1158f, -0.048120912f},
+          {0.51f, -0.115f, 0.023304364f},
+          {0.696f, -0.1152f, -0.016145699f},
+          {0.923f, -0.1315f, -0.10775188f},
+          {1.196f, -0.1783f, -0.18326373f},
+          {1.518f, -0.2416f, -0.19275066f},
+          {1.893f, -0.3097f, -0.16743232f},
+          {2.326f, -0.4059f, -0.6202679f},
+        });
+  }
+
+  @Test
+  public void parse_alternateHeadroomAboveBaseline_returnsPositiveGains() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "0000" // Baseline headroom 0.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "4E20" // Alternate headroom 20000 / 10000 = 2.
+                + "00" // Component mixing type 0 (max).
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = 0.5, positive as the alternate is above.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve.y)
+        .isEqualTo(new float[] {0.5f});
+  }
+
+  @Test
+  public void parse_zeroGainBelowBaseline_returnsZero() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0, below the baseline.
+                + "00" // Component mixing type 0 (max).
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "0000" // y[0] = 0.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    // The gain is +0f, not -0f: equals() and hashCode() distinguish them, and so does isEqualTo().
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve.y)
+        .isEqualTo(new float[] {0f});
+  }
+
+  @Test
+  public void parse_unsharedParametersWithTwoAlternates_returnsParametersOfEachAlternate()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "EA60" // Baseline headroom 60000 / 10000 = 6.
+                + "28" // 2 alternate images, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate 0: headroom 0.
+                + "00" // Alternate 0: component mixing type 0 (max).
+                + "00" // Alternate 0: 1 control point, explicit slopes.
+                + "03E8" // Alternate 0: x[0] = 1.
+                + "1388" // Alternate 0: y[0] = -0.5.
+                + "4650" // Alternate 0: theta[0] = 18000, a slope of tan(0) = 0.
+                + "2710" // Alternate 1: headroom 1.
+                + "40" // Alternate 1: component mixing type 1 (component).
+                + "08" // Alternate 1: 2 control points, explicit slopes.
+                + "03E8" // Alternate 1: x[0] = 1.
+                + "07D0" // Alternate 1: x[1] = 2.
+                + "0FA0" // Alternate 1: y[0] = -0.4.
+                + "07D0" // Alternate 1: y[1] = -0.2.
+                + "4650" // Alternate 1: theta[0] = 18000, a slope of tan(0) = 0.
+                + "6978"); // Alternate 1: theta[1] = 27000, a slope of tan(pi / 4) = 1.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    AlternateImage alternateImage1 = metadata.headroomAdaptiveToneMap.alternateImages.get(1);
+    assertThat(alternateImage1.hdrHeadroom).isEqualTo(1f);
+    assertThat(alternateImage1.componentMix).isEqualTo(ComponentMix.COMPONENT);
+    assertThat(alternateImage1.gainCurve.x).isEqualTo(new float[] {1f, 2f});
+    assertThat(alternateImage1.gainCurve.y).isEqualTo(new float[] {-0.4f, -0.2f});
+    assertThat(alternateImage1.gainCurve.slopes)
+        .usingTolerance(TOLERANCE)
+        .containsExactly(0f, 1f)
+        .inOrder();
+  }
+
+  @Test
+  public void parse_sharedCurveParametersAndUnsharedMixes_returnsMixAndGainSignOfEachAlternate()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "29" // 2 alternate images, BT.2020 primaries, shared curve parameters only.
+                + "0000" // Alternate 0: headroom 0, below the baseline.
+                + "00" // Alternate 0: component mixing type 0 (max).
+                + "00" // Alternate 0: 1 control point, explicit slopes.
+                + "03E8" // Alternate 0: x[0] = 1.
+                + "1388" // Alternate 0: y[0] = -0.5, negative as the alternate is below.
+                + "4650" // Alternate 0: theta[0] = 18000, a slope of tan(0) = 0.
+                + "4E20" // Alternate 1: headroom 2, above the baseline.
+                + "40" // Alternate 1: component mixing type 1 (component).
+                + "1388" // Alternate 1: y[0] = 0.5, positive as the alternate is above.
+                + "4650"); // Alternate 1: theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    AlternateImage alternateImage0 = metadata.headroomAdaptiveToneMap.alternateImages.get(0);
+    assertThat(alternateImage0.componentMix).isEqualTo(ComponentMix.MAX);
+    assertThat(alternateImage0.gainCurve.y).isEqualTo(new float[] {-0.5f});
+    AlternateImage alternateImage1 = metadata.headroomAdaptiveToneMap.alternateImages.get(1);
+    assertThat(alternateImage1.componentMix).isEqualTo(ComponentMix.COMPONENT);
+    assertThat(alternateImage1.gainCurve.x).isEqualTo(new float[] {1f});
+    assertThat(alternateImage1.gainCurve.y).isEqualTo(new float[] {0.5f});
+  }
+
+  @Test
+  public void parse_customComponentMixingCoefficients_returnsNormalizedWeights() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "E4" // Custom component mixing, with red and max coefficients.
+                + "30D4" // Red coefficient 12500 / 50000 = 0.25.
+                + "30D4" // Max coefficient 0.25.
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = -0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages.get(0).componentMix)
+        .isEqualTo(
+            new ComponentMix(
+                /* red= */ 0.5f,
+                /* green= */ 0,
+                /* blue= */ 0,
+                /* max= */ 0.5f,
+                /* min= */ 0,
+                /* component= */ 0));
+  }
+
+  @Test
+  public void parse_componentMixingType2_returnsRgbAndMaxWeights() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "80" // Component mixing type 2.
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = -0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages.get(0).componentMix)
+        .isEqualTo(
+            new ComponentMix(
+                /* red= */ 1 / 6f,
+                /* green= */ 1 / 6f,
+                /* blue= */ 1 / 6f,
+                /* max= */ 1 / 2f,
+                /* min= */ 0,
+                /* component= */ 0));
+  }
+
+  @Test
+  public void parse_bt709ChromaticitiesMode_returnsBt709Chromaticities() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "00"); // No alternate images, BT.709 primaries.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    HeadroomAdaptiveToneMap toneMap = metadata.headroomAdaptiveToneMap;
+    assertThat(toneMap.gainApplicationSpaceChromaticities)
+        .isEqualTo(new float[] {0.64f, 0.33f, 0.3f, 0.6f, 0.15f, 0.06f, 0.3127f, 0.329f});
+    assertThat(toneMap.gainApplicationColorSpace).isEqualTo(C.COLOR_SPACE_BT709);
+  }
+
+  @Test
+  public void parse_p3ChromaticitiesMode_returnsP3Chromaticities() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "04"); // No alternate images, P3 primaries.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    HeadroomAdaptiveToneMap toneMap = metadata.headroomAdaptiveToneMap;
+    assertThat(toneMap.gainApplicationSpaceChromaticities)
+        .isEqualTo(new float[] {0.68f, 0.32f, 0.265f, 0.69f, 0.15f, 0.06f, 0.3127f, 0.329f});
+    assertThat(toneMap.gainApplicationColorSpace).isEqualTo(C.COLOR_SPACE_DISPLAY_P3);
+  }
+
+  @Test
+  public void parse_payloadWithCustomChromaticities_returnsDecodedChromaticitiesAndAlternate()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "1C" // 1 alternate image, custom primaries, no shared parameters.
+                + "82DC" // Red x = 33500 / 50000 = 0.67.
+                + "4074" // Red y = 0.33.
+                + "2904" // Green x = 0.21.
+                + "8AAC" // Green y = 0.71.
+                + "1B58" // Blue x = 0.14.
+                + "0FA0" // Blue y = 0.08.
+                + "3C8C" // White x = 0.31.
+                + "3DB8" // White y = 0.316.
+                + "0000" // Alternate headroom 0.
+                + "00" // Component mixing type 0 (max).
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = -0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    HeadroomAdaptiveToneMap toneMap = metadata.headroomAdaptiveToneMap;
+    assertThat(toneMap.gainApplicationSpaceChromaticities)
+        .isEqualTo(new float[] {0.67f, 0.33f, 0.21f, 0.71f, 0.14f, 0.08f, 0.31f, 0.316f});
+    assertThat(toneMap.gainApplicationColorSpace)
+        .isEqualTo(HeadroomAdaptiveToneMap.COLOR_SPACE_CUSTOM);
+    assertThat(toneMap.alternateImages.get(0).gainCurve.y).isEqualTo(new float[] {-0.5f});
+  }
+
+  @Test
+  public void parse_customChromaticitiesInClockwiseOrder_returnsDecodedChromaticities()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "0C" // No alternate images, custom primaries.
+                + "13881388" // Red (5000, 5000) / 50000 = (0.1, 0.1).
+                + "27109C40" // Green (0.2, 0.8).
+                + "9C402710" // Blue (0.8, 0.2), so red, green, blue are in clockwise order.
+                + "3A983A98"); // White (0.3, 0.3), inside the triangle.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertThat(metadata.headroomAdaptiveToneMap.gainApplicationSpaceChromaticities)
+        .isEqualTo(new float[] {0.1f, 0.1f, 0.2f, 0.8f, 0.8f, 0.2f, 0.3f, 0.3f});
+  }
+
+  @Test
   public void parse_referenceWhiteBelowItsRange_returnsClampedReferenceWhite() throws Exception {
     byte[] payload =
         getBytesFromHexString(
@@ -231,6 +586,100 @@ public final class HagcMetadataTest {
   }
 
   @Test
+  public void parse_outOfRangeValues_returnsClampedValues() throws Exception {
+    // The float spacing around the expected slope is about 0.001.
+    float largeSlopeTolerance = 0.01f;
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "FFFF" // Baseline headroom 65535, clamped to 60000 / 10000 = 6.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "C4" // Custom component mixing, with a max coefficient only.
+                + "FFFF" // Max coefficient 65535, clamped to 50000 / 50000 = 1.
+                + "00" // 1 control point, explicit slopes.
+                + "FFFF" // x[0] = 65535, clamped to 64000 / 1000 = 64.
+                + "FFFF" // y[0] = 65535, clamped to -60000 / 10000 = -6.
+                + "0000"); // theta[0] = 0, clamped to 1, a slope of tan(-pi / 2 + pi / 36000).
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    HeadroomAdaptiveToneMap toneMap = metadata.headroomAdaptiveToneMap;
+    AlternateImage alternateImage = toneMap.alternateImages.get(0);
+    assertThat(alternateImage.componentMix).isEqualTo(ComponentMix.MAX);
+    assertThat(alternateImage.gainCurve.x).isEqualTo(new float[] {64f});
+    assertThat(alternateImage.gainCurve.y).isEqualTo(new float[] {-6f});
+    assertThat(alternateImage.gainCurve.slopes)
+        .usingTolerance(largeSlopeTolerance)
+        .containsExactly(-11459.156f);
+  }
+
+  @Test
+  public void parse_headroomAndChromaticityValuesAboveTheirRanges_returnsClampedValues()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "0000" // Baseline headroom 0.
+                + "1C" // 1 alternate image, custom primaries, no shared parameters.
+                + "FFFF" // Red x = 65535, clamped to 50000 / 50000 = 1.
+                + "0000" // Red y = 0.
+                + "0000" // Green x = 0.
+                + "FFFF" // Green y = 65535, clamped to 1.
+                + "0000" // Blue x = 0.
+                + "0000" // Blue y = 0.
+                + "3A98" // White x = 15000 / 50000 = 0.3.
+                + "3A98" // White y = 0.3.
+                + "FFFF" // Alternate headroom 65535, clamped to 60000 / 10000 = 6.
+                + "00" // Component mixing type 0 (max).
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = 0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    HeadroomAdaptiveToneMap toneMap = metadata.headroomAdaptiveToneMap;
+    assertThat(toneMap.gainApplicationSpaceChromaticities)
+        .isEqualTo(new float[] {1f, 0f, 0f, 1f, 0f, 0f, 0.3f, 0.3f});
+    assertThat(toneMap.alternateImages.get(0).hdrHeadroom).isEqualTo(6f);
+  }
+
+  @Test
+  public void parse_numAlternateImagesAboveFour_returnsFourAlternateImages() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "EA60" // Baseline headroom 6.
+                + "7B" // 7 alternate images, BT.2020 primaries, shared mix and curve parameters.
+                + "0000" // Alternate 0: headroom 0.
+                + "00" // Alternate 0: component mixing type 0 (max).
+                + "00" // Alternate 0: 1 control point, explicit slopes.
+                + "03E8" // Alternate 0: x[0] = 1.
+                + "1388" // Alternate 0: y[0] = -0.5.
+                + "4650" // Alternate 0: theta[0] = 18000, a slope of tan(0) = 0.
+                + "2710" // Alternate 1: headroom 1.
+                + "0FA0" // Alternate 1: y[0] = -0.4.
+                + "4650" // Alternate 1: theta[0] = 18000, a slope of tan(0) = 0.
+                + "4E20" // Alternate 2: headroom 2.
+                + "0BB8" // Alternate 2: y[0] = -0.3.
+                + "4650" // Alternate 2: theta[0] = 18000, a slope of tan(0) = 0.
+                + "7530" // Alternate 3: headroom 3.
+                + "07D0" // Alternate 3: y[0] = -0.2.
+                + "4650"); // Alternate 3: theta[0] = 18000, a slope of tan(0) = 0.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages).hasSize(4);
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages.get(3).hdrHeadroom).isEqualTo(3f);
+    assertThat(metadata.headroomAdaptiveToneMap.alternateImages.get(3).gainCurve.y)
+        .isEqualTo(new float[] {-0.2f});
+  }
+
+  @Test
   public void parse_payloadWithTrailingBytes_ignoresTrailingBytes() throws Exception {
     HagcMetadata expectedMetadata = HagcMetadata.parse(getBytesFromHexString("008001F4"));
     byte[] payloadWithTrailingBytes = getBytesFromHexString("008001F4FFFF");
@@ -265,6 +714,40 @@ public final class HagcMetadataTest {
                 + "01F4" // Reference white 100 nits.
                 + "07D0" // Baseline headroom 0.2.
                 + "FF"); // Reference white tone mapping, reserved bits set.
+
+    HagcMetadata metadata = HagcMetadata.parse(payloadWithReservedBitsSet);
+
+    assertThat(metadata).isEqualTo(expectedMetadata);
+  }
+
+  @Test
+  public void parse_payloadWithExplicitToneMapAndReservedBitsSet_ignoresReservedBits()
+      throws Exception {
+    HagcMetadata expectedMetadata =
+        HagcMetadata.parse(
+            getBytesFromHexString(
+                "00" // Version 0, minimum version 0.
+                    + "40" // Default reference white, adaptive tone map.
+                    + "2710" // Baseline headroom 1.
+                    + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                    + "0000" // Alternate headroom 0.
+                    + "00" // Component mixing type 0 (max).
+                    + "00" // 1 control point, explicit slopes.
+                    + "03E8" // x[0] = 1.
+                    + "1388" // y[0] = -0.5.
+                    + "4650")); // theta[0] = 18000, a slope of tan(0) = 0.
+    byte[] payloadWithReservedBitsSet =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "3F" // Component mixing type 0 (max), reserved bits set.
+                + "03" // 1 control point, explicit slopes, reserved bits set.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = -0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
 
     HagcMetadata metadata = HagcMetadata.parse(payloadWithReservedBitsSet);
 
@@ -310,6 +793,156 @@ public final class HagcMetadataTest {
             "00" // Version 0, minimum version 0.
                 + "80" // Custom reference white, no adaptive tone map.
                 + "01"); // Only the first byte of the reference white.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_alternateHeadroomEqualToBaseline_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "2710" // Alternate headroom 1.
+                + "00" // Component mixing type 0 (max).
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = -0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_alternateHeadroomsNotIncreasing_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "EA60" // Baseline headroom 6.
+                + "2B" // 2 alternate images, BT.2020 primaries, shared mix and curve parameters.
+                + "2710" // Alternate 0: headroom 1.
+                + "00" // Alternate 0: component mixing type 0 (max).
+                + "00" // Alternate 0: 1 control point, explicit slopes.
+                + "03E8" // Alternate 0: x[0] = 1.
+                + "1388" // Alternate 0: y[0] = -0.5.
+                + "4650" // Alternate 0: theta[0] = 18000, a slope of tan(0) = 0.
+                + "2710" // Alternate 1: headroom 1.
+                + "0FA0" // Alternate 1: y[0] = -0.4.
+                + "4650"); // Alternate 1: theta[0] = 18000, a slope of tan(0) = 0.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_customChromaticitiesWithWhitePointOutsidePrimaries_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "0C" // No alternate images, custom primaries.
+                + "84D03E80" // Red (34000, 16000) / 50000 = (0.68, 0.32).
+                + "33C286C4" // Green (0.265, 0.69).
+                + "1D4C0BB8" // Blue (0.15, 0.06).
+                + "AFC8" // White x = 0.9.
+                + "AFC8"); // White y = 0.9.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_customChromaticitiesWithCollinearPrimaries_throwsParserException() {
+    // The primaries are collinear, so their triangle has zero area. Checking this with decoded
+    // floating point values doesn't give exactly zero for these values.
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "0C" // No alternate images, custom primaries.
+                + "012D30CB" // Red (301, 12491) / 50000.
+                + "02E9342F" // Green (745, 13359) / 50000.
+                + "1EA96A6F" // Blue (7849, 27247) / 50000.
+                + "0DC04960"); // White (3520, 18784) / 50000, on the same line.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_customChromaticitiesWithWhitePointOnEdge_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "0C" // No alternate images, custom primaries.
+                + "9C402710" // Red (40000, 10000) / 50000 = (0.8, 0.2).
+                + "27109C40" // Green (0.2, 0.8).
+                + "13881388" // Blue (0.1, 0.1).
+                + "61A861A8"); // White (0.5, 0.5), on the edge between red and green.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_customComponentMixingCoefficientsSummingToZero_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "C0" // Custom component mixing, without coefficients.
+                + "00" // 1 control point, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "1388" // y[0] = -0.5.
+                + "4650"); // theta[0] = 18000, a slope of tan(0) = 0.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_decreasingControlPointX_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "00" // Component mixing type 0 (max).
+                + "08" // 2 control points, explicit slopes.
+                + "07D0" // x[0] = 2.
+                + "03E8" // x[1] = 1.
+                + "0000" // y[0] = 0.
+                + "1388" // y[1] = -0.5.
+                + "4650" // theta[0] = 18000, a slope of tan(0) = 0.
+                + "4650"); // theta[1] = 18000, a slope of tan(0) = 0.
+
+    assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
+  }
+
+  @Test
+  public void parse_equalControlPointXWithDifferentY_throwsParserException() {
+    byte[] payload =
+        getBytesFromHexString(
+            "00" // Version 0, minimum version 0.
+                + "40" // Default reference white, adaptive tone map.
+                + "2710" // Baseline headroom 1.
+                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+                + "0000" // Alternate headroom 0.
+                + "00" // Component mixing type 0 (max).
+                + "08" // 2 control points, explicit slopes.
+                + "03E8" // x[0] = 1.
+                + "03E8" // x[1] = 1.
+                + "0000" // y[0] = 0.
+                + "1388" // y[1] = -0.5.
+                + "4650" // theta[0] = 18000, a slope of tan(0) = 0.
+                + "4650"); // theta[1] = 18000, a slope of tan(0) = 0.
 
     assertThrows(ParserException.class, () -> HagcMetadata.parse(payload));
   }

@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.video;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.math.DoubleMath.log2;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
@@ -44,6 +46,38 @@ import org.jspecify.annotations.Nullable;
   // higher version are ignored (Clause C.2.1).
   private static final int IMPLEMENTED_APPLICATION_VERSION = 0;
 
+  // The maximum number of alternate images (Clause 6.2.2).
+  private static final int MAX_NUM_ALTERNATE_IMAGES = 4;
+
+  // The number of chromaticity coordinates of a gain application color space: x and y for the
+  // red, green and blue primaries and the white point (Clause 6.2.1).
+  private static final int NUM_CHROMATICITIES = 8;
+
+  // The number of component mixing coefficients (Clause 6.4.1).
+  private static final int NUM_COMPONENT_MIXING_COEFFICIENTS = 6;
+
+  // Values of the gain_application_space_chromaticities_mode syntax element, which selects the
+  // color space in which gains are computed and applied (Clause C.3.5).
+  // CHROMATICITIES_MODE_CUSTOM: the payload lists the chromaticities of the color space.
+  private static final int CHROMATICITIES_MODE_BT709 = 0;
+  private static final int CHROMATICITIES_MODE_P3 = 1;
+  private static final int CHROMATICITIES_MODE_BT2020 = 2;
+  private static final int CHROMATICITIES_MODE_CUSTOM = 3;
+
+  // Values of the component_mixing_type syntax element, which selects how the red, green and blue
+  // components of a color are combined into the input of a gain curve (Clause C.3.6).
+  //
+  // COMPONENT_MIXING_TYPE_MAX: the input is the maximum of the components.
+  // COMPONENT_MIXING_TYPE_COMPONENT: the input is each component on its own, which gives a separate
+  //     gain per component.
+  // COMPONENT_MIXING_TYPE_RGB_AND_MAX: the input is half the average of the components plus half
+  //     their maximum.
+  // COMPONENT_MIXING_TYPE_CUSTOM: the payload lists the weights of the combination.
+  private static final int COMPONENT_MIXING_TYPE_MAX = 0;
+  private static final int COMPONENT_MIXING_TYPE_COMPONENT = 1;
+  private static final int COMPONENT_MIXING_TYPE_RGB_AND_MAX = 2;
+  private static final int COMPONENT_MIXING_TYPE_CUSTOM = 3;
+
   // The maximum value of hdr_reference_white, and the divisor that maps it to nits, when
   // has_custom_hdr_reference_white_flag is 1 (Clause C.3.3).
   private static final int MAX_HDR_REFERENCE_WHITE_CODE = 50_000;
@@ -53,6 +87,24 @@ import org.jspecify.annotations.Nullable;
   // the maximum log2 headroom (Clause C.3.4).
   private static final float HDR_HEADROOM_SCALE = 10_000f;
   private static final float MAX_HDR_HEADROOM = 6f;
+
+  // The divisor that maps gain_application_space_chromaticities and component_mixing_coefficient
+  // to the unit interval, which is also their maximum value (Clauses C.3.5 and C.3.6).
+  private static final int UNIT_INTERVAL_SCALE = 50_000;
+
+  // The divisors that map gain_curve_control_points_x and gain_curve_control_points_y to control
+  // point coordinates, and the maximum coordinates (Clause C.3.7).
+  private static final float CONTROL_POINT_X_SCALE = 1_000f;
+  private static final float MAX_CONTROL_POINT_X = 64f;
+  private static final float CONTROL_POINT_Y_SCALE = 10_000f;
+  private static final float MAX_CONTROL_POINT_Y = 6f;
+
+  // The limits of gain_curve_control_points_theta, and the offset and divisor that map it to an
+  // angle (Clause C.3.7).
+  private static final int MIN_CONTROL_POINT_THETA = 1;
+  private static final int MAX_CONTROL_POINT_THETA = 35_999;
+  private static final int CONTROL_POINT_THETA_OFFSET = 18_000;
+  private static final double CONTROL_POINT_THETA_SCALE = 36_000;
 
   // The baseline headroom at which the reference white tone mapping (RWTM, Clause C.3.8) scaling
   // saturates: log2 of a 1,000-nit peak over a 203-nit reference white (Formulas (C.1) and (C.2)).
@@ -67,9 +119,15 @@ import org.jspecify.annotations.Nullable;
   // The RWTM highlight compression factor, κ in Formula (C.3).
   private static final double RWTM_KAPPA = 0.65;
 
-  // The CIE 1931 xy chromaticity coordinates of the BT.2020 red, green and blue primaries and
-  // white point, in the order [redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY]. This
-  // is the gain application color space of the reference white tone mapping (Clause C.3.8).
+  // The color spaces that a payload can select as its gain application color space (Clause C.3.5),
+  // described by the CIE 1931 xy chromaticity coordinates of their red, green and blue primaries
+  // and white point, in the order [redX, redY, greenX, greenY, blueX, blueY, whiteX, whiteY].
+  private static final float[] BT709_CHROMATICITIES = {
+    0.64f, 0.33f, 0.3f, 0.6f, 0.15f, 0.06f, 0.3127f, 0.329f
+  };
+  private static final float[] P3_CHROMATICITIES = {
+    0.68f, 0.32f, 0.265f, 0.69f, 0.15f, 0.06f, 0.3127f, 0.329f
+  };
   private static final float[] BT2020_CHROMATICITIES = {
     0.708f, 0.292f, 0.17f, 0.797f, 0.131f, 0.046f, 0.3127f, 0.329f
   };
@@ -156,16 +214,62 @@ import org.jspecify.annotations.Nullable;
 
   private static HeadroomAdaptiveToneMap parseHeadroomAdaptiveToneMap(ParsableBitArray data)
       throws ParserException {
-    float baselineHdrHeadroom = min(data.readBits(16) / HDR_HEADROOM_SCALE, MAX_HDR_HEADROOM);
+    // As in Clause C.3.7, the sign of the gains depends on the headrooms before clamping.
+    float unclampedBaselineHdrHeadroom = data.readBits(16) / HDR_HEADROOM_SCALE;
+    float baselineHdrHeadroom = min(unclampedBaselineHdrHeadroom, MAX_HDR_HEADROOM);
     boolean useReferenceWhiteToneMapping = data.readBit();
-    if (!useReferenceWhiteToneMapping) {
-      // TODO: b/575451438 - Parse the alternate images as specified in Clause C.2.3.
-      throw ParserException.createForUnsupportedContainerFeature(
-          "HAGC headroom-adaptive tone maps without reference white tone mapping aren't"
-              + " supported yet");
+    if (useReferenceWhiteToneMapping) {
+      data.skipBits(7); // reserved_zero
+      return createReferenceWhiteToneMap(baselineHdrHeadroom);
     }
-    data.skipBits(7); // reserved_zero
-    return createReferenceWhiteToneMap(baselineHdrHeadroom);
+
+    int numAlternateImages = min(data.readBits(3), MAX_NUM_ALTERNATE_IMAGES);
+    int chromaticitiesMode = data.readBits(2);
+    boolean hasCommonComponentMix = data.readBit();
+    boolean hasCommonCurveParams = data.readBit();
+    float @Nullable [] customChromaticities =
+        chromaticitiesMode == CHROMATICITIES_MODE_CUSTOM ? parseCustomChromaticities(data) : null;
+
+    ImmutableList.Builder<AlternateImage> alternateImages = ImmutableList.builder();
+    @Nullable ComponentMix componentMix = null;
+    @Nullable GainCurveParams gainCurveParams = null;
+    float previousAlternateHdrHeadroom = 0;
+    for (int a = 0; a < numAlternateImages; a++) {
+      float unclampedAlternateHdrHeadroom = data.readBits(16) / HDR_HEADROOM_SCALE;
+      float alternateHdrHeadroom = min(unclampedAlternateHdrHeadroom, MAX_HDR_HEADROOM);
+      // Clause 6.2.2 requires the alternate HDR headrooms to differ from the baseline HDR headroom,
+      // and to be in increasing order.
+      if (alternateHdrHeadroom == baselineHdrHeadroom) {
+        throw ParserException.createForMalformedDataOfUnknownType(
+            "Alternate HDR headroom equal to the baseline HDR headroom", /* cause= */ null);
+      }
+      if (a > 0 && alternateHdrHeadroom <= previousAlternateHdrHeadroom) {
+        throw ParserException.createForMalformedDataOfUnknownType(
+            "Alternate HDR headrooms not in increasing order", /* cause= */ null);
+      }
+      previousAlternateHdrHeadroom = alternateHdrHeadroom;
+
+      // If the component mix or the gain curve parameters are shared, the alternate images after
+      // the first reuse those of the first, as in the else branches of Tables C.4 and C.5.
+      if (a == 0 || !hasCommonComponentMix) {
+        componentMix = parseComponentMix(data);
+      }
+      // Gains are positive for alternate images above the baseline, and negative otherwise.
+      boolean isAboveBaseline = unclampedBaselineHdrHeadroom < unclampedAlternateHdrHeadroom;
+      if (a == 0 || !hasCommonCurveParams) {
+        gainCurveParams = parseGainCurveParams(data);
+      }
+      GainCurve gainCurve = parseGainCurve(data, checkNotNull(gainCurveParams), isAboveBaseline);
+      alternateImages.add(
+          new AlternateImage(alternateHdrHeadroom, checkNotNull(componentMix), gainCurve));
+    }
+    return customChromaticities != null
+        ? new HeadroomAdaptiveToneMap(
+            baselineHdrHeadroom, customChromaticities, alternateImages.build())
+        : new HeadroomAdaptiveToneMap(
+            baselineHdrHeadroom,
+            getGainApplicationColorSpace(chromaticitiesMode),
+            alternateImages.build());
   }
 
   /**
@@ -183,14 +287,6 @@ import org.jspecify.annotations.Nullable;
       0, RWTM_MAX_SECOND_ALTERNATE_HEADROOM * baselineHeadroomRatio
     };
     double[] whiteYs = {1 - 0.5 * baselineHeadroomRatio, 1};
-    ComponentMix componentMix =
-        new ComponentMix(
-            /* red= */ 0,
-            /* green= */ 0,
-            /* blue= */ 0,
-            /* max= */ 1,
-            /* min= */ 0,
-            /* component= */ 0);
     ImmutableList.Builder<AlternateImage> alternateImages = ImmutableList.builder();
     for (int i = 0; i < alternateHdrHeadrooms.length; i++) {
       GainCurve gainCurve =
@@ -200,7 +296,7 @@ import org.jspecify.annotations.Nullable;
               /* xMax= */ pow(2, baselineHdrHeadroom),
               /* yMax= */ pow(2, alternateHdrHeadrooms[i]));
       alternateImages.add(
-          new AlternateImage((float) alternateHdrHeadrooms[i], componentMix, gainCurve));
+          new AlternateImage((float) alternateHdrHeadrooms[i], ComponentMix.MAX, gainCurve));
     }
     return new HeadroomAdaptiveToneMap(
         baselineHdrHeadroom, C.COLOR_SPACE_BT2020, alternateImages.build());
@@ -238,16 +334,222 @@ import org.jspecify.annotations.Nullable;
     return new GainCurve(x, y, slopes);
   }
 
+  /** Returns the color space of a predefined gain application space chromaticities mode. */
+  private static @C.ColorSpace int getGainApplicationColorSpace(int chromaticitiesMode) {
+    switch (chromaticitiesMode) {
+      case CHROMATICITIES_MODE_BT709:
+        return C.COLOR_SPACE_BT709;
+      case CHROMATICITIES_MODE_P3:
+        return C.COLOR_SPACE_DISPLAY_P3;
+      case CHROMATICITIES_MODE_BT2020:
+        return C.COLOR_SPACE_BT2020;
+      default:
+        throw new IllegalArgumentException("Not a predefined mode: " + chromaticitiesMode);
+    }
+  }
+
   /** Returns the chromaticities of one of the predefined gain application color spaces. */
   private static float[] getChromaticities(@C.ColorSpace int colorSpace) {
-    if (colorSpace != C.COLOR_SPACE_BT2020) {
-      throw new IllegalArgumentException("Unsupported color space: " + colorSpace);
+    switch (colorSpace) {
+      case C.COLOR_SPACE_BT709:
+        return BT709_CHROMATICITIES.clone();
+      case C.COLOR_SPACE_DISPLAY_P3:
+        return P3_CHROMATICITIES.clone();
+      case C.COLOR_SPACE_BT2020:
+        return BT2020_CHROMATICITIES.clone();
+      default:
+        throw new IllegalArgumentException("Unsupported color space: " + colorSpace);
     }
-    return BT2020_CHROMATICITIES.clone();
+  }
+
+  private static float[] parseCustomChromaticities(ParsableBitArray data) throws ParserException {
+    int[] chromaticityValues = new int[NUM_CHROMATICITIES];
+    for (int r = 0; r < NUM_CHROMATICITIES; r++) {
+      chromaticityValues[r] = min(data.readBits(16), UNIT_INTERVAL_SCALE);
+    }
+    checkPrimariesFormTriangleContainingWhitePoint(chromaticityValues);
+    float[] chromaticities = new float[NUM_CHROMATICITIES];
+    for (int r = 0; r < NUM_CHROMATICITIES; r++) {
+      chromaticities[r] = chromaticityValues[r] / (float) UNIT_INTERVAL_SCALE;
+    }
+    return chromaticities;
+  }
+
+  /**
+   * Throws if the primaries don't form a triangle with a non-zero area that has the white point in
+   * its interior, as required by Clause 6.2.2.
+   *
+   * <p>The check uses the syntax element values, which are proportional to the chromaticities, so
+   * that it's exact.
+   *
+   * @param chromaticityValues The gain_application_space_chromaticities values, as {@code [redX,
+   *     redY, greenX, greenY, blueX, blueY, whiteX, whiteY]}.
+   * @throws ParserException If the chromaticities don't satisfy the constraint.
+   */
+  private static void checkPrimariesFormTriangleContainingWhitePoint(int[] chromaticityValues)
+      throws ParserException {
+    int redX = chromaticityValues[0];
+    int redY = chromaticityValues[1];
+    int greenX = chromaticityValues[2];
+    int greenY = chromaticityValues[3];
+    int blueX = chromaticityValues[4];
+    int blueY = chromaticityValues[5];
+    int whiteX = chromaticityValues[6];
+    int whiteY = chromaticityValues[7];
+    // For points A, B and P, the cross product (B - A) x (P - A) is positive if P is to the left of
+    // the line from A to B, negative if P is to the right, and 0 if the three points are collinear.
+    // So (green - red) x (blue - red) is 0 if the triangle has a zero area, and otherwise its sign
+    // gives the order of the vertices (counterclockwise if positive). Going around the edges in
+    // that order, the triangle's interior is on the same side of each edge: the white point is in
+    // the interior if it's strictly on that side of all three, so if the three cross products have
+    // the triangle's sign. A white point on an edge gives 0, so it's rejected.
+    long triangleOrientation =
+        crossProduct(greenX - redX, greenY - redY, blueX - redX, blueY - redY);
+    if (triangleOrientation == 0) {
+      throw ParserException.createForMalformedDataOfUnknownType(
+          "Gain application primaries form a triangle with zero area", /* cause= */ null);
+    }
+    long redGreenOrientation =
+        crossProduct(greenX - redX, greenY - redY, whiteX - redX, whiteY - redY);
+    long greenBlueOrientation =
+        crossProduct(blueX - greenX, blueY - greenY, whiteX - greenX, whiteY - greenY);
+    long blueRedOrientation =
+        crossProduct(redX - blueX, redY - blueY, whiteX - blueX, whiteY - blueY);
+    long triangleSign = Long.signum(triangleOrientation);
+    if (Long.signum(redGreenOrientation) != triangleSign
+        || Long.signum(greenBlueOrientation) != triangleSign
+        || Long.signum(blueRedOrientation) != triangleSign) {
+      throw ParserException.createForMalformedDataOfUnknownType(
+          "Gain application white point not in the interior of the primaries' triangle",
+          /* cause= */ null);
+    }
+  }
+
+  /** Returns the z component of the cross product of the vectors (x1, y1) and (x2, y2). */
+  private static long crossProduct(long x1, long y1, long x2, long y2) {
+    return x1 * y2 - y1 * x2;
+  }
+
+  private static ComponentMix parseComponentMix(ParsableBitArray data) throws ParserException {
+    int componentMixingType = data.readBits(2);
+    switch (componentMixingType) {
+      case COMPONENT_MIXING_TYPE_MAX:
+        data.skipBits(6); // reserved_zero
+        return ComponentMix.MAX;
+      case COMPONENT_MIXING_TYPE_COMPONENT:
+        data.skipBits(6); // reserved_zero
+        return ComponentMix.COMPONENT;
+      case COMPONENT_MIXING_TYPE_RGB_AND_MAX:
+        data.skipBits(6); // reserved_zero
+        return ComponentMix.RGB_AND_MAX;
+      case COMPONENT_MIXING_TYPE_CUSTOM:
+        boolean[] hasCoefficient = new boolean[NUM_COMPONENT_MIXING_COEFFICIENTS];
+        for (int k = 0; k < NUM_COMPONENT_MIXING_COEFFICIENTS; k++) {
+          hasCoefficient[k] = data.readBit();
+        }
+        float[] coefficients = new float[NUM_COMPONENT_MIXING_COEFFICIENTS];
+        float coefficientSum = 0;
+        for (int k = 0; k < NUM_COMPONENT_MIXING_COEFFICIENTS; k++) {
+          if (hasCoefficient[k]) {
+            coefficients[k] = min(data.readBits(16) / (float) UNIT_INTERVAL_SCALE, 1f);
+            coefficientSum += coefficients[k];
+          }
+        }
+        // Clause 6.4.2 requires the coefficients to sum to more than 0.
+        if (coefficientSum == 0) {
+          throw ParserException.createForMalformedDataOfUnknownType(
+              "Component mixing coefficients sum to zero", /* cause= */ null);
+        }
+        return new ComponentMix(
+            coefficients[0],
+            coefficients[1],
+            coefficients[2],
+            coefficients[3],
+            coefficients[4],
+            coefficients[5]);
+      default:
+        throw new IllegalStateException();
+    }
+  }
+
+  /**
+   * Parses the gain curve parameters that alternate images can share
+   * (has_common_curve_params_flag): the number of control points, whether the slopes are computed
+   * with piecewise cubic Hermite interpolation (PCHIP), and the x coordinates of the control
+   * points.
+   */
+  private static GainCurveParams parseGainCurveParams(ParsableBitArray data)
+      throws ParserException {
+    int numControlPoints = data.readBits(5) + 1;
+    boolean usePchipSlopes = data.readBit();
+    data.skipBits(2); // reserved_zero
+    float[] controlPointsX = new float[numControlPoints];
+    for (int c = 0; c < numControlPoints; c++) {
+      controlPointsX[c] = min(data.readBits(16) / CONTROL_POINT_X_SCALE, MAX_CONTROL_POINT_X);
+      // Clause 6.5.2 requires the x coordinates to be in non-decreasing order.
+      if (c > 0 && controlPointsX[c] < controlPointsX[c - 1]) {
+        throw ParserException.createForMalformedDataOfUnknownType(
+            "Gain curve control point x coordinates not in non-decreasing order",
+            /* cause= */ null);
+      }
+    }
+    return new GainCurveParams(controlPointsX, usePchipSlopes);
+  }
+
+  /**
+   * Parses the y coordinates and slopes of a gain curve.
+   *
+   * @param data The data to parse from.
+   * @param params The parameters of the gain curve that alternate images can share.
+   * @param isAboveBaseline Whether the alternate image's HDR headroom is above the baseline HDR
+   *     headroom, which makes the gains positive rather than negative.
+   * @return The gain curve.
+   * @throws ParserException If the gain curve violates a constraint of the specification.
+   */
+  private static GainCurve parseGainCurve(
+      ParsableBitArray data, GainCurveParams params, boolean isAboveBaseline)
+      throws ParserException {
+    float[] controlPointsX = params.x.clone();
+    float[] controlPointsY = new float[controlPointsX.length];
+    float previousYMagnitude = 0;
+    for (int c = 0; c < controlPointsX.length; c++) {
+      float yMagnitude = min(data.readBits(16) / CONTROL_POINT_Y_SCALE, MAX_CONTROL_POINT_Y);
+      // Clause 6.5.2 requires control points with equal x coordinates to have equal y coordinates.
+      if (c > 0 && controlPointsX[c] == controlPointsX[c - 1] && yMagnitude != previousYMagnitude) {
+        throw ParserException.createForMalformedDataOfUnknownType(
+            "Gain curve control points with equal x coordinates and different y coordinates",
+            /* cause= */ null);
+      }
+      // Subtracting from 0 rather than negating keeps a zero gain positive zero.
+      controlPointsY[c] = isAboveBaseline ? yMagnitude : 0 - yMagnitude;
+      previousYMagnitude = yMagnitude;
+    }
+
+    if (params.usePchipSlopes) {
+      // TODO: b/575451438 - Compute the slopes as specified in Clause C.3.9.
+      throw ParserException.createForUnsupportedContainerFeature(
+          "HAGC gain curve slopes computed with piecewise cubic Hermite interpolation aren't"
+              + " supported yet");
+    }
+    float[] slopes = new float[controlPointsX.length];
+    for (int c = 0; c < controlPointsX.length; c++) {
+      int theta =
+          Util.constrainValue(data.readBits(16), MIN_CONTROL_POINT_THETA, MAX_CONTROL_POINT_THETA);
+      slopes[c] =
+          (float)
+              Math.tan((theta - CONTROL_POINT_THETA_OFFSET) * Math.PI / CONTROL_POINT_THETA_SCALE);
+    }
+    return new GainCurve(controlPointsX, controlPointsY, slopes);
   }
 
   /** The headroom-adaptive tone map of a frame. */
   /* package */ static final class HeadroomAdaptiveToneMap {
+
+    /**
+     * The {@link #gainApplicationColorSpace} of a payload that lists the chromaticities of its gain
+     * application color space.
+     */
+    public static final @C.ColorSpace int COLOR_SPACE_CUSTOM = Format.NO_VALUE;
 
     /** The baseline log2 HDR headroom, in the range [0, 6]. */
     public final float baselineHdrHeadroom;
@@ -255,8 +557,8 @@ import org.jspecify.annotations.Nullable;
     /**
      * The color space in which gain is applied, if the payload selects one of the predefined color
      * spaces of Clause C.3.5: {@link C#COLOR_SPACE_BT709}, {@link C#COLOR_SPACE_DISPLAY_P3} or
-     * {@link C#COLOR_SPACE_BT2020}. {@link Format#NO_VALUE} if the payload lists the chromaticities
-     * of the color space.
+     * {@link C#COLOR_SPACE_BT2020}. {@link #COLOR_SPACE_CUSTOM} if the payload lists the
+     * chromaticities of the color space.
      */
     public final @C.ColorSpace int gainApplicationColorSpace;
 
@@ -282,6 +584,18 @@ import org.jspecify.annotations.Nullable;
           baselineHdrHeadroom,
           gainApplicationColorSpace,
           getChromaticities(gainApplicationColorSpace),
+          alternateImages);
+    }
+
+    /** Creates an instance whose gain application color space has custom chromaticities. */
+    /* package */ HeadroomAdaptiveToneMap(
+        float baselineHdrHeadroom,
+        float[] gainApplicationSpaceChromaticities,
+        ImmutableList<AlternateImage> alternateImages) {
+      this(
+          baselineHdrHeadroom,
+          COLOR_SPACE_CUSTOM,
+          gainApplicationSpaceChromaticities,
           alternateImages);
     }
 
@@ -364,10 +678,40 @@ import org.jspecify.annotations.Nullable;
   /**
    * Weights that combine the components of a color into the input of a {@link GainCurve}.
    *
-   * <p>The weights are in the range [0, 1] and are normalized to sum to 1, as when the mix is
-   * evaluated (Formula (10)).
+   * <p>The weights are in the range [0, 1]. They're normalized to sum to 1 when the mix is created,
+   * as when it's evaluated (Formula (10)), so that equivalent mixes are equal.
    */
   /* package */ static final class ComponentMix {
+
+    /** The mix whose output is the maximum of the components. */
+    public static final ComponentMix MAX =
+        new ComponentMix(
+            /* red= */ 0,
+            /* green= */ 0,
+            /* blue= */ 0,
+            /* max= */ 1,
+            /* min= */ 0,
+            /* component= */ 0);
+
+    /** The mix whose output is each component on its own. */
+    public static final ComponentMix COMPONENT =
+        new ComponentMix(
+            /* red= */ 0,
+            /* green= */ 0,
+            /* blue= */ 0,
+            /* max= */ 0,
+            /* min= */ 0,
+            /* component= */ 1);
+
+    /** The mix whose output is half the average of the components plus half their maximum. */
+    public static final ComponentMix RGB_AND_MAX =
+        new ComponentMix(
+            /* red= */ 1 / 6f,
+            /* green= */ 1 / 6f,
+            /* blue= */ 1 / 6f,
+            /* max= */ 1 / 2f,
+            /* min= */ 0,
+            /* component= */ 0);
 
     /** The weight of the red component. */
     public final float red;
@@ -387,14 +731,21 @@ import org.jspecify.annotations.Nullable;
     /** The weight of each component on its own, which gives a separate gain per component. */
     public final float component;
 
+    /**
+     * Creates an instance, normalizing the weights so that they sum to 1.
+     *
+     * @throws IllegalArgumentException If the weights don't sum to more than 0.
+     */
     /* package */ ComponentMix(
         float red, float green, float blue, float max, float min, float component) {
-      this.red = red;
-      this.green = green;
-      this.blue = blue;
-      this.max = max;
-      this.min = min;
-      this.component = component;
+      double sum = (double) red + green + blue + max + min + component;
+      checkArgument(sum > 0);
+      this.red = (float) (red / sum);
+      this.green = (float) (green / sum);
+      this.blue = (float) (blue / sum);
+      this.max = (float) (max / sum);
+      this.min = (float) (min / sum);
+      this.component = (float) (component / sum);
     }
 
     @Override
@@ -470,6 +821,21 @@ import org.jspecify.annotations.Nullable;
     @Override
     public int hashCode() {
       return Objects.hash(Arrays.hashCode(x), Arrays.hashCode(y), Arrays.hashCode(slopes));
+    }
+  }
+
+  /** The gain curve parameters that alternate images can share (has_common_curve_params_flag). */
+  private static final class GainCurveParams {
+
+    /** The x coordinates of the control points. */
+    public final float[] x;
+
+    /** Whether the slopes are computed with piecewise cubic Hermite interpolation (PCHIP). */
+    public final boolean usePchipSlopes;
+
+    public GainCurveParams(float[] x, boolean usePchipSlopes) {
+      this.x = x;
+      this.usePchipSlopes = usePchipSlopes;
     }
   }
 }
