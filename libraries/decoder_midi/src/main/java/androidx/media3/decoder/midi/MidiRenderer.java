@@ -15,8 +15,11 @@
  */
 package androidx.media3.decoder.midi;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.os.Handler;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -70,23 +73,15 @@ public final class MidiRenderer extends DecoderAudioRenderer<MidiDecoder> {
     return C.FORMAT_HANDLED;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
+  @RestrictTo(LIBRARY_GROUP)
   protected MidiDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws MidiDecoderException {
     return new MidiDecoder(context);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
+  @RestrictTo(LIBRARY_GROUP)
   protected Format getOutputFormat(MidiDecoder decoder) {
     return MidiDecoder.getDecoderOutputFormat();
   }
