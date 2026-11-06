@@ -250,6 +250,9 @@
         `BaseMediaSource.createEventDispatcher(MediaPeriodId)` instead.
     *   Remove public `DefaultDecoderFactory` constructors. Use
         `DefaultDecoderFactory.Builder` instead.
+    *   Remove `DefaultDrmSessionManagerProvider.setDrmUserAgent(String)`. Pass
+        a custom `DataSource.Factory` to
+        `setDrmHttpDataSourceFactory(DataSource.Factory)` instead.
     *   Remove `DefaultLoadErrorHandlingPolicy.DEFAULT_TRACK_BLACKLIST_MS`. Use
         `DefaultLoadErrorHandlingPolicy.DEFAULT_TRACK_EXCLUSION_MS` instead.
     *   Remove `DefaultMuxer.Factory(long)`. Use

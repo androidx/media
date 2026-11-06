@@ -43,7 +43,6 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
   private @MonotonicNonNull DrmSessionManager manager;
 
   private DataSource.@Nullable Factory drmHttpDataSourceFactory;
-  private @Nullable String userAgent;
   private @Nullable LoadErrorHandlingPolicy drmLoadErrorHandlingPolicy;
 
   public DefaultDrmSessionManagerProvider() {
@@ -59,16 +58,6 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
    */
   public void setDrmHttpDataSourceFactory(DataSource.@Nullable Factory drmDataSourceFactory) {
     this.drmHttpDataSourceFactory = drmDataSourceFactory;
-  }
-
-  /**
-   * @deprecated Pass a custom {@link DataSource.Factory} to {@link
-   *     #setDrmHttpDataSourceFactory(DataSource.Factory)} which sets the desired user agent on
-   *     outgoing requests.
-   */
-  @Deprecated
-  public void setDrmUserAgent(@Nullable String userAgent) {
-    this.userAgent = userAgent;
   }
 
   /**
@@ -105,7 +94,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
     DataSource.Factory dataSourceFactory =
         drmHttpDataSourceFactory != null
             ? drmHttpDataSourceFactory
-            : new DefaultHttpDataSource.Factory().setUserAgent(userAgent);
+            : new DefaultHttpDataSource.Factory();
     HttpMediaDrmCallback httpDrmCallback =
         new HttpMediaDrmCallback(
             drmConfiguration.licenseUri == null ? null : drmConfiguration.licenseUri.toString(),
