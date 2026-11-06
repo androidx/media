@@ -211,12 +211,6 @@ import org.jspecify.annotations.Nullable;
     return inputs.get(INPUT_TYPE_SURFACE).textureManager.getInputSurface();
   }
 
-  /** See {@link DefaultVideoFrameProcessor#setInputDefaultBufferSize}. */
-  public void setInputDefaultBufferSize(int width, int height) {
-    checkState(contains(inputs, INPUT_TYPE_SURFACE));
-    inputs.get(INPUT_TYPE_SURFACE).textureManager.setDefaultBufferSize(width, height);
-  }
-
   /** Sets the {@link OnInputFrameProcessedListener}. */
   public void setOnInputFrameProcessedListener(OnInputFrameProcessedListener listener) {
     checkState(contains(inputs, INPUT_TYPE_TEXTURE_ID));

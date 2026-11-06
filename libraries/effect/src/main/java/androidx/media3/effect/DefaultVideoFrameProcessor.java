@@ -549,29 +549,6 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   }
 
   /**
-   * Sets the default size for input buffers, for the case where the producer providing input does
-   * not override the buffer size.
-   *
-   * <p>When input comes from a media codec it's not necessary to call this method because the codec
-   * (producer) sets the buffer size automatically. For the case where input comes from CameraX,
-   * call this method after instantiation to ensure that buffers are handled at full resolution. See
-   * {@link SurfaceTexture#setDefaultBufferSize(int, int)} for more information.
-   *
-   * <p>This method must only be called when the {@link VideoFrameProcessor} is {@linkplain
-   * VideoFrameProcessor.Factory#create created} with {@link #INPUT_TYPE_SURFACE}.
-   *
-   * @param width The default width for input buffers, in pixels.
-   * @param height The default height for input buffers, in pixels.
-   * @deprecated Set the input type to {@link
-   *     VideoFrameProcessor#INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION} instead, which sets
-   *     the default buffer size automatically based on the registered frame info.
-   */
-  @Deprecated
-  public void setInputDefaultBufferSize(int width, int height) {
-    inputSwitcher.setInputDefaultBufferSize(width, height);
-  }
-
-  /**
    * {@inheritDoc}
    *
    * <p>The passed in {@link Bitmap} argument cannot be reused after this method returns {@code

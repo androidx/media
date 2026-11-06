@@ -189,11 +189,6 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
-  public void setDefaultBufferSize(int width, int height) {
-    surfaceTexture.setDefaultBufferSize(width, height);
-  }
-
-  @Override
   public Surface getInputSurface() {
     return surface;
   }

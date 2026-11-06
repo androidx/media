@@ -262,6 +262,10 @@
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
         instead.
+    *   Remove `DefaultVideoFrameProcessor.setInputDefaultBufferSize(int, int)`.
+        Use
+        `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
+        instead.
     *   Remove
         `EditedMediaItemSequence.Builder.experimentalSetForceAudioTrack(boolean)`
         and

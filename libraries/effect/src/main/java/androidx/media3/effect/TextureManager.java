@@ -56,15 +56,6 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * See {@link DefaultVideoFrameProcessor#setInputDefaultBufferSize}.
-   *
-   * <p>Only works when the input is received on a {@link SurfaceTexture}.
-   */
-  public void setDefaultBufferSize(int width, int height) {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * Sets the {@link GlShaderProgram} that consumes the {@link TextureManager}'s output.
    *
    * <p>Must be called before any method that queues input or {@link
