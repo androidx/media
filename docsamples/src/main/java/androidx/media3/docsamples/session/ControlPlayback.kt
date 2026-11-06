@@ -71,13 +71,13 @@ object ControlPlaybackKt {
     // 2. Mark the playing track(s) with the playlistId it belongs to
     val trackItem =
       MediaItem.Builder()
-        .setMediaId("foobar:track:6rqhFgbbKwnb9MLmUQDhG6")
+        .setMediaId("foobar:track:9b4d7g1j3l6n8p2s5t0v4x")
         .setMediaMetadata(
           MediaMetadata.Builder()
             .setTitle("Example Track")
             .setArtist("Example Artist")
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-            .setPlaylistId("37i9dQZF1DX76Wlfdnj7AP")
+            .setPlaylistId("a8f3k9m2p7q4r1w6x5z0v2")
             .build()
         )
         .build()
@@ -89,7 +89,7 @@ object ControlPlaybackKt {
     // [START resume_playlist]
     val playlistItem =
       MediaItem.Builder()
-        .setMediaId("37i9dQZF1DX76Wlfdnj7AP")
+        .setMediaId("a8f3k9m2p7q4r1w6x5z0v2")
         .setMediaMetadata(
           MediaMetadata.Builder()
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
