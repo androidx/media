@@ -2440,5 +2440,19 @@ public final class CodecSpecificDataUtil {
     return expectedHagcPayloadPrefix.clone();
   }
 
+  /**
+   * Returns the {@link Format} of an MP4 {@code it35} track that carries HAGC (ST 2094-50)
+   * metadata.
+   *
+   * <p>The ITU-T T.35 header is the initialization data of the track, so the samples of the track
+   * hold only the payload that follows the header.
+   */
+  public static Format buildHagcMetadataFormat() {
+    return new Format.Builder()
+        .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+        .setInitializationData(ImmutableList.of(getHagcT35Header()))
+        .build();
+  }
+
   private CodecSpecificDataUtil() {}
 }

@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFile;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -31,8 +32,10 @@ import android.os.Handler;
 import android.util.Rational;
 import android.view.Surface;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioProcessor;
@@ -59,6 +62,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.math.RoundingMode;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashMap;
@@ -113,6 +117,37 @@ public final class TestUtil {
   public static final Rational FPS_30 = new Rational(30, 1);
   public static final Rational FPS_60 = new Rational(60, 1);
   public static final Rational FPS_HALF = new Rational(1, 2);
+
+  /**
+   * An H.264 {@link Format} with the SPS and PPS that muxers need to write the samples from {@link
+   * #createFakeVideoSample()}.
+   */
+  public static final Format FAKE_VIDEO_TRACK_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.VIDEO_H264)
+          .setWidth(1080)
+          .setHeight(720)
+          .setInitializationData(
+              ImmutableList.of(
+                  // Annex-B start code, then an SPS NAL unit (0x67): High profile (0x64), level 3.1
+                  // (0x1F), 4:2:0, 8-bit, 1080x720.
+                  createByteArray(
+                      0x00, 0x00, 0x00, 0x01, 0x67, 0x64, 0x00, 0x1F, 0xAC, 0xD9, 0x40, 0x44, 0x05,
+                      0xBE, 0x5F, 0x01, 0x10, 0x00, 0x00, 0x3E, 0x90, 0x00, 0x0E, 0xA6, 0x00, 0xF1,
+                      0x83, 0x19, 0x60),
+                  // Annex-B start code, then a PPS NAL unit (0x68) that refers to the SPS above.
+                  createByteArray(0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0)))
+          .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+          .build();
+
+  /** An AAC {@link Format} with the initialization data that muxers need. */
+  public static final Format FAKE_AUDIO_TRACK_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.AUDIO_AAC)
+          .setSampleRate(40000)
+          .setChannelCount(2)
+          .setInitializationData(ImmutableList.of(createByteArray(0x12, 0x08)))
+          .build();
 
   private TestUtil() {}
 
@@ -201,6 +236,26 @@ public final class TestUtil {
         + compositionSummary
         + "."
         + DUMP_FILE_EXTENSION;
+  }
+
+  /**
+   * Returns an H.264 key frame sample of SPS, PPS and IDR slice NAL units, each with an Annex-B
+   * start code.
+   */
+  public static ByteBuffer createFakeVideoSample() {
+    return ByteBuffer.wrap(
+        createByteArray(
+            0x00, 0x00, 0x00, 0x01, 0x67, 0xF4, 0x00, 0x0A, 0x91, 0x9B, 0x2B, 0xF3, 0xCB, 0x36,
+            0x40, 0x00, 0x00, 0x03, 0x00, 0x40, 0x00, 0x00, 0x0C, 0x83, 0xC4, 0x89, 0x65, 0x80,
+            0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xC4, 0x48, 0x00, 0x00, 0x01, 0x65, 0x88,
+            0x84, 0x00, 0x2B, 0xFF, 0xFE, 0xF5, 0xDB, 0xF3, 0x2C, 0xAE, 0x4A, 0x43, 0xFF));
+  }
+
+  /** Extracts all samples of the MP4 file at {@code filePath} with an {@link Mp4Extractor}. */
+  public static FakeExtractorOutput extractAllSamplesFromMp4File(String filePath)
+      throws IOException {
+    return extractAllSamplesFromFilePath(
+        new Mp4Extractor(new DefaultSubtitleParserFactory()), filePath);
   }
 
   /**

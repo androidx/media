@@ -41,10 +41,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
-/** {@link Muxer} implementation that uses an {@link Mp4Muxer}. */
+/**
+ * {@link Muxer} implementation that uses an {@link Mp4Muxer}.
+ *
+ * <p>An ITU-T T.35 ({@code it35}) track is placed after the audio and video tracks, and references
+ * the video track with an {@code rndr} track reference.
+ */
 @UnstableApi
 public final class InAppMp4Muxer implements Muxer {
   /** Provides {@linkplain Metadata.Entry metadata} to add in the output MP4 file. */
@@ -223,6 +229,8 @@ public final class InAppMp4Muxer implements Muxer {
         return Mp4Muxer.SUPPORTED_VIDEO_SAMPLE_MIME_TYPES;
       } else if (trackType == C.TRACK_TYPE_AUDIO) {
         return Mp4Muxer.SUPPORTED_AUDIO_SAMPLE_MIME_TYPES;
+      } else if (trackType == C.TRACK_TYPE_METADATA) {
+        return ImmutableList.of(MimeTypes.APPLICATION_ITUT_T35);
       }
       return ImmutableList.of();
     }
@@ -238,6 +246,8 @@ public final class InAppMp4Muxer implements Muxer {
 
   private static final String TAG = "InAppMp4Muxer";
   private static final int TRACK_ID_UNSET = -1;
+  // Places it35 tracks after the tracks added with the default sort key (1) of Mp4Muxer.addTrack().
+  private static final int SORT_KEY_IT35 = 2;
 
   private final Mp4Muxer muxer;
   private final @Nullable MetadataProvider metadataProvider;
@@ -245,6 +255,7 @@ public final class InAppMp4Muxer implements Muxer {
   private final Set<Metadata.Entry> metadataEntries;
 
   private int videoTrackId;
+  private int it35TrackId;
   private boolean isClosed;
 
   private InAppMp4Muxer(
@@ -254,15 +265,24 @@ public final class InAppMp4Muxer implements Muxer {
     this.videoDurationUs = videoDurationUs;
     metadataEntries = new LinkedHashSet<>();
     videoTrackId = TRACK_ID_UNSET;
+    it35TrackId = TRACK_ID_UNSET;
   }
 
   @Override
   public int addTrack(Format format) throws MuxerException {
     checkState(!isClosed, "InAppMp4Muxer is closed.");
-    int trackId = muxer.addTrack(format);
-    if (MimeTypes.isVideo(format.sampleMimeType)) {
-      muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
-      videoTrackId = trackId;
+    int trackId;
+    if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ITUT_T35)) {
+      trackId = muxer.addTrack(SORT_KEY_IT35, format);
+      it35TrackId = trackId;
+      maybeAddRndrTrackReference();
+    } else {
+      trackId = muxer.addTrack(format);
+      if (MimeTypes.isVideo(format.sampleMimeType)) {
+        muxer.addMetadataEntry(new Mp4OrientationData(format.rotationDegrees));
+        videoTrackId = trackId;
+        maybeAddRndrTrackReference();
+      }
     }
     return trackId;
   }
@@ -272,7 +292,7 @@ public final class InAppMp4Muxer implements Muxer {
       throws MuxerException {
     checkState(!isClosed, "InAppMp4Muxer is closed.");
     if (videoDurationUs != C.TIME_UNSET
-        && trackId == videoTrackId
+        && (trackId == videoTrackId || trackId == it35TrackId)
         && bufferInfo.presentationTimeUs > videoDurationUs) {
       Log.w(
           TAG,
@@ -312,6 +332,14 @@ public final class InAppMp4Muxer implements Muxer {
         muxer.writeSampleData(videoTrackId, ByteBuffer.allocateDirect(0), bufferInfo);
       }
       writeMetadata();
+    }
+  }
+
+  /** Links the {@code it35} track to the video track, once both tracks are added. */
+  private void maybeAddRndrTrackReference() {
+    if (it35TrackId != TRACK_ID_UNSET && videoTrackId != TRACK_ID_UNSET) {
+      muxer.addTrackReference(
+          it35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
     }
   }
 

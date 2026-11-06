@@ -18,9 +18,11 @@ package androidx.media3.transformer;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
-import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_DEFAULT;
 import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_MUX_PARTIAL;
+import static androidx.media3.transformer.TestUtil.FAKE_AUDIO_TRACK_FORMAT;
+import static androidx.media3.transformer.TestUtil.FAKE_VIDEO_TRACK_FORMAT;
+import static androidx.media3.transformer.TestUtil.createFakeVideoSample;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -28,7 +30,6 @@ import static org.junit.Assert.assertThrows;
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
 import androidx.media3.common.C;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.container.Mp4TimestampData;
@@ -43,7 +44,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jspecify.annotations.Nullable;
@@ -57,36 +57,7 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link MuxerWrapper}. */
 @RunWith(AndroidJUnit4.class)
 public class MuxerWrapperTest {
-  private static final byte[] SPS_TEST_DATA =
-      createByteArray(
-          0x00, 0x00, 0x00, 0x01, 0x67, 0x64, 0x00, 0x1F, 0xAC, 0xD9, 0x40, 0x44, 0x05, 0xBE, 0x5F,
-          0x01, 0x10, 0x00, 0x00, 0x3E, 0x90, 0x00, 0x0E, 0xA6, 0x00, 0xF1, 0x83, 0x19, 0x60);
-  private static final Format FAKE_VIDEO_TRACK_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(VIDEO_H264)
-          .setWidth(1080)
-          .setHeight(720)
-          .setInitializationData(
-              ImmutableList.of(
-                  SPS_TEST_DATA,
-                  createByteArray(0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0)))
-          .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
-          .build();
-  private static final Format FAKE_AUDIO_TRACK_FORMAT =
-      new Format.Builder()
-          .setSampleMimeType(AUDIO_AAC)
-          .setSampleRate(40000)
-          .setChannelCount(2)
-          .setInitializationData(ImmutableList.of(createByteArray(0x12, 0x08)))
-          .build();
-
-  private static final ByteBuffer FAKE_SAMPLE =
-      ByteBuffer.wrap(
-          createByteArray(
-              0x00, 0x00, 0x00, 0x01, 0x67, 0xF4, 0x00, 0x0A, 0x91, 0x9B, 0x2B, 0xF3, 0xCB, 0x36,
-              0x40, 0x00, 0x00, 0x03, 0x00, 0x40, 0x00, 0x00, 0x0C, 0x83, 0xC4, 0x89, 0x65, 0x80,
-              0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xC4, 0x48, 0x00, 0x00, 0x01, 0x65, 0x88,
-              0x84, 0x00, 0x2B, 0xFF, 0xFE, 0xF5, 0xDB, 0xF3, 0x2C, 0xAE, 0x4A, 0x43, 0xFF));
+  private static final ByteBuffer FAKE_SAMPLE = createFakeVideoSample();
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public final TestName testName = new TestName();
@@ -252,7 +223,7 @@ public class MuxerWrapperTest {
   @Test
   public void addTrackFormat_withCompatibleVideoFormatInAppendMode_savesTheMostCompatibleInitData()
       throws Exception {
-    byte[] newSpsTestData = Arrays.copyOf(SPS_TEST_DATA, SPS_TEST_DATA.length);
+    byte[] newSpsTestData = FAKE_VIDEO_TRACK_FORMAT.initializationData.get(0).clone();
     int spsLevelIndex = 7;
     byte lowSpsLevel = 11;
     newSpsTestData[spsLevelIndex] = lowSpsLevel;

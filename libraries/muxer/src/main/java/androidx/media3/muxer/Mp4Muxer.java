@@ -185,11 +185,18 @@ public final class Mp4Muxer implements Muxer {
   @Target(TYPE_USE)
   @IntDef({
     TRACK_REFERENCE_TYPE_CDSC,
+    TRACK_REFERENCE_TYPE_RNDR,
   })
   public @interface TrackReferenceType {}
 
   /** Links a descriptive or metadata track to the content which it describes. */
   public static final int TRACK_REFERENCE_TYPE_CDSC = 0x63647363;
+
+  /**
+   * Links a metadata track, for example an HAGC (SMPTE ST 2094-50) metadata track, to the track
+   * whose rendering it modifies.
+   */
+  public static final int TRACK_REFERENCE_TYPE_RNDR = 0x726e6472;
 
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
@@ -649,7 +656,8 @@ public final class Mp4Muxer implements Muxer {
       int trackId, @TrackReferenceType int referenceType, List<Integer> referencedTrackIds) {
     checkState(!isClosed, "Mp4Muxer is closed.");
     checkElementIndex(trackId, trackIdToTrack.size());
-    checkArgument(referenceType == TRACK_REFERENCE_TYPE_CDSC);
+    checkArgument(
+        referenceType == TRACK_REFERENCE_TYPE_CDSC || referenceType == TRACK_REFERENCE_TYPE_RNDR);
     for (int i = 0; i < referencedTrackIds.size(); i++) {
       checkElementIndex(referencedTrackIds.get(i), trackIdToTrack.size());
     }

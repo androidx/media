@@ -129,6 +129,8 @@
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
+    *   Add `Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR` to link a metadata track to the
+        track whose rendering it modifies.
     *   Validate the track `Format` when adding a track to `Mp4Muxer` or
         `FragmentedMp4Muxer`, instead of failing later when writing samples or
         closing the muxer.

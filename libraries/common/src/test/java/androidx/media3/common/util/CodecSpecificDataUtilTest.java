@@ -536,6 +536,23 @@ public class CodecSpecificDataUtilTest {
     assertThat(CodecSpecificDataUtil.isHagcTrack(formatWithWrongMimeType)).isFalse();
   }
 
+  @Test
+  public void buildHagcMetadataFormat_called_returnsIt35FormatWithHagcHeaderAsInitData() {
+    Format format = CodecSpecificDataUtil.buildHagcMetadataFormat();
+
+    assertThat(format.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_ITUT_T35);
+    assertThat(format.initializationData).hasSize(1);
+    assertThat(format.initializationData.get(0))
+        .isEqualTo(TestUtil.createByteArray(0xB5, 0x00, 0x90, 0x00, 0x01));
+  }
+
+  @Test
+  public void isHagcTrack_withBuildHagcMetadataFormat_returnsTrue() {
+    Format format = CodecSpecificDataUtil.buildHagcMetadataFormat();
+
+    assertThat(CodecSpecificDataUtil.isHagcTrack(format)).isTrue();
+  }
+
   private static void assertCodecProfileAndLevelForCodecsString(
       String sampleMimeType, String codecs, int profile, int level) {
     Format format =

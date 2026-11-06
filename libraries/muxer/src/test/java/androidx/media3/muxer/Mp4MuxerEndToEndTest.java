@@ -68,6 +68,7 @@ import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -1520,6 +1521,56 @@ public class Mp4MuxerEndToEndTest {
   public void writeMp4File_withT35MetadataTrackReferencingVideoTrack_matchesExpectedBoxStructure()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
+
+    writeMp4FileWithT35MetadataTrackReference(outputFilePath, Mp4Muxer.TRACK_REFERENCE_TYPE_CDSC);
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // Last `trak` box (corresponding to T35 metadata track) contains `tref` box.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "mp4_with_t35_metadata_track_referencing_video_track.box"));
+  }
+
+  @Test
+  public void
+      writeMp4File_withT35MetadataTrackRndrReferencingVideoTrack_matchesExpectedBoxStructure()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    writeMp4FileWithT35MetadataTrackReference(outputFilePath, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR);
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // Last `trak` box (corresponding to T35 metadata track) contains `tref` box.
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "mp4_with_t35_metadata_track_rndr_referencing_video_track.box"));
+  }
+
+  @Test
+  @SuppressLint("WrongConstant") // Intentionally assigned wrong constant.
+  public void addTrackReference_withUnsupportedTrackReferenceType_throws() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int firstTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int secondTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              muxer.addTrackReference(
+                  firstTrackId, /* referenceType= */ 1234, ImmutableList.of(secondTrackId)));
+    }
+  }
+
+  private static void writeMp4FileWithT35MetadataTrackReference(
+      String outputFilePath, @Mp4Muxer.TrackReferenceType int referenceType)
+      throws FileNotFoundException, MuxerException {
     // ITU-T T.35 prefix: country code, provider code, etc.
     byte[] t35Prefix = new byte[] {0x00, 0x01, 0x02, 0x03, 0x04};
     Format t35Format =
@@ -1539,33 +1590,7 @@ public class Mp4MuxerEndToEndTest {
       writeFakeSamples(muxer, audioTrackId, /* sampleCount= */ 5);
       int t35TrackId = muxer.addTrack(t35Format);
       writeFakeSamples(muxer, t35TrackId, /* sampleCount= */ 5);
-      muxer.addTrackReference(
-          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_CDSC, ImmutableList.of(videoTrackId));
-    }
-
-    DumpableMp4Box dumpableBox =
-        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
-    // Last `trak` box (corresponding to T35 metadata track) contains `tref` box.
-    DumpFileAsserts.assertOutput(
-        context,
-        dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath(
-            "mp4_with_t35_metadata_track_referencing_video_track.box"));
-  }
-
-  @Test
-  @SuppressLint("WrongConstant") // Intentionally assigned wrong constant.
-  public void addTrackReference_withUnsupportedTrackReferenceType_throws() throws Exception {
-    String outputFilePath = temporaryFolder.newFile().getPath();
-
-    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
-      int firstTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      int secondTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      assertThrows(
-          IllegalArgumentException.class,
-          () ->
-              muxer.addTrackReference(
-                  firstTrackId, /* referenceType= */ 1234, ImmutableList.of(secondTrackId)));
+      muxer.addTrackReference(t35TrackId, referenceType, ImmutableList.of(videoTrackId));
     }
   }
 
