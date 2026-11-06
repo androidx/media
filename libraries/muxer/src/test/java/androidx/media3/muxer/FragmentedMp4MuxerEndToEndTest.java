@@ -827,7 +827,7 @@ public class FragmentedMp4MuxerEndToEndTest {
         createMuxerWithShortFragments(
             outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      writeFakeVideoSamples(muxer, trackId, IN_ORDER_FRAME_INDICES);
+      writeFakeVideoGop(muxer, trackId, IN_ORDER_FRAME_INDICES);
     }
 
     // There should be 3 fragments, of which the last 2 start with non-key frames.
@@ -843,7 +843,7 @@ public class FragmentedMp4MuxerEndToEndTest {
     try (FragmentedMp4Muxer muxer =
         createMuxerWithShortFragments(outputFilePath, /* fragmentsMustStartWithKeyFrame= */ true)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      writeFakeVideoSamples(muxer, trackId, IN_ORDER_FRAME_INDICES);
+      writeFakeVideoGop(muxer, trackId, IN_ORDER_FRAME_INDICES);
     }
 
     // There should be a single fragment as there is a single key frame.
@@ -861,7 +861,7 @@ public class FragmentedMp4MuxerEndToEndTest {
         createMuxerWithShortFragments(outputFilePath, /* fragmentsMustStartWithKeyFrame= */ true)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       // Samples are in decode order I P B B P B B ...
-      writeFakeVideoSamples(
+      writeFakeVideoGop(
           muxer, trackId, ImmutableList.of(0, 3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11, 15, 13));
     }
 
@@ -881,7 +881,7 @@ public class FragmentedMp4MuxerEndToEndTest {
         createMuxerWithShortFragments(
             outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      writeFakeVideoSamples(muxer, trackId, IN_ORDER_FRAME_INDICES.subList(0, 5));
+      writeFakeVideoGop(muxer, trackId, IN_ORDER_FRAME_INDICES.subList(0, 5));
       // Empty samples (e.g. end of stream buffers) can have an earlier timestamp, which must not
       // be treated as out of order.
       muxer.writeSampleData(
@@ -912,16 +912,18 @@ public class FragmentedMp4MuxerEndToEndTest {
             outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       // Samples are in decode order I P B, so the B-frame is before the P-frame.
-      writeFakeVideoSamples(muxer, trackId, ImmutableList.of(0, 3));
+      writeFakeVideoGop(muxer, trackId, ImmutableList.of(0, 3));
 
-      assertThrows(
-          MuxerException.class,
-          () ->
-              writeFakeVideoSample(
-                  muxer,
-                  trackId,
-                  /* presentationTimeUs= */ FRAME_DURATION_US,
-                  /* isKeyFrame= */ false));
+      MuxerException exception =
+          assertThrows(
+              MuxerException.class,
+              () ->
+                  writeFakeVideoSample(
+                      muxer,
+                      trackId,
+                      /* presentationTimeUs= */ FRAME_DURATION_US,
+                      /* isKeyFrame= */ false));
+      assertThat(exception).hasMessageThat().contains("Sample timestamps must not decrease");
     }
   }
 
@@ -935,12 +937,14 @@ public class FragmentedMp4MuxerEndToEndTest {
             outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       int audioTrackId = muxer.addTrack(MuxerTestUtil.FAKE_AUDIO_FORMAT);
-      writeFakeVideoSamples(muxer, videoTrackId, ImmutableList.of(0));
+      writeFakeVideoGop(muxer, videoTrackId, ImmutableList.of(0));
       writeFakeAudioSample(muxer, audioTrackId, /* presentationTimeUs= */ 50_000L);
 
-      assertThrows(
-          MuxerException.class,
-          () -> writeFakeAudioSample(muxer, audioTrackId, /* presentationTimeUs= */ 25_000L));
+      MuxerException exception =
+          assertThrows(
+              MuxerException.class,
+              () -> writeFakeAudioSample(muxer, audioTrackId, /* presentationTimeUs= */ 25_000L));
+      assertThat(exception).hasMessageThat().contains("Sample timestamps must not decrease");
     }
   }
 
@@ -984,7 +988,7 @@ public class FragmentedMp4MuxerEndToEndTest {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       // The sixth sample has the same timestamp as the fifth, which is where the first fragment
       // would otherwise end.
-      writeFakeVideoSamples(
+      writeFakeVideoGop(
           muxer, trackId, ImmutableList.of(0, 1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13));
     }
 
@@ -1004,7 +1008,7 @@ public class FragmentedMp4MuxerEndToEndTest {
         createMuxerWithShortFragments(
             outputFilePath, /* fragmentsMustStartWithKeyFrame= */ false)) {
       int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      writeFakeVideoSamples(muxer, trackId, ImmutableList.of(0, 1, 2, 3, 4));
+      writeFakeVideoGop(muxer, trackId, ImmutableList.of(0, 1, 2, 3, 4));
       // The pending samples span the fragment duration, but an empty sample must not end the
       // fragment.
       muxer.writeSampleData(
@@ -1046,7 +1050,7 @@ public class FragmentedMp4MuxerEndToEndTest {
    * Writes a fake video sample for each of the given frame indices, in order. Only the first sample
    * is a key frame.
    */
-  private static void writeFakeVideoSamples(
+  private static void writeFakeVideoGop(
       FragmentedMp4Muxer muxer, int trackId, List<Integer> frameIndices) throws MuxerException {
     for (int i = 0; i < frameIndices.size(); i++) {
       writeFakeVideoSample(

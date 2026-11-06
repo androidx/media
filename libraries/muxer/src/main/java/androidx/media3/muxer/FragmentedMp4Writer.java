@@ -24,6 +24,7 @@ import static androidx.media3.muxer.Boxes.TFHD_BOX_CONTENT_SIZE;
 import static androidx.media3.muxer.Boxes.getTrunBoxContentSize;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
+import static androidx.media3.muxer.MuxerUtil.isEmptySample;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -161,7 +162,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
     checkState(!isClosed, "FragmentedMp4Writer is closed.");
-    boolean isSampleEmpty = bufferInfo.size == 0 || !byteBuffer.hasRemaining();
+    boolean isSampleEmpty = isEmptySample(byteBuffer, bufferInfo);
     if (!isSampleEmpty
         && Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
         && track.format.initializationData.isEmpty()
@@ -286,26 +287,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private boolean shouldFlushPendingSamples(Track track, BufferInfo nextSampleBufferInfo) {
     // LINT.IfChange(fragmentation_logic)
-    // If video track is present then fragment will be created based on group of pictures and
-    // track's duration so far.
     if (videoTrack != null) {
-      // Video samples can be written only when complete group of pictures are present, unless
-      // fragments may start at non-key frames. In that case, a new fragment only starts at a
-      // timestamp after the last pending sample, so that samples with the same timestamp stay in
-      // the same fragment.
-      if (track.equals(videoTrack)
-          && track.hadKeyframe
-          && ((nextSampleBufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) > 0
-              || (!fragmentsMustStartWithKeyFrame
-                  && nextSampleBufferInfo.presentationTimeUs
-                      > checkNotNull(track.pendingSamplesBufferInfo.peekLast())
-                          .presentationTimeUs))) {
-        BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
-        BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
-        return lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs
-            >= fragmentDurationUs;
+      if (!track.equals(videoTrack) || !track.hadKeyframe) {
+        return false;
       }
-      return false;
+      BufferInfo firstPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekFirst());
+      BufferInfo lastPendingSample = checkNotNull(track.pendingSamplesBufferInfo.peekLast());
+      boolean isKeyFrame = (nextSampleBufferInfo.flags & C.BUFFER_FLAG_KEY_FRAME) > 0;
+      boolean advancesPresentationTime =
+          nextSampleBufferInfo.presentationTimeUs > lastPendingSample.presentationTimeUs;
+      boolean canStartFragment =
+          isKeyFrame || (!fragmentsMustStartWithKeyFrame && advancesPresentationTime);
+      return canStartFragment
+          && lastPendingSample.presentationTimeUs - firstPendingSample.presentationTimeUs
+              >= fragmentDurationUs;
     } else {
       return maxTrackDurationUs >= fragmentDurationUs;
     }

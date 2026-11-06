@@ -16,6 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerUtil.checkMp4TrackFormatSupported;
+import static androidx.media3.muxer.MuxerUtil.isEmptySample;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -25,6 +26,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -159,23 +161,27 @@ public final class FragmentedMp4Muxer implements Muxer {
     }
 
     /**
-     * Sets whether fragments must start with a key frame.
+     * Sets whether fragments must start with a video key frame.
      *
-     * <p>If set to {@code false}, a new fragment starts once the pending video samples span the
-     * {@linkplain #setFragmentDurationMs fragment duration}, even if the next sample is not a key
-     * frame. This allows the output to grow while samples arrive when key frames are farther apart
-     * than the fragment duration.
+     * <p>If set to {@code false}, a new fragment starts once the total duration of pending
+     * in-memory video samples reaches the {@linkplain #setFragmentDurationMs fragment duration}, so
+     * samples are flushed to the output based on {@linkplain BufferInfo#presentationTimeUs video
+     * timestamps} alone instead of waiting for a {@link C#BUFFER_FLAG_KEY_FRAME}.
      *
-     * <p>If set to {@code false}, sample presentation timestamps must not decrease within a track,
-     * so video with B-frames is not supported. Otherwise, {@link
+     * <p>This option only affects fragmentation when a video track is present; the timestamp
+     * requirement below applies to all tracks.
+     *
+     * <p>If set to {@code false}, sample presentation timestamps must not decrease within any
+     * track, so video with B-frames is not supported. Otherwise, {@link
      * FragmentedMp4Muxer#writeSampleData} throws a {@link MuxerException}.
      *
-     * <p>Fragments that start at non-key frames are not listed as random access points in the
-     * {@code mfra} box.
+     * <p>Only fragments that start at key frames are listed as random access points in the {@code
+     * mfra} box.
      *
      * <p>The default value is {@code true}.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/582636926 - Remove or make non-experimental.
     public Builder setFragmentsMustStartWithKeyFrame(boolean fragmentsMustStartWithKeyFrame) {
       this.fragmentsMustStartWithKeyFrame = fragmentsMustStartWithKeyFrame;
       return this;
@@ -287,7 +293,7 @@ public final class FragmentedMp4Muxer implements Muxer {
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
     checkState(!isClosed, "FragmentedMp4Muxer is closed.");
-    if (!fragmentsMustStartWithKeyFrame && bufferInfo.size > 0 && byteBuffer.hasRemaining()) {
+    if (!fragmentsMustStartWithKeyFrame && !isEmptySample(byteBuffer, bufferInfo)) {
       // Fragments may start at non-key frames only if sample timestamps don't decrease.
       long lastSampleTimeUs = trackIdToLastSampleTimeUs.get(trackId, C.TIME_UNSET);
       if (lastSampleTimeUs != C.TIME_UNSET && bufferInfo.presentationTimeUs < lastSampleTimeUs) {

@@ -136,10 +136,8 @@
         implementations, and treat the muxer as closed even if `close()` throws.
         Calling any other method after `close()` now throws an
         `IllegalStateException`.
-    *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame`.
-        Setting it to `false` allows fragments to start at non-key frames when
-        video key frames are farther apart than the fragment duration. In this
-        mode, sample timestamps must not decrease within a track
+    *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame` to
+        control whether fragments must start at video key frames
         ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
