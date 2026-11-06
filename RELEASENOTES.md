@@ -136,6 +136,9 @@
         implementations, and treat the muxer as closed even if `close()` throws.
         Calling any other method after `close()` now throws an
         `IllegalStateException`.
+    *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame` to
+        control whether fragments must start at video key frames
+        ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
     *   Support the IMA SDK's `ResizablePlayer` interface to allow interactive
         ads to resize and reposition the video player view within the ad

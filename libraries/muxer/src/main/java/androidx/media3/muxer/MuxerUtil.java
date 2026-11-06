@@ -129,6 +129,11 @@ public final class MuxerUtil {
     videoFileChannel.transferTo(/* position= */ 0, videoFileChannel.size(), outputChannel);
   }
 
+  /** Returns whether the given sample contains no data. */
+  /* package */ static boolean isEmptySample(ByteBuffer byteBuffer, BufferInfo bufferInfo) {
+    return bufferInfo.size == 0 || !byteBuffer.hasRemaining();
+  }
+
   /**
    * Returns whether the given {@linkplain Format track format} is an auxiliary track.
    *

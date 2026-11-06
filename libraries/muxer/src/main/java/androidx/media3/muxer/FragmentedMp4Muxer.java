@@ -16,14 +16,17 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerUtil.checkMp4TrackFormatSupported;
+import static androidx.media3.muxer.MuxerUtil.isEmptySample;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
+import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -99,6 +102,7 @@ public final class FragmentedMp4Muxer implements Muxer {
 
     private long fragmentDurationMs;
     private boolean sampleCopyEnabled;
+    private boolean fragmentsMustStartWithKeyFrame;
 
     /**
      * @deprecated Use {@link FragmentedMp4Muxer.Builder#Builder(WritableByteChannel)} instead.
@@ -122,13 +126,15 @@ public final class FragmentedMp4Muxer implements Muxer {
       this.outputChannel = outputChannel;
       fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
       sampleCopyEnabled = true;
+      fragmentsMustStartWithKeyFrame = true;
     }
 
     /**
      * Sets the fragment duration (in milliseconds).
      *
-     * <p>The muxer will attempt to create fragments of the given duration but the actual duration
-     * might be greater depending upon the frequency of sync samples.
+     * <p>The muxer will attempt to create fragments of the given duration, but when {@linkplain
+     * #setFragmentsMustStartWithKeyFrame(boolean) fragments must start with a key frame} (the
+     * default), the actual duration might be greater depending upon the frequency of sync samples.
      *
      * <p>The default value is {@link #DEFAULT_FRAGMENT_DURATION_MS}.
      */
@@ -154,9 +160,37 @@ public final class FragmentedMp4Muxer implements Muxer {
       return this;
     }
 
+    /**
+     * Sets whether fragments must start with a video key frame.
+     *
+     * <p>If set to {@code false}, a new fragment starts once the total duration of pending
+     * in-memory video samples reaches the {@linkplain #setFragmentDurationMs fragment duration}, so
+     * samples are flushed to the output based on {@linkplain BufferInfo#presentationTimeUs video
+     * timestamps} alone instead of waiting for a {@link C#BUFFER_FLAG_KEY_FRAME}.
+     *
+     * <p>This option only affects fragmentation when a video track is present; the timestamp
+     * requirement below applies to all tracks.
+     *
+     * <p>If set to {@code false}, sample presentation timestamps must not decrease within any
+     * track, so video with B-frames is not supported. Otherwise, {@link
+     * FragmentedMp4Muxer#writeSampleData} throws a {@link MuxerException}.
+     *
+     * <p>Only fragments that start at key frames are listed as random access points in the {@code
+     * mfra} box.
+     *
+     * <p>The default value is {@code true}.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/582636926 - Remove or make non-experimental.
+    public Builder setFragmentsMustStartWithKeyFrame(boolean fragmentsMustStartWithKeyFrame) {
+      this.fragmentsMustStartWithKeyFrame = fragmentsMustStartWithKeyFrame;
+      return this;
+    }
+
     /** Builds a {@link FragmentedMp4Muxer} instance. */
     public FragmentedMp4Muxer build() {
-      return new FragmentedMp4Muxer(outputChannel, fragmentDurationMs, sampleCopyEnabled);
+      return new FragmentedMp4Muxer(
+          outputChannel, fragmentDurationMs, sampleCopyEnabled, fragmentsMustStartWithKeyFrame);
     }
   }
 
@@ -191,11 +225,16 @@ public final class FragmentedMp4Muxer implements Muxer {
   private final FragmentedMp4Writer fragmentedMp4Writer;
   private final MetadataCollector metadataCollector;
   private final SparseArray<Track> trackIdToTrack;
+  private final boolean fragmentsMustStartWithKeyFrame;
+  private final SparseLongArray trackIdToLastSampleTimeUs;
 
   private boolean isClosed;
 
   private FragmentedMp4Muxer(
-      WritableByteChannel outputChannel, long fragmentDurationMs, boolean sampleCopyEnabled) {
+      WritableByteChannel outputChannel,
+      long fragmentDurationMs,
+      boolean sampleCopyEnabled,
+      boolean fragmentsMustStartWithKeyFrame) {
     metadataCollector = new MetadataCollector();
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
@@ -203,8 +242,11 @@ public final class FragmentedMp4Muxer implements Muxer {
             metadataCollector,
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,
-            sampleCopyEnabled);
+            sampleCopyEnabled,
+            fragmentsMustStartWithKeyFrame);
     trackIdToTrack = new SparseArray<>();
+    this.fragmentsMustStartWithKeyFrame = fragmentsMustStartWithKeyFrame;
+    trackIdToLastSampleTimeUs = new SparseLongArray();
   }
 
   /**
@@ -237,7 +279,8 @@ public final class FragmentedMp4Muxer implements Muxer {
    * and the {@code bufferInfo} must not be modified after calling this method. Otherwise, they are
    * copied and it is safe to modify them after this method returns.
    *
-   * <p>Note: Out of order B-frames are currently not supported.
+   * <p>Out of order B-frames are supported, unless fragments may start at non-key frames (see
+   * {@link Builder#setFragmentsMustStartWithKeyFrame(boolean)}).
    *
    * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
@@ -250,6 +293,22 @@ public final class FragmentedMp4Muxer implements Muxer {
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
     checkState(!isClosed, "FragmentedMp4Muxer is closed.");
+    if (!fragmentsMustStartWithKeyFrame && !isEmptySample(byteBuffer, bufferInfo)) {
+      // Fragments may start at non-key frames only if sample timestamps don't decrease.
+      long lastSampleTimeUs = trackIdToLastSampleTimeUs.get(trackId, C.TIME_UNSET);
+      if (lastSampleTimeUs != C.TIME_UNSET && bufferInfo.presentationTimeUs < lastSampleTimeUs) {
+        throw new MuxerException(
+            "Sample timestamps must not decrease if fragments may start at non-key frames",
+            new IllegalArgumentException(
+                "presentationTimeUs="
+                    + bufferInfo.presentationTimeUs
+                    + " is before the previous sample at "
+                    + lastSampleTimeUs
+                    + " for trackId="
+                    + trackId));
+      }
+      trackIdToLastSampleTimeUs.put(trackId, bufferInfo.presentationTimeUs);
+    }
     try {
       fragmentedMp4Writer.writeSampleData(trackIdToTrack.get(trackId), byteBuffer, bufferInfo);
     } catch (IOException e) {
