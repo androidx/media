@@ -26,10 +26,10 @@ import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
+import androidx.media3.test.utils.createTestTracks
+import androidx.media3.test.utils.createTestTracksWithLanguages
+import androidx.media3.test.utils.createVideoFormat
 import androidx.media3.ui.compose.testutils.createPlayerWithTracks
-import androidx.media3.ui.compose.testutils.createTestTracks
-import androidx.media3.ui.compose.testutils.createTestTracksWithLanguages
-import androidx.media3.ui.compose.testutils.createVideoFormat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test

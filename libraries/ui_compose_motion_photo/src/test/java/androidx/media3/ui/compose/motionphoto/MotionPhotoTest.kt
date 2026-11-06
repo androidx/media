@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose
+package androidx.media3.ui.compose.motionphoto
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -47,9 +47,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakeBitmapLoader
 import androidx.media3.test.utils.FakePlayer
-import androidx.media3.ui.compose.state.MotionPhotoConfig
-import androidx.media3.ui.compose.state.MotionPhotoState
-import androidx.media3.ui.compose.state.rememberMotionPhotoState
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.SettableFuture

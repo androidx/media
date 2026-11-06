@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.testutils
+package androidx.media3.test.utils
 
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
 
 /**
  * Creates a set of tracks for testing: a video track group with [videoFormats], an English AAC
@@ -29,7 +30,8 @@ import androidx.media3.common.Tracks
  * By default, the video track group contains a 1080p and a 720p H.264 format. Tests that assert on
  * specific video formats should pass them in [videoFormats].
  */
-internal fun createTestTracks(
+@UnstableApi
+fun createTestTracks(
   videoFormats: List<Format> = listOf(createVideoFormat(1920, 1080), createVideoFormat(1280, 720)),
   selectedVideoTrackIndex: Int? = null,
   videoHandledStates: IntArray? = null,
@@ -74,7 +76,8 @@ internal fun createTestTracks(
 }
 
 /** Creates a video [Format] with the specified resolution and sample MIME type. */
-internal fun createVideoFormat(
+@UnstableApi
+fun createVideoFormat(
   width: Int,
   height: Int,
   sampleMimeType: String = MimeTypes.VIDEO_H264,
@@ -82,7 +85,8 @@ internal fun createVideoFormat(
   Format.Builder().setWidth(width).setHeight(height).setSampleMimeType(sampleMimeType).build()
 
 /** Creates a set of tracks with specific languages for testing language-based selection. */
-internal fun createTestTracksWithLanguages(
+@UnstableApi
+fun createTestTracksWithLanguages(
   mimeType: String,
   vararg languages: String,
   selectedLanguage: String? = null,

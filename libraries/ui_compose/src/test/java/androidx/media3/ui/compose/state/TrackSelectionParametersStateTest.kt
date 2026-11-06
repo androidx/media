@@ -24,8 +24,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.test.utils.createTestTracks
 import androidx.media3.ui.compose.testutils.createPlayerWithTracks
-import androidx.media3.ui.compose.testutils.createTestTracks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test

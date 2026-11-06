@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.state
+package androidx.media3.ui.compose.motionphoto
 
 import androidx.annotation.IntDef
 import androidx.annotation.IntRange
@@ -642,7 +642,7 @@ internal constructor(
 
   companion object {
     init {
-      MediaLibraryInfo.registerModule("media3.ui.compose")
+      MediaLibraryInfo.registerModule("media3.ui.compose.motionphoto")
     }
   }
 }

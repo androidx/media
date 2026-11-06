@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose
+package androidx.media3.ui.compose.motionphoto
 
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
@@ -32,7 +32,9 @@ import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.media3.common.util.BitmapLoader
-import androidx.media3.ui.compose.state.MotionPhotoState
+import androidx.media3.ui.compose.AsyncImage
+import androidx.media3.ui.compose.ContentFrame
+import androidx.media3.ui.compose.ImageSource
 
 /**
  * Composable for displaying a Motion Photo using a hoisted [MotionPhotoState] and a built-in or

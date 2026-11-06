@@ -47,9 +47,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.compose.MotionPhoto
-import androidx.media3.ui.compose.state.MotionPhotoConfig
-import androidx.media3.ui.compose.state.rememberMotionPhotoState
+import androidx.media3.ui.compose.motionphoto.MotionPhoto
+import androidx.media3.ui.compose.motionphoto.MotionPhotoConfig
+import androidx.media3.ui.compose.motionphoto.rememberMotionPhotoState
 
 private val PRESETS =
   listOf("Default" to MotionPhotoConfig.DEFAULT, "Loop" to MotionPhotoConfig.LOOP)

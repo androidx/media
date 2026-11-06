@@ -209,6 +209,9 @@ object Media3Modules {
           "media3-ui-compose-material3",
           "Media3 UI Compose Material3 module",
         ),
+      // TODO(b/544627271): Publish as media3-ui-compose-motion-photo once the API is opened up.
+      "lib-ui-compose-motion-photo" to
+        Media3Module("libraries/ui_compose_motion_photo", null, null),
       "lib-ui-leanback" to
         Media3Module("libraries/ui_leanback", "media3-ui-leanback", "Media3 Leanback UI module"),
       "test-data" to Media3Module("libraries/test_data", null, null),

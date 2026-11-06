@@ -21,6 +21,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.annotation.RestrictTo
+import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -54,7 +56,8 @@ import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withContext
 
 /** An encoded image for [AsyncImage] to load. */
-internal sealed interface ImageSource {
+@RestrictTo(LIBRARY_GROUP)
+sealed interface ImageSource {
 
   /** Compressed image data. Two instances are equal if their [bytes] have the same content. */
   class Bytes(val bytes: ByteArray) : ImageSource {
@@ -101,8 +104,9 @@ private const val TAG = "AsyncImage"
  *   [bitmapLoader] is `null`. If it doesn't contain a [CoroutineDispatcher], the image is loaded on
  *   [Dispatchers.IO]. Changing it doesn't restart a load in progress.
  */
+@RestrictTo(LIBRARY_GROUP)
 @Composable
-internal fun AsyncImage(
+fun AsyncImage(
   source: ImageSource?,
   modifier: Modifier = Modifier,
   contentDescription: String? = null,

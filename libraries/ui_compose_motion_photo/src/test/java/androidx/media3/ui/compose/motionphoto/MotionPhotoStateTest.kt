@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.state
+package androidx.media3.ui.compose.motionphoto
 
 import android.annotation.SuppressLint
 import androidx.compose.runtime.getValue
@@ -31,7 +31,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.Util.msToUs
 import androidx.media3.test.utils.FakePlayer
-import androidx.media3.ui.compose.testutils.createTestTracks
+import androidx.media3.test.utils.createTestTracks
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
