@@ -141,7 +141,6 @@ public class SlidingPercentileBandwidthStatistic implements BandwidthStatistic {
 
     @Override
     public int compareTo(Sample other) {
-      // Keep equal-rate observations distinct so sorted and total sample weights agree.
       int bitrateComparison = Long.compare(this.bitrate, other.bitrate);
       return bitrateComparison != 0 ? bitrateComparison : Long.compare(this.id, other.id);
     }
