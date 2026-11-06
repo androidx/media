@@ -1163,7 +1163,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     CompositionPlayerInternal compositionPlayerInternal =
         checkNotNull(this.compositionPlayerInternal);
-    compositionPlayerInternal.startSeek(positionMs);
+    // The sequence players ignore a seek to their current position, so their audio renderers would
+    // not feed the flushed audio graph again.
+    boolean isSeekToCurrentPosition = isSeekToCurrentPosition(positionMs);
+    if (!isSeekToCurrentPosition) {
+      compositionPlayerInternal.startSeek(positionMs);
+    }
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.seekTo(positionMs);
       // Flush the HardwareBufferFrameReader and FrameAggregator after the player seeks to ensure
@@ -1186,7 +1191,37 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .send();
       }
     }
-    compositionPlayerInternal.endSeek();
+    if (!isSeekToCurrentPosition) {
+      compositionPlayerInternal.endSeek();
+    }
+  }
+
+  /**
+   * Returns whether every sequence player will ignore a seek to {@code positionMs} because it is
+   * already at that position, mirroring {@code ExoPlayerImplInternal}.
+   */
+  private boolean isSeekToCurrentPosition(long positionMs) {
+    if (playerHolders.isEmpty()) {
+      return false;
+    }
+    Timeline.Period period = new Timeline.Period();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      ExoPlayer player = playerHolders.get(i).player;
+      @Player.State int playbackState = player.getPlaybackState();
+      // The position of a playing player is only an estimate on this thread.
+      if ((playbackState != STATE_READY && playbackState != STATE_BUFFERING)
+          || player.isPlaying()
+          || player.getCurrentPosition() != positionMs) {
+        return false;
+      }
+      // ExoPlayerImplInternal compares period positions in ms, which only match the window
+      // position in ms if the period starts at a whole ms in the window.
+      player.getCurrentTimeline().getPeriod(player.getCurrentPeriodIndex(), period);
+      if (period.getPositionInWindowUs() % 1000 != 0) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
