@@ -29,6 +29,11 @@
         UI test teardown)
         ([#3005](https://github.com/androidx/media/issues/3005)).
 *   ExoPlayer:
+    *   Fix an issue where clipping in the media period (as Transformer and
+        `CompositionPlayer` do) stopped reading at an open-GOP key frame at or
+        after the end position (such as an H.265 CRA), so its leading pictures
+        presented before the end position were not decoded and the previous
+        frame was repeated in their place.
     *   Fix an issue where a renderer enabled early for an upcoming media period
         could start rendering before playback transitions to that period.
     *   Kotlin subclasses of `CompositeMediaSource` that use nullable child
