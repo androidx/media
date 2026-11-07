@@ -124,6 +124,7 @@ public final class Flags {
    *   <li>{@link #FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT}
    *   <li>{@link #FLAG_IMAGE_READER_PLACEHOLDER_SURFACE}
    *   <li>{@link #FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION}
+   *   <li>{@link #FLAG_KEEP_UNCHANGED_HLS_STREAMS_ON_TRACK_SELECTION}
    * </ul>
    */
   @Documented
@@ -145,6 +146,7 @@ public final class Flags {
         FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT,
         FLAG_IMAGE_READER_PLACEHOLDER_SURFACE,
         FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION,
+        FLAG_KEEP_UNCHANGED_HLS_STREAMS_ON_TRACK_SELECTION,
       })
   public @interface Flag {}
 
@@ -295,7 +297,20 @@ public final class Flags {
   @ExperimentalApi // TODO(b/577053786): Remove this flag (earliest cleanup: 2026-12-24).
   public static final int FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION = 13;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 14;
+  /**
+   * Flag to keep unchanged audio and video streams playing when an HLS track selection changes
+   * which stream initializes the timestamp adjusters.
+   *
+   * <p>When enabled, {@code HlsMediaPeriod} doesn't reset all streams if an audio or video stream
+   * keeps exactly the same selection. For example, re-enabling video while audio plays from a
+   * separate rendition no longer interrupts audio playback.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO: https://github.com/androidx/media/issues/2316 - Remove this flag.
+  public static final int FLAG_KEEP_UNCHANGED_HLS_STREAMS_ON_TRACK_SELECTION = 14;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 15;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -308,6 +323,7 @@ public final class Flags {
     STATIC_FLAG_STATES.put(FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS, false);
     STATIC_FLAG_STATES.put(FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT, false);
     STATIC_FLAG_STATES.put(FLAG_IMAGE_READER_PLACEHOLDER_SURFACE, false);
+    STATIC_FLAG_STATES.put(FLAG_KEEP_UNCHANGED_HLS_STREAMS_ON_TRACK_SELECTION, false);
 
     // Statically enabled flags (kept as fallback for opt-out).
     STATIC_FLAG_STATES.put(FLAG_DYNAMIC_SCHEDULING, true);

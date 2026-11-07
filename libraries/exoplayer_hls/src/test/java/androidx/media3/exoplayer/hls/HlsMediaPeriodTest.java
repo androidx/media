@@ -24,10 +24,13 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.Looper;
 import android.os.SystemClock;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -48,11 +51,16 @@ import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup;
 import androidx.media3.exoplayer.source.CompositeSequenceableLoaderFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.MediaPeriodAsserts;
 import androidx.media3.test.utils.MediaPeriodAsserts.FilterableManifestMediaPeriodFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -61,7 +69,9 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -69,6 +79,8 @@ import org.mockito.Mock;
 /** Unit test for {@link HlsMediaPeriod}. */
 @RunWith(AndroidJUnit4.class)
 public final class HlsMediaPeriodTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void getSteamKeys_isCompatibleWithHlsMultivariantPlaylistFilter() {
@@ -367,6 +379,102 @@ public final class HlsMediaPeriodTest {
                     .setMetadata(subtitleMetadata)
                     .build()));
     MediaPeriodAsserts.assertTrackGroups(mediaPeriod, expectedGroups);
+  }
+
+  @Test
+  public void selectTracks_reenableVideo_resetsSeparateAudioRendition() {
+    boolean[] streamResetFlags = disableAndReenableVideoWithSeparateAudioRendition();
+
+    assertThat(streamResetFlags[1]).isTrue();
+  }
+
+  @Test
+  public void selectTracks_reenableVideoWithFlagEnabled_keepsSeparateAudioRendition() {
+    Flags.enableFlag(Flags.FLAG_KEEP_UNCHANGED_HLS_STREAMS_ON_TRACK_SELECTION);
+
+    boolean[] streamResetFlags = disableAndReenableVideoWithSeparateAudioRendition();
+
+    assertThat(streamResetFlags[1]).isFalse();
+  }
+
+  /**
+   * Selects video and a separate audio rendition, then disables and re-enables video while keeping
+   * the audio selection unchanged.
+   *
+   * @return The stream reset flags of the selection that re-enables video. Index 0 is the video
+   *     renderer, index 1 the audio renderer.
+   */
+  private static boolean[] disableAndReenableVideoWithSeparateAudioRendition() {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        createMultivariantPlaylist(
+            /* variants= */ ImmutableList.of(
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant1"), /* peakBitrate= */ 400000)),
+            /* audios= */ ImmutableList.of(
+                createAudioRendition(Uri.parse("https://audio1"), /* language= */ "en")),
+            /* subtitles= */ ImmutableList.of(),
+            /* muxedAudioFormat= */ null,
+            /* muxedCaptionFormats= */ ImmutableList.of());
+    HlsMediaPeriod mediaPeriod = createMediaPeriod(multivariantPlaylist);
+    prepareMediaPeriod(mediaPeriod);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    ExoTrackSelection videoSelection =
+        new FixedTrackSelection(
+            getTrackGroupOfType(trackGroups, C.TRACK_TYPE_VIDEO), /* track= */ 0);
+    ExoTrackSelection audioSelection =
+        new FixedTrackSelection(
+            getTrackGroupOfType(trackGroups, C.TRACK_TYPE_AUDIO), /* track= */ 0);
+    // Index 0 is the video renderer, index 1 the audio renderer.
+    SampleStream[] streams = new SampleStream[2];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {videoSelection, audioSelection},
+        /* mayRetainStreamFlags= */ new boolean[] {false, false},
+        streams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 0);
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {null, audioSelection},
+        /* mayRetainStreamFlags= */ new boolean[] {false, true},
+        streams,
+        /* streamResetFlags= */ new boolean[2],
+        /* positionUs= */ 0);
+    boolean[] streamResetFlags = new boolean[2];
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {videoSelection, audioSelection},
+        /* mayRetainStreamFlags= */ new boolean[] {false, true},
+        streams,
+        streamResetFlags,
+        /* positionUs= */ 0);
+    return streamResetFlags;
+  }
+
+  private static void prepareMediaPeriod(MediaPeriod mediaPeriod) {
+    AtomicBoolean prepared = new AtomicBoolean();
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {
+            // Ignore.
+          }
+        },
+        /* positionUs= */ 0);
+    shadowOf(Looper.getMainLooper()).idle();
+    assertThat(prepared.get()).isTrue();
+  }
+
+  private static TrackGroup getTrackGroupOfType(
+      TrackGroupArray trackGroups, @C.TrackType int trackType) {
+    for (int i = 0; i < trackGroups.length; i++) {
+      if (trackGroups.get(i).type == trackType) {
+        return trackGroups.get(i);
+      }
+    }
+    throw new IllegalArgumentException("No track group of type " + trackType);
   }
 
   private static HlsMediaPeriod createMediaPeriod(HlsMultivariantPlaylist multivariantPlaylist) {
