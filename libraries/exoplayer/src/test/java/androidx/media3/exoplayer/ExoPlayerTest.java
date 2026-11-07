@@ -2704,6 +2704,62 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void playbackEndsWhileMediaPeriodIsLoading_isLoadingBecomesFalse() throws Exception {
+    AtomicReference<Runnable> requestContinueLoading = new AtomicReference<>();
+    FakeMediaSource mediaSource =
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                /* deferOnPrepared= */ false) {
+              @Override
+              public synchronized void prepare(Callback callback, long positionUs) {
+                requestContinueLoading.set(() -> callback.onContinueLoadingRequested(this));
+                super.prepare(callback, positionUs);
+              }
+
+              @Override
+              public boolean isLoading() {
+                return true;
+              }
+            };
+          }
+        };
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    assertThat(player.isLoading()).isTrue();
+
+    play(player).untilState(Player.STATE_ENDED);
+
+    assertThat(player.isLoading()).isFalse();
+
+    // A late loading callback must not reintroduce an invalid loading state after playback ends.
+    player.createMessage((messageType, payload) -> requestContinueLoading.get().run()).send();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    assertThat(player.isLoading()).isFalse();
+
+    player.seekTo(0);
+    advance(player).untilState(Player.STATE_READY);
+    assertThat(player.isLoading()).isTrue();
+    player.release();
+  }
+
+  @Test
   public void stopWhileLoading_correctMaskingIsLoading() throws Exception {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     player.setMediaSource(new FakeMediaSource(new FakeTimeline(/* windowCount= */ 1)));
