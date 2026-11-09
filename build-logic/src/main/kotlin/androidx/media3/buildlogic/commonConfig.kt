@@ -67,6 +67,14 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       // TODO: https://github.com/square/okhttp/issues/9084 - Remove once OkHttp publishes Gradle
       // dependency alignment metadata.
       components.all<OkHttpVersionAlignmentRule>()
+
+      constraints {
+        // TODO: b/502167525 - Remove once Compose ui-test-junit4 transitively depends on
+        // espresso-core 3.7.0+.
+        val espressoCore = libs.findLibrary("androidx-test-espresso-core").get()
+        add("testImplementation", espressoCore)
+        add("androidTestImplementation", espressoCore)
+      }
     }
 
     // TODO: b/502167525 - Upgrade source/targetCompatibility to JavaVersion.VERSION_11.
@@ -81,6 +89,9 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
     testOptions.apply {
       unitTests.all {
         it.jvmArgs("-Xmx4g")
+        // Required by Robolectric 4.17+ on JDK 17+. See
+        // https://robolectric.org/getting-started/#running-with-java-17-and-higher
+        it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
         // TODO: b/515290151 - Remove this after upgrading to OpenJDK 26.
         it.jvmArgs("-XX:CompileCommand=exclude,android/content/pm/PackageParser.\$\$robo\$\$*")
         it.systemProperty("robolectric.graphicsMode", "NATIVE")

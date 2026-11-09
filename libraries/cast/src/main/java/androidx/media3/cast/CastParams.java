@@ -53,10 +53,6 @@ public final class CastParams {
   @VisibleForTesting
   /* package */ static final int SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP = 37;
 
-  // TODO: b/500989268 - Remove the sdkVersionForTesting field once robolectric supports @Config(sdk
-  // = 37).
-  @VisibleForTesting /* package */ static int sdkVersionForTesting = Build.VERSION.SDK_INT;
-
   public static final CastParams DEFAULT = new Builder().build();
 
   /** Builder for {@link CastParams}. */
@@ -229,7 +225,7 @@ public final class CastParams {
       CastOptions.Modifier.Builder unused =
           modifierBuilder.setRemoteToLocalEnabled(remoteToLocalEnabled);
     }
-    if (sdkVersionForTesting >= SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP) {
+    if (Build.VERSION.SDK_INT >= SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP) {
       int targetSdkVersion = context != null ? context.getApplicationInfo().targetSdkVersion : -1;
       boolean systemOutputSwitcherEnabled =
           this.systemOutputSwitcherEnabled != null

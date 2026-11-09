@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 
 import android.app.Application;
 import android.content.Context;
-import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import androidx.media3.cast.Cast.MediaRouteSelectorListener;
 import androidx.mediarouter.media.MediaRouteSelector;
@@ -81,7 +80,6 @@ public final class CastTest {
     context = ApplicationProvider.getApplicationContext();
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
-    CastParams.sdkVersionForTesting = CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP;
     castParams =
         new CastParams.Builder()
             .setReceiverApplicationId(FAKE_RECEIVER_APP_ID)
@@ -98,7 +96,6 @@ public final class CastTest {
   @After
   public void tearDown() {
     Cast.reset();
-    CastParams.sdkVersionForTesting = Build.VERSION.SDK_INT;
   }
 
   @Test
@@ -400,6 +397,7 @@ public final class CastTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void initialize_withTargetSdkAtMin_appliesDefaultTrue() {
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP;
@@ -417,6 +415,7 @@ public final class CastTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void initialize_withTargetSdkBelowMin_appliesDefaultFalse() {
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;

@@ -24,6 +24,7 @@ import com.google.android.gms.cast.framework.CastOptions;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Tests for {@link CastParams}. */
 @RunWith(AndroidJUnit4.class)
@@ -39,10 +40,10 @@ public final class CastParamsTest {
     context = ApplicationProvider.getApplicationContext();
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP;
-    CastParams.sdkVersionForTesting = CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP;
   }
 
   @Test
+  @Config(minSdk = 37)
   public void toCastOptionsModifier_defaultValues_hasDefaultValues() {
     CastParams castParams = new CastParams.Builder().build();
 
@@ -59,6 +60,7 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void toCastOptionsModifier_withTargetSdkBelowMin_defaultsToFalse() {
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
@@ -71,6 +73,7 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void toCastOptionsModifier_nullContext_defaultsShowOutputSwitcherToFalse() {
     CastParams castParams = new CastParams.Builder().build();
 
@@ -81,6 +84,7 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void toCastOptionsModifier_withSdkValuesAtMin_showOutputSwitcherDefaultsToTrue() {
     CastParams castParams = new CastParams.Builder().build();
 
@@ -91,6 +95,7 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void toCastOptionsModifier_withExplicitValueAndTargetSdkAtMin_overridesDefault() {
     CastParams castParams =
         new CastParams.Builder().setShowSystemOutputSwitcherOnCastButtonClick(false).build();
@@ -102,6 +107,7 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void toCastOptionsModifier_withExplicitValueAndTargetSdkBelowMin_overridesDefault() {
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
@@ -115,6 +121,7 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(minSdk = 37)
   public void
       toCastOptionsModifier_withSystemOutputSwitcherDisabled_overridesShowOnCastButtonClickTrue() {
     CastParams castParams =
@@ -132,8 +139,8 @@ public final class CastParamsTest {
   }
 
   @Test
+  @Config(maxSdk = 36)
   public void toCastOptionsModifier_onOldApiVersion_ignoresSetShowOutputSwitcherOnCastIconClick() {
-    CastParams.sdkVersionForTesting = CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
     context.getApplicationInfo().targetSdkVersion =
         CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
     CastParams castParams =
