@@ -26,6 +26,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -44,7 +45,6 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -79,7 +79,8 @@ import org.jspecify.annotations.Nullable;
   private static final int MARKER_SOI = 0xFFD8; // Start of image marker
   private static final int MARKER_SOS = 0xFFDA; // Start of scan (image data) marker
   private static final int MARKER_APP1 = 0xFFE1; // Application data 1 marker
-  private static final String HEADER_XMP_APP1 = "http://ns.adobe.com/xap/1.0/";
+  private static final byte[] HEADER_XMP_APP1_BYTES =
+      Util.getUtf8Bytes("http://ns.adobe.com/xap/1.0/\0");
 
   private static final int MARKER_SIZE = 2;
   private static final int SEGMENT_LENGTH_SIZE = 2;
@@ -94,43 +95,54 @@ import org.jspecify.annotations.Nullable;
   private long mp4StartPosition;
 
   private @Nullable MotionPhotoMetadata motionPhotoMetadata;
-  private @MonotonicNonNull ExtractorInput lastExtractorInput;
-  private @MonotonicNonNull StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
+  private @Nullable ExtractorInput lastExtractorInput;
+  private @Nullable StartOffsetExtractorInput mp4ExtractorStartOffsetExtractorInput;
   private @Nullable Mp4Extractor mp4Extractor;
 
   public JpegMotionPhotoExtractor() {
-    scratch = new ParsableByteArray(/* limit= */ MARKER_SIZE);
+    scratch = new ParsableByteArray();
     mp4StartPosition = C.INDEX_UNSET;
   }
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    // See ITU-T.81 (1992) subsection B.1.1.3.
+    // Verify the JPEG Start of Image marker (ITU-T.81 (1992) subsection B.1.1.3).
     if (peekMarker(input) != MARKER_SOI) {
       return false;
     }
 
+    // Scan header segments before Start of Scan for an APP1 segment with motion photo XMP.
     while (true) {
-      marker = peekMarker(input);
+      int currentMarker = peekMarker(input);
 
-      if (marker == MARKER_SOS) {
+      if (currentMarker == MARKER_SOS) {
         // Reached the Start of Scan (image data), no more metadata to parse.
         break;
       }
 
       int payloadLength = peekSegmentLength(input);
       if (payloadLength < 0) {
+        // Malformed segment length (< 2 bytes).
         break;
       }
 
-      if (marker != MARKER_APP1) {
+      if (currentMarker != MARKER_APP1 || payloadLength <= HEADER_XMP_APP1_BYTES.length) {
+        // Skip non-APP1 segments and APP1 segments too short to contain an XMP payload.
         input.advancePeekPosition(payloadLength);
         continue;
       }
 
-      scratch.reset(payloadLength);
-      input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ payloadLength);
-      if (isMotionPhotoXmp(scratch)) {
+      // Peek the XMP header first to avoid buffering non-XMP APP1 payloads (e.g. EXIF).
+      int remainingPayloadLength = payloadLength - HEADER_XMP_APP1_BYTES.length;
+      if (!peekXmpHeader(input)) {
+        input.advancePeekPosition(remainingPayloadLength);
+        continue;
+      }
+
+      // Peek the remaining XMP XML payload (leaving peek position at the next segment marker).
+      ParsableByteArray xmpPayload = new ParsableByteArray(remainingPayloadLength);
+      input.peekFully(xmpPayload.getData(), /* offset= */ 0, remainingPayloadLength);
+      if (XmpMotionPhotoDescriptionParser.isMotionPhotoXmp(xmpPayload.readNullTerminatedString())) {
         return true;
       }
     }
@@ -164,16 +176,20 @@ import org.jspecify.annotations.Nullable;
         sniffMotionPhotoVideo(input);
         return RESULT_CONTINUE;
       case STATE_READING_MOTION_PHOTO_VIDEO:
-        if (mp4ExtractorStartOffsetExtractorInput == null || input != lastExtractorInput) {
+        @Nullable StartOffsetExtractorInput startOffsetInput =
+            mp4ExtractorStartOffsetExtractorInput;
+        if (startOffsetInput == null || input != lastExtractorInput) {
           lastExtractorInput = input;
-          mp4ExtractorStartOffsetExtractorInput =
-              new StartOffsetExtractorInput(input, mp4StartPosition);
+          startOffsetInput = new StartOffsetExtractorInput(input, mp4StartPosition);
+          mp4ExtractorStartOffsetExtractorInput = startOffsetInput;
         }
         @ReadResult
-        int readResult =
-            checkNotNull(mp4Extractor).read(mp4ExtractorStartOffsetExtractorInput, seekPosition);
+        int readResult = checkNotNull(mp4Extractor).read(startOffsetInput, seekPosition);
         if (readResult == RESULT_SEEK) {
           seekPosition.position += mp4StartPosition;
+        } else if (readResult == RESULT_END_OF_INPUT) {
+          lastExtractorInput = null;
+          mp4ExtractorStartOffsetExtractorInput = null;
         }
         return readResult;
       case STATE_ENDED:
@@ -187,17 +203,20 @@ import org.jspecify.annotations.Nullable;
   public void seek(long position, long timeUs) {
     if (position == 0) {
       state = STATE_READING_MARKER;
-      mp4Extractor = null;
+      marker = 0;
+      segmentLength = 0;
+      mp4StartPosition = C.INDEX_UNSET;
+      releaseResources();
     } else if (state == STATE_READING_MOTION_PHOTO_VIDEO) {
+      lastExtractorInput = null;
+      mp4ExtractorStartOffsetExtractorInput = null;
       checkNotNull(mp4Extractor).seek(position, timeUs);
     }
   }
 
   @Override
   public void release() {
-    if (mp4Extractor != null) {
-      mp4Extractor.release();
-    }
+    releaseResources();
   }
 
   private int peekMarker(ExtractorInput input) throws IOException {
@@ -206,19 +225,13 @@ import org.jspecify.annotations.Nullable;
     return scratch.readUnsignedShort();
   }
 
-  private boolean isMotionPhotoXmp(ParsableByteArray payload) {
-    if (!Objects.equals(payload.readNullTerminatedString(), HEADER_XMP_APP1)) {
-      return false;
-    }
-    return XmpMotionPhotoDescriptionParser.isMotionPhotoXmp(payload.readNullTerminatedString());
-  }
-
   private void readMarker(ExtractorInput input) throws IOException {
     scratch.reset(/* limit= */ MARKER_SIZE);
     input.readFully(scratch.getData(), /* offset= */ 0, /* length= */ MARKER_SIZE);
     marker = scratch.readUnsignedShort();
     if (marker == MARKER_SOS) { // Start of scan.
       if (mp4StartPosition != C.INDEX_UNSET) {
+        scratch.reset(Util.EMPTY_BYTE_ARRAY);
         state = STATE_SNIFFING_MOTION_PHOTO_VIDEO;
       } else {
         endReading();
@@ -237,22 +250,41 @@ import org.jspecify.annotations.Nullable;
   private void readSegmentLength(ExtractorInput input) throws IOException {
     segmentLength = peekSegmentLength(input);
     input.skipFully(SEGMENT_LENGTH_SIZE);
-    state = STATE_READING_SEGMENT;
+    if (segmentLength < 0) {
+      endReading();
+    } else {
+      state = STATE_READING_SEGMENT;
+    }
+  }
+
+  private boolean peekXmpHeader(ExtractorInput input) throws IOException {
+    scratch.reset(HEADER_XMP_APP1_BYTES.length);
+    input.peekFully(scratch.getData(), /* offset= */ 0, HEADER_XMP_APP1_BYTES.length);
+    byte[] data = scratch.getData();
+    for (int i = 0; i < HEADER_XMP_APP1_BYTES.length; i++) {
+      if (data[i] != HEADER_XMP_APP1_BYTES[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private void readSegment(ExtractorInput input) throws IOException {
-    if (marker == MARKER_APP1) {
+    // Motion photo metadata defines offsets from the end of the stream, so stream length is needed
+    // to determine start offsets.
+    long inputLength = input.getLength();
+    if (marker == MARKER_APP1
+        && motionPhotoMetadata == null
+        && segmentLength > HEADER_XMP_APP1_BYTES.length
+        && inputLength != C.LENGTH_UNSET
+        && peekXmpHeader(input)) {
       ParsableByteArray payload = new ParsableByteArray(segmentLength);
-      input.readFully(payload.getData(), /* offset= */ 0, /* length= */ segmentLength);
-      if (motionPhotoMetadata == null
-          && HEADER_XMP_APP1.equals(payload.readNullTerminatedString())) {
-        @Nullable String xmpString = payload.readNullTerminatedString();
-        if (xmpString != null) {
-          motionPhotoMetadata = getMotionPhotoMetadata(xmpString, input.getLength());
-          if (motionPhotoMetadata != null) {
-            mp4StartPosition = motionPhotoMetadata.videoStartPosition;
-          }
-        }
+      input.readFully(payload.getData(), /* offset= */ 0, segmentLength);
+      payload.skipBytes(HEADER_XMP_APP1_BYTES.length);
+      motionPhotoMetadata =
+          getMotionPhotoMetadata(checkNotNull(payload.readNullTerminatedString()), inputLength);
+      if (motionPhotoMetadata != null) {
+        mp4StartPosition = motionPhotoMetadata.videoStartPosition;
       }
     } else {
       input.skipFully(segmentLength);
@@ -262,9 +294,7 @@ import org.jspecify.annotations.Nullable;
 
   private void sniffMotionPhotoVideo(ExtractorInput input) throws IOException {
     // Check if the file is truncated.
-    boolean peekedData =
-        input.peekFully(
-            scratch.getData(), /* offset= */ 0, /* length= */ 1, /* allowEndOfInput= */ true);
+    boolean peekedData = input.advancePeekPosition(/* length= */ 1, /* allowEndOfInput= */ true);
     if (!peekedData) {
       endReading();
     } else {
@@ -274,9 +304,11 @@ import org.jspecify.annotations.Nullable;
             new Mp4Extractor(
                 SubtitleParser.Factory.UNSUPPORTED, FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE);
       }
-      mp4ExtractorStartOffsetExtractorInput =
+      StartOffsetExtractorInput startOffsetInput =
           new StartOffsetExtractorInput(input, mp4StartPosition);
-      if (mp4Extractor.sniff(mp4ExtractorStartOffsetExtractorInput)) {
+      if (mp4Extractor.sniff(startOffsetInput)) {
+        lastExtractorInput = input;
+        mp4ExtractorStartOffsetExtractorInput = startOffsetInput;
         mp4Extractor.init(
             new StartOffsetExtractorOutput(mp4StartPosition, checkNotNull(extractorOutput)));
         startReadingMotionPhoto();
@@ -287,14 +319,28 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void startReadingMotionPhoto() {
-    outputImageTrack(checkNotNull(motionPhotoMetadata));
+    MotionPhotoMetadata metadata = checkNotNull(motionPhotoMetadata);
+    motionPhotoMetadata = null;
+    outputImageTrack(metadata);
     state = STATE_READING_MOTION_PHOTO_VIDEO;
   }
 
   private void endReading() {
+    releaseResources();
     checkNotNull(extractorOutput).endTracks();
     extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ C.TIME_UNSET));
     state = STATE_ENDED;
+  }
+
+  private void releaseResources() {
+    scratch.reset(Util.EMPTY_BYTE_ARRAY);
+    motionPhotoMetadata = null;
+    lastExtractorInput = null;
+    mp4ExtractorStartOffsetExtractorInput = null;
+    if (mp4Extractor != null) {
+      mp4Extractor.release();
+      mp4Extractor = null;
+    }
   }
 
   private void outputImageTrack(MotionPhotoMetadata motionPhotoMetadata) {
@@ -313,20 +359,13 @@ import org.jspecify.annotations.Nullable;
    * metadata.
    *
    * @param xmpString A string of XML containing XMP motion photo metadata to attempt to parse.
-   * @param inputLength The length of the input stream in bytes, or {@link C#LENGTH_UNSET} if
-   *     unknown.
+   * @param inputLength The length of the input stream in bytes.
    * @return The {@link MotionPhotoMetadata}, or {@code null} if it wasn't possible to derive motion
    *     photo metadata.
    * @throws IOException If an error occurs parsing the XMP string.
    */
   private static @Nullable MotionPhotoMetadata getMotionPhotoMetadata(
       String xmpString, long inputLength) throws IOException {
-    // Metadata defines offsets from the end of the stream, so we need the stream length to
-    // determine start offsets.
-    if (inputLength == C.LENGTH_UNSET) {
-      return null;
-    }
-
     // Motion photos have (at least) a primary image media item and a secondary video media item.
     @Nullable MotionPhotoDescription motionPhotoDescription =
         XmpMotionPhotoDescriptionParser.parse(xmpString);
