@@ -4,6 +4,10 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix an issue where calling `seekTo` while an ad is playing could freeze
+        `getCurrentPosition()` if another player operation (such as
+        `setPlayWhenReady`) was still pending on the playback thread
+        ([#3512](https://github.com/androidx/media/issues/3512)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

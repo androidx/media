@@ -39,6 +39,8 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Pair;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
@@ -2914,6 +2916,61 @@ public class ExoPlayerAdTest {
     advance(player).untilPendingCommandsAreFullyHandled();
     player.setVolume(0f);
     advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+  }
+
+  @Test
+  public void seekTo_duringAdImmediatelyAfterPlay_doesNotFreezeCurrentPosition() throws Exception {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 0)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://google.com/ad"))
+            .withAdDurationsUs(/* adGroupIndex= */ 0, Util.msToUs(10_000));
+    Timeline adTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(Util.msToUs(100_000))
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    // Use continuous samples rather than the default single-sample TrackDataFactory so the ad
+    // period stays active across multiple doSomeWork() ticks instead of immediately reaching
+    // END_OF_STREAM and transitioning to content (which would publish a new PlaybackInfoUpdate).
+    FakeMediaSource mediaSource =
+        new FakeMediaSource.Builder()
+            .setTimeline(adTimeline)
+            .setTrackDataFactory(
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ CONTENT_SAMPLES_PER_SECOND,
+                    /* durationUs= */ 100 * C.MICROS_PER_SECOND,
+                    /* keyFrameInterval= */ 1))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(mediaSource, /* startPositionMs= */ 30_000);
+    player.setPlayWhenReady(false);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilLoadingIs(false);
+    // While paused in STATE_READY, ExoPlayerImplInternal reschedules doSomeWork every 1000ms
+    // (IDLE_INTERVAL_MS). Let that message run now so it doesn't publish a PlaybackInfoUpdate
+    // between setPlayWhenReady(true) and seekTo below.
+    advance(player).untilClockAdvancementMs(1_500);
+
+    // Post as two separate main-looper runnables so FakeClock processes setPlayWhenReady(true) on
+    // the playback thread and queues its PlaybackInfoUpdate before seekTo queues its own masked
+    // PlaybackInfoUpdate (without the fix, getCurrentPosition() below stays frozen at 0).
+    Handler mainHandler = new Handler(Looper.getMainLooper());
+    mainHandler.post(() -> player.setPlayWhenReady(true));
+    mainHandler.post(() -> player.seekTo(player.getContentPosition()));
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilClockAdvancementMs(2_000);
+
+    assertThat(player.isPlayingAd()).isTrue();
+    assertThat(player.getCurrentPosition()).isGreaterThan(0);
     player.release();
   }
 

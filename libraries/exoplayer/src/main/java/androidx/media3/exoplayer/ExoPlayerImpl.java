@@ -168,7 +168,6 @@ import org.jspecify.annotations.Nullable;
   private final @Nullable Renderer[] secondaryRenderers;
   private final TrackSelector trackSelector;
   private final HandlerWrapper playbackInfoUpdateHandler;
-  private final ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener;
   private final ExoPlayerImplInternal internalPlayer;
 
   private final ListenerSet<Listener> listeners;
@@ -375,7 +374,7 @@ import org.jspecify.annotations.Nullable;
               .add(COMMAND_SEEK_TO_MEDIA_ITEM)
               .build();
       playbackInfoUpdateHandler = clock.createHandler(applicationLooper, /* callback= */ null);
-      playbackInfoUpdateListener =
+      ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener =
           playbackInfoUpdate ->
               playbackInfoUpdateHandler.post(() -> handlePlaybackInfo(playbackInfoUpdate));
       playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
@@ -967,19 +966,15 @@ import org.jspecify.annotations.Nullable;
     if (!timeline.isEmpty() && mediaItemIndex >= timeline.getWindowCount()) {
       return;
     }
-    analyticsCollector.notifySeekStarted();
-    pendingOperationAcks++;
     if (isPlayingAd()) {
       // TODO: Investigate adding support for seeking during ads. This is complicated to do in
       // general because the midroll ad preceding the seek destination must be played before the
       // content position can be played, if a different ad is playing at the moment.
       Log.w(TAG, "seekTo ignored because an ad is playing");
-      ExoPlayerImplInternal.PlaybackInfoUpdate playbackInfoUpdate =
-          new ExoPlayerImplInternal.PlaybackInfoUpdate(this.playbackInfo);
-      playbackInfoUpdate.incrementPendingOperationAcks(1);
-      playbackInfoUpdateListener.onPlaybackInfoUpdate(playbackInfoUpdate);
       return;
     }
+    analyticsCollector.notifySeekStarted();
+    pendingOperationAcks++;
     PlaybackInfo newPlaybackInfo = playbackInfo;
     if (playbackInfo.playbackState == Player.STATE_READY
         || (playbackInfo.playbackState == Player.STATE_ENDED && !timeline.isEmpty())) {
