@@ -1,5 +1,50 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+    *   Fix an issue where calling `seekTo` while an ad is playing could freeze
+        `getCurrentPosition()` if another player operation (such as
+        `setPlayWhenReady`) was still pending on the playback thread
+        ([#3512](https://github.com/androidx/media/issues/3512)).
+*   CompositionPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Inspector:
+*   Inspector Frame:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Effect Lottie:
+*   Effect Play services:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   Ktor extension:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Demo app:
+*   Remove deprecated symbols:
+
 ## 1.12
 
 ### 1.12.0-beta01 (2026-11-11)
