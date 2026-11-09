@@ -1,6 +1,11 @@
 # Release notes
 
-### Unreleased changes
+## 1.12
+
+### 1.12.0-beta01 (2026-11-11)
+
+This release includes the following changes since
+[1.12.0-alpha02](#1120-alpha02-2026-10-26):
 
 *   Common Library:
     *   Reduce `C.DEFAULT_BUFFER_SEGMENT_SIZE` from `65536` to `65520` so each
@@ -48,19 +53,17 @@
         and track reselections.
     *   Add `MediaPeriod.supportsStreamPrerollFlags()` (defaulting to `false`)
         so that custom `MediaPeriod` implementations can opt in to reporting
-        initial discontinuities via `SampleStream.getFlags()`, falling back to
+        initial discontinuities using `SampleStream.getFlags()`, falling back to
         `MediaPeriod.readDiscontinuity()` when not supported and
         `Flags.FLAG_PER_STREAM_MEDIA_PROGRESSION` is enabled.
     *   Fix an issue where skipping an ad followed by another ad in the same ad
         group was reported with `DISCONTINUITY_REASON_AUTO_TRANSITION` instead
         of `DISCONTINUITY_REASON_SKIP`, or not reported at all when
         `AdsMediaSource` uses lazy content source preparation.
-*   CompositionPlayer:
 *   Transformer:
     *   Add CodecDB (`androidx.media3.transformer.codecdb`), which recommends
         video encoder configurations (codec, encoder settings and bitrate) for
         the current device from measured encoder quality data.
-*   Track Selection:
 *   Extractors:
     *   ADTS: Fix `AdtsExtractor` deriving the audio format from a false sync
         word in the payload of a partial first frame, which could cause playback
@@ -86,14 +89,13 @@
         ([#3468](https://github.com/androidx/media/issues/3468)).
     *   Fix `MediaExtractorCompat` to return `MediaFormat.KEY_FRAME_RATE` as an
         integer, matching the platform `MediaExtractor`.
-*   Inspector Frame:
 *   Audio:
     *   Fix an issue where buffered skipped silence was included in
-        `AudioSink.getCurrentPositionUs(boolean)` and reported via
+        `AudioSink.getCurrentPositionUs(boolean)` and reported using
         `AudioSink.Listener.onSilenceSkipped()` before playback reached the
         skipped region ([#3472](https://github.com/androidx/media/issues/3472)).
-    *   Set codec provenance via `AudioTrack.Builder.setCodecProvenance` on API
-        37+ when playing spatialized multichannel PCM audio decoded from a
+    *   Set codec provenance using `AudioTrack.Builder.setCodecProvenance` on
+        API 37+ when playing spatialized multichannel PCM audio decoded from a
         compressed format.
     *   Fix `AudioTrack` initialization retries being skipped when 1 second of
         audio is at least as large as the initial buffer size, which made DTS-HD
@@ -106,18 +108,14 @@
         unspecified transfer characteristics
         ([#3486](https://github.com/androidx/media/issues/3486)).
     *   Fix decoder selection in `MediaCodecUtil` to avoid selecting primary
-        decoders that do not functionally support the format's profile (such as
-        a Dolby Vision decoder for a different profile) when no decoder fully
+        decoders that don't functionally support the format's profile (such as a
+        Dolby Vision decoder for a different profile) when no decoder fully
         supports the format
         ([#3486](https://github.com/androidx/media/issues/3486)).
 *   Text:
     *   Reduce memory usage in `DvbParser` by rendering subtitle regions
         directly into region-sized bitmaps instead of retaining a full-screen
         scratch bitmap.
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
 *   Effect:
     *   Fix a `NullPointerException` in `DefaultVideoFrameProcessor` when
         flushing (for example, while seeking or scrubbing in
@@ -126,8 +124,6 @@
     *   Fix `DefaultGlObjectsProvider.release` throwing a `GlException` when the
         provider is reused after a release
         ([#2016](https://github.com/androidx/media/issues/2016)).
-*   Effect Lottie:
-*   Effect Play services:
 *   Muxers:
     *   Validate the track `Format` when adding a track to `Mp4Muxer` or
         `FragmentedMp4Muxer`, instead of failing later when writing samples or
@@ -178,11 +174,6 @@
         bitmaps and text layouts when cues are cleared, and fix an issue where
         stale subtitle text could remain visible when a cue has insufficient
         width to lay out.
-*   Downloads:
-*   Ktor extension:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Fix issues where reloading a failed or canceled HLS media chunk could
         retain partially buffered samples without discarding or splicing, or
@@ -193,14 +184,9 @@
     *   Fix several playback issues when switching pathways with HLS Content
         Steering ([#3465](https://github.com/androidx/media/issues/3465)).
 *   DASH extension:
-    *   Fix duplicated/garbled CEA-608 subtitles when a stream has multiple
+    *   Fix duplicated or garbled CEA-608 subtitles when a stream has multiple
         embedded caption tracks
         ([#887](https://github.com/androidx/media/issues/887)).
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Fix an issue where `RemoteCastPlayer` load requests were dropped by
         Android TV receivers
@@ -222,19 +208,17 @@
         in the `CastPlayer` timeline for Cast queue items without a playback
         URI.
     *   Add `SessionAvailabilityListener.onCastSessionAvailable(boolean)` to
-        indicate whether an available Cast session was started via
+        indicate whether an available Cast session was started using
         [intent to join](https://developers.google.com/cast/docs/android_sender/intent_to_join),
         and preserve remote playback state instead of overwriting it with local
-        player state when joining a Cast session via intent to join in
+        player state when joining a Cast session using intent to join in
         `CastPlayer`.
     *   Populate `MediaInfo` and timeline durations from
         `MediaMetadata.durationMs` for non-live items in
         `DefaultMediaItemConverter` and `RemoteCastPlayer`, and retain
-        receiver-resolved durations and live stream status across queue seeks.
-*   Test Utilities:
+        receiver-resolved durations and livestream status across queue seeks.
 *   Demo app:
-    *   Allow reordering playlist items with drag and drop in the session demo
-        app.
+    *   Allow reordering playlist items by dragging in the session demo app.
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.transformer.TextureAssetLoader`. Use
         `androidx.media3.transformer.RawAssetLoader` instead.
@@ -261,12 +245,10 @@
         `ExportResult.approximateDurationMs` and
         `ExportResult.Builder.setApproximateDurationMs` instead.
     *   Remove `SilenceSkippingAudioProcessor.DEFAULT_PADDING_SILENCE_US`.
-        Specify silence behaviour via `silenceRetentionRatio` instead.
+        Specify silence behavior using `silenceRetentionRatio` instead.
     *   Remove `Timeline.getPeriodPosition(Window, Period, int, long, long)`.
         Use `Timeline.getPeriodPositionUs(Window, Period, int, long, long)`
         instead.
-
-## 1.12
 
 ### 1.12.0-alpha02 (2026-10-26)
 
