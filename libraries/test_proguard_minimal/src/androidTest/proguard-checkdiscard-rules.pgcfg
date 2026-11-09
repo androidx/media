@@ -6,3 +6,15 @@
 
 # Assert that MIDI decoder wavetable data is discarded when MidiRenderer is not used.
 -checkdiscard class androidx.media3.decoder.midi.SonivoxWaveData
+
+# Assert that subtitle parser classes are discarded when DefaultSubtitleParserFactory is not used.
+-checkdiscard class androidx.media3.extractor.text.DefaultSubtitleParserFactory
+-checkdiscard class androidx.media3.extractor.text.dvb.DvbParser
+-checkdiscard class androidx.media3.extractor.text.pgs.PgsParser
+-checkdiscard class androidx.media3.extractor.text.ssa.SsaParser
+-checkdiscard class androidx.media3.extractor.text.subrip.SubripParser
+-checkdiscard class androidx.media3.extractor.text.ttml.TtmlParser
+-checkdiscard class androidx.media3.extractor.text.tx3g.Tx3gParser
+-checkdiscard class androidx.media3.extractor.text.vobsub.VobsubParser
+-checkdiscard class androidx.media3.extractor.text.webvtt.Mp4WebvttParser
+-checkdiscard class androidx.media3.extractor.text.webvtt.WebvttParser

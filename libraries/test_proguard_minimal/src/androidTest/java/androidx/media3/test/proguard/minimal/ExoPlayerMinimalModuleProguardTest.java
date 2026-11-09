@@ -33,8 +33,9 @@ import org.junit.runner.RunWith;
  * <ul>
  *   <li>Build-time validation: R8 enforces the {@code -checkdiscard} rules in {@code
  *       proguard-checkdiscard-rules.pgcfg} (failing the build if {@code
- *       SingleInputVideoGraph$Factory}, {@code DefaultVideoFrameProcessor$Factory$Builder}, or
- *       {@code SonivoxWaveData} is retained).
+ *       SingleInputVideoGraph$Factory}, {@code DefaultVideoFrameProcessor$Factory$Builder}, {@code
+ *       SonivoxWaveData}, {@code DefaultSubtitleParserFactory}, or the subtitle parser
+ *       implementations are retained).
  *   <li>Runtime validation: Verifies basic player execution, unused class stripping, and resource
  *       stripping.
  * </ul>
