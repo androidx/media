@@ -125,6 +125,7 @@ public final class Flags {
    *   <li>{@link #FLAG_IMAGE_READER_PLACEHOLDER_SURFACE}
    *   <li>{@link #FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION}
    *   <li>{@link #FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY}
+   *   <li>{@link #FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS}
    * </ul>
    */
   @Documented
@@ -147,6 +148,7 @@ public final class Flags {
         FLAG_IMAGE_READER_PLACEHOLDER_SURFACE,
         FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION,
         FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY,
+        FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS,
       })
   public @interface Flag {}
 
@@ -304,7 +306,19 @@ public final class Flags {
   @ExperimentalApi // TODO(b/577057587): Remove this flag (earliest cleanup: 2027-01-15).
   public static final int FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY = 14;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 15;
+  /**
+   * Flag to enable calculating duration-to-progress in {@code TextRenderer}.
+   *
+   * <p>When enabled along with {@link #FLAG_DYNAMIC_SCHEDULING}, {@code TextRenderer} returns
+   * duration-to-progress aligned with upcoming cue changes or when its next {@code CuesWithTiming}
+   * sample can be read.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO(b/582719426): Remove this flag.
+  public static final int FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS = 15;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 16;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -317,6 +331,7 @@ public final class Flags {
     STATIC_FLAG_STATES.put(FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS, false);
     STATIC_FLAG_STATES.put(FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT, false);
     STATIC_FLAG_STATES.put(FLAG_IMAGE_READER_PLACEHOLDER_SURFACE, false);
+    STATIC_FLAG_STATES.put(FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS, false);
 
     // Statically enabled flags (kept as fallback for opt-out).
     STATIC_FLAG_STATES.put(FLAG_DYNAMIC_SCHEDULING, true);
