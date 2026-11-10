@@ -442,15 +442,14 @@ public final class VideoFrameProcessorTestRunner {
             .build(),
         effects,
         /* offsetToAddUs= */ 0);
-    videoFrameProcessor.setOnInputFrameProcessedListener(
-        (texId, syncObject) -> {
-          try {
-            GlUtil.deleteTexture(texId);
-            GlUtil.deleteSyncObject(syncObject);
-          } catch (GlUtil.GlException e) {
-            throw new VideoFrameProcessingException(e);
-          }
-        });
+    videoFrameProcessor.setOnInputFrameProcessedListener((texId, syncObject) -> {
+      try {
+        GlUtil.deleteTexture(texId);
+        GlUtil.deleteSyncObject(syncObject);
+      } catch (GlUtil.GlException e) {
+        throw new VideoFrameProcessingException(e);
+      }
+    });
     awaitVideoFrameProcessorReady();
     checkState(videoFrameProcessor.queueInputTexture(inputTexture.texId, pts));
   }

@@ -135,13 +135,12 @@ public final class DefaultGlFrameProcessorTest {
         },
         () ->
             glExecutorService
-                .submit(
-                    () -> {
-                      if (frameWriter != null) {
-                        frameWriter.close();
-                      }
-                      return null;
-                    })
+                .submit(() -> {
+                  if (frameWriter != null) {
+                    frameWriter.close();
+                  }
+                  return null;
+                })
                 .get(TEST_TIMEOUT_MS, MILLISECONDS),
         () -> shutdownGlExecutorService(glExecutorService),
         () -> {

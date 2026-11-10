@@ -305,31 +305,28 @@ public class SampleChooserActivity extends AppCompatActivity
 
     @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
     public void execute(String... uris) {
-      executorService.execute(
-          () -> {
-            List<PlaylistGroup> result = new ArrayList<>();
-            Context context = getApplicationContext();
-            DataSource dataSource = DemoUtil.getDataSourceFactory(context).createDataSource();
-            for (String uri : uris) {
-              DataSpec dataSpec = new DataSpec(Uri.parse(uri));
-              InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
-              try {
-                readPlaylistGroups(
-                    new JsonReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)),
-                    result);
-              } catch (Exception e) {
-                Log.e(TAG, "Error loading sample list: " + uri, e);
-                sawError = true;
-              } finally {
-                DataSourceUtil.closeQuietly(dataSource);
-              }
-            }
-            new Handler(Looper.getMainLooper())
-                .post(
-                    () -> {
-                      onPlaylistGroups(result, sawError);
-                    });
-          });
+      executorService.execute(() -> {
+        List<PlaylistGroup> result = new ArrayList<>();
+        Context context = getApplicationContext();
+        DataSource dataSource = DemoUtil.getDataSourceFactory(context).createDataSource();
+        for (String uri : uris) {
+          DataSpec dataSpec = new DataSpec(Uri.parse(uri));
+          InputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
+          try {
+            readPlaylistGroups(
+                new JsonReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)), result);
+          } catch (Exception e) {
+            Log.e(TAG, "Error loading sample list: " + uri, e);
+            sawError = true;
+          } finally {
+            DataSourceUtil.closeQuietly(dataSource);
+          }
+        }
+        new Handler(Looper.getMainLooper())
+            .post(() -> {
+              onPlaylistGroups(result, sawError);
+            });
+      });
     }
 
     private void readPlaylistGroups(JsonReader reader, List<PlaylistGroup> groups)

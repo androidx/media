@@ -60,16 +60,15 @@ public class StreamVolumeManagerTest {
     backgroundThread = new HandlerThread("StreamVolumeManagerTest");
     backgroundThread.start();
 
-    testThread.runOnMainThread(
-        () ->
-            streamVolumeManager =
-                new StreamVolumeManager(
-                    context,
-                    testListener,
-                    C.STREAM_TYPE_DEFAULT,
-                    backgroundThread.getLooper(),
-                    /* listenerLooper= */ Looper.myLooper(),
-                    Clock.DEFAULT));
+    testThread.runOnMainThread(() ->
+        streamVolumeManager =
+            new StreamVolumeManager(
+                context,
+                testListener,
+                C.STREAM_TYPE_DEFAULT,
+                backgroundThread.getLooper(),
+                /* listenerLooper= */ Looper.myLooper(),
+                Clock.DEFAULT));
     idleBackgroundThread();
   }
 
@@ -84,259 +83,238 @@ public class StreamVolumeManagerTest {
   @Test
   @SdkSuppress(minSdkVersion = 28)
   public void getMinVolume_returnsStreamMinVolume() {
-    testThread.runOnMainThread(
-        () -> {
-          int streamMinVolume = audioManager.getStreamMinVolume(C.STREAM_TYPE_DEFAULT);
-          assertThat(streamVolumeManager.getMinVolume()).isEqualTo(streamMinVolume);
-        });
+    testThread.runOnMainThread(() -> {
+      int streamMinVolume = audioManager.getStreamMinVolume(C.STREAM_TYPE_DEFAULT);
+      assertThat(streamVolumeManager.getMinVolume()).isEqualTo(streamMinVolume);
+    });
   }
 
   @Test
   public void getMaxVolume_returnsStreamMaxVolume() {
-    testThread.runOnMainThread(
-        () -> {
-          int streamMaxVolume = audioManager.getStreamMaxVolume(C.STREAM_TYPE_DEFAULT);
-          assertThat(streamVolumeManager.getMaxVolume()).isEqualTo(streamMaxVolume);
-        });
+    testThread.runOnMainThread(() -> {
+      int streamMaxVolume = audioManager.getStreamMaxVolume(C.STREAM_TYPE_DEFAULT);
+      assertThat(streamVolumeManager.getMaxVolume()).isEqualTo(streamMaxVolume);
+    });
   }
 
   @Test
   public void getVolume_returnsStreamVolume() {
-    testThread.runOnMainThread(
-        () -> {
-          int streamVolume = audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT);
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(streamVolume);
-        });
+    testThread.runOnMainThread(() -> {
+      int streamVolume = audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT);
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(streamVolume);
+    });
   }
 
   @Test
   public void setVolume_changesStreamVolume() throws Exception {
     AtomicInteger targetVolume = new AtomicInteger();
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          if (minVolume == maxVolume) {
-            return;
-          }
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
-          int oldVolume = streamVolumeManager.getVolume();
-          targetVolume.set(oldVolume == maxVolume ? minVolume : maxVolume);
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      if (minVolume == maxVolume) {
+        return;
+      }
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+      int oldVolume = streamVolumeManager.getVolume();
+      targetVolume.set(oldVolume == maxVolume ? minVolume : maxVolume);
 
-          streamVolumeManager.setVolume(targetVolume.get(), volumeFlags);
+      streamVolumeManager.setVolume(targetVolume.get(), volumeFlags);
 
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-        });
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+    });
     idleBackgroundThread();
-    testThread.runOnMainThread(
-        () -> {
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-          assertThat(audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT))
-              .isEqualTo(targetVolume.get());
-        });
+    testThread.runOnMainThread(() -> {
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+      assertThat(audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT)).isEqualTo(targetVolume.get());
+    });
   }
 
   @Test
   public void setVolume_withOutOfRange_isIgnored() {
-    testThread.runOnMainThread(
-        () -> {
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          int minVolume = streamVolumeManager.getMinVolume();
-          int oldVolume = streamVolumeManager.getVolume();
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    testThread.runOnMainThread(() -> {
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      int minVolume = streamVolumeManager.getMinVolume();
+      int oldVolume = streamVolumeManager.getVolume();
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume + 1, volumeFlags);
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(oldVolume);
+      streamVolumeManager.setVolume(maxVolume + 1, volumeFlags);
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(oldVolume);
 
-          streamVolumeManager.setVolume(minVolume - 1, volumeFlags);
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(oldVolume);
-        });
+      streamVolumeManager.setVolume(minVolume - 1, volumeFlags);
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(oldVolume);
+    });
   }
 
   @Test
   public void increaseVolume_increasesStreamVolumeByOne() throws Exception {
     AtomicInteger targetVolume = new AtomicInteger();
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          if (minVolume == maxVolume) {
-            return;
-          }
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      if (minVolume == maxVolume) {
+        return;
+      }
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(minVolume, volumeFlags);
-          targetVolume.set(minVolume + 1);
+      streamVolumeManager.setVolume(minVolume, volumeFlags);
+      targetVolume.set(minVolume + 1);
 
-          streamVolumeManager.increaseVolume(volumeFlags);
+      streamVolumeManager.increaseVolume(volumeFlags);
 
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-        });
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+    });
     idleBackgroundThread();
-    testThread.runOnMainThread(
-        () -> {
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-          assertThat(audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT))
-              .isEqualTo(targetVolume.get());
-        });
+    testThread.runOnMainThread(() -> {
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+      assertThat(audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT)).isEqualTo(targetVolume.get());
+    });
   }
 
   @Test
   public void increaseVolume_onMaxVolume_isIgnored() {
-    testThread.runOnMainThread(
-        () -> {
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    testThread.runOnMainThread(() -> {
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume, volumeFlags);
-          streamVolumeManager.increaseVolume(volumeFlags);
+      streamVolumeManager.setVolume(maxVolume, volumeFlags);
+      streamVolumeManager.increaseVolume(volumeFlags);
 
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(maxVolume);
-        });
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(maxVolume);
+    });
   }
 
   @Test
   public void decreaseVolume_decreasesStreamVolumeByOne() throws Exception {
     AtomicInteger targetVolume = new AtomicInteger();
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          if (minVolume == maxVolume) {
-            return;
-          }
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      if (minVolume == maxVolume) {
+        return;
+      }
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(maxVolume, volumeFlags);
-          targetVolume.set(maxVolume - 1);
+      streamVolumeManager.setVolume(maxVolume, volumeFlags);
+      targetVolume.set(maxVolume - 1);
 
-          streamVolumeManager.decreaseVolume(volumeFlags);
+      streamVolumeManager.decreaseVolume(volumeFlags);
 
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-        });
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+    });
     idleBackgroundThread();
-    testThread.runOnMainThread(
-        () -> {
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-          assertThat(audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT))
-              .isEqualTo(targetVolume.get());
-        });
+    testThread.runOnMainThread(() -> {
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(targetVolume.get());
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+      assertThat(audioManager.getStreamVolume(C.STREAM_TYPE_DEFAULT)).isEqualTo(targetVolume.get());
+    });
   }
 
   @Test
   public void decreaseVolume_onMinVolume_isIgnored() {
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          streamVolumeManager.setVolume(minVolume, volumeFlags);
-          streamVolumeManager.decreaseVolume(volumeFlags);
+      streamVolumeManager.setVolume(minVolume, volumeFlags);
+      streamVolumeManager.decreaseVolume(volumeFlags);
 
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(minVolume);
-        });
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(minVolume);
+    });
   }
 
   @Test
   public void setVolumeMuted_changesMuteState() throws Exception {
     int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
     AtomicInteger targetVolume = new AtomicInteger();
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          if (minVolume == maxVolume || minVolume > 0) {
-            return;
-          }
-          targetVolume.set(max(maxVolume - 1, 1));
-          streamVolumeManager.setVolume(targetVolume.get(), volumeFlags);
-          assertThat(streamVolumeManager.isMuted()).isFalse();
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      if (minVolume == maxVolume || minVolume > 0) {
+        return;
+      }
+      targetVolume.set(max(maxVolume - 1, 1));
+      streamVolumeManager.setVolume(targetVolume.get(), volumeFlags);
+      assertThat(streamVolumeManager.isMuted()).isFalse();
 
-          streamVolumeManager.setMuted(true, volumeFlags);
-          assertThat(streamVolumeManager.isMuted()).isTrue();
-          assertThat(testListener.lastStreamVolumeMuted).isTrue();
-          assertThat(testListener.lastStreamVolume).isEqualTo(0);
-        });
+      streamVolumeManager.setMuted(true, volumeFlags);
+      assertThat(streamVolumeManager.isMuted()).isTrue();
+      assertThat(testListener.lastStreamVolumeMuted).isTrue();
+      assertThat(testListener.lastStreamVolume).isEqualTo(0);
+    });
     idleBackgroundThread();
-    testThread.runOnMainThread(
-        () -> {
-          assertThat(streamVolumeManager.isMuted()).isTrue();
-          assertThat(testListener.lastStreamVolumeMuted).isTrue();
-          assertThat(testListener.lastStreamVolume).isEqualTo(0);
+    testThread.runOnMainThread(() -> {
+      assertThat(streamVolumeManager.isMuted()).isTrue();
+      assertThat(testListener.lastStreamVolumeMuted).isTrue();
+      assertThat(testListener.lastStreamVolume).isEqualTo(0);
 
-          streamVolumeManager.setMuted(false, volumeFlags);
-          assertThat(streamVolumeManager.isMuted()).isFalse();
-          assertThat(testListener.lastStreamVolumeMuted).isFalse();
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-        });
+      streamVolumeManager.setMuted(false, volumeFlags);
+      assertThat(streamVolumeManager.isMuted()).isFalse();
+      assertThat(testListener.lastStreamVolumeMuted).isFalse();
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+    });
     idleBackgroundThread();
-    testThread.runOnMainThread(
-        () -> {
-          assertThat(streamVolumeManager.isMuted()).isFalse();
-          assertThat(testListener.lastStreamVolumeMuted).isFalse();
-          assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
-        });
+    testThread.runOnMainThread(() -> {
+      assertThat(streamVolumeManager.isMuted()).isFalse();
+      assertThat(testListener.lastStreamVolumeMuted).isFalse();
+      assertThat(testListener.lastStreamVolume).isEqualTo(targetVolume.get());
+    });
   }
 
   @Test
   public void setStreamType_toNonDefaultType_notifiesStreamTypeAndVolume() throws Exception {
     int testStreamType = C.STREAM_TYPE_ALARM; // not STREAM_TYPE_DEFAULT, i.e. MUSIC
     int testStreamVolume = audioManager.getStreamVolume(testStreamType);
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          if (minVolume == maxVolume) {
-            return;
-          }
-          int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      if (minVolume == maxVolume) {
+        return;
+      }
+      int volumeFlags = C.VOLUME_FLAG_SHOW_UI | C.VOLUME_FLAG_VIBRATE;
 
-          int oldVolume = streamVolumeManager.getVolume();
-          int differentVolume = oldVolume;
-          if (oldVolume == testStreamVolume) {
-            differentVolume = oldVolume == minVolume ? maxVolume : minVolume;
-            streamVolumeManager.setVolume(differentVolume, volumeFlags);
-          }
+      int oldVolume = streamVolumeManager.getVolume();
+      int differentVolume = oldVolume;
+      if (oldVolume == testStreamVolume) {
+        differentVolume = oldVolume == minVolume ? maxVolume : minVolume;
+        streamVolumeManager.setVolume(differentVolume, volumeFlags);
+      }
 
-          streamVolumeManager.setStreamType(testStreamType);
+      streamVolumeManager.setStreamType(testStreamType);
 
-          assertThat(testListener.lastStreamType).isEqualTo(testStreamType);
-          assertThat(testListener.lastStreamVolume).isEqualTo(differentVolume);
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(differentVolume);
-        });
+      assertThat(testListener.lastStreamType).isEqualTo(testStreamType);
+      assertThat(testListener.lastStreamVolume).isEqualTo(differentVolume);
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(differentVolume);
+    });
     idleBackgroundThread();
-    testThread.runOnMainThread(
-        () -> {
-          assertThat(testListener.lastStreamType).isEqualTo(testStreamType);
-          assertThat(testListener.lastStreamVolume).isEqualTo(testStreamVolume);
-          assertThat(streamVolumeManager.getVolume()).isEqualTo(testStreamVolume);
-        });
+    testThread.runOnMainThread(() -> {
+      assertThat(testListener.lastStreamType).isEqualTo(testStreamType);
+      assertThat(testListener.lastStreamVolume).isEqualTo(testStreamVolume);
+      assertThat(streamVolumeManager.getVolume()).isEqualTo(testStreamVolume);
+    });
   }
 
   @Test
   public void onStreamVolumeChanged_isCalled_whenAudioManagerChangesIt() throws Exception {
     AtomicInteger targetVolumeRef = new AtomicInteger();
-    testThread.runOnMainThread(
-        () -> {
-          int minVolume = streamVolumeManager.getMinVolume();
-          int maxVolume = streamVolumeManager.getMaxVolume();
-          if (minVolume == maxVolume) {
-            return;
-          }
+    testThread.runOnMainThread(() -> {
+      int minVolume = streamVolumeManager.getMinVolume();
+      int maxVolume = streamVolumeManager.getMaxVolume();
+      if (minVolume == maxVolume) {
+        return;
+      }
 
-          int oldVolume = streamVolumeManager.getVolume();
-          int targetVolume = oldVolume == maxVolume ? minVolume : maxVolume;
-          targetVolumeRef.set(targetVolume);
+      int oldVolume = streamVolumeManager.getVolume();
+      int targetVolume = oldVolume == maxVolume ? minVolume : maxVolume;
+      targetVolumeRef.set(targetVolume);
 
-          testListener.onStreamVolumeChangedLatch = new CountDownLatch(1);
-          audioManager.setStreamVolume(C.STREAM_TYPE_DEFAULT, targetVolume, /* flags= */ 0);
-        });
+      testListener.onStreamVolumeChangedLatch = new CountDownLatch(1);
+      audioManager.setStreamVolume(C.STREAM_TYPE_DEFAULT, targetVolume, /* flags= */ 0);
+    });
 
     testListener.onStreamVolumeChangedLatch.await(TIMEOUT_MS, MILLISECONDS);
     assertThat(testListener.lastStreamVolume).isEqualTo(targetVolumeRef.get());

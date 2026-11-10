@@ -130,12 +130,10 @@ public final class AudioManagerCompat {
     // lifetime of the app.
     ConditionVariable audioManagerSetCondition = new ConditionVariable();
     BackgroundExecutor.get()
-        .execute(
-            () -> {
-              audioManager =
-                  (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
-              audioManagerSetCondition.open();
-            });
+        .execute(() -> {
+          audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
+          audioManagerSetCondition.open();
+        });
     audioManagerSetCondition.blockUninterruptible();
     return checkNotNull(audioManager);
   }

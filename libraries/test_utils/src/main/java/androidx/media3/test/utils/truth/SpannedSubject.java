@@ -1321,7 +1321,7 @@ public final class SpannedSubject extends Subject {
   }
 
   private static final VoiceText ALREADY_FAILED_WITH_NAME_AND_CLASSES =
-      (name) -> ALREADY_FAILED_AND_FLAGS;
+      name -> ALREADY_FAILED_AND_FLAGS;
 
   private static Factory<VoiceSpanSubject, List<VoiceSpan>> voiceSpanSubjects(
       Spanned actualSpanned) {

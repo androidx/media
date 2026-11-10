@@ -98,7 +98,7 @@ public final class DefaultHardwareBufferFrameTest {
     SyncFenceWrapper mockReleaseFence = mock(SyncFenceWrapper.class);
     try (HardwareBuffer hardwareBuffer = createHardwareBuffer()) {
       DefaultHardwareBufferFrame frame =
-          new DefaultHardwareBufferFrame.Builder(hardwareBuffer, directExecutor(), (fence) -> {})
+          new DefaultHardwareBufferFrame.Builder(hardwareBuffer, directExecutor(), fence -> {})
               .setContentTimeUs(1_000_000L)
               .build();
       frame.release(/* releaseFence= */ null);
@@ -271,7 +271,7 @@ public final class DefaultHardwareBufferFrameTest {
   public void buildUpon_afterRelease_throwsIllegalStateException() {
     try (HardwareBuffer hardwareBuffer = createHardwareBuffer()) {
       DefaultHardwareBufferFrame frame =
-          new DefaultHardwareBufferFrame.Builder(hardwareBuffer, directExecutor(), (fence) -> {})
+          new DefaultHardwareBufferFrame.Builder(hardwareBuffer, directExecutor(), fence -> {})
               .setContentTimeUs(1_000_000L)
               .build();
       frame.release(/* releaseFence= */ null);
@@ -330,7 +330,7 @@ public final class DefaultHardwareBufferFrameTest {
           new DefaultHardwareBufferFrame.Builder(
                   hardwareBuffer,
                   executor,
-                  (releaseFence) -> {
+                  releaseFence -> {
                     callbackThread.set(Thread.currentThread());
                     callbackLatch.countDown();
                   })

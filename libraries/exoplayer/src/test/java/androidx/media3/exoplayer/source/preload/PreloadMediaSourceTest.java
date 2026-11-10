@@ -157,15 +157,14 @@ public final class PreloadMediaSourceTest {
   public void preload_loadPeriodToTargetPreloadPosition() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     when(mockPreloadControl.onContinueLoadingRequested(any(), anyLong()))
-        .thenAnswer(
-            invocation -> {
-              long bufferedDurationUs = invocation.getArgument(1);
-              if (bufferedDurationUs >= TARGET_PRELOAD_DURATION_US) {
-                preloadTerminated.set(true);
-                return false;
-              }
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          long bufferedDurationUs = invocation.getArgument(1);
+          if (bufferedDurationUs >= TARGET_PRELOAD_DURATION_US) {
+            preloadTerminated.set(true);
+            return false;
+          }
+          return true;
+        });
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
@@ -201,11 +200,10 @@ public final class PreloadMediaSourceTest {
   public void preload_stopWhenTracksSelectedByPreloadControl() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     when(mockPreloadControl.onTracksSelected(any()))
-        .thenAnswer(
-            invocation -> {
-              preloadTerminated.set(true);
-              return false;
-            });
+        .thenAnswer(invocation -> {
+          preloadTerminated.set(true);
+          return false;
+        });
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
@@ -241,11 +239,10 @@ public final class PreloadMediaSourceTest {
   public void preload_stopWhenSourcePreparedByPreloadControl() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     when(mockPreloadControl.onSourcePrepared(any()))
-        .thenAnswer(
-            invocation -> {
-              preloadTerminated.set(true);
-              return false;
-            });
+        .thenAnswer(invocation -> {
+          preloadTerminated.set(true);
+          return false;
+        });
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
@@ -817,36 +814,34 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline());
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              doAnswer(
-                      createPeriodInvocation -> {
-                        MediaPeriod mediaPeriod = mock(MediaPeriod.class);
-                        doAnswer(
-                                prepareInvocation -> {
-                                  MediaPeriod.Callback callback = prepareInvocation.getArgument(0);
-                                  callback.onPrepared(mediaPeriod);
-                                  return null;
-                                })
-                            .when(mediaPeriod)
-                            .prepare(any(), anyLong());
-                        return mediaPeriod;
-                      })
-                  .when(mockMediaSource)
-                  .createPeriod(any(), any(), anyLong());
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline());
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          doAnswer(
+                  createPeriodInvocation -> {
+                    MediaPeriod mediaPeriod = mock(MediaPeriod.class);
+                    doAnswer(
+                            prepareInvocation -> {
+                              MediaPeriod.Callback callback = prepareInvocation.getArgument(0);
+                              callback.onPrepared(mediaPeriod);
+                              return null;
+                            })
+                        .when(mediaPeriod)
+                        .prepare(any(), anyLong());
+                    return mediaPeriod;
+                  })
+              .when(mockMediaSource)
+              .createPeriod(any(), any(), anyLong());
+          return mockMediaSource;
+        });
     TrackSelector mockTrackSelector = mock(TrackSelector.class);
     when(mockTrackSelector.selectTracks(any(), any(), any(), any()))
         .thenReturn(
@@ -894,36 +889,34 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline());
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              doAnswer(
-                      createPeriodInvocation -> {
-                        MediaPeriod mediaPeriod = mock(MediaPeriod.class);
-                        doAnswer(
-                                prepareInvocation -> {
-                                  MediaPeriod.Callback callback = prepareInvocation.getArgument(0);
-                                  callback.onPrepared(mediaPeriod);
-                                  return null;
-                                })
-                            .when(mediaPeriod)
-                            .prepare(any(), anyLong());
-                        return mediaPeriod;
-                      })
-                  .when(mockMediaSource)
-                  .createPeriod(any(), any(), anyLong());
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline());
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          doAnswer(
+                  createPeriodInvocation -> {
+                    MediaPeriod mediaPeriod = mock(MediaPeriod.class);
+                    doAnswer(
+                            prepareInvocation -> {
+                              MediaPeriod.Callback callback = prepareInvocation.getArgument(0);
+                              callback.onPrepared(mediaPeriod);
+                              return null;
+                            })
+                        .when(mediaPeriod)
+                        .prepare(any(), anyLong());
+                    return mediaPeriod;
+                  })
+              .when(mockMediaSource)
+              .createPeriod(any(), any(), anyLong());
+          return mockMediaSource;
+        });
     TrackSelector mockTrackSelector = mock(TrackSelector.class);
     when(mockTrackSelector.selectTracks(any(), any(), any(), any()))
         .thenReturn(
@@ -1131,23 +1124,21 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              when(mockMediaSource.createPeriod(any(), any(), anyLong()))
-                  .thenReturn(mock(MediaPeriod.class));
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          when(mockMediaSource.createPeriod(any(), any(), anyLong()))
+              .thenReturn(mock(MediaPeriod.class));
+          return mockMediaSource;
+        });
     TrackSelector trackSelector = new FakeTrackSelector();
     trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
@@ -1181,23 +1172,21 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              when(mockMediaSource.createPeriod(any(), any(), anyLong()))
-                  .thenReturn(mock(MediaPeriod.class));
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          when(mockMediaSource.createPeriod(any(), any(), anyLong()))
+              .thenReturn(mock(MediaPeriod.class));
+          return mockMediaSource;
+        });
     TrackSelector trackSelector = new FakeTrackSelector();
     trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
@@ -1231,23 +1220,21 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              when(mockMediaSource.createPeriod(any(), any(), anyLong()))
-                  .thenReturn(mock(MediaPeriod.class));
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          when(mockMediaSource.createPeriod(any(), any(), anyLong()))
+              .thenReturn(mock(MediaPeriod.class));
+          return mockMediaSource;
+        });
     TrackSelector trackSelector = new FakeTrackSelector();
     trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
@@ -1285,23 +1272,21 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              when(mockMediaSource.createPeriod(any(), any(), anyLong()))
-                  .thenReturn(mock(MediaPeriod.class));
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          when(mockMediaSource.createPeriod(any(), any(), anyLong()))
+              .thenReturn(mock(MediaPeriod.class));
+          return mockMediaSource;
+        });
     TrackSelector trackSelector = new FakeTrackSelector();
     trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =
@@ -1332,23 +1317,21 @@ public final class PreloadMediaSourceTest {
     AtomicReference<MediaSource> internalSourceReference = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaSource mockMediaSource = mock(MediaSource.class);
-              internalSourceReference.set(mockMediaSource);
-              doAnswer(
-                      prepareSourceInvocation -> {
-                        MediaSource.MediaSourceCaller caller =
-                            prepareSourceInvocation.getArgument(0);
-                        caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
-                        return null;
-                      })
-                  .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
-              when(mockMediaSource.createPeriod(any(), any(), anyLong()))
-                  .thenReturn(mock(MediaPeriod.class));
-              return mockMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          MediaSource mockMediaSource = mock(MediaSource.class);
+          internalSourceReference.set(mockMediaSource);
+          doAnswer(
+                  prepareSourceInvocation -> {
+                    MediaSource.MediaSourceCaller caller = prepareSourceInvocation.getArgument(0);
+                    caller.onSourceInfoRefreshed(mockMediaSource, new FakeTimeline(1));
+                    return null;
+                  })
+              .when(mockMediaSource)
+              .prepareSource(any(), any(), any(BandwidthMeter.class));
+          when(mockMediaSource.createPeriod(any(), any(), anyLong()))
+              .thenReturn(mock(MediaPeriod.class));
+          return mockMediaSource;
+        });
     TrackSelector trackSelector = new FakeTrackSelector();
     trackSelector.init(unused -> {}, bandwidthMeter);
     PreloadMediaSource.Factory preloadMediaSourceFactory =

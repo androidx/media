@@ -46,15 +46,14 @@ public class TestHandler extends Handler {
     } else {
       AtomicReference<Exception> exception = new AtomicReference<>();
       CountDownLatch latch = new CountDownLatch(1);
-      post(
-          () -> {
-            try {
-              runnable.run();
-            } catch (Exception e) {
-              exception.set(e);
-            }
-            latch.countDown();
-          });
+      post(() -> {
+        try {
+          runnable.run();
+        } catch (Exception e) {
+          exception.set(e);
+        }
+        latch.countDown();
+      });
       assertThat(latch.await(timeoutMs, MILLISECONDS)).isTrue();
       if (exception.get() != null) {
         throw exception.get();
@@ -81,15 +80,14 @@ public class TestHandler extends Handler {
       AtomicReference<V> result = new AtomicReference<>();
       AtomicReference<Exception> exception = new AtomicReference<>();
       CountDownLatch latch = new CountDownLatch(1);
-      post(
-          () -> {
-            try {
-              result.set(callable.call());
-            } catch (Exception e) {
-              exception.set(e);
-            }
-            latch.countDown();
-          });
+      post(() -> {
+        try {
+          result.set(callable.call());
+        } catch (Exception e) {
+          exception.set(e);
+        }
+        latch.countDown();
+      });
       assertThat(latch.await(timeoutMs, MILLISECONDS)).isTrue();
       if (exception.get() != null) {
         throw exception.get();

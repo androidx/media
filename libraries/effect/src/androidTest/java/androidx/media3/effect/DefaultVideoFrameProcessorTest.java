@@ -103,14 +103,13 @@ public class DefaultVideoFrameProcessorTest {
     // Blocks VideoFrameProcessor configuration.
     defaultVideoFrameProcessor
         .getTaskExecutor()
-        .submit(
-            () -> {
-              try {
-                videoFrameProcessorConfigurationCountDownLatch.await();
-              } catch (InterruptedException e) {
-                throw new VideoFrameProcessingException(e);
-              }
-            });
+        .submit(() -> {
+          try {
+            videoFrameProcessorConfigurationCountDownLatch.await();
+          } catch (InterruptedException e) {
+            throw new VideoFrameProcessingException(e);
+          }
+        });
     defaultVideoFrameProcessor.registerInputStream(
         VideoFrameProcessor.INPUT_TYPE_BITMAP,
         new Format.Builder()

@@ -107,9 +107,8 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void onDisconnected(int seq) {
-    dispatchControllerTaskOnHandler(
-        controller ->
-            controller.getInstance().runOnApplicationLooper(controller.getInstance()::release));
+    dispatchControllerTaskOnHandler(controller ->
+        controller.getInstance().runOnApplicationLooper(controller.getInstance()::release));
   }
 
   @Override
@@ -177,9 +176,8 @@ import org.jspecify.annotations.Nullable;
       Log.w(TAG, "Ignoring malformed Bundle for Commands", e);
       return;
     }
-    dispatchControllerTaskOnHandler(
-        controller ->
-            controller.onAvailableCommandsChangedFromSession(sessionCommands, playerCommands));
+    dispatchControllerTaskOnHandler(controller ->
+        controller.onAvailableCommandsChangedFromSession(sessionCommands, playerCommands));
   }
 
   @Override
@@ -229,10 +227,9 @@ import org.jspecify.annotations.Nullable;
       Log.w(TAG, "Ignoring malformed Bundle for SessionCommand", e);
       return;
     }
-    dispatchControllerTaskOnHandler(
-        controller ->
-            controller.onCustomCommandProgressUpdate(
-                customActionFutureSequence, command, args, progressData));
+    dispatchControllerTaskOnHandler(controller ->
+        controller.onCustomCommandProgressUpdate(
+            customActionFutureSequence, command, args, progressData));
   }
 
   @Override

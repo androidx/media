@@ -1141,11 +1141,10 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     @Override
     public void onError(VideoFrameProcessingException videoFrameProcessingException) {
       VideoSink.Listener currentListener = listener;
-      listenerExecutor.execute(
-          () ->
-              currentListener.onError(
-                  new VideoSinkException(
-                      videoFrameProcessingException, checkNotNull(this.inputFormat))));
+      listenerExecutor.execute(() ->
+          currentListener.onError(
+              new VideoSinkException(
+                  videoFrameProcessingException, checkNotNull(this.inputFormat))));
     }
 
     // Private methods
@@ -1321,29 +1320,28 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       implements VideoFrameProcessor.Factory {
 
     private static final Supplier<Class<?>> DEFAULT_VIDEO_FRAME_PROCESSOR_FACTORY_BUILDER_CLASS =
-        Suppliers.memoize(
-            () -> {
-              try {
-                // LINT.IfChange
-                // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
-                @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
-                String className =
-                    new StringBuilder()
-                        .append("androidx.media3.effect.")
-                        .append("DefaultVideoFrameProcessor")
-                        .append("$Factory$Builder")
-                        .toString();
-                return Class.forName(className);
-                // LINT.ThenChange(
-                //     ../../../../../../../proguard-rules.txt,
-                //
-                // ../../../../../../../../test_proguard_minimal/src/androidTest/proguard-checkdiscard-rules.pgcfg,
-                //
-                // ../../../../../../../../test_proguard_minimal/src/androidTest/java/androidx/media3/test/proguard/minimal/ExoPlayerMinimalModuleProguardTest.java)
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-            });
+        Suppliers.memoize(() -> {
+          try {
+            // LINT.IfChange
+            // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+            @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+            String className =
+                new StringBuilder()
+                    .append("androidx.media3.effect.")
+                    .append("DefaultVideoFrameProcessor")
+                    .append("$Factory$Builder")
+                    .toString();
+            return Class.forName(className);
+            // LINT.ThenChange(
+            //     ../../../../../../../proguard-rules.txt,
+            //
+            // ../../../../../../../../test_proguard_minimal/src/androidTest/proguard-checkdiscard-rules.pgcfg,
+            //
+            // ../../../../../../../../test_proguard_minimal/src/androidTest/java/androidx/media3/test/proguard/minimal/ExoPlayerMinimalModuleProguardTest.java)
+          } catch (Exception e) {
+            throw new IllegalStateException(e);
+          }
+        });
 
     private final boolean enableReplayableCache;
 

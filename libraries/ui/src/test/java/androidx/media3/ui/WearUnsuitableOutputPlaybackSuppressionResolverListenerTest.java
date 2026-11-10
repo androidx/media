@@ -986,9 +986,8 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
     stream(shadowAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS))
         .filter(audioDeviceInfo -> deviceType == audioDeviceInfo.getType())
         .findFirst()
-        .ifPresent(
-            filteredAudioDeviceInfo ->
-                shadowAudioManager.removeOutputDevice(
-                    filteredAudioDeviceInfo, /* notifyAudioDeviceCallbacks= */ true));
+        .ifPresent(filteredAudioDeviceInfo ->
+            shadowAudioManager.removeOutputDevice(
+                filteredAudioDeviceInfo, /* notifyAudioDeviceCallbacks= */ true));
   }
 }

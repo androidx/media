@@ -230,16 +230,15 @@ import org.jspecify.annotations.Nullable;
      */
     public void send(List<String> message) {
       byte[] data = RtspMessageUtil.convertMessageToByteArray(message);
-      senderThreadHandler.post(
-          () -> {
-            try {
-              outputStream.write(data);
-            } catch (Exception e) {
-              if (!closed) {
-                messageListener.onSendingFailed(message, e);
-              }
-            }
-          });
+      senderThreadHandler.post(() -> {
+        try {
+          outputStream.write(data);
+        } catch (Exception e) {
+          if (!closed) {
+            messageListener.onSendingFailed(message, e);
+          }
+        }
+      });
     }
 
     @Override

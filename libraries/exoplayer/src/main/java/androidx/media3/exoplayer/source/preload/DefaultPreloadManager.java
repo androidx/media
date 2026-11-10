@@ -776,12 +776,11 @@ public final class DefaultPreloadManager
   }
 
   private void releasePreloadUtils() {
-    preloadHandler.post(
-        () -> {
-          rendererCapabilitiesList.release();
-          trackSelector.release();
-          preloadLooperProvider.releaseLooper();
-        });
+    preloadHandler.post(() -> {
+      rendererCapabilitiesList.release();
+      trackSelector.release();
+      preloadLooperProvider.releaseLooper();
+    });
   }
 
   private void releasePreCacheUtils() {

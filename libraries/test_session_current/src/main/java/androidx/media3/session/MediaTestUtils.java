@@ -473,39 +473,37 @@ public final class MediaTestUtils {
     Bundle bundle = new Bundle();
     CountDownLatch waitForThreadCreation = new CountDownLatch(2);
     Thread thread1 =
-        new Thread(
-            () -> {
-              waitForThreadCreation.countDown();
-              try {
-                waitForThreadCreation.await();
-              } catch (InterruptedException e) {
-                // Ignore.
-              }
-              for (int i = 0; i < 10; i++) {
-                try {
-                  bundle.putInt("key" + i, 1);
-                } catch (RuntimeException e) {
-                  // Attempt was detected.
-                }
-              }
-            });
+        new Thread(() -> {
+          waitForThreadCreation.countDown();
+          try {
+            waitForThreadCreation.await();
+          } catch (InterruptedException e) {
+            // Ignore.
+          }
+          for (int i = 0; i < 10; i++) {
+            try {
+              bundle.putInt("key" + i, 1);
+            } catch (RuntimeException e) {
+              // Attempt was detected.
+            }
+          }
+        });
     Thread thread2 =
-        new Thread(
-            () -> {
-              waitForThreadCreation.countDown();
-              try {
-                waitForThreadCreation.await();
-              } catch (InterruptedException e) {
-                // Ignore.
-              }
-              for (int i = 0; i < 10; i++) {
-                try {
-                  bundle.putInt("key" + i, 1);
-                } catch (RuntimeException e) {
-                  // Attempt was detected.
-                }
-              }
-            });
+        new Thread(() -> {
+          waitForThreadCreation.countDown();
+          try {
+            waitForThreadCreation.await();
+          } catch (InterruptedException e) {
+            // Ignore.
+          }
+          for (int i = 0; i < 10; i++) {
+            try {
+              bundle.putInt("key" + i, 1);
+            } catch (RuntimeException e) {
+              // Attempt was detected.
+            }
+          }
+        });
     thread1.start();
     thread2.start();
     try {

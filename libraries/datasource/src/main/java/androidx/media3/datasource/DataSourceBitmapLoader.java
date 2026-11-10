@@ -239,21 +239,19 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
 
   @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
-    return listeningExecutorService.submit(
-        () ->
-            maybeAsShared(makeShared, decode(data, data.length, options, maximumOutputDimension)));
+    return listeningExecutorService.submit(() ->
+        maybeAsShared(makeShared, decode(data, data.length, options, maximumOutputDimension)));
   }
 
   @Override
   public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
-    return listeningExecutorService.submit(
-        () ->
-            load(
-                dataSourceFactory.createDataSource(),
-                uri,
-                options,
-                maximumOutputDimension,
-                makeShared));
+    return listeningExecutorService.submit(() ->
+        load(
+            dataSourceFactory.createDataSource(),
+            uri,
+            options,
+            maximumOutputDimension,
+            makeShared));
   }
 
   private static Bitmap load(

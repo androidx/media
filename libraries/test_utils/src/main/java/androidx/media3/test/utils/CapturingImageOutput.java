@@ -48,13 +48,12 @@ public final class CapturingImageOutput implements Dumpable, ImageOutput {
         /* y= */ 0,
         bitmap.getWidth(),
         bitmap.getHeight());
-    renderedBitmaps.add(
-        dumper -> {
-          dumper.startBlock("image output #" + currentImageCount);
-          dumper.addTime("presentationTimeUs", presentationTimeUs);
-          dumper.add("bitmap hash", Arrays.hashCode(bitmapPixels));
-          dumper.endBlock();
-        });
+    renderedBitmaps.add(dumper -> {
+      dumper.startBlock("image output #" + currentImageCount);
+      dumper.addTime("presentationTimeUs", presentationTimeUs);
+      dumper.add("bitmap hash", Arrays.hashCode(bitmapPixels));
+      dumper.endBlock();
+    });
   }
 
   @Override

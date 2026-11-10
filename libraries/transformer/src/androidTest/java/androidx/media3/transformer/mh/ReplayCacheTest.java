@@ -97,15 +97,14 @@ public class ReplayCacheTest {
   public void tearDown() {
     rule.getScenario().close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              if (compositionPlayer != null) {
-                compositionPlayer.release();
-              }
-              if (exoPlayer != null) {
-                exoPlayer.release();
-              }
-            });
+        .runOnMainSync(() -> {
+          if (compositionPlayer != null) {
+            compositionPlayer.release();
+          }
+          if (exoPlayer != null) {
+            exoPlayer.release();
+          }
+        });
   }
 
   @Test
@@ -118,55 +117,54 @@ public class ReplayCacheTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     List<Long> playedFrameTimestampsUs = new ArrayList<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          Renderer videoRenderer = new ReplayVideoRenderer(context);
-          exoPlayer =
-              new ExoPlayer.Builder(context)
-                  .setRenderersFactory(
-                      new DefaultRenderersFactory(context) {
-                        @Override
-                        protected void buildVideoRenderers(
-                            Context context,
-                            @ExtensionRendererMode int extensionRendererMode,
-                            MediaCodecSelector mediaCodecSelector,
-                            boolean enableDecoderFallback,
-                            Handler eventHandler,
-                            VideoRendererEventListener eventListener,
-                            long allowedVideoJoiningTimeMs,
-                            ArrayList<Renderer> builtVideoRenderers) {
-                          builtVideoRenderers.add(videoRenderer);
-                        }
-                      })
-                  .build();
-          exoPlayer.setVideoSurfaceView(surfaceView);
-          // Adding an EventLogger to use its log output in case the test fails.
-          exoPlayer.addAnalyticsListener(new EventLogger());
-          endedFuture.setFuture(futureWhen(exoPlayer).entersPlaybackState(Player.STATE_ENDED));
-          exoPlayer.setVideoEffects(ImmutableList.of(new Contrast(0.5f)));
-          exoPlayer.setVideoFrameMetadataListener(
-              new VideoFrameMetadataListener() {
-                private final List<Long> replayedFrames = new ArrayList<>();
+    instrumentation.runOnMainSync(() -> {
+      Renderer videoRenderer = new ReplayVideoRenderer(context);
+      exoPlayer =
+          new ExoPlayer.Builder(context)
+              .setRenderersFactory(
+                  new DefaultRenderersFactory(context) {
+                    @Override
+                    protected void buildVideoRenderers(
+                        Context context,
+                        @ExtensionRendererMode int extensionRendererMode,
+                        MediaCodecSelector mediaCodecSelector,
+                        boolean enableDecoderFallback,
+                        Handler eventHandler,
+                        VideoRendererEventListener eventListener,
+                        long allowedVideoJoiningTimeMs,
+                        ArrayList<Renderer> builtVideoRenderers) {
+                      builtVideoRenderers.add(videoRenderer);
+                    }
+                  })
+              .build();
+      exoPlayer.setVideoSurfaceView(surfaceView);
+      // Adding an EventLogger to use its log output in case the test fails.
+      exoPlayer.addAnalyticsListener(new EventLogger());
+      endedFuture.setFuture(futureWhen(exoPlayer).entersPlaybackState(Player.STATE_ENDED));
+      exoPlayer.setVideoEffects(ImmutableList.of(new Contrast(0.5f)));
+      exoPlayer.setVideoFrameMetadataListener(
+          new VideoFrameMetadataListener() {
+            private final List<Long> replayedFrames = new ArrayList<>();
 
-                @Override
-                public void onVideoFrameAboutToBeRendered(
-                    long presentationTimeUs,
-                    long releaseTimeNs,
-                    Format format,
-                    @Nullable MediaFormat mediaFormat) {
-                  playedFrameTimestampsUs.add(presentationTimeUs);
-                  if (replayedFrames.contains(presentationTimeUs)) {
-                    return;
-                  }
-                  replayedFrames.add(presentationTimeUs);
-                  instrumentation.runOnMainSync(
-                      () -> exoPlayer.setVideoEffects(VideoFrameProcessor.REDRAW));
-                }
-              });
-          exoPlayer.setMediaItems(ImmutableList.of(VIDEO_MEDIA_ITEM_1, VIDEO_MEDIA_ITEM_2));
-          exoPlayer.prepare();
-          exoPlayer.play();
-        });
+            @Override
+            public void onVideoFrameAboutToBeRendered(
+                long presentationTimeUs,
+                long releaseTimeNs,
+                Format format,
+                @Nullable MediaFormat mediaFormat) {
+              playedFrameTimestampsUs.add(presentationTimeUs);
+              if (replayedFrames.contains(presentationTimeUs)) {
+                return;
+              }
+              replayedFrames.add(presentationTimeUs);
+              instrumentation.runOnMainSync(
+                  () -> exoPlayer.setVideoEffects(VideoFrameProcessor.REDRAW));
+            }
+          });
+      exoPlayer.setMediaItems(ImmutableList.of(VIDEO_MEDIA_ITEM_1, VIDEO_MEDIA_ITEM_2));
+      exoPlayer.prepare();
+      exoPlayer.play();
+    });
 
     endedFuture.get();
     // VIDEO_1 has size 30, VIDEO_2 has size 30, every frame is replayed once, minus one frame that
@@ -184,43 +182,38 @@ public class ReplayCacheTest {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(context)
-                  .experimentalSetEnableReplayableCache(true)
-                  .build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onRenderedFirstFrame() {
-                  compositionPlayer.experimentalRedrawLastFrame();
-                  compositionPlayer.play();
-                }
-              });
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
-                                  .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
-                                  .build(),
-                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
-                                  .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
-                                  .build())))
-                  .setEffects(
-                      new Effects(
-                          /* audioProcessors= */ ImmutableList.of(),
-                          /* videoEffects= */ ImmutableList.of(
-                              new Contrast(0.5f),
-                              (GlEffect)
-                                  (context, useHdr) -> inputTimestampRecordingShaderProgram)))
-                  .build());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(context).experimentalSetEnableReplayableCache(true).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onRenderedFirstFrame() {
+              compositionPlayer.experimentalRedrawLastFrame();
+              compositionPlayer.play();
+            }
+          });
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
+                              .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
+                              .build(),
+                          new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
+                              .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
+                              .build())))
+              .setEffects(
+                  new Effects(
+                      /* audioProcessors= */ ImmutableList.of(),
+                      /* videoEffects= */ ImmutableList.of(
+                          new Contrast(0.5f),
+                          (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
 
@@ -244,35 +237,30 @@ public class ReplayCacheTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Handler mainHandler = new Handler(instrumentation.getTargetContext().getMainLooper());
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(context)
-                  .experimentalSetEnableReplayableCache(true)
-                  .build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          readyFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
-                                  .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
-                                  .build(),
-                              new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
-                                  .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
-                                  .build())))
-                  .setEffects(
-                      new Effects(
-                          /* audioProcessors= */ ImmutableList.of(),
-                          /* videoEffects= */ ImmutableList.of(new Contrast(0.5f))))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(context).experimentalSetEnableReplayableCache(true).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      readyFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
+                              .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
+                              .build(),
+                          new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
+                              .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
+                              .build())))
+              .setEffects(
+                  new Effects(
+                      /* audioProcessors= */ ImmutableList.of(),
+                      /* videoEffects= */ ImmutableList.of(new Contrast(0.5f))))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     readyFuture.get();
     for (int i = 0; i < 180; i++) {

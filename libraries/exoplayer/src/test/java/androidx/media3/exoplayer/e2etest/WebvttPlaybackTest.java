@@ -168,12 +168,11 @@ public class WebvttPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext, clock)
-            .setTextRendererFactory(
-                (textOutput, outputLooper) -> {
-                  TextRenderer renderer = new TextRenderer(textOutput, outputLooper);
-                  renderer.experimentalSetLegacyDecodingEnabled(true);
-                  return renderer;
-                });
+            .setTextRendererFactory((textOutput, outputLooper) -> {
+              TextRenderer renderer = new TextRenderer(textOutput, outputLooper);
+              renderer.experimentalSetLegacyDecodingEnabled(true);
+              return renderer;
+            });
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
             .experimentalParseSubtitlesDuringExtraction(false);
@@ -227,12 +226,11 @@ public class WebvttPlaybackTest {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
         new CapturingRenderersFactory(applicationContext, clock)
-            .setTextRendererFactory(
-                (textOutput, outputLooper) -> {
-                  TextRenderer renderer = new TextRenderer(textOutput, outputLooper);
-                  renderer.experimentalSetLegacyDecodingEnabled(true);
-                  return renderer;
-                });
+            .setTextRendererFactory((textOutput, outputLooper) -> {
+              TextRenderer renderer = new TextRenderer(textOutput, outputLooper);
+              renderer.experimentalSetLegacyDecodingEnabled(true);
+              return renderer;
+            });
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
             .experimentalParseSubtitlesDuringExtraction(false);

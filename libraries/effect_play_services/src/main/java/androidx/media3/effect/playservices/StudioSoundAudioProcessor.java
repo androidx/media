@@ -570,14 +570,13 @@ public final class StudioSoundAudioProcessor extends BaseAudioProcessor {
 
     @Override
     public void execute(Runnable command) {
-      delegate.execute(
-          () -> {
-            try {
-              command.run();
-            } catch (Throwable t) {
-              lastCaughtException.set(t);
-            }
-          });
+      delegate.execute(() -> {
+        try {
+          command.run();
+        } catch (Throwable t) {
+          lastCaughtException.set(t);
+        }
+      });
     }
   }
 
@@ -607,24 +606,23 @@ public final class StudioSoundAudioProcessor extends BaseAudioProcessor {
    * docs</a>.
    */
   private static <T> ListenableFuture<T> taskToListenableFuture(Task<T> task, Executor executor) {
-    return CallbackToFutureAdapter.getFuture(
-        completer ->
-            task.addOnCompleteListener(
-                executor,
-                completedTask -> {
-                  if (completedTask.isCanceled()) {
-                    completer.setCancelled();
-                  } else if (completedTask.isSuccessful()) {
-                    completer.set(completedTask.getResult());
-                  } else {
-                    Exception e = completedTask.getException();
-                    if (e != null) {
-                      completer.setException(e);
-                    } else {
-                      throw new IllegalStateException();
-                    }
-                  }
-                }));
+    return CallbackToFutureAdapter.getFuture(completer ->
+        task.addOnCompleteListener(
+            executor,
+            completedTask -> {
+              if (completedTask.isCanceled()) {
+                completer.setCancelled();
+              } else if (completedTask.isSuccessful()) {
+                completer.set(completedTask.getResult());
+              } else {
+                Exception e = completedTask.getException();
+                if (e != null) {
+                  completer.setException(e);
+                } else {
+                  throw new IllegalStateException();
+                }
+              }
+            }));
   }
 
   /** Converts a 16 bit little endian PCM sample into float PCM and returns it as int bits. */

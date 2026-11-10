@@ -88,10 +88,9 @@ public final class HandlerExecutorTest {
               errorCallbackThread.set(Thread.currentThread());
             });
 
-    executor.execute(
-        () -> {
-          throw expectedException;
-        });
+    executor.execute(() -> {
+      throw expectedException;
+    });
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(caughtError.get()).isSameInstanceAs(expectedException);

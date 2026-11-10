@@ -35,14 +35,13 @@ public final class GlFrameProcessorTestUtil {
     AtomicReference<@Nullable Exception> releaseException = new AtomicReference<>();
     try {
       glExecutorService
-          .submit(
-              () -> {
-                try {
-                  FrameProcessorUtils.releaseOpenGl(checkNotNull(glObjectsProvider));
-                } catch (GlException e) {
-                  releaseException.set(e);
-                }
-              })
+          .submit(() -> {
+            try {
+              FrameProcessorUtils.releaseOpenGl(checkNotNull(glObjectsProvider));
+            } catch (GlException e) {
+              releaseException.set(e);
+            }
+          })
           .get(timeoutMs, MILLISECONDS);
     } catch (Exception e) {
       if (e instanceof InterruptedException) {

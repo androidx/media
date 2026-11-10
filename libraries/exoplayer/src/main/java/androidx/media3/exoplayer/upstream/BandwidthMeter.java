@@ -97,10 +97,9 @@ public interface BandwidthMeter {
       public void bandwidthSample(int elapsedMs, long bytesTransferred, long bitrateEstimate) {
         for (HandlerAndListener handlerAndListener : listeners) {
           if (!handlerAndListener.released) {
-            handlerAndListener.handler.post(
-                () ->
-                    handlerAndListener.listener.onBandwidthSample(
-                        elapsedMs, bytesTransferred, bitrateEstimate));
+            handlerAndListener.handler.post(() ->
+                handlerAndListener.listener.onBandwidthSample(
+                    elapsedMs, bytesTransferred, bitrateEstimate));
           }
         }
       }

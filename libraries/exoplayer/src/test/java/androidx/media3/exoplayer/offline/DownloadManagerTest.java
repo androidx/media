@@ -763,19 +763,18 @@ public class DownloadManagerTest {
       releaseDownloadManager();
     }
     try {
-      runOnMainThread(
-          () -> {
-            downloadManager =
-                new DownloadManager(
-                    ApplicationProvider.getApplicationContext(),
-                    new DefaultDownloadIndex(databaseProvider),
-                    new FakeDownloaderFactory());
-            downloadManager.setMaxParallelDownloads(maxParallelDownloads);
-            downloadManager.setMinRetryCount(MIN_RETRY_COUNT);
-            downloadManager.setRequirements(new Requirements(0));
-            downloadManager.resumeDownloads();
-            downloadManagerListener = new TestDownloadManagerListener(downloadManager);
-          });
+      runOnMainThread(() -> {
+        downloadManager =
+            new DownloadManager(
+                ApplicationProvider.getApplicationContext(),
+                new DefaultDownloadIndex(databaseProvider),
+                new FakeDownloaderFactory());
+        downloadManager.setMaxParallelDownloads(maxParallelDownloads);
+        downloadManager.setMinRetryCount(MIN_RETRY_COUNT);
+        downloadManager.setRequirements(new Requirements(0));
+        downloadManager.resumeDownloads();
+        downloadManagerListener = new TestDownloadManagerListener(downloadManager);
+      });
       downloadManagerListener.blockUntilInitialized();
     } catch (Throwable throwable) {
       throw new Exception(throwable);

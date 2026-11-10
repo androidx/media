@@ -241,10 +241,8 @@ public class ExoPlayerCodecParametersTest {
     @Override
     public void simulateParametersChange(CodecParameters newParams) {
       if (eventHandler != null && eventListener != null) {
-        eventHandler.post(
-            () ->
-                ((AudioRendererEventListener) eventListener)
-                    .onAudioCodecParametersChanged(newParams));
+        eventHandler.post(() ->
+            ((AudioRendererEventListener) eventListener).onAudioCodecParametersChanged(newParams));
       }
     }
   }
@@ -268,10 +266,8 @@ public class ExoPlayerCodecParametersTest {
     @Override
     public void simulateParametersChange(CodecParameters newParams) {
       if (eventHandler != null && eventListener != null) {
-        eventHandler.post(
-            () ->
-                ((VideoRendererEventListener) eventListener)
-                    .onVideoCodecParametersChanged(newParams));
+        eventHandler.post(() ->
+            ((VideoRendererEventListener) eventListener).onVideoCodecParametersChanged(newParams));
       }
     }
   }

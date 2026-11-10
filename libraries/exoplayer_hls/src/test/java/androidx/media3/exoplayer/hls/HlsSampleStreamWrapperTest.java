@@ -642,44 +642,42 @@ public final class HlsSampleStreamWrapperTest {
                   /* cryptoData= */ null);
               return null;
             })
-        .doAnswer(
-            invocation -> {
-              ExtractorOutput extractorOutput = invocation.getArgument(0);
-              TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
-              trackOutput.format(videoFormat);
-              trackOutput.sampleMetadata(
-                  /* timeUs= */ 500_000L,
-                  C.BUFFER_FLAG_KEY_FRAME,
-                  /* size= */ 0,
-                  /* offset= */ 0,
-                  /* cryptoData= */ null);
-              return null;
-            })
-        .doAnswer(
-            invocation -> {
-              ExtractorOutput extractorOutput = invocation.getArgument(0);
-              TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
-              trackOutput.format(videoFormat);
-              trackOutput.sampleMetadata(
-                  /* timeUs= */ 250_000L,
-                  C.BUFFER_FLAG_KEY_FRAME,
-                  /* size= */ 0,
-                  /* offset= */ 0,
-                  /* cryptoData= */ null);
-              trackOutput.sampleMetadata(
-                  /* timeUs= */ 400_000L,
-                  /* flags= */ 0,
-                  /* size= */ 0,
-                  /* offset= */ 0,
-                  /* cryptoData= */ null);
-              trackOutput.sampleMetadata(
-                  /* timeUs= */ 500_000L,
-                  C.BUFFER_FLAG_KEY_FRAME,
-                  /* size= */ 0,
-                  /* offset= */ 0,
-                  /* cryptoData= */ null);
-              return null;
-            })
+        .doAnswer(invocation -> {
+          ExtractorOutput extractorOutput = invocation.getArgument(0);
+          TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          trackOutput.format(videoFormat);
+          trackOutput.sampleMetadata(
+              /* timeUs= */ 500_000L,
+              C.BUFFER_FLAG_KEY_FRAME,
+              /* size= */ 0,
+              /* offset= */ 0,
+              /* cryptoData= */ null);
+          return null;
+        })
+        .doAnswer(invocation -> {
+          ExtractorOutput extractorOutput = invocation.getArgument(0);
+          TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          trackOutput.format(videoFormat);
+          trackOutput.sampleMetadata(
+              /* timeUs= */ 250_000L,
+              C.BUFFER_FLAG_KEY_FRAME,
+              /* size= */ 0,
+              /* offset= */ 0,
+              /* cryptoData= */ null);
+          trackOutput.sampleMetadata(
+              /* timeUs= */ 400_000L,
+              /* flags= */ 0,
+              /* size= */ 0,
+              /* offset= */ 0,
+              /* cryptoData= */ null);
+          trackOutput.sampleMetadata(
+              /* timeUs= */ 500_000L,
+              C.BUFFER_FLAG_KEY_FRAME,
+              /* size= */ 0,
+              /* offset= */ 0,
+              /* cryptoData= */ null);
+          return null;
+        })
         .when(mockExtractor)
         .init(any());
     doAnswer(
@@ -688,18 +686,16 @@ public final class HlsSampleStreamWrapperTest {
               chunkHolder.chunk = chunk0;
               return null;
             })
-        .doAnswer(
-            invocation -> {
-              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
-              chunkHolder.chunk = chunk1;
-              return null;
-            })
-        .doAnswer(
-            invocation -> {
-              HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
-              chunkHolder.chunk = chunk2;
-              return null;
-            })
+        .doAnswer(invocation -> {
+          HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+          chunkHolder.chunk = chunk1;
+          return null;
+        })
+        .doAnswer(invocation -> {
+          HlsChunkSource.HlsChunkHolder chunkHolder = invocation.getArgument(5);
+          chunkHolder.chunk = chunk2;
+          return null;
+        })
         .when(mockChunkSource)
         .getNextChunk(any(), anyLong(), anyLong(), any(), anyBoolean(), any());
     sampleStreamWrapper.continueLoading(

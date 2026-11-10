@@ -222,10 +222,9 @@ import org.jspecify.annotations.Nullable;
 
     if (!isWaitingForRedrawFrame()) {
       // Don't report output available when redrawing - the redrawn frames are released immediately.
-      videoFrameProcessorListenerExecutor.execute(
-          () ->
-              videoFrameProcessorListener.onOutputFrameAvailableForRendering(
-                  presentationTimeUs, /* isRedrawnFrame= */ false));
+      videoFrameProcessorListenerExecutor.execute(() ->
+          videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+              presentationTimeUs, /* isRedrawnFrame= */ false));
     }
 
     if (textureOutputListener == null) {
@@ -240,10 +239,9 @@ import org.jspecify.annotations.Nullable;
         if (isWaitingForRedrawFrame()) {
           if (presentationTimeUs == redrawFramePresentationTimeUs) {
             redrawFramePresentationTimeUs = C.TIME_UNSET;
-            videoFrameProcessorListenerExecutor.execute(
-                () ->
-                    videoFrameProcessorListener.onOutputFrameAvailableForRendering(
-                        presentationTimeUs, /* isRedrawnFrame= */ true));
+            videoFrameProcessorListenerExecutor.execute(() ->
+                videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                    presentationTimeUs, /* isRedrawnFrame= */ true));
             renderFrame(
                 glObjectsProvider,
                 inputTexture,
@@ -495,10 +493,9 @@ import org.jspecify.annotations.Nullable;
         renderFrameToOutputTexture(inputTexture, presentationTimeUs);
       }
     } catch (VideoFrameProcessingException | GlUtil.GlException e) {
-      videoFrameProcessorListenerExecutor.execute(
-          () ->
-              videoFrameProcessorListener.onError(
-                  VideoFrameProcessingException.from(e, presentationTimeUs)));
+      videoFrameProcessorListenerExecutor.execute(() ->
+          videoFrameProcessorListener.onError(
+              VideoFrameProcessingException.from(e, presentationTimeUs)));
     }
 
     inputListener.onInputFrameProcessed(inputTexture);
@@ -570,11 +567,10 @@ import org.jspecify.annotations.Nullable;
       if (!Objects.equals(
           this.outputSizeBeforeSurfaceTransformation, outputSizeBeforeSurfaceTransformation)) {
         this.outputSizeBeforeSurfaceTransformation = outputSizeBeforeSurfaceTransformation;
-        videoFrameProcessorListenerExecutor.execute(
-            () ->
-                videoFrameProcessorListener.onOutputSizeChanged(
-                    outputSizeBeforeSurfaceTransformation.getWidth(),
-                    outputSizeBeforeSurfaceTransformation.getHeight()));
+        videoFrameProcessorListenerExecutor.execute(() ->
+            videoFrameProcessorListener.onOutputSizeChanged(
+                outputSizeBeforeSurfaceTransformation.getWidth(),
+                outputSizeBeforeSurfaceTransformation.getHeight()));
       }
     }
     checkNotNull(outputSizeBeforeSurfaceTransformation);

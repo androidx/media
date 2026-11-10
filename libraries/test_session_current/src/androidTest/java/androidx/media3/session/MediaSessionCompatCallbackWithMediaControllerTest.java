@@ -1346,12 +1346,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(testItem);
-              controller.prepare();
-              controller.play();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(testItem);
+          controller.prepare();
+          controller.play();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
@@ -1377,12 +1376,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(testItem);
-              controller.prepare();
-              controller.play();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(testItem);
+          controller.prepare();
+          controller.play();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
@@ -1414,11 +1412,10 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.play();
-              controller.setMediaItem(newItem);
-            });
+        .postAndSync(() -> {
+          controller.play();
+          controller.setMediaItem(newItem);
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayCalledCount).isEqualTo(0);
@@ -1445,11 +1442,10 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(newItem);
-              controller.pause();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(newItem);
+          controller.pause();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
@@ -1479,11 +1475,10 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.pause();
-              controller.setMediaItem(newItem);
-            });
+        .postAndSync(() -> {
+          controller.pause();
+          controller.setMediaItem(newItem);
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
@@ -1507,11 +1502,10 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(newItem);
-              controller.pause();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(newItem);
+          controller.pause();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
@@ -1541,11 +1535,10 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.prepare();
-              controller.pause();
-            });
+        .postAndSync(() -> {
+          controller.prepare();
+          controller.pause();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayCalledCount).isEqualTo(0);
@@ -1573,22 +1566,18 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
         () ->
             threadTestRule
                 .getHandler()
-                .postAndSync(
-                    () ->
-                        controller
-                            .getAvailableCommands()
-                            .contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)),
+                .postAndSync(() ->
+                    controller.getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)),
         TIMEOUT_MS);
     sessionCallback.reset(3);
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(testList);
-              controller.addMediaItems(addedList);
-              controller.play();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItems(testList);
+          controller.addMediaItems(addedList);
+          controller.play();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
@@ -1621,11 +1610,10 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.play();
-              controller.pause();
-            });
+        .postAndSync(() -> {
+          controller.play();
+          controller.pause();
+        });
 
     assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
     assertThat(sessionCallback.onPlayCalledCount).isEqualTo(0);
@@ -1651,22 +1639,18 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
         () ->
             threadTestRule
                 .getHandler()
-                .postAndSync(
-                    () ->
-                        controller
-                            .getAvailableCommands()
-                            .contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)),
+                .postAndSync(() ->
+                    controller.getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)),
         TIMEOUT_MS);
     sessionCallback.reset(3);
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(testList);
-              controller.seekTo(/* mediaItemIndex= */ 1, testPositionMs);
-              controller.play();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItems(testList);
+          controller.seekTo(/* mediaItemIndex= */ 1, testPositionMs);
+          controller.play();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
@@ -1701,20 +1685,16 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
         () ->
             threadTestRule
                 .getHandler()
-                .postAndSync(
-                    () ->
-                        controller
-                            .getAvailableCommands()
-                            .contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)),
+                .postAndSync(() ->
+                    controller.getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)),
         TIMEOUT_MS);
     sessionCallback.reset(1);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(initialItem);
-              controller.play();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(initialItem);
+          controller.play();
+        });
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     sessionCallback.reset(1);
     threadTestRule.getHandler().postAndSync(controller::pause);
@@ -1723,19 +1703,18 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onTimelineChanged(Timeline timeline, int reason) {
-                      controller.removeListener(this);
-                      controller.seekTo(/* mediaItemIndex= */ 1, testPositionMs);
-                      controller.play();
-                    }
-                  });
-              controller.setMediaItems(testList);
-            });
+        .postAndSync(() -> {
+          controller.addListener(
+              new Player.Listener() {
+                @Override
+                public void onTimelineChanged(Timeline timeline, int reason) {
+                  controller.removeListener(this);
+                  controller.seekTo(/* mediaItemIndex= */ 1, testPositionMs);
+                  controller.play();
+                }
+              });
+          controller.setMediaItems(testList);
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onSkipToQueueItemCalled).isFalse();
@@ -1763,12 +1742,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(testItem);
-              controller.play();
-              controller.stop();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(testItem);
+          controller.play();
+          controller.stop();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayCalledCount).isEqualTo(0);
@@ -1791,12 +1769,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(testItem);
-              controller.play();
-              controller.release();
-            });
+        .postAndSync(() -> {
+          controller.setMediaItem(testItem);
+          controller.play();
+          controller.release();
+        });
 
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPlayCalledCount).isEqualTo(0);

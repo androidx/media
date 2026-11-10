@@ -55,7 +55,7 @@ public final class BitmapToHardwareBufferConverterTest {
             mockJniWrapper,
             /* internalExecutor= */ executorService,
             /* errorExecutor= */ directExecutor(),
-            /* errorCallback= */ (e) -> {
+            /* errorCallback= */ e -> {
               throw new AssertionError(e);
             });
   }

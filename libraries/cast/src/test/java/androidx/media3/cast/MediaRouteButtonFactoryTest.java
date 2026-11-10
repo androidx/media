@@ -147,18 +147,17 @@ public final class MediaRouteButtonFactoryTest {
     CountDownLatch latch = new CountDownLatch(1);
 
     BackgroundExecutor.get()
-        .execute(
-            () -> {
-              try {
-                ListenableFuture<MenuItem> unused =
-                    MediaRouteButtonFactory.setUpMediaRouteButton(
-                        context, menuItem, mediaRouteActionProvider);
-              } catch (Throwable t) {
-                exceptionRef.set(t);
-              } finally {
-                latch.countDown();
-              }
-            });
+        .execute(() -> {
+          try {
+            ListenableFuture<MenuItem> unused =
+                MediaRouteButtonFactory.setUpMediaRouteButton(
+                    context, menuItem, mediaRouteActionProvider);
+          } catch (Throwable t) {
+            exceptionRef.set(t);
+          } finally {
+            latch.countDown();
+          }
+        });
     assertThat(latch.await(5, SECONDS)).isTrue();
 
     Throwable thrown = exceptionRef.get();
@@ -220,16 +219,15 @@ public final class MediaRouteButtonFactoryTest {
     CountDownLatch latch = new CountDownLatch(1);
 
     BackgroundExecutor.get()
-        .execute(
-            () -> {
-              try {
-                MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
-              } catch (Throwable t) {
-                exceptionRef.set(t);
-              } finally {
-                latch.countDown();
-              }
-            });
+        .execute(() -> {
+          try {
+            MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
+          } catch (Throwable t) {
+            exceptionRef.set(t);
+          } finally {
+            latch.countDown();
+          }
+        });
     assertThat(latch.await(5, SECONDS)).isTrue();
 
     Throwable thrown = exceptionRef.get();

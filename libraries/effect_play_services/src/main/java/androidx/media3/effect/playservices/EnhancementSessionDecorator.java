@@ -326,14 +326,13 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
     if (Looper.myLooper() != looper) {
       CountDownLatch latch = new CountDownLatch(1);
       boolean posted =
-          handler.post(
-              () -> {
-                try {
-                  closeInternal();
-                } finally {
-                  latch.countDown();
-                }
-              });
+          handler.post(() -> {
+            try {
+              closeInternal();
+            } finally {
+              latch.countDown();
+            }
+          });
       if (posted) {
         try {
           if (!latch.await(CLOSE_TIMEOUT_MS, MILLISECONDS)) {
@@ -420,14 +419,13 @@ public final class EnhancementSessionDecorator implements FrameProcessor {
 
   /** Called on any thread. */
   private void handleError(Exception e) {
-    handlerExecutor.execute(
-        () -> {
-          if (state == STATE_ERROR || state == STATE_CLOSED) {
-            return;
-          }
-          state = STATE_ERROR;
-          closeInternal();
-        });
+    handlerExecutor.execute(() -> {
+      if (state == STATE_ERROR || state == STATE_CLOSED) {
+        return;
+      }
+      state = STATE_ERROR;
+      closeInternal();
+    });
     listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
   }
 

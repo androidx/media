@@ -1794,13 +1794,12 @@ public class MediaControllerTest {
     SessionResult sessionResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  CommandButton commandButton =
-                      controller.getCommandButtonsForMediaItem(mediaItem).get(0);
-                  return controller.sendCustomCommand(
-                      commandButton.sessionCommand, mediaItem, Bundle.EMPTY);
-                })
+            .postAndSync(() -> {
+              CommandButton commandButton =
+                  controller.getCommandButtonsForMediaItem(mediaItem).get(0);
+              return controller.sendCustomCommand(
+                  commandButton.sessionCommand, mediaItem, Bundle.EMPTY);
+            })
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
@@ -1832,10 +1831,8 @@ public class MediaControllerTest {
     SessionResult sessionResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    controller.sendCustomCommand(
-                        playlistAddSessionCommand, mediaItem, Bundle.EMPTY))
+            .postAndSync(() ->
+                controller.sendCustomCommand(playlistAddSessionCommand, mediaItem, Bundle.EMPTY))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_PERMISSION_DENIED);
@@ -2021,12 +2018,11 @@ public class MediaControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              playbackStateAfterConnection.set(controller.getPlaybackState());
-              playerErrorAfterConnection.set(controller.getPlayerError());
-              availableCommandsAfterConnection.set(controller.getAvailableCommands());
-            });
+        .postAndSync(() -> {
+          playbackStateAfterConnection.set(controller.getPlaybackState());
+          playerErrorAfterConnection.set(controller.getPlayerError());
+          availableCommandsAfterConnection.set(controller.getAvailableCommands());
+        });
 
     Player.Commands expectedCommandsInErrorState =
         MediaSessionImpl.createPlayerCommandsForCustomErrorState(
@@ -2156,37 +2152,36 @@ public class MediaControllerTest {
     AtomicReference<MediaItem> currentMediaItemRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              currentPositionMsRef.set(controller.getCurrentPosition());
-              contentPositionMsRef.set(controller.getContentPosition());
-              durationMsRef.set(controller.getDuration());
-              bufferedPositionMsRef.set(controller.getBufferedPosition());
-              bufferedPercentageRef.set(controller.getBufferedPercentage());
-              totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
-              currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
-              contentDurationMsRef.set(controller.getContentDuration());
-              contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
-              playbackParametersRef.set(controller.getPlaybackParameters());
-              isPlayingAdRef.set(controller.isPlayingAd());
-              currentAdGroupIndexRef.set(controller.getCurrentAdGroupIndex());
-              currentAdIndexInAdGroupRef.set(controller.getCurrentAdIndexInAdGroup());
-              mediaItemRef.set(controller.getCurrentMediaItem());
-              playWhenReadyRef.set(controller.getPlayWhenReady());
-              playbackSuppressionReasonRef.set(controller.getPlaybackSuppressionReason());
-              playbackStateRef.set(controller.getPlaybackState());
-              isLoadingRef.set(controller.isLoading());
-              isShuffleModeEnabledRef.set(controller.getShuffleModeEnabled());
-              repeatModeRef.set(controller.getRepeatMode());
-              seekBackIncrementRef.set(controller.getSeekBackIncrement());
-              seekForwardIncrementRef.set(controller.getSeekForwardIncrement());
-              maxSeekToPreviousPositionMsRef.set(controller.getMaxSeekToPreviousPosition());
-              currentTracksRef.set(controller.getCurrentTracks());
-              trackSelectionParametersRef.set(controller.getTrackSelectionParameters());
-              timelineRef.set(controller.getCurrentTimeline());
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-            });
+        .postAndSync(() -> {
+          currentPositionMsRef.set(controller.getCurrentPosition());
+          contentPositionMsRef.set(controller.getContentPosition());
+          durationMsRef.set(controller.getDuration());
+          bufferedPositionMsRef.set(controller.getBufferedPosition());
+          bufferedPercentageRef.set(controller.getBufferedPercentage());
+          totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
+          currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
+          contentDurationMsRef.set(controller.getContentDuration());
+          contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
+          playbackParametersRef.set(controller.getPlaybackParameters());
+          isPlayingAdRef.set(controller.isPlayingAd());
+          currentAdGroupIndexRef.set(controller.getCurrentAdGroupIndex());
+          currentAdIndexInAdGroupRef.set(controller.getCurrentAdIndexInAdGroup());
+          mediaItemRef.set(controller.getCurrentMediaItem());
+          playWhenReadyRef.set(controller.getPlayWhenReady());
+          playbackSuppressionReasonRef.set(controller.getPlaybackSuppressionReason());
+          playbackStateRef.set(controller.getPlaybackState());
+          isLoadingRef.set(controller.isLoading());
+          isShuffleModeEnabledRef.set(controller.getShuffleModeEnabled());
+          repeatModeRef.set(controller.getRepeatMode());
+          seekBackIncrementRef.set(controller.getSeekBackIncrement());
+          seekForwardIncrementRef.set(controller.getSeekForwardIncrement());
+          maxSeekToPreviousPositionMsRef.set(controller.getMaxSeekToPreviousPosition());
+          currentTracksRef.set(controller.getCurrentTracks());
+          trackSelectionParametersRef.set(controller.getTrackSelectionParameters());
+          timelineRef.set(controller.getCurrentTimeline());
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+        });
 
     assertThat(currentPositionMsRef.get()).isEqualTo(currentPositionMs);
     assertThat(contentPositionMsRef.get()).isEqualTo(contentPositionMs);
@@ -2273,15 +2268,14 @@ public class MediaControllerTest {
       Rating testRating = new HeartRating(/* isHeart= */ true);
       threadTestRule
           .getHandler()
-          .postAndSync(
-              () -> {
-                controller
-                    .setRating(testMediaId, testRating)
-                    .addListener(latch::countDown, Runnable::run);
-                controller
-                    .sendCustomCommand(customCommand, /* args= */ Bundle.EMPTY)
-                    .addListener(latch::countDown, Runnable::run);
-              });
+          .postAndSync(() -> {
+            controller
+                .setRating(testMediaId, testRating)
+                .addListener(latch::countDown, Runnable::run);
+            controller
+                .sendCustomCommand(customCommand, /* args= */ Bundle.EMPTY)
+                .addListener(latch::countDown, Runnable::run);
+          });
     }
 
     assertWithMessage("All futures should be completed")
@@ -2790,11 +2784,10 @@ public class MediaControllerTest {
     long currentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setTimeDiffMs(50L);
-                  return controller.getCurrentPosition();
-                });
+            .postAndSync(() -> {
+              controller.setTimeDiffMs(50L);
+              return controller.getCurrentPosition();
+            });
 
     assertThat(currentPositionMs).isEqualTo(testCurrentPositionMs);
   }
@@ -2818,11 +2811,10 @@ public class MediaControllerTest {
     long currentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setTimeDiffMs(testTimeDiff);
-                  return controller.getCurrentPosition();
-                });
+            .postAndSync(() -> {
+              controller.setTimeDiffMs(testTimeDiff);
+              return controller.getCurrentPosition();
+            });
 
     long expectedCurrentPositionMs =
         testCurrentPosition + (long) (testTimeDiff * testPlaybackParameters.speed);
@@ -2848,12 +2840,11 @@ public class MediaControllerTest {
     long currentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setTimeDiffMs(testTimeDiff);
-                  controller.pause();
-                  return controller.getCurrentPosition();
-                });
+            .postAndSync(() -> {
+              controller.setTimeDiffMs(testTimeDiff);
+              controller.pause();
+              return controller.getCurrentPosition();
+            });
 
     long expectedCurrentPositionMs =
         testCurrentPosition + (long) (testTimeDiff * testPlaybackParameters.speed);
@@ -2880,11 +2871,10 @@ public class MediaControllerTest {
     long contentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setTimeDiffMs(50L);
-                  return controller.getContentPosition();
-                });
+            .postAndSync(() -> {
+              controller.setTimeDiffMs(50L);
+              return controller.getContentPosition();
+            });
 
     assertThat(contentPositionMs).isEqualTo(testContentPosition);
   }
@@ -2907,11 +2897,10 @@ public class MediaControllerTest {
     long currentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setTimeDiffMs(50L);
-                  return controller.getCurrentPosition();
-                });
+            .postAndSync(() -> {
+              controller.setTimeDiffMs(50L);
+              return controller.getCurrentPosition();
+            });
     long contentPositionMs =
         threadTestRule.getHandler().postAndSync(controller::getContentPosition);
 
@@ -2941,11 +2930,10 @@ public class MediaControllerTest {
     long currentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setTimeDiffMs(50L);
-                  return controller.getCurrentPosition();
-                });
+            .postAndSync(() -> {
+              controller.setTimeDiffMs(50L);
+              return controller.getCurrentPosition();
+            });
     long contentPositionMs =
         threadTestRule.getHandler().postAndSync(controller::getContentPosition);
 
@@ -3260,15 +3248,14 @@ public class MediaControllerTest {
     CountDownLatch trackChangedEvent = new CountDownLatch(1);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onTracksChanged(Tracks tracks) {
-                        trackChangedEvent.countDown();
-                      }
-                    }));
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTracksChanged(Tracks tracks) {
+                    trackChangedEvent.countDown();
+                  }
+                }));
 
     Tracks initialControllerTracks =
         threadTestRule.getHandler().postAndSync(controller::getCurrentTracks);
@@ -3357,16 +3344,15 @@ public class MediaControllerTest {
     int[] currentMediaIndexAndState =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setMediaItems(threeItemsList);
-                  controller.prepare();
-                  controller.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ C.TIME_UNSET);
-                  controller.setMediaItems(twoItemsList);
-                  return new int[] {
-                    controller.getCurrentMediaItemIndex(), controller.getPlaybackState()
-                  };
-                });
+            .postAndSync(() -> {
+              controller.setMediaItems(threeItemsList);
+              controller.prepare();
+              controller.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ C.TIME_UNSET);
+              controller.setMediaItems(twoItemsList);
+              return new int[] {
+                controller.getCurrentMediaItemIndex(), controller.getPlaybackState()
+              };
+            });
 
     assertThat(currentMediaIndexAndState[0]).isEqualTo(0);
     assertThat(currentMediaIndexAndState[1]).isEqualTo(Player.STATE_BUFFERING);
@@ -3390,16 +3376,15 @@ public class MediaControllerTest {
     int[] currentMediaItemIndexAndState =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  controller.setMediaItems(threeItemsList);
-                  controller.prepare();
-                  controller.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ C.TIME_UNSET);
-                  controller.setMediaItems(twoItemsList, /* resetPosition= */ false);
-                  return new int[] {
-                    controller.getCurrentMediaItemIndex(), controller.getPlaybackState()
-                  };
-                });
+            .postAndSync(() -> {
+              controller.setMediaItems(threeItemsList);
+              controller.prepare();
+              controller.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ C.TIME_UNSET);
+              controller.setMediaItems(twoItemsList, /* resetPosition= */ false);
+              return new int[] {
+                controller.getCurrentMediaItemIndex(), controller.getPlaybackState()
+              };
+            });
 
     assertThat(currentMediaItemIndexAndState[0]).isEqualTo(0);
     assertThat(currentMediaItemIndexAndState[1]).isEqualTo(Player.STATE_ENDED);
@@ -3420,14 +3405,11 @@ public class MediaControllerTest {
         () ->
             threadTestRule
                 .getHandler()
-                .postAndSync(
-                    () -> {
-                      controller.setMediaItems(
-                          threeItemsList,
-                          /* startIndex= */ 99,
-                          /* startPositionMs= */ C.TIME_UNSET);
-                      return controller.getCurrentMediaItemIndex();
-                    }));
+                .postAndSync(() -> {
+                  controller.setMediaItems(
+                      threeItemsList, /* startIndex= */ 99, /* startPositionMs= */ C.TIME_UNSET);
+                  return controller.getCurrentMediaItemIndex();
+                }));
   }
 
   private void setupCustomLayout(RemoteMediaSession session, List<CommandButton> customLayout)

@@ -49,7 +49,7 @@ public class GaussianBlurWithFrameOverlaidTest {
   private static final int BLANK_FRAME_WIDTH = 200;
   private static final int BLANK_FRAME_HEIGHT = 100;
   private static final Consumer<SpannableString> TEXT_SPAN_CONSUMER =
-      (text) -> {
+      text -> {
         text.setSpan(
             new BackgroundColorSpan(Color.BLUE),
             /* start= */ 0,

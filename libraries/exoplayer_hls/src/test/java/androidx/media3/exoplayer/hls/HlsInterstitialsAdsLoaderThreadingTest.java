@@ -117,11 +117,10 @@ public class HlsInterstitialsAdsLoaderThreadingTest {
     } else {
       CountDownLatch latch = new CountDownLatch(1);
       new Handler(getTargetLooper())
-          .post(
-              () -> {
-                runnable.run();
-                latch.countDown();
-              });
+          .post(() -> {
+            runnable.run();
+            latch.countDown();
+          });
       latch.await();
     }
   }
@@ -141,14 +140,12 @@ public class HlsInterstitialsAdsLoaderThreadingTest {
     } else {
       CountDownLatch latch = new CountDownLatch(1);
       new Handler(backgroundLooper)
-          .post(
-              () -> {
-                adsLoader =
-                    new HlsInterstitialsAdsLoader(
-                        () -> new ByteArrayDataSource(new JsonUriResolver()));
-                adsLoader.addListener(mockAdsLoaderListener);
-                latch.countDown();
-              });
+          .post(() -> {
+            adsLoader =
+                new HlsInterstitialsAdsLoader(() -> new ByteArrayDataSource(new JsonUriResolver()));
+            adsLoader.addListener(mockAdsLoaderListener);
+            latch.countDown();
+          });
       latch.await();
     }
     adsConfiguration = new MediaItem.AdsConfiguration.Builder(Uri.EMPTY).setAdsId("adsId").build();
@@ -226,11 +223,10 @@ public class HlsInterstitialsAdsLoaderThreadingTest {
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     // Post onPositionDiscontinuity to other looper.
     new Handler(getOtherLooper())
-        .post(
-            () -> {
-              playerListener.onPositionDiscontinuity(
-                  oldPosition, newPosition, DISCONTINUITY_REASON_AUTO_TRANSITION);
-            });
+        .post(() -> {
+          playerListener.onPositionDiscontinuity(
+              oldPosition, newPosition, DISCONTINUITY_REASON_AUTO_TRANSITION);
+        });
 
     // Verify that onAdCompleted executes on target looper.
     runMainLooperUntil(() -> adCompletionListener.onAdCompletedCalled.get());
@@ -257,15 +253,13 @@ public class HlsInterstitialsAdsLoaderThreadingTest {
     // Post handleContentTimelineChanged to other looper so Loader binds its callback Handler
     // to otherLooper.
     new Handler(getOtherLooper())
-        .post(
-            () -> {
-              try {
-                callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                    playlistString, adsLoader);
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            });
+        .post(() -> {
+          try {
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(playlistString, adsLoader);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     // Pump main looper until onLoadCompleted marshals to target looper and invokes listener on
     // target looper.
@@ -332,14 +326,13 @@ public class HlsInterstitialsAdsLoaderThreadingTest {
       AtomicReference<Looper> callbackLooper = new AtomicReference<>();
       CountDownLatch latch = new CountDownLatch(1);
       new Handler(backgroundLooper)
-          .post(
-              () -> {
-                playerListener.onPositionDiscontinuity(
-                    oldPosition, newPosition, DISCONTINUITY_REASON_AUTO_TRANSITION);
-                executed.set(adCompletionListener.onAdCompletedCalled.get());
-                callbackLooper.set(adCompletionListener.onAdCompletedLooper.get());
-                latch.countDown();
-              });
+          .post(() -> {
+            playerListener.onPositionDiscontinuity(
+                oldPosition, newPosition, DISCONTINUITY_REASON_AUTO_TRANSITION);
+            executed.set(adCompletionListener.onAdCompletedCalled.get());
+            callbackLooper.set(adCompletionListener.onAdCompletedLooper.get());
+            latch.countDown();
+          });
       latch.await();
       assertThat(executed.get()).isTrue();
       assertThat(callbackLooper.get()).isEqualTo(getTargetLooper());
@@ -356,18 +349,17 @@ public class HlsInterstitialsAdsLoaderThreadingTest {
       AtomicReference<Exception> exception = new AtomicReference<>();
       CountDownLatch latch = new CountDownLatch(1);
       new Handler(getTargetLooper())
-          .post(
-              () -> {
-                try {
-                  result.set(
-                      callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                          playlistString, adsLoader));
-                } catch (Exception e) {
-                  exception.set(e);
-                } finally {
-                  latch.countDown();
-                }
-              });
+          .post(() -> {
+            try {
+              result.set(
+                  callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                      playlistString, adsLoader));
+            } catch (Exception e) {
+              exception.set(e);
+            } finally {
+              latch.countDown();
+            }
+          });
       latch.await();
       if (exception.get() != null) {
         throw exception.get();

@@ -95,15 +95,14 @@ public final class DummyMainThread {
     } else {
       CountDownLatch finishedLatch = new CountDownLatch(1);
       AtomicReference<Throwable> thrown = new AtomicReference<>();
-      handler.post(
-          () -> {
-            try {
-              runnable.run();
-            } catch (Throwable t) {
-              thrown.set(t);
-            }
-            finishedLatch.countDown();
-          });
+      handler.post(() -> {
+        try {
+          runnable.run();
+        } catch (Throwable t) {
+          thrown.set(t);
+        }
+        finishedLatch.countDown();
+      });
       try {
         assertThat(finishedLatch.await(timeoutMs, MILLISECONDS)).isTrue();
       } catch (InterruptedException e) {

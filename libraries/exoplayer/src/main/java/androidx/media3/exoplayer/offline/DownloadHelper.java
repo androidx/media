@@ -579,13 +579,12 @@ public final class DownloadHelper {
     if (mode != MODE_NOT_PREPARE) {
       mediaPreparer = new MediaPreparer(checkNotNull(mediaSource), /* downloadHelper= */ this);
     } else {
-      callbackHandler.post(
-          () -> {
-            Callback currentCallback = this.callback;
-            if (currentCallback != null) {
-              currentCallback.onPrepared(this, /* tracksInfoAvailable= */ false);
-            }
-          });
+      callbackHandler.post(() -> {
+        Callback currentCallback = this.callback;
+        if (currentCallback != null) {
+          currentCallback.onPrepared(this, /* tracksInfoAvailable= */ false);
+        }
+      });
     }
   }
 
@@ -1095,24 +1094,22 @@ public final class DownloadHelper {
       setPreparedWithProgressiveSource();
     }
     checkNotNull(callbackHandler)
-        .post(
-            () -> {
-              Callback currentCallback = callback;
-              if (currentCallback != null) {
-                currentCallback.onPrepared(this, tracksInfoAvailable);
-              }
-            });
+        .post(() -> {
+          Callback currentCallback = callback;
+          if (currentCallback != null) {
+            currentCallback.onPrepared(this, tracksInfoAvailable);
+          }
+        });
   }
 
   private void onMediaPreparationFailed(IOException error) {
     checkNotNull(callbackHandler)
-        .post(
-            () -> {
-              Callback currentCallback = callback;
-              if (currentCallback != null) {
-                currentCallback.onPrepareError(this, error);
-              }
-            });
+        .post(() -> {
+          Callback currentCallback = callback;
+          if (currentCallback != null) {
+            currentCallback.onPrepareError(this, error);
+          }
+        });
   }
 
   @RequiresNonNull({

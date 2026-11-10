@@ -22,7 +22,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.SniffFailure;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.InlineMe;
 import java.util.List;
 
 /** Thrown if the input format was not recognized. */
@@ -39,17 +38,6 @@ public class UnrecognizedInputFormatException extends ParserException {
    * <p>May be empty if no extractors provided additional sniffing failure details.
    */
   public final ImmutableList<SniffFailure> sniffFailures;
-
-  /**
-   * @deprecated Use {@link #UnrecognizedInputFormatException(String, Uri, List)} instead.
-   */
-  @InlineMe(
-      replacement = "this(message, uri, ImmutableList.of())",
-      imports = "com.google.common.collect.ImmutableList")
-  @Deprecated
-  public UnrecognizedInputFormatException(String message, Uri uri) {
-    this(message, uri, ImmutableList.of());
-  }
 
   /**
    * Constructs a new instance.

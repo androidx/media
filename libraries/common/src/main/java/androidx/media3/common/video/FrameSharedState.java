@@ -103,23 +103,22 @@ import org.jspecify.annotations.Nullable;
 
     // TODO(b/540859379): Merge fences if possible and forward to frame owner for buffer reuse.
     try {
-      FENCE_WAIT_EXECUTOR.execute(
-          () -> {
-            try {
-              for (int i = 0; i < fencesToWaitOn.size(); i++) {
-                if (!fencesToWaitOn.get(i).awaitMs(RELEASE_TIMEOUT_MS)) {
-                  Log.w(TAG, "Timed out waiting for release fence to signal.");
-                }
-              }
-            } finally {
-              closeAll(fencesToWaitOn);
-              try {
-                executor.execute(() -> callback.release(/* releaseFence= */ null));
-              } catch (RejectedExecutionException e) {
-                // Executor is shut down, ignore.
-              }
+      FENCE_WAIT_EXECUTOR.execute(() -> {
+        try {
+          for (int i = 0; i < fencesToWaitOn.size(); i++) {
+            if (!fencesToWaitOn.get(i).awaitMs(RELEASE_TIMEOUT_MS)) {
+              Log.w(TAG, "Timed out waiting for release fence to signal.");
             }
-          });
+          }
+        } finally {
+          closeAll(fencesToWaitOn);
+          try {
+            executor.execute(() -> callback.release(/* releaseFence= */ null));
+          } catch (RejectedExecutionException e) {
+            // Executor is shut down, ignore.
+          }
+        }
+      });
     } catch (RejectedExecutionException e) {
       closeAll(fencesToWaitOn);
       throw e;

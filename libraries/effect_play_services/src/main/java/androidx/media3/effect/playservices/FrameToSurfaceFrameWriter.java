@@ -209,10 +209,8 @@ import org.jspecify.annotations.Nullable;
       } catch (RuntimeException ignored) {
         // Ignore if image is already closed.
       }
-      listenerExecutor.execute(
-          () ->
-              listener.onError(
-                  new VideoFrameProcessingException("Failed to queue input image", e)));
+      listenerExecutor.execute(() ->
+          listener.onError(new VideoFrameProcessingException("Failed to queue input image", e)));
     }
   }
 

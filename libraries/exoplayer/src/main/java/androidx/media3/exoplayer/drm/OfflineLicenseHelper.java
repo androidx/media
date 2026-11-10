@@ -288,17 +288,16 @@ public final class OfflineLicenseHelper {
     }
 
     SettableFuture<Pair<Long, Long>> licenseDurationRemainingSec = SettableFuture.create();
-    handler.post(
-        () -> {
-          try {
-            licenseDurationRemainingSec.set(
-                checkNotNull(WidevineUtil.getLicenseDurationRemainingSec(drmSession)));
-          } catch (Throwable e) {
-            licenseDurationRemainingSec.setException(e);
-          } finally {
-            drmSession.release(eventDispatcher);
-          }
-        });
+    handler.post(() -> {
+      try {
+        licenseDurationRemainingSec.set(
+            checkNotNull(WidevineUtil.getLicenseDurationRemainingSec(drmSession)));
+      } catch (Throwable e) {
+        licenseDurationRemainingSec.setException(e);
+      } finally {
+        drmSession.release(eventDispatcher);
+      }
+    });
     try {
       return licenseDurationRemainingSec.get();
     } catch (ExecutionException | InterruptedException e) {
@@ -327,16 +326,15 @@ public final class OfflineLicenseHelper {
         acquireFirstSessionOnHandlerThread(licenseMode, offlineLicenseKeySetId, format);
 
     SettableFuture<byte @Nullable []> keySetId = SettableFuture.create();
-    handler.post(
-        () -> {
-          try {
-            keySetId.set(drmSession.getOfflineLicenseKeySetId());
-          } catch (Throwable e) {
-            keySetId.setException(e);
-          } finally {
-            drmSession.release(eventDispatcher);
-          }
-        });
+    handler.post(() -> {
+      try {
+        keySetId.set(drmSession.getOfflineLicenseKeySetId());
+      } catch (Throwable e) {
+        keySetId.setException(e);
+      } finally {
+        drmSession.release(eventDispatcher);
+      }
+    });
 
     try {
       return checkNotNull(keySetId.get());
@@ -374,23 +372,22 @@ public final class OfflineLicenseHelper {
     checkNotNull(format.drmInitData);
     SettableFuture<DrmSession> drmSessionFuture = SettableFuture.create();
     drmListenerConditionVariable.close();
-    handler.post(
-        () -> {
-          try {
-            drmSessionManager.setPlayer(checkNotNull(Looper.myLooper()), PlayerId.UNSET);
-            drmSessionManager.prepare();
-            try {
-              drmSessionManager.setMode(licenseMode, offlineLicenseKeySetId);
-              drmSessionFuture.set(
-                  checkNotNull(drmSessionManager.acquireSession(eventDispatcher, format)));
-            } catch (Throwable e) {
-              drmSessionManager.release();
-              throw e;
-            }
-          } catch (Throwable e) {
-            drmSessionFuture.setException(e);
-          }
-        });
+    handler.post(() -> {
+      try {
+        drmSessionManager.setPlayer(checkNotNull(Looper.myLooper()), PlayerId.UNSET);
+        drmSessionManager.prepare();
+        try {
+          drmSessionManager.setMode(licenseMode, offlineLicenseKeySetId);
+          drmSessionFuture.set(
+              checkNotNull(drmSessionManager.acquireSession(eventDispatcher, format)));
+        } catch (Throwable e) {
+          drmSessionManager.release();
+          throw e;
+        }
+      } catch (Throwable e) {
+        drmSessionFuture.setException(e);
+      }
+    });
 
     DrmSession drmSession;
     try {
@@ -405,21 +402,20 @@ public final class OfflineLicenseHelper {
     drmListenerConditionVariable.block();
 
     SettableFuture<@Nullable DrmSessionException> drmSessionError = SettableFuture.create();
-    handler.post(
-        () -> {
-          try {
-            DrmSessionException error = drmSession.getError();
-            if (drmSession.getState() == DrmSession.STATE_ERROR) {
-              drmSession.release(eventDispatcher);
-              drmSessionManager.release();
-            }
-            drmSessionError.set(error);
-          } catch (Throwable e) {
-            drmSessionError.setException(e);
-            drmSession.release(eventDispatcher);
-            drmSessionManager.release();
-          }
-        });
+    handler.post(() -> {
+      try {
+        DrmSessionException error = drmSession.getError();
+        if (drmSession.getState() == DrmSession.STATE_ERROR) {
+          drmSession.release(eventDispatcher);
+          drmSessionManager.release();
+        }
+        drmSessionError.set(error);
+      } catch (Throwable e) {
+        drmSessionError.setException(e);
+        drmSession.release(eventDispatcher);
+        drmSessionManager.release();
+      }
+    });
     try {
       if (drmSessionError.get() != null) {
         throw drmSessionError.get();
@@ -437,15 +433,14 @@ public final class OfflineLicenseHelper {
    */
   private void releaseManagerOnHandlerThread() {
     SettableFuture<Void> result = SettableFuture.create();
-    handler.post(
-        () -> {
-          try {
-            drmSessionManager.release();
-            result.set(null);
-          } catch (Throwable e) {
-            result.setException(e);
-          }
-        });
+    handler.post(() -> {
+      try {
+        drmSessionManager.release();
+        result.set(null);
+      } catch (Throwable e) {
+        result.setException(e);
+      }
+    });
     try {
       result.get();
     } catch (InterruptedException | ExecutionException e) {

@@ -188,26 +188,25 @@ public final class MediaControllerTestRule extends ExternalResource {
     ListenableFuture<? extends MediaController> future =
         handlerThreadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  if (controllerType == MediaBrowser.class) {
-                    MediaBrowser.Builder builder =
-                        new MediaBrowser.Builder(context, token).setListener(listener);
-                    if (connectionHints != null) {
-                      builder.setConnectionHints(connectionHints);
-                    }
-                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
-                    return builder.buildAsync();
-                  } else {
-                    MediaController.Builder builder =
-                        new MediaController.Builder(context, token).setListener(listener);
-                    if (connectionHints != null) {
-                      builder.setConnectionHints(connectionHints);
-                    }
-                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
-                    return builder.buildAsync();
-                  }
-                });
+            .postAndSync(() -> {
+              if (controllerType == MediaBrowser.class) {
+                MediaBrowser.Builder builder =
+                    new MediaBrowser.Builder(context, token).setListener(listener);
+                if (connectionHints != null) {
+                  builder.setConnectionHints(connectionHints);
+                }
+                builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
+                return builder.buildAsync();
+              } else {
+                MediaController.Builder builder =
+                    new MediaController.Builder(context, token).setListener(listener);
+                if (connectionHints != null) {
+                  builder.setConnectionHints(connectionHints);
+                }
+                builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
+                return builder.buildAsync();
+              }
+            });
 
     if (controllerCreationListener != null) {
       future.addListener(

@@ -65,13 +65,12 @@ public final class HandlerExecutor implements Executor {
 
   @Override
   public void execute(Runnable command) {
-    handler.post(
-        () -> {
-          try {
-            command.run();
-          } catch (RuntimeException e) {
-            listener.onError(e);
-          }
-        });
+    handler.post(() -> {
+      try {
+        command.run();
+      } catch (RuntimeException e) {
+        listener.onError(e);
+      }
+    });
   }
 }

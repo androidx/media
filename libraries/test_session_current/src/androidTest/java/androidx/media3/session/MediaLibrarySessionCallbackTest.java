@@ -422,7 +422,7 @@ public class MediaLibrarySessionCallbackTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
-    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+    assertThat(Lists.transform(recentItem.value, item -> item.mediaId))
         .containsExactly("mediaItem_2");
     assertThat(children.value).isEqualTo(mediaItems);
     assertThat(isForPlaybackParameter.get()).isFalse();
@@ -504,7 +504,7 @@ public class MediaLibrarySessionCallbackTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
-    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+    assertThat(Lists.transform(recentItem.value, item -> item.mediaId))
         .containsExactly("mediaItem_3");
   }
 
@@ -545,7 +545,7 @@ public class MediaLibrarySessionCallbackTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
-    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+    assertThat(Lists.transform(recentItem.value, item -> item.mediaId))
         .containsExactly("mediaItem_1");
   }
 
@@ -594,7 +594,7 @@ public class MediaLibrarySessionCallbackTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(recentItem.resultCode).isEqualTo(LibraryResult.RESULT_SUCCESS);
-    assertThat(Lists.transform(recentItem.value, (item) -> item.mediaId))
+    assertThat(Lists.transform(recentItem.value, item -> item.mediaId))
         .containsExactly("androidx.media3.session.recent.item");
     assertThat(children.value).isEqualTo(mediaItems);
   }

@@ -56,15 +56,14 @@ public class ConditionVariableTest {
     AtomicBoolean blockReturned = new AtomicBoolean();
     AtomicBoolean blockWasInterrupted = new AtomicBoolean();
     Thread blockingThread =
-        new Thread(
-            () -> {
-              try {
-                conditionVariable.block(/* timeoutMs= */ Long.MAX_VALUE);
-                blockReturned.set(true);
-              } catch (InterruptedException e) {
-                blockWasInterrupted.set(true);
-              }
-            });
+        new Thread(() -> {
+          try {
+            conditionVariable.block(/* timeoutMs= */ Long.MAX_VALUE);
+            blockReturned.set(true);
+          } catch (InterruptedException e) {
+            blockWasInterrupted.set(true);
+          }
+        });
 
     blockingThread.start();
     Thread.sleep(500);
@@ -83,15 +82,14 @@ public class ConditionVariableTest {
     AtomicBoolean blockReturned = new AtomicBoolean();
     AtomicBoolean blockWasInterrupted = new AtomicBoolean();
     Thread blockingThread =
-        new Thread(
-            () -> {
-              try {
-                conditionVariable.block();
-                blockReturned.set(true);
-              } catch (InterruptedException e) {
-                blockWasInterrupted.set(true);
-              }
-            });
+        new Thread(() -> {
+          try {
+            conditionVariable.block();
+            blockReturned.set(true);
+          } catch (InterruptedException e) {
+            blockWasInterrupted.set(true);
+          }
+        });
 
     blockingThread.start();
     Thread.sleep(500);
@@ -110,15 +108,14 @@ public class ConditionVariableTest {
     AtomicBoolean blockReturned = new AtomicBoolean();
     AtomicBoolean blockWasInterrupted = new AtomicBoolean();
     Thread blockingThread =
-        new Thread(
-            () -> {
-              try {
-                conditionVariable.block();
-                blockReturned.set(true);
-              } catch (InterruptedException e) {
-                blockWasInterrupted.set(true);
-              }
-            });
+        new Thread(() -> {
+          try {
+            conditionVariable.block();
+            blockReturned.set(true);
+          } catch (InterruptedException e) {
+            blockWasInterrupted.set(true);
+          }
+        });
 
     blockingThread.start();
     Thread.sleep(500);
@@ -138,12 +135,11 @@ public class ConditionVariableTest {
     AtomicBoolean blockReturned = new AtomicBoolean();
     AtomicBoolean interruptedStatusSet = new AtomicBoolean();
     Thread blockingThread =
-        new Thread(
-            () -> {
-              conditionVariable.blockUninterruptible();
-              interruptedStatusSet.set(Thread.currentThread().isInterrupted());
-              blockReturned.set(true);
-            });
+        new Thread(() -> {
+          conditionVariable.blockUninterruptible();
+          interruptedStatusSet.set(Thread.currentThread().isInterrupted());
+          blockReturned.set(true);
+        });
 
     blockingThread.start();
     Thread.sleep(500);
@@ -187,12 +183,11 @@ public class ConditionVariableTest {
     AtomicBoolean blockReturned = new AtomicBoolean();
     AtomicBoolean interruptedStatusSet = new AtomicBoolean();
     Thread blockingThread =
-        new Thread(
-            () -> {
-              conditionVariable.blockUninterruptible(/* timeoutMs= */ Long.MAX_VALUE);
-              interruptedStatusSet.set(Thread.currentThread().isInterrupted());
-              blockReturned.set(true);
-            });
+        new Thread(() -> {
+          conditionVariable.blockUninterruptible(/* timeoutMs= */ Long.MAX_VALUE);
+          interruptedStatusSet.set(Thread.currentThread().isInterrupted());
+          blockReturned.set(true);
+        });
 
     blockingThread.start();
     Thread.sleep(500);

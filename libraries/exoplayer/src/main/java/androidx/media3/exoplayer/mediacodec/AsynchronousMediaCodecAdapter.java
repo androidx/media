@@ -252,11 +252,10 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public <E extends Exception> void useBuffer(ThrowingRunnable<E> runnable) throws E {
-    asynchronousMediaCodecCallback.useBuffer(
-        () -> {
-          bufferEnqueuer.maybeThrowException();
-          runnable.run();
-        });
+    asynchronousMediaCodecCallback.useBuffer(() -> {
+      bufferEnqueuer.maybeThrowException();
+      runnable.run();
+    });
   }
 
   @Override

@@ -409,7 +409,7 @@ import org.jspecify.annotations.Nullable;
         hardwareBuffer,
         image.getInternalImage(),
         playbackExecutor,
-        /* releaseCallback= */ (releaseFence) -> releaseFrame(image, hardwareBuffer, releaseFence),
+        /* releaseCallback= */ releaseFence -> releaseFrame(image, hardwareBuffer, releaseFence),
         presentationTimeUs,
         sequenceOffsetUs,
         indexOfItem,
@@ -440,7 +440,7 @@ import org.jspecify.annotations.Nullable;
           hardwareBuffer,
           bitmap,
           playbackExecutor,
-          /* releaseCallback= */ (releaseFence) -> {
+          /* releaseCallback= */ releaseFence -> {
             // Do not manually release the hardware buffer backing the bitmap, it will be reused
             // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
             releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
@@ -458,7 +458,7 @@ import org.jspecify.annotations.Nullable;
         checkNotNull(retainedHandle.getHardwareBuffer()),
         bitmap,
         playbackExecutor,
-        /* releaseCallback= */ (releaseFence) -> {
+        /* releaseCallback= */ releaseFence -> {
           retainedHandle.release(releaseFence);
           releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, /* releaseFence= */ null);
         },

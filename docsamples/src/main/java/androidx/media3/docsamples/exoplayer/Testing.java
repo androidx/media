@@ -97,12 +97,11 @@ public final class Testing {
     @After
     public void tearDown() {
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                if (player != null) {
-                  player.release();
-                }
-              });
+          .runOnMainSync(() -> {
+            if (player != null) {
+              player.release();
+            }
+          });
     }
 
     @Test
@@ -111,17 +110,16 @@ public final class Testing {
       SettableFuture<Void> positionPassed = SettableFuture.create();
       SettableFuture<Void> playbackEnded = SettableFuture.create();
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                Context context = ApplicationProvider.getApplicationContext();
-                player = new ExoPlayer.Builder(context).build();
-                player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-                playbackStarted.setFuture(futureWhen(player).isPlaying(true));
-                positionPassed.setFuture(futureWhen(player).passesContentPosition(500));
-                playbackEnded.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-                player.prepare();
-                player.play();
-              });
+          .runOnMainSync(() -> {
+            Context context = ApplicationProvider.getApplicationContext();
+            player = new ExoPlayer.Builder(context).build();
+            player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+            playbackStarted.setFuture(futureWhen(player).isPlaying(true));
+            positionPassed.setFuture(futureWhen(player).passesContentPosition(500));
+            playbackEnded.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+            player.prepare();
+            player.play();
+          });
 
       playbackStarted.get();
       positionPassed.get();
@@ -153,34 +151,32 @@ public final class Testing {
 
     try {
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                // Register transient event fences (with a video surface attached) before prepare().
-                firstFrameFuture.setFuture(futureWhen(player).rendersFirstFrame());
+          .runOnMainSync(() -> {
+            // Register transient event fences (with a video surface attached) before prepare().
+            firstFrameFuture.setFuture(futureWhen(player).rendersFirstFrame());
 
-                // Supervise a custom ListenableFuture so player errors fail fast.
-                player.addListener(metadataListener);
-                supervisedTitleFuture.setFuture(
-                    futureWhen(player).withSupervision(metadataTitleFuture));
+            // Supervise a custom ListenableFuture so player errors fail fast.
+            player.addListener(metadataListener);
+            supervisedTitleFuture.setFuture(
+                futureWhen(player).withSupervision(metadataTitleFuture));
 
-                player.setMediaItem(mediaItem);
-                if (player.getMediaMetadata().title != null) {
-                  metadataTitleFuture.set(player.getMediaMetadata().title);
-                }
-                player.prepare();
-                player.play();
-              });
+            player.setMediaItem(mediaItem);
+            if (player.getMediaMetadata().title != null) {
+              metadataTitleFuture.set(player.getMediaMetadata().title);
+            }
+            player.prepare();
+            player.play();
+          });
 
       firstFrameFuture.get();
       CharSequence title = supervisedTitleFuture.get();
     } finally {
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                player.removeListener(metadataListener);
-                firstFrameFuture.cancel(/* mayInterruptIfRunning= */ true);
-                supervisedTitleFuture.cancel(/* mayInterruptIfRunning= */ true);
-              });
+          .runOnMainSync(() -> {
+            player.removeListener(metadataListener);
+            firstFrameFuture.cancel(/* mayInterruptIfRunning= */ true);
+            supervisedTitleFuture.cancel(/* mayInterruptIfRunning= */ true);
+          });
     }
     // [END instrumentation_custom_supervision]
   }

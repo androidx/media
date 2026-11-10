@@ -54,10 +54,9 @@ public final class FrameProcessorUtilsTest {
         assertThrows(
             VideoFrameProcessingException.class,
             () ->
-                runAllAndAccumulateExceptions(
-                    () -> {
-                      throw exception;
-                    }));
+                runAllAndAccumulateExceptions(() -> {
+                  throw exception;
+                }));
 
     assertThat(thrown).hasCauseThat().isEqualTo(exception);
   }

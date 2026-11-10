@@ -129,21 +129,20 @@ public final class DecodeOneFrameUtil {
           }
         };
 
-    handler.post(
-        () -> {
-          try {
-            exoPlayer.setVideoSurface(surface);
-            exoPlayer.addAnalyticsListener(analyticsListener);
-            exoPlayer.setMediaItem(mediaItem);
-            exoPlayer.setPlayWhenReady(false);
-            exoPlayer.prepare();
-            // Catch all exceptions to report. Exceptions thrown here and not caught will not
-            // propagate.
-          } catch (Exception e) {
-            unexpectedExceptionReference.set(e);
-            firstFrameRenderedOrError.open();
-          }
-        });
+    handler.post(() -> {
+      try {
+        exoPlayer.setVideoSurface(surface);
+        exoPlayer.addAnalyticsListener(analyticsListener);
+        exoPlayer.setMediaItem(mediaItem);
+        exoPlayer.setPlayWhenReady(false);
+        exoPlayer.prepare();
+        // Catch all exceptions to report. Exceptions thrown here and not caught will not
+        // propagate.
+      } catch (Exception e) {
+        unexpectedExceptionReference.set(e);
+        firstFrameRenderedOrError.open();
+      }
+    });
 
     if (!firstFrameRenderedOrError.block(TIMEOUT_MS)) {
       throw new TimeoutException(

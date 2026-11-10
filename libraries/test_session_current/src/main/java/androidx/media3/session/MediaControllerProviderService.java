@@ -137,29 +137,28 @@ public class MediaControllerProviderService extends Service {
               : 0;
       connectionHints.remove(CONNECTION_HINT_KEY_MAX_COMMANDS_FOR_MEDIA_ITEMS);
       ListenableFuture<? extends MediaController> controllerFuture =
-          runOnHandler(
-              () -> {
-                Context context = MediaControllerProviderService.this;
-                if (isBrowser) {
-                  MediaBrowser.Builder builder = new MediaBrowser.Builder(context, token);
-                  if (connectionHints != null) {
-                    builder.setConnectionHints(connectionHints);
-                  }
-                  if (maxCommandsForMediaItems >= 0) {
-                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
-                  }
-                  return builder.buildAsync();
-                } else {
-                  MediaController.Builder builder = new MediaController.Builder(context, token);
-                  if (connectionHints != null) {
-                    builder.setConnectionHints(connectionHints);
-                  }
-                  if (maxCommandsForMediaItems >= 0) {
-                    builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
-                  }
-                  return builder.buildAsync();
-                }
-              });
+          runOnHandler(() -> {
+            Context context = MediaControllerProviderService.this;
+            if (isBrowser) {
+              MediaBrowser.Builder builder = new MediaBrowser.Builder(context, token);
+              if (connectionHints != null) {
+                builder.setConnectionHints(connectionHints);
+              }
+              if (maxCommandsForMediaItems >= 0) {
+                builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
+              }
+              return builder.buildAsync();
+            } else {
+              MediaController.Builder builder = new MediaController.Builder(context, token);
+              if (connectionHints != null) {
+                builder.setConnectionHints(connectionHints);
+              }
+              if (maxCommandsForMediaItems >= 0) {
+                builder.setMaxCommandsForMediaItems(maxCommandsForMediaItems);
+              }
+              return builder.buildAsync();
+            }
+          });
 
       if (!waitForConnection) {
         untrackedControllerIds.add(controllerId);
@@ -186,13 +185,12 @@ public class MediaControllerProviderService extends Service {
 
     @Override
     public Bundle getConnectedSessionToken(String controllerId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            return controller.getConnectedToken() == null
-                ? null
-                : controller.getConnectedToken().toBundle();
-          });
+      return runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        return controller.getConnectedToken() == null
+            ? null
+            : controller.getConnectedToken().toBundle();
+      });
     }
 
     @Override
@@ -202,95 +200,85 @@ public class MediaControllerProviderService extends Service {
 
     @Override
     public void play(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.play();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.play();
+      });
     }
 
     @Override
     public void pause(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.pause();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.pause();
+      });
     }
 
     @Override
     public void setPlayWhenReady(String controllerId, boolean playWhenReady)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setPlayWhenReady(playWhenReady);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setPlayWhenReady(playWhenReady);
+      });
     }
 
     @Override
     public void prepare(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.prepare();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.prepare();
+      });
     }
 
     @Override
     public void seekToDefaultPosition(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekToDefaultPosition();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekToDefaultPosition();
+      });
     }
 
     @Override
     public void seekToDefaultPositionWithMediaItemIndex(String controllerId, int mediaItemIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekToDefaultPosition(mediaItemIndex);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekToDefaultPosition(mediaItemIndex);
+      });
     }
 
     @Override
     public void seekTo(String controllerId, long positionMs) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekTo(positionMs);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekTo(positionMs);
+      });
     }
 
     @Override
     public void seekToWithMediaItemIndex(String controllerId, int mediaItemIndex, long positionMs)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekTo(mediaItemIndex, positionMs);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekTo(mediaItemIndex, positionMs);
+      });
     }
 
     @Override
     public void seekBack(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekBack();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekBack();
+      });
     }
 
     @Override
     public void seekForward(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekForward();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekForward();
+      });
     }
 
     @Override
@@ -298,339 +286,309 @@ public class MediaControllerProviderService extends Service {
         throws RemoteException {
       PlaybackParameters playbackParameters =
           PlaybackParameters.fromBundle(playbackParametersBundle);
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setPlaybackParameters(playbackParameters);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setPlaybackParameters(playbackParameters);
+      });
     }
 
     @Override
     public void setPlaybackSpeed(String controllerId, float speed) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setPlaybackSpeed(speed);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setPlaybackSpeed(speed);
+      });
     }
 
     @Override
     public void setMediaItem(String controllerId, Bundle mediaItemBundle) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItem(
-                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItem(
+            MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
+      });
     }
 
     @Override
     public void setMediaItemWithStartPosition(
         String controllerId, Bundle mediaItemBundle, long startPositionMs) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItem(
-                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION),
-                startPositionMs);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItem(
+            MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION),
+            startPositionMs);
+      });
     }
 
     @Override
     public void setMediaItemWithResetPosition(
         String controllerId, Bundle mediaItemBundle, boolean resetPosition) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItem(
-                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION),
-                resetPosition);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItem(
+            MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION),
+            resetPosition);
+      });
     }
 
     @Override
     public void setMediaItems(String controllerId, List<Bundle> mediaItemBundles)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    mediaItemBundles));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItems(
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                mediaItemBundles));
+      });
     }
 
     @Override
     public void setMediaItemsWithResetPosition(
         String controllerId, List<Bundle> mediaItemBundles, boolean resetPosition)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    mediaItemBundles),
-                resetPosition);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItems(
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                mediaItemBundles),
+            resetPosition);
+      });
     }
 
     @Override
     public void setMediaItemsWithStartIndex(
         String controllerId, List<Bundle> mediaItemBundles, int startIndex, long startPositionMs)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    mediaItemBundles),
-                startIndex,
-                startPositionMs);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItems(
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                mediaItemBundles),
+            startIndex,
+            startPositionMs);
+      });
     }
 
     @Override
     public void createAndSetFakeMediaItems(String controllerId, int size) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            List<MediaItem> itemList = new ArrayList<>();
-            for (int i = 0; i < size; i++) {
-              // Make media ID of each item same with its index.
-              String mediaId = TestUtils.getMediaIdInFakeTimeline(i);
-              itemList.add(MediaTestUtils.createMediaItem(mediaId, /* buildWithUri= */ true));
-            }
-            controller.setMediaItems(itemList);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        List<MediaItem> itemList = new ArrayList<>();
+        for (int i = 0; i < size; i++) {
+          // Make media ID of each item same with its index.
+          String mediaId = TestUtils.getMediaIdInFakeTimeline(i);
+          itemList.add(MediaTestUtils.createMediaItem(mediaId, /* buildWithUri= */ true));
+        }
+        controller.setMediaItems(itemList);
+      });
     }
 
     @Override
     public void setPlaylistMetadata(String controllerId, Bundle playlistMetadataBundle)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setPlaylistMetadata(
-                MediaMetadata.fromBundle(
-                    playlistMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setPlaylistMetadata(
+            MediaMetadata.fromBundle(playlistMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION));
+      });
     }
 
     @Override
     public void addMediaItem(String controllerId, Bundle mediaItemBundle) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.addMediaItem(
-                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.addMediaItem(
+            MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
+      });
     }
 
     @Override
     public void addMediaItemWithIndex(String controllerId, int index, Bundle mediaItemBundle)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.addMediaItem(
-                index, MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.addMediaItem(
+            index, MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
+      });
     }
 
     @Override
     public void addMediaItems(String controllerId, List<Bundle> mediaItemBundles)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.addMediaItems(
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    mediaItemBundles));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.addMediaItems(
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                mediaItemBundles));
+      });
     }
 
     @Override
     public void addMediaItemsWithIndex(
         String controllerId, int index, List<Bundle> mediaItemBundles) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.addMediaItems(
-                index,
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    mediaItemBundles));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.addMediaItems(
+            index,
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                mediaItemBundles));
+      });
     }
 
     @Override
     public void removeMediaItem(String controllerId, int index) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.removeMediaItem(index);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.removeMediaItem(index);
+      });
     }
 
     @Override
     public void removeMediaItems(String controllerId, int fromIndex, int toIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.removeMediaItems(fromIndex, toIndex);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.removeMediaItems(fromIndex, toIndex);
+      });
     }
 
     @Override
     public void clearMediaItems(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.clearMediaItems();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.clearMediaItems();
+      });
     }
 
     @Override
     public void moveMediaItem(String controllerId, int currentIndex, int newIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.moveMediaItem(currentIndex, newIndex);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.moveMediaItem(currentIndex, newIndex);
+      });
     }
 
     @Override
     public void moveMediaItems(String controllerId, int fromIndex, int toIndex, int newIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.moveMediaItems(fromIndex, toIndex, newIndex);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.moveMediaItems(fromIndex, toIndex, newIndex);
+      });
     }
 
     @Override
     public void replaceMediaItem(String controllerId, int index, Bundle mediaItem)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.replaceMediaItem(
-                index, MediaItem.fromBundle(mediaItem, MediaLibraryInfo.INTERFACE_VERSION));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.replaceMediaItem(
+            index, MediaItem.fromBundle(mediaItem, MediaLibraryInfo.INTERFACE_VERSION));
+      });
     }
 
     @Override
     public void replaceMediaItems(
         String controllerId, int fromIndex, int toIndex, List<Bundle> mediaItems)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.replaceMediaItems(
-                fromIndex,
-                toIndex,
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    mediaItems));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.replaceMediaItems(
+            fromIndex,
+            toIndex,
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                mediaItems));
+      });
     }
 
     @Override
     public void seekToPreviousMediaItem(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekToPreviousMediaItem();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekToPreviousMediaItem();
+      });
     }
 
     @Override
     public void seekToNextMediaItem(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekToNextMediaItem();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekToNextMediaItem();
+      });
     }
 
     @Override
     public void seekToPrevious(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekToPrevious();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekToPrevious();
+      });
     }
 
     @Override
     public void seekToNext(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.seekToNext();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.seekToNext();
+      });
     }
 
     @Override
     public void setShuffleModeEnabled(String controllerId, boolean shuffleModeEnabled)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setShuffleModeEnabled(shuffleModeEnabled);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setShuffleModeEnabled(shuffleModeEnabled);
+      });
     }
 
     @Override
     public void setRepeatMode(String controllerId, int repeatMode) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setRepeatMode(repeatMode);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setRepeatMode(repeatMode);
+      });
     }
 
     @Override
     public void setVolumeTo(String controllerId, int value, int flags) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setDeviceVolume(value, flags);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setDeviceVolume(value, flags);
+      });
     }
 
     @Override
     public void adjustVolume(String controllerId, int direction, int flags) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            switch (direction) {
-              case AudioManager.ADJUST_RAISE:
-                controller.increaseDeviceVolume(flags);
-                break;
-              case AudioManager.ADJUST_LOWER:
-                controller.decreaseDeviceVolume(flags);
-                break;
-              case AudioManager.ADJUST_MUTE:
-                controller.setDeviceMuted(true, flags);
-                break;
-              case AudioManager.ADJUST_UNMUTE:
-                controller.setDeviceMuted(false, flags);
-                break;
-              case AudioManager.ADJUST_TOGGLE_MUTE:
-                controller.setDeviceMuted(controller.isDeviceMuted(), flags);
-                break;
-              default:
-                throw new IllegalArgumentException("Unknown direction: " + direction);
-            }
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        switch (direction) {
+          case AudioManager.ADJUST_RAISE:
+            controller.increaseDeviceVolume(flags);
+            break;
+          case AudioManager.ADJUST_LOWER:
+            controller.decreaseDeviceVolume(flags);
+            break;
+          case AudioManager.ADJUST_MUTE:
+            controller.setDeviceMuted(true, flags);
+            break;
+          case AudioManager.ADJUST_UNMUTE:
+            controller.setDeviceMuted(false, flags);
+            break;
+          case AudioManager.ADJUST_TOGGLE_MUTE:
+            controller.setDeviceMuted(controller.isDeviceMuted(), flags);
+            break;
+          default:
+            throw new IllegalArgumentException("Unknown direction: " + direction);
+        }
+      });
     }
 
     @Override
@@ -665,135 +623,122 @@ public class MediaControllerProviderService extends Service {
 
     @Override
     public void setVolume(String controllerId, float volume) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setVolume(volume);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setVolume(volume);
+      });
     }
 
     @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void setDeviceVolume(String controllerId, int volume) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setDeviceVolume(volume);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setDeviceVolume(volume);
+      });
     }
 
     @Override
     public void setDeviceVolumeWithFlags(String controllerId, int volume, int flags)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setDeviceVolume(volume, flags);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setDeviceVolume(volume, flags);
+      });
     }
 
     @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void increaseDeviceVolume(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.increaseDeviceVolume();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.increaseDeviceVolume();
+      });
     }
 
     @Override
     public void increaseDeviceVolumeWithFlags(String controllerId, int flags)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.increaseDeviceVolume(flags);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.increaseDeviceVolume(flags);
+      });
     }
 
     @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void decreaseDeviceVolume(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.decreaseDeviceVolume();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.decreaseDeviceVolume();
+      });
     }
 
     @Override
     public void decreaseDeviceVolumeWithFlags(String controllerId, int flags)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.decreaseDeviceVolume(flags);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.decreaseDeviceVolume(flags);
+      });
     }
 
     @SuppressWarnings("deprecation") // Forwarding deprecated method call
     @Override
     public void setDeviceMuted(String controllerId, boolean muted) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setDeviceMuted(muted);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setDeviceMuted(muted);
+      });
     }
 
     @Override
     public void setDeviceMutedWithFlags(String controllerId, boolean muted, int flags)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setDeviceMuted(muted, flags);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setDeviceMuted(muted, flags);
+      });
     }
 
     @Override
     public void setAudioAttributes(
         String controllerId, Bundle audioAttributes, boolean handleAudioFocus)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setAudioAttributes(
-                AudioAttributes.fromBundle(audioAttributes), handleAudioFocus);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setAudioAttributes(
+            AudioAttributes.fromBundle(audioAttributes), handleAudioFocus);
+      });
     }
 
     @Override
     public void release(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            if (controller != null) {
-              controller.release();
-            } else {
-              checkState(untrackedControllerIds.remove(controllerId));
-            }
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        if (controller != null) {
+          controller.release();
+        } else {
+          checkState(untrackedControllerIds.remove(controllerId));
+        }
+      });
     }
 
     @Override
     public void stop(String controllerId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.stop();
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.stop();
+      });
     }
 
     @Override
     public void setTrackSelectionParameters(String controllerId, Bundle parameters)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setTrackSelectionParameters(TrackSelectionParameters.fromBundle(parameters));
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setTrackSelectionParameters(TrackSelectionParameters.fromBundle(parameters));
+      });
     }
 
     @Override
@@ -803,62 +748,57 @@ public class MediaControllerProviderService extends Service {
         List<Bundle> addedMediaItems,
         int seekIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    initialMediaItems));
-            controller.prepare();
-            controller.play();
-            controller.addMediaItems(
-                BundleCollectionUtil.fromBundleList(
-                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
-                    addedMediaItems));
-            controller.seekTo(seekIndex, /* positionMs= */ 0);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        controller.setMediaItems(
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                initialMediaItems));
+        controller.prepare();
+        controller.play();
+        controller.addMediaItems(
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                addedMediaItems));
+        controller.seekTo(seekIndex, /* positionMs= */ 0);
+      });
     }
 
     @Override
     public void executeCommandButtonAction(String controllerId, int buttonIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            CommandButton button = controller.getMediaButtonPreferences().get(buttonIndex);
-            button.executeAction(controller);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        CommandButton button = controller.getMediaButtonPreferences().get(buttonIndex);
+        button.executeAction(controller);
+      });
     }
 
     @Override
     public void executeCustomLayoutAction(String controllerId, int buttonIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            CommandButton button = controller.getCustomLayout().get(buttonIndex);
-            ListenableFuture<SessionResult> unused =
-                controller.sendCustomCommand(button.sessionCommand, button.extras);
-          });
+      runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        CommandButton button = controller.getCustomLayout().get(buttonIndex);
+        ListenableFuture<SessionResult> unused =
+            controller.sendCustomCommand(button.sessionCommand, button.extras);
+      });
     }
 
     @Override
     public int getTimelineWindowCount(String controllerId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            return controller.getCurrentTimeline().getWindowCount();
-          });
+      return runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        return controller.getCurrentTimeline().getWindowCount();
+      });
     }
 
     @Override
     public boolean hasQueueCommandsSupport(String controllerId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaController controller = mediaControllerMap.get(controllerId);
-            return controller.getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS);
-          });
+      return runOnHandler(() -> {
+        MediaController controller = mediaControllerMap.get(controllerId);
+        return controller.getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS);
+      });
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -869,12 +809,11 @@ public class MediaControllerProviderService extends Service {
     public Bundle getLibraryRoot(String controllerId, Bundle libraryParams) throws RemoteException {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<MediaItem>> future =
-          runOnHandler(
-              () ->
-                  browser.getLibraryRoot(
-                      libraryParams == null
-                          ? null
-                          : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
+          runOnHandler(() ->
+              browser.getLibraryRoot(
+                  libraryParams == null
+                      ? null
+                      : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<MediaItem> result = getFutureResult(future);
       return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
@@ -884,13 +823,12 @@ public class MediaControllerProviderService extends Service {
         throws RemoteException {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<Void>> future =
-          runOnHandler(
-              () ->
-                  browser.subscribe(
-                      parentId,
-                      libraryParams == null
-                          ? null
-                          : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
+          runOnHandler(() ->
+              browser.subscribe(
+                  parentId,
+                  libraryParams == null
+                      ? null
+                      : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<Void> result = getFutureResult(future);
       return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
@@ -909,15 +847,14 @@ public class MediaControllerProviderService extends Service {
         throws RemoteException {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<ImmutableList<MediaItem>>> future =
-          runOnHandler(
-              () ->
-                  browser.getChildren(
-                      parentId,
-                      page,
-                      pageSize,
-                      libraryParams == null
-                          ? null
-                          : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
+          runOnHandler(() ->
+              browser.getChildren(
+                  parentId,
+                  page,
+                  pageSize,
+                  libraryParams == null
+                      ? null
+                      : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<ImmutableList<MediaItem>> result = getFutureResult(future);
       return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
@@ -974,13 +911,12 @@ public class MediaControllerProviderService extends Service {
         throws RemoteException {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<Void>> future =
-          runOnHandler(
-              () ->
-                  browser.search(
-                      query,
-                      libraryParams == null
-                          ? null
-                          : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
+          runOnHandler(() ->
+              browser.search(
+                  query,
+                  libraryParams == null
+                      ? null
+                      : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<Void> result = getFutureResult(future);
       return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
@@ -991,15 +927,14 @@ public class MediaControllerProviderService extends Service {
         throws RemoteException {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<ImmutableList<MediaItem>>> future =
-          runOnHandler(
-              () ->
-                  browser.getSearchResult(
-                      query,
-                      page,
-                      pageSize,
-                      libraryParams == null
-                          ? null
-                          : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
+          runOnHandler(() ->
+              browser.getSearchResult(
+                  query,
+                  page,
+                  pageSize,
+                  libraryParams == null
+                      ? null
+                      : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<ImmutableList<MediaItem>> result = getFutureResult(future);
       return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }

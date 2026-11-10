@@ -329,7 +329,6 @@ public final class FragmentedMp4ExtractorParameterizedTest {
       int peekLimit,
       ExtractorAsserts.AssertionConfig assertionConfig)
       throws IOException {
-    ;
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(closedCaptionFormats, subtitlesParsedDuringExtraction),
         file,

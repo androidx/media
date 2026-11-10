@@ -732,13 +732,12 @@ public final class ImagePlanesToGlTextureConverterTest {
   private GlTextureFrame convert(ImagePlanesFrame frame, FrameProcessor.Listener listener)
       throws Exception {
     return glExecutorService
-        .submit(
-            () ->
-                converter.convert(
-                    frame,
-                    /* glExecutor= */ glExecutorService,
-                    /* listenerExecutor= */ directExecutor(),
-                    listener))
+        .submit(() ->
+            converter.convert(
+                frame,
+                /* glExecutor= */ glExecutorService,
+                /* listenerExecutor= */ directExecutor(),
+                listener))
         .get(TEST_TIMEOUT_MS, MILLISECONDS);
   }
 

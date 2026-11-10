@@ -127,22 +127,21 @@ import org.jspecify.annotations.Nullable;
 
     ValueAnimator fadeOutAnimator = ValueAnimator.ofFloat(1.0f, 0.0f);
     fadeOutAnimator.setInterpolator(new LinearInterpolator());
-    fadeOutAnimator.addUpdateListener(
-        animation -> {
-          float animatedValue = (float) animation.getAnimatedValue();
-          if (controlsBackground != null) {
-            controlsBackground.setAlpha(animatedValue);
-          }
-          if (topControls != null) {
-            topControls.setAlpha(animatedValue);
-          }
-          if (centerControls != null) {
-            centerControls.setAlpha(animatedValue);
-          }
-          if (minimalControls != null) {
-            minimalControls.setAlpha(animatedValue);
-          }
-        });
+    fadeOutAnimator.addUpdateListener(animation -> {
+      float animatedValue = (float) animation.getAnimatedValue();
+      if (controlsBackground != null) {
+        controlsBackground.setAlpha(animatedValue);
+      }
+      if (topControls != null) {
+        topControls.setAlpha(animatedValue);
+      }
+      if (centerControls != null) {
+        centerControls.setAlpha(animatedValue);
+      }
+      if (minimalControls != null) {
+        minimalControls.setAlpha(animatedValue);
+      }
+    });
     fadeOutAnimator.addListener(
         new AnimatorListenerAdapter() {
           @Override
@@ -171,22 +170,21 @@ import org.jspecify.annotations.Nullable;
 
     ValueAnimator fadeInAnimator = ValueAnimator.ofFloat(0.0f, 1.0f);
     fadeInAnimator.setInterpolator(new LinearInterpolator());
-    fadeInAnimator.addUpdateListener(
-        animation -> {
-          float animatedValue = (float) animation.getAnimatedValue();
-          if (controlsBackground != null) {
-            controlsBackground.setAlpha(animatedValue);
-          }
-          if (topControls != null) {
-            topControls.setAlpha(animatedValue);
-          }
-          if (centerControls != null) {
-            centerControls.setAlpha(animatedValue);
-          }
-          if (minimalControls != null) {
-            minimalControls.setAlpha(animatedValue);
-          }
-        });
+    fadeInAnimator.addUpdateListener(animation -> {
+      float animatedValue = (float) animation.getAnimatedValue();
+      if (controlsBackground != null) {
+        controlsBackground.setAlpha(animatedValue);
+      }
+      if (topControls != null) {
+        topControls.setAlpha(animatedValue);
+      }
+      if (centerControls != null) {
+        centerControls.setAlpha(animatedValue);
+      }
+      if (minimalControls != null) {
+        minimalControls.setAlpha(animatedValue);
+      }
+    });
     fadeInAnimator.addListener(
         new AnimatorListenerAdapter() {
           @Override

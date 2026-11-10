@@ -352,11 +352,9 @@ public final class CacheDataSourceTest {
     // Insert an action just before the end of the data to fail the test if reading from upstream
     // reaches end of the data.
     fakeData
-        .appendReadAction(
-            () -> {
-              throw new AssertionError(
-                  "Read from upstream shouldn't reach to the end of the data.");
-            })
+        .appendReadAction(() -> {
+          throw new AssertionError("Read from upstream shouldn't reach to the end of the data.");
+        })
         .appendReadData(1);
     // Create cache read-only CacheDataSource.
     CacheDataSource cacheDataSource =

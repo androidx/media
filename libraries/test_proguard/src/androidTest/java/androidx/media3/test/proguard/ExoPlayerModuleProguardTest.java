@@ -128,14 +128,13 @@ public final class ExoPlayerModuleProguardTest {
   @Test
   public void setVideoEffects_keepsDefaultVideoFrameProcessorClasses() {
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                ExoPlayerModuleProguard.setVideoEffectsAndCheckReflectiveAccess(
-                    getApplicationContext());
-              } catch (Exception e) {
-                throw new RuntimeException(e);
-              }
-            });
+        .runOnMainSync(() -> {
+          try {
+            ExoPlayerModuleProguard.setVideoEffectsAndCheckReflectiveAccess(
+                getApplicationContext());
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 }

@@ -588,29 +588,27 @@ public class MediaSessionProviderService extends Service {
         default: // fall out
       }
 
-      runOnHandler(
-          () -> {
-            MediaSession session = builder.build();
-            session.setSessionPositionUpdateDelayMs(0L);
-            if (useFakeMediaNotificationManagerController) {
-              Bundle connectionHints = new Bundle();
-              connectionHints.putBoolean(
-                  MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
-              connectionHints.putString(KEY_CONTROLLER, NOTIFICATION_CONTROLLER_KEY);
-              ListenableFuture<MediaController> unusedFuture =
-                  new MediaController.Builder(getApplicationContext(), session.getToken())
-                      .setListener(
-                          new MediaController.Listener() {
-                            @Override
-                            public void onDisconnected(MediaController controller) {
-                              controller.release();
-                            }
-                          })
-                      .setConnectionHints(connectionHints)
-                      .buildAsync();
-            }
-            sessionMap.put(sessionId, session);
-          });
+      runOnHandler(() -> {
+        MediaSession session = builder.build();
+        session.setSessionPositionUpdateDelayMs(0L);
+        if (useFakeMediaNotificationManagerController) {
+          Bundle connectionHints = new Bundle();
+          connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
+          connectionHints.putString(KEY_CONTROLLER, NOTIFICATION_CONTROLLER_KEY);
+          ListenableFuture<MediaController> unusedFuture =
+              new MediaController.Builder(getApplicationContext(), session.getToken())
+                  .setListener(
+                      new MediaController.Listener() {
+                        @Override
+                        public void onDisconnected(MediaController controller) {
+                          controller.release();
+                        }
+                      })
+                  .setConnectionHints(connectionHints)
+                  .buildAsync();
+        }
+        sessionMap.put(sessionId, session);
+      });
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -619,40 +617,36 @@ public class MediaSessionProviderService extends Service {
 
     @Override
     public Bundle getToken(String sessionId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            return session.getToken().toBundle();
-          });
+      return runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        return session.getToken().toBundle();
+      });
     }
 
     @Override
     public Bundle getCompatToken(String sessionId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            return MediaSessionCompat.Token.fromToken(session.getPlatformToken()).toBundle();
-          });
+      return runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        return MediaSessionCompat.Token.fromToken(session.getPlatformToken()).toBundle();
+      });
     }
 
     @Override
     public void setSessionPositionUpdateDelayMs(String sessionId, long updateDelayMs)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            session.setSessionPositionUpdateDelayMs(updateDelayMs);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        session.setSessionPositionUpdateDelayMs(updateDelayMs);
+      });
     }
 
     @Override
     public void setPlayer(String sessionId, Bundle config) throws RemoteException {
-      runOnHandler(
-          () -> {
-            config.setClassLoader(MediaSession.class.getClassLoader());
-            MediaSession session = sessionMap.get(sessionId);
-            session.setPlayer(createMockPlayer(config));
-          });
+      runOnHandler(() -> {
+        config.setClassLoader(MediaSession.class.getClassLoader());
+        MediaSession session = sessionMap.get(sessionId);
+        session.setPlayer(createMockPlayer(config));
+      });
     }
 
     private Player createMockPlayer(Bundle config) {
@@ -757,39 +751,34 @@ public class MediaSessionProviderService extends Service {
     @Override
     public void broadcastCustomCommand(String sessionId, Bundle command, Bundle args)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            session.broadcastCustomCommand(SessionCommand.fromBundle(command), args);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        session.broadcastCustomCommand(SessionCommand.fromBundle(command), args);
+      });
     }
 
     @Override
     @SuppressWarnings("FutureReturnValueIgnored")
     public void sendCustomCommand(String sessionId, Bundle command, Bundle args)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            List<ControllerInfo> controllerInfos = MediaTestUtils.getTestControllerInfos(session);
-            if (controllerInfos.isEmpty()) {
-              Log.e(
-                  TAG,
-                  "No connected controllers to receive custom command. sessionId=" + sessionId);
-            }
-            for (ControllerInfo info : controllerInfos) {
-              session.sendCustomCommand(info, SessionCommand.fromBundle(command), args);
-            }
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        List<ControllerInfo> controllerInfos = MediaTestUtils.getTestControllerInfos(session);
+        if (controllerInfos.isEmpty()) {
+          Log.e(TAG, "No connected controllers to receive custom command. sessionId=" + sessionId);
+        }
+        for (ControllerInfo info : controllerInfos) {
+          session.sendCustomCommand(info, SessionCommand.fromBundle(command), args);
+        }
+      });
     }
 
     @Override
     public void release(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            session.release();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        session.release();
+      });
     }
 
     @Override
@@ -799,25 +788,24 @@ public class MediaSessionProviderService extends Service {
         Bundle sessionCommands,
         Bundle playerCommands)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            List<ControllerInfo> controllerInfos = MediaTestUtils.getTestControllerInfos(session);
-            if (controllerInfos.isEmpty()) {
-              Log.e(
-                  TAG,
-                  "No connected controllers to receive available commands. sessionId=" + sessionId);
-            }
-            for (ControllerInfo info : controllerInfos) {
-              if (controllerKey == null
-                  || controllerKey.equals(info.getConnectionHints().getString(KEY_CONTROLLER))) {
-                session.setAvailableCommands(
-                    info,
-                    SessionCommands.fromBundle(sessionCommands),
-                    Player.Commands.fromBundle(playerCommands));
-              }
-            }
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        List<ControllerInfo> controllerInfos = MediaTestUtils.getTestControllerInfos(session);
+        if (controllerInfos.isEmpty()) {
+          Log.e(
+              TAG,
+              "No connected controllers to receive available commands. sessionId=" + sessionId);
+        }
+        for (ControllerInfo info : controllerInfos) {
+          if (controllerKey == null
+              || controllerKey.equals(info.getConnectionHints().getString(KEY_CONTROLLER))) {
+            session.setAvailableCommands(
+                info,
+                SessionCommands.fromBundle(sessionCommands),
+                Player.Commands.fromBundle(playerCommands));
+          }
+        }
+      });
     }
 
     @Override
@@ -826,15 +814,14 @@ public class MediaSessionProviderService extends Service {
       if (layout == null) {
         return;
       }
-      runOnHandler(
-          () -> {
-            ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
-            for (Bundle bundle : layout) {
-              builder.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
-            }
-            MediaSession session = sessionMap.get(sessionId);
-            session.setCustomLayout(builder.build());
-          });
+      runOnHandler(() -> {
+        ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
+        for (Bundle bundle : layout) {
+          builder.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
+        }
+        MediaSession session = sessionMap.get(sessionId);
+        session.setCustomLayout(builder.build());
+      });
     }
 
     @Override
@@ -844,15 +831,14 @@ public class MediaSessionProviderService extends Service {
       if (mediaButtonPreferences == null) {
         return;
       }
-      runOnHandler(
-          () -> {
-            ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
-            for (Bundle bundle : mediaButtonPreferences) {
-              builder.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
-            }
-            MediaSession session = sessionMap.get(sessionId);
-            session.setMediaButtonPreferences(builder.build());
-          });
+      runOnHandler(() -> {
+        ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
+        for (Bundle bundle : mediaButtonPreferences) {
+          builder.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
+        }
+        MediaSession session = sessionMap.get(sessionId);
+        session.setMediaButtonPreferences(builder.build());
+      });
     }
 
     @Override
@@ -863,43 +849,41 @@ public class MediaSessionProviderService extends Service {
     @Override
     public void setSessionExtrasForController(String sessionId, String controllerKey, Bundle extras)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession mediaSession = sessionMap.get(sessionId);
-            for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
-              Bundle connectionHints = controllerInfo.getConnectionHints();
-              if (connectionHints
-                  .getString(KEY_CONTROLLER, /* defaultValue= */ "")
-                  .equals(controllerKey)) {
-                mediaSession.setSessionExtras(controllerInfo, extras);
-                break;
-              }
-            }
-          });
+      runOnHandler(() -> {
+        MediaSession mediaSession = sessionMap.get(sessionId);
+        for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
+          Bundle connectionHints = controllerInfo.getConnectionHints();
+          if (connectionHints
+              .getString(KEY_CONTROLLER, /* defaultValue= */ "")
+              .equals(controllerKey)) {
+            mediaSession.setSessionExtras(controllerInfo, extras);
+            break;
+          }
+        }
+      });
     }
 
     @Override
     public void sendError(String sessionId, String controllerKey, Bundle sessionError)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession mediaSession = checkNotNull(sessionMap.get(sessionId));
-            SessionError error = SessionError.fromBundle(sessionError);
-            if (TextUtils.isEmpty(controllerKey)) {
-              // Broadcast to all connected Media3 controller.
-              mediaSession.sendError(error);
-            } else {
-              // Send to controller with the given controller key in connection hints.
-              for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
-                if (controllerInfo
-                    .getConnectionHints()
-                    .getString(KEY_CONTROLLER, /* defaultValue= */ "")
-                    .equals(controllerKey)) {
-                  mediaSession.sendError(controllerInfo, error);
-                }
-              }
+      runOnHandler(() -> {
+        MediaSession mediaSession = checkNotNull(sessionMap.get(sessionId));
+        SessionError error = SessionError.fromBundle(sessionError);
+        if (TextUtils.isEmpty(controllerKey)) {
+          // Broadcast to all connected Media3 controller.
+          mediaSession.sendError(error);
+        } else {
+          // Send to controller with the given controller key in connection hints.
+          for (ControllerInfo controllerInfo : mediaSession.getConnectedControllers()) {
+            if (controllerInfo
+                .getConnectionHints()
+                .getString(KEY_CONTROLLER, /* defaultValue= */ "")
+                .equals(controllerKey)) {
+              mediaSession.sendError(controllerInfo, error);
             }
-          });
+          }
+        }
+      });
     }
 
     @Override
@@ -947,18 +931,17 @@ public class MediaSessionProviderService extends Service {
     private void runOnHandlerForControllerWithMatchingKey(
         MediaSession mediaSession, String controllerKey, Consumer<ControllerInfo> consumer)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
-            for (int i = 0; i < connectedControllers.size(); i++) {
-              ControllerInfo controllerInfo = connectedControllers.get(i);
-              @Nullable String connectedControllerKey =
-                  controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
-              if (Objects.equals(controllerKey, connectedControllerKey)) {
-                consumer.accept(controllerInfo);
-              }
-            }
-          });
+      runOnHandler(() -> {
+        List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
+        for (int i = 0; i < connectedControllers.size(); i++) {
+          ControllerInfo controllerInfo = connectedControllers.get(i);
+          @Nullable String connectedControllerKey =
+              controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
+          if (Objects.equals(controllerKey, connectedControllerKey)) {
+            consumer.accept(controllerInfo);
+          }
+        }
+      });
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -968,132 +951,120 @@ public class MediaSessionProviderService extends Service {
     @Override
     public void notifyPlayerError(String sessionId, @Nullable Bundle playerErrorBundle)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            @Nullable PlaybackException playerError =
-                playerErrorBundle == null
-                    ? player.playerError
-                    : PlaybackException.fromBundle(playerErrorBundle);
-            player.notifyPlayerError(playerError);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        @Nullable PlaybackException playerError =
+            playerErrorBundle == null
+                ? player.playerError
+                : PlaybackException.fromBundle(playerErrorBundle);
+        player.notifyPlayerError(playerError);
+      });
     }
 
     @Override
     public void setPlayWhenReady(String sessionId, boolean playWhenReady, int reason)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.playWhenReady = playWhenReady;
-            player.playbackSuppressionReason = reason;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.playWhenReady = playWhenReady;
+        player.playbackSuppressionReason = reason;
+      });
     }
 
     @Override
     public void setPlaybackState(String sessionId, int state) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.playbackState = state;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.playbackState = state;
+      });
     }
 
     @Override
     public void setCurrentPosition(String sessionId, long pos) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentPosition = pos;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentPosition = pos;
+      });
     }
 
     @Override
     public void setBufferedPosition(String sessionId, long pos) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.bufferedPosition = pos;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.bufferedPosition = pos;
+      });
     }
 
     @Override
     public void setDuration(String sessionId, long duration) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.duration = duration;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.duration = duration;
+      });
     }
 
     @Override
     public void setBufferedPercentage(String sessionId, int bufferedPercentage)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.bufferedPercentage = bufferedPercentage;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.bufferedPercentage = bufferedPercentage;
+      });
     }
 
     @Override
     public void setTotalBufferedDuration(String sessionId, long totalBufferedDuration)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.totalBufferedDuration = totalBufferedDuration;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.totalBufferedDuration = totalBufferedDuration;
+      });
     }
 
     @Override
     public void setCurrentLiveOffset(String sessionId, long currentLiveOffset)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentLiveOffset = currentLiveOffset;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentLiveOffset = currentLiveOffset;
+      });
     }
 
     @Override
     public void setContentDuration(String sessionId, long contentDuration) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.contentDuration = contentDuration;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.contentDuration = contentDuration;
+      });
     }
 
     @Override
     public void setContentPosition(String sessionId, long contentPosition) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.contentPosition = contentPosition;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.contentPosition = contentPosition;
+      });
     }
 
     @Override
     public void setContentBufferedPosition(String sessionId, long contentBufferedPosition)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.contentBufferedPosition = contentBufferedPosition;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.contentBufferedPosition = contentBufferedPosition;
+      });
     }
 
     @Override
@@ -1101,84 +1072,76 @@ public class MediaSessionProviderService extends Service {
         throws RemoteException {
       PlaybackParameters playbackParameters =
           PlaybackParameters.fromBundle(playbackParametersBundle);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.setPlaybackParameters(playbackParameters);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.setPlaybackParameters(playbackParameters);
+      });
     }
 
     @Override
     public void setIsPlayingAd(String sessionId, boolean isPlayingAd) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.isPlayingAd = isPlayingAd;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.isPlayingAd = isPlayingAd;
+      });
     }
 
     @Override
     public void setCurrentAdGroupIndex(String sessionId, int currentAdGroupIndex)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentAdGroupIndex = currentAdGroupIndex;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentAdGroupIndex = currentAdGroupIndex;
+      });
     }
 
     @Override
     public void setDeviceVolume(String sessionId, int volume, int flags) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.setDeviceVolume(volume, flags);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.setDeviceVolume(volume, flags);
+      });
     }
 
     @Override
     public void decreaseDeviceVolume(String sessionId, int flags) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.decreaseDeviceVolume(flags);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.decreaseDeviceVolume(flags);
+      });
     }
 
     @Override
     public void increaseDeviceVolume(String sessionId, int flags) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.increaseDeviceVolume(flags);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.increaseDeviceVolume(flags);
+      });
     }
 
     @Override
     public void setDeviceMuted(String sessionId, boolean muted, int flags) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.setDeviceMuted(muted, flags);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.setDeviceMuted(muted, flags);
+      });
     }
 
     @Override
     public void setCurrentAdIndexInAdGroup(String sessionId, int currentAdIndexInAdGroup)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentAdIndexInAdGroup = currentAdIndexInAdGroup;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentAdIndexInAdGroup = currentAdIndexInAdGroup;
+      });
     }
 
     @Override
@@ -1188,34 +1151,31 @@ public class MediaSessionProviderService extends Service {
         @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
         @Player.PlaybackSuppressionReason int suppressionReason)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlayWhenReadyChanged(
-                playWhenReady, playWhenReadyChangeReason, suppressionReason);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyPlayWhenReadyChanged(
+            playWhenReady, playWhenReadyChangeReason, suppressionReason);
+      });
     }
 
     @Override
     public void notifyPlaybackStateChanged(String sessionId, @Player.State int state)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlaybackStateChanged(state);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyPlaybackStateChanged(state);
+      });
     }
 
     @Override
     public void notifyIsLoadingChanged(String sessionId, boolean isLoading) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyIsLoadingChanged(isLoading);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyIsLoadingChanged(isLoading);
+      });
     }
 
     @Override
@@ -1225,385 +1185,351 @@ public class MediaSessionProviderService extends Service {
         Bundle newPositionBundle,
         @DiscontinuityReason int reason)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPositionDiscontinuity(
-                PositionInfo.fromBundle(oldPositionBundle, MediaLibraryInfo.INTERFACE_VERSION),
-                PositionInfo.fromBundle(newPositionBundle, MediaLibraryInfo.INTERFACE_VERSION),
-                reason);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyPositionDiscontinuity(
+            PositionInfo.fromBundle(oldPositionBundle, MediaLibraryInfo.INTERFACE_VERSION),
+            PositionInfo.fromBundle(newPositionBundle, MediaLibraryInfo.INTERFACE_VERSION),
+            reason);
+      });
     }
 
     @Override
     public void notifyPlaybackParametersChanged(String sessionId, Bundle playbackParametersBundle)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlaybackParametersChanged(
-                PlaybackParameters.fromBundle(playbackParametersBundle));
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyPlaybackParametersChanged(
+            PlaybackParameters.fromBundle(playbackParametersBundle));
+      });
     }
 
     @Override
     public void notifyMediaItemTransition(
         String sessionId, int index, @Player.MediaItemTransitionReason int reason)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            @Nullable MediaItem mediaItem =
-                index == C.INDEX_UNSET ? null : player.getMediaItemAt(index);
-            player.notifyMediaItemTransition(mediaItem, reason);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        @Nullable MediaItem mediaItem =
+            index == C.INDEX_UNSET ? null : player.getMediaItemAt(index);
+        player.notifyMediaItemTransition(mediaItem, reason);
+      });
     }
 
     @Override
     public void notifyAudioSessionIdChanged(String sessionId, int audioSessionId)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyAudioSessionIdChanged(audioSessionId);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyAudioSessionIdChanged(audioSessionId);
+      });
     }
 
     @Override
     public void notifyAudioAttributesChanged(String sessionId, Bundle audioAttributesBundle)
         throws RemoteException {
       AudioAttributes audioAttributes = AudioAttributes.fromBundle(audioAttributesBundle);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.audioAttributes = audioAttributes;
-            player.notifyAudioAttributesChanged(audioAttributes);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.audioAttributes = audioAttributes;
+        player.notifyAudioAttributesChanged(audioAttributes);
+      });
     }
 
     @Override
     public void setTimeline(String sessionId, Bundle timelineBundle) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.timeline =
-                Timeline.fromBundle(timelineBundle, MediaLibraryInfo.INTERFACE_VERSION);
-            List<MediaItem> mediaItems = new ArrayList<>();
-            for (int i = 0; i < player.timeline.getWindowCount(); i++) {
-              mediaItems.add(
-                  player.timeline.getWindow(/* windowIndex= */ i, new Timeline.Window()).mediaItem);
-            }
-            player.mediaItems.clear();
-            player.mediaItems.addAll(mediaItems);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.timeline = Timeline.fromBundle(timelineBundle, MediaLibraryInfo.INTERFACE_VERSION);
+        List<MediaItem> mediaItems = new ArrayList<>();
+        for (int i = 0; i < player.timeline.getWindowCount(); i++) {
+          mediaItems.add(
+              player.timeline.getWindow(/* windowIndex= */ i, new Timeline.Window()).mediaItem);
+        }
+        player.mediaItems.clear();
+        player.mediaItems.addAll(mediaItems);
+      });
     }
 
     @Override
     public void createAndSetFakeTimeline(String sessionId, int windowCount) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
 
-            List<MediaItem> mediaItems = new ArrayList<>();
-            for (int windowIndex = 0; windowIndex < windowCount; windowIndex++) {
-              mediaItems.add(
-                  MediaTestUtils.createMediaItem(
-                      TestUtils.getMediaIdInFakeTimeline(windowIndex), /* buildWithUri= */ true));
-            }
-            if (sessionId.equals(TEST_SILENT_IPC_PARSING_FAILURE) && windowCount == 20) {
-              Bundle hugeBundle = new Bundle();
-              char[] chars = new char[1500000];
-              Arrays.fill(chars, 'a');
-              hugeBundle.putString("massive_payload", new String(chars));
-              MediaMetadata massiveMetadata =
-                  new MediaMetadata.Builder().setExtras(hugeBundle).build();
-              MediaItem massiveItem =
-                  mediaItems.get(0).buildUpon().setMediaMetadata(massiveMetadata).build();
-              mediaItems.set(0, massiveItem);
-            }
-            player.mediaItems.clear();
-            player.mediaItems.addAll(mediaItems);
-            player.timeline = new PlaylistTimeline(mediaItems);
-            player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-          });
+        List<MediaItem> mediaItems = new ArrayList<>();
+        for (int windowIndex = 0; windowIndex < windowCount; windowIndex++) {
+          mediaItems.add(
+              MediaTestUtils.createMediaItem(
+                  TestUtils.getMediaIdInFakeTimeline(windowIndex), /* buildWithUri= */ true));
+        }
+        if (sessionId.equals(TEST_SILENT_IPC_PARSING_FAILURE) && windowCount == 20) {
+          Bundle hugeBundle = new Bundle();
+          char[] chars = new char[1500000];
+          Arrays.fill(chars, 'a');
+          hugeBundle.putString("massive_payload", new String(chars));
+          MediaMetadata massiveMetadata = new MediaMetadata.Builder().setExtras(hugeBundle).build();
+          MediaItem massiveItem =
+              mediaItems.get(0).buildUpon().setMediaMetadata(massiveMetadata).build();
+          mediaItems.set(0, massiveItem);
+        }
+        player.mediaItems.clear();
+        player.mediaItems.addAll(mediaItems);
+        player.timeline = new PlaylistTimeline(mediaItems);
+        player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+      });
     }
 
     @Override
     public void setMediaMetadata(String sessionId, Bundle metadataBundle) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.mediaMetadata =
-                MediaMetadata.fromBundle(metadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.mediaMetadata =
+            MediaMetadata.fromBundle(metadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
+      });
     }
 
     @Override
     public void setPlaylistMetadata(String sessionId, Bundle playlistMetadataBundle)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.playlistMetadata =
-                MediaMetadata.fromBundle(
-                    playlistMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.playlistMetadata =
+            MediaMetadata.fromBundle(playlistMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
+      });
     }
 
     @Override
     public void setShuffleModeEnabled(String sessionId, boolean shuffleModeEnabled)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.shuffleModeEnabled = shuffleModeEnabled;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.shuffleModeEnabled = shuffleModeEnabled;
+      });
     }
 
     @Override
     public void setRepeatMode(String sessionId, int repeatMode) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.repeatMode = repeatMode;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.repeatMode = repeatMode;
+      });
     }
 
     @Override
     public void setCurrentMediaItemIndex(String sessionId, int index) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentMediaItemIndex = index;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentMediaItemIndex = index;
+      });
     }
 
     @Override
     public void setCurrentMediaItemIndexAndPeriodIndex(
         String sessionId, int mediaItemIndex, int periodIndex) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentMediaItemIndex = mediaItemIndex;
-            player.currentPeriodIndex = periodIndex;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentMediaItemIndex = mediaItemIndex;
+        player.currentPeriodIndex = periodIndex;
+      });
     }
 
     @Override
     public void setCurrentPeriodIndex(String sessionId, int index) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentPeriodIndex = index;
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentPeriodIndex = index;
+      });
     }
 
     @Override
     public void setTrackSelectionParameters(String sessionId, Bundle parameters)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.trackSelectionParameters = TrackSelectionParameters.fromBundle(parameters);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.trackSelectionParameters = TrackSelectionParameters.fromBundle(parameters);
+      });
     }
 
     @Override
     public void setVolume(String sessionId, float volume) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.setVolume(volume);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.setVolume(volume);
+      });
     }
 
     @Override
     public void notifyAvailableCommandsChanged(String sessionId, Bundle commandsBundle)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyAvailableCommandsChanged(
-                commandsBundle == null
-                    ? Player.Commands.EMPTY
-                    : Player.Commands.fromBundle(commandsBundle));
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyAvailableCommandsChanged(
+            commandsBundle == null
+                ? Player.Commands.EMPTY
+                : Player.Commands.fromBundle(commandsBundle));
+      });
     }
 
     @Override
     public void notifyTimelineChanged(String sessionId, @Player.TimelineChangeReason int reason)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyTimelineChanged(reason);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyTimelineChanged(reason);
+      });
     }
 
     @Override
     public void notifyTimelineChangedWithMediaItemTransition(String sessionId)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-            MediaItem mediaItem = null;
-            if (player.currentMediaItemIndex < player.timeline.getWindowCount()) {
-              mediaItem =
-                  player.timeline.getWindow(player.currentMediaItemIndex, new Window()).mediaItem;
-            }
-            player.notifyMediaItemTransition(
-                mediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+        MediaItem mediaItem = null;
+        if (player.currentMediaItemIndex < player.timeline.getWindowCount()) {
+          mediaItem =
+              player.timeline.getWindow(player.currentMediaItemIndex, new Window()).mediaItem;
+        }
+        player.notifyMediaItemTransition(
+            mediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+      });
     }
 
     @Override
     public void notifyPlaylistMetadataChanged(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyPlaylistMetadataChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyPlaylistMetadataChanged();
+      });
     }
 
     @Override
     public void notifyShuffleModeEnabledChanged(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyShuffleModeEnabledChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyShuffleModeEnabledChanged();
+      });
     }
 
     @Override
     public void notifyRepeatModeChanged(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyRepeatModeChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyRepeatModeChanged();
+      });
     }
 
     @Override
     public void notifySeekBackIncrementChanged(String sessionId, long seekBackIncrementMs)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.seekBackIncrementMs = seekBackIncrementMs;
-            player.notifySeekBackIncrementChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.seekBackIncrementMs = seekBackIncrementMs;
+        player.notifySeekBackIncrementChanged();
+      });
     }
 
     @Override
     public void notifySeekForwardIncrementChanged(String sessionId, long seekForwardIncrementMs)
         throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.seekForwardIncrementMs = seekForwardIncrementMs;
-            player.notifySeekForwardIncrementChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.seekForwardIncrementMs = seekForwardIncrementMs;
+        player.notifySeekForwardIncrementChanged();
+      });
     }
 
     @Override
     public void notifyVideoSizeChanged(String sessionId, Bundle videoSize) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            VideoSize videoSizeObj = VideoSize.fromBundle(videoSize);
-            player.notifyVideoSizeChanged(videoSizeObj);
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        VideoSize videoSizeObj = VideoSize.fromBundle(videoSize);
+        player.notifyVideoSizeChanged(videoSizeObj);
+      });
     }
 
     @Override
     public boolean surfaceExists(String sessionId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            return player.surfaceExists();
-          });
+      return runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        return player.surfaceExists();
+      });
     }
 
     @Override
     public Bundle getSurfaceSize(String sessionId) throws RemoteException {
-      return runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            return player.getSurfaceSize().toBundle();
-          });
+      return runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        return player.getSurfaceSize().toBundle();
+      });
     }
 
     @Override
     public void notifyVolumeChanged(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyVolumeChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyVolumeChanged();
+      });
     }
 
     @Override
     public void notifyDeviceVolumeChanged(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyDeviceVolumeChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyDeviceVolumeChanged();
+      });
     }
 
     @Override
     public void notifyCuesChanged(String sessionId, Bundle cueGroupBundle) throws RemoteException {
       CueGroup cueGroup = CueGroup.fromBundle(cueGroupBundle);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.cueGroup = cueGroup;
-            player.notifyCuesChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.cueGroup = cueGroup;
+        player.notifyCuesChanged();
+      });
     }
 
     @Override
     public void notifyDeviceInfoChanged(String sessionId, Bundle deviceInfoBundle)
         throws RemoteException {
       DeviceInfo deviceInfo = DeviceInfo.fromBundle(deviceInfoBundle);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.deviceInfo = deviceInfo;
-            player.notifyDeviceInfoChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.deviceInfo = deviceInfo;
+        player.notifyDeviceInfoChanged();
+      });
     }
 
     @Override
@@ -1611,60 +1537,55 @@ public class MediaSessionProviderService extends Service {
         throws RemoteException {
       MediaMetadata mediaMetadata =
           MediaMetadata.fromBundle(mediaMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.mediaMetadata = mediaMetadata;
-            player.notifyMediaMetadataChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.mediaMetadata = mediaMetadata;
+        player.notifyMediaMetadataChanged();
+      });
     }
 
     @Override
     public void notifyRenderedFirstFrame(String sessionId) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.notifyRenderedFirstFrame();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.notifyRenderedFirstFrame();
+      });
     }
 
     @Override
     public void notifyMaxSeekToPreviousPositionChanged(
         String sessionId, long maxSeekToPreviousPositionMs) throws RemoteException {
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
-            player.notifyMaxSeekToPreviousPositionChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+        player.notifyMaxSeekToPreviousPositionChanged();
+      });
     }
 
     @Override
     public void notifyTrackSelectionParametersChanged(String sessionId, Bundle parametersBundle)
         throws RemoteException {
       TrackSelectionParameters parameters = TrackSelectionParameters.fromBundle(parametersBundle);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.trackSelectionParameters = parameters;
-            player.notifyTrackSelectionParametersChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.trackSelectionParameters = parameters;
+        player.notifyTrackSelectionParametersChanged();
+      });
     }
 
     @Override
     public void notifyTracksChanged(String sessionId, Bundle tracksBundle) throws RemoteException {
       Tracks tracks = Tracks.fromBundle(tracksBundle);
-      runOnHandler(
-          () -> {
-            MediaSession session = sessionMap.get(sessionId);
-            MockPlayer player = (MockPlayer) session.getPlayer();
-            player.currentTracks = tracks;
-            player.notifyTracksChanged();
-          });
+      runOnHandler(() -> {
+        MediaSession session = sessionMap.get(sessionId);
+        MockPlayer player = (MockPlayer) session.getPlayer();
+        player.currentTracks = tracks;
+        player.notifyTracksChanged();
+      });
     }
   }
 }

@@ -239,10 +239,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_STARTED);
     // Play to the audio items.
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                secondaryVideoRenderer.getState() == Renderer.STATE_DISABLED
-                    && videoRenderer.getState() == Renderer.STATE_DISABLED);
+        .untilBackgroundThreadCondition(() ->
+            secondaryVideoRenderer.getState() == Renderer.STATE_DISABLED
+                && videoRenderer.getState() == Renderer.STATE_DISABLED);
 
     // Play until the secondary video renderer is enabled for pre-warming the final video item.
     advance(player)
@@ -2720,10 +2719,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
     player.play();
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                player.getPlaybackState() == Player.STATE_READY
-                    && videoRenderer.getState() == Renderer.STATE_DISABLED);
+        .untilBackgroundThreadCondition(() ->
+            player.getPlaybackState() == Player.STATE_READY
+                && videoRenderer.getState() == Renderer.STATE_DISABLED);
     advance(player)
         .untilBackgroundThreadCondition(() -> videoRenderer.getState() == Renderer.STATE_ENABLED);
     player.pause();
@@ -2767,10 +2765,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
     player.play();
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                player.getCurrentMediaItemIndex() == 1
-                    && secondaryVideoRenderer.getState() == Renderer.STATE_DISABLED);
+        .untilBackgroundThreadCondition(() ->
+            player.getCurrentMediaItemIndex() == 1
+                && secondaryVideoRenderer.getState() == Renderer.STATE_DISABLED);
     advance(player)
         .untilBackgroundThreadCondition(
             () -> secondaryVideoRenderer.getState() == Renderer.STATE_ENABLED);
@@ -2898,13 +2895,12 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             new FakeMediaSource.Builder()
                 .setTimeline(periodTimeline)
                 .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
-                .setTrackDataFactory(
-                    (format, unusedMediaPeriodId) ->
-                        format.equals(ExoPlayerTestRunner.VIDEO_FORMAT)
-                            ? ImmutableList.of(END_OF_STREAM_ITEM)
-                            : ImmutableList.of(
-                                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                                END_OF_STREAM_ITEM))
+                .setTrackDataFactory((format, unusedMediaPeriodId) ->
+                    format.equals(ExoPlayerTestRunner.VIDEO_FORMAT)
+                        ? ImmutableList.of(END_OF_STREAM_ITEM)
+                        : ImmutableList.of(
+                            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                            END_OF_STREAM_ITEM))
                 .build(),
             new FakeMediaSource.Builder()
                 .setTimeline(periodTimeline)
@@ -2920,9 +2916,8 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     player.prepare();
     player.play();
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                player.getCurrentMediaItemIndex() == 1 && secondaryVideoRenderer.enabledCount == 3);
+        .untilBackgroundThreadCondition(() ->
+            player.getCurrentMediaItemIndex() == 1 && secondaryVideoRenderer.enabledCount == 3);
     player.pause();
     advance(player).untilPendingCommandsAreFullyHandled();
     player.play();
@@ -2934,10 +2929,9 @@ public class ExoPlayerWithPrewarmingRenderersTest {
             () -> player.getCurrentMediaItemIndex() == 2 && player.getCurrentPosition() >= 100);
     @Renderer.State int secondaryStateInThirdPeriod = secondaryVideoRenderer.getState();
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                player.getCurrentMediaItemIndex() == 3
-                    && videoRenderer.getState() == Renderer.STATE_ENABLED);
+        .untilBackgroundThreadCondition(() ->
+            player.getCurrentMediaItemIndex() == 3
+                && videoRenderer.getState() == Renderer.STATE_ENABLED);
     @Renderer.State int primaryStateInFourthPeriod = videoRenderer.getState();
     @Renderer.State int secondaryStateInFourthPeriod = secondaryVideoRenderer.getState();
     player.pause();

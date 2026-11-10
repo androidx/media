@@ -54,11 +54,10 @@ public class RemoteMediaControllerCompatTest {
   public void setUp() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     handler = threadTestRule.getHandler();
-    handler.postAndSync(
-        () -> {
-          sessionCompat = new MediaSessionCompat(context, DEFAULT_TEST_NAME);
-          sessionCompat.setActive(true);
-        });
+    handler.postAndSync(() -> {
+      sessionCompat = new MediaSessionCompat(context, DEFAULT_TEST_NAME);
+      sessionCompat.setActive(true);
+    });
     remoteControllerCompat =
         new RemoteMediaControllerCompat(
             context, sessionCompat.getSessionToken(), /* waitForConnection= */ true);

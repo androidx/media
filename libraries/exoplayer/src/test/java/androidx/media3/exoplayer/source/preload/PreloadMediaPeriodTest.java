@@ -652,19 +652,18 @@ public final class PreloadMediaPeriodTest {
         new SampleStream[] {new EmptySampleStream(), new EmptySampleStream()};
     when(wrappedMediaPeriod.selectTracks(
             eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = preloadedStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = preloadedStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -729,19 +728,18 @@ public final class PreloadMediaPeriodTest {
             /* streams= */ any(),
             /* streamResetFlags= */ any(),
             /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = preloadedStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = preloadedStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -791,19 +789,18 @@ public final class PreloadMediaPeriodTest {
             /* streams= */ any(),
             /* streamResetFlags= */ any(),
             /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = newSampleStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = newSampleStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     SampleStream[] streams = new SampleStream[3];
     boolean[] streamResetFlags = new boolean[3];
 
@@ -866,19 +863,18 @@ public final class PreloadMediaPeriodTest {
         };
     when(wrappedMediaPeriod.selectTracks(
             eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = preloadedStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = preloadedStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -977,19 +973,18 @@ public final class PreloadMediaPeriodTest {
         };
     when(wrappedMediaPeriod.selectTracks(
             eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = preloadedStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = preloadedStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -1095,16 +1090,15 @@ public final class PreloadMediaPeriodTest {
         };
     when(wrappedMediaPeriod.selectTracks(
             eq(trackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                streams[i] = preloadedStreams[i];
-                streamResetFlags[i] = true;
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            streams[i] = preloadedStreams[i];
+            streamResetFlags[i] = true;
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -1161,19 +1155,18 @@ public final class PreloadMediaPeriodTest {
         };
     when(wrappedMediaPeriod.selectTracks(
             eq(newTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = newSampleStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = newSampleStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     SampleStream[] streams = new SampleStream[3];
     boolean[] streamResetFlags = new boolean[3];
 
@@ -1233,16 +1226,15 @@ public final class PreloadMediaPeriodTest {
         };
     when(wrappedMediaPeriod.selectTracks(
             eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                streams[i] = preloadedStreams[i];
-                streamResetFlags[i] = true;
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            streams[i] = preloadedStreams[i];
+            streamResetFlags[i] = true;
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -1291,19 +1283,18 @@ public final class PreloadMediaPeriodTest {
         new ExoTrackSelection[] {preloadTrackSelections[0], null, preloadTrackSelections[2]};
     when(wrappedMediaPeriod.selectTracks(
             eq(expectedTrackSelection), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = newStreams[i];
-                  streamResetFlags[i] = newStreams[i] != null;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = newStreams[i];
+              streamResetFlags[i] = newStreams[i] != null;
+            }
+          }
+          return 0L;
+        });
     SampleStream[] streams = new SampleStream[3];
     boolean[] streamResetFlags = new boolean[3];
 
@@ -1361,16 +1352,15 @@ public final class PreloadMediaPeriodTest {
             /* streams= */ eq(new SampleStream[3]),
             /* streamResetFlags= */ any(),
             /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                streams[i] = preloadedStreams[i];
-                streamResetFlags[i] = preloadedStreams != null;
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            streams[i] = preloadedStreams[i];
+            streamResetFlags[i] = preloadedStreams != null;
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -1426,19 +1416,18 @@ public final class PreloadMediaPeriodTest {
         };
     when(wrappedMediaPeriod.selectTracks(
             eq(expectedTrackSelection), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = newStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = newStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     SampleStream[] streams = new SampleStream[3];
     boolean[] streamResetFlags = new boolean[3];
 
@@ -1483,19 +1472,18 @@ public final class PreloadMediaPeriodTest {
         new SampleStream[] {new EmptySampleStream(), new EmptySampleStream()};
     when(wrappedMediaPeriod.selectTracks(
             eq(preloadTrackSelections), any(), any(), any(), /* positionUs= */ eq(0L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = preloadedStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 0L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = preloadedStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 0L;
+        });
     PreloadMediaPeriod preloadMediaPeriod = new PreloadMediaPeriod(wrappedMediaPeriod);
     MediaPeriod.Callback callback =
         new MediaPeriod.Callback() {
@@ -1527,19 +1515,18 @@ public final class PreloadMediaPeriodTest {
             /* streams= */ eq(preloadedStreams),
             /* streamResetFlags= */ eq(reselectStreamResetFlags),
             /* positionUs= */ eq(1234L)))
-        .thenAnswer(
-            invocation -> {
-              boolean[] mayRetainStreamFlags = invocation.getArgument(1);
-              SampleStream[] streams = invocation.getArgument(2);
-              boolean[] streamResetFlags = invocation.getArgument(3);
-              for (int i = 0; i < streams.length; i++) {
-                if (!mayRetainStreamFlags[i]) {
-                  streams[i] = newStreams[i];
-                  streamResetFlags[i] = true;
-                }
-              }
-              return 1234L;
-            });
+        .thenAnswer(invocation -> {
+          boolean[] mayRetainStreamFlags = invocation.getArgument(1);
+          SampleStream[] streams = invocation.getArgument(2);
+          boolean[] streamResetFlags = invocation.getArgument(3);
+          for (int i = 0; i < streams.length; i++) {
+            if (!mayRetainStreamFlags[i]) {
+              streams[i] = newStreams[i];
+              streamResetFlags[i] = true;
+            }
+          }
+          return 1234L;
+        });
     SampleStream[] reselectStreams = new SampleStream[2];
 
     // Select tracks based on the same track selections but at a different position.

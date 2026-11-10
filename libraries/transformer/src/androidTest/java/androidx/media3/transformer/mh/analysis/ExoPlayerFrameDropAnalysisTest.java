@@ -89,12 +89,11 @@ public class ExoPlayerFrameDropAnalysisTest {
             ImmutableSet.of(0.4f, 0.5f, 1f, 2f),
             ImmutableSet.of(0L, 15_000L, 50_000L))
         .stream()
-        .map(
-            testConfigArguments ->
-                new TestConfig(
-                    /* uri= */ (String) testConfigArguments.get(0),
-                    /* playbackSpeed= */ (Float) testConfigArguments.get(1),
-                    /* lateThresholdUs= */ (Long) testConfigArguments.get(2)))
+        .map(testConfigArguments ->
+            new TestConfig(
+                /* uri= */ (String) testConfigArguments.get(0),
+                /* playbackSpeed= */ (Float) testConfigArguments.get(1),
+                /* lateThresholdUs= */ (Long) testConfigArguments.get(2)))
         .collect(toImmutableList());
   }
 
@@ -110,12 +109,11 @@ public class ExoPlayerFrameDropAnalysisTest {
   @After
   public void tearDown() {
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              if (player != null) {
-                player.release();
-              }
-            });
+        .runOnMainSync(() -> {
+          if (player != null) {
+            player.release();
+          }
+        });
   }
 
   @Test
@@ -143,29 +141,28 @@ public class ExoPlayerFrameDropAnalysisTest {
           }
         };
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new ExoPlayer.Builder(
-                          context,
-                          new DefaultRenderersFactory(context)
-                              .experimentalSetLateThresholdToDropDecoderInputUs(
-                                  testConfig.lateThresholdUs))
-                      .setClock(new JumpingClock())
-                      .build();
-              player.setTrackSelectionParameters(
-                  new TrackSelectionParameters.Builder()
-                      .setDisabledTrackTypes(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
-                      .build());
-              player.setMediaItem(mediaItem);
-              player.setPlaybackSpeed(testConfig.playbackSpeed);
-              player.setVideoSurfaceView(surfaceView);
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.addAnalyticsListener(decoderCountersListener);
-              player.addAnalyticsListener(videoDecoderListener);
-              player.prepare();
-              player.setPlayWhenReady(true);
-            });
+        .runOnMainSync(() -> {
+          player =
+              new ExoPlayer.Builder(
+                      context,
+                      new DefaultRenderersFactory(context)
+                          .experimentalSetLateThresholdToDropDecoderInputUs(
+                              testConfig.lateThresholdUs))
+                  .setClock(new JumpingClock())
+                  .build();
+          player.setTrackSelectionParameters(
+              new TrackSelectionParameters.Builder()
+                  .setDisabledTrackTypes(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+                  .build());
+          player.setMediaItem(mediaItem);
+          player.setPlaybackSpeed(testConfig.playbackSpeed);
+          player.setVideoSurfaceView(surfaceView);
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.addAnalyticsListener(decoderCountersListener);
+          player.addAnalyticsListener(videoDecoderListener);
+          player.prepare();
+          player.setPlayWhenReady(true);
+        });
 
     endedFuture.get();
 

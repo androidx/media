@@ -246,28 +246,26 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     public void onSessionCreated(EnhancementSession session) {
-      handlerExecutor.execute(
-          () -> {
-            boolean shouldRelease;
-            synchronized (lock) {
-              shouldRelease = isReleased;
-              if (!shouldRelease) {
-                EnhancementSessionManager.this.session = session;
-              }
-            }
-            if (shouldRelease) {
-              session.release();
-              return;
-            }
-            listener.onSessionReady(session, options);
-          });
+      handlerExecutor.execute(() -> {
+        boolean shouldRelease;
+        synchronized (lock) {
+          shouldRelease = isReleased;
+          if (!shouldRelease) {
+            EnhancementSessionManager.this.session = session;
+          }
+        }
+        if (shouldRelease) {
+          session.release();
+          return;
+        }
+        listener.onSessionReady(session, options);
+      });
     }
 
     @Override
     public void onSessionCreationFailed(Status status) {
-      handlerExecutor.execute(
-          () ->
-              notifyError(new VideoFrameProcessingException("Session creation failed: " + status)));
+      handlerExecutor.execute(() ->
+          notifyError(new VideoFrameProcessingException("Session creation failed: " + status)));
     }
 
     @Override

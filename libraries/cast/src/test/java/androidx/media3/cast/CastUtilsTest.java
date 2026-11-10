@@ -45,16 +45,15 @@ public final class CastUtilsTest {
     CountDownLatch latch = new CountDownLatch(1);
 
     BackgroundExecutor.get()
-        .execute(
-            () -> {
-              try {
-                CastUtils.verifyMainThread();
-              } catch (Throwable t) {
-                exceptionRef.set(t);
-              } finally {
-                latch.countDown();
-              }
-            });
+        .execute(() -> {
+          try {
+            CastUtils.verifyMainThread();
+          } catch (Throwable t) {
+            exceptionRef.set(t);
+          } finally {
+            latch.countDown();
+          }
+        });
     assertThat(latch.await(5, SECONDS)).isTrue();
 
     Throwable thrown = exceptionRef.get();

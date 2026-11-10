@@ -120,11 +120,10 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     glExecutorService = listeningDecorator(newSingleThreadExecutor());
     glObjectsProvider = new DefaultGlObjectsProvider();
     glExecutorService
-        .submit(
-            () -> {
-              int unused = setupOpenGl(glObjectsProvider);
-              return null;
-            })
+        .submit(() -> {
+          int unused = setupOpenGl(glObjectsProvider);
+          return null;
+        })
         .get();
   }
 
@@ -159,19 +158,18 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
     glExecutorService
-        .submit(
-            () -> {
-              try {
-                GlTextureFrame inputFrame =
-                    createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-            })
+        .submit(() -> {
+          try {
+            GlTextureFrame inputFrame =
+                createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
+          } catch (Exception e) {
+            throw new IllegalStateException(e);
+          }
+        })
         .get();
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
@@ -194,26 +192,25 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     new Canvas(inputBitmap2).drawColor(Color.BLUE);
 
     glExecutorService
-        .submit(
-            () -> {
-              try {
-                GlTextureFrame inputFrame1 =
-                    createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
+        .submit(() -> {
+          try {
+            GlTextureFrame inputFrame1 =
+                createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
 
-                GlTextureFrame inputFrame2 =
-                    createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-            })
+            GlTextureFrame inputFrame2 =
+                createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
+          } catch (Exception e) {
+            throw new IllegalStateException(e);
+          }
+        })
         .get();
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
@@ -242,24 +239,22 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     // BitmapSavingFrameWriter has capacity for 1 frame; dequeuing without queuing back exhausts it.
     Format format = new Format.Builder().setWidth(BITMAP_WIDTH).setHeight(BITMAP_HEIGHT).build();
     glExecutorService
-        .submit(
-            () -> {
-              frameWriter.configure(format, /* usage= */ 0);
-              @SuppressWarnings("UnnamedVariable") // TODO(b/561916275): Remove when issue is fixed.
-              AsyncFrame unused =
-                  checkNotNull(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
-            })
+        .submit(() -> {
+          frameWriter.configure(format, /* usage= */ 0);
+          @SuppressWarnings("UnnamedVariable") // TODO(b/561916275): Remove when issue is fixed.
+          AsyncFrame unused =
+              checkNotNull(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+        })
         .get();
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
     boolean queueResult =
         glExecutorService
-            .submit(
-                () ->
-                    frameWriterGlTextureFrameConsumer.queue(
-                        createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000),
-                        directExecutor(),
-                        /* wakeupListener= */ () -> {}))
+            .submit(() ->
+                frameWriterGlTextureFrameConsumer.queue(
+                    createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000),
+                    directExecutor(),
+                    /* wakeupListener= */ () -> {}))
             .get();
 
     assertThat(queueResult).isFalse();
@@ -275,35 +270,29 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     Format format = new Format.Builder().setWidth(BITMAP_WIDTH).setHeight(BITMAP_HEIGHT).build();
     AsyncFrame dequeuedFrame =
         glExecutorService
-            .submit(
-                () -> {
-                  frameWriter.configure(format, /* usage= */ 0);
-                  return checkNotNull(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
-                })
+            .submit(() -> {
+              frameWriter.configure(format, /* usage= */ 0);
+              return checkNotNull(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+            })
             .get();
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
     SettableFuture<Boolean> retryQueueResult = SettableFuture.create();
 
     glExecutorService
-        .submit(
-            () -> {
-              GlTextureFrame frame =
-                  createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000);
-              boolean queued =
-                  frameWriterGlTextureFrameConsumer.queue(
-                      frame,
-                      directExecutor(),
-                      /* wakeupListener= */ () ->
-                          retryQueueResult.setFuture(
-                              glExecutorService.submit(
-                                  () ->
-                                      frameWriterGlTextureFrameConsumer.queue(
-                                          frame,
-                                          directExecutor(),
-                                          /* wakeupListener= */ () -> {}))));
-              frameWriter.queueInputFrame(dequeuedFrame.frame, /* writeCompleteFence= */ null);
-              return queued;
-            })
+        .submit(() -> {
+          GlTextureFrame frame = createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000);
+          boolean queued =
+              frameWriterGlTextureFrameConsumer.queue(
+                  frame,
+                  directExecutor(),
+                  /* wakeupListener= */ () ->
+                      retryQueueResult.setFuture(
+                          glExecutorService.submit(() ->
+                              frameWriterGlTextureFrameConsumer.queue(
+                                  frame, directExecutor(), /* wakeupListener= */ () -> {}))));
+          frameWriter.queueInputFrame(dequeuedFrame.frame, /* writeCompleteFence= */ null);
+          return queued;
+        })
         .get();
 
     assertThat(retryQueueResult.get(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -353,19 +342,18 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             /* filter= */ true);
 
     glExecutorService
-        .submit(
-            () -> {
-              try {
-                GlTextureFrame inputFrame =
-                    createGlTextureFrame(portraitInputBitmap, /* presentationTimeUs= */ 1000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new AssertionError(e);
-              }
-            })
+        .submit(() -> {
+          try {
+            GlTextureFrame inputFrame =
+                createGlTextureFrame(portraitInputBitmap, /* presentationTimeUs= */ 1000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
+          } catch (Exception e) {
+            throw new AssertionError(e);
+          }
+        })
         .get(TIMEOUT_MS, MILLISECONDS);
 
     Bitmap outputBitmap = frameWriter.outputBitmaps.get(0);
@@ -406,26 +394,25 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     canvas.drawBitmap(scaledInput2, /* left= */ 656, /* top= */ 0, /* paint= */ null);
 
     glExecutorService
-        .submit(
-            () -> {
-              try {
-                GlTextureFrame inputFrame1 =
-                    createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
+        .submit(() -> {
+          try {
+            GlTextureFrame inputFrame1 =
+                createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
 
-                GlTextureFrame inputFrame2 =
-                    createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new AssertionError(e);
-              }
-            })
+            GlTextureFrame inputFrame2 =
+                createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
+          } catch (Exception e) {
+            throw new AssertionError(e);
+          }
+        })
         .get();
 
     // Frame 1: 1920x1080
@@ -473,26 +460,25 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     canvas.drawBitmap(scaledInput2, /* left= */ 0, /* top= */ 656, /* paint= */ null);
 
     glExecutorService
-        .submit(
-            () -> {
-              try {
-                GlTextureFrame inputFrame1 =
-                    createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
+        .submit(() -> {
+          try {
+            GlTextureFrame inputFrame1 =
+                createGlTextureFrame(inputBitmap1, /* presentationTimeUs= */ 1000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame1, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
 
-                GlTextureFrame inputFrame2 =
-                    createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Exception e) {
-                throw new AssertionError(e);
-              }
-            })
+            GlTextureFrame inputFrame2 =
+                createGlTextureFrame(inputBitmap2, /* presentationTimeUs= */ 2000);
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        inputFrame2, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
+          } catch (Exception e) {
+            throw new AssertionError(e);
+          }
+        })
         .get();
 
     // Frame 1: 1080x1920 (portrait)
@@ -515,10 +501,9 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @SdkSuppress(minSdkVersion = 29)
   public void queue_hdrLinearInputAndUnsetOutput_convertsToHlg() throws Exception {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+            /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ENCODER_OUTPUT_LIMITED_RANGE_HLG);
@@ -533,9 +518,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @SdkSuppress(minSdkVersion = 29)
   public void queue_sdrLinearInputAndUnsetOutput_convertsToSrgb() throws Exception {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR));
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
@@ -578,10 +562,9 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @SdkSuppress(minSdkVersion = 29)
   public void queue_hdrLinearThenHlgInputAndUnsetOutput_convertsOnlyLinearFrame() throws Exception {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+            /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR));
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT2020_HLG));
 
@@ -620,22 +603,20 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             /* width= */ 8, landscapeHeight, convertedHlgColor);
     canvas.drawBitmap(scaledContentBitmap, /* left= */ 12, /* top= */ 0, /* paint= */ null);
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                landscapeWidth,
-                landscapeHeight,
-                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
-                DefaultGlFrameProcessor.BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+            landscapeWidth,
+            landscapeHeight,
+            /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
+            DefaultGlFrameProcessor.BT2020_LINEAR));
     // The first frame sets the output to be landscape. The second portrait frame will be converted
     // to landscape by adding pillar-boxes.
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                portraitWidth,
-                portraitHeight,
-                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
-                DefaultGlFrameProcessor.BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+            portraitWidth,
+            portraitHeight,
+            /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
+            DefaultGlFrameProcessor.BT2020_LINEAR));
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertBitmapIsSolidGray(
@@ -715,12 +696,11 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(TEST_IMAGE_ASSET);
 
-    queueFrameOnGlThread(
-        () ->
-            createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000)
-                .buildUpon()
-                .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, 123456789L))
-                .build());
+    queueFrameOnGlThread(() ->
+        createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000)
+            .buildUpon()
+            .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, 123456789L))
+            .build());
 
     assertThat(frameWriter.outputMetadata).hasSize(1);
     assertThat(frameWriter.outputMetadata.get(0))
@@ -747,12 +727,11 @@ public final class FrameWriterGlTextureFrameConsumerTest {
             context, frameWriter, /* hardwareBufferJniWrapper= */ null);
     Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
 
-    queueFrameOnGlThread(
-        () ->
-            createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000)
-                .buildUpon()
-                .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, 987654321L))
-                .build());
+    queueFrameOnGlThread(() ->
+        createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000)
+            .buildUpon()
+            .setMetadata(ImmutableMap.of(Frame.KEY_DISPLAY_TIME_NS, 987654321L))
+            .build());
 
     assertThat(frameWriter.outputMetadata).hasSize(1);
     assertThat(frameWriter.outputMetadata.get(0))
@@ -779,13 +758,12 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     byte[] hagcPayload = new byte[] {1, 2, 3, 4};
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                    /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
-                .buildUpon()
-                .setMetadata(ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, hagcPayload))
-                .build());
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
+            .buildUpon()
+            .setMetadata(ImmutableMap.of(Frame.KEY_HDR_ST2094_50_INFO, hagcPayload))
+            .build());
 
     assertThat(frameWriter.outputMetadata.get(0).get(Frame.KEY_HDR_ST2094_50_INFO))
         .isEqualTo(new byte[] {1, 2, 3, 4});
@@ -796,13 +774,12 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   public void queue_hdrOutputWithoutHagcMetadata_forwardsNoMetadata() throws Exception {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                    /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
-                .buildUpon()
-                .setMetadata(ImmutableMap.of(Frame.KEY_PRESENTATION_TIME_US, 123456L))
-                .build());
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
+            .buildUpon()
+            .setMetadata(ImmutableMap.of(Frame.KEY_PRESENTATION_TIME_US, 123456L))
+            .build());
 
     assertThat(frameWriter.outputMetadata.get(0)).isEmpty();
   }
@@ -813,17 +790,16 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     byte[] hagcPayload = new byte[] {1, 2, 3, 4};
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR)
-                .buildUpon()
-                .setMetadata(
-                    ImmutableMap.of(
-                        Frame.KEY_HDR_ST2094_50_INFO,
-                        hagcPayload,
-                        Frame.KEY_DISPLAY_TIME_NS,
-                        1_000_000_000L))
-                .build());
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(/* value= */ 0.5f, DefaultGlFrameProcessor.BT709_LINEAR)
+            .buildUpon()
+            .setMetadata(
+                ImmutableMap.of(
+                    Frame.KEY_HDR_ST2094_50_INFO,
+                    hagcPayload,
+                    Frame.KEY_DISPLAY_TIME_NS,
+                    1_000_000_000L))
+            .build());
 
     assertThat(frameWriter.outputMetadata.get(0))
         .containsExactly(Frame.KEY_DISPLAY_TIME_NS, 1_000_000_000L);
@@ -835,20 +811,19 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
     byte[] hagcPayload = new byte[] {1, 2, 3};
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                    /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
-                .buildUpon()
-                .setMetadata(
-                    ImmutableMap.of(
-                        Frame.KEY_HDR_ST2094_50_INFO,
-                        hagcPayload,
-                        Frame.KEY_DISPLAY_TIME_NS,
-                        1_000_000_000L,
-                        Frame.KEY_PRESENTATION_TIME_US,
-                        123456L))
-                .build());
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR, DefaultGlFrameProcessor.BT2020_LINEAR)
+            .buildUpon()
+            .setMetadata(
+                ImmutableMap.of(
+                    Frame.KEY_HDR_ST2094_50_INFO,
+                    hagcPayload,
+                    Frame.KEY_DISPLAY_TIME_NS,
+                    1_000_000_000L,
+                    Frame.KEY_PRESENTATION_TIME_US,
+                    123456L))
+            .build());
 
     assertThat(frameWriter.outputMetadata.get(0).keySet())
         .containsExactly(Frame.KEY_HDR_ST2094_50_INFO, Frame.KEY_DISPLAY_TIME_NS);
@@ -861,12 +836,11 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   @SdkSuppress(minSdkVersion = 33)
   public void queue_hdrLinearInputWhenHlgUnsupported_fallsBackToSdr() throws Exception {
-    setUpHardwareBufferFrameConsumer(
-        /* info= */ (format, usage) -> !ColorInfo.isTransferHdr(format.colorInfo));
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) ->
+        !ColorInfo.isTransferHdr(format.colorInfo));
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
@@ -881,19 +855,18 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @SdkSuppress(minSdkVersion = 33)
   public void queue_hlgInputWithoutColorConversionWhenHlgUnsupported_fallsBackToSdr()
       throws Exception {
-    setUpHardwareBufferFrameConsumer(
-        /* info= */ (format, usage) -> !ColorInfo.isTransferHdr(format.colorInfo));
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) ->
+        !ColorInfo.isTransferHdr(format.colorInfo));
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                /* value= */ DIFFUSE_WHITE_HLG,
-                BT2020_HLG,
-                /* metadata= */ ImmutableMap.of(
-                    KEY_ITEM_EFFECTS,
-                    ImmutableList.of(new Contrast(/* contrast= */ 0f)),
-                    KEY_COMPOSITION_EFFECTS,
-                    ImmutableList.of(new Contrast(/* contrast= */ 0f)))));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+            /* value= */ DIFFUSE_WHITE_HLG,
+            BT2020_HLG,
+            /* metadata= */ ImmutableMap.of(
+                KEY_ITEM_EFFECTS,
+                ImmutableList.of(new Contrast(/* contrast= */ 0f)),
+                KEY_COMPOSITION_EFFECTS,
+                ImmutableList.of(new Contrast(/* contrast= */ 0f)))));
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
@@ -909,20 +882,19 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   public void queue_hlgInputWithExplicitColorConversionWhenHlgUnsupported_throwsWithoutConfiguring(
       @TestParameter({KEY_ITEM_EFFECTS, KEY_COMPOSITION_EFFECTS}) String effectKey)
       throws Exception {
-    setUpHardwareBufferFrameConsumer(
-        /* info= */ (format, usage) -> !ColorInfo.isTransferHdr(format.colorInfo));
+    setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) ->
+        !ColorInfo.isTransferHdr(format.colorInfo));
 
     ExecutionException thrownException =
         assertThrows(
             ExecutionException.class,
             () ->
-                queueFrameOnGlThread(
-                    () ->
-                        createSolidGrayGlTextureFrame(
-                            /* value= */ DIFFUSE_WHITE_HLG,
-                            BT2020_HLG,
-                            /* metadata= */ ImmutableMap.of(
-                                effectKey, ImmutableList.of(ColorConversion.create(BT2020_HLG))))));
+                queueFrameOnGlThread(() ->
+                    createSolidGrayGlTextureFrame(
+                        /* value= */ DIFFUSE_WHITE_HLG,
+                        BT2020_HLG,
+                        /* metadata= */ ImmutableMap.of(
+                            effectKey, ImmutableList.of(ColorConversion.create(BT2020_HLG))))));
 
     assertThat(thrownException).hasCauseThat().isInstanceOf(VideoFrameProcessingException.class);
     assertThat(frameWriter.configuredFormat).isEqualTo(new Format.Builder().build());
@@ -934,13 +906,12 @@ public final class FrameWriterGlTextureFrameConsumerTest {
       throws Exception {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> format.width >= format.height);
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(
-                /* width= */ 16,
-                /* height= */ 32,
-                /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
-                BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(
+            /* width= */ 16,
+            /* height= */ 32,
+            /* value= */ DIFFUSE_WHITE_BT2020_LINEAR,
+            BT2020_LINEAR));
 
     Format configuredFormat = frameWriter.configuredFormat;
     assertThat(configuredFormat.width).isEqualTo(32);
@@ -963,9 +934,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     // hlgOetf(pow(0.5 * 0.2031521, 1 / 1.2)) = hlgOetf(0.1490) = 0.6327.
     float halfLinearHlg = 0.6327f;
 
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
     queueFrameOnGlThread(
         () -> createSolidGrayGlTextureFrame(/* value= */ HALF_LINEAR_SRGB, BT709_SRGB));
 
@@ -988,9 +958,8 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
 
     queueFrameOnGlThread(() -> createSolidGrayGlTextureFrame(/* value= */ 0.5f, BT709_SRGB));
-    queueFrameOnGlThread(
-        () ->
-            createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
+    queueFrameOnGlThread(() ->
+        createSolidGrayGlTextureFrame(/* value= */ DIFFUSE_WHITE_BT2020_LINEAR, BT2020_LINEAR));
 
     List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
     assertThat(frameWriter.configuredFormat.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
@@ -1016,20 +985,19 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   /** Creates a {@link GlTextureFrame} on the GL thread and queues it to the consumer under test. */
   private void queueFrameOnGlThread(GlTextureFrameSupplier frameSupplier) throws Exception {
     glExecutorService
-        .submit(
-            () -> {
-              GlTextureFrame frame = frameSupplier.get();
-              try {
-                assertThat(
-                        frameWriterGlTextureFrameConsumer.queue(
-                            frame, directExecutor(), /* wakeupListener= */ () -> {}))
-                    .isTrue();
-              } catch (Throwable t) {
-                frame.release(/* releaseFence= */ null);
-                throw t;
-              }
-              return null;
-            })
+        .submit(() -> {
+          GlTextureFrame frame = frameSupplier.get();
+          try {
+            assertThat(
+                    frameWriterGlTextureFrameConsumer.queue(
+                        frame, directExecutor(), /* wakeupListener= */ () -> {}))
+                .isTrue();
+          } catch (Throwable t) {
+            frame.release(/* releaseFence= */ null);
+            throw t;
+          }
+          return null;
+        })
         .get(TIMEOUT_MS, MILLISECONDS);
   }
 

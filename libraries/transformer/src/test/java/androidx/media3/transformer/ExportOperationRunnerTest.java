@@ -78,10 +78,9 @@ public final class ExportOperationRunnerTest {
       throws Exception {
     IllegalStateException stageException = new IllegalStateException();
 
-    runner.start(
-        () -> {
-          throw stageException;
-        });
+    runner.start(() -> {
+      throw stageException;
+    });
     waitForInternalThreadToQuit();
 
     ExportException exportException = checkNotNull(listener.stageError.get());
@@ -119,11 +118,10 @@ public final class ExportOperationRunnerTest {
   public void reportCompleted_resultAlreadyReported_doesNotRunSecondCallback() throws Exception {
     List<String> callbacks = new ArrayList<>();
 
-    runner.start(
-        () -> {
-          runner.reportCompleted(() -> callbacks.add("first"));
-          runner.reportCompleted(() -> callbacks.add("second"));
-        });
+    runner.start(() -> {
+      runner.reportCompleted(() -> callbacks.add("first"));
+      runner.reportCompleted(() -> callbacks.add("second"));
+    });
     waitForInternalThreadToQuit();
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -153,12 +151,11 @@ public final class ExportOperationRunnerTest {
   @Test
   public void cancel_whileStageRuns_releasesAndDiscardsOutputBeforeReturning() throws Exception {
     CountDownLatch stageStartedLatch = new CountDownLatch(1);
-    runner.start(
-        () -> {
-          stageStartedLatch.countDown();
-          // Keep the stage running until cancel() blocks.
-          Uninterruptibles.awaitUninterruptibly(applicationThreadBlockedLatch);
-        });
+    runner.start(() -> {
+      stageStartedLatch.countDown();
+      // Keep the stage running until cancel() blocks.
+      Uninterruptibles.awaitUninterruptibly(applicationThreadBlockedLatch);
+    });
     checkState(stageStartedLatch.await(TIMEOUT_MS, MILLISECONDS));
 
     runner.cancel();

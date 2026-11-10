@@ -1302,20 +1302,19 @@ public final class Transformer {
                               maxDelayBetweenMuxerSamplesMs,
                               DebugTraceUtil.generateTraceSummary())),
                       ExportException.ERROR_CODE_MUXING_TIMEOUT);
-              applicationHandler.post(
-                  () -> {
-                    if (this.exportWatchdogTimer == null) {
-                      // The export has already ended or been cancelled.
-                      return;
-                    }
-                    if (currentExportOperation != null) {
-                      currentExportOperation.endWithException(exportException);
-                    } else {
-                      // Fallback if the timeout hits before the operation is even created
-                      exportOperationListener.onError(
-                          new ExportResult.Builder().build(), exportException);
-                    }
-                  });
+              applicationHandler.post(() -> {
+                if (this.exportWatchdogTimer == null) {
+                  // The export has already ended or been cancelled.
+                  return;
+                }
+                if (currentExportOperation != null) {
+                  currentExportOperation.endWithException(exportException);
+                } else {
+                  // Fallback if the timeout hits before the operation is even created
+                  exportOperationListener.onError(
+                      new ExportResult.Builder().build(), exportException);
+                }
+              });
             });
     exportWatchdogTimer.start();
     // Only publish a started timer, as it is read on the export operation's internal thread.

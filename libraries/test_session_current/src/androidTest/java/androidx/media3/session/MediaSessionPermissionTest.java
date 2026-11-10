@@ -436,12 +436,11 @@ public class MediaSessionPermissionTest {
     // Test passes if none of the protected player getters have been called.
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.release();
-              session.release();
-              player.release();
-            });
+        .postAndSync(() -> {
+          controller.release();
+          session.release();
+          player.release();
+        });
   }
 
   @Test

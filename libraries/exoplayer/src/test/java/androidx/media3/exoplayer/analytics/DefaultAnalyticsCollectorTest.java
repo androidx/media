@@ -796,11 +796,10 @@ public final class DefaultAnalyticsCollectorTest {
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
     player
-        .createMessage(
-            (message, payload) -> {
-              throw ExoPlaybackException.createForSource(
-                  new IOException(), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
-            })
+        .createMessage((message, payload) -> {
+          throw ExoPlaybackException.createForSource(
+              new IOException(), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+        })
         .send();
     runUntilError(player);
     player.seekTo(/* positionMs= */ 0);
@@ -1079,28 +1078,24 @@ public final class DefaultAnalyticsCollectorTest {
         new FakeMediaSource.Builder()
             .setTimeline(adTimeline)
             .setDrmSessionManager(DrmSessionManager.DRM_UNSUPPORTED)
-            .setTrackDataFactory(
-                (unusedFormat, mediaPeriodId) -> {
-                  if (mediaPeriodId.isAd()) {
-                    return ImmutableList.of(
-                        oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM);
-                  } else {
-                    // Provide a single sample before and after the midroll ad and another after the
-                    // postroll.
-                    return ImmutableList.of(
-                        oneByteSample(
-                            windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(
-                            windowOffsetInFirstPeriodUs + 6 * C.MICROS_PER_SECOND,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(
-                            windowOffsetInFirstPeriodUs + contentDurationsUs,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM);
-                  }
-                })
+            .setTrackDataFactory((unusedFormat, mediaPeriodId) -> {
+              if (mediaPeriodId.isAd()) {
+                return ImmutableList.of(
+                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
+              } else {
+                // Provide a single sample before and after the midroll ad and another after the
+                // postroll.
+                return ImmutableList.of(
+                    oneByteSample(
+                        windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND, C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(
+                        windowOffsetInFirstPeriodUs + 6 * C.MICROS_PER_SECOND,
+                        C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(
+                        windowOffsetInFirstPeriodUs + contentDurationsUs, C.BUFFER_FLAG_KEY_FRAME),
+                    END_OF_STREAM_ITEM);
+              }
+            })
             .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
             .build();
     ExoPlayer player = setupPlayer();
@@ -1321,25 +1316,22 @@ public final class DefaultAnalyticsCollectorTest {
     FakeMediaSource fakeMediaSource =
         new FakeMediaSource.Builder()
             .setTimeline(adTimeline)
-            .setTrackDataFactory(
-                (unusedFormat, mediaPeriodId) -> {
-                  if (mediaPeriodId.isAd()) {
-                    return ImmutableList.of(
-                        oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM);
-                  } else {
-                    // Provide a sample before the midroll and another after the seek point below
-                    // (6s).
-                    return ImmutableList.of(
-                        oneByteSample(
-                            windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(
-                            windowOffsetInFirstPeriodUs + 7 * C.MICROS_PER_SECOND,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM);
-                  }
-                })
+            .setTrackDataFactory((unusedFormat, mediaPeriodId) -> {
+              if (mediaPeriodId.isAd()) {
+                return ImmutableList.of(
+                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
+              } else {
+                // Provide a sample before the midroll and another after the seek point below
+                // (6s).
+                return ImmutableList.of(
+                    oneByteSample(
+                        windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND, C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(
+                        windowOffsetInFirstPeriodUs + 7 * C.MICROS_PER_SECOND,
+                        C.BUFFER_FLAG_KEY_FRAME),
+                    END_OF_STREAM_ITEM);
+              }
+            })
             .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
             .build();
     ExoPlayer player = setupPlayer();

@@ -158,12 +158,11 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicBoolean isPlayingFromGetterRef = new AtomicBoolean();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setPlayWhenReady(testPlayWhenReady);
-              playWhenReadyFromGetterRef.set(controller.getPlayWhenReady());
-              isPlayingFromGetterRef.set(controller.isPlaying());
-            });
+        .postAndSync(() -> {
+          controller.setPlayWhenReady(testPlayWhenReady);
+          playWhenReadyFromGetterRef.set(controller.getPlayWhenReady());
+          isPlayingFromGetterRef.set(controller.isPlaying());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playWhenReadyFromCallbackRef.get()).isEqualTo(testPlayWhenReady);
@@ -202,11 +201,10 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicBoolean shuffleModeEnabledFromGetterRef = new AtomicBoolean();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setShuffleModeEnabled(testShuffleModeEnabled);
-              shuffleModeEnabledFromGetterRef.set(controller.getShuffleModeEnabled());
-            });
+        .postAndSync(() -> {
+          controller.setShuffleModeEnabled(testShuffleModeEnabled);
+          shuffleModeEnabledFromGetterRef.set(controller.getShuffleModeEnabled());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(shuffleModeEnabledFromCallbackRef.get()).isEqualTo(testShuffleModeEnabled);
@@ -242,11 +240,10 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicInteger repeatModeFromGetterRef = new AtomicInteger();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setRepeatMode(testRepeatMode);
-              repeatModeFromGetterRef.set(controller.getRepeatMode());
-            });
+        .postAndSync(() -> {
+          controller.setRepeatMode(testRepeatMode);
+          repeatModeFromGetterRef.set(controller.getRepeatMode());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(repeatModeFromCallbackRef.get()).isEqualTo(testRepeatMode);
@@ -283,11 +280,10 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<PlaybackParameters> playbackParametersFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setPlaybackParameters(testPlaybackParameters);
-              playbackParametersFromGetterRef.set(controller.getPlaybackParameters());
-            });
+        .postAndSync(() -> {
+          controller.setPlaybackParameters(testPlaybackParameters);
+          playbackParametersFromGetterRef.set(controller.getPlaybackParameters());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackParametersFromCallbackRef.get()).isEqualTo(testPlaybackParameters);
@@ -324,12 +320,11 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<PlaybackException> playerErrorRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.prepare();
-              playbackStateFromGetterRef.set(controller.getPlaybackState());
-              playerErrorRef.set(controller.getPlayerError());
-            });
+        .postAndSync(() -> {
+          controller.prepare();
+          playbackStateFromGetterRef.set(controller.getPlaybackState());
+          playerErrorRef.set(controller.getPlayerError());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackStateFromCallbackRef.get()).isEqualTo(testPlaybackState);
@@ -394,16 +389,15 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicLong totalBufferedDurationFromGetterRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.stop();
-              playbackStateFromGetterRef.set(controller.getPlaybackState());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-              currentPositionFromGetterRef.set(controller.getCurrentPosition());
-              bufferedPositionFromGetterRef.set(controller.getBufferedPosition());
-              bufferedPercentageFromGetterRef.set(controller.getBufferedPercentage());
-              totalBufferedDurationFromGetterRef.set(controller.getTotalBufferedDuration());
-            });
+        .postAndSync(() -> {
+          controller.stop();
+          playbackStateFromGetterRef.set(controller.getPlaybackState());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+          currentPositionFromGetterRef.set(controller.getCurrentPosition());
+          bufferedPositionFromGetterRef.set(controller.getBufferedPosition());
+          bufferedPercentageFromGetterRef.set(controller.getBufferedPercentage());
+          totalBufferedDurationFromGetterRef.set(controller.getTotalBufferedDuration());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playbackStateFromCallbackRef.get()).isEqualTo(testPlaybackState);
@@ -488,12 +482,11 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicLong bufferedPositionRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.seekTo(testIndex, testPosition);
-              currentPositionRef.set(controller.getCurrentPosition());
-              bufferedPositionRef.set(controller.getBufferedPosition());
-            });
+        .postAndSync(() -> {
+          controller.seekTo(testIndex, testPosition);
+          currentPositionRef.set(controller.getCurrentPosition());
+          bufferedPositionRef.set(controller.getBufferedPosition());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(oldPositionInfoRef.get().positionMs).isEqualTo(initialPosition);
@@ -535,10 +528,9 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.seekTo(/* positionMs= */ testPositionMs);
-            });
+        .postAndSync(() -> {
+          controller.seekTo(/* positionMs= */ testPositionMs);
+        });
 
     assertThat(latch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
   }
@@ -599,13 +591,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicLong totalBufferedDurationRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.seekTo(testPosition);
-              currentPositionRef.set(controller.getCurrentPosition());
-              bufferedPositionRef.set(controller.getBufferedPosition());
-              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
-            });
+        .postAndSync(() -> {
+          controller.seekTo(testPosition);
+          currentPositionRef.set(controller.getCurrentPosition());
+          bufferedPositionRef.set(controller.getBufferedPosition());
+          totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(oldPositionInfoRef.get().positionMs).isEqualTo(initialPosition);
@@ -677,13 +668,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicLong totalBufferedDurationRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.seekTo(testPosition);
-              currentPositionRef.set(controller.getCurrentPosition());
-              bufferedPositionRef.set(controller.getBufferedPosition());
-              totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
-            });
+        .postAndSync(() -> {
+          controller.seekTo(testPosition);
+          currentPositionRef.set(controller.getCurrentPosition());
+          bufferedPositionRef.set(controller.getBufferedPosition());
+          totalBufferedDurationRef.set(controller.getTotalBufferedDuration());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(oldPositionInfoRef.get().positionMs).isEqualTo(initialPosition);
@@ -749,13 +739,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.addMediaItems(testAddIndex, newMediaItems);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.addMediaItems(testAddIndex, newMediaItems);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -818,13 +807,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.addMediaItems(testAddIndex, newMediaItems);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.addMediaItems(testAddIndex, newMediaItems);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -882,13 +870,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.removeMediaItems(fromIndex, toIndex);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.removeMediaItems(fromIndex, toIndex);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -948,13 +935,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.removeMediaItems(testFromIndex, testToIndex);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.removeMediaItems(testFromIndex, testToIndex);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -1011,12 +997,11 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.removeMediaItems(testFromIndex, testToIndex);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.removeMediaItems(testFromIndex, testToIndex);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -1074,13 +1059,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.moveMediaItems(testFromIndex, testToIndex, testNewIndex);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.moveMediaItems(testFromIndex, testToIndex, testNewIndex);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -1140,12 +1124,11 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<Timeline> timelineFromGetterRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.moveMediaItems(testFromIndex, testToIndex, testNewIndex);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.moveMediaItems(testFromIndex, testToIndex, testNewIndex);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), testMediaItems);
@@ -1161,14 +1144,13 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicInteger mediaItemIndexAfterSeek = new AtomicInteger();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(MediaItem.fromUri("http://test"));
+        .postAndSync(() -> {
+          controller.setMediaItem(MediaItem.fromUri("http://test"));
 
-              controller.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1000);
+          controller.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1000);
 
-              mediaItemIndexAfterSeek.set(controller.getCurrentMediaItemIndex());
-            });
+          mediaItemIndexAfterSeek.set(controller.getCurrentMediaItemIndex());
+        });
 
     assertThat(mediaItemIndexAfterSeek.get()).isEqualTo(0);
   }
@@ -1181,16 +1163,15 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     ArrayList<MediaItem> mediaItemsAfterAdd = new ArrayList<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItem(MediaItem.fromUri("http://test"));
+        .postAndSync(() -> {
+          controller.setMediaItem(MediaItem.fromUri("http://test"));
 
-              controller.addMediaItems(/* index= */ 5000, addedItems);
+          controller.addMediaItems(/* index= */ 5000, addedItems);
 
-              for (int i = 0; i < controller.getMediaItemCount(); i++) {
-                mediaItemsAfterAdd.add(controller.getMediaItemAt(i));
-              }
-            });
+          for (int i = 0; i < controller.getMediaItemCount(); i++) {
+            mediaItemsAfterAdd.add(controller.getMediaItemAt(i));
+          }
+        });
 
     assertThat(mediaItemsAfterAdd).hasSize(3);
     assertThat(mediaItemsAfterAdd.get(1)).isEqualTo(addedItems.get(0));
@@ -1203,16 +1184,15 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicInteger mediaItemCountAfterRemove = new AtomicInteger();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(
-                  ImmutableList.of(
-                      MediaItem.fromUri("http://item1"), MediaItem.fromUri("http://item2")));
+        .postAndSync(() -> {
+          controller.setMediaItems(
+              ImmutableList.of(
+                  MediaItem.fromUri("http://item1"), MediaItem.fromUri("http://item2")));
 
-              controller.removeMediaItems(/* fromIndex= */ 5000, /* toIndex= */ 6000);
+          controller.removeMediaItems(/* fromIndex= */ 5000, /* toIndex= */ 6000);
 
-              mediaItemCountAfterRemove.set(controller.getMediaItemCount());
-            });
+          mediaItemCountAfterRemove.set(controller.getMediaItemCount());
+        });
 
     assertThat(mediaItemCountAfterRemove.get()).isEqualTo(2);
   }
@@ -1225,17 +1205,16 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     AtomicReference<MediaItem> remainingItemAfterRemove = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(
-                  ImmutableList.of(
-                      MediaItem.fromUri("http://item1"), MediaItem.fromUri("http://item2")));
+        .postAndSync(() -> {
+          controller.setMediaItems(
+              ImmutableList.of(
+                  MediaItem.fromUri("http://item1"), MediaItem.fromUri("http://item2")));
 
-              controller.removeMediaItems(/* fromIndex= */ 1, /* toIndex= */ 6000);
+          controller.removeMediaItems(/* fromIndex= */ 1, /* toIndex= */ 6000);
 
-              mediaItemCountAfterRemove.set(controller.getMediaItemCount());
-              remainingItemAfterRemove.set(controller.getMediaItemAt(0));
-            });
+          mediaItemCountAfterRemove.set(controller.getMediaItemCount());
+          remainingItemAfterRemove.set(controller.getMediaItemAt(0));
+        });
 
     assertThat(mediaItemCountAfterRemove.get()).isEqualTo(1);
     assertThat(remainingItemAfterRemove.get().localConfiguration.uri.toString())
@@ -1250,17 +1229,15 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     ArrayList<MediaItem> itemsAfterMove = new ArrayList<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(items);
+        .postAndSync(() -> {
+          controller.setMediaItems(items);
 
-              controller.moveMediaItems(
-                  /* fromIndex= */ 5000, /* toIndex= */ 6000, /* newIndex= */ 0);
+          controller.moveMediaItems(/* fromIndex= */ 5000, /* toIndex= */ 6000, /* newIndex= */ 0);
 
-              for (int i = 0; i < controller.getMediaItemCount(); i++) {
-                itemsAfterMove.add(controller.getMediaItemAt(i));
-              }
-            });
+          for (int i = 0; i < controller.getMediaItemCount(); i++) {
+            itemsAfterMove.add(controller.getMediaItemAt(i));
+          }
+        });
 
     assertThat(itemsAfterMove).isEqualTo(items);
   }
@@ -1274,16 +1251,15 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     ArrayList<MediaItem> itemsAfterMove = new ArrayList<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(items);
+        .postAndSync(() -> {
+          controller.setMediaItems(items);
 
-              controller.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 6000, /* newIndex= */ 0);
+          controller.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 6000, /* newIndex= */ 0);
 
-              for (int i = 0; i < controller.getMediaItemCount(); i++) {
-                itemsAfterMove.add(controller.getMediaItemAt(i));
-              }
-            });
+          for (int i = 0; i < controller.getMediaItemCount(); i++) {
+            itemsAfterMove.add(controller.getMediaItemAt(i));
+          }
+        });
 
     assertThat(itemsAfterMove).containsExactly(items.get(1), items.get(0)).inOrder();
   }
@@ -1297,16 +1273,15 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
     ArrayList<MediaItem> itemsAfterMove = new ArrayList<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.setMediaItems(items);
+        .postAndSync(() -> {
+          controller.setMediaItems(items);
 
-              controller.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 1, /* newIndex= */ 5000);
+          controller.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 1, /* newIndex= */ 5000);
 
-              for (int i = 0; i < controller.getMediaItemCount(); i++) {
-                itemsAfterMove.add(controller.getMediaItemAt(i));
-              }
-            });
+          for (int i = 0; i < controller.getMediaItemCount(); i++) {
+            itemsAfterMove.add(controller.getMediaItemAt(i));
+          }
+        });
 
     assertThat(itemsAfterMove).containsExactly(items.get(1), items.get(0)).inOrder();
   }
@@ -1361,13 +1336,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, newMediaItems);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, newMediaItems);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), expectedMediaItems);
@@ -1427,13 +1401,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, newMediaItems);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, newMediaItems);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), expectedMediaItems);
@@ -1491,14 +1464,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.replaceMediaItems(
-                  /* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of());
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of());
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), expectedMediaItems);
@@ -1556,14 +1527,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.replaceMediaItems(
-                  /* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of());
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of());
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), expectedMediaItems);
@@ -1614,13 +1583,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.replaceMediaItems(/* fromIndex= */ 0, /* toIndex= */ 0, newMediaItems);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.replaceMediaItems(/* fromIndex= */ 0, /* toIndex= */ 0, newMediaItems);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), newMediaItems);
@@ -1679,13 +1647,12 @@ public class MediaControllerStateMaskingWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 5000, newMediaItems);
-              currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-              currentMediaItemRef.set(controller.getCurrentMediaItem());
-              timelineFromGetterRef.set(controller.getCurrentTimeline());
-            });
+        .postAndSync(() -> {
+          controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 5000, newMediaItems);
+          currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+          currentMediaItemRef.set(controller.getCurrentMediaItem());
+          timelineFromGetterRef.set(controller.getCurrentTimeline());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     MediaTestUtils.assertTimelineContains(timelineFromParamRef.get(), expectedMediaItems);

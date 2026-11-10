@@ -93,21 +93,19 @@ import org.jspecify.annotations.Nullable;
             listenerLooper,
             clock,
             this::onStreamVolumeStateChanged);
-    stateHandler.runInBackground(
-        () -> {
-          audioManager =
-              checkNotNull(
-                  (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
-          VolumeChangeReceiver receiver = new VolumeChangeReceiver();
-          IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);
-          try {
-            applicationContext.registerReceiver(receiver, filter);
-            this.receiver = receiver;
-          } catch (RuntimeException e) {
-            Log.w(TAG, "Error registering stream volume receiver", e);
-          }
-          stateHandler.setStateInBackground(generateState(streamType));
-        });
+    stateHandler.runInBackground(() -> {
+      audioManager =
+          checkNotNull((AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
+      VolumeChangeReceiver receiver = new VolumeChangeReceiver();
+      IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);
+      try {
+        applicationContext.registerReceiver(receiver, filter);
+        this.receiver = receiver;
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Error registering stream volume receiver", e);
+      }
+      stateHandler.setStateInBackground(generateState(streamType));
+    });
   }
 
   /** Sets the audio stream type. */
@@ -316,15 +314,14 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onReceive(Context context, Intent intent) {
       // BroadcastReceivers are called on the main thread.
-      stateHandler.runInBackground(
-          () -> {
-            if (receiver == null) {
-              // Stale event. StreamVolumeManager is already released.
-              return;
-            }
-            int streamType = stateHandler.get().streamType;
-            stateHandler.setStateInBackground(generateState(streamType));
-          });
+      stateHandler.runInBackground(() -> {
+        if (receiver == null) {
+          // Stale event. StreamVolumeManager is already released.
+          return;
+        }
+        int streamType = stateHandler.get().streamType;
+        stateHandler.setStateInBackground(generateState(streamType));
+      });
     }
   }
 }

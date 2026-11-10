@@ -231,26 +231,25 @@ public class MediaControllerSurfaceSizeChangeTest {
       default:
         throw new AssertionError(precondition + " is not an allowed precondition.");
     }
-    MainLooperTestRule.runOnMainSync(
-        () ->
-            controller.addListener(
-                new Player.Listener() {
-                  @Override
-                  public void onSurfaceSizeChanged(int width, int height) {
-                    if (countDownLatch.getCount() == 0) {
-                      return;
-                    }
-                    newSurfaceWidthRef.set(width);
-                    newSurfaceHeightRef.set(height);
-                    countDownLatch.countDown();
-                  }
+    MainLooperTestRule.runOnMainSync(() ->
+        controller.addListener(
+            new Player.Listener() {
+              @Override
+              public void onSurfaceSizeChanged(int width, int height) {
+                if (countDownLatch.getCount() == 0) {
+                  return;
+                }
+                newSurfaceWidthRef.set(width);
+                newSurfaceHeightRef.set(height);
+                countDownLatch.countDown();
+              }
 
-                  @Override
-                  public void onEvents(Player player, Player.Events events) {
-                    eventsRef.set(events);
-                    countDownLatch.countDown();
-                  }
-                }));
+              @Override
+              public void onEvents(Player player, Player.Events events) {
+                eventsRef.set(events);
+                countDownLatch.countDown();
+              }
+            }));
   }
 
   private void setViewForAction() {
@@ -279,13 +278,12 @@ public class MediaControllerSurfaceSizeChangeTest {
     int targetWidth = viewForPrecondition.getWidth();
     int targetHeight = viewForPrecondition.getHeight();
 
-    activityRule.runOnUiThread(
-        () -> {
-          LayoutParams layoutParams = viewForAction.getLayoutParams();
-          layoutParams.width = targetWidth;
-          layoutParams.height = targetHeight;
-          viewForAction.setLayoutParams(layoutParams);
-        });
+    activityRule.runOnUiThread(() -> {
+      LayoutParams layoutParams = viewForAction.getLayoutParams();
+      layoutParams.width = targetWidth;
+      layoutParams.height = targetHeight;
+      viewForAction.setLayoutParams(layoutParams);
+    });
     PollingCheck.waitFor(
         TIMEOUT_MS,
         () -> viewForAction.getWidth() == targetWidth && viewForAction.getHeight() == targetHeight);

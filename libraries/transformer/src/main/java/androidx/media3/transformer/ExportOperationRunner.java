@@ -226,18 +226,17 @@ import org.jspecify.annotations.Nullable;
   public void endWithException(ExportException exportException) {
     // If the post fails, the internal thread has quit, so the export has already ended.
     boolean unused =
-        internalHandler.post(
-            () -> {
-              if (isEnded || isCancelled) {
-                return;
-              }
-              @Nullable TransformerInternal transformerInternal = this.transformerInternal;
-              if (transformerInternal != null) {
-                transformerInternal.endWithException(exportException);
-              } else {
-                listener.onStageError(exportException);
-              }
-            });
+        internalHandler.post(() -> {
+          if (isEnded || isCancelled) {
+            return;
+          }
+          @Nullable TransformerInternal transformerInternal = this.transformerInternal;
+          if (transformerInternal != null) {
+            transformerInternal.endWithException(exportException);
+          } else {
+            listener.onStageError(exportException);
+          }
+        });
   }
 
   private void runStage(Stage stage) {
@@ -261,12 +260,11 @@ import org.jspecify.annotations.Nullable;
     isEnded = true;
     release(/* discardOutput= */ !completed);
     checkState(
-        applicationHandler.post(
-            () -> {
-              if (!isCancelled) {
-                applicationThreadCallback.run();
-              }
-            }));
+        applicationHandler.post(() -> {
+          if (!isCancelled) {
+            applicationThreadCallback.run();
+          }
+        }));
   }
 
   private void cancelInternal() {
@@ -311,10 +309,9 @@ import org.jspecify.annotations.Nullable;
         ImmutableList<ProcessedInput> processedInputs,
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName) {
-      runStage(
-          () ->
-              listener.onTransformerInternalCompleted(
-                  processedInputs, audioEncoderName, videoEncoderName));
+      runStage(() ->
+          listener.onTransformerInternalCompleted(
+              processedInputs, audioEncoderName, videoEncoderName));
     }
 
     @Override
@@ -323,10 +320,9 @@ import org.jspecify.annotations.Nullable;
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName,
         ExportException exportException) {
-      runStage(
-          () ->
-              listener.onTransformerInternalError(
-                  processedInputs, audioEncoderName, videoEncoderName, exportException));
+      runStage(() ->
+          listener.onTransformerInternalError(
+              processedInputs, audioEncoderName, videoEncoderName, exportException));
     }
   }
 }

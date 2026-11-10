@@ -81,13 +81,12 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     String tsFilePath = "asset:///media/ts/sample_h264.ts";
     String tsFileName = "ts/sample_h264.ts";
     Muxer.Factory inAppMuxerFactory =
-        new InAppMp4Muxer.Factory(
-            metadataEntries ->
-                // Add timestamp to make output file deterministic.
-                metadataEntries.add(
-                    new Mp4TimestampData(
-                        /* creationTimestampSeconds= */ 3_000_000_000L,
-                        /* modificationTimestampSeconds= */ 4_000_000_000L)));
+        new InAppMp4Muxer.Factory(metadataEntries ->
+            // Add timestamp to make output file deterministic.
+            metadataEntries.add(
+                new Mp4TimestampData(
+                    /* creationTimestampSeconds= */ 3_000_000_000L,
+                    /* modificationTimestampSeconds= */ 4_000_000_000L)));
 
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
@@ -116,11 +115,10 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     Mp4LocationData expectedLocationData =
         new Mp4LocationData(/* latitude= */ 45f, /* longitude= */ -90f);
     Muxer.Factory inAppMuxerFactory =
-        new InAppMp4Muxer.Factory(
-            metadataEntries -> {
-              metadataEntries.removeIf((Metadata.Entry entry) -> entry instanceof Mp4LocationData);
-              metadataEntries.add(expectedLocationData);
-            });
+        new InAppMp4Muxer.Factory(metadataEntries -> {
+          metadataEntries.removeIf((Metadata.Entry entry) -> entry instanceof Mp4LocationData);
+          metadataEntries.add(expectedLocationData);
+        });
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
@@ -139,11 +137,10 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     Mp4LocationData expectedLocationData =
         new Mp4LocationData(/* latitude= */ 45f, /* longitude= */ -90f, /* altitude= */ 120.5f);
     Muxer.Factory inAppMuxerFactory =
-        new InAppMp4Muxer.Factory(
-            metadataEntries -> {
-              metadataEntries.removeIf((Metadata.Entry entry) -> entry instanceof Mp4LocationData);
-              metadataEntries.add(expectedLocationData);
-            });
+        new InAppMp4Muxer.Factory(metadataEntries -> {
+          metadataEntries.removeIf((Metadata.Entry entry) -> entry instanceof Mp4LocationData);
+          metadataEntries.add(expectedLocationData);
+        });
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
@@ -234,11 +231,10 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
             /* value= */ Util.toByteArray(600.0f),
             MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32);
     Muxer.Factory inAppMuxerFactory =
-        new InAppMp4Muxer.Factory(
-            metadataEntries -> {
-              metadataEntries.add(expectedStringMetadata);
-              metadataEntries.add(expectedFloatMetadata);
-            });
+        new InAppMp4Muxer.Factory(metadataEntries -> {
+          metadataEntries.add(expectedStringMetadata);
+          metadataEntries.add(expectedFloatMetadata);
+        });
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));

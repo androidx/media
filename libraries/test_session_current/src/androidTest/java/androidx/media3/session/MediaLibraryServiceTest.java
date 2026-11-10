@@ -89,37 +89,34 @@ public class MediaLibraryServiceTest {
     List<MediaSession.ControllerInfo> onGetSessionControllerInfos = new ArrayList<>();
     List<MediaSession.ControllerInfo> browserCommandControllerInfos = new ArrayList<>();
     AtomicReference<MediaSession> session = new AtomicReference<>();
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          MockMediaLibraryService service =
-              (MockMediaLibraryService) testServiceRegistry.getServiceInstance();
-          // The controllerInfo passed to the onGetSession of the service.
-          onGetSessionControllerInfos.add(controllerInfo);
-          Player player = new ExoPlayer.Builder(context).build();
-          MediaLibrarySession.Callback callback =
-              new MediaLibrarySession.Callback() {
-                @Override
-                public ListenableFuture<LibraryResult<MediaItem>> onGetItem(
-                    MediaLibrarySession session,
-                    MediaSession.ControllerInfo browser,
-                    String mediaId) {
-                  browserCommandControllerInfos.add(browser);
-                  return Futures.immediateFuture(
-                      LibraryResult.ofItem(
-                          new MediaItem.Builder()
-                              .setMediaId("media-id-321")
-                              .setMediaMetadata(
-                                  new MediaMetadata.Builder()
-                                      .setIsPlayable(false)
-                                      .setIsBrowsable(true)
-                                      .build())
-                              .build(),
-                          /* params= */ null));
-                }
-              };
-          session.set(new MediaLibrarySession.Builder(service, player, callback).build());
-          return session.get();
-        });
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      MockMediaLibraryService service =
+          (MockMediaLibraryService) testServiceRegistry.getServiceInstance();
+      // The controllerInfo passed to the onGetSession of the service.
+      onGetSessionControllerInfos.add(controllerInfo);
+      Player player = new ExoPlayer.Builder(context).build();
+      MediaLibrarySession.Callback callback =
+          new MediaLibrarySession.Callback() {
+            @Override
+            public ListenableFuture<LibraryResult<MediaItem>> onGetItem(
+                MediaLibrarySession session, MediaSession.ControllerInfo browser, String mediaId) {
+              browserCommandControllerInfos.add(browser);
+              return Futures.immediateFuture(
+                  LibraryResult.ofItem(
+                      new MediaItem.Builder()
+                          .setMediaId("media-id-321")
+                          .setMediaMetadata(
+                              new MediaMetadata.Builder()
+                                  .setIsPlayable(false)
+                                  .setIsBrowsable(true)
+                                  .build())
+                          .build(),
+                      /* params= */ null));
+            }
+          };
+      session.set(new MediaLibrarySession.Builder(service, player, callback).build());
+      return session.get();
+    });
     // Create the remote browser to start the service.
     RemoteMediaBrowser browser =
         controllerTestRule.createRemoteBrowser(token, /* connectionHints= */ Bundle.EMPTY);

@@ -634,17 +634,15 @@ public class FrameExtractorTest {
     AtomicReference<Frame> frame = new AtomicReference<>();
 
     Thread nonLooperThread =
-        new Thread(
-            () -> {
-              try (FrameExtractor frameExtractor =
-                  new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
-                ListenableFuture<Frame> frameFuture =
-                    frameExtractor.getFrame(/* positionMs= */ 8_500);
-                frame.set(frameFuture.get(TIMEOUT_SECONDS, SECONDS));
-              } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                throw new IllegalStateException(e);
-              }
-            });
+        new Thread(() -> {
+          try (FrameExtractor frameExtractor =
+              new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+            ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
+            frame.set(frameFuture.get(TIMEOUT_SECONDS, SECONDS));
+          } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new IllegalStateException(e);
+          }
+        });
     nonLooperThread.start();
     nonLooperThread.join();
 

@@ -170,248 +170,236 @@ public abstract class DataSourceContractTest {
 
   @Test
   public void unboundedDataSpec_readUntilEnd() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            long length = dataSource.open(dataSpecBuilderFromTestResource(resource).build());
-            byte[] data =
-                unboundedReadsAreIndefinite()
-                    ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
-                    : DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        long length = dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
+                : DataSourceUtil.readToEnd(dataSource);
 
-            if (!resource.mayResolveToUnknownLength()) {
-              assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
-            }
-            if (length != C.LENGTH_UNSET) {
-              assertThat(length).isEqualTo(resource.getExpectedBytes().length);
-            }
-            assertThat(data).isEqualTo(resource.getExpectedBytes());
-          } finally {
-            dataSource.close();
-          }
-        });
+        if (!resource.mayResolveToUnknownLength()) {
+          assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
+        }
+        if (length != C.LENGTH_UNSET) {
+          assertThat(length).isEqualTo(resource.getExpectedBytes().length);
+        }
+        assertThat(data).isEqualTo(resource.getExpectedBytes());
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void unboundedDataSpec_readExpectedBytesWithOffset() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
-            int offset = 2;
-            byte[] data = new byte[resource.getExpectedBytes().length + offset];
-            // Initialize the first two bytes with non-zero values.
-            data[0] = (byte) 0xA5;
-            data[1] = (byte) 0x5A;
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+        int offset = 2;
+        byte[] data = new byte[resource.getExpectedBytes().length + offset];
+        // Initialize the first two bytes with non-zero values.
+        data[0] = (byte) 0xA5;
+        data[1] = (byte) 0x5A;
 
-            while (offset != data.length) {
-              int bytesRead = dataSource.read(data, offset, resource.getExpectedBytes().length);
+        while (offset != data.length) {
+          int bytesRead = dataSource.read(data, offset, resource.getExpectedBytes().length);
 
-              if (bytesRead == C.RESULT_END_OF_INPUT) {
-                break;
-              }
-
-              offset += bytesRead;
-            }
-
-            // Assert that the first two bytes have not been modified.
-            assertThat(data[0]).isEqualTo((byte) 0xA5);
-            assertThat(data[1]).isEqualTo((byte) 0x5A);
-
-            assertThat(offset).isEqualTo(data.length);
-            byte[] actualData = Arrays.copyOfRange(data, 2, data.length);
-            assertThat(actualData).isEqualTo(resource.getExpectedBytes());
-          } finally {
-            dataSource.close();
+          if (bytesRead == C.RESULT_END_OF_INPUT) {
+            break;
           }
-        });
+
+          offset += bytesRead;
+        }
+
+        // Assert that the first two bytes have not been modified.
+        assertThat(data[0]).isEqualTo((byte) 0xA5);
+        assertThat(data[1]).isEqualTo((byte) 0x5A);
+
+        assertThat(offset).isEqualTo(data.length);
+        byte[] actualData = Arrays.copyOfRange(data, 2, data.length);
+        assertThat(actualData).isEqualTo(resource.getExpectedBytes());
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithPosition_readUntilEnd() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            long length =
-                dataSource.open(dataSpecBuilderFromTestResource(resource).setPosition(3).build());
-            byte[] data =
-                unboundedReadsAreIndefinite()
-                    ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length - 3)
-                    : DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        long length =
+            dataSource.open(dataSpecBuilderFromTestResource(resource).setPosition(3).build());
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length - 3)
+                : DataSourceUtil.readToEnd(dataSource);
 
-            if (!resource.mayResolveToUnknownLength()) {
-              assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
-            }
-            if (length != C.LENGTH_UNSET) {
-              assertThat(length).isEqualTo(resource.getExpectedBytes().length - 3);
-            }
-            byte[] expectedData =
-                Arrays.copyOfRange(
-                    resource.getExpectedBytes(), 3, resource.getExpectedBytes().length);
-            assertThat(data).isEqualTo(expectedData);
-          } finally {
-            dataSource.close();
-          }
-        });
+        if (!resource.mayResolveToUnknownLength()) {
+          assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
+        }
+        if (length != C.LENGTH_UNSET) {
+          assertThat(length).isEqualTo(resource.getExpectedBytes().length - 3);
+        }
+        byte[] expectedData =
+            Arrays.copyOfRange(resource.getExpectedBytes(), 3, resource.getExpectedBytes().length);
+        assertThat(data).isEqualTo(expectedData);
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithLength_readExpectedRange() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            long length =
-                dataSource.open(dataSpecBuilderFromTestResource(resource).setLength(4).build());
-            byte[] data = DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        long length =
+            dataSource.open(dataSpecBuilderFromTestResource(resource).setLength(4).build());
+        byte[] data = DataSourceUtil.readToEnd(dataSource);
 
-            assertThat(length).isEqualTo(4);
-            byte[] expectedData = Arrays.copyOf(resource.getExpectedBytes(), 4);
-            assertThat(data).isEqualTo(expectedData);
-          } finally {
-            dataSource.close();
-          }
-        });
+        assertThat(length).isEqualTo(4);
+        byte[] expectedData = Arrays.copyOf(resource.getExpectedBytes(), 4);
+        assertThat(data).isEqualTo(expectedData);
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithLength_readUntilEndInTwoParts() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            int length = resource.getExpectedBytes().length;
-            dataSource.open(dataSpecBuilderFromTestResource(resource).setLength(length).build());
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        int length = resource.getExpectedBytes().length;
+        dataSource.open(dataSpecBuilderFromTestResource(resource).setLength(length).build());
 
-            byte[] firstPartData = DataSourceUtil.readExactly(dataSource, length / 2);
-            byte[] secondPartData = DataSourceUtil.readToEnd(dataSource);
+        byte[] firstPartData = DataSourceUtil.readExactly(dataSource, length / 2);
+        byte[] secondPartData = DataSourceUtil.readToEnd(dataSource);
 
-            byte[] expectedFirstPartData = Arrays.copyOf(resource.getExpectedBytes(), length / 2);
-            byte[] expectedSecondPartData =
-                Arrays.copyOfRange(resource.getExpectedBytes(), length / 2, length);
-            assertThat(firstPartData).isEqualTo(expectedFirstPartData);
-            assertThat(secondPartData).isEqualTo(expectedSecondPartData);
-          } finally {
-            dataSource.close();
-          }
-        });
+        byte[] expectedFirstPartData = Arrays.copyOf(resource.getExpectedBytes(), length / 2);
+        byte[] expectedSecondPartData =
+            Arrays.copyOfRange(resource.getExpectedBytes(), length / 2, length);
+        assertThat(firstPartData).isEqualTo(expectedFirstPartData);
+        assertThat(secondPartData).isEqualTo(expectedSecondPartData);
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithPositionAndLength_readExpectedRange() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            long length =
-                dataSource.open(
-                    dataSpecBuilderFromTestResource(resource).setPosition(2).setLength(2).build());
-            byte[] data = DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        long length =
+            dataSource.open(
+                dataSpecBuilderFromTestResource(resource).setPosition(2).setLength(2).build());
+        byte[] data = DataSourceUtil.readToEnd(dataSource);
 
-            assertThat(length).isEqualTo(2);
-            byte[] expectedData = Arrays.copyOfRange(resource.getExpectedBytes(), 2, 4);
-            assertThat(data).isEqualTo(expectedData);
-          } finally {
-            dataSource.close();
-          }
-        });
+        assertThat(length).isEqualTo(2);
+        byte[] expectedData = Arrays.copyOfRange(resource.getExpectedBytes(), 2, 4);
+        assertThat(data).isEqualTo(expectedData);
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithPositionAtEnd_readsZeroBytes() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          int resourceLength = resource.getExpectedBytes().length;
-          DataSpec dataSpec =
-              dataSpecBuilderFromTestResource(resource).setPosition(resourceLength).build();
-          try {
-            long length = dataSource.open(dataSpec);
-            byte[] data =
-                unboundedReadsAreIndefinite()
-                    ? Util.EMPTY_BYTE_ARRAY
-                    : DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      int resourceLength = resource.getExpectedBytes().length;
+      DataSpec dataSpec =
+          dataSpecBuilderFromTestResource(resource).setPosition(resourceLength).build();
+      try {
+        long length = dataSource.open(dataSpec);
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? Util.EMPTY_BYTE_ARRAY
+                : DataSourceUtil.readToEnd(dataSource);
 
-            // The DataSource.open() contract requires the returned length to equal the length in
-            // the DataSpec if set. This is true even though the DataSource implementation may know
-            // that fewer bytes will be read in this case.
-            if (length != C.LENGTH_UNSET) {
-              assertThat(length).isEqualTo(0);
-            }
-            assertThat(data).isEmpty();
-          } finally {
-            dataSource.close();
-          }
-        });
+        // The DataSource.open() contract requires the returned length to equal the length in
+        // the DataSpec if set. This is true even though the DataSource implementation may know
+        // that fewer bytes will be read in this case.
+        if (length != C.LENGTH_UNSET) {
+          assertThat(length).isEqualTo(0);
+        }
+        assertThat(data).isEmpty();
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithPositionAtEndAndLength_readsZeroBytes() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          int resourceLength = resource.getExpectedBytes().length;
-          DataSpec dataSpec =
-              dataSpecBuilderFromTestResource(resource)
-                  .setPosition(resourceLength)
-                  .setLength(1)
-                  .build();
-          try {
-            long length = dataSource.open(dataSpec);
-            byte[] data =
-                unboundedReadsAreIndefinite()
-                    ? Util.EMPTY_BYTE_ARRAY
-                    : DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      int resourceLength = resource.getExpectedBytes().length;
+      DataSpec dataSpec =
+          dataSpecBuilderFromTestResource(resource)
+              .setPosition(resourceLength)
+              .setLength(1)
+              .build();
+      try {
+        long length = dataSource.open(dataSpec);
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? Util.EMPTY_BYTE_ARRAY
+                : DataSourceUtil.readToEnd(dataSource);
 
-            // The DataSource.open() contract requires the returned length to equal the length in
-            // the DataSpec if set. This is true even though the DataSource implementation may know
-            // that fewer bytes will be read in this case.
-            assertThat(length).isEqualTo(1);
-            assertThat(data).isEmpty();
-          } finally {
-            dataSource.close();
-          }
-        });
+        // The DataSource.open() contract requires the returned length to equal the length in
+        // the DataSpec if set. This is true even though the DataSource implementation may know
+        // that fewer bytes will be read in this case.
+        assertThat(length).isEqualTo(1);
+        assertThat(data).isEmpty();
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithPositionOutOfRange_throwsPositionOutOfRangeException() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          int resourceLength = resource.getExpectedBytes().length;
-          DataSpec dataSpec =
-              dataSpecBuilderFromTestResource(resource).setPosition(resourceLength + 1).build();
-          try {
-            IOException exception =
-                assertThrows(IOException.class, () -> dataSource.open(dataSpec));
-            assertThat(DataSourceException.isCausedByPositionOutOfRange(exception)).isTrue();
-          } finally {
-            dataSource.close();
-          }
-        });
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      int resourceLength = resource.getExpectedBytes().length;
+      DataSpec dataSpec =
+          dataSpecBuilderFromTestResource(resource).setPosition(resourceLength + 1).build();
+      try {
+        IOException exception = assertThrows(IOException.class, () -> dataSource.open(dataSpec));
+        assertThat(DataSourceException.isCausedByPositionOutOfRange(exception)).isTrue();
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void dataSpecWithEndPositionOutOfRange_readsToEnd() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          int resourceLength = resource.getExpectedBytes().length;
-          DataSpec dataSpec =
-              dataSpecBuilderFromTestResource(resource)
-                  .setPosition(resourceLength - 1)
-                  .setLength(2)
-                  .build();
-          try {
-            long length = dataSource.open(dataSpec);
-            byte[] data = DataSourceUtil.readExactly(dataSource, /* length= */ 1);
-            // TODO: Decide what the allowed behavior should be for the next read, and assert it.
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      int resourceLength = resource.getExpectedBytes().length;
+      DataSpec dataSpec =
+          dataSpecBuilderFromTestResource(resource)
+              .setPosition(resourceLength - 1)
+              .setLength(2)
+              .build();
+      try {
+        long length = dataSource.open(dataSpec);
+        byte[] data = DataSourceUtil.readExactly(dataSource, /* length= */ 1);
+        // TODO: Decide what the allowed behavior should be for the next read, and assert it.
 
-            // The DataSource.open() contract requires the returned length to equal the length in
-            // the DataSpec if set. This is true even though the DataSource implementation may know
-            // that fewer bytes will be read in this case.
-            assertThat(length).isEqualTo(2);
-            byte[] expectedData =
-                Arrays.copyOfRange(resource.getExpectedBytes(), resourceLength - 1, resourceLength);
-            assertThat(data).isEqualTo(expectedData);
-          } finally {
-            dataSource.close();
-          }
-        });
+        // The DataSource.open() contract requires the returned length to equal the length in
+        // the DataSpec if set. This is true even though the DataSource implementation may know
+        // that fewer bytes will be read in this case.
+        assertThat(length).isEqualTo(2);
+        byte[] expectedData =
+            Arrays.copyOfRange(resource.getExpectedBytes(), resourceLength - 1, resourceLength);
+        assertThat(data).isEqualTo(expectedData);
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   /**
@@ -421,288 +409,273 @@ public abstract class DataSourceContractTest {
    */
   @Test
   public void unboundedDataSpecWithGzipFlag_readUntilEnd() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            long length =
-                dataSource.open(
-                    dataSpecBuilderFromTestResource(resource)
-                        .setFlags(DataSpec.FLAG_ALLOW_GZIP)
-                        .build());
-            byte[] data =
-                unboundedReadsAreIndefinite()
-                    ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
-                    : DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        long length =
+            dataSource.open(
+                dataSpecBuilderFromTestResource(resource)
+                    .setFlags(DataSpec.FLAG_ALLOW_GZIP)
+                    .build());
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
+                : DataSourceUtil.readToEnd(dataSource);
 
-            if (length != C.LENGTH_UNSET) {
-              assertThat(length).isEqualTo(resource.getExpectedBytes().length);
-            }
-            assertThat(data).isEqualTo(resource.getExpectedBytes());
-          } finally {
-            dataSource.close();
-          }
-        });
+        if (length != C.LENGTH_UNSET) {
+          assertThat(length).isEqualTo(resource.getExpectedBytes().length);
+        }
+        assertThat(data).isEqualTo(resource.getExpectedBytes());
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void uriSchemeIsCaseInsensitive() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          @Nullable String scheme = resource.getUri().getScheme();
-          if (scheme == null) {
-            // No scheme for which to check case-insensitivity.
-            return;
-          }
-          TestResource modifiedResource =
-              resource
-                  .buildUpon()
-                  .setUri(
-                      resource
-                          .getUri()
-                          .buildUpon()
-                          .scheme(invertAsciiCaseOfEveryOtherCharacter(scheme))
-                          .build())
-                  .build();
-          try {
-            long length =
-                dataSource.open(dataSpecBuilderFromTestResource(modifiedResource).build());
-            byte[] data =
-                unboundedReadsAreIndefinite()
-                    ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
-                    : DataSourceUtil.readToEnd(dataSource);
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      @Nullable String scheme = resource.getUri().getScheme();
+      if (scheme == null) {
+        // No scheme for which to check case-insensitivity.
+        return;
+      }
+      TestResource modifiedResource =
+          resource
+              .buildUpon()
+              .setUri(
+                  resource
+                      .getUri()
+                      .buildUpon()
+                      .scheme(invertAsciiCaseOfEveryOtherCharacter(scheme))
+                      .build())
+              .build();
+      try {
+        long length = dataSource.open(dataSpecBuilderFromTestResource(modifiedResource).build());
+        byte[] data =
+            unboundedReadsAreIndefinite()
+                ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
+                : DataSourceUtil.readToEnd(dataSource);
 
-            if (!resource.mayResolveToUnknownLength()) {
-              assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
-            }
-            if (length != C.LENGTH_UNSET) {
-              assertThat(length).isEqualTo(resource.getExpectedBytes().length);
-            }
-            assertThat(data).isEqualTo(resource.getExpectedBytes());
-          } finally {
-            dataSource.close();
-          }
-        });
+        if (!resource.mayResolveToUnknownLength()) {
+          assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
+        }
+        if (length != C.LENGTH_UNSET) {
+          assertThat(length).isEqualTo(resource.getExpectedBytes().length);
+        }
+        assertThat(data).isEqualTo(resource.getExpectedBytes());
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void resourceNotFound() throws Exception {
-    forAllDataSourcesAndNotFoundResources(
-        (resource, dataSource) -> {
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+    forAllDataSourcesAndNotFoundResources((resource, dataSource) -> {
+      assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
 
-          dataSource.close();
-        });
+      dataSource.close();
+    });
   }
 
   @Test
   public void transferListenerCallbacks() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          FakeTransferListener listener = spy(new FakeTransferListener());
-          dataSource.addTransferListener(listener);
-          InOrder inOrder = Mockito.inOrder(listener);
-          @Nullable DataSource callbackSource = getTransferListenerDataSource();
-          if (callbackSource == null) {
-            callbackSource = dataSource;
-          }
-          DataSpec reportedDataSpec = null;
-          boolean reportedNetwork = false;
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      FakeTransferListener listener = spy(new FakeTransferListener());
+      dataSource.addTransferListener(listener);
+      InOrder inOrder = Mockito.inOrder(listener);
+      @Nullable DataSource callbackSource = getTransferListenerDataSource();
+      if (callbackSource == null) {
+        callbackSource = dataSource;
+      }
+      DataSpec reportedDataSpec = null;
+      boolean reportedNetwork = false;
 
-          DataSpec dataSpec = dataSpecBuilderFromTestResource(resource).build();
-          try {
-            dataSource.open(dataSpec);
+      DataSpec dataSpec = dataSpecBuilderFromTestResource(resource).build();
+      try {
+        dataSource.open(dataSpec);
 
-            // Verify onTransferInitializing() and onTransferStart() have been called exactly from
-            // DataSource.open().
-            ArgumentCaptor<DataSpec> dataSpecArgumentCaptor =
-                ArgumentCaptor.forClass(DataSpec.class);
-            ArgumentCaptor<Boolean> isNetworkArgumentCaptor =
-                ArgumentCaptor.forClass(Boolean.class);
-            inOrder
-                .verify(listener)
-                .onTransferInitializing(
-                    eq(callbackSource),
-                    dataSpecArgumentCaptor.capture(),
-                    isNetworkArgumentCaptor.capture());
-            reportedDataSpec = dataSpecArgumentCaptor.getValue();
-            reportedNetwork = isNetworkArgumentCaptor.getValue();
-            inOrder
-                .verify(listener)
-                .onTransferStart(callbackSource, castNonNull(reportedDataSpec), reportedNetwork);
-            inOrder.verifyNoMoreInteractions();
+        // Verify onTransferInitializing() and onTransferStart() have been called exactly from
+        // DataSource.open().
+        ArgumentCaptor<DataSpec> dataSpecArgumentCaptor = ArgumentCaptor.forClass(DataSpec.class);
+        ArgumentCaptor<Boolean> isNetworkArgumentCaptor = ArgumentCaptor.forClass(Boolean.class);
+        inOrder
+            .verify(listener)
+            .onTransferInitializing(
+                eq(callbackSource),
+                dataSpecArgumentCaptor.capture(),
+                isNetworkArgumentCaptor.capture());
+        reportedDataSpec = dataSpecArgumentCaptor.getValue();
+        reportedNetwork = isNetworkArgumentCaptor.getValue();
+        inOrder
+            .verify(listener)
+            .onTransferStart(callbackSource, castNonNull(reportedDataSpec), reportedNetwork);
+        inOrder.verifyNoMoreInteractions();
 
-            if (unboundedReadsAreIndefinite()) {
-              DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length);
-            } else {
-              DataSourceUtil.readToEnd(dataSource);
-            }
-            // Verify sufficient onBytesTransferred() callbacks have been triggered before closing
-            // the DataSource.
-            assertThat(listener.bytesTransferred).isAtLeast(resource.getExpectedBytes().length);
+        if (unboundedReadsAreIndefinite()) {
+          DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length);
+        } else {
+          DataSourceUtil.readToEnd(dataSource);
+        }
+        // Verify sufficient onBytesTransferred() callbacks have been triggered before closing
+        // the DataSource.
+        assertThat(listener.bytesTransferred).isAtLeast(resource.getExpectedBytes().length);
 
-          } finally {
-            dataSource.close();
-            inOrder
-                .verify(listener)
-                .onTransferEnd(callbackSource, castNonNull(reportedDataSpec), reportedNetwork);
-            inOrder.verifyNoMoreInteractions();
-          }
-        });
+      } finally {
+        dataSource.close();
+        inOrder
+            .verify(listener)
+            .onTransferEnd(callbackSource, castNonNull(reportedDataSpec), reportedNetwork);
+        inOrder.verifyNoMoreInteractions();
+      }
+    });
   }
 
   @Test
   public void resourceNotFound_transferListenerCallbacks() throws Exception {
-    forAllDataSourcesAndNotFoundResources(
-        (resource, dataSource) -> {
-          TransferListener listener = mock(TransferListener.class);
-          dataSource.addTransferListener(listener);
-          @Nullable DataSource callbackSource = getTransferListenerDataSource();
-          if (callbackSource == null) {
-            callbackSource = dataSource;
-          }
+    forAllDataSourcesAndNotFoundResources((resource, dataSource) -> {
+      TransferListener listener = mock(TransferListener.class);
+      dataSource.addTransferListener(listener);
+      @Nullable DataSource callbackSource = getTransferListenerDataSource();
+      if (callbackSource == null) {
+        callbackSource = dataSource;
+      }
 
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+      assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
 
-          // Verify onTransferInitializing() has been called exactly from DataSource.open().
-          verify(listener).onTransferInitializing(eq(callbackSource), any(), anyBoolean());
-          verifyNoMoreInteractions(listener);
+      // Verify onTransferInitializing() has been called exactly from DataSource.open().
+      verify(listener).onTransferInitializing(eq(callbackSource), any(), anyBoolean());
+      verifyNoMoreInteractions(listener);
 
-          dataSource.close();
-          verifyNoMoreInteractions(listener);
-        });
+      dataSource.close();
+      verifyNoMoreInteractions(listener);
+    });
   }
 
   @Test
   public void getUri_returnsExpectedValueOnlyWhileOpen() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            assertThat(dataSource.getUri()).isNull();
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        assertThat(dataSource.getUri()).isNull();
 
-            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+        dataSource.open(dataSpecBuilderFromTestResource(resource).build());
 
-            assertThat(dataSource.getUri()).isEqualTo(resource.getResolvedUri());
-          } finally {
-            dataSource.close();
-          }
-          assertThat(dataSource.getUri()).isNull();
-        });
+        assertThat(dataSource.getUri()).isEqualTo(resource.getResolvedUri());
+      } finally {
+        dataSource.close();
+      }
+      assertThat(dataSource.getUri()).isNull();
+    });
   }
 
   @Test
   public void getUri_resourceNotFound_returnsNullIfNotOpened() throws Exception {
-    forAllDataSourcesAndNotFoundResources(
-        (resource, dataSource) -> {
-          assertThat(dataSource.getUri()).isNull();
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
-          assertThat(dataSource.getUri()).isEqualTo(resource.uri);
-          dataSource.close();
-          assertThat(dataSource.getUri()).isNull();
-        });
+    forAllDataSourcesAndNotFoundResources((resource, dataSource) -> {
+      assertThat(dataSource.getUri()).isNull();
+      assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+      assertThat(dataSource.getUri()).isEqualTo(resource.uri);
+      dataSource.close();
+      assertThat(dataSource.getUri()).isNull();
+    });
   }
 
   @Test
   public void getResponseHeaders_returnsExpectedValues() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
-            // Iterate over the expected headers (instead of using Truth's batch
-            // containsAtLeastEntriesIn() method) in order to leverage the case-insensitivity of
-            // the DataSource.getResponseHeaders() implementation.
-            Map<String, List<String>> actualHeaders = dataSource.getResponseHeaders();
-            for (Map.Entry<String, List<String>> expectedHeaders :
-                resource.getResponseHeaders().entrySet()) {
-              assertWithMessage("Header values for key=%s", expectedHeaders.getKey())
-                  .that(actualHeaders.get(expectedHeaders.getKey()))
-                  .isEqualTo(expectedHeaders.getValue());
-            }
-            for (String unexpectedKey : resource.getUnexpectedResponseHeaderKeys()) {
-              assertThat(actualHeaders).doesNotContainKey(unexpectedKey);
-            }
-          } finally {
-            dataSource.close();
-          }
-        });
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+        // Iterate over the expected headers (instead of using Truth's batch
+        // containsAtLeastEntriesIn() method) in order to leverage the case-insensitivity of
+        // the DataSource.getResponseHeaders() implementation.
+        Map<String, List<String>> actualHeaders = dataSource.getResponseHeaders();
+        for (Map.Entry<String, List<String>> expectedHeaders :
+            resource.getResponseHeaders().entrySet()) {
+          assertWithMessage("Header values for key=%s", expectedHeaders.getKey())
+              .that(actualHeaders.get(expectedHeaders.getKey()))
+              .isEqualTo(expectedHeaders.getValue());
+        }
+        for (String unexpectedKey : resource.getUnexpectedResponseHeaderKeys()) {
+          assertThat(actualHeaders).doesNotContainKey(unexpectedKey);
+        }
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void getResponseHeaders_noNullKeysOrValues() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        dataSource.open(dataSpecBuilderFromTestResource(resource).build());
 
-            Map<String, List<String>> responseHeaders = dataSource.getResponseHeaders();
-            assertThat(responseHeaders).doesNotContainKey(null);
-            assertThat(responseHeaders.values()).doesNotContain(null);
-            for (List<String> value : responseHeaders.values()) {
-              assertThat(value).doesNotContain(null);
-            }
-          } finally {
-            dataSource.close();
-          }
-        });
+        Map<String, List<String>> responseHeaders = dataSource.getResponseHeaders();
+        assertThat(responseHeaders).doesNotContainKey(null);
+        assertThat(responseHeaders.values()).doesNotContain(null);
+        for (List<String> value : responseHeaders.values()) {
+          assertThat(value).doesNotContain(null);
+        }
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void getResponseHeaders_caseInsensitive() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        dataSource.open(dataSpecBuilderFromTestResource(resource).build());
 
-            Map<String, List<String>> responseHeaders = dataSource.getResponseHeaders();
-            for (String key : responseHeaders.keySet()) {
-              String caseFlippedKey = invertAsciiCaseOfEveryOtherCharacter(key);
-              assertWithMessage("key='%s', caseFlippedKey='%s'", key, caseFlippedKey)
-                  .that(responseHeaders.get(caseFlippedKey))
-                  .isEqualTo(responseHeaders.get(key));
-            }
-          } finally {
-            dataSource.close();
-          }
-        });
+        Map<String, List<String>> responseHeaders = dataSource.getResponseHeaders();
+        for (String key : responseHeaders.keySet()) {
+          String caseFlippedKey = invertAsciiCaseOfEveryOtherCharacter(key);
+          assertWithMessage("key='%s', caseFlippedKey='%s'", key, caseFlippedKey)
+              .that(responseHeaders.get(caseFlippedKey))
+              .isEqualTo(responseHeaders.get(key));
+        }
+      } finally {
+        dataSource.close();
+      }
+    });
   }
 
   @Test
   public void getResponseHeaders_isEmptyWhileNotOpen() throws Exception {
-    forAllTestResourcesAndDataSources(
-        (resource, dataSource) -> {
-          try {
-            assertThat(dataSource.getResponseHeaders()).isEmpty();
+    forAllTestResourcesAndDataSources((resource, dataSource) -> {
+      try {
+        assertThat(dataSource.getResponseHeaders()).isEmpty();
 
-            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
-          } finally {
-            dataSource.close();
-          }
-          assertThat(dataSource.getResponseHeaders()).isEmpty();
-        });
+        dataSource.open(dataSpecBuilderFromTestResource(resource).build());
+      } finally {
+        dataSource.close();
+      }
+      assertThat(dataSource.getResponseHeaders()).isEmpty();
+    });
   }
 
   @Test
   public void getResponseHeaders_resourceNotFound_isEmptyWhileNotOpen() throws Exception {
-    forAllDataSourcesAndNotFoundResources(
-        (resource, dataSource) -> {
-          assertThat(dataSource.getResponseHeaders()).isEmpty();
+    forAllDataSourcesAndNotFoundResources((resource, dataSource) -> {
+      assertThat(dataSource.getResponseHeaders()).isEmpty();
 
-          assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
+      assertThrows(IOException.class, () -> dataSource.open(new DataSpec(resource.uri)));
 
-          Map<String, List<String>> actualHeaders = dataSource.getResponseHeaders();
-          for (Map.Entry<String, List<String>> expectedHeaders :
-              resource.getResponseHeaders().entrySet()) {
-            assertWithMessage("Header values for key=%s", expectedHeaders.getKey())
-                .that(actualHeaders.get(expectedHeaders.getKey()))
-                .isEqualTo(expectedHeaders.getValue());
-          }
-          for (String unexpectedKey : resource.getUnexpectedResponseHeaderKeys()) {
-            assertThat(actualHeaders).doesNotContainKey(unexpectedKey);
-          }
+      Map<String, List<String>> actualHeaders = dataSource.getResponseHeaders();
+      for (Map.Entry<String, List<String>> expectedHeaders :
+          resource.getResponseHeaders().entrySet()) {
+        assertWithMessage("Header values for key=%s", expectedHeaders.getKey())
+            .that(actualHeaders.get(expectedHeaders.getKey()))
+            .isEqualTo(expectedHeaders.getValue());
+      }
+      for (String unexpectedKey : resource.getUnexpectedResponseHeaderKeys()) {
+        assertThat(actualHeaders).doesNotContainKey(unexpectedKey);
+      }
 
-          dataSource.close();
+      dataSource.close();
 
-          assertThat(dataSource.getResponseHeaders()).isEmpty();
-        });
+      assertThat(dataSource.getResponseHeaders()).isEmpty();
+    });
   }
 
   private interface TestResourceAndDataSourceTest {

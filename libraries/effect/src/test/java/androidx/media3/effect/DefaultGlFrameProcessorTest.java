@@ -1528,13 +1528,11 @@ public final class DefaultGlFrameProcessorTest {
     List<TestGlObjectsProvider> createdProviders = new ArrayList<>();
     DefaultGlFrameProcessor.Factory factory =
         createDefaultGlFrameProcessorFactoryBuilderWithDefaultGlResources()
-            .setGlObjectsProviderSupplier(
-                () -> {
-                  TestGlObjectsProvider provider =
-                      new TestGlObjectsProvider(/* failVersion3= */ false);
-                  createdProviders.add(provider);
-                  return provider;
-                })
+            .setGlObjectsProviderSupplier(() -> {
+              TestGlObjectsProvider provider = new TestGlObjectsProvider(/* failVersion3= */ false);
+              createdProviders.add(provider);
+              return provider;
+            })
             .build();
     fakeFrameWriterGlTextureFrameConsumer.setExpectedFrameCount(1);
     DefaultGlFrameProcessor processor1 =
@@ -1682,11 +1680,10 @@ public final class DefaultGlFrameProcessorTest {
       Consumer<ColorInfo> colorInfoConsumer) {
     return createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(
             new FakeGlObjectsProvider())
-        .setFrameToGlTextureConverterFactory(
-            (outputColorInfo, errorConsumer) -> {
-              colorInfoConsumer.accept(outputColorInfo);
-              return fakeFrameToGlTextureConverter;
-            })
+        .setFrameToGlTextureConverterFactory((outputColorInfo, errorConsumer) -> {
+          colorInfoConsumer.accept(outputColorInfo);
+          return fakeFrameToGlTextureConverter;
+        })
         .build();
   }
 
@@ -1739,11 +1736,10 @@ public final class DefaultGlFrameProcessorTest {
     AtomicReference<ColorInfo> actualColorInfo = new AtomicReference<>();
     DefaultGlFrameProcessor.Factory.Builder customFactoryBuilder =
         createDefaultGlFrameProcessorFactoryBuilderWithTestGlResources(glObjectsProvider)
-            .setFrameToGlTextureConverterFactory(
-                (outputColorInfo, errorConsumer) -> {
-                  actualColorInfo.set(outputColorInfo);
-                  return fakeFrameToGlTextureConverter;
-                });
+            .setFrameToGlTextureConverterFactory((outputColorInfo, errorConsumer) -> {
+              actualColorInfo.set(outputColorInfo);
+              return fakeFrameToGlTextureConverter;
+            });
     if (workingColorSpace != null) {
       customFactoryBuilder.setWorkingColorSpace(workingColorSpace);
     }

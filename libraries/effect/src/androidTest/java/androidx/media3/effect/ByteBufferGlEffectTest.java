@@ -67,7 +67,7 @@ public class ByteBufferGlEffectTest {
   private static final int EFFECT_OUTPUT_FRAME_WIDTH = 50;
   private static final int EFFECT_OUTPUT_FRAME_HEIGHT = 20;
   private static final Consumer<SpannableString> TEXT_SPAN_CONSUMER =
-      (text) -> {
+      text -> {
         text.setSpan(
             new ForegroundColorSpan(Color.BLACK),
             /* start= */ 0,
@@ -153,13 +153,12 @@ public class ByteBufferGlEffectTest {
           image.pixelBuffer.capacity() == EFFECT_INPUT_FRAME_WIDTH * EFFECT_INPUT_FRAME_HEIGHT * 4);
       Bitmap inputBitmap = image.copyToBitmap();
       inputBitmaps.add(inputBitmap);
-      return drawingService.submit(
-          () ->
-              Bitmap.createScaledBitmap(
-                  inputBitmap,
-                  EFFECT_OUTPUT_FRAME_WIDTH,
-                  EFFECT_OUTPUT_FRAME_HEIGHT,
-                  /* filter= */ true));
+      return drawingService.submit(() ->
+          Bitmap.createScaledBitmap(
+              inputBitmap,
+              EFFECT_OUTPUT_FRAME_WIDTH,
+              EFFECT_OUTPUT_FRAME_HEIGHT,
+              /* filter= */ true));
     }
 
     @Override

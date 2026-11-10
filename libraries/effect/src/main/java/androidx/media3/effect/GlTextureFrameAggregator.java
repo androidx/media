@@ -354,14 +354,13 @@ import org.jspecify.annotations.Nullable;
       Executor executor = pendingWakeupExecutor;
       pendingWakeupListener = null;
       pendingWakeupExecutor = null;
-      executor.execute(
-          () -> {
-            try {
-              listener.run();
-            } catch (RuntimeException e) {
-              errorConsumer.accept(VideoFrameProcessingException.from(e));
-            }
-          });
+      executor.execute(() -> {
+        try {
+          listener.run();
+        } catch (RuntimeException e) {
+          errorConsumer.accept(VideoFrameProcessingException.from(e));
+        }
+      });
     }
   }
 }

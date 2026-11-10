@@ -328,16 +328,15 @@ public class DefaultAudioSinkTest {
       throws Exception {
     AtomicReference<Exception> exceptionOnHandler = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
-    handler.post(
-        () -> {
-          try {
-            runnable.run();
-          } catch (Exception e) {
-            exceptionOnHandler.set(e);
-          } finally {
-            latch.countDown();
-          }
-        });
+    handler.post(() -> {
+      try {
+        runnable.run();
+      } catch (Exception e) {
+        exceptionOnHandler.set(e);
+      } finally {
+        latch.countDown();
+      }
+    });
     latch.await();
     if (exceptionOnHandler.get() != null) {
       throw exceptionOnHandler.get();

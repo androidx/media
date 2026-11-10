@@ -58,18 +58,17 @@ public class VideoEffectsPreviewPerformanceTest {
 
   @After
   public void tearDown() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (player != null) {
-            player.release();
-          }
-          if (surface != null) {
-            surface.release();
-          }
-          if (surfaceTexture != null) {
-            surfaceTexture.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (player != null) {
+        player.release();
+      }
+      if (surface != null) {
+        surface.release();
+      }
+      if (surfaceTexture != null) {
+        surfaceTexture.release();
+      }
+    });
   }
 
   /**
@@ -80,37 +79,35 @@ public class VideoEffectsPreviewPerformanceTest {
   public void exoplayerEffectsPreviewTest() throws Exception {
     SettableFuture<Void> readyFuture = SettableFuture.create();
     DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
-    instrumentation.runOnMainSync(
-        () -> {
-          player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          surfaceTexture = new SurfaceTexture(0);
-          surface = new Surface(surfaceTexture);
-          player.setVideoSurface(surface);
-          player.setPlayWhenReady(false);
-          player.setVideoEffects(ImmutableList.of());
-          readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
-          player.addAnalyticsListener(decoderCountersListener);
-          // Adding an EventLogger to use its log output in case the test fails.
-          player.addAnalyticsListener(new EventLogger());
-          MediaItem mediaItem = getClippedMediaItem(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
-          // Use the same media item so that format changes do not force exoplayer to re-init codecs
-          // between item transitions.
-          player.addMediaItems(ImmutableList.of(mediaItem, mediaItem, mediaItem, mediaItem));
-          player.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      surfaceTexture = new SurfaceTexture(0);
+      surface = new Surface(surfaceTexture);
+      player.setVideoSurface(surface);
+      player.setPlayWhenReady(false);
+      player.setVideoEffects(ImmutableList.of());
+      readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
+      player.addAnalyticsListener(decoderCountersListener);
+      // Adding an EventLogger to use its log output in case the test fails.
+      player.addAnalyticsListener(new EventLogger());
+      MediaItem mediaItem = getClippedMediaItem(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
+      // Use the same media item so that format changes do not force exoplayer to re-init codecs
+      // between item transitions.
+      player.addMediaItems(ImmutableList.of(mediaItem, mediaItem, mediaItem, mediaItem));
+      player.prepare();
+    });
 
     readyFuture.get();
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     AtomicLong playbackStartTimeMs = new AtomicLong();
-    instrumentation.runOnMainSync(
-        () -> {
-          playbackStartTimeMs.set(SystemClock.elapsedRealtime());
-          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-          checkNotNull(player).play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      playbackStartTimeMs.set(SystemClock.elapsedRealtime());
+      endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+      checkNotNull(player).play();
+    });
 
     endedFuture.get();
     long playbackDurationMs = SystemClock.elapsedRealtime() - playbackStartTimeMs.get();

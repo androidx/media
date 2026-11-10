@@ -127,16 +127,15 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo IMAGE =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(PNG_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(
-                          new MediaItem.Builder()
-                              .setUri(PNG_ASSET.uri)
-                              .setImageDurationMs(usToMs(/* timeUs= */ 500_000))
-                              .build())
-                      .setDurationUs(500_000)
-                      .setFrameRate(30)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(
+                      new MediaItem.Builder()
+                          .setUri(PNG_ASSET.uri)
+                          .setImageDurationMs(usToMs(/* timeUs= */ 500_000))
+                          .build())
+                  .setDurationUs(500_000)
+                  .setFrameRate(30)
+                  .build())
           .setVideoTimestampsUs(
               ImmutableList.of(
                   0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 266_667L,
@@ -148,12 +147,11 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo VIDEO =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(MP4_SIMPLE_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(
-                          new MediaItem.Builder().setUri(MP4_SIMPLE_ASSET.uri).build())
-                      .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(
+                      new MediaItem.Builder().setUri(MP4_SIMPLE_ASSET.uri).build())
+                  .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                  .build())
           .setName("Video")
           .build();
 
@@ -161,12 +159,11 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo VIDEO_SRGB =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(MP4_ASSET_SRGB)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(
-                          new MediaItem.Builder().setUri(MP4_ASSET_SRGB.uri).build())
-                      .setDurationUs(MP4_ASSET_SRGB.videoDurationUs)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(
+                      new MediaItem.Builder().setUri(MP4_ASSET_SRGB.uri).build())
+                  .setDurationUs(MP4_ASSET_SRGB.videoDurationUs)
+                  .build())
           .setName("Video_srgb")
           .build();
 
@@ -177,12 +174,11 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo VIDEO_WITHOUT_AUDIO =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(MP4_ADVANCED_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                      .setRemoveAudio(true)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                  .setRemoveAudio(true)
+                  .build())
           .setName("Video_no_audio")
           .build();
 
@@ -204,17 +200,15 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo VIDEO_ONLY_CLIPPED_TWICE_SPEED =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(MP4_VIDEO_ONLY_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED_MEDIA_ITEM)
-                      .setDurationUs(MP4_VIDEO_ONLY_ASSET.videoDurationUs)
-                      .setRemoveAudio(true)
-                      .setEffects(
-                          new Effects(
-                              /* audioProcessors= */ ImmutableList.of(),
-                              /* videoEffects= */ ImmutableList.of(
-                                  TWICE_SPEED_CHANGE_EFFECTS.second)))
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED_MEDIA_ITEM)
+                  .setDurationUs(MP4_VIDEO_ONLY_ASSET.videoDurationUs)
+                  .setRemoveAudio(true)
+                  .setEffects(
+                      new Effects(
+                          /* audioProcessors= */ ImmutableList.of(),
+                          /* videoEffects= */ ImmutableList.of(TWICE_SPEED_CHANGE_EFFECTS.second)))
+                  .build())
           .setVideoTimestampsUs(
               ImmutableList.of(
                   250L, 16933L, 33617L, 50300L, 66983L, 83667L, 100350L, 117033L, 133717L, 150400L,
@@ -229,17 +223,15 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo VIDEO_ONLY_CLIPPED_HALF_SPEED =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(MP4_VIDEO_ONLY_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED_MEDIA_ITEM)
-                      .setDurationUs(MP4_VIDEO_ONLY_ASSET.videoDurationUs)
-                      .setRemoveAudio(true)
-                      .setEffects(
-                          new Effects(
-                              /* audioProcessors= */ ImmutableList.of(),
-                              /* videoEffects= */ ImmutableList.of(
-                                  HALF_SPEED_CHANGE_EFFECTS.second)))
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED_MEDIA_ITEM)
+                  .setDurationUs(MP4_VIDEO_ONLY_ASSET.videoDurationUs)
+                  .setRemoveAudio(true)
+                  .setEffects(
+                      new Effects(
+                          /* audioProcessors= */ ImmutableList.of(),
+                          /* videoEffects= */ ImmutableList.of(HALF_SPEED_CHANGE_EFFECTS.second)))
+                  .build())
           .setVideoTimestampsUs(
               ImmutableList.of(
                   1000L, 67732L, 134466L, 201200L, 267932L, 334666L, 401400L, 468132L, 534866L,
@@ -251,11 +243,10 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo AUDIO =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(WAV_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-                      .setDurationUs(1_000_000)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+                  .setDurationUs(1_000_000)
+                  .build())
           .setVideoTimestampsUs(ImmutableList.of())
           .setName("Audio")
           .build();
@@ -267,11 +258,10 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo AUDIO_WITH_VIDEO_TIMESTAMPS =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(WAV_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
-                      .setDurationUs(1_000_000)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+                  .setDurationUs(1_000_000)
+                  .build())
           .setVideoTimestampsUs(
               ImmutableList.of(
                   0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 266_667L,
@@ -288,12 +278,11 @@ public final class EditedMediaItemAssetInfo {
   public static final EditedMediaItemAssetInfo VIDEO_WITH_REMOVE_VIDEO =
       new EditedMediaItemAssetInfo.Builder()
           .setOriginalAssetInfo(MP4_ADVANCED_ASSET)
-          .setEditedMediaItemSupplier(
-              () ->
-                  new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                      .setRemoveVideo(true)
-                      .build())
+          .setEditedMediaItemSupplier(() ->
+              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                  .setRemoveVideo(true)
+                  .build())
           .setVideoTimestampsUs(
               ImmutableList.of(
                   0L,

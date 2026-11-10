@@ -247,11 +247,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
     selectPresetButton.setOnClickListener(view -> selectPreset());
 
     selectLocalFileButton = findViewById(R.id.select_local_file_button);
-    selectLocalFileButton.setOnClickListener(
-        view ->
-            selectLocalFile(
-                videoLocalFilePickerLauncher,
-                /* mimeTypes= */ new String[] {"image/*", "video/*", "audio/*"}));
+    selectLocalFileButton.setOnClickListener(view ->
+        selectLocalFile(
+            videoLocalFilePickerLauncher,
+            /* mimeTypes= */ new String[] {"image/*", "video/*", "audio/*"}));
 
     selectedFileTextView = findViewById(R.id.selected_file_text_view);
     presetDescriptions = getResources().getStringArray(R.array.preset_descriptions);
@@ -332,12 +331,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
     enableTrimOptimization = findViewById(R.id.enable_trim_optimization);
     enableMp4EditListTrimming = findViewById(R.id.enable_mp4_edit_list_trimming);
     enableCodecDbLite = findViewById(R.id.enable_codecdb_lite);
-    enableTrimOptimization.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (isChecked) {
-            enableMp4EditListTrimming.setChecked(false);
-          }
-        });
+    enableTrimOptimization.setOnCheckedChangeListener((buttonView, isChecked) -> {
+      if (isChecked) {
+        enableMp4EditListTrimming.setChecked(false);
+      }
+    });
     enableFrameProcessorCheckBox = findViewById(R.id.enable_frame_processor);
     enableGmsVideoEnhancementCheckBox = findViewById(R.id.enable_gms_video_enhancement);
     enableGmsTonemappingCheckBox = findViewById(R.id.enable_gms_tonemapping);
@@ -359,12 +357,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
           gmsDeblurDenoiseRow.setVisibility(visibility);
           gmsUpscaleRow.setVisibility(visibility);
         };
-    enableFrameProcessorCheckBox.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          frameAggregationFpsRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-          gmsVideoEnhancementRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-          updateGmsSubRowsVisibility.run();
-        });
+    enableFrameProcessorCheckBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+      frameAggregationFpsRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+      gmsVideoEnhancementRow.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+      updateGmsSubRowsVisibility.run();
+    });
     if (SDK_INT < 28) {
       enableFrameProcessorCheckBox.setEnabled(false);
       findViewById(R.id.enable_frame_processor_hint).setVisibility(View.VISIBLE);
@@ -378,12 +375,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
       enableGmsUpscaleCheckBox.setEnabled(false);
       findViewById(R.id.enable_gms_video_enhancement_hint).setVisibility(View.VISIBLE);
     }
-    enableMp4EditListTrimming.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (isChecked) {
-            enableTrimOptimization.setChecked(false);
-          }
-        });
+    enableMp4EditListTrimming.setOnCheckedChangeListener((buttonView, isChecked) -> {
+      if (isChecked) {
+        enableTrimOptimization.setChecked(false);
+      }
+    });
 
     ArrayAdapter<String> hdrModeAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);

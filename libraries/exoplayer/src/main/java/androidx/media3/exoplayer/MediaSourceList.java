@@ -570,14 +570,13 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onLoadStarted(
-                    eventParameters.first,
-                    eventParameters.second,
-                    loadEventData,
-                    mediaLoadData,
-                    retryCount));
+        eventHandler.post(() ->
+            eventListener.onLoadStarted(
+                eventParameters.first,
+                eventParameters.second,
+                loadEventData,
+                mediaLoadData,
+                retryCount));
       }
     }
 
@@ -590,10 +589,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onLoadCompleted(
-                    eventParameters.first, eventParameters.second, loadEventData, mediaLoadData));
+        eventHandler.post(() ->
+            eventListener.onLoadCompleted(
+                eventParameters.first, eventParameters.second, loadEventData, mediaLoadData));
       }
     }
 
@@ -606,10 +604,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onLoadCanceled(
-                    eventParameters.first, eventParameters.second, loadEventData, mediaLoadData));
+        eventHandler.post(() ->
+            eventListener.onLoadCanceled(
+                eventParameters.first, eventParameters.second, loadEventData, mediaLoadData));
       }
     }
 
@@ -624,15 +621,14 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onLoadError(
-                    eventParameters.first,
-                    eventParameters.second,
-                    loadEventData,
-                    mediaLoadData,
-                    error,
-                    wasCanceled));
+        eventHandler.post(() ->
+            eventListener.onLoadError(
+                eventParameters.first,
+                eventParameters.second,
+                loadEventData,
+                mediaLoadData,
+                error,
+                wasCanceled));
       }
     }
 
@@ -644,10 +640,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onUpstreamDiscarded(
-                    eventParameters.first, checkNotNull(eventParameters.second), mediaLoadData));
+        eventHandler.post(() ->
+            eventListener.onUpstreamDiscarded(
+                eventParameters.first, checkNotNull(eventParameters.second), mediaLoadData));
       }
     }
 
@@ -659,10 +654,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onDownstreamFormatChanged(
-                    eventParameters.first, eventParameters.second, mediaLoadData));
+        eventHandler.post(() ->
+            eventListener.onDownstreamFormatChanged(
+                eventParameters.first, eventParameters.second, mediaLoadData));
       }
     }
 
@@ -676,10 +670,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onDrmSessionAcquired(
-                    eventParameters.first, eventParameters.second, state));
+        eventHandler.post(() ->
+            eventListener.onDrmSessionAcquired(
+                eventParameters.first, eventParameters.second, state));
       }
     }
 
@@ -691,10 +684,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onDrmKeysLoaded(
-                    eventParameters.first, eventParameters.second, keyRequestInfo));
+        eventHandler.post(() ->
+            eventListener.onDrmKeysLoaded(
+                eventParameters.first, eventParameters.second, keyRequestInfo));
       }
     }
 
@@ -704,10 +696,9 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onDrmSessionManagerError(
-                    eventParameters.first, eventParameters.second, error));
+        eventHandler.post(() ->
+            eventListener.onDrmSessionManagerError(
+                eventParameters.first, eventParameters.second, error));
       }
     }
 
@@ -739,9 +730,8 @@ import org.jspecify.annotations.Nullable;
       @Nullable Pair<Integer, MediaSource.@Nullable MediaPeriodId> eventParameters =
           getEventParameters(windowIndex, mediaPeriodId);
       if (eventParameters != null) {
-        eventHandler.post(
-            () ->
-                eventListener.onDrmSessionReleased(eventParameters.first, eventParameters.second));
+        eventHandler.post(() ->
+            eventListener.onDrmSessionReleased(eventParameters.first, eventParameters.second));
       }
     }
 

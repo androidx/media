@@ -88,9 +88,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       throws Exception {
     Player player =
         createPlayerWithAvailableCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer ->
-                    createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"))),
+            createPlayer(/* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"))),
             Player.COMMAND_PLAY_PAUSE);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -130,12 +129,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithAvailableCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
-                  createdPlayer.prepare();
-                  createdPlayer.play();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+              createdPlayer.prepare();
+              createdPlayer.play();
+            }),
             Player.COMMAND_PLAY_PAUSE);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -287,13 +285,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void playerWithCommandSeekBack_actionRewindAdvertised() throws Exception {
     Player player =
         createPlayerWithAvailableCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(
-                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                      /* startPositionMs= */ 500);
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(
+                  MediaItem.fromUri("asset:///media/wav/sample.wav"), /* startPositionMs= */ 500);
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_BACK);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -329,13 +325,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void playerWithoutCommandSeekBack_actionRewindNotAdvertised() throws Exception {
     Player player =
         createPlayerWithExcludedCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(
-                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                      /* startPositionMs= */ 500);
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(
+                  MediaItem.fromUri("asset:///media/wav/sample.wav"), /* startPositionMs= */ 500);
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_BACK);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -378,11 +372,10 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void playerWithCommandSeekForward_actionFastForwardAdvertised() throws Exception {
     Player player =
         createPlayerWithAvailableCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_FORWARD);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -420,11 +413,10 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void playerWithoutCommandSeekForward_actionFastForwardNotAdvertised() throws Exception {
     Player player =
         createPlayerWithExcludedCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_FORWARD);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -469,11 +461,10 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void playerWithCommandSeekInCurrentMediaItem_actionSeekToAdvertised() throws Exception {
     Player player =
         createPlayerWithAvailableCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -511,11 +502,10 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       throws Exception {
     Player player =
         createPlayerWithExcludedCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -558,14 +548,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void playerWithCommandSeekToMediaItem_actionSkipToQueueItemAdvertised() throws Exception {
     Player player =
         createPlayerWithAvailableCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_TO_MEDIA_ITEM);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -602,14 +591,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       throws Exception {
     Player player =
         createPlayerWithExcludedCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
+              createdPlayer.prepare();
+            }),
             Player.COMMAND_SEEK_TO_MEDIA_ITEM);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -653,14 +641,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithCommands(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
+              createdPlayer.prepare();
+            }),
             /* availableCommands= */ new Player.Commands.Builder()
                 .add(Player.COMMAND_SEEK_TO_NEXT)
                 .build(),
@@ -703,14 +690,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithCommands(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
+              createdPlayer.prepare();
+            }),
             /* availableCommands= */ new Player.Commands.Builder()
                 .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
                 .build(),
@@ -753,14 +739,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithCommands(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
+              createdPlayer.prepare();
+            }),
             /* availableCommands= */ Player.Commands.EMPTY,
             /* excludedCommands= */ new Player.Commands.Builder()
                 .addAll(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM, Player.COMMAND_SEEK_TO_NEXT)
@@ -807,16 +792,15 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithCommands(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
-                      /* startIndex= */ 1,
-                      /* startPositionMs= */ C.TIME_UNSET);
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
+                  /* startIndex= */ 1,
+                  /* startPositionMs= */ C.TIME_UNSET);
+              createdPlayer.prepare();
+            }),
             /* availableCommands= */ new Player.Commands.Builder()
                 .add(Player.COMMAND_SEEK_TO_PREVIOUS)
                 .build(),
@@ -859,16 +843,15 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithCommands(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
-                      /* startIndex= */ 1,
-                      /* startPositionMs= */ C.TIME_UNSET);
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
+                  /* startIndex= */ 1,
+                  /* startPositionMs= */ C.TIME_UNSET);
+              createdPlayer.prepare();
+            }),
             /* availableCommands= */ new Player.Commands.Builder()
                 .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
                 .build(),
@@ -911,16 +894,15 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           throws Exception {
     Player player =
         createPlayerWithCommands(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItems(
-                      ImmutableList.of(
-                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
-                      /* startIndex= */ 1,
-                      /* startPositionMs= */ C.TIME_UNSET);
-                  createdPlayer.prepare();
-                }),
+            createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
+                  /* startIndex= */ 1,
+                  /* startPositionMs= */ C.TIME_UNSET);
+              createdPlayer.prepare();
+            }),
             /* availableCommands= */ Player.Commands.EMPTY,
             /* excludedCommands= */ new Player.Commands.Builder()
                 .addAll(Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
@@ -1437,11 +1419,10 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         });
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              player.setAvailableCommands(
-                  new Player.Commands.Builder().add(Player.COMMAND_PREPARE).build());
-            });
+        .postAndSync(() -> {
+          player.setAvailableCommands(
+              new Player.Commands.Builder().add(Player.COMMAND_PREPARE).build());
+        });
 
     assertThat(eventsArrived.block(TIMEOUT_MS)).isTrue();
     assertThat(getEventsAsList(receivedEvents.get(0)))
@@ -1456,10 +1437,9 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     eventsArrived.open();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              player.setAvailableCommands(Player.Commands.EMPTY);
-            });
+        .postAndSync(() -> {
+          player.setAvailableCommands(Player.Commands.EMPTY);
+        });
 
     assertThat(eventsArrived.block(TIMEOUT_MS)).isTrue();
     assertThat(
@@ -1724,10 +1704,9 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         threadTestRule.getHandler());
 
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setCustomLayout(
-                    mediaSession.getMediaNotificationControllerInfo(), customLayout));
+        .runOnMainSync(() ->
+            mediaSession.setCustomLayout(
+                mediaSession.getMediaNotificationControllerInfo(), customLayout));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(initialCustomActions).isEmpty();
@@ -1940,10 +1919,9 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         threadTestRule.getHandler());
 
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setMediaButtonPreferences(
-                    mediaSession.getMediaNotificationControllerInfo(), mediaButtonPreferences));
+        .runOnMainSync(() ->
+            mediaSession.setMediaButtonPreferences(
+                mediaSession.getMediaNotificationControllerInfo(), mediaButtonPreferences));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(initialCustomActions).isEmpty();
@@ -1968,15 +1946,14 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       playerWithMediaButtonPreferences_withBackForwardSlots_overridesPrevNextActionsWhenNeeded()
           throws Exception {
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer -> {
-              createdPlayer.setMediaItems(
-                  ImmutableList.of(
-                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                      MediaItem.fromUri("asset:///media/wav/sample.wav")));
-              createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
-            });
+        createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+          createdPlayer.setMediaItems(
+              ImmutableList.of(
+                  MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                  MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                  MediaItem.fromUri("asset:///media/wav/sample.wav")));
+          createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+        });
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
     SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
     SessionCommand command3 = new SessionCommand("command3", Bundle.EMPTY);
@@ -2126,15 +2103,14 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       playerWithMediaButtonPreferences_withForwardAndOverflowSlotsOnly_overridesPrevNextActionsWhenNeeded()
           throws Exception {
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer -> {
-              createdPlayer.setMediaItems(
-                  ImmutableList.of(
-                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                      MediaItem.fromUri("asset:///media/wav/sample.wav")));
-              createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
-            });
+        createPlayer(/* onPostCreationTask= */ createdPlayer -> {
+          createdPlayer.setMediaItems(
+              ImmutableList.of(
+                  MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                  MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                  MediaItem.fromUri("asset:///media/wav/sample.wav")));
+          createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+        });
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
     SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
     ImmutableList<CommandButton> mediaButtonPreferences =
@@ -2364,13 +2340,12 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   private static Player createPlayer(Consumer<Player> onPostCreationTask) {
     AtomicReference<Player> playerRef = new AtomicReference<>();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              ExoPlayer exoPlayer =
-                  new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
-              onPostCreationTask.accept(exoPlayer);
-              playerRef.set(exoPlayer);
-            });
+        .runOnMainSync(() -> {
+          ExoPlayer exoPlayer =
+              new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+          onPostCreationTask.accept(exoPlayer);
+          playerRef.set(exoPlayer);
+        });
     return playerRef.get();
   }
 
@@ -2514,12 +2489,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       throws Exception {
     Player player =
         createPlayerWithExcludedCommand(
-            createPlayer(
-                /* onPostCreationTask= */ createdPlayer ->
-                    createdPlayer.setMediaItems(
-                        ImmutableList.of(
-                            MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                            MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3")))),
+            createPlayer(/* onPostCreationTask= */ createdPlayer ->
+                createdPlayer.setMediaItems(
+                    ImmutableList.of(
+                        MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                        MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3")))),
             Player.COMMAND_GET_TIMELINE);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -2534,17 +2508,16 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         new Handler(Looper.getMainLooper()));
     CountDownLatch stateReadyLatch = new CountDownLatch(1);
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                player.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onPlaybackStateChanged(@Player.State int playbackState) {
-                        if (playbackState == Player.STATE_READY) {
-                          stateReadyLatch.countDown();
-                        }
-                      }
-                    }));
+        .runOnMainSync(() ->
+            player.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onPlaybackStateChanged(@Player.State int playbackState) {
+                    if (playbackState == Player.STATE_READY) {
+                      stateReadyLatch.countDown();
+                    }
+                  }
+                }));
 
     getInstrumentation().runOnMainSync(player::prepare);
 
@@ -2559,12 +2532,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   public void clearMediaItems_afterNonEmptyQueueSet_triggersOnQueueChangedWithNullOnce()
       throws Exception {
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer ->
-                createdPlayer.setMediaItems(
-                    ImmutableList.of(
-                        MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                        MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3"))));
+        createPlayer(/* onPostCreationTask= */ createdPlayer ->
+            createdPlayer.setMediaItems(
+                ImmutableList.of(
+                    MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                    MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3"))));
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
     List<List<MediaSessionCompat.QueueItem>> receivedQueues = new ArrayList<>();
@@ -2597,9 +2569,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaItem mediaItem1 = MediaItem.fromUri("asset:///media/wav/sample.wav");
     MediaItem mediaItem2 = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer ->
-                createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
+        createPlayer(/* onPostCreationTask= */ createdPlayer ->
+            createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
     List<MediaSessionCompat.QueueItem> initialQueue = controllerCompat.getQueue();
@@ -2625,25 +2596,23 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         new Handler(Looper.getMainLooper()));
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              mediaSession.setAvailableCommands(
-                  mediaSession.getMediaNotificationControllerInfo(),
-                  ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                  ConnectionResult.DEFAULT_PLAYER_COMMANDS
-                      .buildUpon()
-                      .remove(Player.COMMAND_GET_TIMELINE)
-                      .build());
-              player.removeMediaItem(/* index= */ 1);
-            });
+        .runOnMainSync(() -> {
+          mediaSession.setAvailableCommands(
+              mediaSession.getMediaNotificationControllerInfo(),
+              ConnectionResult.DEFAULT_SESSION_COMMANDS,
+              ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                  .buildUpon()
+                  .remove(Player.COMMAND_GET_TIMELINE)
+                  .build());
+          player.removeMediaItem(/* index= */ 1);
+        });
     assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setAvailableCommands(
-                    mediaSession.getMediaNotificationControllerInfo(),
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                    ConnectionResult.DEFAULT_PLAYER_COMMANDS));
+        .runOnMainSync(() ->
+            mediaSession.setAvailableCommands(
+                mediaSession.getMediaNotificationControllerInfo(),
+                ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                ConnectionResult.DEFAULT_PLAYER_COMMANDS));
     assertThat(oneItemQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation().runOnMainSync(() -> player.addMediaItem(mediaItem2));
 
@@ -2663,12 +2632,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
       setAvailableCommands_removingCommandGetTimelineWhenTimelineAlreadyEmpty_doesNotTriggerAdditionalOnQueueChanged()
           throws Exception {
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer ->
-                createdPlayer.setMediaItems(
-                    ImmutableList.of(
-                        MediaItem.fromUri("asset:///media/wav/sample.wav"),
-                        MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3"))));
+        createPlayer(/* onPostCreationTask= */ createdPlayer ->
+            createdPlayer.setMediaItems(
+                ImmutableList.of(
+                    MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                    MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3"))));
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
     connectMediaNotificationController(mediaSession);
@@ -2693,15 +2661,14 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     assertThat(receivedQueues).containsExactly((Object) null);
 
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setAvailableCommands(
-                    mediaSession.getMediaNotificationControllerInfo(),
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                    ConnectionResult.DEFAULT_PLAYER_COMMANDS
-                        .buildUpon()
-                        .remove(Player.COMMAND_GET_TIMELINE)
-                        .build()));
+        .runOnMainSync(() ->
+            mediaSession.setAvailableCommands(
+                mediaSession.getMediaNotificationControllerInfo(),
+                ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                    .buildUpon()
+                    .remove(Player.COMMAND_GET_TIMELINE)
+                    .build()));
 
     getInstrumentation().waitForIdleSync();
     assertThat(receivedQueues).containsExactly((Object) null);
@@ -2721,9 +2688,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             .setUri("asset:///media/mp3/bear-id3.mp3")
             .build();
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer ->
-                createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
+        createPlayer(/* onPostCreationTask= */ createdPlayer ->
+            createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
     connectMediaNotificationController(mediaSession);
@@ -2745,23 +2711,21 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         new Handler(Looper.getMainLooper()));
 
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setAvailableCommands(
-                    mediaSession.getMediaNotificationControllerInfo(),
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                    ConnectionResult.DEFAULT_PLAYER_COMMANDS
-                        .buildUpon()
-                        .remove(Player.COMMAND_GET_TIMELINE)
-                        .build()));
+        .runOnMainSync(() ->
+            mediaSession.setAvailableCommands(
+                mediaSession.getMediaNotificationControllerInfo(),
+                ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                    .buildUpon()
+                    .remove(Player.COMMAND_GET_TIMELINE)
+                    .build()));
     assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setAvailableCommands(
-                    mediaSession.getMediaNotificationControllerInfo(),
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                    ConnectionResult.DEFAULT_PLAYER_COMMANDS));
+        .runOnMainSync(() ->
+            mediaSession.setAvailableCommands(
+                mediaSession.getMediaNotificationControllerInfo(),
+                ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                ConnectionResult.DEFAULT_PLAYER_COMMANDS));
 
     assertThat(restoredQueueLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation().waitForIdleSync();
@@ -2781,9 +2745,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaItem mediaItem1 = MediaItem.fromUri("asset:///media/wav/sample.wav");
     MediaItem mediaItem2 = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
     Player player =
-        createPlayer(
-            /* onPostCreationTask= */ createdPlayer ->
-                createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
+        createPlayer(/* onPostCreationTask= */ createdPlayer ->
+            createdPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2)));
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
     connectMediaNotificationController(mediaSession);
@@ -2802,28 +2765,26 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         new Handler(Looper.getMainLooper()));
 
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setAvailableCommands(
-                    mediaSession.getMediaNotificationControllerInfo(),
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                    ConnectionResult.DEFAULT_PLAYER_COMMANDS
-                        .buildUpon()
-                        .remove(Player.COMMAND_GET_TIMELINE)
-                        .build()));
+        .runOnMainSync(() ->
+            mediaSession.setAvailableCommands(
+                mediaSession.getMediaNotificationControllerInfo(),
+                ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                ConnectionResult.DEFAULT_PLAYER_COMMANDS
+                    .buildUpon()
+                    .remove(Player.COMMAND_GET_TIMELINE)
+                    .build()));
 
     assertThat(queueNullLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     getInstrumentation().waitForIdleSync();
     assertThat(receivedQueues).containsExactly((Object) null);
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.addMediaItem(mediaItem1);
-              player.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 2);
-              player.removeMediaItem(/* index= */ 1);
-              player.clearMediaItems();
-            });
+        .runOnMainSync(() -> {
+          player.addMediaItem(mediaItem1);
+          player.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 2);
+          player.removeMediaItem(/* index= */ 1);
+          player.clearMediaItems();
+        });
 
     getInstrumentation().waitForIdleSync();
     assertThat(receivedQueues).containsExactly((Object) null);
@@ -2868,12 +2829,11 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         new Handler(Looper.getMainLooper()));
 
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSession.setAvailableCommands(
-                    mediaSession.getMediaNotificationControllerInfo(),
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                    ConnectionResult.DEFAULT_PLAYER_COMMANDS));
+        .runOnMainSync(() ->
+            mediaSession.setAvailableCommands(
+                mediaSession.getMediaNotificationControllerInfo(),
+                ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                ConnectionResult.DEFAULT_PLAYER_COMMANDS));
 
     getInstrumentation().waitForIdleSync();
     assertThat(receivedQueues).isEmpty();

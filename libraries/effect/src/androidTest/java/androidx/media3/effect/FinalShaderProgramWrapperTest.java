@@ -182,25 +182,23 @@ public final class FinalShaderProgramWrapperTest {
     }
     // Call release on a new thread as the current thread is the VideoFrameProcessingThread.
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                videoFrameProcessingTaskExecutor.release(
-                    /* releaseTask= */ () -> {
-                      if (finalShaderProgramWrapper != null) {
-                        finalShaderProgramWrapper.release();
-                      }
-                      for (GlTextureInfo textureInfo : inputTextureInfos) {
-                        GlUtil.deleteTexture(textureInfo.texId);
-                      }
-                      if (eglContext != null && eglDisplay != null) {
-                        GlUtil.destroyEglContext(eglDisplay, eglContext);
-                      }
-                    });
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
+        .runOnMainSync(() -> {
+          try {
+            videoFrameProcessingTaskExecutor.release(/* releaseTask= */ () -> {
+              if (finalShaderProgramWrapper != null) {
+                finalShaderProgramWrapper.release();
+              }
+              for (GlTextureInfo textureInfo : inputTextureInfos) {
+                GlUtil.deleteTexture(textureInfo.texId);
+              }
+              if (eglContext != null && eglDisplay != null) {
+                GlUtil.destroyEglContext(eglDisplay, eglContext);
               }
             });
+          } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+          }
+        });
   }
 
   @Test
@@ -334,13 +332,12 @@ public final class FinalShaderProgramWrapperTest {
             2,
             DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT,
             renderFramesAutomatically);
-    videoFrameProcessingTaskExecutor.invoke(
-        () -> {
-          checkNotNull(inputListener);
-          checkNotNull(listener);
-          finalShaderProgramWrapper.setInputListener(inputListener);
-          finalShaderProgramWrapper.setListener(listener);
-        });
+    videoFrameProcessingTaskExecutor.invoke(() -> {
+      checkNotNull(inputListener);
+      checkNotNull(listener);
+      finalShaderProgramWrapper.setInputListener(inputListener);
+      finalShaderProgramWrapper.setListener(listener);
+    });
     finalShaderProgramWrapper.setOutputSurfaceInfo(outputSurfaceInfo);
   }
 }

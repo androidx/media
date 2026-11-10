@@ -234,17 +234,16 @@ public class ListenerSetTest {
     TestListener listener2 = mock(TestListener.class);
 
     Thread thread =
-        new Thread(
-            () -> {
-              ListenerSet<TestListener> listenerSet = new ListenerSet<>(Thread.currentThread());
-              listenerSet.add(listener1);
-              listenerSet.add(listener2);
+        new Thread(() -> {
+          ListenerSet<TestListener> listenerSet = new ListenerSet<>(Thread.currentThread());
+          listenerSet.add(listener1);
+          listenerSet.add(listener2);
 
-              listenerSet.queueEvent(TestListener::callback1);
-              listenerSet.queueEvent(TestListener::callback2);
-              listenerSet.queueEvent(TestListener::callback1);
-              listenerSet.flushEvents();
-            });
+          listenerSet.queueEvent(TestListener::callback1);
+          listenerSet.queueEvent(TestListener::callback2);
+          listenerSet.queueEvent(TestListener::callback1);
+          listenerSet.flushEvents();
+        });
     thread.start();
     thread.join();
 

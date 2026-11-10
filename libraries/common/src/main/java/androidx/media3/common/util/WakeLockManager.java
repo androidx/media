@@ -109,11 +109,10 @@ public final class WakeLockManager {
       mainHandler.postDelayed(
           () -> wakeLockManagerInternal.forceReleaseWakeLock(emergencyReleaseNeeded),
           UNREACTIVE_WAKELOCK_HANDLER_RELEASE_DELAY_MS);
-      wakeLockHandler.post(
-          () -> {
-            emergencyReleaseNeeded.set(false);
-            wakeLockManagerInternal.updateWakeLock(enabled, stayAwake);
-          });
+      wakeLockHandler.post(() -> {
+        emergencyReleaseNeeded.set(false);
+        wakeLockManagerInternal.updateWakeLock(enabled, stayAwake);
+      });
     }
   }
 

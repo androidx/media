@@ -662,14 +662,13 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    handler.postAndSync(
-        () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
-          player.setMediaItems(mediaItems);
-          player.timeline = MediaTestUtils.createTimeline(mediaItems);
-          player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-        });
+    handler.postAndSync(() -> {
+      List<MediaItem> mediaItems =
+          MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+      player.setMediaItems(mediaItems);
+      player.timeline = MediaTestUtils.createTimeline(mediaItems);
+      player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    });
     // Prepare an item to add.
     String mediaId = "newMediaItemId";
     Uri mediaUri = Uri.parse("https://test.test");
@@ -711,14 +710,13 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    handler.postAndSync(
-        () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
-          player.setMediaItems(mediaItems);
-          player.timeline = MediaTestUtils.createTimeline(mediaItems);
-          player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-        });
+    handler.postAndSync(() -> {
+      List<MediaItem> mediaItems =
+          MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+      player.setMediaItems(mediaItems);
+      player.timeline = MediaTestUtils.createTimeline(mediaItems);
+      player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    });
     // Prepare an item to add.
     int testIndex = 1;
     String mediaId = "media_id";
@@ -760,14 +758,13 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    handler.postAndSync(
-        () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
-          player.setMediaItems(mediaItems);
-          player.timeline = MediaTestUtils.createTimeline(mediaItems);
-          player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-        });
+    handler.postAndSync(() -> {
+      List<MediaItem> mediaItems =
+          MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+      player.setMediaItems(mediaItems);
+      player.timeline = MediaTestUtils.createTimeline(mediaItems);
+      player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    });
     // Prepare an item to add.
     MediaDescriptionCompat desc =
         new MediaDescriptionCompat.Builder()
@@ -797,12 +794,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     List<MediaItem> mediaItems =
         MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
-    handler.postAndSync(
-        () -> {
-          player.setMediaItems(mediaItems);
-          player.timeline = new PlaylistTimeline(mediaItems);
-          player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-        });
+    handler.postAndSync(() -> {
+      player.setMediaItems(mediaItems);
+      player.timeline = new PlaylistTimeline(mediaItems);
+      player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    });
     // Select an item to remove.
     int targetIndex = 3;
     MediaItem targetItem = mediaItems.get(targetIndex);
@@ -905,11 +901,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    handler.postAndSync(
-        () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
-          player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-        });
+    handler.postAndSync(() -> {
+      player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
+      player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    });
 
     // Get Queue from local MediaControllerCompat.
     List<QueueItem> queue =
@@ -936,11 +931,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             context,
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
-    handler.postAndSync(
-        () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
-          player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-        });
+    handler.postAndSync(() -> {
+      player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
+      player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    });
 
     controller.getTransportControls().skipToQueueItem(-1);
     controller.getTransportControls().skipToQueueItem(1); // Add valid call to wait for.
@@ -1340,13 +1334,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .addAllCommands()
             .remove(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)
             .build();
-    handler.postAndSync(
-        () -> {
-          remotePlayer.deviceInfo =
-              new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-          remotePlayer.deviceVolume = 23;
-          session.setPlayer(remotePlayer);
-        });
+    handler.postAndSync(() -> {
+      remotePlayer.deviceInfo =
+          new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
+      remotePlayer.deviceVolume = 23;
+      session.setPlayer(remotePlayer);
+    });
     int targetVolume = 50;
 
     controller.setVolumeTo(targetVolume, /* flags= */ 0);
@@ -1370,13 +1363,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands = new Player.Commands.Builder().addAllCommands().build();
-    handler.postAndSync(
-        () -> {
-          remotePlayer.deviceInfo =
-              new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-          remotePlayer.deviceVolume = 23;
-          session.setPlayer(remotePlayer);
-        });
+    handler.postAndSync(() -> {
+      remotePlayer.deviceInfo =
+          new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
+      remotePlayer.deviceVolume = 23;
+      session.setPlayer(remotePlayer);
+    });
     int targetVolume = 50;
 
     controller.setVolumeTo(targetVolume, /* flags= */ 0);
@@ -1404,13 +1396,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .addAllCommands()
             .remove(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)
             .build();
-    handler.postAndSync(
-        () -> {
-          remotePlayer.deviceInfo =
-              new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-          remotePlayer.deviceVolume = 23;
-          session.setPlayer(remotePlayer);
-        });
+    handler.postAndSync(() -> {
+      remotePlayer.deviceInfo =
+          new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
+      remotePlayer.deviceVolume = 23;
+      session.setPlayer(remotePlayer);
+    });
 
     controller.adjustVolume(AudioManager.ADJUST_RAISE, /* flags= */ 0);
     remotePlayer.awaitMethodCalled(MockPlayer.METHOD_INCREASE_DEVICE_VOLUME, TIMEOUT_MS);
@@ -1430,13 +1421,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             /* waitForConnection= */ true);
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
-    handler.postAndSync(
-        () -> {
-          remotePlayer.deviceInfo =
-              new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-          remotePlayer.deviceVolume = 23;
-          session.setPlayer(remotePlayer);
-        });
+    handler.postAndSync(() -> {
+      remotePlayer.deviceInfo =
+          new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
+      remotePlayer.deviceVolume = 23;
+      session.setPlayer(remotePlayer);
+    });
 
     controller.adjustVolume(AudioManager.ADJUST_RAISE, /* flags= */ 0);
     remotePlayer.awaitMethodCalled(MockPlayer.METHOD_INCREASE_DEVICE_VOLUME_WITH_FLAGS, TIMEOUT_MS);
@@ -1461,13 +1451,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .addAllCommands()
             .remove(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)
             .build();
-    handler.postAndSync(
-        () -> {
-          remotePlayer.deviceInfo =
-              new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-          remotePlayer.deviceVolume = 23;
-          session.setPlayer(remotePlayer);
-        });
+    handler.postAndSync(() -> {
+      remotePlayer.deviceInfo =
+          new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
+      remotePlayer.deviceVolume = 23;
+      session.setPlayer(remotePlayer);
+    });
 
     controller.adjustVolume(AudioManager.ADJUST_LOWER, /* flags= */ 0);
     remotePlayer.awaitMethodCalled(MockPlayer.METHOD_DECREASE_DEVICE_VOLUME, TIMEOUT_MS);
@@ -1488,13 +1477,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     MockPlayer remotePlayer =
         new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
     remotePlayer.commands = new Player.Commands.Builder().addAllCommands().build();
-    handler.postAndSync(
-        () -> {
-          remotePlayer.deviceInfo =
-              new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-          remotePlayer.deviceVolume = 23;
-          session.setPlayer(remotePlayer);
-        });
+    handler.postAndSync(() -> {
+      remotePlayer.deviceInfo =
+          new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
+      remotePlayer.deviceVolume = 23;
+      session.setPlayer(remotePlayer);
+    });
 
     controller.adjustVolume(AudioManager.ADJUST_LOWER, /* flags= */ 0);
     remotePlayer.awaitMethodCalled(MockPlayer.METHOD_DECREASE_DEVICE_VOLUME_WITH_FLAGS, TIMEOUT_MS);
@@ -1528,17 +1516,16 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
       return;
     }
 
-    handler.postAndSync(
-        () -> {
-          // Set stream of the session.
-          AudioAttributes attrs =
-              new AudioAttributes.Builder()
-                  .setUsage(C.USAGE_ALARM)
-                  .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
-                  .build();
-          player.audioAttributes = attrs;
-          player.notifyAudioAttributesChanged(attrs);
-        });
+    handler.postAndSync(() -> {
+      // Set stream of the session.
+      AudioAttributes attrs =
+          new AudioAttributes.Builder()
+              .setUsage(C.USAGE_ALARM)
+              .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
+              .build();
+      player.audioAttributes = attrs;
+      player.notifyAudioAttributesChanged(attrs);
+    });
 
     int originalVolume = audioManager.getStreamVolume(stream);
     int targetVolume = originalVolume == minVolume ? originalVolume + 1 : originalVolume - 1;
@@ -1580,17 +1567,16 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
       return;
     }
 
-    handler.postAndSync(
-        () -> {
-          // Set stream of the session.
-          AudioAttributes attrs =
-              new AudioAttributes.Builder()
-                  .setUsage(C.USAGE_ALARM)
-                  .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
-                  .build();
-          player.audioAttributes = attrs;
-          player.notifyAudioAttributesChanged(attrs);
-        });
+    handler.postAndSync(() -> {
+      // Set stream of the session.
+      AudioAttributes attrs =
+          new AudioAttributes.Builder()
+              .setUsage(C.USAGE_ALARM)
+              .setContentType(C.AUDIO_CONTENT_TYPE_SONIFICATION)
+              .build();
+      player.audioAttributes = attrs;
+      player.notifyAudioAttributesChanged(attrs);
+    });
 
     int originalVolume = audioManager.getStreamVolume(stream);
     int direction =
@@ -1881,12 +1867,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               int startIndex,
               long startPositionMs) {
             requestedMediaItems.set(mediaItems);
-            return executorService.submit(
-                () ->
-                    new MediaSession.MediaItemsWithStartPosition(
-                        ImmutableList.of(resolvedMediaItem),
-                        /* startIndex= */ 2,
-                        /* startPositionMs= */ 100));
+            return executorService.submit(() ->
+                new MediaSession.MediaItemsWithStartPosition(
+                    ImmutableList.of(resolvedMediaItem),
+                    /* startIndex= */ 2,
+                    /* startPositionMs= */ 100));
           }
         };
     session =
@@ -1966,12 +1951,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               List<MediaItem> mediaItems,
               int startIndex,
               long startPositionMs) {
-            return executorService.submit(
-                () ->
-                    new MediaSession.MediaItemsWithStartPosition(
-                        ImmutableList.of(resolvedMediaItem),
-                        /* startIndex= */ 2,
-                        /* startPositionMs= */ 100));
+            return executorService.submit(() ->
+                new MediaSession.MediaItemsWithStartPosition(
+                    ImmutableList.of(resolvedMediaItem),
+                    /* startIndex= */ 2,
+                    /* startPositionMs= */ 100));
           }
         };
     session =
@@ -2195,12 +2179,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             return immediateFuture(new SessionResult(RESULT_SUCCESS));
           }
         };
-    handler.postAndSync(
-        () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* buildWithUri= */ true, mediaId);
-          player.timeline = MediaTestUtils.createTimeline(mediaItems);
-        });
+    handler.postAndSync(() -> {
+      List<MediaItem> mediaItems =
+          MediaTestUtils.createMediaItems(/* buildWithUri= */ true, mediaId);
+      player.timeline = MediaTestUtils.createTimeline(mediaItems);
+    });
     session =
         new MediaSession.Builder(context, player).setId("setRating").setCallback(callback).build();
     controller =
@@ -2615,12 +2598,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .setDisplayName("test")
             .build();
     SettableFuture<Rating> ratingFuture = SettableFuture.create();
-    handler.postAndSync(
-        () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* buildWithUri= */ true, "media_id");
-          player.timeline = MediaTestUtils.createTimeline(mediaItems);
-        });
+    handler.postAndSync(() -> {
+      List<MediaItem> mediaItems =
+          MediaTestUtils.createMediaItems(/* buildWithUri= */ true, "media_id");
+      player.timeline = MediaTestUtils.createTimeline(mediaItems);
+    });
     MediaSession.Callback callback =
         new TestSessionCallback() {
           @Override

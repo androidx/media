@@ -347,10 +347,9 @@ public final class SequenceRenderersFactoryTest {
         new PlaybackAudioGraphWrapper(
             new DefaultAudioMixer.Factory(),
             new DefaultAudioSink.Builder(getApplicationContext()).build()),
-        new ExternallyLoadedImageDecoder.Factory(
-            request ->
-                immediateFuture(
-                    Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888))),
+        new ExternallyLoadedImageDecoder.Factory(request ->
+            immediateFuture(
+                Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888))),
         /* inputIndex= */ 0,
         /* videoPrewarmingEnabled= */ false,
         /* compositionRendererListener= */ mock(

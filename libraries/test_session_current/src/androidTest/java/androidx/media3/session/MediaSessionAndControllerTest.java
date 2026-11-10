@@ -94,24 +94,23 @@ public class MediaSessionAndControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              int state = STATE_IDLE;
-              for (int i = 0; i < 100; i++) {
-                // triggers call from session to controller.
-                MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
-                // triggers call from controller to session.
-                controller.play();
+        .postAndSync(() -> {
+          int state = STATE_IDLE;
+          for (int i = 0; i < 100; i++) {
+            // triggers call from session to controller.
+            MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
+            // triggers call from controller to session.
+            controller.play();
 
-                controller.pause();
-                MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
-                controller.seekTo(0);
-                MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
-                controller.seekToNextMediaItem();
-                MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
-                controller.seekToPreviousMediaItem();
-              }
-            });
+            controller.pause();
+            MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
+            controller.seekTo(0);
+            MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
+            controller.seekToNextMediaItem();
+            MainLooperTestRule.runOnMainSync(() -> player.notifyPlaybackStateChanged(state));
+            controller.seekToPreviousMediaItem();
+          }
+        });
   }
 
   /** Tests to ensure that disconnection is notified. */
@@ -132,34 +131,32 @@ public class MediaSessionAndControllerTest {
       // callback can be ignored.
       AtomicReference<ListenableFuture<MediaController>> controllerFutureRef =
           new AtomicReference<>();
-      mainHandler.post(
-          () -> {
-            ListenableFuture<MediaController> controllerFuture =
-                new MediaController.Builder(context, session.getToken())
-                    .setListener(
-                        new MediaController.Listener() {
-                          @Override
-                          public void onDisconnected(MediaController controller) {
-                            latch.countDown();
-                          }
-                        })
-                    .buildAsync();
-            controllerFutureRef.set(controllerFuture);
-            controllerFuture.addListener(
-                () -> {
-                  try {
-                    MediaController controller =
-                        controllerFuture.get(/* timeout=* */ 0, MILLISECONDS);
-                    assertThat(controller).isNotNull();
-                  } catch (ExecutionException
-                      | InterruptedException
-                      | CancellationException
-                      | TimeoutException e) {
-                    latch.countDown();
-                  }
-                },
-                mainHandler::post);
-          });
+      mainHandler.post(() -> {
+        ListenableFuture<MediaController> controllerFuture =
+            new MediaController.Builder(context, session.getToken())
+                .setListener(
+                    new MediaController.Listener() {
+                      @Override
+                      public void onDisconnected(MediaController controller) {
+                        latch.countDown();
+                      }
+                    })
+                .buildAsync();
+        controllerFutureRef.set(controllerFuture);
+        controllerFuture.addListener(
+            () -> {
+              try {
+                MediaController controller = controllerFuture.get(/* timeout=* */ 0, MILLISECONDS);
+                assertThat(controller).isNotNull();
+              } catch (ExecutionException
+                  | InterruptedException
+                  | CancellationException
+                  | TimeoutException e) {
+                latch.countDown();
+              }
+            },
+            mainHandler::post);
+      });
       threadTestRule.getHandler().postAndSync(session::release);
       assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     }
@@ -222,12 +219,11 @@ public class MediaSessionAndControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                player.notifyPlayWhenReadyChanged(
-                    testPlayWhenReady,
-                    Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-                    Player.PLAYBACK_SUPPRESSION_REASON_NONE));
+        .postAndSync(() ->
+            player.notifyPlayWhenReadyChanged(
+                testPlayWhenReady,
+                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+                Player.PLAYBACK_SUPPRESSION_REASON_NONE));
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(playWhenReadyRef.get()).isEqualTo(testPlayWhenReady);
@@ -244,12 +240,11 @@ public class MediaSessionAndControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.prepare();
-              controller.play();
-              controller.release();
-            });
+        .postAndSync(() -> {
+          controller.prepare();
+          controller.play();
+          controller.release();
+        });
 
     // Assert these methods are called without timing out.
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
@@ -286,21 +281,16 @@ public class MediaSessionAndControllerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.setTrackSelectionParameters(
-                    controller
-                        .getTrackSelectionParameters()
-                        .buildUpon()
-                        .setOverrideForType(
-                            new TrackSelectionOverride(
-                                controller
-                                    .getCurrentTracks()
-                                    .getGroups()
-                                    .get(0)
-                                    .getMediaTrackGroup(),
-                                /* trackIndex= */ 1))
-                        .build()));
+        .postAndSync(() ->
+            controller.setTrackSelectionParameters(
+                controller
+                    .getTrackSelectionParameters()
+                    .buildUpon()
+                    .setOverrideForType(
+                        new TrackSelectionOverride(
+                            controller.getCurrentTracks().getGroups().get(0).getMediaTrackGroup(),
+                            /* trackIndex= */ 1))
+                    .build()));
     player.awaitMethodCalled(MockPlayer.METHOD_SET_TRACK_SELECTION_PARAMETERS, TIMEOUT_MS);
 
     assertThat(player.trackSelectionParameters.overrides)

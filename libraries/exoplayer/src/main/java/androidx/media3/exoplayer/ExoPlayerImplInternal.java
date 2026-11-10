@@ -1615,10 +1615,9 @@ import org.jspecify.annotations.Nullable;
   private void maybeTriggerOnRendererReadyChanged(int rendererIndex, boolean allowsPlayback) {
     if (rendererReportedReady[rendererIndex] != allowsPlayback) {
       rendererReportedReady[rendererIndex] = allowsPlayback;
-      applicationLooperHandler.post(
-          () ->
-              analyticsCollector.onRendererReadyChanged(
-                  rendererIndex, renderers[rendererIndex].getTrackType(), allowsPlayback));
+      applicationLooperHandler.post(() ->
+          analyticsCollector.onRendererReadyChanged(
+              rendererIndex, renderers[rendererIndex].getTrackType(), allowsPlayback));
     }
   }
 
@@ -2285,15 +2284,14 @@ import org.jspecify.annotations.Nullable;
     }
     clock
         .createHandler(looper, /* callback= */ null)
-        .post(
-            () -> {
-              try {
-                deliverMessage(message);
-              } catch (ExoPlaybackException e) {
-                Log.e(TAG, "Unexpected error delivering message on external thread.", e);
-                throw new RuntimeException(e);
-              }
-            });
+        .post(() -> {
+          try {
+            deliverMessage(message);
+          } catch (ExoPlaybackException e) {
+            Log.e(TAG, "Unexpected error delivering message on external thread.", e);
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   private void deliverMessage(PlayerMessage message) throws ExoPlaybackException {

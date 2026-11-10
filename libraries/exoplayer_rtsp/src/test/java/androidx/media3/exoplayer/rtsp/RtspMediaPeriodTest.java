@@ -137,11 +137,10 @@ public final class RtspMediaPeriodTest {
   @Test
   public void isLoading_afterInit_returnsFalse() throws Exception {
     rtspServer =
-        new RtspServer(
-            () ->
-                new RtspResponse(
-                    /* status= */ 200,
-                    new RtspHeaders.Builder().add(RtspHeaders.PUBLIC, "OPTIONS").build()));
+        new RtspServer(() ->
+            new RtspResponse(
+                /* status= */ 200,
+                new RtspHeaders.Builder().add(RtspHeaders.PUBLIC, "OPTIONS").build()));
     mediaPeriod =
         new RtspMediaPeriod(
             new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),

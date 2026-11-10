@@ -1634,12 +1634,11 @@ public class MediaSessionCallbackTest {
     ExoPlayer testPlayer =
         playerThreadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-                  exoPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
-                  return exoPlayer;
-                });
+            .postAndSync(() -> {
+              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+              exoPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
+              return exoPlayer;
+            });
     List<MediaItem> currentMediaItemsOfPlayer = new ArrayList<>();
     AtomicReference<MediaController> controller = new AtomicReference<>();
     List<String> passiveControllerEvents = new ArrayList<>();
@@ -1651,11 +1650,10 @@ public class MediaSessionCallbackTest {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-            postToController(
-                () -> {
-                  passiveControllerEvents.add("player.onMediaItemTransition");
-                  activeControllerEvents.add("player.onMediaItemTransition");
-                });
+            postToController(() -> {
+              passiveControllerEvents.add("player.onMediaItemTransition");
+              activeControllerEvents.add("player.onMediaItemTransition");
+            });
           }
 
           @Override
@@ -1663,12 +1661,11 @@ public class MediaSessionCallbackTest {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               // Player still has the first item. Command has not yet arrived at the session.
               currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-              postToController(
-                  () -> {
-                    passiveControllerEvents.add("player.onEvents");
-                    activeControllerEvents.add("player.onEvents");
-                    latch.countDown();
-                  });
+              postToController(() -> {
+                passiveControllerEvents.add("player.onEvents");
+                activeControllerEvents.add("player.onEvents");
+                latch.countDown();
+              });
             }
           }
         });
@@ -1713,11 +1710,10 @@ public class MediaSessionCallbackTest {
                   // Triggered by masking in the same looper iteration as where
                   // controller.seekToNextMediaItem() is called.
                   activeControllerEvents.add("controller.onEvents");
-                  postToPlayer(
-                      () -> {
-                        currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-                        latch.countDown();
-                      });
+                  postToPlayer(() -> {
+                    currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
+                    latch.countDown();
+                  });
                 }
               }
             });
@@ -1758,12 +1754,11 @@ public class MediaSessionCallbackTest {
     ExoPlayer testPlayer =
         playerThreadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-                  exoPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
-                  return exoPlayer;
-                });
+            .postAndSync(() -> {
+              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+              exoPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
+              return exoPlayer;
+            });
     List<String> activeControllerEvents = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(2);
     AtomicReference<MediaController> controller = new AtomicReference<>();
@@ -1830,12 +1825,11 @@ public class MediaSessionCallbackTest {
     ExoPlayer testPlayer =
         playerThreadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-                  exoPlayer.setMediaItems(ImmutableList.of(mediaItem, mediaItem));
-                  return exoPlayer;
-                });
+            .postAndSync(() -> {
+              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+              exoPlayer.setMediaItems(ImmutableList.of(mediaItem, mediaItem));
+              return exoPlayer;
+            });
     List<MediaItem> currentMediaItemsOfPlayer = new ArrayList<>();
     AtomicReference<MediaController> activeController = new AtomicReference<>();
     List<String> activeControllerEvents = new ArrayList<>();
@@ -1847,12 +1841,11 @@ public class MediaSessionCallbackTest {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-            postToController(
-                () -> {
-                  activeControllerEvents.add("player.onMediaItemTransition");
-                  passiveControllerEvents.add("player.onMediaItemTransition");
-                  latch.countDown();
-                });
+            postToController(() -> {
+              activeControllerEvents.add("player.onMediaItemTransition");
+              passiveControllerEvents.add("player.onMediaItemTransition");
+              latch.countDown();
+            });
           }
 
           @Override
@@ -1860,12 +1853,11 @@ public class MediaSessionCallbackTest {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               // Player still has the first item. Command has not yet arrived at the session.
               currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-              postToController(
-                  () -> {
-                    activeControllerEvents.add("player.onEvents");
-                    passiveControllerEvents.add("player.onEvents");
-                    latch.countDown();
-                  });
+              postToController(() -> {
+                activeControllerEvents.add("player.onEvents");
+                passiveControllerEvents.add("player.onEvents");
+                latch.countDown();
+              });
             }
           }
         });
@@ -1910,11 +1902,10 @@ public class MediaSessionCallbackTest {
                   // Triggered by masking in the same looper iteration as where
                   // controller.seekToNextMediaItem() is called.
                   activeControllerEvents.add("controller.onEvents");
-                  postToPlayer(
-                      () -> {
-                        currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-                        latch.countDown();
-                      });
+                  postToPlayer(() -> {
+                    currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
+                    latch.countDown();
+                  });
                 }
               }
             });

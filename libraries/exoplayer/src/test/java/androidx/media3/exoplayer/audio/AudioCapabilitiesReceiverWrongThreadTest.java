@@ -74,10 +74,9 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     wrongThreadExecutor
-        .submit(
-            () ->
-                audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(
-                    new AudioDeviceInfo[0]))
+        .submit(() ->
+            audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesAdded(
+                new AudioDeviceInfo[0]))
         .get();
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -101,10 +100,9 @@ public final class AudioCapabilitiesReceiverWrongThreadTest {
     audioCapabilitiesReceiver.overrideCapabilities(OVERRIDDEN_AUDIO_CAPABILITIES);
 
     wrongThreadExecutor
-        .submit(
-            () ->
-                audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesRemoved(
-                    new AudioDeviceInfo[0]))
+        .submit(() ->
+            audioCapabilitiesReceiver.audioDeviceCallback.onAudioDevicesRemoved(
+                new AudioDeviceInfo[0]))
         .get();
     shadowOf(Looper.getMainLooper()).idle();
 

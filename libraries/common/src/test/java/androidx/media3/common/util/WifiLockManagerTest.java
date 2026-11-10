@@ -105,10 +105,9 @@ public class WifiLockManagerTest {
     // Block the wake lock thread to prevent any progress.
     ConditionVariable blockedWakeLockThread = new ConditionVariable();
     new Handler(handlerThread.getLooper())
-        .post(
-            () -> {
-              while (!blockedWakeLockThread.isOpen()) {}
-            });
+        .post(() -> {
+          while (!blockedWakeLockThread.isOpen()) {}
+        });
     wifiLockManager.setEnabled(false);
     ShadowLooper.idleMainLooper();
     // Verify it didn't work yet.

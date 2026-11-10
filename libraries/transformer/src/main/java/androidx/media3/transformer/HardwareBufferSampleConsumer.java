@@ -109,7 +109,7 @@ import org.jspecify.annotations.Nullable;
     // Modify the release times of frames exiting the hardwareBufferFrameReader to account for
     // item duration.
     Consumer<AsyncFrame> intermediateConsumer =
-        (asyncFrame) -> {
+        asyncFrame -> {
           if (asyncFrame != END_OF_STREAM_ASYNC_FRAME) {
             // The frame's sequencePresentationTimeUs is already adjusted by the
             // HardwareBufferFrameReader to be monotonic across the entire sequence.

@@ -68,10 +68,9 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    videoFrameProcessingTaskExecutor.submit(
-        () ->
-            consumingGlShaderProgram.queueInputFrame(
-                glObjectsProvider, pendingFrame.glTextureInfo, pendingFrame.presentationTimeUs));
+    videoFrameProcessingTaskExecutor.submit(() ->
+        consumingGlShaderProgram.queueInputFrame(
+            glObjectsProvider, pendingFrame.glTextureInfo, pendingFrame.presentationTimeUs));
     @Nullable TimedGlTextureInfo nextPendingFrame = availableFrames.peek();
     if (nextPendingFrame != null && nextPendingFrame.presentationTimeUs == C.TIME_END_OF_SOURCE) {
       videoFrameProcessingTaskExecutor.submit(
@@ -88,10 +87,9 @@ import org.jspecify.annotations.Nullable;
 
   public synchronized void queueInputFrame(GlTextureInfo inputTexture, long presentationTimeUs) {
     if (consumingGlShaderProgramInputCapacity > 0) {
-      videoFrameProcessingTaskExecutor.submit(
-          () ->
-              consumingGlShaderProgram.queueInputFrame(
-                  glObjectsProvider, inputTexture, presentationTimeUs));
+      videoFrameProcessingTaskExecutor.submit(() ->
+          consumingGlShaderProgram.queueInputFrame(
+              glObjectsProvider, inputTexture, presentationTimeUs));
       consumingGlShaderProgramInputCapacity--;
     } else {
       availableFrames.add(new TimedGlTextureInfo(inputTexture, presentationTimeUs));

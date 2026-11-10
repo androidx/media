@@ -157,20 +157,19 @@ public class ProgressiveMediaSourceTest {
     ProgressiveMediaSourceTestRunner mediaSourceTestRunner =
         new ProgressiveMediaSourceTestRunner(mediaSource);
     ConditionVariable loadCompleted = new ConditionVariable();
-    mediaSourceTestRunner.runOnPlaybackThread(
-        () ->
-            mediaSource.addEventListener(
-                new Handler(checkNotNull(Looper.myLooper())),
-                new MediaSourceEventListener() {
-                  @Override
-                  public void onLoadCompleted(
-                      int windowIndex,
-                      MediaSource.@Nullable MediaPeriodId mediaPeriodId,
-                      LoadEventInfo loadEventInfo,
-                      MediaLoadData mediaLoadData) {
-                    loadCompleted.open();
-                  }
-                }));
+    mediaSourceTestRunner.runOnPlaybackThread(() ->
+        mediaSource.addEventListener(
+            new Handler(checkNotNull(Looper.myLooper())),
+            new MediaSourceEventListener() {
+              @Override
+              public void onLoadCompleted(
+                  int windowIndex,
+                  MediaSource.@Nullable MediaPeriodId mediaPeriodId,
+                  LoadEventInfo loadEventInfo,
+                  MediaLoadData mediaLoadData) {
+                loadCompleted.open();
+              }
+            }));
 
     AtomicReference<SeekMap> seekMapReference = new AtomicReference<>();
     ProgressiveMediaSource.Listener listener =
@@ -189,22 +188,18 @@ public class ProgressiveMediaSourceTest {
     assertThat(seekMapReference.get()).isNotNull();
 
     ListenableFuture<Boolean> isLoading =
-        mediaSourceTestRunner.asyncRunOnPlaybackThread(
-            () -> {
-              mediaPeriod.continueLoading(
-                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-              return mediaPeriod.isLoading();
-            });
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(() -> {
+          mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+          return mediaPeriod.isLoading();
+        });
     assertThat(isLoading.get()).isFalse();
 
     isLoading =
-        mediaSourceTestRunner.asyncRunOnPlaybackThread(
-            () -> {
-              selectOnlyTrack(mediaPeriod);
-              mediaPeriod.continueLoading(
-                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-              return mediaPeriod.isLoading();
-            });
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(() -> {
+          selectOnlyTrack(mediaPeriod);
+          mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+          return mediaPeriod.isLoading();
+        });
     assertThat(isLoading.get()).isTrue();
 
     assertThat(loadCompleted.block(DEFAULT_TIMEOUT_MS)).isTrue();
@@ -234,22 +229,21 @@ public class ProgressiveMediaSourceTest {
 
     Timeline timeline = mediaSourceTestRunner.prepareSource();
     CountDownLatch loadErrorReported = new CountDownLatch(1);
-    mediaSourceTestRunner.runOnPlaybackThread(
-        () ->
-            mediaSource.addEventListener(
-                Util.createHandlerForCurrentLooper(),
-                new MediaSourceEventListener() {
-                  @Override
-                  public void onLoadError(
-                      int windowIndex,
-                      MediaSource.@Nullable MediaPeriodId mediaPeriodId,
-                      LoadEventInfo loadEventInfo,
-                      MediaLoadData mediaLoadData,
-                      IOException error,
-                      boolean wasCanceled) {
-                    loadErrorReported.countDown();
-                  }
-                }));
+    mediaSourceTestRunner.runOnPlaybackThread(() ->
+        mediaSource.addEventListener(
+            Util.createHandlerForCurrentLooper(),
+            new MediaSourceEventListener() {
+              @Override
+              public void onLoadError(
+                  int windowIndex,
+                  MediaSource.@Nullable MediaPeriodId mediaPeriodId,
+                  LoadEventInfo loadEventInfo,
+                  MediaLoadData mediaLoadData,
+                  IOException error,
+                  boolean wasCanceled) {
+                loadErrorReported.countDown();
+              }
+            }));
     MediaPeriod mediaPeriod =
         mediaSourceTestRunner.createPeriod(
             new MediaSource.MediaPeriodId(
@@ -259,13 +253,11 @@ public class ProgressiveMediaSourceTest {
     assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     ListenableFuture<Boolean> isLoading =
-        mediaSourceTestRunner.asyncRunOnPlaybackThread(
-            () -> {
-              selectOnlyTrack(mediaPeriod);
-              mediaPeriod.continueLoading(
-                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-              return mediaPeriod.isLoading();
-            });
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(() -> {
+          selectOnlyTrack(mediaPeriod);
+          mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+          return mediaPeriod.isLoading();
+        });
     assertThat(isLoading.get()).isTrue();
     assertThat(loadErrorReported.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
@@ -294,20 +286,19 @@ public class ProgressiveMediaSourceTest {
     mediaSourceTestRunner.setListener(listener);
     Timeline timeline = mediaSourceTestRunner.prepareSource();
     ConditionVariable loadCompleted = new ConditionVariable();
-    mediaSourceTestRunner.runOnPlaybackThread(
-        () ->
-            mediaSource.addEventListener(
-                new Handler(checkNotNull(Looper.myLooper())),
-                new MediaSourceEventListener() {
-                  @Override
-                  public void onLoadCompleted(
-                      int windowIndex,
-                      MediaSource.@Nullable MediaPeriodId mediaPeriodId,
-                      LoadEventInfo loadEventInfo,
-                      MediaLoadData mediaLoadData) {
-                    loadCompleted.open();
-                  }
-                }));
+    mediaSourceTestRunner.runOnPlaybackThread(() ->
+        mediaSource.addEventListener(
+            new Handler(checkNotNull(Looper.myLooper())),
+            new MediaSourceEventListener() {
+              @Override
+              public void onLoadCompleted(
+                  int windowIndex,
+                  MediaSource.@Nullable MediaPeriodId mediaPeriodId,
+                  LoadEventInfo loadEventInfo,
+                  MediaLoadData mediaLoadData) {
+                loadCompleted.open();
+              }
+            }));
     MediaPeriod mediaPeriod1 =
         mediaSourceTestRunner.createPeriod(
             new MediaSource.MediaPeriodId(
@@ -321,13 +312,11 @@ public class ProgressiveMediaSourceTest {
     assertThat(seekMaps.getLast().isEstimated()).isTrue();
     Timeline unusedTimeline = mediaSourceTestRunner.assertTimelineChange();
     ListenableFuture<Boolean> unusedFuture =
-        mediaSourceTestRunner.asyncRunOnPlaybackThread(
-            () -> {
-              selectOnlyTrack(mediaPeriod1);
-              mediaPeriod1.continueLoading(
-                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-              return mediaPeriod1.isLoading();
-            });
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(() -> {
+          selectOnlyTrack(mediaPeriod1);
+          mediaPeriod1.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+          return mediaPeriod1.isLoading();
+        });
     assertThat(loadCompleted.block(DEFAULT_TIMEOUT_MS)).isTrue();
     // Ensures that this media can produce one non-estimated seekMap by period loading completed,
     // thus the seekMap gets further propagated via ProgressiveMediaSource.Listener, and a timeline

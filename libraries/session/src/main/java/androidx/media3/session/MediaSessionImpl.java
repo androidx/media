@@ -279,13 +279,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void setPlayer(Player player) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          if (player == playerWrapper.getWrappedPlayer()) {
-            return;
-          }
-          setPlayerInternal(/* oldPlayerWrapper= */ playerWrapper, new PlayerWrapper(player));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      if (player == playerWrapper.getWrappedPlayer()) {
+        return;
+      }
+      setPlayerInternal(/* oldPlayerWrapper= */ playerWrapper, new PlayerWrapper(player));
+    });
   }
 
   private void setPlayerInternal(
@@ -337,17 +336,16 @@ import org.jspecify.annotations.Nullable;
     try {
       if (applicationHandler.getLooper().getThread().isAlive()) {
         CountDownLatch latch = new CountDownLatch(1);
-        postOrRunOnApplicationHandler(
-            () -> {
-              if (playerListener != null) {
-                playerWrapper.removeListener(playerListener);
-              }
-              if (stubsReleased.compareAndSet(false, true)) {
-                sessionLegacyStub.release();
-                sessionStub.release();
-              }
-              latch.countDown();
-            });
+        postOrRunOnApplicationHandler(() -> {
+          if (playerListener != null) {
+            playerWrapper.removeListener(playerListener);
+          }
+          if (stubsReleased.compareAndSet(false, true)) {
+            sessionLegacyStub.release();
+            sessionStub.release();
+          }
+          latch.countDown();
+        });
         releasedOnHandler = latch.await(RELEASE_TIMEOUT_MS, MILLISECONDS);
       }
     } catch (Exception e) {
@@ -544,11 +542,10 @@ import org.jspecify.annotations.Nullable;
   public ListenableFuture<SessionResult> setCustomLayout(
       ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
     if (isMediaNotificationController(controller)) {
-      postOrRunOnApplicationHandler(
-          () -> {
-            sessionLegacyStub.setPlatformCustomLayout(customLayout);
-            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
-          });
+      postOrRunOnApplicationHandler(() -> {
+        sessionLegacyStub.setPlatformCustomLayout(customLayout);
+        sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      });
     }
     return dispatchRemoteControllerTask(
         controller, (controller1, seq) -> controller1.setCustomLayout(seq, customLayout));
@@ -556,13 +553,12 @@ import org.jspecify.annotations.Nullable;
 
   /** Sets the custom layout of the session and sends the custom layout to all controllers. */
   public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          this.customLayout = customLayout;
-          sessionLegacyStub.setPlatformCustomLayout(customLayout);
-          dispatchRemoteControllerTaskWithoutReturn(
-              (controller, seq) -> controller.setCustomLayout(seq, customLayout));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      this.customLayout = customLayout;
+      sessionLegacyStub.setPlatformCustomLayout(customLayout);
+      dispatchRemoteControllerTaskWithoutReturn(
+          (controller, seq) -> controller.setCustomLayout(seq, customLayout));
+    });
   }
 
   /**
@@ -575,11 +571,10 @@ import org.jspecify.annotations.Nullable;
   public ListenableFuture<SessionResult> setMediaButtonPreferences(
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
-      postOrRunOnApplicationHandler(
-          () -> {
-            sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
-          });
+      postOrRunOnApplicationHandler(() -> {
+        sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
+        sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      });
     }
     return dispatchRemoteControllerTask(
         controller,
@@ -591,14 +586,12 @@ import org.jspecify.annotations.Nullable;
    * controllers.
    */
   public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          this.mediaButtonPreferences = mediaButtonPreferences;
-          sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-          dispatchRemoteControllerTaskWithoutReturn(
-              (controller, seq) ->
-                  controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      this.mediaButtonPreferences = mediaButtonPreferences;
+      sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
+      dispatchRemoteControllerTaskWithoutReturn(
+          (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
+    });
   }
 
   public void setPlaybackException(
@@ -643,34 +636,33 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void setPlaybackException(@Nullable PlaybackException playbackException) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          // Do not check for equality and return as a no-op if equal. Some controller may have a
-          // different exception set individually that we want to override.
-          this.playbackException = playbackException;
-          boolean mediaNotificationControllerConnected = false;
-          ImmutableList<ControllerInfo> connectedControllers =
-              sessionStub.getConnectedControllersManager().getConnectedControllers();
-          for (int i = 0; i < connectedControllers.size(); i++) {
-            ControllerInfo controller = connectedControllers.get(i);
-            if (isMediaNotificationController(controller)) {
-              mediaNotificationControllerConnected = true;
-            }
-            setPlaybackExceptionOnHandler(controller, playbackException);
-          }
-          if (!mediaNotificationControllerConnected) {
-            sessionLegacyStub.setPlaybackException(
-                playbackException,
-                playbackException != null
-                    ? createPlayerCommandsForCustomErrorState(
-                        sessionLegacyStub.getAvailablePlayerCommands())
-                    : null);
-            if (playbackException == null) {
-              sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
-              sessionLegacyStub.maybeUpdateFlags(playerWrapper);
-            }
-          }
-        });
+    postOrRunOnApplicationHandler(() -> {
+      // Do not check for equality and return as a no-op if equal. Some controller may have a
+      // different exception set individually that we want to override.
+      this.playbackException = playbackException;
+      boolean mediaNotificationControllerConnected = false;
+      ImmutableList<ControllerInfo> connectedControllers =
+          sessionStub.getConnectedControllersManager().getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        ControllerInfo controller = connectedControllers.get(i);
+        if (isMediaNotificationController(controller)) {
+          mediaNotificationControllerConnected = true;
+        }
+        setPlaybackExceptionOnHandler(controller, playbackException);
+      }
+      if (!mediaNotificationControllerConnected) {
+        sessionLegacyStub.setPlaybackException(
+            playbackException,
+            playbackException != null
+                ? createPlayerCommandsForCustomErrorState(
+                    sessionLegacyStub.getAvailablePlayerCommands())
+                : null);
+        if (playbackException == null) {
+          sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+          sessionLegacyStub.maybeUpdateFlags(playerWrapper);
+        }
+      }
+    });
   }
 
   public @Nullable PlaybackException getPlaybackException() {
@@ -736,26 +728,24 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void setSessionExtras(Bundle sessionExtras) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          this.sessionExtras = sessionExtras;
-          dispatchRemoteControllerTaskWithoutReturn(
-              (controller, seq) -> controller.onSessionExtrasChanged(seq, sessionExtras));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      this.sessionExtras = sessionExtras;
+      dispatchRemoteControllerTaskWithoutReturn(
+          (controller, seq) -> controller.onSessionExtrasChanged(seq, sessionExtras));
+    });
   }
 
   public void setSessionExtras(ControllerInfo controller, Bundle sessionExtras) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
-            dispatchRemoteControllerTaskWithoutReturn(
-                controller, (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
-            if (isMediaNotificationController(controller)) {
-              dispatchRemoteControllerTaskToLegacyStub(
-                  (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
-            }
-          }
-        });
+    postOrRunOnApplicationHandler(() -> {
+      if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
+        dispatchRemoteControllerTaskWithoutReturn(
+            controller, (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
+        if (isMediaNotificationController(controller)) {
+          dispatchRemoteControllerTaskToLegacyStub(
+              (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
+        }
+      }
+    });
   }
 
   public Bundle getSessionExtras() {
@@ -777,52 +767,49 @@ import org.jspecify.annotations.Nullable;
 
   public void setAvailableCommands(
       ControllerInfo controller, SessionCommands sessionCommands, Player.Commands playerCommands) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
-            if (isMediaNotificationController(controller)) {
-              sessionLegacyStub.setAvailableCommands(sessionCommands, playerCommands);
-              ControllerInfo systemUiInfo = getSystemUiControllerInfo();
-              if (systemUiInfo != null) {
-                // Set the available commands of the proxy controller to the
-                // ConnectedControllerRecord of the hidden System UI controller.
-                ConnectedControllersManager<?> controllersManager =
-                    systemUiInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
-                        ? sessionLegacyStub.getConnectedControllersManager()
-                        : sessionStub.getConnectedControllersManager();
-                controllersManager.updateCommandsFromSession(
-                    systemUiInfo, sessionCommands, playerCommands);
-              }
-            }
-            sessionStub
-                .getConnectedControllersManager()
-                .updateCommandsFromSession(controller, sessionCommands, playerCommands);
-            // Read the available player commands from the manager again after update.
-            Player.Commands availablePlayerCommands =
-                sessionStub.getConnectedControllersManager().getAvailablePlayerCommands(controller);
-            if (availablePlayerCommands != null) {
-              dispatchRemoteControllerTaskWithoutReturn(
-                  controller,
-                  (callback, seq) ->
-                      callback.onAvailableCommandsChangedFromSession(
-                          seq, sessionCommands, availablePlayerCommands));
-              onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
-                  /* excludeTimeline= */ false, /* excludeTracks= */ false);
-            }
-          } else if (controller.getControllerVersion()
-              == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
-            sessionLegacyStub
-                .getConnectedControllersManager()
-                .updateCommandsFromSession(controller, sessionCommands, playerCommands);
+    postOrRunOnApplicationHandler(() -> {
+      if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
+        if (isMediaNotificationController(controller)) {
+          sessionLegacyStub.setAvailableCommands(sessionCommands, playerCommands);
+          ControllerInfo systemUiInfo = getSystemUiControllerInfo();
+          if (systemUiInfo != null) {
+            // Set the available commands of the proxy controller to the
+            // ConnectedControllerRecord of the hidden System UI controller.
+            ConnectedControllersManager<?> controllersManager =
+                systemUiInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
+                    ? sessionLegacyStub.getConnectedControllersManager()
+                    : sessionStub.getConnectedControllersManager();
+            controllersManager.updateCommandsFromSession(
+                systemUiInfo, sessionCommands, playerCommands);
           }
-        });
+        }
+        sessionStub
+            .getConnectedControllersManager()
+            .updateCommandsFromSession(controller, sessionCommands, playerCommands);
+        // Read the available player commands from the manager again after update.
+        Player.Commands availablePlayerCommands =
+            sessionStub.getConnectedControllersManager().getAvailablePlayerCommands(controller);
+        if (availablePlayerCommands != null) {
+          dispatchRemoteControllerTaskWithoutReturn(
+              controller,
+              (callback, seq) ->
+                  callback.onAvailableCommandsChangedFromSession(
+                      seq, sessionCommands, availablePlayerCommands));
+          onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
+              /* excludeTimeline= */ false, /* excludeTracks= */ false);
+        }
+      } else if (controller.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+        sessionLegacyStub
+            .getConnectedControllersManager()
+            .updateCommandsFromSession(controller, sessionCommands, playerCommands);
+      }
+    });
   }
 
   public void broadcastCustomCommand(SessionCommand command, Bundle args) {
-    postOrRunOnApplicationHandler(
-        () ->
-            dispatchRemoteControllerTaskWithoutReturn(
-                (controller, seq) -> controller.sendCustomCommand(seq, command, args)));
+    postOrRunOnApplicationHandler(() ->
+        dispatchRemoteControllerTaskWithoutReturn(
+            (controller, seq) -> controller.sendCustomCommand(seq, command, args)));
   }
 
   private void dispatchOnPlayerInfoChanged(
@@ -931,13 +918,12 @@ import org.jspecify.annotations.Nullable;
       SessionCommand command,
       Bundle args,
       Bundle progressData) {
-    postOrRunOnApplicationHandler(
-        () ->
-            dispatchRemoteControllerTaskWithoutReturn(
-                controller,
-                (cb, seq) ->
-                    cb.sendCustomCommandProgressUpdate(
-                        customCommandFutureSequence, command, args, progressData)));
+    postOrRunOnApplicationHandler(() ->
+        dispatchRemoteControllerTaskWithoutReturn(
+            controller,
+            (cb, seq) ->
+                cb.sendCustomCommandProgressUpdate(
+                    customCommandFutureSequence, command, args, progressData)));
   }
 
   public void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
@@ -963,24 +949,23 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void sendError(SessionError sessionError) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          // Send error messages to Media3 controllers.
-          ImmutableList<ControllerInfo> connectedControllers =
-              sessionStub.getConnectedControllersManager().getConnectedControllers();
-          for (int i = 0; i < connectedControllers.size(); i++) {
-            ControllerInfo controllerInfo = connectedControllers.get(i);
-            if (!isMediaNotificationController(controllerInfo)) {
-              // Omit sending to the media notification controller. Instead the error will be
-              // dispatched through the legacy stub below to avoid updating the legacy session
-              // multiple times.
-              sendErrorOnHandler(controllerInfo, sessionError);
-            }
-          }
-          // Send error messages to legacy controllers.
-          dispatchRemoteControllerTaskToLegacyStub(
-              (callback, seq) -> callback.onError(seq, sessionError));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      // Send error messages to Media3 controllers.
+      ImmutableList<ControllerInfo> connectedControllers =
+          sessionStub.getConnectedControllersManager().getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        ControllerInfo controllerInfo = connectedControllers.get(i);
+        if (!isMediaNotificationController(controllerInfo)) {
+          // Omit sending to the media notification controller. Instead the error will be
+          // dispatched through the legacy stub below to avoid updating the legacy session
+          // multiple times.
+          sendErrorOnHandler(controllerInfo, sessionError);
+        }
+      }
+      // Send error messages to legacy controllers.
+      dispatchRemoteControllerTaskToLegacyStub(
+          (callback, seq) -> callback.onError(seq, sessionError));
+    });
   }
 
   public ListenableFuture<MediaSession.ConnectionResult> onConnectOnHandler(
@@ -1174,41 +1159,39 @@ import org.jspecify.annotations.Nullable;
 
   @UnstableApi
   protected void setSessionActivity(@Nullable PendingIntent sessionActivity) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          this.sessionActivity = sessionActivity;
-          dispatchRemoteControllerTaskToLegacyStub(
+    postOrRunOnApplicationHandler(() -> {
+      this.sessionActivity = sessionActivity;
+      dispatchRemoteControllerTaskToLegacyStub(
+          (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
+      ImmutableList<ControllerInfo> connectedControllers =
+          sessionStub.getConnectedControllersManager().getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        ControllerInfo controller = connectedControllers.get(i);
+        if (controller.getControllerVersion() >= 3) {
+          dispatchRemoteControllerTaskWithoutReturn(
+              controller,
               (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
-          ImmutableList<ControllerInfo> connectedControllers =
-              sessionStub.getConnectedControllersManager().getConnectedControllers();
-          for (int i = 0; i < connectedControllers.size(); i++) {
-            ControllerInfo controller = connectedControllers.get(i);
-            if (controller.getControllerVersion() >= 3) {
-              dispatchRemoteControllerTaskWithoutReturn(
-                  controller,
-                  (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
-            }
-          }
-        });
+        }
+      }
+    });
   }
 
   @UnstableApi
   protected void setSessionActivity(
       ControllerInfo controller, @Nullable PendingIntent sessionActivity) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
-            if (controller.getControllerVersion() >= 3) {
-              dispatchRemoteControllerTaskWithoutReturn(
-                  controller,
-                  (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
-            }
-            if (isMediaNotificationController(controller)) {
-              dispatchRemoteControllerTaskToLegacyStub(
-                  (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
-            }
-          }
-        });
+    postOrRunOnApplicationHandler(() -> {
+      if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
+        if (controller.getControllerVersion() >= 3) {
+          dispatchRemoteControllerTaskWithoutReturn(
+              controller,
+              (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
+        }
+        if (isMediaNotificationController(controller)) {
+          dispatchRemoteControllerTaskToLegacyStub(
+              (callback, seq) -> callback.onSessionActivityChanged(seq, sessionActivity));
+        }
+      }
+    });
   }
 
   protected ControllerInfo resolveControllerInfoForCallback(ControllerInfo controller) {
@@ -1535,14 +1518,13 @@ import org.jspecify.annotations.Nullable;
       return dispatchRemoteControllerTaskInternal(controller, task);
     } else {
       ResolvableFuture<SessionResult> resultFuture = ResolvableFuture.create();
-      postOrRunOnApplicationHandler(
-          () -> {
-            try {
-              resultFuture.setFuture(dispatchRemoteControllerTaskInternal(controller, task));
-            } catch (RuntimeException e) {
-              resultFuture.setException(e);
-            }
-          });
+      postOrRunOnApplicationHandler(() -> {
+        try {
+          resultFuture.setFuture(dispatchRemoteControllerTaskInternal(controller, task));
+        } catch (RuntimeException e) {
+          resultFuture.setException(e);
+        }
+      });
       return resultFuture;
     }
   }
@@ -1921,10 +1903,9 @@ import org.jspecify.annotations.Nullable;
           session.playerInfo.copyWithPlaybackState(playbackState, player.getPlayerError());
       session.onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
           /* excludeTimeline= */ true, /* excludeTracks= */ true);
-      session.dispatchRemoteControllerTaskToLegacyStub(
-          (callback, seq) -> {
-            callback.onPlaybackStateChanged(seq, playbackState, player.getPlayerError());
-          });
+      session.dispatchRemoteControllerTaskToLegacyStub((callback, seq) -> {
+        callback.onPlaybackStateChanged(seq, playbackState, player.getPlayerError());
+      });
     }
 
     @Override
@@ -1982,9 +1963,8 @@ import org.jspecify.annotations.Nullable;
           session.playerInfo.copyWithPositionInfos(oldPosition, newPosition, reason);
       session.onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
           /* excludeTimeline= */ true, /* excludeTracks= */ true);
-      session.dispatchRemoteControllerTaskToLegacyStub(
-          (callback, seq) ->
-              callback.onPositionDiscontinuity(seq, oldPosition, newPosition, reason));
+      session.dispatchRemoteControllerTaskToLegacyStub((callback, seq) ->
+          callback.onPositionDiscontinuity(seq, oldPosition, newPosition, reason));
     }
 
     @Override

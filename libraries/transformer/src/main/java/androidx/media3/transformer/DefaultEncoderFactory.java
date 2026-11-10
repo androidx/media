@@ -652,7 +652,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     // TODO: b/267740292 - Investigate the fallback logic that might prefer software encoders.
     return filterEncoders(
         encoders,
-        /* cost= */ (encoderInfo) -> {
+        /* cost= */ encoderInfo -> {
           @Nullable Size closestSupportedResolution =
               EncoderUtil.getSupportedResolution(
                   encoderInfo, mimeType, requestedWidth, requestedHeight);
@@ -681,7 +681,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       List<MediaCodecInfo> encoders, String mimeType, int requestedBitrate) {
     return filterEncoders(
         encoders,
-        /* cost= */ (encoderInfo) -> {
+        /* cost= */ encoderInfo -> {
           int achievableBitrate =
               EncoderUtil.getSupportedBitrateRange(encoderInfo, mimeType).clamp(requestedBitrate);
           return abs(achievableBitrate - requestedBitrate);
@@ -693,7 +693,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       List<MediaCodecInfo> encoders, String mimeType, int requestedBitrateMode) {
     return filterEncoders(
         encoders,
-        /* cost= */ (encoderInfo) ->
+        /* cost= */ encoderInfo ->
             EncoderUtil.isBitrateModeSupported(encoderInfo, mimeType, requestedBitrateMode)
                 ? 0
                 : Integer.MAX_VALUE); // Drops encoder.
@@ -710,7 +710,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
     return filterEncoders(
         encoders,
-        /* cost= */ (encoderInfo) ->
+        /* cost= */ encoderInfo ->
             EncoderUtil.isHdrEditingSupported(encoderInfo, mimeType, checkNotNull(colorInfo))
                 ? 0
                 : Integer.MAX_VALUE); // Drops encoder.
@@ -747,7 +747,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       List<MediaCodecInfo> encoders, String mimeType, int requestedSampleRate) {
     return filterEncoders(
         encoders,
-        /* cost= */ (encoderInfo) -> {
+        /* cost= */ encoderInfo -> {
           int closestSupportedSampleRate =
               EncoderUtil.getClosestSupportedSampleRate(encoderInfo, mimeType, requestedSampleRate);
           return Math.abs(closestSupportedSampleRate - requestedSampleRate);

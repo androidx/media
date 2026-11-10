@@ -319,16 +319,15 @@ public final class SurfaceToFrameWriterAdapterTest {
     AtomicReference<T> result = new AtomicReference<>();
     AtomicReference<Throwable> exception = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
-    handler.post(
-        () -> {
-          try {
-            result.set(callable.call());
-          } catch (Throwable t) {
-            exception.set(t);
-          } finally {
-            latch.countDown();
-          }
-        });
+    handler.post(() -> {
+      try {
+        result.set(callable.call());
+      } catch (Throwable t) {
+        exception.set(t);
+      } finally {
+        latch.countDown();
+      }
+    });
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     if (exception.get() != null) {
       if (exception.get() instanceof Exception) {
@@ -342,16 +341,15 @@ public final class SurfaceToFrameWriterAdapterTest {
   private void runOnHandler(Runnable runnable) throws Exception {
     AtomicReference<Throwable> exception = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
-    handler.post(
-        () -> {
-          try {
-            runnable.run();
-          } catch (Throwable t) {
-            exception.set(t);
-          } finally {
-            latch.countDown();
-          }
-        });
+    handler.post(() -> {
+      try {
+        runnable.run();
+      } catch (Throwable t) {
+        exception.set(t);
+      } finally {
+        latch.countDown();
+      }
+    });
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     if (exception.get() != null) {
       if (exception.get() instanceof Exception) {

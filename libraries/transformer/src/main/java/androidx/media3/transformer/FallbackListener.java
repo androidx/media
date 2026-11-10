@@ -113,14 +113,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
     if (trackCount.get() == 0
         && !originalTransformationRequest.equals(fallbackTransformationRequest)) {
-      transformerListenerHandler.post(
-          () ->
-              transformerListeners.sendEvent(
-                  listener ->
-                      listener.onFallbackApplied(
-                          composition,
-                          originalTransformationRequest,
-                          newFallbackTransformationRequest)));
+      transformerListenerHandler.post(() ->
+          transformerListeners.sendEvent(listener ->
+              listener.onFallbackApplied(
+                  composition, originalTransformationRequest, newFallbackTransformationRequest)));
     }
   }
 }

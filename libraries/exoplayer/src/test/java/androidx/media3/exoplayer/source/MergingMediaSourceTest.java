@@ -184,10 +184,9 @@ public class MergingMediaSourceTest {
     MergingMediaSource mergingMediaSource = new MergingMediaSource(childMediaSources);
     MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mergingMediaSource);
     try {
-      testRunner.runOnPlaybackThread(
-          () ->
-              mergingMediaSource.addEventListener(
-                  Util.createHandlerForCurrentLooper(), mediaSourceEventListener));
+      testRunner.runOnPlaybackThread(() ->
+          mergingMediaSource.addEventListener(
+              Util.createHandlerForCurrentLooper(), mediaSourceEventListener));
       Timeline timeline = testRunner.prepareSource();
       MediaPeriod mergedMediaPeriod0 =
           testRunner.createPeriod(new MediaPeriodId(timeline.getUidOfPeriod(/* periodIndex= */ 0)));

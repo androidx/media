@@ -125,11 +125,10 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
     forcedStopped = false;
     hostedTestStarted = false;
 
-    runOnUiThread(
-        () -> {
-          HostActivity.this.hostedTest = hostedTest;
-          maybeStartHostedTest();
-        });
+    runOnUiThread(() -> {
+      HostActivity.this.hostedTest = hostedTest;
+      maybeStartHostedTest();
+    });
 
     if (!hostedTestStartedCondition.block(START_TIMEOUT_MS)) {
       String message =

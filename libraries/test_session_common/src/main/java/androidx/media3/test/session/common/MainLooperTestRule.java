@@ -40,24 +40,23 @@ public final class MainLooperTestRule implements TestRule {
 
   private void prepare() {
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              // Prepare the main looper if it hasn't.
-              // Some framework APIs always run on the main looper.
-              if (Looper.getMainLooper() == null) {
-                Looper.prepareMainLooper();
-              }
+        .runOnMainSync(() -> {
+          // Prepare the main looper if it hasn't.
+          // Some framework APIs always run on the main looper.
+          if (Looper.getMainLooper() == null) {
+            Looper.prepareMainLooper();
+          }
 
-              // Initialize AudioManager on the main thread to workaround b/78617702 that
-              // audio focus listener is called on the thread where the AudioManager was
-              // originally initialized.
-              // Without posting this, audio focus listeners wouldn't be called because the
-              // listeners would be posted to the test thread (here) where it waits until the
-              // tests are finished.
-              Context context = ApplicationProvider.getApplicationContext();
-              AudioManager unusedManager =
-                  (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-            });
+          // Initialize AudioManager on the main thread to workaround b/78617702 that
+          // audio focus listener is called on the thread where the AudioManager was
+          // originally initialized.
+          // Without posting this, audio focus listeners wouldn't be called because the
+          // listeners would be posted to the test thread (here) where it waits until the
+          // tests are finished.
+          Context context = ApplicationProvider.getApplicationContext();
+          AudioManager unusedManager =
+              (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        });
   }
 
   public static void runOnMainSync(Runnable runnable) throws Exception {

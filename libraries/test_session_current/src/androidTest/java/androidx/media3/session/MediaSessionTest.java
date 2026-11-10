@@ -365,11 +365,10 @@ public class MediaSessionTest {
   @Test
   @LargeTest
   public void deadlock() throws Exception {
-    handler.postAndSync(
-        () -> {
-          session.release();
-          session = null;
-        });
+    handler.postAndSync(() -> {
+      session.release();
+      session = null;
+    });
 
     HandlerThread testThread = new HandlerThread("deadlock");
     testThread.start();
@@ -377,10 +376,9 @@ public class MediaSessionTest {
     try {
       MockPlayer player =
           new MockPlayer.Builder().setApplicationLooper(testThread.getLooper()).build();
-      handler.postAndSync(
-          () -> {
-            session = new MediaSession.Builder(context, player).setId("testDeadlock").build();
-          });
+      handler.postAndSync(() -> {
+        session = new MediaSession.Builder(context, player).setId("testDeadlock").build();
+      });
       RemoteMediaController controller =
           controllerTestRule.createRemoteController(session.getToken());
       // This may hang if deadlock happens.
@@ -447,12 +445,11 @@ public class MediaSessionTest {
           LONG_TIMEOUT_MS);
     } finally {
       if (session != null) {
-        handler.postAndSync(
-            () -> {
-              // Clean up here because sessionHandler will be removed afterwards.
-              session.release();
-              session = null;
-            });
+        handler.postAndSync(() -> {
+          // Clean up here because sessionHandler will be removed afterwards.
+          session.release();
+          session = null;
+        });
       }
 
       testThread.quitSafely();
@@ -644,10 +641,9 @@ public class MediaSessionTest {
 
     for (long bufferedPositionMs = 0; bufferedPositionMs < 5000; bufferedPositionMs += 1000) {
       long targetPosition = bufferedPositionMs;
-      testHandler.postAndSync(
-          () -> {
-            player.bufferedPosition = targetPosition;
-          });
+      testHandler.postAndSync(() -> {
+        player.bufferedPosition = targetPosition;
+      });
       long startTimeMs = SystemClock.elapsedRealtime();
       long controllerBufferedPosition = testHandler.postAndSync(controller::getBufferedPosition);
       while (controllerBufferedPosition != targetPosition
@@ -683,10 +679,9 @@ public class MediaSessionTest {
 
     for (long bufferedPositionMs = 0; bufferedPositionMs < 5000; bufferedPositionMs += 1000) {
       long targetPosition = bufferedPositionMs;
-      testHandler.postAndSync(
-          () -> {
-            player.bufferedPosition = targetPosition;
-          });
+      testHandler.postAndSync(() -> {
+        player.bufferedPosition = targetPosition;
+      });
       // Sleep to ensure no periodic updates erroneously occur.
       Thread.sleep(/* millis= */ 50);
       bufferedPositionsMs.add(testHandler.postAndSync(controller::getBufferedPosition));
@@ -727,47 +722,43 @@ public class MediaSessionTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              MediaSessionImpl impl = session.get().getImpl();
-              ControllerInfo controllerInfo = createMediaButtonCaller();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PAUSE)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_FAST_FORWARD)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_REWIND)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_NEXT)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PREVIOUS)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_STOP)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY_PAUSE)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_HEADSETHOOK)))
-                  .isTrue();
-            });
+        .postAndSync(() -> {
+          MediaSessionImpl impl = session.get().getImpl();
+          ControllerInfo controllerInfo = createMediaButtonCaller();
+          assertThat(
+                  impl.onMediaButtonEvent(controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PAUSE)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_FAST_FORWARD)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_REWIND)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_NEXT)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PREVIOUS)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_STOP)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY_PAUSE)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_HEADSETHOOK)))
+              .isTrue();
+        });
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
@@ -810,50 +801,45 @@ public class MediaSessionTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY)))
-                  .isTrue();
-            });
+        .postAndSync(() -> {
+          assertThat(
+                  impl.onMediaButtonEvent(controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY)))
+              .isTrue();
+        });
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              // Update state to allow pause event to be triggered.
-              player.notifyPlaybackStateChanged(Player.STATE_READY);
-              player.notifyPlayWhenReadyChanged(
-                  /* playWhenReady= */ true,
-                  Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-                  Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        .postAndSync(() -> {
+          // Update state to allow pause event to be triggered.
+          player.notifyPlaybackStateChanged(Player.STATE_READY);
+          player.notifyPlayWhenReadyChanged(
+              /* playWhenReady= */ true,
+              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
 
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PAUSE)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_FAST_FORWARD)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_REWIND)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_NEXT)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PREVIOUS)))
-                  .isTrue();
-              assertThat(
-                      impl.onMediaButtonEvent(
-                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_STOP)))
-                  .isTrue();
-            });
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PAUSE)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_FAST_FORWARD)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_REWIND)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_NEXT)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(
+                      controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PREVIOUS)))
+              .isTrue();
+          assertThat(
+                  impl.onMediaButtonEvent(controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_STOP)))
+              .isTrue();
+        });
 
     // Fallback through the framework session when media notification controller in disabled.
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -908,11 +894,10 @@ public class MediaSessionTest {
     ControllerInfo controllerInfo = createMediaButtonCaller();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              Intent intent = getMediaButtonIntent(KEYCODE_MEDIA_PLAY_PAUSE);
-              assertThat(impl.onMediaButtonEvent(controllerInfo, intent)).isTrue();
-            });
+        .postAndSync(() -> {
+          Intent intent = getMediaButtonIntent(KEYCODE_MEDIA_PLAY_PAUSE);
+          assertThat(impl.onMediaButtonEvent(controllerInfo, intent)).isTrue();
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
@@ -955,13 +940,12 @@ public class MediaSessionTest {
     boolean isEventHandled =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    session
-                        .getImpl()
-                        .onMediaButtonEvent(
-                            session.getMediaNotificationControllerInfo(),
-                            getMediaButtonIntent(KEYCODE_MEDIA_PLAY)));
+            .postAndSync(() ->
+                session
+                    .getImpl()
+                    .onMediaButtonEvent(
+                        session.getMediaNotificationControllerInfo(),
+                        getMediaButtonIntent(KEYCODE_MEDIA_PLAY)));
 
     assertThat(isEventHandled).isTrue();
     // App changed default behaviour
@@ -1134,13 +1118,12 @@ public class MediaSessionTest {
     extras.putString("key", "value");
     AtomicReference<String> sessionExtraValue = new AtomicReference<>();
 
-    handler.postAndSync(
-        () -> {
-          session.setSessionExtras(extras);
-          extras.putString("key", "newValue");
-          sessionExtraValue.set(session.getSessionExtras().getString("key"));
-          session.release();
-        });
+    handler.postAndSync(() -> {
+      session.setSessionExtras(extras);
+      extras.putString("key", "newValue");
+      sessionExtraValue.set(session.getSessionExtras().getString("key"));
+      session.release();
+    });
 
     assertThat(sessionExtraValue.get()).isEqualTo("value");
   }
@@ -1179,14 +1162,13 @@ public class MediaSessionTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              player.notifyAvailableCommandsChanged(
-                  new Player.Commands.Builder()
-                      .addAllCommands()
-                      .remove(Player.COMMAND_GET_TIMELINE)
-                      .build());
-            });
+        .postAndSync(() -> {
+          player.notifyAvailableCommandsChanged(
+              new Player.Commands.Builder()
+                  .addAllCommands()
+                  .remove(Player.COMMAND_GET_TIMELINE)
+                  .build());
+        });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(capturedCommands).hasSize(1);
@@ -1260,16 +1242,15 @@ public class MediaSessionTest {
     // Block the session looper thread.
     CountDownLatch looperBlockedLatch = new CountDownLatch(1);
     CountDownLatch blockLooperLatch = new CountDownLatch(1);
-    handler.post(
-        () -> {
-          looperBlockedLatch.countDown();
-          try {
-            // Block for longer than RELEASE_TIMEOUT_MS (1_000 ms).
-            blockLooperLatch.await(3_000, MILLISECONDS);
-          } catch (InterruptedException e) {
-            // Ignore
-          }
-        });
+    handler.post(() -> {
+      looperBlockedLatch.countDown();
+      try {
+        // Block for longer than RELEASE_TIMEOUT_MS (1_000 ms).
+        blockLooperLatch.await(3_000, MILLISECONDS);
+      } catch (InterruptedException e) {
+        // Ignore
+      }
+    });
 
     // Wait until the looper is actually blocked.
     assertThat(looperBlockedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1338,71 +1319,67 @@ public class MediaSessionTest {
       List<Integer> discontinuityMediaItemIndices = new ArrayList<>();
       List<Integer> discontinuityReasons = new ArrayList<>();
       List<Integer> transitionReasons = new ArrayList<>();
-      handler.postAndSync(
-          () -> {
-            testController.addListener(
-                new Player.Listener() {
-                  @Override
-                  public void onTimelineChanged(
-                      Timeline timeline, @Player.TimelineChangeReason int reason) {
-                    if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
-                      timelineLatch.countDown();
-                    }
-                  }
+      handler.postAndSync(() -> {
+        testController.addListener(
+            new Player.Listener() {
+              @Override
+              public void onTimelineChanged(
+                  Timeline timeline, @Player.TimelineChangeReason int reason) {
+                if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                  timelineLatch.countDown();
+                }
+              }
 
-                  @Override
-                  public void onMediaItemTransition(
-                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
-                    transitionReasons.add(reason);
-                    if (reason == MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
-                      expectedMediaItemTransitionLatch.countDown();
-                      return;
-                    }
-                    unexpectedMediaItemTransitionCall.set(true);
-                  }
+              @Override
+              public void onMediaItemTransition(
+                  @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                transitionReasons.add(reason);
+                if (reason == MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+                  expectedMediaItemTransitionLatch.countDown();
+                  return;
+                }
+                unexpectedMediaItemTransitionCall.set(true);
+              }
 
-                  @Override
-                  public void onPositionDiscontinuity(
-                      PositionInfo oldPosition,
-                      PositionInfo newPosition,
-                      @Player.DiscontinuityReason int reason) {
-                    discontinuityReasons.add(reason);
-                    discontinuityMediaItemIndices.add(oldPosition.mediaItemIndex);
-                    discontinuityMediaItemIndices.add(newPosition.mediaItemIndex);
-                    if (reason == DISCONTINUITY_REASON_SEEK) {
-                      discontinuityLatch.countDown();
-                    }
-                  }
-                });
-          });
+              @Override
+              public void onPositionDiscontinuity(
+                  PositionInfo oldPosition,
+                  PositionInfo newPosition,
+                  @Player.DiscontinuityReason int reason) {
+                discontinuityReasons.add(reason);
+                discontinuityMediaItemIndices.add(oldPosition.mediaItemIndex);
+                discontinuityMediaItemIndices.add(newPosition.mediaItemIndex);
+                if (reason == DISCONTINUITY_REASON_SEEK) {
+                  discontinuityLatch.countDown();
+                }
+              }
+            });
+      });
       // Set the media source with start position that triggers the initial events.
-      handler.postAndSync(
-          () -> {
-            SilenceMediaSource silenceMediaSource1 =
-                new SilenceMediaSource(/* durationUs= */ 10_000_000L);
-            SilenceMediaSource silenceMediaSource2 =
-                new SilenceMediaSource(/* durationUs= */ 20_000_000L);
-            player
-                .get()
-                .setMediaSources(
-                    ImmutableList.of(silenceMediaSource1, silenceMediaSource2),
-                    /* startMediaItemIndex= */ 1,
-                    /* startPositionMs= */ C.TIME_UNSET);
-          });
+      handler.postAndSync(() -> {
+        SilenceMediaSource silenceMediaSource1 =
+            new SilenceMediaSource(/* durationUs= */ 10_000_000L);
+        SilenceMediaSource silenceMediaSource2 =
+            new SilenceMediaSource(/* durationUs= */ 20_000_000L);
+        player
+            .get()
+            .setMediaSources(
+                ImmutableList.of(silenceMediaSource1, silenceMediaSource2),
+                /* startMediaItemIndex= */ 1,
+                /* startPositionMs= */ C.TIME_UNSET);
+      });
       assertThat(timelineLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
       assertThat(expectedMediaItemTransitionLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
       assertThat(discontinuityMediaItemIndices).isEmpty();
       assertThat(unexpectedMediaItemTransitionCall.get()).isFalse();
 
       // No media item transition because the media item index was silently updated.
-      handler.postAndSync(
-          () -> {
-            player.get().seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 2_000L);
-          });
-      handler.postAndSync(
-          () -> {
-            player.get().seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 10_000_000L);
-          });
+      handler.postAndSync(() -> {
+        player.get().seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 2_000L);
+      });
+      handler.postAndSync(() -> {
+        player.get().seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 10_000_000L);
+      });
 
       assertThat(discontinuityLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
       assertThat(unexpectedMediaItemTransitionCall.get()).isFalse();

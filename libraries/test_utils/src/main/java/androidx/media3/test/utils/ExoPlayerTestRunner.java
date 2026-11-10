@@ -481,45 +481,44 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
    */
   @CanIgnoreReturnValue
   public ExoPlayerTestRunner start(boolean doPrepare) {
-    handler.post(
-        () -> {
-          try {
-            player = playerBuilder.setLooper(checkNotNull(Looper.myLooper())).build();
-            if (surface != null) {
-              player.setVideoSurface(surface);
-            }
-            if (pauseAtEndOfMediaItems) {
-              player.setPauseAtEndOfMediaItems(true);
-            }
-            player.addListener(ExoPlayerTestRunner.this);
-            if (playerListener != null) {
-              player.addListener(playerListener);
-            }
-            if (analyticsListener != null) {
-              player.addAnalyticsListener(analyticsListener);
-            }
-            player.play();
-            if (actionSchedule != null) {
-              actionSchedule.start(
-                  player,
-                  playerBuilder.getTrackSelector(),
-                  surface,
-                  handler,
-                  /* callback= */ ExoPlayerTestRunner.this);
-            }
-            if (initialMediaItemIndex != C.INDEX_UNSET) {
-              player.seekTo(initialMediaItemIndex, initialPositionMs);
-            }
-            if (!skipSettingMediaSources) {
-              player.setMediaSources(mediaSources, /* resetPosition= */ false);
-            }
-            if (doPrepare) {
-              player.prepare();
-            }
-          } catch (Exception e) {
-            handleException(e);
-          }
-        });
+    handler.post(() -> {
+      try {
+        player = playerBuilder.setLooper(checkNotNull(Looper.myLooper())).build();
+        if (surface != null) {
+          player.setVideoSurface(surface);
+        }
+        if (pauseAtEndOfMediaItems) {
+          player.setPauseAtEndOfMediaItems(true);
+        }
+        player.addListener(ExoPlayerTestRunner.this);
+        if (playerListener != null) {
+          player.addListener(playerListener);
+        }
+        if (analyticsListener != null) {
+          player.addAnalyticsListener(analyticsListener);
+        }
+        player.play();
+        if (actionSchedule != null) {
+          actionSchedule.start(
+              player,
+              playerBuilder.getTrackSelector(),
+              surface,
+              handler,
+              /* callback= */ ExoPlayerTestRunner.this);
+        }
+        if (initialMediaItemIndex != C.INDEX_UNSET) {
+          player.seekTo(initialMediaItemIndex, initialPositionMs);
+        }
+        if (!skipSettingMediaSources) {
+          player.setMediaSources(mediaSources, /* resetPosition= */ false);
+        }
+        if (doPrepare) {
+          player.prepare();
+        }
+      } catch (Exception e) {
+        handleException(e);
+      }
+    });
     return this;
   }
 
@@ -636,18 +635,17 @@ public final class ExoPlayerTestRunner implements Player.Listener, ActionSchedul
   // Private implementation details.
 
   private void release() throws InterruptedException {
-    handler.post(
-        () -> {
-          try {
-            if (player != null) {
-              player.release();
-            }
-          } catch (Exception e) {
-            handleException(e);
-          } finally {
-            playerThread.quit();
-          }
-        });
+    handler.post(() -> {
+      try {
+        if (player != null) {
+          player.release();
+        }
+      } catch (Exception e) {
+        handleException(e);
+      } finally {
+        playerThread.quit();
+      }
+    });
     clock.onThreadBlocked();
     playerThread.join();
   }

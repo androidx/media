@@ -594,16 +594,15 @@ public abstract class MediaSessionService extends LifecycleService {
         MediaSessionImpl sessionImpl = session.getImpl();
         sessionImpl
             .getApplicationHandler()
-            .post(
-                () -> {
-                  ControllerInfo callerInfo = sessionImpl.getMediaNotificationControllerInfo();
-                  if (callerInfo == null) {
-                    callerInfo = createFallbackControllerInfo(intent, Intent.ACTION_MEDIA_BUTTON);
-                  }
-                  if (!sessionImpl.onMediaButtonEvent(callerInfo, intent)) {
-                    Log.d(TAG, "Ignored unrecognized media button intent.");
-                  }
-                });
+            .post(() -> {
+              ControllerInfo callerInfo = sessionImpl.getMediaNotificationControllerInfo();
+              if (callerInfo == null) {
+                callerInfo = createFallbackControllerInfo(intent, Intent.ACTION_MEDIA_BUTTON);
+              }
+              if (!sessionImpl.onMediaButtonEvent(callerInfo, intent)) {
+                Log.d(TAG, "Ignored unrecognized media button intent.");
+              }
+            });
       } else {
         @Nullable String customAction = actionFactory.getCustomAction(intent);
         if (customAction == null) {
@@ -985,13 +984,12 @@ public abstract class MediaSessionService extends LifecycleService {
 
   @RequiresApi(31)
   /* package */ void onForegroundServiceStartNotAllowedException() {
-    mainHandler.post(
-        () -> {
-          MediaSessionService.@Nullable Listener serviceListener = getListener();
-          if (serviceListener != null) {
-            serviceListener.onForegroundServiceStartNotAllowedException();
-          }
-        });
+    mainHandler.post(() -> {
+      MediaSessionService.@Nullable Listener serviceListener = getListener();
+      if (serviceListener != null) {
+        serviceListener.onForegroundServiceStartNotAllowedException();
+      }
+    });
   }
 
   private MediaNotificationManager getMediaNotificationManager() {
@@ -1120,43 +1118,41 @@ public abstract class MediaSessionService extends LifecycleService {
               .isTrustedForMediaControl(remoteUserInfo);
       pendingControllers.add(caller);
       try {
-        handler.post(
-            () -> {
-              pendingControllers.remove(caller);
-              boolean connected = false;
-              try {
-                @Nullable MediaSessionService service = serviceReference.get();
-                if (service == null) {
-                  return;
-                }
-                ControllerInfo controllerInfo =
-                    new ControllerInfo(
-                        remoteUserInfo,
-                        request.libraryVersion,
-                        request.controllerInterfaceVersion,
-                        isTrusted,
-                        new MediaSessionStub.Controller2Cb(
-                            caller, request.controllerInterfaceVersion),
-                        request.connectionHints,
-                        request.maxCommandsForMediaItems,
-                        /* isPackageNameVerified= */ true);
+        handler.post(() -> {
+          pendingControllers.remove(caller);
+          boolean connected = false;
+          try {
+            @Nullable MediaSessionService service = serviceReference.get();
+            if (service == null) {
+              return;
+            }
+            ControllerInfo controllerInfo =
+                new ControllerInfo(
+                    remoteUserInfo,
+                    request.libraryVersion,
+                    request.controllerInterfaceVersion,
+                    isTrusted,
+                    new MediaSessionStub.Controller2Cb(caller, request.controllerInterfaceVersion),
+                    request.connectionHints,
+                    request.maxCommandsForMediaItems,
+                    /* isPackageNameVerified= */ true);
 
-                @Nullable MediaSession session = service.onGetSession(controllerInfo);
-                if (session == null) {
-                  return;
-                }
-                service.addSession(session);
-                session.handleControllerConnectionFromService(caller, controllerInfo);
-                connected = true;
-              } catch (Exception e) {
-                // Don't propagate exception in service to the controller.
-                Log.w(TAG, "Failed to add a session to session service", e);
-              } finally {
-                if (!connected) {
-                  SessionUtil.disconnectIMediaController(caller);
-                }
-              }
-            });
+            @Nullable MediaSession session = service.onGetSession(controllerInfo);
+            if (session == null) {
+              return;
+            }
+            service.addSession(session);
+            session.handleControllerConnectionFromService(caller, controllerInfo);
+            connected = true;
+          } catch (Exception e) {
+            // Don't propagate exception in service to the controller.
+            Log.w(TAG, "Failed to add a session to session service", e);
+          } finally {
+            if (!connected) {
+              SessionUtil.disconnectIMediaController(caller);
+            }
+          }
+        });
       } finally {
         Binder.restoreCallingIdentity(token);
       }

@@ -59,12 +59,11 @@ public class FakeAudioRenderer extends FakeRenderer {
   protected void onFormatChanged(Format format) {
     handler.post(
         () -> eventListener.onAudioInputFormatChanged(format, /* decoderReuseEvaluation= */ null));
-    handler.post(
-        () ->
-            eventListener.onAudioDecoderInitialized(
-                /* decoderName= */ "fake.audio.decoder",
-                /* initializedTimestampMs= */ SystemClock.elapsedRealtime(),
-                /* initializationDurationMs= */ 0));
+    handler.post(() ->
+        eventListener.onAudioDecoderInitialized(
+            /* decoderName= */ "fake.audio.decoder",
+            /* initializedTimestampMs= */ SystemClock.elapsedRealtime(),
+            /* initializationDurationMs= */ 0));
   }
 
   @Override

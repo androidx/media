@@ -1158,42 +1158,41 @@ public final class HardwareBufferToGlTextureConverterTest {
       HardwareBufferFrame hardwareBufferFrame, FrameProcessor.Listener listener) throws Exception {
     AtomicReference<Bitmap> actualBitmap = new AtomicReference<>();
     glExecutorService
-        .submit(
-            () -> {
-              try {
-                int unused = setupOpenGl(checkNotNull(glObjectsProvider));
-                GlTextureFrame glTextureFrame =
-                    converter.convert(
-                        hardwareBufferFrame,
-                        glExecutorService,
-                        /* listenerExecutor= */ directExecutor(),
-                        listener);
+        .submit(() -> {
+          try {
+            int unused = setupOpenGl(checkNotNull(glObjectsProvider));
+            GlTextureFrame glTextureFrame =
+                converter.convert(
+                    hardwareBufferFrame,
+                    glExecutorService,
+                    /* listenerExecutor= */ directExecutor(),
+                    listener);
 
-                int textureWidth = glTextureFrame.glTextureInfo.width;
-                int textureHeight = glTextureFrame.glTextureInfo.height;
-                int fboId = GlUtil.createFboForTexture(glTextureFrame.glTextureInfo.texId);
-                GlUtil.focusFramebufferUsingCurrentContext(fboId, textureWidth, textureHeight);
-                int[] params = new int[1];
-                GLES30.glGetFramebufferAttachmentParameteriv(
-                    GLES30.GL_FRAMEBUFFER,
-                    GLES30.GL_COLOR_ATTACHMENT0,
-                    GLES30.GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE,
-                    params,
-                    /* offset= */ 0);
-                if (params[0] > 8) {
-                  actualBitmap.set(
-                      createFp16BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
-                } else {
-                  actualBitmap.set(
-                      createArgb8888BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
-                }
-                glTextureFrame.release(/* releaseFence= */ null);
-                assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
-                GlUtil.deleteFbo(fboId);
-              } catch (GlException | VideoFrameProcessingException e) {
-                throw new IllegalStateException(e);
-              }
-            })
+            int textureWidth = glTextureFrame.glTextureInfo.width;
+            int textureHeight = glTextureFrame.glTextureInfo.height;
+            int fboId = GlUtil.createFboForTexture(glTextureFrame.glTextureInfo.texId);
+            GlUtil.focusFramebufferUsingCurrentContext(fboId, textureWidth, textureHeight);
+            int[] params = new int[1];
+            GLES30.glGetFramebufferAttachmentParameteriv(
+                GLES30.GL_FRAMEBUFFER,
+                GLES30.GL_COLOR_ATTACHMENT0,
+                GLES30.GL_FRAMEBUFFER_ATTACHMENT_RED_SIZE,
+                params,
+                /* offset= */ 0);
+            if (params[0] > 8) {
+              actualBitmap.set(
+                  createFp16BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
+            } else {
+              actualBitmap.set(
+                  createArgb8888BitmapFromFocusedGlFramebuffer(textureWidth, textureHeight));
+            }
+            glTextureFrame.release(/* releaseFence= */ null);
+            assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
+            GlUtil.deleteFbo(fboId);
+          } catch (GlException | VideoFrameProcessingException e) {
+            throw new IllegalStateException(e);
+          }
+        })
         .get(TEST_TIMEOUT_MS, MILLISECONDS);
     // glTextureFrame.release() posts releaseTextureCallback (which invokes
     // listener.onFrameProcessed directly) onto glExecutorService. Wait for that queued

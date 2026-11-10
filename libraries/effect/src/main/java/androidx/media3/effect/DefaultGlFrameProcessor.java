@@ -552,81 +552,79 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       pendingFrames = frames;
     }
 
-    submitToGlExecutor(
-        () -> {
-          try {
-            synchronized (lock) {
-              if (closed) {
-                return null;
-              }
-            }
-            if (!isGlSetup) {
-              int openGlVersion;
-              try {
-                openGlVersion =
-                    assumeSurfacelessContextExtensionSupported
-                        ? setupOpenGl(
-                            glObjectsProvider, /* isSurfacelessContextExtensionSupported= */ true)
-                        : setupOpenGl(glObjectsProvider);
-              } catch (GlException e) {
-                isGlSetup = true;
-                throw VideoFrameProcessingException.from(e);
-              }
-              isHdrSupported = openGlVersion == OPEN_GL_VERSION_3;
-              isGlSetup = true;
-            }
-            if (!isPipelineInitialized) {
-              if (workingColorSpace == null) {
-                workingColorSpace = resolveWorkingColorspace(frames.get(0).frame.getFormat());
-              }
-              boolean isAnyInputHdr = false;
-              for (int i = 0; i < frames.size(); i++) {
-                isAnyInputHdr |= isWideColorGamut(frames.get(i).frame.getFormat().colorInfo);
-              }
-              if (isAnyInputHdr || useHighPrecisionColorComponents(workingColorSpace)) {
-                checkState(
-                    isHdrSupported,
-                    "OpenGL ES3 and 10 bit context support required for HDR inputs or a high"
-                        + " precision working color space");
-              }
-              initializePipeline();
-            }
-            activeSequenceIndices.clear();
-            for (int i = 0; i < frames.size(); i++) {
-              activeSequenceIndices.add(extractSequenceIndex(frames.get(i).frame));
-            }
-            // TODO: b/528240409 - Make config signal in-band.
-            checkNotNull(frameAggregator).configureSequenceIndices(activeSequenceIndices);
-
-            convertToGlTextureFrames(frames);
-            for (int i = 0; i < frames.size(); i++) {
-              int sequenceIndex = extractSequenceIndex(frames.get(i).frame);
-              queueOrRetry(sequenceIndex);
-            }
-          } catch (RuntimeException | VideoFrameProcessingException e) {
-            handleError(e);
+    submitToGlExecutor(() -> {
+      try {
+        synchronized (lock) {
+          if (closed) {
+            return null;
           }
-          return null;
-        });
+        }
+        if (!isGlSetup) {
+          int openGlVersion;
+          try {
+            openGlVersion =
+                assumeSurfacelessContextExtensionSupported
+                    ? setupOpenGl(
+                        glObjectsProvider, /* isSurfacelessContextExtensionSupported= */ true)
+                    : setupOpenGl(glObjectsProvider);
+          } catch (GlException e) {
+            isGlSetup = true;
+            throw VideoFrameProcessingException.from(e);
+          }
+          isHdrSupported = openGlVersion == OPEN_GL_VERSION_3;
+          isGlSetup = true;
+        }
+        if (!isPipelineInitialized) {
+          if (workingColorSpace == null) {
+            workingColorSpace = resolveWorkingColorspace(frames.get(0).frame.getFormat());
+          }
+          boolean isAnyInputHdr = false;
+          for (int i = 0; i < frames.size(); i++) {
+            isAnyInputHdr |= isWideColorGamut(frames.get(i).frame.getFormat().colorInfo);
+          }
+          if (isAnyInputHdr || useHighPrecisionColorComponents(workingColorSpace)) {
+            checkState(
+                isHdrSupported,
+                "OpenGL ES3 and 10 bit context support required for HDR inputs or a high"
+                    + " precision working color space");
+          }
+          initializePipeline();
+        }
+        activeSequenceIndices.clear();
+        for (int i = 0; i < frames.size(); i++) {
+          activeSequenceIndices.add(extractSequenceIndex(frames.get(i).frame));
+        }
+        // TODO: b/528240409 - Make config signal in-band.
+        checkNotNull(frameAggregator).configureSequenceIndices(activeSequenceIndices);
+
+        convertToGlTextureFrames(frames);
+        for (int i = 0; i < frames.size(); i++) {
+          int sequenceIndex = extractSequenceIndex(frames.get(i).frame);
+          queueOrRetry(sequenceIndex);
+        }
+      } catch (RuntimeException | VideoFrameProcessingException e) {
+        handleError(e);
+      }
+      return null;
+    });
 
     return true;
   }
 
   @Override
   public void signalEndOfStream() {
-    submitToGlExecutor(
-        () -> {
-          synchronized (lock) {
-            if (pendingFrames != null) {
-              shouldSignalEos = true;
-              return null;
-            }
-          }
-          for (int i = 0; i < preProcessingChains.size(); i++) {
-            preProcessingChains.valueAt(i).signalEndOfStream();
-          }
+    submitToGlExecutor(() -> {
+      synchronized (lock) {
+        if (pendingFrames != null) {
+          shouldSignalEos = true;
           return null;
-        });
+        }
+      }
+      for (int i = 0; i < preProcessingChains.size(); i++) {
+        preProcessingChains.valueAt(i).signalEndOfStream();
+      }
+      return null;
+    });
   }
 
   @Override
@@ -839,11 +837,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         actions.add(() -> glTextureFrame.release(/* releaseFence= */ null));
       }
     }
-    actions.add(
-        () -> {
-          convertedGlTextureFrames.clear();
-          glTextureFramesQueuedDownstream.clear();
-        });
+    actions.add(() -> {
+      convertedGlTextureFrames.clear();
+      glTextureFramesQueuedDownstream.clear();
+    });
     return actions.build();
   }
 

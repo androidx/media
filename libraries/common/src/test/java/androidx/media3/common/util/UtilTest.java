@@ -1468,11 +1468,10 @@ public class UtilTest {
     Handler handler = new Handler(handlerThread.getLooper());
 
     ConditionVariable postedCondition = new ConditionVariable();
-    handler.post(
-        () -> {
-          Util.postOrRun(new Handler(Looper.getMainLooper()), mockRunnable);
-          postedCondition.open();
-        });
+    handler.post(() -> {
+      Util.postOrRun(new Handler(Looper.getMainLooper()), mockRunnable);
+      postedCondition.open();
+    });
     postedCondition.block(TIMEOUT_MS);
     handlerThread.quit();
 
@@ -1522,13 +1521,12 @@ public class UtilTest {
 
     ConditionVariable postedCondition = new ConditionVariable();
     AtomicReference<ListenableFuture<Object>> futureReference = new AtomicReference<>();
-    handler.post(
-        () -> {
-          futureReference.set(
-              Util.postOrRunWithCompletion(
-                  new Handler(Looper.getMainLooper()), mockRunnable, expectedResult));
-          postedCondition.open();
-        });
+    handler.post(() -> {
+      futureReference.set(
+          Util.postOrRunWithCompletion(
+              new Handler(Looper.getMainLooper()), mockRunnable, expectedResult));
+      postedCondition.open();
+    });
     postedCondition.block(TIMEOUT_MS);
     handlerThread.quit();
 
@@ -1552,13 +1550,12 @@ public class UtilTest {
 
     ConditionVariable postedCondition = new ConditionVariable();
     AtomicReference<ListenableFuture<Object>> futureReference = new AtomicReference<>();
-    handler.post(
-        () -> {
-          futureReference.set(
-              Util.postOrRunWithCompletion(
-                  new Handler(Looper.getMainLooper()), mockRunnable, expectedResult));
-          postedCondition.open();
-        });
+    handler.post(() -> {
+      futureReference.set(
+          Util.postOrRunWithCompletion(
+              new Handler(Looper.getMainLooper()), mockRunnable, expectedResult));
+      postedCondition.open();
+    });
     postedCondition.block(TIMEOUT_MS);
     handlerThread.quit();
     ListenableFuture<Object> future = futureReference.get();

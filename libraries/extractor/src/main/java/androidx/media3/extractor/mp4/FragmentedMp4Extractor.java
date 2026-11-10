@@ -445,9 +445,8 @@ public class FragmentedMp4Extractor implements Extractor {
     emsgTrackOutputs = new TrackOutput[0];
     ceaTrackOutputs = new TrackOutput[0];
     reorderingBufferQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, buffer) ->
-                CeaUtil.consume(presentationTimeUs, buffer, ceaTrackOutputs));
+        new ReorderingBufferQueue((presentationTimeUs, buffer) ->
+            CeaUtil.consume(presentationTimeUs, buffer, ceaTrackOutputs));
     chunkIndexMerger = new ChunkIndexMerger();
     seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
     seekPositionBeforeMfraProcessing = C.INDEX_UNSET;

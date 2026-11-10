@@ -226,10 +226,9 @@ public final class MultipleInputVideoGraph implements VideoGraph {
                 }
                 lastRenderedPresentationTimeUs = presentationTimeUs;
 
-                listenerExecutor.execute(
-                    () ->
-                        listener.onOutputFrameAvailableForRendering(
-                            presentationTimeUs, isRedrawnFrame));
+                listenerExecutor.execute(() ->
+                    listener.onOutputFrameAvailableForRendering(
+                        presentationTimeUs, isRedrawnFrame));
               }
 
               @Override
@@ -422,14 +421,13 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     }
 
     Future<?> unused =
-        sharedExecutorService.submit(
-            () -> {
-              try {
-                glObjectsProvider.release(getDefaultEglDisplay());
-              } catch (Exception e) {
-                Log.e(TAG, "Error releasing GlObjectsProvider", e);
-              }
-            });
+        sharedExecutorService.submit(() -> {
+          try {
+            glObjectsProvider.release(getDefaultEglDisplay());
+          } catch (Exception e) {
+            Log.e(TAG, "Error releasing GlObjectsProvider", e);
+          }
+        });
 
     sharedExecutorService.shutdown();
     try {
@@ -542,12 +540,11 @@ public final class MultipleInputVideoGraph implements VideoGraph {
 
   // This method is called on the sharedExecutorService.
   private void handleVideoFrameProcessingException(Exception e) {
-    listenerExecutor.execute(
-        () ->
-            listener.onError(
-                e instanceof VideoFrameProcessingException
-                    ? (VideoFrameProcessingException) e
-                    : VideoFrameProcessingException.from(e)));
+    listenerExecutor.execute(() ->
+        listener.onError(
+            e instanceof VideoFrameProcessingException
+                ? (VideoFrameProcessingException) e
+                : VideoFrameProcessingException.from(e)));
   }
 
   private static final class CompositorOutputTextureRelease {

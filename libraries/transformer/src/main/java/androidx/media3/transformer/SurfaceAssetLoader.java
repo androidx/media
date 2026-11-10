@@ -134,15 +134,14 @@ public final class SurfaceAssetLoader implements AssetLoader {
     checkArgument(contentFormat.width != Format.NO_VALUE);
     checkArgument(contentFormat.height != Format.NO_VALUE);
     checkArgument(checkNotNull(contentFormat.colorInfo).isDataSpaceValid());
-    handler.post(
-        () -> {
-          this.contentFormat = contentFormat;
-          try {
-            maybeFinishPreparation();
-          } catch (RuntimeException e) {
-            listener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
-          }
-        });
+    handler.post(() -> {
+      this.contentFormat = contentFormat;
+      try {
+        maybeFinishPreparation();
+      } catch (RuntimeException e) {
+        listener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
+      }
+    });
   }
 
   /** Returns the {@link EditedMediaItem} being loaded by this instance. */
@@ -152,17 +151,16 @@ public final class SurfaceAssetLoader implements AssetLoader {
 
   /** Signals that no further input frames will be rendered. May be called on any thread. */
   public void signalEndOfInput() {
-    handler.post(
-        () -> {
-          try {
-            if (!isVideoEndOfStreamSignaled && sampleConsumer != null) {
-              isVideoEndOfStreamSignaled = true;
-              sampleConsumer.signalEndOfVideoInput();
-            }
-          } catch (RuntimeException e) {
-            listener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
-          }
-        });
+    handler.post(() -> {
+      try {
+        if (!isVideoEndOfStreamSignaled && sampleConsumer != null) {
+          isVideoEndOfStreamSignaled = true;
+          sampleConsumer.signalEndOfVideoInput();
+        }
+      } catch (RuntimeException e) {
+        listener.onError(ExportException.createForAssetLoader(e, ERROR_CODE_UNSPECIFIED));
+      }
+    });
   }
 
   // AssetLoader implementation.
@@ -197,10 +195,8 @@ public final class SurfaceAssetLoader implements AssetLoader {
     listener.onTrackAdded(contentFormat, SUPPORTED_OUTPUT_TYPE_DECODED);
     try {
       sampleConsumer = checkNotNull(listener.onOutputFormat(contentFormat));
-      sampleConsumer.setOnInputSurfaceReadyListener(
-          () ->
-              callback.onSurfaceReady(
-                  checkNotNull(sampleConsumer).getInputSurface(), editedMediaItem));
+      sampleConsumer.setOnInputSurfaceReadyListener(() ->
+          callback.onSurfaceReady(checkNotNull(sampleConsumer).getInputSurface(), editedMediaItem));
     } catch (ExportException e) {
       listener.onError(e);
     }

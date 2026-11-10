@@ -103,7 +103,7 @@ public class FrameDropTest {
     int blankFrameWidth = 100;
     int blankFrameHeight = 50;
     Consumer<SpannableString> textSpanConsumer =
-        (text) -> {
+        text -> {
           text.setSpan(
               new ForegroundColorSpan(Color.BLACK),
               /* start= */ 0,

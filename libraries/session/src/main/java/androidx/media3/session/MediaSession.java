@@ -2083,7 +2083,7 @@ public class MediaSession {
         long startPositionMs) {
       return Util.transformFutureAsync(
           onAddMediaItems(mediaSession, controller, mediaItems),
-          (mediaItemList) ->
+          mediaItemList ->
               immediateFuture(
                   new MediaItemsWithStartPosition(mediaItemList, startIndex, startPositionMs)));
     }

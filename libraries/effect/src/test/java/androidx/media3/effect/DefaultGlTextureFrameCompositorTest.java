@@ -184,9 +184,8 @@ public final class DefaultGlTextureFrameCompositorTest {
 
       boolean queued =
           glExecutorService
-              .submit(
-                  () ->
-                      processor.queue(ImmutableList.of(frame1, frame2), directExecutor(), () -> {}))
+              .submit(() ->
+                  processor.queue(ImmutableList.of(frame1, frame2), directExecutor(), () -> {}))
               .get(TIMEOUT_MS, MILLISECONDS);
 
       assertThat(queued).isTrue();
@@ -367,8 +366,8 @@ public final class DefaultGlTextureFrameCompositorTest {
   @Test
   public void create_withDefaultTexturePool_createsInstance() throws Exception {
     DefaultGlTextureFrameCompositor.Factory factory =
-        new DefaultGlTextureFrameCompositor.Factory(
-            /* compositorGlProgramFactory= */ () -> compositorGlProgram);
+        new DefaultGlTextureFrameCompositor.Factory(/* compositorGlProgramFactory= */ () ->
+            compositorGlProgram);
 
     try (GlTextureFrameCompositor compositor =
         factory.create(

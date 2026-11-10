@@ -77,18 +77,17 @@ public class MediaBrowserCompatProviderService extends Service {
     public void create(String browserId, ComponentName componentName) throws RemoteException {
       try {
         TestBrowserConnectionCallback callback = new TestBrowserConnectionCallback();
-        handler.postAndSync(
-            () -> {
-              MediaBrowserCompat browser =
-                  new MediaBrowserCompat(
-                      MediaBrowserCompatProviderService.this,
-                      componentName,
-                      callback,
-                      new Bundle(/* rootHints= */ ));
+        handler.postAndSync(() -> {
+          MediaBrowserCompat browser =
+              new MediaBrowserCompat(
+                  MediaBrowserCompatProviderService.this,
+                  componentName,
+                  callback,
+                  new Bundle(/* rootHints= */ ));
 
-              mediaBrowserCompatMap.put(browserId, browser);
-              connectionCallbackMap.put(browserId, callback);
-            });
+          mediaBrowserCompatMap.put(browserId, browser);
+          connectionCallbackMap.put(browserId, callback);
+        });
       } catch (Exception e) {
         Log.e(TAG, "Exception occurred while creating MediaMediaBrowserCompat", e);
       }

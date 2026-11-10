@@ -63,10 +63,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onInputFrameProcessed(GlTextureInfo inputTexture) {
-    videoFrameProcessingTaskExecutor.submit(
-        () ->
-            checkNotNull(frameProcessedListener)
-                .onInputFrameProcessed(inputTexture.texId, GlUtil.createGlSyncFence()));
+    videoFrameProcessingTaskExecutor.submit(() ->
+        checkNotNull(frameProcessedListener)
+            .onInputFrameProcessed(inputTexture.texId, GlUtil.createGlSyncFence()));
   }
 
   @Override
@@ -80,24 +79,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void queueInputTexture(int inputTexId, long presentationTimeUs) {
     FrameInfo frameInfo = checkNotNull(this.inputFrameInfo);
     checkNotNull(frameProcessedListener);
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          GlTextureInfo inputTexture =
-              new GlTextureInfo(
-                  inputTexId,
-                  /* fboId= */ C.INDEX_UNSET,
-                  /* rboId= */ C.INDEX_UNSET,
-                  frameInfo.format.width,
-                  frameInfo.format.height);
-          checkNotNull(frameConsumptionManager).queueInputFrame(inputTexture, presentationTimeUs);
-          DebugTraceUtil.logEvent(
-              COMPONENT_VFP,
-              EVENT_QUEUE_TEXTURE,
-              presentationTimeUs,
-              /* extraFormat= */ "%dx%d",
-              /* extraArgs...= */ frameInfo.format.width,
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      GlTextureInfo inputTexture =
+          new GlTextureInfo(
+              inputTexId,
+              /* fboId= */ C.INDEX_UNSET,
+              /* rboId= */ C.INDEX_UNSET,
+              frameInfo.format.width,
               frameInfo.format.height);
-        });
+      checkNotNull(frameConsumptionManager).queueInputFrame(inputTexture, presentationTimeUs);
+      DebugTraceUtil.logEvent(
+          COMPONENT_VFP,
+          EVENT_QUEUE_TEXTURE,
+          presentationTimeUs,
+          /* extraFormat= */ "%dx%d",
+          /* extraArgs...= */ frameInfo.format.width,
+          frameInfo.format.height);
+    });
   }
 
   @Override
@@ -117,12 +115,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void signalEndOfCurrentInputStream() {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          checkNotNull(frameConsumptionManager).signalEndOfCurrentStream();
-          DebugTraceUtil.logEvent(
-              COMPONENT_TEX_ID_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      checkNotNull(frameConsumptionManager).signalEndOfCurrentStream();
+      DebugTraceUtil.logEvent(
+          COMPONENT_TEX_ID_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+    });
   }
 
   @Override

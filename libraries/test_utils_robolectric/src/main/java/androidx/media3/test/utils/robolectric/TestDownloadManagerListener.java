@@ -66,13 +66,12 @@ public final class TestDownloadManagerListener implements DownloadManager.Listen
     // Else it will be opened by onIdle().
     ConditionVariable checkedOnMainThread = createRobolectricConditionVariable();
     new Handler(downloadManager.getApplicationLooper())
-        .post(
-            () -> {
-              if (downloadManager.isIdle()) {
-                idleCondition.open();
-              }
-              checkedOnMainThread.open();
-            });
+        .post(() -> {
+          if (downloadManager.isIdle()) {
+            idleCondition.open();
+          }
+          checkedOnMainThread.open();
+        });
     assertThat(checkedOnMainThread.block(TIMEOUT_MS)).isTrue();
     assertThat(idleCondition.block(TIMEOUT_MS)).isTrue();
   }

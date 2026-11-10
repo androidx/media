@@ -136,10 +136,9 @@ public class DefaultMediaSourceFactoryTest {
     MediaSource mediaSource =
         defaultMediaSourceFactory.createMediaSource(MediaItem.fromUri(URI_MEDIA + "/file.ism"));
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                mediaSource.prepareSource(
-                    (source, timeline) -> {}, PlayerId.UNSET, BandwidthMeter.NO_OP));
+        .runOnMainSync(() ->
+            mediaSource.prepareSource(
+                (source, timeline) -> {}, PlayerId.UNSET, BandwidthMeter.NO_OP));
     // We don't expect this to prepare successfully.
     RobolectricUtil.runMainLooperUntil(
         /* maxTimeDiffMs= */ 10_000, // Account for internal timeouts and retries

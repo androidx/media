@@ -119,40 +119,36 @@ public final class UiModuleProguard {
           }
         };
     Handler mainHandler = new Handler(Looper.getMainLooper());
-    mainHandler.post(
-        () -> {
-          ExoPlayer player =
-              new ExoPlayer.Builder(applicationContext)
-                  .setMediaSourceFactory(
-                      new DefaultMediaSourceFactory(
-                          // The asset media URI used below is accessible to the instrumentation
-                          // context, not the app context (which needs to be used for all other
-                          // purposes).
-                          /* dataSourceFactory= */ () ->
-                              new AssetDataSource(instrumentationContext)))
-                  .build();
-          player.addListener(listener);
-          PlayerControlView playerControlView =
-              (PlayerControlView)
-                  LayoutInflater.from(applicationContext)
-                      .inflate(
-                          R.layout.player_control_view_with_scrubbable_timebar, /* root= */ null);
-          playerControlView.setPlayer(player);
-          player.setMediaItem(MediaItem.fromUri("/android_asset/media/mp4/sample.mp4"));
-          player.prepare();
-          player.play();
-        });
+    mainHandler.post(() -> {
+      ExoPlayer player =
+          new ExoPlayer.Builder(applicationContext)
+              .setMediaSourceFactory(
+                  new DefaultMediaSourceFactory(
+                      // The asset media URI used below is accessible to the instrumentation
+                      // context, not the app context (which needs to be used for all other
+                      // purposes).
+                      /* dataSourceFactory= */ () -> new AssetDataSource(instrumentationContext)))
+              .build();
+      player.addListener(listener);
+      PlayerControlView playerControlView =
+          (PlayerControlView)
+              LayoutInflater.from(applicationContext)
+                  .inflate(R.layout.player_control_view_with_scrubbable_timebar, /* root= */ null);
+      playerControlView.setPlayer(player);
+      player.setMediaItem(MediaItem.fromUri("/android_asset/media/mp4/sample.mp4"));
+      player.prepare();
+      player.play();
+    });
     playerReady.block(/* timeoutMs= */ 10_000);
 
     ConditionVariable scrubberActionFinished = new ConditionVariable();
-    mainHandler.post(
-        () -> {
-          ProgrammaticallyScrubbableTimeBar programmaticallyScrubbableTimeBar =
-              ProgrammaticallyScrubbableTimeBar.getConstructedInstance();
-          programmaticallyScrubbableTimeBar.startScrubbing(/* positionMs= */ 123);
-          programmaticallyScrubbableTimeBar.moveScrubber(/* positionMs= */ 456);
-          scrubberActionFinished.open();
-        });
+    mainHandler.post(() -> {
+      ProgrammaticallyScrubbableTimeBar programmaticallyScrubbableTimeBar =
+          ProgrammaticallyScrubbableTimeBar.getConstructedInstance();
+      programmaticallyScrubbableTimeBar.startScrubbing(/* positionMs= */ 123);
+      programmaticallyScrubbableTimeBar.moveScrubber(/* positionMs= */ 456);
+      scrubberActionFinished.open();
+    });
     scrubberActionFinished.block(/* timeoutMs= */ 10_000);
 
     checkState(playbackSuppressionReasons.contains(Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING));
@@ -200,38 +196,35 @@ public final class UiModuleProguard {
           }
         };
     Handler mainHandler = new Handler(Looper.getMainLooper());
-    mainHandler.post(
-        () -> {
-          CompositionPlayer player = new CompositionPlayer.Builder(context).build();
-          player.addListener(listener);
-          PlayerControlView playerControlView =
-              (PlayerControlView)
-                  LayoutInflater.from(context)
-                      .inflate(
-                          R.layout.player_control_view_with_scrubbable_timebar, /* root= */ null);
-          playerControlView.setPlayer(player);
-          EditedMediaItem video =
-              new EditedMediaItem.Builder(MediaItem.fromUri("/android_asset/media/mp4/sample.mp4"))
-                  .setDurationUs(1_000_000)
-                  .build();
-          player.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
-                  .build());
-          player.prepare();
-          player.play();
-        });
+    mainHandler.post(() -> {
+      CompositionPlayer player = new CompositionPlayer.Builder(context).build();
+      player.addListener(listener);
+      PlayerControlView playerControlView =
+          (PlayerControlView)
+              LayoutInflater.from(context)
+                  .inflate(R.layout.player_control_view_with_scrubbable_timebar, /* root= */ null);
+      playerControlView.setPlayer(player);
+      EditedMediaItem video =
+          new EditedMediaItem.Builder(MediaItem.fromUri("/android_asset/media/mp4/sample.mp4"))
+              .setDurationUs(1_000_000)
+              .build();
+      player.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+              .build());
+      player.prepare();
+      player.play();
+    });
     playerReady.block(/* timeoutMs= */ 10_000);
 
     ConditionVariable scrubberActionFinished = new ConditionVariable();
-    mainHandler.post(
-        () -> {
-          ProgrammaticallyScrubbableTimeBar programmaticallyScrubbableTimeBar =
-              ProgrammaticallyScrubbableTimeBar.getConstructedInstance();
-          programmaticallyScrubbableTimeBar.startScrubbing(/* positionMs= */ 123);
-          programmaticallyScrubbableTimeBar.moveScrubber(/* positionMs= */ 456);
-          scrubberActionFinished.open();
-        });
+    mainHandler.post(() -> {
+      ProgrammaticallyScrubbableTimeBar programmaticallyScrubbableTimeBar =
+          ProgrammaticallyScrubbableTimeBar.getConstructedInstance();
+      programmaticallyScrubbableTimeBar.startScrubbing(/* positionMs= */ 123);
+      programmaticallyScrubbableTimeBar.moveScrubber(/* positionMs= */ 456);
+      scrubberActionFinished.open();
+    });
     scrubberActionFinished.block(/* timeoutMs= */ 10_000);
 
     checkState(playbackSuppressionReasons.contains(Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING));
@@ -261,22 +254,21 @@ public final class UiModuleProguard {
     ConditionVariable dialogCreatedCondition = new ConditionVariable();
     AtomicReference<Dialog> dialog = new AtomicReference<>();
     new Handler(uiThread.getLooper())
-        .post(
-            () -> {
-              try {
-                dialog.set(
-                    new TrackSelectionDialogBuilder(
-                            context,
-                            "title",
-                            ImmutableList.of(trackGroup),
-                            (isDisabled, overrides) -> {
-                              /* Do nothing. */
-                            })
-                        .build());
-              } finally {
-                dialogCreatedCondition.open();
-              }
-            });
+        .post(() -> {
+          try {
+            dialog.set(
+                new TrackSelectionDialogBuilder(
+                        context,
+                        "title",
+                        ImmutableList.of(trackGroup),
+                        (isDisabled, overrides) -> {
+                          /* Do nothing. */
+                        })
+                    .build());
+          } finally {
+            dialogCreatedCondition.open();
+          }
+        });
     dialogCreatedCondition.block();
     uiThread.quit();
 
@@ -288,58 +280,56 @@ public final class UiModuleProguard {
       throws InterruptedException {
     ConditionVariable imageOutputSet = new ConditionVariable();
     new Handler(Looper.getMainLooper())
-        .post(
-            () -> {
-              ExoPlayer exoPlayer =
-                  new ExoPlayer.Builder(
-                          context,
-                          (eventHandler,
-                              videoRendererEventListener,
-                              audioRendererEventListener,
-                              textRendererOutput,
-                              metadataRendererOutput) ->
-                              new Renderer[] {
-                                new BaseRenderer(C.TRACK_TYPE_IMAGE) {
-                                  @Override
-                                  public String getName() {
-                                    return "test";
-                                  }
+        .post(() -> {
+          ExoPlayer exoPlayer =
+              new ExoPlayer.Builder(
+                      context,
+                      (eventHandler,
+                          videoRendererEventListener,
+                          audioRendererEventListener,
+                          textRendererOutput,
+                          metadataRendererOutput) ->
+                          new Renderer[] {
+                            new BaseRenderer(C.TRACK_TYPE_IMAGE) {
+                              @Override
+                              public String getName() {
+                                return "test";
+                              }
 
-                                  @Override
-                                  public void render(long positionUs, long elapsedRealtimeUs) {}
+                              @Override
+                              public void render(long positionUs, long elapsedRealtimeUs) {}
 
-                                  @Override
-                                  public boolean isReady() {
-                                    return false;
-                                  }
+                              @Override
+                              public boolean isReady() {
+                                return false;
+                              }
 
-                                  @Override
-                                  public boolean isEnded() {
-                                    return false;
-                                  }
+                              @Override
+                              public boolean isEnded() {
+                                return false;
+                              }
 
-                                  @Override
-                                  public @Capabilities int supportsFormat(Format format) {
-                                    return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-                                  }
+                              @Override
+                              public @Capabilities int supportsFormat(Format format) {
+                                return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+                              }
 
-                                  @Override
-                                  public void handleMessage(
-                                      @MessageType int messageType, Object message) {
-                                    if (messageType == Renderer.MSG_SET_IMAGE_OUTPUT) {
-                                      imageOutputSet.open();
-                                    }
-                                  }
+                              @Override
+                              public void handleMessage(
+                                  @MessageType int messageType, Object message) {
+                                if (messageType == Renderer.MSG_SET_IMAGE_OUTPUT) {
+                                  imageOutputSet.open();
                                 }
-                              })
-                      .build();
-              PlayerView playerView =
-                  (PlayerView)
-                      LayoutInflater.from(context)
-                          .inflate(
-                              R.layout.spherical_gl_surface_view_player_view, /* root= */ null);
-              playerView.setPlayer(exoPlayer);
-            });
+                              }
+                            }
+                          })
+                  .build();
+          PlayerView playerView =
+              (PlayerView)
+                  LayoutInflater.from(context)
+                      .inflate(R.layout.spherical_gl_surface_view_player_view, /* root= */ null);
+          playerView.setPlayer(exoPlayer);
+        });
     imageOutputSet.block();
   }
 

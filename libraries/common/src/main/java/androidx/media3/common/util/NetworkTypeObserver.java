@@ -312,13 +312,12 @@ public final class NetworkTypeObserver {
     }
 
     public void callOnNetworkTypeChanged() {
-      executor.execute(
-          () -> {
-            Listener listener = this.listener.get();
-            if (listener != null) {
-              listener.onNetworkTypeChanged(getNetworkType());
-            }
-          });
+      executor.execute(() -> {
+        Listener listener = this.listener.get();
+        if (listener != null) {
+          listener.onNetworkTypeChanged(getNetworkType());
+        }
+      });
     }
   }
 }

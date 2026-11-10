@@ -165,15 +165,14 @@ public class SessionTokenTest {
     MediaSession session =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  MediaSession mediaSession =
-                      new MediaSession.Builder(context, new MockPlayer.Builder().build())
-                          .setId(TAG)
-                          .build();
-                  platformToken.set(mediaSession.getPlatformToken());
-                  return sessionTestRule.ensureReleaseAfterTest(mediaSession);
-                });
+            .postAndSync(() -> {
+              MediaSession mediaSession =
+                  new MediaSession.Builder(context, new MockPlayer.Builder().build())
+                      .setId(TAG)
+                      .build();
+              platformToken.set(mediaSession.getPlatformToken());
+              return sessionTestRule.ensureReleaseAfterTest(mediaSession);
+            });
 
     SessionToken token =
         SessionToken.createSessionToken(

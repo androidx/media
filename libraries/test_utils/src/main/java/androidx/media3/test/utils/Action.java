@@ -650,10 +650,9 @@ public abstract class Action {
     protected void doActionImpl(
         ExoPlayer player, DefaultTrackSelector trackSelector, @Nullable Surface surface) {
       player
-          .createMessage(
-              (messageType, payload) -> {
-                throw exception;
-              })
+          .createMessage((messageType, payload) -> {
+            throw exception;
+          })
           .send();
     }
   }
@@ -694,33 +693,30 @@ public abstract class Action {
       // Schedule a message on the playback thread to ensure the player is paused immediately.
       Looper applicationLooper = Util.getCurrentOrMainLooper();
       player
-          .createMessage(
-              (messageType, payload) -> {
-                // Block playback thread until pause command has been sent from test thread.
-                ConditionVariable blockPlaybackThreadCondition = new ConditionVariable();
-                player
-                    .getClock()
-                    .createHandler(applicationLooper, /* callback= */ null)
-                    .post(
-                        () -> {
-                          player.pause();
-                          blockPlaybackThreadCondition.open();
-                        });
-                try {
-                  player.getClock().onThreadBlocked();
-                  blockPlaybackThreadCondition.block();
-                } catch (InterruptedException e) {
-                  // Ignore.
-                }
-              })
+          .createMessage((messageType, payload) -> {
+            // Block playback thread until pause command has been sent from test thread.
+            ConditionVariable blockPlaybackThreadCondition = new ConditionVariable();
+            player
+                .getClock()
+                .createHandler(applicationLooper, /* callback= */ null)
+                .post(() -> {
+                  player.pause();
+                  blockPlaybackThreadCondition.open();
+                });
+            try {
+              player.getClock().onThreadBlocked();
+              blockPlaybackThreadCondition.block();
+            } catch (InterruptedException e) {
+              // Ignore.
+            }
+          })
           .setPosition(mediaItemIndex, positionMs)
           .send();
       if (nextAction != null) {
         // Schedule another message on this test thread to continue action schedule.
         player
-            .createMessage(
-                (messageType, payload) ->
-                    nextAction.schedule(player, trackSelector, surface, handler))
+            .createMessage((messageType, payload) ->
+                nextAction.schedule(player, trackSelector, surface, handler))
             .setPosition(mediaItemIndex, positionMs)
             .setLooper(applicationLooper)
             .send();

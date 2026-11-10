@@ -199,18 +199,17 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
     super.onDetachedFromWindow();
 
     // Post to make sure we occur in order with any onSurfaceTextureAvailable calls.
-    mainHandler.post(
-        () -> {
-          @Nullable Surface oldSurface = surface;
-          if (oldSurface != null) {
-            for (VideoSurfaceListener videoSurfaceListener : videoSurfaceListeners) {
-              videoSurfaceListener.onVideoSurfaceDestroyed(oldSurface);
-            }
-          }
-          releaseSurface(surfaceTexture, oldSurface);
-          surfaceTexture = null;
-          surface = null;
-        });
+    mainHandler.post(() -> {
+      @Nullable Surface oldSurface = surface;
+      if (oldSurface != null) {
+        for (VideoSurfaceListener videoSurfaceListener : videoSurfaceListeners) {
+          videoSurfaceListener.onVideoSurfaceDestroyed(oldSurface);
+        }
+      }
+      releaseSurface(surfaceTexture, oldSurface);
+      surfaceTexture = null;
+      surface = null;
+    });
   }
 
   private void updateOrientationListenerRegistration() {
@@ -229,18 +228,17 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
 
   // Called on GL thread.
   private void onSurfaceTextureAvailable(SurfaceTexture newSurfaceTexture) {
-    mainHandler.post(
-        () -> {
-          @Nullable SurfaceTexture oldSurfaceTexture = surfaceTexture;
-          @Nullable Surface oldSurface = surface;
-          Surface newSurface = new Surface(newSurfaceTexture);
-          surfaceTexture = newSurfaceTexture;
-          surface = newSurface;
-          for (VideoSurfaceListener videoSurfaceListener : videoSurfaceListeners) {
-            videoSurfaceListener.onVideoSurfaceCreated(newSurface);
-          }
-          releaseSurface(oldSurfaceTexture, oldSurface);
-        });
+    mainHandler.post(() -> {
+      @Nullable SurfaceTexture oldSurfaceTexture = surfaceTexture;
+      @Nullable Surface oldSurface = surface;
+      Surface newSurface = new Surface(newSurfaceTexture);
+      surfaceTexture = newSurfaceTexture;
+      surface = newSurface;
+      for (VideoSurfaceListener videoSurfaceListener : videoSurfaceListeners) {
+        videoSurfaceListener.onVideoSurfaceCreated(newSurface);
+      }
+      releaseSurface(oldSurfaceTexture, oldSurface);
+    });
   }
 
   private static void releaseSurface(

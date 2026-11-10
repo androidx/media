@@ -761,14 +761,13 @@ public class DownloadHelperTest {
     AtomicReference<Throwable> exception = new AtomicReference<>();
     AtomicReference<DownloadHelper> downloadHelper = new AtomicReference<>();
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                downloadHelper.set(new DownloadHelper.Factory().create(testMediaItem));
-              } catch (Throwable e) {
-                exception.set(e);
-              }
-            });
+        new Thread(() -> {
+          try {
+            downloadHelper.set(new DownloadHelper.Factory().create(testMediaItem));
+          } catch (Throwable e) {
+            exception.set(e);
+          }
+        });
 
     thread.start();
     thread.join();
@@ -783,22 +782,21 @@ public class DownloadHelperTest {
     AtomicReference<Throwable> exception = new AtomicReference<>();
     AtomicReference<DownloadHelper> downloadHelper = new AtomicReference<>();
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
-                RenderersFactory renderersFactory =
-                    (handler, videoListener, audioListener, metadata, text) ->
-                        new Renderer[] {videoRenderer};
-                downloadHelper.set(
-                    new DownloadHelper.Factory()
-                        .setDataSourceFactory(new FakeDataSource.Factory())
-                        .setRenderersFactory(renderersFactory)
-                        .create(testMediaItem));
-              } catch (Throwable e) {
-                exception.set(e);
-              }
-            });
+        new Thread(() -> {
+          try {
+            FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+            RenderersFactory renderersFactory =
+                (handler, videoListener, audioListener, metadata, text) ->
+                    new Renderer[] {videoRenderer};
+            downloadHelper.set(
+                new DownloadHelper.Factory()
+                    .setDataSourceFactory(new FakeDataSource.Factory())
+                    .setRenderersFactory(renderersFactory)
+                    .create(testMediaItem));
+          } catch (Throwable e) {
+            exception.set(e);
+          }
+        });
 
     thread.start();
     thread.join();
@@ -812,22 +810,21 @@ public class DownloadHelperTest {
     AtomicReference<Throwable> exception = new AtomicReference<>();
     AtomicReference<DownloadHelper> downloadHelper = new AtomicReference<>();
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
-                RenderersFactory renderersFactory =
-                    (handler, videoListener, audioListener, metadata, text) ->
-                        new Renderer[] {videoRenderer};
-                downloadHelper.set(
-                    new DownloadHelper.Factory()
-                        .setDataSourceFactory(new FakeDataSource.Factory())
-                        .setRenderersFactory(renderersFactory)
-                        .create(testMediaItem));
-              } catch (Throwable e) {
-                exception.set(e);
-              }
-            });
+        new Thread(() -> {
+          try {
+            FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+            RenderersFactory renderersFactory =
+                (handler, videoListener, audioListener, metadata, text) ->
+                    new Renderer[] {videoRenderer};
+            downloadHelper.set(
+                new DownloadHelper.Factory()
+                    .setDataSourceFactory(new FakeDataSource.Factory())
+                    .setRenderersFactory(renderersFactory)
+                    .create(testMediaItem));
+          } catch (Throwable e) {
+            exception.set(e);
+          }
+        });
 
     thread.start();
     thread.join();
@@ -842,28 +839,27 @@ public class DownloadHelperTest {
     AtomicReference<Throwable> exception = new AtomicReference<>();
     AtomicReference<DownloadHelper> downloadHelper = new AtomicReference<>();
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
-                RenderersFactory renderersFactory =
-                    (handler, videoListener, audioListener, metadata, text) ->
-                        new Renderer[] {videoRenderer};
-                downloadHelper.set(
-                    new DownloadHelper.Factory()
-                        .setDataSourceFactory(new FakeDataSource.Factory())
-                        .setRenderersFactory(renderersFactory)
-                        .setDrmSessionManager(
-                            new DefaultDrmSessionManager.Builder()
-                                .build(
-                                    new HttpMediaDrmCallback(
-                                        /* defaultLicenseUrl= */ null,
-                                        new DefaultDataSource.Factory(getApplicationContext()))))
-                        .create(testMediaItem));
-              } catch (Throwable e) {
-                exception.set(e);
-              }
-            });
+        new Thread(() -> {
+          try {
+            FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+            RenderersFactory renderersFactory =
+                (handler, videoListener, audioListener, metadata, text) ->
+                    new Renderer[] {videoRenderer};
+            downloadHelper.set(
+                new DownloadHelper.Factory()
+                    .setDataSourceFactory(new FakeDataSource.Factory())
+                    .setRenderersFactory(renderersFactory)
+                    .setDrmSessionManager(
+                        new DefaultDrmSessionManager.Builder()
+                            .build(
+                                new HttpMediaDrmCallback(
+                                    /* defaultLicenseUrl= */ null,
+                                    new DefaultDataSource.Factory(getApplicationContext()))))
+                    .create(testMediaItem));
+          } catch (Throwable e) {
+            exception.set(e);
+          }
+        });
 
     thread.start();
     thread.join();
@@ -877,34 +873,33 @@ public class DownloadHelperTest {
     AtomicReference<Throwable> exception = new AtomicReference<>();
     AtomicReference<DownloadHelper> downloadHelper = new AtomicReference<>();
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                RendererCapabilitiesList emptyRendererCapabilitiesList =
-                    new RendererCapabilitiesList() {
-                      @Override
-                      public RendererCapabilities[] getRendererCapabilities() {
-                        return new RendererCapabilities[0];
-                      }
+        new Thread(() -> {
+          try {
+            RendererCapabilitiesList emptyRendererCapabilitiesList =
+                new RendererCapabilitiesList() {
+                  @Override
+                  public RendererCapabilities[] getRendererCapabilities() {
+                    return new RendererCapabilities[0];
+                  }
 
-                      @Override
-                      public int size() {
-                        return 0;
-                      }
+                  @Override
+                  public int size() {
+                    return 0;
+                  }
 
-                      @Override
-                      public void release() {}
-                    };
-                downloadHelper.set(
-                    new DownloadHelper(
-                        testMediaItem,
-                        new FakeMediaSource(),
-                        TrackSelectionParameters.DEFAULT,
-                        emptyRendererCapabilitiesList));
-              } catch (Throwable e) {
-                exception.set(e);
-              }
-            });
+                  @Override
+                  public void release() {}
+                };
+            downloadHelper.set(
+                new DownloadHelper(
+                    testMediaItem,
+                    new FakeMediaSource(),
+                    TrackSelectionParameters.DEFAULT,
+                    emptyRendererCapabilitiesList));
+          } catch (Throwable e) {
+            exception.set(e);
+          }
+        });
 
     thread.start();
     thread.join();

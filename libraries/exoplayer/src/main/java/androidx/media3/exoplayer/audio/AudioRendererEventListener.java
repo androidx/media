@@ -203,11 +203,10 @@ public interface AudioRendererEventListener {
     public void decoderInitialized(
         String decoderName, long initializedTimestampMs, long initializationDurationMs) {
       if (handler != null) {
-        handler.post(
-            () ->
-                castNonNull(listener)
-                    .onAudioDecoderInitialized(
-                        decoderName, initializedTimestampMs, initializationDurationMs));
+        handler.post(() ->
+            castNonNull(listener)
+                .onAudioDecoderInitialized(
+                    decoderName, initializedTimestampMs, initializationDurationMs));
       }
     }
 
@@ -234,10 +233,9 @@ public interface AudioRendererEventListener {
     /** Invokes {@link AudioRendererEventListener#onAudioUnderrun(int, long, long)}. */
     public void underrun(int bufferSize, long bufferSizeMs, long elapsedSinceLastFeedMs) {
       if (handler != null) {
-        handler.post(
-            () ->
-                castNonNull(listener)
-                    .onAudioUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs));
+        handler.post(() ->
+            castNonNull(listener)
+                .onAudioUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs));
       }
     }
 
@@ -252,11 +250,10 @@ public interface AudioRendererEventListener {
     public void disabled(DecoderCounters counters) {
       counters.ensureUpdated();
       if (handler != null) {
-        handler.post(
-            () -> {
-              counters.ensureUpdated();
-              castNonNull(listener).onAudioDisabled(counters);
-            });
+        handler.post(() -> {
+          counters.ensureUpdated();
+          castNonNull(listener).onAudioDisabled(counters);
+        });
       }
     }
 

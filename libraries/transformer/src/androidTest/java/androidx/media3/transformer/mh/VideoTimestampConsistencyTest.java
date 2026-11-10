@@ -418,25 +418,22 @@ public class VideoTimestampConsistencyTest {
             /* effects= */ ImmutableList.of(
                 (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          timestampRecordingEditedMediaItems))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(timestampRecordingEditedMediaItems))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
     instrumentation.runOnMainSync(() -> compositionPlayer.release());
@@ -450,23 +447,22 @@ public class VideoTimestampConsistencyTest {
     InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          exoplayer =
-              new ExoPlayer.Builder(applicationContext)
-                  // Disable decoder input frame dropping in this test.
-                  .setRenderersFactory(new NoFrameDroppingRendererFactory(applicationContext))
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          exoplayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(futureWhen(exoplayer).entersPlaybackState(Player.STATE_ENDED));
-          exoplayer.setMediaItems(mediaItems);
-          exoplayer.setVideoEffects(
-              ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
-          exoplayer.prepare();
-          exoplayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      exoplayer =
+          new ExoPlayer.Builder(applicationContext)
+              // Disable decoder input frame dropping in this test.
+              .setRenderersFactory(new NoFrameDroppingRendererFactory(applicationContext))
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      exoplayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(exoplayer).entersPlaybackState(Player.STATE_ENDED));
+      exoplayer.setMediaItems(mediaItems);
+      exoplayer.setVideoEffects(
+          ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
+      exoplayer.prepare();
+      exoplayer.play();
+    });
 
     endedFuture.get();
     instrumentation.runOnMainSync(() -> exoplayer.release());

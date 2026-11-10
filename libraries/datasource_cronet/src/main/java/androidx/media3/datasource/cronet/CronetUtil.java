@@ -79,10 +79,8 @@ public final class CronetUtil {
     List<CronetProvider> cronetProviders = new ArrayList<>(CronetProvider.getAllProviders(context));
     // Remove disabled and fallback Cronet providers from list.
     boolean unused =
-        cronetProviders.removeIf(
-            p ->
-                !p.isEnabled()
-                    || Objects.equals(p.getName(), CronetProvider.PROVIDER_NAME_FALLBACK));
+        cronetProviders.removeIf(p ->
+            !p.isEnabled() || Objects.equals(p.getName(), CronetProvider.PROVIDER_NAME_FALLBACK));
     // Sort remaining providers by type and version.
     CronetProviderComparator providerComparator =
         new CronetProviderComparator(preferGooglePlayServices);

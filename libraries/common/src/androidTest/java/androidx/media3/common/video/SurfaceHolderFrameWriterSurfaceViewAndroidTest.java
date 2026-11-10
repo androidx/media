@@ -66,27 +66,26 @@ public final class SurfaceHolderFrameWriterSurfaceViewAndroidTest {
     surfaceSizes = new LinkedBlockingQueue<>();
     activityRule
         .getScenario()
-        .onActivity(
-            activity -> {
-              surfaceView = new SurfaceView(activity);
-              surfaceView
-                  .getHolder()
-                  .addCallback(
-                      new SurfaceHolder.Callback() {
-                        @Override
-                        public void surfaceCreated(SurfaceHolder holder) {}
+        .onActivity(activity -> {
+          surfaceView = new SurfaceView(activity);
+          surfaceView
+              .getHolder()
+              .addCallback(
+                  new SurfaceHolder.Callback() {
+                    @Override
+                    public void surfaceCreated(SurfaceHolder holder) {}
 
-                        @Override
-                        public void surfaceChanged(
-                            SurfaceHolder holder, int format, int width, int height) {
-                          surfaceSizes.add(new Size(width, height));
-                        }
+                    @Override
+                    public void surfaceChanged(
+                        SurfaceHolder holder, int format, int width, int height) {
+                      surfaceSizes.add(new Size(width, height));
+                    }
 
-                        @Override
-                        public void surfaceDestroyed(SurfaceHolder holder) {}
-                      });
-              activity.setContentView(surfaceView, new ViewGroup.LayoutParams(100, 100));
-            });
+                    @Override
+                    public void surfaceDestroyed(SurfaceHolder holder) {}
+                  });
+          activity.setContentView(surfaceView, new ViewGroup.LayoutParams(100, 100));
+        });
     assertThat(surfaceSizes.poll(TEST_TIMEOUT_MS, MILLISECONDS)).isEqualTo(new Size(100, 100));
     listener = new FakeListener();
     frameWriter =

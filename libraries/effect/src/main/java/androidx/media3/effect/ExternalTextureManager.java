@@ -145,32 +145,31 @@ import org.jspecify.annotations.Nullable;
     scheduledExecutorService = Util.newSingleThreadScheduledExecutor(TIMER_THREAD_NAME);
     allFramesReleasedCondition = new ConditionVariable();
     allFramesReleasedCondition.open();
-    surfaceTexture.setOnFrameAvailableListener(
-        unused ->
-            videoFrameProcessingTaskExecutor.submit(
-                () -> {
-                  DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SURFACE_TEXTURE_INPUT, C.TIME_UNSET);
-                  if (ExternalTextureManager.this.automaticReregistration) {
-                    pendingFrames.add(checkNotNull(lastRegisteredFrame));
-                  }
-                  if (shouldRejectIncomingFrames) {
-                    surfaceTexture.updateTexImage();
-                    pendingFrames.poll();
-                    if (pendingFrames.isEmpty()) {
-                      allFramesReleasedCondition.open();
-                    }
-                    return;
-                  }
+    surfaceTexture.setOnFrameAvailableListener(unused ->
+        videoFrameProcessingTaskExecutor.submit(
+            () -> {
+              DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SURFACE_TEXTURE_INPUT, C.TIME_UNSET);
+              if (ExternalTextureManager.this.automaticReregistration) {
+                pendingFrames.add(checkNotNull(lastRegisteredFrame));
+              }
+              if (shouldRejectIncomingFrames) {
+                surfaceTexture.updateTexImage();
+                pendingFrames.poll();
+                if (pendingFrames.isEmpty()) {
+                  allFramesReleasedCondition.open();
+                }
+                return;
+              }
 
-                  if (currentInputStreamEnded) {
-                    restartForceSignalEndOfStreamTimer();
-                  }
-                  availableFrameCount++;
-                  maybeQueueFrameToExternalShaderProgram();
-                },
-                // Ensures the available frame is consumed even if the task executor is flushed
-                // before the submitted task is executed.
-                /* isCancellable= */ false));
+              if (currentInputStreamEnded) {
+                restartForceSignalEndOfStreamTimer();
+              }
+              availableFrameCount++;
+              maybeQueueFrameToExternalShaderProgram();
+            },
+            // Ensures the available frame is consumed even if the task executor is flushed
+            // before the submitted task is executed.
+            /* isCancellable= */ false));
     surface = new Surface(surfaceTexture);
   }
 
@@ -196,36 +195,34 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void onReadyToAcceptInputFrame() {
     ExternalShaderProgram shaderProgramPendingCapacityIncrement = externalShaderProgram;
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          if (shaderProgramPendingCapacityIncrement != this.externalShaderProgram) {
-            // TODO: b/428173453 - Revise threading model.
-            // It could happen that this method is scheduled to run after the externalShaderProgram
-            // is switched in setSamplingGlShaderProgram. If we don't check this, the capacity
-            // increment from the old sampling shader will be counted towards the new one.
-            return;
-          }
-          externalShaderProgramInputCapacity++;
-          maybeQueueFrameToExternalShaderProgram();
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      if (shaderProgramPendingCapacityIncrement != this.externalShaderProgram) {
+        // TODO: b/428173453 - Revise threading model.
+        // It could happen that this method is scheduled to run after the externalShaderProgram
+        // is switched in setSamplingGlShaderProgram. If we don't check this, the capacity
+        // increment from the old sampling shader will be counted towards the new one.
+        return;
+      }
+      externalShaderProgramInputCapacity++;
+      maybeQueueFrameToExternalShaderProgram();
+    });
   }
 
   @Override
   public void onInputFrameProcessed(GlTextureInfo inputTexture) {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          currentFrame = null;
-          if (currentInputStreamEnded && pendingFrames.isEmpty()) {
-            // Reset because there could be further input streams after the current one ends.
-            currentInputStreamEnded = false;
-            checkNotNull(externalShaderProgram).signalEndOfCurrentInputStream();
-            DebugTraceUtil.logEvent(
-                COMPONENT_EXTERNAL_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
-            cancelForceSignalEndOfStreamTimer();
-          } else {
-            maybeQueueFrameToExternalShaderProgram();
-          }
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      currentFrame = null;
+      if (currentInputStreamEnded && pendingFrames.isEmpty()) {
+        // Reset because there could be further input streams after the current one ends.
+        currentInputStreamEnded = false;
+        checkNotNull(externalShaderProgram).signalEndOfCurrentInputStream();
+        DebugTraceUtil.logEvent(
+            COMPONENT_EXTERNAL_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+        cancelForceSignalEndOfStreamTimer();
+      } else {
+        maybeQueueFrameToExternalShaderProgram();
+      }
+    });
   }
 
   @Override
@@ -269,24 +266,23 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void signalEndOfCurrentInputStream() {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          if (automaticReregistration) {
-            // We don't know how many frames are still pending in automatic mode, so reject further
-            // input and signal end-of-stream once the current frame (if any) has been handled until
-            // the next explicit registration.
-            shouldRejectIncomingFrames = true;
-          }
-          if (pendingFrames.isEmpty() && currentFrame == null) {
-            checkNotNull(externalShaderProgram).signalEndOfCurrentInputStream();
-            DebugTraceUtil.logEvent(
-                COMPONENT_EXTERNAL_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
-            cancelForceSignalEndOfStreamTimer();
-          } else {
-            currentInputStreamEnded = true;
-            restartForceSignalEndOfStreamTimer();
-          }
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      if (automaticReregistration) {
+        // We don't know how many frames are still pending in automatic mode, so reject further
+        // input and signal end-of-stream once the current frame (if any) has been handled until
+        // the next explicit registration.
+        shouldRejectIncomingFrames = true;
+      }
+      if (pendingFrames.isEmpty() && currentFrame == null) {
+        checkNotNull(externalShaderProgram).signalEndOfCurrentInputStream();
+        DebugTraceUtil.logEvent(
+            COMPONENT_EXTERNAL_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+        cancelForceSignalEndOfStreamTimer();
+      } else {
+        currentInputStreamEnded = true;
+        restartForceSignalEndOfStreamTimer();
+      }
+    });
   }
 
   @Override
@@ -314,16 +310,15 @@ import org.jspecify.annotations.Nullable;
   public void releaseAllRegisteredFrames() {
     // Blocks the calling thread until all the registered frames are received and released.
     allFramesReleasedCondition.close();
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          try {
-            removeAllSurfaceTextureFrames();
-          } catch (RuntimeException e) {
-            releaseAllFramesException = e;
-            Log.e(TAG, "Failed to remove texture frames", e);
-            allFramesReleasedCondition.open();
-          }
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      try {
+        removeAllSurfaceTextureFrames();
+      } catch (RuntimeException e) {
+        releaseAllFramesException = e;
+        Log.e(TAG, "Failed to remove texture frames", e);
+        allFramesReleasedCondition.open();
+      }
+    });
     try {
       if (!allFramesReleasedCondition.block(SURFACE_TEXTURE_TIMEOUT_MS)) {
         Log.w(TAG, "Timeout reached while waiting for all registered frames to be released.");

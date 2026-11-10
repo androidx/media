@@ -191,22 +191,20 @@ import org.jspecify.annotations.Nullable;
       Log.w(TAG, "onSubscribe(): Ignoring empty id from " + browserInfo.getPackageName());
       return;
     }
-    postOrRunOnApplicationHandler(
-        () -> {
-          @Nullable ControllerInfo controller =
-              getConnectedControllersManager().getController(browserInfo);
-          if (controller == null) {
-            return;
-          }
-          if (!getConnectedControllersManager()
-              .isSessionCommandAvailable(
-                  controller, SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE)) {
-            return;
-          }
-          @Nullable LibraryParams params =
-              LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), option);
-          ignoreFuture(librarySessionImpl.onSubscribeOnHandler(controller, id, params));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      @Nullable ControllerInfo controller =
+          getConnectedControllersManager().getController(browserInfo);
+      if (controller == null) {
+        return;
+      }
+      if (!getConnectedControllersManager()
+          .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_SUBSCRIBE)) {
+        return;
+      }
+      @Nullable LibraryParams params =
+          LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), option);
+      ignoreFuture(librarySessionImpl.onSubscribeOnHandler(controller, id, params));
+    });
   }
 
   @SuppressLint("RestrictedApi")
@@ -217,20 +215,18 @@ import org.jspecify.annotations.Nullable;
       Log.w(TAG, "onUnsubscribe(): Ignoring empty id from " + browserInfo.getPackageName());
       return;
     }
-    postOrRunOnApplicationHandler(
-        () -> {
-          @Nullable ControllerInfo controller =
-              getConnectedControllersManager().getController(browserInfo);
-          if (controller == null) {
-            return;
-          }
-          if (!getConnectedControllersManager()
-              .isSessionCommandAvailable(
-                  controller, SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE)) {
-            return;
-          }
-          ignoreFuture(librarySessionImpl.onUnsubscribeOnHandler(controller, id));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      @Nullable ControllerInfo controller =
+          getConnectedControllersManager().getController(browserInfo);
+      if (controller == null) {
+        return;
+      }
+      if (!getConnectedControllersManager()
+          .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_UNSUBSCRIBE)) {
+        return;
+      }
+      ignoreFuture(librarySessionImpl.onUnsubscribeOnHandler(controller, id));
+    });
   }
 
   @Override
@@ -251,55 +247,52 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     result.detach();
-    postOrRunOnApplicationHandler(
-        () -> {
-          @Nullable ControllerInfo controller =
-              getConnectedControllersManager().getController(browserInfo);
-          if (controller == null) {
-            result.sendResult(/* result= */ null);
+    postOrRunOnApplicationHandler(() -> {
+      @Nullable ControllerInfo controller =
+          getConnectedControllersManager().getController(browserInfo);
+      if (controller == null) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      if (!getConnectedControllersManager()
+          .isSessionCommandAvailable(
+              controller, SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN)) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      @Nullable LibraryParams params = null;
+      if (options != null) {
+        options.setClassLoader(librarySessionImpl.getContext().getClassLoader());
+        try {
+          int page = options.getInt(EXTRA_PAGE);
+          int pageSize = options.getInt(EXTRA_PAGE_SIZE);
+          params =
+              LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), options);
+          if (page >= 0 && pageSize > 0) {
+            // Requesting the list of children through pagination.
+            ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
+                librarySessionImpl.onGetChildrenOnHandler(
+                    controller, parentId, page, pageSize, params);
+            ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
+                Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
+            sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
             return;
           }
-          if (!getConnectedControllersManager()
-              .isSessionCommandAvailable(
-                  controller, SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN)) {
-            result.sendResult(/* result= */ null);
-            return;
-          }
-          @Nullable LibraryParams params = null;
-          if (options != null) {
-            options.setClassLoader(librarySessionImpl.getContext().getClassLoader());
-            try {
-              int page = options.getInt(EXTRA_PAGE);
-              int pageSize = options.getInt(EXTRA_PAGE_SIZE);
-              params =
-                  LegacyConversions.convertToLibraryParams(
-                      librarySessionImpl.getContext(), options);
-              if (page >= 0 && pageSize > 0) {
-                // Requesting the list of children through pagination.
-                ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
-                    librarySessionImpl.onGetChildrenOnHandler(
-                        controller, parentId, page, pageSize, params);
-                ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
-                    Util.transformFutureAsync(
-                        future, createMediaItemsToBrowserItemsAsyncFunction());
-                sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
-                return;
-              }
-              // Cannot distinguish onLoadChildren() why it's called either by
-              // {@link MediaBrowserCompat#subscribe()} or
-              // {@link MediaBrowserServiceCompat#notifyChildrenChanged}.
-            } catch (BadParcelableException e) {
-              // pass-through.
-            }
-          }
-          // A MediaBrowserCompat called loadChildren with no pagination option.
-          ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
-              librarySessionImpl.onGetChildrenOnHandler(
-                  controller, parentId, /* page= */ 0, /* pageSize= */ Integer.MAX_VALUE, params);
-          ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
-              Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
-          sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
-        });
+          // Cannot distinguish onLoadChildren() why it's called either by
+          // {@link MediaBrowserCompat#subscribe()} or
+          // {@link MediaBrowserServiceCompat#notifyChildrenChanged}.
+        } catch (BadParcelableException e) {
+          // pass-through.
+        }
+      }
+      // A MediaBrowserCompat called loadChildren with no pagination option.
+      ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
+          librarySessionImpl.onGetChildrenOnHandler(
+              controller, parentId, /* page= */ 0, /* pageSize= */ Integer.MAX_VALUE, params);
+      ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
+          Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
+      sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
+    });
   }
 
   @Override
@@ -311,26 +304,24 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     result.detach();
-    postOrRunOnApplicationHandler(
-        () -> {
-          @Nullable ControllerInfo controller =
-              getConnectedControllersManager().getController(browserInfo);
-          if (controller == null) {
-            result.sendResult(/* result= */ null);
-            return;
-          }
-          if (!getConnectedControllersManager()
-              .isSessionCommandAvailable(
-                  controller, SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM)) {
-            result.sendResult(/* result= */ null);
-            return;
-          }
-          ListenableFuture<LibraryResult<MediaItem>> future =
-              librarySessionImpl.onGetItemOnHandler(controller, itemId);
-          ListenableFuture<MediaBrowserCompat.@Nullable MediaItem> browserItemFuture =
-              Util.transformFutureAsync(future, createMediaItemToBrowserItemAsyncFunction());
-          sendLibraryResultWithMediaItemWhenReady(result, browserItemFuture);
-        });
+    postOrRunOnApplicationHandler(() -> {
+      @Nullable ControllerInfo controller =
+          getConnectedControllersManager().getController(browserInfo);
+      if (controller == null) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      if (!getConnectedControllersManager()
+          .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM)) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      ListenableFuture<LibraryResult<MediaItem>> future =
+          librarySessionImpl.onGetItemOnHandler(controller, itemId);
+      ListenableFuture<MediaBrowserCompat.@Nullable MediaItem> browserItemFuture =
+          Util.transformFutureAsync(future, createMediaItemToBrowserItemAsyncFunction());
+      sendLibraryResultWithMediaItemWhenReady(result, browserItemFuture);
+    });
   }
 
   @Override
@@ -343,56 +334,54 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     result.detach();
-    postOrRunOnApplicationHandler(
-        () -> {
-          @Nullable ControllerInfo controller =
-              getConnectedControllersManager().getController(browserInfo);
-          if (controller == null) {
-            result.sendResult(/* result= */ null);
-            return;
-          }
-          if (!(controller.getControllerCb() instanceof BrowserLegacyCb)) {
-            result.sendResult(/* result= */ null);
-            return;
-          }
-          if (!getConnectedControllersManager()
-              .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_SEARCH)) {
-            result.sendResult(/* result= */ null);
-            return;
-          }
-          BrowserLegacyCb cb = (BrowserLegacyCb) checkNotNull(controller.getControllerCb());
-          cb.registerSearchRequest(controller, query, extras, result);
-          @Nullable LibraryParams params =
-              LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), extras);
-          ignoreFuture(librarySessionImpl.onSearchOnHandler(controller, query, params));
-          // Actual search result will be sent by notifySearchResultChanged().
-        });
+    postOrRunOnApplicationHandler(() -> {
+      @Nullable ControllerInfo controller =
+          getConnectedControllersManager().getController(browserInfo);
+      if (controller == null) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      if (!(controller.getControllerCb() instanceof BrowserLegacyCb)) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      if (!getConnectedControllersManager()
+          .isSessionCommandAvailable(controller, SessionCommand.COMMAND_CODE_LIBRARY_SEARCH)) {
+        result.sendResult(/* result= */ null);
+        return;
+      }
+      BrowserLegacyCb cb = (BrowserLegacyCb) checkNotNull(controller.getControllerCb());
+      cb.registerSearchRequest(controller, query, extras, result);
+      @Nullable LibraryParams params =
+          LegacyConversions.convertToLibraryParams(librarySessionImpl.getContext(), extras);
+      ignoreFuture(librarySessionImpl.onSearchOnHandler(controller, query, params));
+      // Actual search result will be sent by notifySearchResultChanged().
+    });
   }
 
   @Override
   public void onCustomAction(String action, Bundle extras, Result<Bundle> result) {
     result.detach();
     RemoteUserInfo browserInfo = getCurrentBrowserInfo();
-    postOrRunOnApplicationHandler(
-        () -> {
-          @Nullable ControllerInfo controller =
-              getConnectedControllersManager().getController(browserInfo);
-          if (controller == null) {
-            result.sendError(/* extras= */ null);
-            return;
-          }
-          SessionCommand command = new SessionCommand(action, /* extras= */ Bundle.EMPTY);
-          if (!getConnectedControllersManager().isSessionCommandAvailable(controller, command)) {
-            result.sendError(/* extras= */ null);
-            return;
-          }
-          ProgressReporter progressReporter = new ProgressReporter(librarySessionImpl, result);
-          ListenableFuture<SessionResult> future =
-              librarySessionImpl.onCustomCommandOnHandler(
-                  controller, progressReporter, command, extras);
-          progressReporter.setFuture(future);
-          sendCustomActionResultWhenReady(result, future);
-        });
+    postOrRunOnApplicationHandler(() -> {
+      @Nullable ControllerInfo controller =
+          getConnectedControllersManager().getController(browserInfo);
+      if (controller == null) {
+        result.sendError(/* extras= */ null);
+        return;
+      }
+      SessionCommand command = new SessionCommand(action, /* extras= */ Bundle.EMPTY);
+      if (!getConnectedControllersManager().isSessionCommandAvailable(controller, command)) {
+        result.sendError(/* extras= */ null);
+        return;
+      }
+      ProgressReporter progressReporter = new ProgressReporter(librarySessionImpl, result);
+      ListenableFuture<SessionResult> future =
+          librarySessionImpl.onCustomCommandOnHandler(
+              controller, progressReporter, command, extras);
+      progressReporter.setFuture(future);
+      sendCustomActionResultWhenReady(result, future);
+    });
   }
 
   @Override
@@ -656,37 +645,36 @@ import org.jspecify.annotations.Nullable;
         }
       }
 
-      postOrRunOnApplicationHandler(
-          () -> {
-            for (int i = 0; i < searchRequests.size(); i++) {
-              SearchRequest request = searchRequests.get(i);
-              int page = 0;
-              int pageSize = Integer.MAX_VALUE;
-              if (request.extras != null) {
-                try {
-                  request.extras.setClassLoader(librarySessionImpl.getContext().getClassLoader());
-                  page = request.extras.getInt(MediaBrowserCompat.EXTRA_PAGE, -1);
-                  pageSize = request.extras.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1);
-                } catch (BadParcelableException e) {
-                  request.result.sendResult(/* result= */ null);
-                  return;
-                }
-              }
-              if (page < 0 || pageSize < 1) {
-                page = 0;
-                pageSize = Integer.MAX_VALUE;
-              }
-              @Nullable LibraryParams libraryParams =
-                  LegacyConversions.convertToLibraryParams(
-                      librarySessionImpl.getContext(), request.extras);
-              ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
-                  librarySessionImpl.onGetSearchResultOnHandler(
-                      request.controller, request.query, page, pageSize, libraryParams);
-              ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> mediaItemsFuture =
-                  Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
-              sendLibraryResultWithMediaItemsWhenReady(request.result, mediaItemsFuture);
+      postOrRunOnApplicationHandler(() -> {
+        for (int i = 0; i < searchRequests.size(); i++) {
+          SearchRequest request = searchRequests.get(i);
+          int page = 0;
+          int pageSize = Integer.MAX_VALUE;
+          if (request.extras != null) {
+            try {
+              request.extras.setClassLoader(librarySessionImpl.getContext().getClassLoader());
+              page = request.extras.getInt(MediaBrowserCompat.EXTRA_PAGE, -1);
+              pageSize = request.extras.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1);
+            } catch (BadParcelableException e) {
+              request.result.sendResult(/* result= */ null);
+              return;
             }
-          });
+          }
+          if (page < 0 || pageSize < 1) {
+            page = 0;
+            pageSize = Integer.MAX_VALUE;
+          }
+          @Nullable LibraryParams libraryParams =
+              LegacyConversions.convertToLibraryParams(
+                  librarySessionImpl.getContext(), request.extras);
+          ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
+              librarySessionImpl.onGetSearchResultOnHandler(
+                  request.controller, request.query, page, pageSize, libraryParams);
+          ListenableFuture<@Nullable List<MediaBrowserCompat.MediaItem>> mediaItemsFuture =
+              Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
+          sendLibraryResultWithMediaItemsWhenReady(request.result, mediaItemsFuture);
+        }
+      });
     }
 
     private void registerSearchRequest(

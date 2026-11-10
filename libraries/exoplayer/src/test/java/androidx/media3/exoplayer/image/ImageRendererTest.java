@@ -88,9 +88,8 @@ public class ImageRendererTest {
   public void setUp() throws Exception {
     decodeCallCount = 0;
     ImageDecoder.Factory fakeDecoderFactory =
-        new ExternallyLoadedImageDecoder.Factory(
-            request ->
-                immediateFuture(++decodeCallCount == 1 ? fakeDecodedBitmap1 : fakeDecodedBitmap2));
+        new ExternallyLoadedImageDecoder.Factory(request ->
+            immediateFuture(++decodeCallCount == 1 ? fakeDecodedBitmap1 : fakeDecodedBitmap2));
     ImageOutput queuingImageOutput =
         new ImageOutput() {
           @Override
@@ -671,25 +670,23 @@ public class ImageRendererTest {
   @Test
   public void render_tiledImageNonSquare_rendersAllImagesToOutput() throws Exception {
     ImageDecoder.Factory fakeDecoderFactory =
-        new ExternallyLoadedImageDecoder.Factory(
-            request -> {
-              /*
-               * Thumbnail grid image is as depicted below.
-               *    0 1 2 3 4 5 6 7 8
-               *    -----------------
-               * 0 | T0  | T1  | T2  |
-               * 1 |     |     |     |
-               *    -----------------
-               * 2 | T3  | T4  | T5  |
-               * 3 |     |     |     |
-               *    -----------------
-               */
-              Bitmap bm =
-                  Bitmap.createBitmap(/* width= */ 9, /* height= */ 4, Bitmap.Config.ARGB_8888);
-              bm.setPixel(1, 2, Color.rgb(100, 0, 0));
-              bm.setPixel(4, 3, Color.rgb(0, 100, 0));
-              return immediateFuture(bm);
-            });
+        new ExternallyLoadedImageDecoder.Factory(request -> {
+          /*
+           * Thumbnail grid image is as depicted below.
+           *    0 1 2 3 4 5 6 7 8
+           *    -----------------
+           * 0 | T0  | T1  | T2  |
+           * 1 |     |     |     |
+           *    -----------------
+           * 2 | T3  | T4  | T5  |
+           * 3 |     |     |     |
+           *    -----------------
+           */
+          Bitmap bm = Bitmap.createBitmap(/* width= */ 9, /* height= */ 4, Bitmap.Config.ARGB_8888);
+          bm.setPixel(1, 2, Color.rgb(100, 0, 0));
+          bm.setPixel(4, 3, Color.rgb(0, 100, 0));
+          return immediateFuture(bm);
+        });
     ImageOutput queuingImageOutput =
         new ImageOutput() {
           @Override

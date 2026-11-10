@@ -158,17 +158,15 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             .build();
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 
@@ -198,18 +196,16 @@ public class CompositionPlayerSpeedAdjustmentsTest {
         EditedMediaItemSequence.withAudioFrom(ImmutableList.of(secondaryItem));
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(primarySequence, secondarySequence)
-                  .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(primarySequence, secondarySequence)
+              .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
 
     // 1250 ms @ mono 44.1 KHz = 55125 samples
@@ -417,25 +413,22 @@ public class CompositionPlayerSpeedAdjustmentsTest {
                 (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram));
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          timestampRecordingEditedMediaItems))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(timestampRecordingEditedMediaItems))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 

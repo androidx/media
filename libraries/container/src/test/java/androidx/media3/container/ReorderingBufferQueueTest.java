@@ -43,9 +43,8 @@ public final class ReorderingBufferQueueTest {
   public void noMaxSize_queueOnlyEmitsOnExplicitFlushCall() {
     ArrayList<Buffer> emittedMessages = new ArrayList<>();
     ReorderingBufferQueue reorderingQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, buffer) ->
-                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
+        new ReorderingBufferQueue((presentationTimeUs, buffer) ->
+            emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
 
     // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
     // making copies as required.
@@ -72,9 +71,8 @@ public final class ReorderingBufferQueueTest {
   public void setMaxSize_emitsImmediatelyIfQueueIsOversized() {
     ArrayList<Buffer> emittedMessages = new ArrayList<>();
     ReorderingBufferQueue reorderingQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, buffer) ->
-                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
+        new ReorderingBufferQueue((presentationTimeUs, buffer) ->
+            emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
     ParsableByteArray scratchData = new ParsableByteArray();
     byte[] data1 = TestUtil.buildTestData(5);
     scratchData.reset(data1);
@@ -94,9 +92,8 @@ public final class ReorderingBufferQueueTest {
   public void withMaxSize_addEmitsWhenQueueIsFull() {
     ArrayList<Buffer> emittedMessages = new ArrayList<>();
     ReorderingBufferQueue reorderingQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, buffer) ->
-                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
+        new ReorderingBufferQueue((presentationTimeUs, buffer) ->
+            emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
     reorderingQueue.setMaxSize(1);
 
     // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
@@ -119,9 +116,8 @@ public final class ReorderingBufferQueueTest {
   public void withMaxSize_addEmitsWhenQueueIsFull_handlesDuplicateTimestamps() {
     ArrayList<Buffer> emittedMessages = new ArrayList<>();
     ReorderingBufferQueue reorderingQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, buffer) ->
-                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
+        new ReorderingBufferQueue((presentationTimeUs, buffer) ->
+            emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
     reorderingQueue.setMaxSize(1);
 
     // Deliberately re-use a single ParsableByteArray instance to ensure the implementation is
@@ -180,9 +176,8 @@ public final class ReorderingBufferQueueTest {
   public void unsetTimestamp_emittedImmediately() {
     ArrayList<Buffer> emittedMessages = new ArrayList<>();
     ReorderingBufferQueue reorderingQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, buffer) ->
-                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
+        new ReorderingBufferQueue((presentationTimeUs, buffer) ->
+            emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
 
     byte[] data = TestUtil.buildTestData(5);
     reorderingQueue.add(/* presentationTimeUs= */ C.TIME_UNSET, new ParsableByteArray(data));

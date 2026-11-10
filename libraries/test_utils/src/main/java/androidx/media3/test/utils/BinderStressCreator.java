@@ -66,30 +66,28 @@ public final class BinderStressCreator implements AutoCloseable {
 
     // Run 10 times and find maximum runtime without additional stress.
     AtomicLong maxTimeWithoutStressUs = new AtomicLong(/* initialValue= */ 0);
-    instrumentation.runOnMainSync(
-        () -> {
-          for (int i = 0; i < 10; i++) {
-            long startTimeNs = System.nanoTime();
-            T runHandle = systemUnderTest.get();
-            long runtimeUs = (System.nanoTime() - startTimeNs) / 1000;
-            maxTimeWithoutStressUs.set(max(maxTimeWithoutStressUs.get(), runtimeUs));
-            cleanUp.accept(runHandle);
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      for (int i = 0; i < 10; i++) {
+        long startTimeNs = System.nanoTime();
+        T runHandle = systemUnderTest.get();
+        long runtimeUs = (System.nanoTime() - startTimeNs) / 1000;
+        maxTimeWithoutStressUs.set(max(maxTimeWithoutStressUs.get(), runtimeUs));
+        cleanUp.accept(runHandle);
+      }
+    });
 
     // Try again with additional binder stress on the system and find minimum runtime.
     AtomicLong minTimeWithStressUs = new AtomicLong(/* initialValue= */ Long.MAX_VALUE);
     try (BinderStressCreator binderStressCreator = new BinderStressCreator(context)) {
-      instrumentation.runOnMainSync(
-          () -> {
-            for (int i = 0; i < 10; i++) {
-              long startTimeNs = System.nanoTime();
-              T runHandle = systemUnderTest.get();
-              long runtimeUs = (System.nanoTime() - startTimeNs) / 1000;
-              minTimeWithStressUs.set(min(minTimeWithStressUs.get(), runtimeUs));
-              cleanUp.accept(runHandle);
-            }
-          });
+      instrumentation.runOnMainSync(() -> {
+        for (int i = 0; i < 10; i++) {
+          long startTimeNs = System.nanoTime();
+          T runHandle = systemUnderTest.get();
+          long runtimeUs = (System.nanoTime() - startTimeNs) / 1000;
+          minTimeWithStressUs.set(min(minTimeWithStressUs.get(), runtimeUs));
+          cleanUp.accept(runHandle);
+        }
+      });
     }
 
     // Verify that additional binder stress didn't increase time too much. We compare max vs min
@@ -110,25 +108,24 @@ public final class BinderStressCreator implements AutoCloseable {
       AtomicBoolean cancelled = new AtomicBoolean();
       threadCancellationFlags[i] = cancelled;
       threads[i] =
-          new Thread(
-              () -> {
-                threadsCreated.countDown();
-                while (!cancelled.get()) {
-                  // Use two different system services to not depend too much on the
-                  // implementation details of one of them. Both calls can't be fulfilled in
-                  // process and are unlikely to work without binder calls even in the future.
-                  ConnectivityManager connectivityManager =
-                      (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-                  checkNotNull(connectivityManager);
-                  Network activeNetwork = connectivityManager.getActiveNetwork();
-                  if (activeNetwork != null) {
-                    connectivityManager.requestBandwidthUpdate(activeNetwork);
-                  }
-                  AudioManager audioManager =
-                      (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-                  checkNotNull(audioManager).setStreamVolume(C.STREAM_TYPE_DEFAULT, 1, 0);
-                }
-              });
+          new Thread(() -> {
+            threadsCreated.countDown();
+            while (!cancelled.get()) {
+              // Use two different system services to not depend too much on the
+              // implementation details of one of them. Both calls can't be fulfilled in
+              // process and are unlikely to work without binder calls even in the future.
+              ConnectivityManager connectivityManager =
+                  (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+              checkNotNull(connectivityManager);
+              Network activeNetwork = connectivityManager.getActiveNetwork();
+              if (activeNetwork != null) {
+                connectivityManager.requestBandwidthUpdate(activeNetwork);
+              }
+              AudioManager audioManager =
+                  (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+              checkNotNull(audioManager).setStreamVolume(C.STREAM_TYPE_DEFAULT, 1, 0);
+            }
+          });
       threads[i].start();
     }
     threadsCreated.await();

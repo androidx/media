@@ -286,13 +286,12 @@ public final class HttpEngineDataSourceTest {
     Map<String, String> headersSet = new HashMap<>();
     when(mockUrlRequestBuilder.addHeader(
             ArgumentMatchers.anyString(), ArgumentMatchers.anyString()))
-        .thenAnswer(
-            (invocation) -> {
-              String key = invocation.getArgument(0);
-              String value = invocation.getArgument(1);
-              headersSet.put(key, value);
-              return null;
-            });
+        .thenAnswer(invocation -> {
+          String key = invocation.getArgument(0);
+          String value = invocation.getArgument(1);
+          headersSet.put(key, value);
+          return null;
+        });
 
     dataSourceUnderTest.setRequestProperty("defaultHeader2", "dataSourceOverridesDefault");
     dataSourceUnderTest.setRequestProperty("dataSourceHeader1", "dataSourceValue1");
@@ -445,11 +444,10 @@ public final class HttpEngineDataSourceTest {
     dataSourceUnderTest =
         (HttpEngineDataSource)
             new HttpEngineDataSource.Factory(mockHttpEngine, executorService)
-                .setContentTypePredicate(
-                    (String input) -> {
-                      testedContentTypes.add(input);
-                      return false;
-                    })
+                .setContentTypePredicate((String input) -> {
+                  testedContentTypes.add(input);
+                  return false;
+                })
                 .createDataSource();
 
     try {

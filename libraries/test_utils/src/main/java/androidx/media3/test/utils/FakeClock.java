@@ -405,11 +405,10 @@ public class FakeClock implements Clock {
       // player. Avoid this situation by postponing any further updates on the main looper to after
       // the UI interaction.
       Looper.myQueue()
-          .addIdleHandler(
-              () -> {
-                mainHandler.postDelayed(this::maybeTriggerMessage, /* delayMillis= */ 1);
-                return false;
-              });
+          .addIdleHandler(() -> {
+            mainHandler.postDelayed(this::maybeTriggerMessage, /* delayMillis= */ 1);
+            return false;
+          });
       return;
     }
     if (message.timeMs > timeSinceBootMs) {

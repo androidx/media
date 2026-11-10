@@ -108,43 +108,41 @@ public class DownloadServiceDashTest {
     fakeStreamKey1 = new StreamKey(0, 0, 0);
     fakeStreamKey2 = new StreamKey(0, 1, 0);
 
-    testThread.runTestOnMainThread(
-        () -> {
-          DefaultDownloadIndex downloadIndex =
-              new DefaultDownloadIndex(cacheRule.createDatabaseProvider());
-          DefaultDownloaderFactory downloaderFactory =
-              new DefaultDownloaderFactory(
-                  new CacheDataSource.Factory()
-                      .setCache(cache)
-                      .setUpstreamDataSourceFactory(fakeDataSourceFactory),
-                  /* executor= */ Runnable::run);
-          final DownloadManager dashDownloadManager =
-              new DownloadManager(
-                  ApplicationProvider.getApplicationContext(), downloadIndex, downloaderFactory);
-          downloadManagerListener = new TestDownloadManagerListener(dashDownloadManager);
-          dashDownloadManager.resumeDownloads();
+    testThread.runTestOnMainThread(() -> {
+      DefaultDownloadIndex downloadIndex =
+          new DefaultDownloadIndex(cacheRule.createDatabaseProvider());
+      DefaultDownloaderFactory downloaderFactory =
+          new DefaultDownloaderFactory(
+              new CacheDataSource.Factory()
+                  .setCache(cache)
+                  .setUpstreamDataSourceFactory(fakeDataSourceFactory),
+              /* executor= */ Runnable::run);
+      final DownloadManager dashDownloadManager =
+          new DownloadManager(
+              ApplicationProvider.getApplicationContext(), downloadIndex, downloaderFactory);
+      downloadManagerListener = new TestDownloadManagerListener(dashDownloadManager);
+      dashDownloadManager.resumeDownloads();
 
-          dashDownloadService =
-              new DownloadService(DownloadService.FOREGROUND_NOTIFICATION_ID_NONE) {
-                @Override
-                protected DownloadManager getDownloadManager() {
-                  return dashDownloadManager;
-                }
+      dashDownloadService =
+          new DownloadService(DownloadService.FOREGROUND_NOTIFICATION_ID_NONE) {
+            @Override
+            protected DownloadManager getDownloadManager() {
+              return dashDownloadManager;
+            }
 
-                @Override
-                protected @Nullable Scheduler getScheduler() {
-                  return null;
-                }
+            @Override
+            protected @Nullable Scheduler getScheduler() {
+              return null;
+            }
 
-                @Override
-                protected Notification getForegroundNotification(
-                    List<Download> downloads,
-                    @Requirements.RequirementFlags int notMetRequirements) {
-                  throw new UnsupportedOperationException();
-                }
-              };
-          dashDownloadService.onCreate();
-        });
+            @Override
+            protected Notification getForegroundNotification(
+                List<Download> downloads, @Requirements.RequirementFlags int notMetRequirements) {
+              throw new UnsupportedOperationException();
+            }
+          };
+      dashDownloadService.onCreate();
+    });
   }
 
   @After
@@ -192,13 +190,12 @@ public class DownloadServiceDashTest {
   }
 
   private void removeAll() {
-    testThread.runOnMainThread(
-        () -> {
-          Intent startIntent =
-              DownloadService.buildRemoveDownloadIntent(
-                  context, DownloadService.class, TEST_ID, /* foreground= */ false);
-          dashDownloadService.onStartCommand(startIntent, 0, 0);
-        });
+    testThread.runOnMainThread(() -> {
+      Intent startIntent =
+          DownloadService.buildRemoveDownloadIntent(
+              context, DownloadService.class, TEST_ID, /* foreground= */ false);
+      dashDownloadService.onStartCommand(startIntent, 0, 0);
+    });
   }
 
   private void downloadKeys(StreamKey... keys) {
@@ -210,12 +207,11 @@ public class DownloadServiceDashTest {
             .setStreamKeys(keysList)
             .build();
 
-    testThread.runOnMainThread(
-        () -> {
-          Intent startIntent =
-              DownloadService.buildAddDownloadIntent(
-                  context, DownloadService.class, action, /* foreground= */ false);
-          dashDownloadService.onStartCommand(startIntent, 0, 0);
-        });
+    testThread.runOnMainThread(() -> {
+      Intent startIntent =
+          DownloadService.buildAddDownloadIntent(
+              context, DownloadService.class, action, /* foreground= */ false);
+      dashDownloadService.onStartCommand(startIntent, 0, 0);
+    });
   }
 }

@@ -110,7 +110,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     this.convolutionFunction1DProvider = convolutionFunction1DProvider;
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
-    errorListener = (frameProcessingException) -> {};
+    errorListener = frameProcessingException -> {};
     errorListenerExecutor = MoreExecutors.directExecutor();
     functionLutTexture = GlTextureInfo.UNSET;
     intermediateTexture = GlTextureInfo.UNSET;

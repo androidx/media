@@ -101,7 +101,7 @@ import org.jspecify.annotations.Nullable;
             (NotificationManager)
                 mediaSessionService.getSystemService(Context.NOTIFICATION_SERVICE));
     mainHandler = Util.createHandler(Looper.getMainLooper(), /* callback= */ this);
-    mainExecutor = (runnable) -> Util.postOrRun(mainHandler, runnable);
+    mainExecutor = runnable -> Util.postOrRun(mainHandler, runnable);
     startSelfIntent = new Intent(mediaSessionService, mediaSessionService.getClass());
     startSelfIntentUid = UUID.randomUUID().toString();
     startSelfIntent.putExtra(SELF_INTENT_UID_KEY, startSelfIntentUid);
@@ -192,53 +192,49 @@ import org.jspecify.annotations.Nullable;
    */
   public ListenableFuture<@Nullable Void> updateNotification(
       MediaSession session, boolean startInForegroundRequired) {
-    return CallbackToFutureAdapter.getFuture(
-        completer -> {
-          if (!mediaSessionService.isSessionAdded(session) || !shouldShowNotification(session)) {
-            removeNotification();
-            completer.set(null);
-            return "notificationRemoved";
-          }
-          int notificationSequence = ++totalNotificationCount;
-          ImmutableList<CommandButton> mediaButtonPreferences =
-              checkNotNull(getConnectedControllerForSession(session)).getMediaButtonPreferences();
-          MediaNotification.Provider.Callback callback =
-              notification ->
-                  mainExecutor.execute(
-                      () -> onNotificationUpdated(notificationSequence, session, notification));
+    return CallbackToFutureAdapter.getFuture(completer -> {
+      if (!mediaSessionService.isSessionAdded(session) || !shouldShowNotification(session)) {
+        removeNotification();
+        completer.set(null);
+        return "notificationRemoved";
+      }
+      int notificationSequence = ++totalNotificationCount;
+      ImmutableList<CommandButton> mediaButtonPreferences =
+          checkNotNull(getConnectedControllerForSession(session)).getMediaButtonPreferences();
+      MediaNotification.Provider.Callback callback =
+          notification ->
+              mainExecutor.execute(
+                  () -> onNotificationUpdated(notificationSequence, session, notification));
 
-          Util.postOrRun(
-              session.getImpl().getApplicationHandler(),
-              () -> {
+      Util.postOrRun(
+          session.getImpl().getApplicationHandler(),
+          () -> {
+            try {
+              MediaNotification mediaNotification =
+                  this.mediaNotificationProvider.createNotification(
+                      session, mediaButtonPreferences, actionFactory, callback);
+              checkState(
+                  /* expression= */ mediaNotification.notificationId != SHUTDOWN_NOTIFICATION_ID,
+                  /* errorMessage= */ "notification ID "
+                      + SHUTDOWN_NOTIFICATION_ID
+                      + " is already used internally.");
+              mainExecutor.execute(() -> {
                 try {
-                  MediaNotification mediaNotification =
-                      this.mediaNotificationProvider.createNotification(
-                          session, mediaButtonPreferences, actionFactory, callback);
-                  checkState(
-                      /* expression= */ mediaNotification.notificationId
-                          != SHUTDOWN_NOTIFICATION_ID,
-                      /* errorMessage= */ "notification ID "
-                          + SHUTDOWN_NOTIFICATION_ID
-                          + " is already used internally.");
-                  mainExecutor.execute(
-                      () -> {
-                        try {
-                          updateNotificationInternal(
-                              session, mediaNotification, startInForegroundRequired);
-                          completer.set(null);
-                        } catch (IllegalStateException e) {
-                          // Re-throw exception thrown in the main thread caused by not being
-                          // allowed to start a service into the foreground from the background.
-                          completer.setException(e);
-                        }
-                      });
-                } catch (RuntimeException e) {
-                  // Re-throw exception thrown in the app thread caused by programming errors.
+                  updateNotificationInternal(session, mediaNotification, startInForegroundRequired);
+                  completer.set(null);
+                } catch (IllegalStateException e) {
+                  // Re-throw exception thrown in the main thread caused by not being
+                  // allowed to start a service into the foreground from the background.
                   completer.setException(e);
                 }
               });
-          return "notificationUpdated";
-        });
+            } catch (RuntimeException e) {
+              // Re-throw exception thrown in the app thread caused by programming errors.
+              completer.setException(e);
+            }
+          });
+      return "notificationUpdated";
+    });
   }
 
   public boolean isStartedInForeground() {

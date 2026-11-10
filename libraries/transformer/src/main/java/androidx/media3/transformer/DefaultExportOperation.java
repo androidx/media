@@ -192,11 +192,10 @@ import org.jspecify.annotations.Nullable;
     ExportResult exportResult = exportResultBuilder.build();
     // Publish the output on the application thread, so that it isn't published if the export is
     // cancelled before the callback runs.
-    runner.reportCompleted(
-        () -> {
-          outputResolver.clearPendingFlag();
-          listener.onCompleted(exportResult);
-        });
+    runner.reportCompleted(() -> {
+      outputResolver.clearPendingFlag();
+      listener.onCompleted(exportResult);
+    });
   }
 
   private void reportErrorInternal(ExportException exportException) {

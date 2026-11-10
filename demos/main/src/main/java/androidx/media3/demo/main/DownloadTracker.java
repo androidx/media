@@ -406,31 +406,28 @@ public class DownloadTracker {
 
     public void execute() {
       future =
-          executorService.submit(
-              () -> {
-                OfflineLicenseHelper offlineLicenseHelper =
-                    OfflineLicenseHelper.newWidevineInstance(
-                        drmConfiguration,
-                        dataSourceFactory,
-                        new DrmSessionEventListener.EventDispatcher());
-                try {
-                  keySetId = offlineLicenseHelper.downloadLicense(format);
-                } catch (DrmSession.DrmSessionException e) {
-                  drmSessionException = e;
-                } finally {
-                  offlineLicenseHelper.release();
-                  new Handler(Looper.getMainLooper())
-                      .post(
-                          () -> {
-                            if (drmSessionException != null) {
-                              dialogHelper.onOfflineLicenseFetchedError(drmSessionException);
-                            } else {
-                              dialogHelper.onOfflineLicenseFetched(
-                                  downloadHelper, checkNotNull(keySetId));
-                            }
-                          });
-                }
-              });
+          executorService.submit(() -> {
+            OfflineLicenseHelper offlineLicenseHelper =
+                OfflineLicenseHelper.newWidevineInstance(
+                    drmConfiguration,
+                    dataSourceFactory,
+                    new DrmSessionEventListener.EventDispatcher());
+            try {
+              keySetId = offlineLicenseHelper.downloadLicense(format);
+            } catch (DrmSession.DrmSessionException e) {
+              drmSessionException = e;
+            } finally {
+              offlineLicenseHelper.release();
+              new Handler(Looper.getMainLooper())
+                  .post(() -> {
+                    if (drmSessionException != null) {
+                      dialogHelper.onOfflineLicenseFetchedError(drmSessionException);
+                    } else {
+                      dialogHelper.onOfflineLicenseFetched(downloadHelper, checkNotNull(keySetId));
+                    }
+                  });
+            }
+          });
     }
   }
 }

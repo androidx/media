@@ -131,11 +131,10 @@ public class CompositionPlayerTest {
   @Before
   public void setupSurfaces() {
     rule.getScenario()
-        .onActivity(
-            activity -> {
-              surfaceView = activity.getSurfaceView();
-              textureView = activity.getTextureView();
-            });
+        .onActivity(activity -> {
+          surfaceView = activity.getSurfaceView();
+          textureView = activity.getTextureView();
+        });
     surfaceHolder = surfaceView.getHolder();
   }
 
@@ -146,32 +145,30 @@ public class CompositionPlayerTest {
 
   @After
   public void releasePlayer() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (compositionPlayer != null) {
-            compositionPlayer.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (compositionPlayer != null) {
+        compositionPlayer.release();
+      }
+    });
   }
 
   @Test
   public void setVideoSurfaceView_beforeSettingComposition_surfaceViewIsPassed() throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                              .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
   }
@@ -179,21 +176,20 @@ public class CompositionPlayerTest {
   @Test
   public void setVideoSurfaceView_afterSettingComposition_surfaceViewIsPassed() throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                              .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
   }
@@ -203,21 +199,20 @@ public class CompositionPlayerTest {
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                              .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
   }
@@ -227,21 +222,20 @@ public class CompositionPlayerTest {
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                              .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
   }
@@ -255,85 +249,81 @@ public class CompositionPlayerTest {
     ConditionVariable surfaceClearStarted = new ConditionVariable();
     ConditionVariable allowSurfaceClearToComplete = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setVideoGraphFactory(
-                      /* videoGraphFactory= */ new VideoGraph.Factory() {
-                        @Override
-                        public VideoGraph create(
-                            Context context,
-                            ColorInfo outputColorInfo,
-                            DebugViewProvider debugViewProvider,
-                            VideoGraph.Listener listener,
-                            Executor listenerExecutor,
-                            long initialTimestampOffsetUs,
-                            boolean renderFramesAutomatically) {
-                          return new SingleInputVideoGraph(
-                              applicationContext,
-                              new DefaultVideoFrameProcessor.Factory.Builder().build(),
-                              ColorInfo.SDR_BT709_LIMITED,
-                              new VideoGraph.Listener() {},
-                              DebugViewProvider.NONE,
-                              directExecutor(),
-                              /* renderFramesAutomatically= */ true) {
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setVideoGraphFactory(
+                  /* videoGraphFactory= */ new VideoGraph.Factory() {
+                    @Override
+                    public VideoGraph create(
+                        Context context,
+                        ColorInfo outputColorInfo,
+                        DebugViewProvider debugViewProvider,
+                        VideoGraph.Listener listener,
+                        Executor listenerExecutor,
+                        long initialTimestampOffsetUs,
+                        boolean renderFramesAutomatically) {
+                      return new SingleInputVideoGraph(
+                          applicationContext,
+                          new DefaultVideoFrameProcessor.Factory.Builder().build(),
+                          ColorInfo.SDR_BT709_LIMITED,
+                          new VideoGraph.Listener() {},
+                          DebugViewProvider.NONE,
+                          directExecutor(),
+                          /* renderFramesAutomatically= */ true) {
 
-                            @Override
-                            public void setOutputSurfaceInfo(
-                                @Nullable SurfaceInfo outputSurfaceInfo) {
-                              if (outputSurfaceInfo == null) {
-                                // Signal that the surface clearing has started on the playback
-                                // thread.
-                                surfaceClearStarted.open();
-                                // Wait for the test thread to allow completion.
-                                boolean allowSurfaceClearToCompleteOpened = false;
-                                try {
-                                  allowSurfaceClearToCompleteOpened =
-                                      allowSurfaceClearToComplete.block(TEST_TIMEOUT_MS);
-                                } catch (InterruptedException e) {
-                                  Thread.currentThread().interrupt();
-                                }
-                                checkState(allowSurfaceClearToCompleteOpened);
-                              }
-                              super.setOutputSurfaceInfo(outputSurfaceInfo);
+                        @Override
+                        public void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo) {
+                          if (outputSurfaceInfo == null) {
+                            // Signal that the surface clearing has started on the playback
+                            // thread.
+                            surfaceClearStarted.open();
+                            // Wait for the test thread to allow completion.
+                            boolean allowSurfaceClearToCompleteOpened = false;
+                            try {
+                              allowSurfaceClearToCompleteOpened =
+                                  allowSurfaceClearToComplete.block(TEST_TIMEOUT_MS);
+                            } catch (InterruptedException e) {
+                              Thread.currentThread().interrupt();
                             }
-                          };
+                            checkState(allowSurfaceClearToCompleteOpened);
+                          }
+                          super.setOutputSurfaceInfo(outputSurfaceInfo);
                         }
+                      };
+                    }
 
-                        @Override
-                        public boolean supportsMultipleInputs() {
-                          return false;
-                        }
-                      })
-                  .build();
-          readyFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          compositionPlayer.prepare();
-        });
+                    @Override
+                    public boolean supportsMultipleInputs() {
+                      return false;
+                    }
+                  })
+              .build();
+      readyFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                              .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+      compositionPlayer.prepare();
+    });
 
     readyFuture.get();
 
     ConditionVariable mainThreadBlocked = new ConditionVariable();
     Handler mainThreadHandler = new Handler(Looper.getMainLooper());
-    instrumentation.runOnMainSync(
-        () -> {
-          // Triggers surfaceDestroyed to run. Note this method returns after
-          // SurfaceHolder.surfaceDestroyed returns
-          mainThreadHandler.post(() -> surfaceView.setVisibility(View.GONE));
-          // If the main thread is not blocked when clearing the surface, this line would run
-          // immediately, and the assertion on the ConditionalVariable would block.
-          mainThreadHandler.post(mainThreadBlocked::open);
-        });
+    instrumentation.runOnMainSync(() -> {
+      // Triggers surfaceDestroyed to run. Note this method returns after
+      // SurfaceHolder.surfaceDestroyed returns
+      mainThreadHandler.post(() -> surfaceView.setVisibility(View.GONE));
+      // If the main thread is not blocked when clearing the surface, this line would run
+      // immediately, and the assertion on the ConditionalVariable would block.
+      mainThreadHandler.post(mainThreadBlocked::open);
+    });
 
     // Wait until clearing the surface begins.
     assertThat(surfaceClearStarted.block(TEST_TIMEOUT_MS)).isTrue();
@@ -349,15 +339,14 @@ public class CompositionPlayerTest {
   public void setVideoTextureView_throws() {
     AtomicReference<UnsupportedOperationException> exception = new AtomicReference<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          try {
-            compositionPlayer.setVideoTextureView(textureView);
-          } catch (UnsupportedOperationException e) {
-            exception.set(e);
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      try {
+        compositionPlayer.setVideoTextureView(textureView);
+      } catch (UnsupportedOperationException e) {
+        exception.set(e);
+      }
+    });
 
     assertThat(exception.get()).isNotNull();
   }
@@ -367,42 +356,38 @@ public class CompositionPlayerTest {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     SettableFuture<Void> readyFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          readyFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      readyFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
 
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      new MediaItem.Builder()
-                                          .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
-                                          .setImageDurationMs(1_000)
-                                          .build())
-                                  .setFrameRate(30)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-        });
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  new MediaItem.Builder()
+                                      .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                                      .setImageDurationMs(1_000)
+                                      .build())
+                              .setFrameRate(30)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
     readyFuture.get();
     long playbackStartTimeMs = SystemClock.DEFAULT.elapsedRealtime();
     SettableFuture<Void> endedFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.play();
+    });
     endedFuture.get();
     long playbackRealTimeMs = SystemClock.DEFAULT.elapsedRealtime() - playbackStartTimeMs;
 
@@ -420,34 +405,32 @@ public class CompositionPlayerTest {
         new DefaultMediaSourceFactory(applicationContext)
             .setExternalImageLoader(externalImageLoader);
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setMediaSourceFactory(mediaSourceFactory)
-                  .setImageDecoderFactory(
-                      new ExternallyLoadedImageDecoder.Factory(
-                          new TestExternallyLoadedBitmapResolver()))
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      new MediaItem.Builder()
-                                          .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
-                                          .setMimeType(
-                                              MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
-                                          .setImageDurationMs(1_000)
-                                          .build())
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setMediaSourceFactory(mediaSourceFactory)
+              .setImageDecoderFactory(
+                  new ExternallyLoadedImageDecoder.Factory(
+                      new TestExternallyLoadedBitmapResolver()))
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  new MediaItem.Builder()
+                                      .setUri(JPG_SINGLE_PIXEL_ASSET.uri)
+                                      .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+                                      .setImageDurationMs(1_000)
+                                      .build())
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
   }
@@ -465,21 +448,19 @@ public class CompositionPlayerTest {
                 new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
             .build();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
   }
@@ -497,21 +478,19 @@ public class CompositionPlayerTest {
                 new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
             .build();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
   }
@@ -524,57 +503,54 @@ public class CompositionPlayerTest {
             .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setGlObjectsProvider(
-                      new GlObjectsProvider() {
-                        @Override
-                        public EGLContext createEglContext(
-                            EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) {
-                          throw new UnsupportedOperationException();
-                        }
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setGlObjectsProvider(
+                  new GlObjectsProvider() {
+                    @Override
+                    public EGLContext createEglContext(
+                        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) {
+                      throw new UnsupportedOperationException();
+                    }
 
-                        @Override
-                        public EGLSurface createEglSurface(
-                            EGLDisplay eglDisplay,
-                            Object surface,
-                            @C.ColorTransfer int colorTransfer,
-                            boolean isEncoderInputSurface) {
-                          throw new UnsupportedOperationException();
-                        }
+                    @Override
+                    public EGLSurface createEglSurface(
+                        EGLDisplay eglDisplay,
+                        Object surface,
+                        @C.ColorTransfer int colorTransfer,
+                        boolean isEncoderInputSurface) {
+                      throw new UnsupportedOperationException();
+                    }
 
-                        @Override
-                        public EGLSurface createFocusedPlaceholderEglSurface(
-                            EGLContext eglContext, EGLDisplay eglDisplay) {
-                          throw new UnsupportedOperationException();
-                        }
+                    @Override
+                    public EGLSurface createFocusedPlaceholderEglSurface(
+                        EGLContext eglContext, EGLDisplay eglDisplay) {
+                      throw new UnsupportedOperationException();
+                    }
 
-                        @Override
-                        public GlTextureInfo createBuffersForTexture(
-                            int texId, int width, int height) {
-                          throw new UnsupportedOperationException();
-                        }
+                    @Override
+                    public GlTextureInfo createBuffersForTexture(int texId, int width, int height) {
+                      throw new UnsupportedOperationException();
+                    }
 
-                        @Override
-                        public void release(EGLDisplay eglDisplay) {
-                          throw new UnsupportedOperationException();
-                        }
-                      })
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+                    @Override
+                    public void release(EGLDisplay eglDisplay) {
+                      throw new UnsupportedOperationException();
+                    }
+                  })
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     ExecutionException exception = assertThrows(ExecutionException.class, endedFuture::get);
     assertThat(exception).hasCauseThat().isInstanceOf(PlaybackException.class);
@@ -588,45 +564,43 @@ public class CompositionPlayerTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setVideoGraphFactory(
-                      new VideoGraph.Factory() {
-                        @Override
-                        public VideoGraph create(
-                            Context context,
-                            ColorInfo outputColorInfo,
-                            DebugViewProvider debugViewProvider,
-                            VideoGraph.Listener listener,
-                            Executor listenerExecutor,
-                            long initialTimestampOffsetUs,
-                            boolean renderFramesAutomatically) {
-                          return new FailingReleaseVideoGraph(
-                              context,
-                              outputColorInfo,
-                              debugViewProvider,
-                              listener,
-                              listenerExecutor,
-                              renderFramesAutomatically);
-                        }
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setVideoGraphFactory(
+                  new VideoGraph.Factory() {
+                    @Override
+                    public VideoGraph create(
+                        Context context,
+                        ColorInfo outputColorInfo,
+                        DebugViewProvider debugViewProvider,
+                        VideoGraph.Listener listener,
+                        Executor listenerExecutor,
+                        long initialTimestampOffsetUs,
+                        boolean renderFramesAutomatically) {
+                      return new FailingReleaseVideoGraph(
+                          context,
+                          outputColorInfo,
+                          debugViewProvider,
+                          listener,
+                          listenerExecutor,
+                          renderFramesAutomatically);
+                    }
 
-                        @Override
-                        public boolean supportsMultipleInputs() {
-                          return false;
-                        }
-                      })
-                  .build();
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+                    @Override
+                    public boolean supportsMultipleInputs() {
+                      return false;
+                    }
+                  })
+              .build();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     // Wait until the player is ended to make sure the VideoGraph has been created.
     endedFuture.get();
 
@@ -642,55 +616,52 @@ public class CompositionPlayerTest {
             .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     CountDownLatch blockingLatch = new CountDownLatch(1);
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setVideoGraphFactory(
-                      new VideoGraph.Factory() {
-                        @Override
-                        public VideoGraph create(
-                            Context context,
-                            ColorInfo outputColorInfo,
-                            DebugViewProvider debugViewProvider,
-                            VideoGraph.Listener listener,
-                            Executor listenerExecutor,
-                            long initialTimestampOffsetUs,
-                            boolean renderFramesAutomatically) {
-                          return new BlockingReleaseVideoGraph(
-                              context,
-                              outputColorInfo,
-                              debugViewProvider,
-                              listener,
-                              listenerExecutor,
-                              renderFramesAutomatically,
-                              blockingLatch);
-                        }
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setVideoGraphFactory(
+                  new VideoGraph.Factory() {
+                    @Override
+                    public VideoGraph create(
+                        Context context,
+                        ColorInfo outputColorInfo,
+                        DebugViewProvider debugViewProvider,
+                        VideoGraph.Listener listener,
+                        Executor listenerExecutor,
+                        long initialTimestampOffsetUs,
+                        boolean renderFramesAutomatically) {
+                      return new BlockingReleaseVideoGraph(
+                          context,
+                          outputColorInfo,
+                          debugViewProvider,
+                          listener,
+                          listenerExecutor,
+                          renderFramesAutomatically,
+                          blockingLatch);
+                    }
 
-                        @Override
-                        public boolean supportsMultipleInputs() {
-                          return false;
-                        }
-                      })
-                  .build();
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+                    @Override
+                    public boolean supportsMultipleInputs() {
+                      return false;
+                    }
+                  })
+              .build();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     // Wait until the player is ended to make sure the VideoGraph has been created.
     endedFuture.get();
 
     Player.Listener mockListener = mock(Player.Listener.class);
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer.addListener(mockListener);
-          compositionPlayer.release();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer.addListener(mockListener);
+      compositionPlayer.release();
+    });
     verify(mockListener).onPlayerError(any());
   }
 
@@ -699,11 +670,10 @@ public class CompositionPlayerTest {
     AtomicReference<Thread> testGlThread = new AtomicReference<>();
     CountDownLatch frameQueuedLatch = new CountDownLatch(1);
     ExecutorService executorService =
-        Executors.newSingleThreadScheduledExecutor(
-            runnable -> {
-              testGlThread.set(new Thread(runnable, /* threadName= */ "TestThread"));
-              return testGlThread.get();
-            });
+        Executors.newSingleThreadScheduledExecutor(runnable -> {
+          testGlThread.set(new Thread(runnable, /* threadName= */ "TestThread"));
+          return testGlThread.get();
+        });
     GlShaderProgram threadCheckinghaderProgram =
         new PassthroughShaderProgram() {
           @Override
@@ -720,27 +690,25 @@ public class CompositionPlayerTest {
         ImmutableList.of((GlEffect) (context, useHdr) -> threadCheckinghaderProgram);
 
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setGlThreadExecutorService(executorService)
-                  .build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                  .setEffects(
-                                      new Effects(
-                                          /* audioProcessors= */ ImmutableList.of(), effects))
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setGlThreadExecutorService(executorService)
+              .build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                              .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                              .setEffects(
+                                  new Effects(/* audioProcessors= */ ImmutableList.of(), effects))
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
     assertThat(frameQueuedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -753,52 +721,48 @@ public class CompositionPlayerTest {
     AtomicInteger droppedFramesCounter = new AtomicInteger();
     ConditionVariable playerReleased = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .setAudioSink(new AudioSinkWithJumpingPosition(applicationContext))
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addAnalyticsListener(
-              new AnalyticsListener() {
-                @Override
-                public void onDroppedVideoFrames(
-                    EventTime eventTime, int droppedFrames, long elapsedMs) {
-                  droppedFramesCounter.getAndAdd(droppedFrames);
-                }
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .setAudioSink(new AudioSinkWithJumpingPosition(applicationContext))
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addAnalyticsListener(
+          new AnalyticsListener() {
+            @Override
+            public void onDroppedVideoFrames(
+                EventTime eventTime, int droppedFrames, long elapsedMs) {
+              droppedFramesCounter.getAndAdd(droppedFrames);
+            }
 
-                @Override
-                public void onPlayerReleased(EventTime eventTime) {
-                  playerReleased.open();
-                }
-              });
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(
-                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+            @Override
+            public void onPlayerReleased(EventTime eventTime) {
+              playerReleased.open();
+            }
+          });
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
     // Wait until the player is released so that all AnalyticsListener events are received.
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer.release();
-          compositionPlayer = null;
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer.release();
+      compositionPlayer = null;
+    });
     playerReleased.block(TEST_TIMEOUT_MS);
 
     assertThat(droppedFramesCounter.get()).isGreaterThan(0);
@@ -811,53 +775,49 @@ public class CompositionPlayerTest {
     AtomicInteger droppedFramesCounter = new AtomicInteger();
     ConditionVariable playerReleased = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
-                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                  .setAudioSink(new AudioSinkWithJumpingPosition(applicationContext))
-                  .build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addAnalyticsListener(
-              new AnalyticsListener() {
-                @Override
-                public void onDroppedVideoFrames(
-                    EventTime eventTime, int droppedFrames, long elapsedMs) {
-                  droppedFramesCounter.getAndAdd(droppedFrames);
-                }
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          new CompositionPlayer.Builder(applicationContext)
+              .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+              .setAudioSink(new AudioSinkWithJumpingPosition(applicationContext))
+              .build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addAnalyticsListener(
+          new AnalyticsListener() {
+            @Override
+            public void onDroppedVideoFrames(
+                EventTime eventTime, int droppedFrames, long elapsedMs) {
+              droppedFramesCounter.getAndAdd(droppedFrames);
+            }
 
-                @Override
-                public void onPlayerReleased(EventTime eventTime) {
-                  playerReleased.open();
-                }
-              });
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(
-                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+            @Override
+            public void onPlayerReleased(EventTime eventTime) {
+              playerReleased.open();
+            }
+          });
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
     // Wait until the player is released so that all AnalyticsListener events are received.
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer.release();
-          compositionPlayer = null;
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer.release();
+      compositionPlayer = null;
+    });
     playerReleased.block(TEST_TIMEOUT_MS);
 
     assertThat(droppedFramesCounter.get()).isGreaterThan(0);
@@ -869,50 +829,46 @@ public class CompositionPlayerTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              glFrameProcessorTestRule
-                  .createCompositionPlayerBuilder(applicationContext)
-                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                  .build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                videoTimestamps.add(presentationTimeUs);
-              });
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(int playbackState) {
-                  if (playbackState == STATE_ENDED) {
-                    videoTimestamps.add(-1L);
-                  }
-                }
-              });
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      new MediaItem.Builder()
-                                          .setUri(
-                                              MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
-                                          .setClippingConfiguration(
-                                              new MediaItem.ClippingConfiguration.Builder()
-                                                  .setEndPositionMs(10)
-                                                  .build())
-                                          .build())
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          glFrameProcessorTestRule
+              .createCompositionPlayerBuilder(applicationContext)
+              .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+              .build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            videoTimestamps.add(presentationTimeUs);
+          });
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+              if (playbackState == STATE_ENDED) {
+                videoTimestamps.add(-1L);
+              }
+            }
+          });
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  new MediaItem.Builder()
+                                      .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                      .setClippingConfiguration(
+                                          new MediaItem.ClippingConfiguration.Builder()
+                                              .setEndPositionMs(10)
+                                              .build())
+                                      .build())
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
 
     assertThat(videoTimestamps).containsExactly(0L, -1L).inOrder();
@@ -937,20 +893,18 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              glFrameProcessorTestRule.createCompositionPlayerBuilder(applicationContext).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
-                  videoReleaseTimes.add(releaseTimeNs));
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          glFrameProcessorTestRule.createCompositionPlayerBuilder(applicationContext).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+              videoReleaseTimes.add(releaseTimeNs));
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(videoReleaseTimes).isNotEmpty();
@@ -966,37 +920,33 @@ public class CompositionPlayerTest {
       throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              glFrameProcessorTestRule
-                  .createCompositionPlayerBuilder(applicationContext)
-                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                  .build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      new MediaItem.Builder()
-                                          .setUri(
-                                              MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
-                                          .setClippingConfiguration(
-                                              new MediaItem.ClippingConfiguration.Builder()
-                                                  .setEndPositionMs(10)
-                                                  .build())
-                                          .build())
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          glFrameProcessorTestRule
+              .createCompositionPlayerBuilder(applicationContext)
+              .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+              .build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  new MediaItem.Builder()
+                                      .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                      .setClippingConfiguration(
+                                          new MediaItem.ClippingConfiguration.Builder()
+                                              .setEndPositionMs(10)
+                                              .build())
+                                      .build())
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
 
     // Call play() again after the player has already ended.

@@ -97,20 +97,18 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   @Before
   public void setupSurfaces() {
     rule.getScenario()
-        .onActivity(
-            activity -> {
-              surfaceView = activity.getSurfaceView();
-            });
+        .onActivity(activity -> {
+          surfaceView = activity.getSurfaceView();
+        });
   }
 
   @After
   public void releaseResources() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (compositionPlayer != null) {
-            compositionPlayer.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (compositionPlayer != null) {
+        compositionPlayer.release();
+      }
+    });
     rule.getScenario().close();
   }
 
@@ -120,29 +118,27 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer();
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                videoTimestamps.add(presentationTimeUs);
-              });
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(int playbackState) {
-                  if (playbackState == STATE_ENDED) {
-                    videoTimestamps.add(-1L);
-                  }
-                }
-              });
-          compositionPlayer.setComposition(SINGLE_ITEM_COMPOSITION);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            videoTimestamps.add(presentationTimeUs);
+          });
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+              if (playbackState == STATE_ENDED) {
+                videoTimestamps.add(-1L);
+              }
+            }
+          });
+      compositionPlayer.setComposition(SINGLE_ITEM_COMPOSITION);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(videoTimestamps).containsExactly(0L, -1L).inOrder();
@@ -152,25 +148,22 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   public void compositionPlayer_playAfterEnded_doesNotTimeout() throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(SINGLE_ITEM_COMPOSITION);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(SINGLE_ITEM_COMPOSITION);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     SettableFuture<Void> endedAfterPlayFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          endedAfterPlayFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      endedAfterPlayFuture.setFuture(
+          futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.play();
+    });
     endedAfterPlayFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
   }
 
@@ -195,29 +188,27 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(ultraHdrItem)))
             .build();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer();
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                videoTimestamps.add(presentationTimeUs);
-              });
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(int playbackState) {
-                  if (playbackState == STATE_ENDED) {
-                    videoTimestamps.add(-1L);
-                  }
-                }
-              });
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            videoTimestamps.add(presentationTimeUs);
+          });
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+              if (playbackState == STATE_ENDED) {
+                videoTimestamps.add(-1L);
+              }
+            }
+          });
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(videoTimestamps).containsExactly(0L, -1L).inOrder();
@@ -236,15 +227,14 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
     GlObjectsProvider glObjectsProvider = new DefaultGlObjectsProvider();
     try {
       return glExecutorService
-          .submit(
-              () -> {
-                try {
-                  return FrameProcessorUtils.setupOpenGl(glObjectsProvider)
-                      == FrameProcessorUtils.OPEN_GL_VERSION_3;
-                } finally {
-                  FrameProcessorUtils.releaseOpenGl(glObjectsProvider);
-                }
-              })
+          .submit(() -> {
+            try {
+              return FrameProcessorUtils.setupOpenGl(glObjectsProvider)
+                  == FrameProcessorUtils.OPEN_GL_VERSION_3;
+            } finally {
+              FrameProcessorUtils.releaseOpenGl(glObjectsProvider);
+            }
+          })
           .get();
     } finally {
       FrameProcessorUtils.shutdownGlExecutorService(glExecutorService);

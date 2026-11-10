@@ -491,13 +491,12 @@ public class DefaultPreloadManagerTest {
     PreloadMediaSource preloadMediaSource0 =
         (PreloadMediaSource) preloadManager.getMediaSource(mediaItem0);
     Handler playbackHandler = new Handler(preloadThread.getLooper());
-    playbackHandler.post(
-        () ->
-            checkNotNull(preloadMediaSource0)
-                .prepareSource(
-                    (source, timeline) -> {},
-                    PlayerId.UNSET,
-                    DefaultBandwidthMeter.getSingletonInstance(context)));
+    playbackHandler.post(() ->
+        checkNotNull(preloadMediaSource0)
+            .prepareSource(
+                (source, timeline) -> {},
+                PlayerId.UNSET,
+                DefaultBandwidthMeter.getSingletonInstance(context)));
     wrappedMediaSource0.setAllowPreparation(true);
     wrappedMediaSource1.setAllowPreparation(true);
     shadowOf(preloadThread.getLooper()).idle();
@@ -704,23 +703,22 @@ public class DefaultPreloadManagerTest {
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     ArrayList<String> preparedMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              return new FakeMediaSource() {
-                @Override
-                public synchronized void prepareSourceInternal(
-                    @Nullable TransferListener mediaTransferListener) {
-                  preparedMediaId.add(mediaItem.mediaId);
-                  super.prepareSourceInternal(mediaTransferListener);
-                }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          return new FakeMediaSource() {
+            @Override
+            public synchronized void prepareSourceInternal(
+                @Nullable TransferListener mediaTransferListener) {
+              preparedMediaId.add(mediaItem.mediaId);
+              super.prepareSourceInternal(mediaTransferListener);
+            }
 
-                @Override
-                public MediaItem getMediaItem() {
-                  return mediaItem;
-                }
-              };
-            });
+            @Override
+            public MediaItem getMediaItem() {
+              return mediaItem;
+            }
+          };
+        });
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
@@ -1056,20 +1054,19 @@ public class DefaultPreloadManagerTest {
     MediaSource.Factory mediaSourceFactory = mock(MediaSource.Factory.class);
     AtomicReference<MediaSource> mediaSource0 = new AtomicReference<>();
     when(mediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              if (mediaItem.equals(mediaItem0)) {
-                MediaSource mediaSource =
-                    mock(
-                        MediaSource.class,
-                        delegatesTo(underlyingMediaSourceFactory.createMediaSource(mediaItem0)));
-                mediaSource0.set(mediaSource);
-                return mediaSource;
-              } else {
-                return underlyingMediaSourceFactory.createMediaSource(mediaItem);
-              }
-            });
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          if (mediaItem.equals(mediaItem0)) {
+            MediaSource mediaSource =
+                mock(
+                    MediaSource.class,
+                    delegatesTo(underlyingMediaSourceFactory.createMediaSource(mediaItem0)));
+            mediaSource0.set(mediaSource);
+            return mediaSource;
+          } else {
+            return underlyingMediaSourceFactory.createMediaSource(mediaItem);
+          }
+        });
     DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
     LoadControl loadControl = mock(LoadControl.class);
     when(loadControl.shouldContinueLoading(any())).thenReturn(true);
@@ -1139,37 +1136,33 @@ public class DefaultPreloadManagerTest {
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     ArrayList<String> releasedPreloadingPeriodMediaIds = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              FakeTimeline.TimelineWindowDefinition timelineWindowDefinition =
-                  new FakeTimeline.TimelineWindowDefinition.Builder()
-                      .setMediaItem(mediaItem)
-                      .build();
-              return new FakeMediaSource(new FakeTimeline(timelineWindowDefinition)) {
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          FakeTimeline.TimelineWindowDefinition timelineWindowDefinition =
+              new FakeTimeline.TimelineWindowDefinition.Builder().setMediaItem(mediaItem).build();
+          return new FakeMediaSource(new FakeTimeline(timelineWindowDefinition)) {
+            @Override
+            protected MediaPeriod createMediaPeriod(
+                MediaPeriodId id,
+                TrackGroupArray trackGroupArray,
+                Allocator allocator,
+                MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                DrmSessionManager drmSessionManager,
+                DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                @Nullable TransferListener transferListener) {
+              return new FakeMediaPeriod(
+                  trackGroupArray,
+                  allocator,
+                  FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                  mediaSourceEventDispatcher) {
                 @Override
-                protected MediaPeriod createMediaPeriod(
-                    MediaPeriodId id,
-                    TrackGroupArray trackGroupArray,
-                    Allocator allocator,
-                    MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-                    DrmSessionManager drmSessionManager,
-                    DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-                    @Nullable TransferListener transferListener) {
-                  return new FakeMediaPeriod(
-                      trackGroupArray,
-                      allocator,
-                      FakeTimeline.TimelineWindowDefinition
-                          .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-                      mediaSourceEventDispatcher) {
-                    @Override
-                    public void release() {
-                      releasedPreloadingPeriodMediaIds.add(mediaItem.mediaId);
-                    }
-                  };
+                public void release() {
+                  releasedPreloadingPeriodMediaIds.add(mediaItem.mediaId);
                 }
               };
-            });
+            }
+          };
+        });
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
@@ -1220,13 +1213,12 @@ public class DefaultPreloadManagerTest {
     PreloadMediaSource preloadMediaSource4 =
         (PreloadMediaSource) preloadManager.getMediaSource(mediaItem4);
     Handler playbackHandler = new Handler(preloadThread.getLooper());
-    playbackHandler.post(
-        () ->
-            checkNotNull(preloadMediaSource4)
-                .prepareSource(
-                    (source, timeline) -> {},
-                    PlayerId.UNSET,
-                    DefaultBandwidthMeter.getSingletonInstance(context)));
+    playbackHandler.post(() ->
+        checkNotNull(preloadMediaSource4)
+            .prepareSource(
+                (source, timeline) -> {},
+                PlayerId.UNSET,
+                DefaultBandwidthMeter.getSingletonInstance(context)));
     shadowOf(preloadThread.getLooper()).idle();
 
     currentPlayingIndex.set(4);
@@ -1260,22 +1252,21 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
     ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              return new FakeMediaSource() {
-                @Override
-                public MediaItem getMediaItem() {
-                  return mediaItem;
-                }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          return new FakeMediaSource() {
+            @Override
+            public MediaItem getMediaItem() {
+              return mediaItem;
+            }
 
-                @Override
-                protected void releaseSourceInternal() {
-                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
-                  super.releaseSourceInternal();
-                }
-              };
-            });
+            @Override
+            protected void releaseSourceInternal() {
+              internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+              super.releaseSourceInternal();
+            }
+          };
+        });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.invalidate();
     shadowOf(preloadThread.getLooper()).idle();
@@ -1427,22 +1418,21 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
     ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              return new FakeMediaSource() {
-                @Override
-                public MediaItem getMediaItem() {
-                  return mediaItem;
-                }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          return new FakeMediaSource() {
+            @Override
+            public MediaItem getMediaItem() {
+              return mediaItem;
+            }
 
-                @Override
-                protected void releaseSourceInternal() {
-                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
-                  super.releaseSourceInternal();
-                }
-              };
-            });
+            @Override
+            protected void releaseSourceInternal() {
+              internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+              super.releaseSourceInternal();
+            }
+          };
+        });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.invalidate();
     shadowOf(preloadThread.getLooper()).idle();
@@ -1493,29 +1483,28 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId3").setUri("http://exoplayer.dev/video3").build();
     ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              FakeMediaSource fakeMediaSource =
-                  new FakeMediaSource() {
-                    @Override
-                    public MediaItem getMediaItem() {
-                      return mediaItem;
-                    }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          FakeMediaSource fakeMediaSource =
+              new FakeMediaSource() {
+                @Override
+                public MediaItem getMediaItem() {
+                  return mediaItem;
+                }
 
-                    @Override
-                    protected void releaseSourceInternal() {
-                      internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
-                      super.releaseSourceInternal();
-                    }
-                  };
-              if (mediaItem.mediaId.equals("mediaId1")) {
-                // Set `allowPreparation` for mediaItem1 to false intentionally so that we can
-                // control the timing to call preloadManager.removeMediaItems() later.
-                fakeMediaSource.setAllowPreparation(false);
-              }
-              return fakeMediaSource;
-            });
+                @Override
+                protected void releaseSourceInternal() {
+                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+                  super.releaseSourceInternal();
+                }
+              };
+          if (mediaItem.mediaId.equals("mediaId1")) {
+            // Set `allowPreparation` for mediaItem1 to false intentionally so that we can
+            // control the timing to call preloadManager.removeMediaItems() later.
+            fakeMediaSource.setAllowPreparation(false);
+          }
+          return fakeMediaSource;
+        });
     preloadManager.addMediaItems(
         ImmutableList.of(mediaItem0, mediaItem1, mediaItem2, mediaItem3),
         /* rankingDataList= */ ImmutableList.of(0, 1, 2, 3));
@@ -1569,29 +1558,28 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId3").setUri("http://exoplayer.dev/video3").build();
     ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              FakeMediaSource fakeMediaSource =
-                  new FakeMediaSource() {
-                    @Override
-                    public MediaItem getMediaItem() {
-                      return mediaItem;
-                    }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          FakeMediaSource fakeMediaSource =
+              new FakeMediaSource() {
+                @Override
+                public MediaItem getMediaItem() {
+                  return mediaItem;
+                }
 
-                    @Override
-                    protected void releaseSourceInternal() {
-                      internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
-                      super.releaseSourceInternal();
-                    }
-                  };
-              if (mediaItem.mediaId.equals("mediaId1")) {
-                // Set `allowPreparation` for mediaItem1 to false intentionally so that we can
-                // control the timing to call preloadManager.removeMediaItems() later.
-                fakeMediaSource.setAllowPreparation(false);
-              }
-              return fakeMediaSource;
-            });
+                @Override
+                protected void releaseSourceInternal() {
+                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+                  super.releaseSourceInternal();
+                }
+              };
+          if (mediaItem.mediaId.equals("mediaId1")) {
+            // Set `allowPreparation` for mediaItem1 to false intentionally so that we can
+            // control the timing to call preloadManager.removeMediaItems() later.
+            fakeMediaSource.setAllowPreparation(false);
+          }
+          return fakeMediaSource;
+        });
     preloadManager.addMediaItems(
         ImmutableList.of(mediaItem0, mediaItem1, mediaItem2, mediaItem3),
         /* rankingDataList= */ ImmutableList.of(0, 1, 2, 3));
@@ -1656,22 +1644,21 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
     ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              return new FakeMediaSource() {
-                @Override
-                public MediaItem getMediaItem() {
-                  return mediaItem;
-                }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          return new FakeMediaSource() {
+            @Override
+            public MediaItem getMediaItem() {
+              return mediaItem;
+            }
 
-                @Override
-                protected void releaseSourceInternal() {
-                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
-                  super.releaseSourceInternal();
-                }
-              };
-            });
+            @Override
+            protected void releaseSourceInternal() {
+              internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+              super.releaseSourceInternal();
+            }
+          };
+        });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
     preloadManager.invalidate();
@@ -1726,22 +1713,21 @@ public class DefaultPreloadManagerTest {
         mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
     ArrayList<String> internalSourceToReleaseReferenceByMediaId = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              MediaItem mediaItem = invocation.getArgument(0);
-              return new FakeMediaSource() {
-                @Override
-                public MediaItem getMediaItem() {
-                  return mediaItem;
-                }
+        .thenAnswer(invocation -> {
+          MediaItem mediaItem = invocation.getArgument(0);
+          return new FakeMediaSource() {
+            @Override
+            public MediaItem getMediaItem() {
+              return mediaItem;
+            }
 
-                @Override
-                protected void releaseSourceInternal() {
-                  internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
-                  super.releaseSourceInternal();
-                }
-              };
-            });
+            @Override
+            protected void releaseSourceInternal() {
+              internalSourceToReleaseReferenceByMediaId.add(mediaItem.mediaId);
+              super.releaseSourceInternal();
+            }
+          };
+        });
     preloadManager.add(mediaItem1, /* rankingData= */ 1);
     preloadManager.add(mediaItem2, /* rankingData= */ 2);
     preloadManager.invalidate();
@@ -1790,13 +1776,12 @@ public class DefaultPreloadManagerTest {
           shadowOf(preloadThread.getLooper()).idle();
         };
     Handler preloadHandler = Util.createHandler(preloadThread.getLooper(), /* callback= */ null);
-    preloadHandler.post(
-        () ->
-            mediaSource.prepareSource(
-                mediaSourceCaller,
-                PlayerId.UNSET,
-                DefaultBandwidthMeter.getSingletonInstance(
-                    ApplicationProvider.getApplicationContext())));
+    preloadHandler.post(() ->
+        mediaSource.prepareSource(
+            mediaSourceCaller,
+            PlayerId.UNSET,
+            DefaultBandwidthMeter.getSingletonInstance(
+                ApplicationProvider.getApplicationContext())));
     shadowOf(preloadThread.getLooper()).idle();
   }
 

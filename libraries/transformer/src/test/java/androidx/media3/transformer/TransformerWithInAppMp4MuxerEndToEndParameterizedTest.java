@@ -85,13 +85,12 @@ public class TransformerWithInAppMp4MuxerEndToEndParameterizedTest {
   @Test
   public void transmux_mp4File_outputMatchesExpected() throws Exception {
     Muxer.Factory inAppMuxerFactory =
-        new InAppMp4Muxer.Factory(
-            metadataEntries ->
-                // Add timestamp to make output file deterministic.
-                metadataEntries.add(
-                    new Mp4TimestampData(
-                        /* creationTimestampSeconds= */ 3_000_000_000L,
-                        /* modificationTimestampSeconds= */ 4_000_000_000L)));
+        new InAppMp4Muxer.Factory(metadataEntries ->
+            // Add timestamp to make output file deterministic.
+            metadataEntries.add(
+                new Mp4TimestampData(
+                    /* creationTimestampSeconds= */ 3_000_000_000L,
+                    /* modificationTimestampSeconds= */ 4_000_000_000L)));
 
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();

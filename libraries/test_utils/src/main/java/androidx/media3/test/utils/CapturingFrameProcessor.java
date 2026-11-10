@@ -208,16 +208,15 @@ public class CapturingFrameProcessor implements FrameProcessor {
    */
   public ImmutableList<ImmutableList<Long>> getQueuedContentTimesUs() {
     return queuedEvents.stream()
-        .map(
-            event -> {
-              if (event instanceof EosEvent) {
-                return ImmutableList.of(C.TIME_UNSET);
-              }
-              FramesEvent framesEvent = (FramesEvent) event;
-              return framesEvent.frames.stream()
-                  .map(asyncFrame -> asyncFrame.frame.getContentTimeUs())
-                  .collect(toImmutableList());
-            })
+        .map(event -> {
+          if (event instanceof EosEvent) {
+            return ImmutableList.of(C.TIME_UNSET);
+          }
+          FramesEvent framesEvent = (FramesEvent) event;
+          return framesEvent.frames.stream()
+              .map(asyncFrame -> asyncFrame.frame.getContentTimeUs())
+              .collect(toImmutableList());
+        })
         .collect(toImmutableList());
   }
 }

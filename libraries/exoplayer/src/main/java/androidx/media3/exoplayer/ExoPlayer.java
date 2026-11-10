@@ -456,7 +456,7 @@ public interface ExoPlayer extends Player {
           () -> trackSelector,
           () -> loadControl,
           () -> bandwidthMeter,
-          (clock) -> analyticsCollector);
+          clock -> analyticsCollector);
       checkNotNull(renderersFactory);
       checkNotNull(mediaSourceFactory);
       checkNotNull(trackSelector);
@@ -680,7 +680,7 @@ public interface ExoPlayer extends Player {
     public Builder setAnalyticsCollector(AnalyticsCollector analyticsCollector) {
       checkState(!buildCalled);
       checkNotNull(analyticsCollector);
-      this.analyticsCollectorFunction = (clock) -> analyticsCollector;
+      this.analyticsCollectorFunction = clock -> analyticsCollector;
       return this;
     }
 

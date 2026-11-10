@@ -316,16 +316,15 @@ public final class PreCacheHelper {
    * @param durationMs The duration for which the media should be pre-cached, in milliseconds.
    */
   public void preCache(long startPositionMs, long durationMs) {
-    preCacheHandler.post(
-        () -> {
-          if (currentDownloadCallback != null
-              && currentDownloadCallback.isReusable(startPositionMs, durationMs)) {
-            return;
-          } else if (currentDownloadCallback != null) {
-            currentDownloadCallback.cancel(/* removeCachedContent= */ false);
-          }
-          currentDownloadCallback = new DownloadCallback(startPositionMs, durationMs);
-        });
+    preCacheHandler.post(() -> {
+      if (currentDownloadCallback != null
+          && currentDownloadCallback.isReusable(startPositionMs, durationMs)) {
+        return;
+      } else if (currentDownloadCallback != null) {
+        currentDownloadCallback.cancel(/* removeCachedContent= */ false);
+      }
+      currentDownloadCallback = new DownloadCallback(startPositionMs, durationMs);
+    });
   }
 
   /**
@@ -334,12 +333,11 @@ public final class PreCacheHelper {
    * <p>Can be called from any thread.
    */
   public void stop() {
-    preCacheHandler.post(
-        () -> {
-          if (currentDownloadCallback != null) {
-            currentDownloadCallback.cancel(/* removeCachedContent= */ false);
-          }
-        });
+    preCacheHandler.post(() -> {
+      if (currentDownloadCallback != null) {
+        currentDownloadCallback.cancel(/* removeCachedContent= */ false);
+      }
+    });
   }
 
   /**
@@ -351,14 +349,13 @@ public final class PreCacheHelper {
    *     {@link PreCacheHelper} will create a new thread to remove the cached content.
    */
   public void release(boolean removeCachedContent) {
-    preCacheHandler.post(
-        () -> {
-          if (currentDownloadCallback != null) {
-            currentDownloadCallback.cancel(removeCachedContent);
-            currentDownloadCallback = null;
-          }
-          preCacheHandler.removeCallbacksAndMessages(null);
-        });
+    preCacheHandler.post(() -> {
+      if (currentDownloadCallback != null) {
+        currentDownloadCallback.cancel(removeCachedContent);
+        currentDownloadCallback = null;
+      }
+      preCacheHandler.removeCallbacksAndMessages(null);
+    });
   }
 
   private static final class ReleasableSingleThreadExecutor implements ReleasableExecutor {
@@ -411,14 +408,13 @@ public final class PreCacheHelper {
         checkState(executorCount > 0);
         executorCount--;
         if (wereExecutorsReleased()) {
-          preCacheHandler.post(
-              () -> {
-                checkState(wereExecutorsReleased());
-                DownloadCallback callback = this.downloadCallback;
-                if (callback != null) {
-                  callback.maybeSubmitPendingDownloadRequest();
-                }
-              });
+          preCacheHandler.post(() -> {
+            checkState(wereExecutorsReleased());
+            DownloadCallback callback = this.downloadCallback;
+            if (callback != null) {
+              callback.maybeSubmitPendingDownloadRequest();
+            }
+          });
         }
       }
     }
@@ -534,35 +530,29 @@ public final class PreCacheHelper {
     }
 
     public void onDownloadStopped(Task task) {
-      preCacheHandler.post(
-          () -> {
-            if (task != downloaderTask) {
-              return;
-            }
-            downloaderTask = null;
-            @Nullable IOException finalException = task.finalException;
-            if (!task.isRemove && finalException != null) {
-              notifyListeners(listener -> listener.onDownloadError(mediaItem, finalException));
-            } else if (!task.isRemove) {
-              notifyListeners(listener -> listener.onPreCacheCompleted(mediaItem));
-            }
-          });
+      preCacheHandler.post(() -> {
+        if (task != downloaderTask) {
+          return;
+        }
+        downloaderTask = null;
+        @Nullable IOException finalException = task.finalException;
+        if (!task.isRemove && finalException != null) {
+          notifyListeners(listener -> listener.onDownloadError(mediaItem, finalException));
+        } else if (!task.isRemove) {
+          notifyListeners(listener -> listener.onPreCacheCompleted(mediaItem));
+        }
+      });
     }
 
     public void onDownloadProgress(Task task) {
-      preCacheHandler.post(
-          () -> {
-            if (task != downloaderTask) {
-              return;
-            }
-            notifyListeners(
-                listener ->
-                    listener.onPreCacheProgress(
-                        mediaItem,
-                        task.contentLength,
-                        task.bytesDownloaded,
-                        task.percentDownloaded));
-          });
+      preCacheHandler.post(() -> {
+        if (task != downloaderTask) {
+          return;
+        }
+        notifyListeners(listener ->
+            listener.onPreCacheProgress(
+                mediaItem, task.contentLength, task.bytesDownloaded, task.percentDownloaded));
+      });
     }
 
     public void cancel(boolean removeCachedContent) {
@@ -608,17 +598,16 @@ public final class PreCacheHelper {
     }
 
     private void notifyListeners(Consumer<Listener> callable) {
-      applicationHandler.post(
-          () -> {
-            synchronized (lock) {
-              if (isCanceled) {
-                return;
-              }
-              if (listener != null) {
-                callable.accept(listener);
-              }
-            }
-          });
+      applicationHandler.post(() -> {
+        synchronized (lock) {
+          if (isCanceled) {
+            return;
+          }
+          if (listener != null) {
+            callable.accept(listener);
+          }
+        }
+      });
     }
   }
 

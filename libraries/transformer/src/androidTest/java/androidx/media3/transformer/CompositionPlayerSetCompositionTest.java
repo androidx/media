@@ -98,29 +98,27 @@ public class CompositionPlayerSetCompositionTest {
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicInteger numberOfTimelineUpdates = new AtomicInteger();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  if (firstTimelineUpdated.compareAndSet(false, true)) {
-                    compositionPlayer.setComposition(
-                        createSingleAudioVideoSequenceComposition(video, video));
-                    compositionPlayer.play();
-                  }
-                  numberOfTimelineUpdates.incrementAndGet();
-                }
-              });
-          compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(video));
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              if (firstTimelineUpdated.compareAndSet(false, true)) {
+                compositionPlayer.setComposition(
+                    createSingleAudioVideoSequenceComposition(video, video));
+                compositionPlayer.play();
+              }
+              numberOfTimelineUpdates.incrementAndGet();
+            }
+          });
+      compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(video));
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
     // Played two compositions so should update the timeline twice.
@@ -135,30 +133,27 @@ public class CompositionPlayerSetCompositionTest {
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     CopyOnWriteArrayList<Long> playerDurations = new CopyOnWriteArrayList<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  playerDurations.add(
-                      timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).durationUs);
-                  if (!firstTimelineUpdated.get()) {
-                    compositionPlayer.setComposition(
-                        createSingleAudioVideoSequenceComposition(slowMediaItem));
-                    compositionPlayer.play();
-                    firstTimelineUpdated.set(true);
-                  }
-                }
-              });
-          compositionPlayer.setComposition(
-              createSingleAudioVideoSequenceComposition(fastMediaItem));
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              playerDurations.add(
+                  timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).durationUs);
+              if (!firstTimelineUpdated.get()) {
+                compositionPlayer.setComposition(
+                    createSingleAudioVideoSequenceComposition(slowMediaItem));
+                compositionPlayer.play();
+                firstTimelineUpdated.set(true);
+              }
+            }
+          });
+      compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(fastMediaItem));
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
     // 1024ms scaled by 3 and 1/3.
@@ -179,18 +174,16 @@ public class CompositionPlayerSetCompositionTest {
             .setRemoveAudio(true)
             .build();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              createSingleAudioVideoSequenceComposition(clippedEditedMediaItem),
-              /* startPositionMs= */ trimEndPositionMs);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          createSingleAudioVideoSequenceComposition(clippedEditedMediaItem),
+          /* startPositionMs= */ trimEndPositionMs);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
   }
 
@@ -205,25 +198,23 @@ public class CompositionPlayerSetCompositionTest {
         createSingleAudioVideoSequenceComposition(ImmutableList.of(editedMediaItem));
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  if (firstTimelineUpdated.compareAndSet(false, true)) {
-                    compositionPlayer.setComposition(composition);
-                    compositionPlayer.play();
-                  }
-                }
-              });
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              if (firstTimelineUpdated.compareAndSet(false, true)) {
+                compositionPlayer.setComposition(composition);
+                compositionPlayer.play();
+              }
+            }
+          });
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+    });
     endedFuture.get();
   }
 
@@ -253,25 +244,23 @@ public class CompositionPlayerSetCompositionTest {
             .build();
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  if (firstTimelineUpdated.compareAndSet(false, true)) {
-                    compositionPlayer.setComposition(composition, /* startPositionMs= */ 500);
-                    compositionPlayer.play();
-                  }
-                }
-              });
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              if (firstTimelineUpdated.compareAndSet(false, true)) {
+                compositionPlayer.setComposition(composition, /* startPositionMs= */ 500);
+                compositionPlayer.play();
+              }
+            }
+          });
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+    });
     endedFuture.get();
     assertThat(audioProcessorFlushOffsets).containsExactly(0L, 500_000L).inOrder();
   }
@@ -290,35 +279,32 @@ public class CompositionPlayerSetCompositionTest {
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicBoolean secondTimelineUpdated = new AtomicBoolean();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  if (!firstTimelineUpdated.get()) {
-                    compositionPlayer.setComposition(
-                        createSingleAudioVideoSequenceComposition(clippedMediaItem));
-                    firstTimelineUpdated.set(true);
-                  }
-                  if (firstTimelineUpdated.get() && !secondTimelineUpdated.get()) {
-                    compositionPlayer.setComposition(
-                        createSingleAudioVideoSequenceComposition(clippedMediaItem));
-                    secondTimelineUpdated.set(true);
-                  }
-                  if (firstTimelineUpdated.get() && secondTimelineUpdated.get()) {
-                    compositionPlayer.play();
-                  }
-                }
-              });
-          compositionPlayer.setComposition(
-              createSingleAudioVideoSequenceComposition(fullMediaItem));
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              if (!firstTimelineUpdated.get()) {
+                compositionPlayer.setComposition(
+                    createSingleAudioVideoSequenceComposition(clippedMediaItem));
+                firstTimelineUpdated.set(true);
+              }
+              if (firstTimelineUpdated.get() && !secondTimelineUpdated.get()) {
+                compositionPlayer.setComposition(
+                    createSingleAudioVideoSequenceComposition(clippedMediaItem));
+                secondTimelineUpdated.set(true);
+              }
+              if (firstTimelineUpdated.get() && secondTimelineUpdated.get()) {
+                compositionPlayer.play();
+              }
+            }
+          });
+      compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(fullMediaItem));
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
   }
@@ -331,28 +317,25 @@ public class CompositionPlayerSetCompositionTest {
             MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  if (!firstTimelineUpdated.get()) {
-                    compositionPlayer.setComposition(
-                        createSingleAudioVideoSequenceComposition(fullMediaItem));
-                    firstTimelineUpdated.set(true);
-                    compositionPlayer.play();
-                  }
-                }
-              });
-          compositionPlayer.setComposition(
-              createSingleAudioVideoSequenceComposition(fullMediaItem));
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              if (!firstTimelineUpdated.get()) {
+                compositionPlayer.setComposition(
+                    createSingleAudioVideoSequenceComposition(fullMediaItem));
+                firstTimelineUpdated.set(true);
+                compositionPlayer.play();
+              }
+            }
+          });
+      compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(fullMediaItem));
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
   }
@@ -367,31 +350,28 @@ public class CompositionPlayerSetCompositionTest {
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicBoolean videoFrameMetadataListenerCalled = new AtomicBoolean();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onTimelineChanged(Timeline timeline, int reason) {
-                  if (firstTimelineUpdated.compareAndSet(false, true)) {
-                    compositionPlayer.setComposition(
-                        createSingleAudioVideoSequenceComposition(fullMediaItem));
-                    compositionPlayer.play();
-                  }
-                }
-              });
-          compositionPlayer.setComposition(
-              createSingleAudioVideoSequenceComposition(fullMediaItem));
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                videoFrameMetadataListenerCalled.set(true);
-              });
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, int reason) {
+              if (firstTimelineUpdated.compareAndSet(false, true)) {
+                compositionPlayer.setComposition(
+                    createSingleAudioVideoSequenceComposition(fullMediaItem));
+                compositionPlayer.play();
+              }
+            }
+          });
+      compositionPlayer.setComposition(createSingleAudioVideoSequenceComposition(fullMediaItem));
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            videoFrameMetadataListenerCalled.set(true);
+          });
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
     assertThat(videoFrameMetadataListenerCalled.get()).isTrue();
@@ -480,14 +460,13 @@ public class CompositionPlayerSetCompositionTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer = new CompositionPlayer.Builder(context).build();
-              readyFuture.setFuture(
-                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
-              compositionPlayer.setComposition(composition, Util.usToMs(500_000L));
-              compositionPlayer.prepare();
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          readyFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+          compositionPlayer.setComposition(composition, Util.usToMs(500_000L));
+          compositionPlayer.prepare();
+        });
     readyFuture.get();
 
     assertThat(lastItemPositionOffsetUs.get()).isEqualTo(500_000);
@@ -532,14 +511,13 @@ public class CompositionPlayerSetCompositionTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer = new CompositionPlayer.Builder(context).build();
-              readyFuture.setFuture(
-                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
-              compositionPlayer.setComposition(composition, Util.usToMs(1_500_000L));
-              compositionPlayer.prepare();
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          readyFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+          compositionPlayer.setComposition(composition, Util.usToMs(1_500_000L));
+          compositionPlayer.prepare();
+        });
     readyFuture.get();
 
     assertThat(lastItemPositionOffsetUs.get()).isEqualTo(500_000);
@@ -577,26 +555,24 @@ public class CompositionPlayerSetCompositionTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer = new CompositionPlayer.Builder(context).build();
-              readyFuture.setFuture(
-                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
-              compositionPlayer.setComposition(firstComposition);
-              compositionPlayer.prepare();
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          readyFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_READY));
+          compositionPlayer.setComposition(firstComposition);
+          compositionPlayer.prepare();
+        });
     readyFuture.get();
     assertThat(secondCompositionSentDataToAudioPipeline.isOpen()).isFalse();
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              endedFuture.setFuture(
-                  futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-              compositionPlayer.setComposition(secondComposition);
-              compositionPlayer.play();
-            });
+        .runOnMainSync(() -> {
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+          compositionPlayer.setComposition(secondComposition);
+          compositionPlayer.play();
+        });
     endedFuture.get();
 
     assertThat(secondCompositionSentDataToAudioPipeline.block(TEST_TIMEOUT_MS)).isTrue();
@@ -611,24 +587,22 @@ public class CompositionPlayerSetCompositionTest {
             .build();
     AtomicLong firstFrameTimestampUs = new AtomicLong(C.TIME_UNSET);
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                if (firstFrameTimestampUs.compareAndSet(C.TIME_UNSET, presentationTimeUs)) {
-                  instrumentation.runOnMainSync(compositionPlayer::play);
-                }
-              });
-          compositionPlayer.setComposition(
-              createSingleAudioVideoSequenceComposition(
-                  Collections.nCopies(numberOfItemsInSequence, editedMediaItem)),
-              Util.usToMs(startPositionUs));
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = new CompositionPlayer.Builder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            if (firstFrameTimestampUs.compareAndSet(C.TIME_UNSET, presentationTimeUs)) {
+              instrumentation.runOnMainSync(compositionPlayer::play);
+            }
+          });
+      compositionPlayer.setComposition(
+          createSingleAudioVideoSequenceComposition(
+              Collections.nCopies(numberOfItemsInSequence, editedMediaItem)),
+          Util.usToMs(startPositionUs));
+      compositionPlayer.prepare();
+    });
 
     endedFuture.get();
     return firstFrameTimestampUs.get();

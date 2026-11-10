@@ -207,11 +207,10 @@ public class MediaControllerListenerTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              availablePlayerCommands.set(controller.getAvailableCommands());
-              availableSessionCommands.set(controller.getAvailableSessionCommands());
-            });
+        .postAndSync(() -> {
+          availablePlayerCommands.set(controller.getAvailableCommands());
+          availableSessionCommands.set(controller.getAvailableSessionCommands());
+        });
     session.cleanUp();
 
     assertThat(availablePlayerCommands.get())
@@ -374,24 +373,23 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onPlayerError(PlaybackException error) {
-                        playerErrorParamRef.set(error);
-                        playerErrorGetterRef.set(controller.getPlayerError());
-                        latch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onPlayerError(PlaybackException error) {
+                    playerErrorParamRef.set(error);
+                    playerErrorGetterRef.set(controller.getPlayerError());
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        playerErrorOnEventsRef.set(player.getPlayerError());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    playerErrorOnEventsRef.set(player.getPlayerError());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.getMockPlayer().notifyPlayerError(testPlayerError);
 
@@ -433,24 +431,23 @@ public class MediaControllerListenerTest {
     CountDownLatch latch = new CountDownLatch(/* count= */ 6);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
 
-                      @Override
-                      public void onPlayerError(PlaybackException error) {
-                        playerErrors.add(error);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onPlayerError(PlaybackException error) {
+                    playerErrors.add(error);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onPlayerErrorChanged(@Nullable PlaybackException error) {
-                        playerErrorsChanged.add(error);
-                        playbackStates.add(controller.getPlaybackState());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onPlayerErrorChanged(@Nullable PlaybackException error) {
+                    playerErrorsChanged.add(error);
+                    playbackStates.add(controller.getPlaybackState());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
     remoteSession.setPlaybackException("ctrl-1", null);
@@ -498,22 +495,21 @@ public class MediaControllerListenerTest {
     CountDownLatch latch = new CountDownLatch(/* count= */ 5);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onPlayerErrorChanged(@Nullable PlaybackException error) {
-                        playerErrorsChanged.add(error);
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onPlayerErrorChanged(@Nullable PlaybackException error) {
+                    playerErrorsChanged.add(error);
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        receivedEvents.add(events);
-                        playbackStates.add(player.getPlaybackState());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    receivedEvents.add(events);
+                    playbackStates.add(player.getPlaybackState());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.setPlaybackException(/* controllerKey= */ null, sessionPlaybackException);
     remoteSession
@@ -571,17 +567,16 @@ public class MediaControllerListenerTest {
     CountDownLatch latch = new CountDownLatch(/* count= */ 3);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onAvailableCommandsChanged(Commands availableCommands) {
-                        playerCommandsFromParameter.add(availableCommands);
-                        playerCommandsFromController.add(controller.getAvailableCommands());
-                        latch.countDown();
-                      }
-                    }));
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onAvailableCommandsChanged(Commands availableCommands) {
+                    playerCommandsFromParameter.add(availableCommands);
+                    playerCommandsFromController.add(controller.getAvailableCommands());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.setAvailableCommands(SessionCommands.EMPTY, declaredCommands);
     remoteSession.setPlaybackException(/* controllerKey= */ null, testPlayerError);
@@ -621,28 +616,27 @@ public class MediaControllerListenerTest {
     CountDownLatch latch = new CountDownLatch(/* count= */ 13);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller1.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onEvents(Player player, Player.Events events) {
-                      controller1Events.add(events);
-                      controller1PlaybackStates.add(player.getPlaybackState());
-                      latch.countDown();
-                    }
-                  });
+        .postAndSync(() -> {
+          controller1.addListener(
+              new Player.Listener() {
+                @Override
+                public void onEvents(Player player, Player.Events events) {
+                  controller1Events.add(events);
+                  controller1PlaybackStates.add(player.getPlaybackState());
+                  latch.countDown();
+                }
+              });
 
-              controller2.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onEvents(Player player, Player.Events events) {
-                      controller2Events.add(events);
-                      controller2PlaybackStates.add(player.getPlaybackState());
-                      latch.countDown();
-                    }
-                  });
-            });
+          controller2.addListener(
+              new Player.Listener() {
+                @Override
+                public void onEvents(Player player, Player.Events events) {
+                  controller2Events.add(events);
+                  controller2PlaybackStates.add(player.getPlaybackState());
+                  latch.countDown();
+                }
+              });
+        });
 
     remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
     remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
@@ -722,28 +716,27 @@ public class MediaControllerListenerTest {
     CountDownLatch latch = new CountDownLatch(/* count= */ 9);
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller1.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onEvents(Player player, Player.Events events) {
-                      controller1Events.add(events);
-                      controller1PlaybackStates.add(player.getPlaybackState());
-                      latch.countDown();
-                    }
-                  });
+        .postAndSync(() -> {
+          controller1.addListener(
+              new Player.Listener() {
+                @Override
+                public void onEvents(Player player, Player.Events events) {
+                  controller1Events.add(events);
+                  controller1PlaybackStates.add(player.getPlaybackState());
+                  latch.countDown();
+                }
+              });
 
-              controller2.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onEvents(Player player, Player.Events events) {
-                      controller2Events.add(events);
-                      controller2PlaybackStates.add(player.getPlaybackState());
-                      latch.countDown();
-                    }
-                  });
-            });
+          controller2.addListener(
+              new Player.Listener() {
+                @Override
+                public void onEvents(Player player, Player.Events events) {
+                  controller2Events.add(events);
+                  controller2PlaybackStates.add(player.getPlaybackState());
+                  latch.countDown();
+                }
+              });
+        });
 
     remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
     remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
@@ -812,10 +805,9 @@ public class MediaControllerListenerTest {
         () ->
             threadTestRule
                 .getHandler()
-                .postAndSync(
-                    () ->
-                        controller2.getCurrentPosition() >= 120L
-                            && controller1.getPlayerError() != null));
+                .postAndSync(() ->
+                    controller2.getCurrentPosition() >= 120L
+                        && controller1.getPlayerError() != null));
     assertThat(threadTestRule.getHandler().postAndSync(() -> controller1.getCurrentPosition()))
         .isEqualTo(0L);
   }
@@ -946,55 +938,54 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onAvailableCommandsChanged(Commands availableCommands) {
-                        commandsRef.set(availableCommands);
-                        latch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onAvailableCommandsChanged(Commands availableCommands) {
+                    commandsRef.set(availableCommands);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onAudioAttributesChanged(AudioAttributes attributes) {
-                        audioAttributesRef.set(attributes);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onAudioAttributesChanged(AudioAttributes attributes) {
+                    audioAttributesRef.set(attributes);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onPlaybackStateChanged(@Player.State int playbackState) {
-                        stateRef.set(playbackState);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onPlaybackStateChanged(@Player.State int playbackState) {
+                    stateRef.set(playbackState);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onTimelineChanged(
-                          Timeline timeline, @Player.TimelineChangeReason int reason) {
-                        currentAdGroupIndexRef.set(controller.getCurrentAdGroupIndex());
-                        currentAdIndexInAdGroupRef.set(controller.getCurrentAdIndexInAdGroup());
-                        timelineRef.set(timeline);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onTimelineChanged(
+                      Timeline timeline, @Player.TimelineChangeReason int reason) {
+                    currentAdGroupIndexRef.set(controller.getCurrentAdGroupIndex());
+                    currentAdIndexInAdGroupRef.set(controller.getCurrentAdIndexInAdGroup());
+                    timelineRef.set(timeline);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onPlaylistMetadataChanged(MediaMetadata playlistMetadata) {
-                        playlistMetadataRef.set(playlistMetadata);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onPlaylistMetadataChanged(MediaMetadata playlistMetadata) {
+                    playlistMetadataRef.set(playlistMetadata);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-                        shuffleModeEnabledRef.set(shuffleModeEnabled);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
+                    shuffleModeEnabledRef.set(shuffleModeEnabled);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onRepeatModeChanged(@Player.RepeatMode int repeatMode) {
-                        repeatModeRef.set(repeatMode);
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onRepeatModeChanged(@Player.RepeatMode int repeatMode) {
+                    repeatModeRef.set(repeatMode);
+                    latch.countDown();
+                  }
+                }));
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setPlaybackState(testState)
@@ -1072,51 +1063,49 @@ public class MediaControllerListenerTest {
     AtomicInteger onEventsCurrentPeriodIndexRef = new AtomicInteger();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onTimelineChanged(
-                          Timeline timeline, @Player.TimelineChangeReason int reason) {
-                        currentPositionMsRef.set(controller.getCurrentPosition());
-                        contentPositionMsRef.set(controller.getContentPosition());
-                        durationMsRef.set(controller.getDuration());
-                        bufferedPositionMsRef.set(controller.getBufferedPosition());
-                        bufferedPercentageRef.set(controller.getBufferedPercentage());
-                        totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
-                        currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
-                        contentDurationMsRef.set(controller.getContentDuration());
-                        contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
-                        isPlayingAdRef.set(controller.isPlayingAd());
-                        currentAdGroupIndexRef.set(controller.getCurrentAdGroupIndex());
-                        currentAdIndexInAdGroupRef.set(controller.getCurrentAdIndexInAdGroup());
-                        currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
-                        currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
-                        latch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTimelineChanged(
+                      Timeline timeline, @Player.TimelineChangeReason int reason) {
+                    currentPositionMsRef.set(controller.getCurrentPosition());
+                    contentPositionMsRef.set(controller.getContentPosition());
+                    durationMsRef.set(controller.getDuration());
+                    bufferedPositionMsRef.set(controller.getBufferedPosition());
+                    bufferedPercentageRef.set(controller.getBufferedPercentage());
+                    totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
+                    currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
+                    contentDurationMsRef.set(controller.getContentDuration());
+                    contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
+                    isPlayingAdRef.set(controller.isPlayingAd());
+                    currentAdGroupIndexRef.set(controller.getCurrentAdGroupIndex());
+                    currentAdIndexInAdGroupRef.set(controller.getCurrentAdIndexInAdGroup());
+                    currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
+                    currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        onEventsCurrentPositionMsRef.set(player.getCurrentPosition());
-                        onEventsContentPositionMsRef.set(player.getContentPosition());
-                        onEventsDurationMsRef.set(player.getDuration());
-                        onEventsBufferedPositionMsRef.set(player.getBufferedPosition());
-                        onEventsBufferedPercentageRef.set(player.getBufferedPercentage());
-                        onEventsTotalBufferedDurationMsRef.set(player.getTotalBufferedDuration());
-                        onEventsCurrentLiveOffsetMsRef.set(player.getCurrentLiveOffset());
-                        onEventsContentDurationMsRef.set(player.getContentDuration());
-                        onEventsContentBufferedPositionMsRef.set(
-                            player.getContentBufferedPosition());
-                        onEventsIsPlayingAdRef.set(player.isPlayingAd());
-                        onEventsCurrentAdGroupIndexRef.set(player.getCurrentAdGroupIndex());
-                        onEventsCurrentAdIndexInAdGroupRef.set(player.getCurrentAdIndexInAdGroup());
-                        onEventsCurrentMediaItemIndexRef.set(player.getCurrentMediaItemIndex());
-                        onEventsCurrentPeriodIndexRef.set(player.getCurrentPeriodIndex());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    onEventsCurrentPositionMsRef.set(player.getCurrentPosition());
+                    onEventsContentPositionMsRef.set(player.getContentPosition());
+                    onEventsDurationMsRef.set(player.getDuration());
+                    onEventsBufferedPositionMsRef.set(player.getBufferedPosition());
+                    onEventsBufferedPercentageRef.set(player.getBufferedPercentage());
+                    onEventsTotalBufferedDurationMsRef.set(player.getTotalBufferedDuration());
+                    onEventsCurrentLiveOffsetMsRef.set(player.getCurrentLiveOffset());
+                    onEventsContentDurationMsRef.set(player.getContentDuration());
+                    onEventsContentBufferedPositionMsRef.set(player.getContentBufferedPosition());
+                    onEventsIsPlayingAdRef.set(player.isPlayingAd());
+                    onEventsCurrentAdGroupIndexRef.set(player.getCurrentAdGroupIndex());
+                    onEventsCurrentAdIndexInAdGroupRef.set(player.getCurrentAdIndexInAdGroup());
+                    onEventsCurrentMediaItemIndexRef.set(player.getCurrentMediaItemIndex());
+                    onEventsCurrentPeriodIndexRef.set(player.getCurrentPeriodIndex());
+                    latch.countDown();
+                  }
+                }));
 
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
@@ -1198,29 +1187,27 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onMediaItemTransition(
-                          @Nullable MediaItem mediaItem,
-                          @Player.MediaItemTransitionReason int reason) {
-                        if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) {
-                          mediaItemFromParamRef.set(mediaItem);
-                          mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
-                          reasonRef.set(reason);
-                          latch.countDown();
-                        }
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) {
+                      mediaItemFromParamRef.set(mediaItem);
+                      mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
+                      reasonRef.set(reason);
+                      latch.countDown();
+                    }
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
+                    latch.countDown();
+                  }
+                }));
     int testIndex = 3;
     int testReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
 
@@ -1254,36 +1241,34 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onTimelineChanged(Timeline timeline, int reason) {
-                        timelineLatch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTimelineChanged(Timeline timeline, int reason) {
+                    timelineLatch.countDown();
+                  }
 
-                      @Override
-                      public void onMediaItemTransition(
-                          @Nullable MediaItem mediaItem,
-                          @Player.MediaItemTransitionReason int reason) {
-                        if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                          mediaItemFromParamRef.set(mediaItem);
-                          mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
-                          reasonRef.set(reason);
-                          latch.countDown();
-                        }
-                      }
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                      mediaItemFromParamRef.set(mediaItem);
+                      mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
+                      reasonRef.set(reason);
+                      latch.countDown();
+                    }
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        if (events.contains(EVENT_MEDIA_ITEM_TRANSITION)) {
-                          eventsRef.set(events);
-                          mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
-                          latch.countDown();
-                        }
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    if (events.contains(EVENT_MEDIA_ITEM_TRANSITION)) {
+                      eventsRef.set(events);
+                      mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
+                      latch.countDown();
+                    }
+                  }
+                }));
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(/* index= */ 0);
     remoteSession.getMockPlayer().setCurrentPeriodIndex(/* index= */ 0);
@@ -1342,34 +1327,32 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onTimelineChanged(Timeline timeline, int reason) {
-                        timelineLatch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTimelineChanged(Timeline timeline, int reason) {
+                    timelineLatch.countDown();
+                  }
 
-                      @Override
-                      public void onMediaItemTransition(
-                          @Nullable MediaItem mediaItem,
-                          @Player.MediaItemTransitionReason int reason) {
-                        mediaItemFromParamRef.set(mediaItem);
-                        mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
-                        reasonRef.set(reason);
-                        latch.countDown();
-                      }
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    mediaItemFromParamRef.set(mediaItem);
+                    mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
+                    reasonRef.set(reason);
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        if (events.contains(EVENT_MEDIA_ITEM_TRANSITION)) {
-                          eventsRef.set(events);
-                          mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
-                          latch.countDown();
-                        }
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    if (events.contains(EVENT_MEDIA_ITEM_TRANSITION)) {
+                      eventsRef.set(events);
+                      mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
+                      latch.countDown();
+                    }
+                  }
+                }));
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(/* index= */ 0);
     remoteSession.getMockPlayer().setCurrentPeriodIndex(/* index= */ 0);
@@ -1430,34 +1413,32 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onTimelineChanged(Timeline timeline, int reason) {
-                        timelineLatch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTimelineChanged(Timeline timeline, int reason) {
+                    timelineLatch.countDown();
+                  }
 
-                      @Override
-                      public void onMediaItemTransition(
-                          @Nullable MediaItem mediaItem,
-                          @Player.MediaItemTransitionReason int reason) {
-                        if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) {
-                          mediaItemFromParamRef.set(mediaItem);
-                          mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
-                          reasonRef.set(reason);
-                          latch.countDown();
-                        }
-                      }
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) {
+                      mediaItemFromParamRef.set(mediaItem);
+                      mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
+                      reasonRef.set(reason);
+                      latch.countDown();
+                    }
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
+                    latch.countDown();
+                  }
+                }));
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(/* index= */ 0);
     remoteSession.getMockPlayer().setCurrentPeriodIndex(/* index= */ 0);
@@ -1515,39 +1496,37 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onTimelineChanged(
-                          Timeline timeline, @Player.TimelineChangeReason int reason) {
-                        if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
-                          timelineLatch.countDown();
-                        }
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onTimelineChanged(
+                      Timeline timeline, @Player.TimelineChangeReason int reason) {
+                    if (reason == TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                      timelineLatch.countDown();
+                    }
+                  }
 
-                      @Override
-                      public void onMediaItemTransition(
-                          @Nullable MediaItem mediaItem,
-                          @Player.MediaItemTransitionReason int reason) {
-                        if (reason == MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
-                          expectedTransitionLatch.countDown();
-                          return;
-                        }
-                        unexpectedTransitionDetected.set(true);
-                      }
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    if (reason == MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+                      expectedTransitionLatch.countDown();
+                      return;
+                    }
+                    unexpectedTransitionDetected.set(true);
+                  }
 
-                      @Override
-                      public void onPositionDiscontinuity(
-                          PositionInfo oldPosition,
-                          PositionInfo newPosition,
-                          @Player.DiscontinuityReason int reason) {
-                        if (reason == DISCONTINUITY_REASON_SEEK) {
-                          discontinuityLatch.countDown();
-                        }
-                      }
-                    }));
+                  @Override
+                  public void onPositionDiscontinuity(
+                      PositionInfo oldPosition,
+                      PositionInfo newPosition,
+                      @Player.DiscontinuityReason int reason) {
+                    if (reason == DISCONTINUITY_REASON_SEEK) {
+                      discontinuityLatch.countDown();
+                    }
+                  }
+                }));
     // Move to index 1 (initial state).
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(/* index= */ 1);
     remoteSession.getMockPlayer().setCurrentPeriodIndex(/* index= */ 1);
@@ -1635,26 +1614,24 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onMediaItemTransition(
-                          @Nullable MediaItem mediaItem,
-                          @Player.MediaItemTransitionReason int reason) {
-                        mediaItemFromParamRef.set(mediaItem);
-                        mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
-                        latch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onMediaItemTransition(
+                      @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+                    mediaItemFromParamRef.set(mediaItem);
+                    mediaItemFromGetterRef.set(controller.getCurrentMediaItem());
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        mediaItemOnEventsRef.set(player.getCurrentMediaItem());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    mediaItemOnEventsRef.set(player.getCurrentMediaItem());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.getMockPlayer().setTimeline(Timeline.EMPTY);
     remoteSession.getMockPlayer().notifyTimelineChanged(TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -1742,39 +1719,36 @@ public class MediaControllerListenerTest {
     AtomicLong onEventsContentBufferedPositionMsRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onPlaybackParametersChanged(
-                          PlaybackParameters playbackParameters) {
-                        playbackParametersRef.set(controller.getPlaybackParameters());
-                        currentPositionMsRef.set(controller.getCurrentPosition());
-                        contentPositionMsRef.set(controller.getContentPosition());
-                        bufferedPositionMsRef.set(controller.getBufferedPosition());
-                        bufferedPercentageRef.set(controller.getBufferedPercentage());
-                        totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
-                        currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
-                        contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
-                        latch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
+                    playbackParametersRef.set(controller.getPlaybackParameters());
+                    currentPositionMsRef.set(controller.getCurrentPosition());
+                    contentPositionMsRef.set(controller.getContentPosition());
+                    bufferedPositionMsRef.set(controller.getBufferedPosition());
+                    bufferedPercentageRef.set(controller.getBufferedPercentage());
+                    totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
+                    currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
+                    contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        onEventsPlaybackParametersRef.set(player.getPlaybackParameters());
-                        onEventsCurrentPositionMsRef.set(player.getCurrentPosition());
-                        onEventsContentPositionMsRef.set(player.getContentPosition());
-                        onEventsBufferedPositionMsRef.set(player.getBufferedPosition());
-                        onEventsBufferedPercentageRef.set(player.getBufferedPercentage());
-                        onEventsTotalBufferedDurationMsRef.set(player.getTotalBufferedDuration());
-                        onEventsCurrentLiveOffsetMsRef.set(player.getCurrentLiveOffset());
-                        onEventsContentBufferedPositionMsRef.set(
-                            player.getContentBufferedPosition());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    onEventsPlaybackParametersRef.set(player.getPlaybackParameters());
+                    onEventsCurrentPositionMsRef.set(player.getCurrentPosition());
+                    onEventsContentPositionMsRef.set(player.getContentPosition());
+                    onEventsBufferedPositionMsRef.set(player.getBufferedPosition());
+                    onEventsBufferedPercentageRef.set(player.getBufferedPercentage());
+                    onEventsTotalBufferedDurationMsRef.set(player.getTotalBufferedDuration());
+                    onEventsCurrentLiveOffsetMsRef.set(player.getCurrentLiveOffset());
+                    onEventsContentBufferedPositionMsRef.set(player.getContentBufferedPosition());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.getMockPlayer().setCurrentPosition(testCurrentPositionMs);
     remoteSession.getMockPlayer().setContentPosition(testContentPositionMs);
@@ -2058,11 +2032,10 @@ public class MediaControllerListenerTest {
     AtomicReference<Tracks> initialCurrentTracksRef = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              initialCurrentTracksRef.set(controller.getCurrentTracks());
-              controller.addListener(listener);
-            });
+        .postAndSync(() -> {
+          initialCurrentTracksRef.set(controller.getCurrentTracks());
+          controller.addListener(listener);
+        });
 
     player.notifyTracksChanged(currentTracks);
     player.notifyIsLoadingChanged(true);
@@ -2120,14 +2093,13 @@ public class MediaControllerListenerTest {
     AtomicReference<Tracks> initialCurrentTracksWithCommandAvailable = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              initialCurrentTracks.set(controller.getCurrentTracks());
-              initialCurrentTracksWithCommandAvailable.set(
-                  controllerWithCommandAvailable.getCurrentTracks());
-              controller.addListener(listener);
-              controllerWithCommandAvailable.addListener(listenerWithCommandAvailable);
-            });
+        .postAndSync(() -> {
+          initialCurrentTracks.set(controller.getCurrentTracks());
+          initialCurrentTracksWithCommandAvailable.set(
+              controllerWithCommandAvailable.getCurrentTracks());
+          controller.addListener(listener);
+          controllerWithCommandAvailable.addListener(listenerWithCommandAvailable);
+        });
 
     player.notifyIsLoadingChanged(true);
 
@@ -2168,11 +2140,10 @@ public class MediaControllerListenerTest {
     AtomicReference<Commands> availableCommands = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              availableCommands.set(controller.getAvailableCommands());
-              controller.addListener(listener);
-            });
+        .postAndSync(() -> {
+          availableCommands.set(controller.getAvailableCommands());
+          controller.addListener(listener);
+        });
 
     player.notifyAvailableCommandsChanged(
         availableCommands.get().buildUpon().remove(COMMAND_GET_TRACKS).build());
@@ -2525,42 +2496,39 @@ public class MediaControllerListenerTest {
     AtomicLong onEventsContentBufferedPositionMsRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
-                      @Override
-                      public void onPlayWhenReadyChanged(
-                          boolean playWhenReady, @Player.PlayWhenReadyChangeReason int reason) {
-                        playWhenReadyRef.set(controller.getPlayWhenReady());
-                        playbackSuppressionReasonRef.set(controller.getPlaybackSuppressionReason());
-                        currentPositionMsRef.set(controller.getCurrentPosition());
-                        contentPositionMsRef.set(controller.getContentPosition());
-                        bufferedPositionMsRef.set(controller.getBufferedPosition());
-                        bufferedPercentageRef.set(controller.getBufferedPercentage());
-                        totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
-                        currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
-                        contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
-                        latch.countDown();
-                      }
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
+                  @Override
+                  public void onPlayWhenReadyChanged(
+                      boolean playWhenReady, @Player.PlayWhenReadyChangeReason int reason) {
+                    playWhenReadyRef.set(controller.getPlayWhenReady());
+                    playbackSuppressionReasonRef.set(controller.getPlaybackSuppressionReason());
+                    currentPositionMsRef.set(controller.getCurrentPosition());
+                    contentPositionMsRef.set(controller.getContentPosition());
+                    bufferedPositionMsRef.set(controller.getBufferedPosition());
+                    bufferedPercentageRef.set(controller.getBufferedPercentage());
+                    totalBufferedDurationMsRef.set(controller.getTotalBufferedDuration());
+                    currentLiveOffsetMsRef.set(controller.getCurrentLiveOffset());
+                    contentBufferedPositionMsRef.set(controller.getContentBufferedPosition());
+                    latch.countDown();
+                  }
 
-                      @Override
-                      public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        onEventsPlayWhenReadyRef.set(player.getPlayWhenReady());
-                        onEventsPlaybackSuppressionReasonRef.set(
-                            player.getPlaybackSuppressionReason());
-                        onEventsCurrentPositionMsRef.set(player.getCurrentPosition());
-                        onEventsContentPositionMsRef.set(player.getContentPosition());
-                        onEventsBufferedPositionMsRef.set(player.getBufferedPosition());
-                        onEventsBufferedPercentageRef.set(player.getBufferedPercentage());
-                        onEventsTotalBufferedDurationMsRef.set(player.getTotalBufferedDuration());
-                        onEventsCurrentLiveOffsetMsRef.set(player.getCurrentLiveOffset());
-                        onEventsContentBufferedPositionMsRef.set(
-                            player.getContentBufferedPosition());
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onEvents(Player player, Player.Events events) {
+                    eventsRef.set(events);
+                    onEventsPlayWhenReadyRef.set(player.getPlayWhenReady());
+                    onEventsPlaybackSuppressionReasonRef.set(player.getPlaybackSuppressionReason());
+                    onEventsCurrentPositionMsRef.set(player.getCurrentPosition());
+                    onEventsContentPositionMsRef.set(player.getContentPosition());
+                    onEventsBufferedPositionMsRef.set(player.getBufferedPosition());
+                    onEventsBufferedPercentageRef.set(player.getBufferedPercentage());
+                    onEventsTotalBufferedDurationMsRef.set(player.getTotalBufferedDuration());
+                    onEventsCurrentLiveOffsetMsRef.set(player.getCurrentLiveOffset());
+                    onEventsContentBufferedPositionMsRef.set(player.getContentBufferedPosition());
+                    latch.countDown();
+                  }
+                }));
 
     remoteSession.getMockPlayer().setCurrentPosition(testCurrentPositionMs);
     remoteSession.getMockPlayer().setContentPosition(testContentPositionMs);
@@ -3278,22 +3246,21 @@ public class MediaControllerListenerTest {
     AtomicInteger positionDiscontinuityReasonRef = new AtomicInteger();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                controller.addListener(
-                    new Player.Listener() {
+        .postAndSync(() ->
+            controller.addListener(
+                new Player.Listener() {
 
-                      @Override
-                      public void onPositionDiscontinuity(
-                          PositionInfo oldPosition,
-                          PositionInfo newPosition,
-                          @Player.DiscontinuityReason int reason) {
-                        oldPositionRef.set(oldPosition);
-                        newPositionRef.set(newPosition);
-                        positionDiscontinuityReasonRef.set(reason);
-                        latch.countDown();
-                      }
-                    }));
+                  @Override
+                  public void onPositionDiscontinuity(
+                      PositionInfo oldPosition,
+                      PositionInfo newPosition,
+                      @Player.DiscontinuityReason int reason) {
+                    oldPositionRef.set(oldPosition);
+                    newPositionRef.set(newPosition);
+                    positionDiscontinuityReasonRef.set(reason);
+                    latch.countDown();
+                  }
+                }));
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(/* index= */ 3);
     remoteSession.getMockPlayer().setCurrentPeriodIndex(/* index= */ 3);
 
@@ -3568,12 +3535,11 @@ public class MediaControllerListenerTest {
     ListenableFuture<SessionResult> customCommandFuture =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    controller.sendCustomCommand(
-                        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY),
-                        Bundle.EMPTY,
-                        /* progressListener= */ null));
+            .postAndSync(() ->
+                controller.sendCustomCommand(
+                    new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY),
+                    Bundle.EMPTY,
+                    /* progressListener= */ null));
 
     assertThat(customCommandFuture.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
   }
@@ -3822,12 +3788,11 @@ public class MediaControllerListenerTest {
         };
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.addListener(listener);
-              // Verify initial controller state.
-              assertThat(controller.getVideoSize()).isEqualTo(defaultVideoSize);
-            });
+        .postAndSync(() -> {
+          controller.addListener(listener);
+          // Verify initial controller state.
+          assertThat(controller.getVideoSize()).isEqualTo(defaultVideoSize);
+        });
 
     session.getMockPlayer().notifyVideoSizeChanged(VideoSize.UNKNOWN);
     session.getMockPlayer().notifyVideoSizeChanged(defaultVideoSize);
@@ -4912,24 +4877,23 @@ public class MediaControllerListenerTest {
     AtomicReference<Timeline> receivedTimeline = new AtomicReference<>();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              controller.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPositionDiscontinuity(
-                        PositionInfo oldPositionInfo, PositionInfo newPositionInfo, int reason) {
-                      receivedNewPosition.set(newPositionInfo);
-                      discontinuityLatch.countDown();
-                    }
+        .postAndSync(() -> {
+          controller.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPositionDiscontinuity(
+                    PositionInfo oldPositionInfo, PositionInfo newPositionInfo, int reason) {
+                  receivedNewPosition.set(newPositionInfo);
+                  discontinuityLatch.countDown();
+                }
 
-                    @Override
-                    public void onTimelineChanged(Timeline timeline, int reason) {
-                      receivedTimeline.set(timeline);
-                      timelineLatch.countDown();
-                    }
-                  });
-            });
+                @Override
+                public void onTimelineChanged(Timeline timeline, int reason) {
+                  receivedTimeline.set(timeline);
+                  timelineLatch.countDown();
+                }
+              });
+        });
 
     remotePlayer.notifyPositionDiscontinuity(
         oldPosition, newPosition, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);

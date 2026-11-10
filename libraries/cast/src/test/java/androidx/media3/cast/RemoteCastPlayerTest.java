@@ -216,22 +216,20 @@ public class RemoteCastPlayerTest {
         .when(defaultPendingResult)
         .setResultCallback(any());
     when(mockRemoteMediaClient.load(any(MediaLoadRequestData.class)))
-        .thenAnswer(
-            invocation -> {
-              MediaLoadRequestData requestData = invocation.getArgument(0);
-              MediaQueueData queueData = requestData.getQueueData();
-              if (queueData != null && queueData.getItems() != null) {
-                sentQueueItems.addAll(queueData.getItems());
-              }
-              return defaultPendingResult;
-            });
+        .thenAnswer(invocation -> {
+          MediaLoadRequestData requestData = invocation.getArgument(0);
+          MediaQueueData queueData = requestData.getQueueData();
+          if (queueData != null && queueData.getItems() != null) {
+            sentQueueItems.addAll(queueData.getItems());
+          }
+          return defaultPendingResult;
+        });
     when(mockRemoteMediaClient.queueInsertItems(any(MediaQueueItem[].class), anyInt(), any()))
-        .thenAnswer(
-            invocation -> {
-              MediaQueueItem[] items = invocation.getArgument(0);
-              sentQueueItems.addAll(Arrays.asList(items));
-              return defaultPendingResult;
-            });
+        .thenAnswer(invocation -> {
+          MediaQueueItem[] items = invocation.getArgument(0);
+          sentQueueItems.addAll(Arrays.asList(items));
+          return defaultPendingResult;
+        });
     when(mockRemoteMediaClient.queueReorderItems(any(int[].class), anyInt(), any()))
         .thenReturn(defaultPendingResult);
     when(mockRemoteMediaClient.queueRemoveItems(any(int[].class), any()))
@@ -246,12 +244,8 @@ public class RemoteCastPlayerTest {
     // We need a spy to invoke the default constructor, so that the invalidation listener works.
     spyTrackSelector = spy(CastTrackSelector.class);
     when(spyTrackSelector.evaluate(any()))
-        .thenAnswer(
-            invocation ->
-                invocation
-                    .getArgument(0, CastTrackSelectorRequest.class)
-                    .buildResultUpon()
-                    .build());
+        .thenAnswer(invocation ->
+            invocation.getArgument(0, CastTrackSelectorRequest.class).buildResultUpon().build());
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,

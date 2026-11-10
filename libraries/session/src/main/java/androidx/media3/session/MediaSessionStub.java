@@ -381,14 +381,13 @@ import org.jspecify.annotations.Nullable;
         return;
       }
       IBinder callerBinder = caller.asBinder();
-      postOrRunOnApplicationHandler(
-          () -> {
-            @Nullable ControllerInfo controller =
-                connectedControllersManager.getController(callerBinder);
-            if (controller != null) {
-              task.run(controller, sequenceNumber);
-            }
-          });
+      postOrRunOnApplicationHandler(() -> {
+        @Nullable ControllerInfo controller =
+            connectedControllersManager.getController(callerBinder);
+        if (controller != null) {
+          task.run(controller, sequenceNumber);
+        }
+      });
     } finally {
       Binder.restoreCallingIdentity(token);
     }
@@ -438,32 +437,30 @@ import org.jspecify.annotations.Nullable;
         return;
       }
       IBinder callerBinder = caller.asBinder();
-      postOrRunOnApplicationHandler(
-          () -> {
-            @Nullable ControllerInfo controller =
-                connectedControllersManager.getController(callerBinder);
-            if (controller == null) {
-              return;
-            }
-            if (!connectedControllersManager.isConnected(controller)) {
-              return;
-            }
-            if (sessionCommand != null) {
-              if (!connectedControllersManager.isSessionCommandAvailable(
-                  controller, sessionCommand)) {
-                SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
-                sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
-                return;
-              }
-            } else {
-              if (!connectedControllersManager.isSessionCommandAvailable(controller, commandCode)) {
-                SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
-                sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
-                return;
-              }
-            }
-            task.run(sessionImpl, controller, sequenceNumber);
-          });
+      postOrRunOnApplicationHandler(() -> {
+        @Nullable ControllerInfo controller =
+            connectedControllersManager.getController(callerBinder);
+        if (controller == null) {
+          return;
+        }
+        if (!connectedControllersManager.isConnected(controller)) {
+          return;
+        }
+        if (sessionCommand != null) {
+          if (!connectedControllersManager.isSessionCommandAvailable(controller, sessionCommand)) {
+            SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
+            sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
+            return;
+          }
+        } else {
+          if (!connectedControllersManager.isSessionCommandAvailable(controller, commandCode)) {
+            SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
+            sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
+            return;
+          }
+        }
+        task.run(sessionImpl, controller, sequenceNumber);
+      });
     } finally {
       Binder.restoreCallingIdentity(token);
     }
@@ -811,14 +808,13 @@ import org.jspecify.annotations.Nullable;
         return;
       }
       IBinder callerBinder = caller.asBinder();
-      postOrRunOnApplicationHandler(
-          () -> {
-            @Nullable SequencedFutureManager manager =
-                connectedControllersManager.getSequencedFutureManager(callerBinder);
-            if (manager != null) {
-              manager.setFutureResult(sequenceNumber, result);
-            }
-          });
+      postOrRunOnApplicationHandler(() -> {
+        @Nullable SequencedFutureManager manager =
+            connectedControllersManager.getSequencedFutureManager(callerBinder);
+        if (manager != null) {
+          manager.setFutureResult(sequenceNumber, result);
+        }
+      });
     } finally {
       Binder.restoreCallingIdentity(token);
     }
@@ -837,15 +833,14 @@ import org.jspecify.annotations.Nullable;
         controller,
         sequenceNumber,
         COMMAND_PLAY_PAUSE,
-        sendSessionResultSuccess(
-            player -> {
-              @Nullable MediaSessionImpl impl = sessionImpl.get();
-              if (impl == null || impl.isReleased()) {
-                return;
-              }
-              impl.handleMediaControllerPlayRequest(
-                  controller, /* callOnPlayerInteractionFinished= */ false);
-            }));
+        sendSessionResultSuccess(player -> {
+          @Nullable MediaSessionImpl impl = sessionImpl.get();
+          if (impl == null || impl.isReleased()) {
+            return;
+          }
+          impl.handleMediaControllerPlayRequest(
+              controller, /* callOnPlayerInteractionFinished= */ false);
+        }));
   }
 
   @Override
@@ -892,10 +887,9 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SEEK_TO_MEDIA_ITEM,
-        sendSessionResultSuccess(
-            (player, controller) ->
-                player.seekToDefaultPosition(
-                    maybeCorrectMediaItemIndex(controller, player, mediaItemIndex))));
+        sendSessionResultSuccess((player, controller) ->
+            player.seekToDefaultPosition(
+                maybeCorrectMediaItemIndex(controller, player, mediaItemIndex))));
   }
 
   @Override
@@ -920,10 +914,9 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SEEK_TO_MEDIA_ITEM,
-        sendSessionResultSuccess(
-            (player, controller) ->
-                player.seekTo(
-                    maybeCorrectMediaItemIndex(controller, player, mediaItemIndex), positionMs)));
+        sendSessionResultSuccess((player, controller) ->
+            player.seekTo(
+                maybeCorrectMediaItemIndex(controller, player, mediaItemIndex), positionMs)));
   }
 
   @Override
@@ -994,22 +987,20 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         command,
-        sendSessionResultWhenReady(
-            (sessionImpl, controller, sequenceNum) -> {
-              ProgressReporter progressReporter = null;
-              if (progressUpdateRequested) {
-                progressReporter =
-                    new ProgressReporter(
-                        sessionImpl, controller, sequenceNum, command, verifiedArgs);
-              }
-              ListenableFuture<SessionResult> future =
-                  sessionImpl.onCustomCommandOnHandler(
-                      controller, progressReporter, command, verifiedArgs);
-              if (progressReporter != null) {
-                progressReporter.setFuture(future);
-              }
-              return future;
-            }));
+        sendSessionResultWhenReady((sessionImpl, controller, sequenceNum) -> {
+          ProgressReporter progressReporter = null;
+          if (progressUpdateRequested) {
+            progressReporter =
+                new ProgressReporter(sessionImpl, controller, sequenceNum, command, verifiedArgs);
+          }
+          ListenableFuture<SessionResult> future =
+              sessionImpl.onCustomCommandOnHandler(
+                  controller, progressReporter, command, verifiedArgs);
+          if (progressReporter != null) {
+            progressReporter.setFuture(future);
+          }
+          return future;
+        }));
   }
 
   private void dispatchCustomCommandAsPredefinedCommand(
@@ -1021,68 +1012,65 @@ import org.jspecify.annotations.Nullable;
         return;
       }
       IBinder callerBinder = caller.asBinder();
-      postOrRunOnApplicationHandler(
-          () -> {
-            @Nullable ControllerInfo controller =
-                connectedControllersManager.getController(callerBinder);
-            if (controller == null) {
-              return;
-            }
-            if (!connectedControllersManager.isConnected(controller)) {
-              return;
-            }
-            CommandButton actualCommand;
-            try {
-              actualCommand = CommandButton.convertFromPredefinedCustomCommand(command);
-            } catch (RuntimeException e) {
-              // Catch exception caused by malformed data from a controller.
-              Log.w(TAG, "Failed to convert predefined custom command: " + command.customAction, e);
-              sendSessionResult(
-                  sessionImpl,
-                  controller,
-                  sequenceNumber,
-                  new SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE));
-              return;
-            }
-            if (!actualCommand.canExecuteAction()) {
-              Log.w(TAG, "Can't execute predefined custom command: " + command.customAction);
-              sendSessionResult(
-                  sessionImpl,
-                  controller,
-                  sequenceNumber,
-                  new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
-              return;
-            }
-            if (actualCommand.sessionCommand != null) {
-              checkState(
-                  actualCommand.sessionCommand.commandCode == COMMAND_CODE_SESSION_SET_RATING);
-              dispatchSessionTaskWithSessionCommand(
-                  caller,
-                  sequenceNumber,
-                  COMMAND_CODE_SESSION_SET_RATING,
-                  sendSessionResultWhenReady(
-                      (sessionImplInner, controllerInner, sequenceNum) ->
-                          sessionImplInner.onSetRatingOnHandler(
-                              controllerInner, (Rating) checkNotNull(actualCommand.parameter))));
-            } else {
-              if (actualCommand.isPlayRequestPlayerAction(sessionImpl.getPlayerWrapper())) {
-                playForControllerInfo(controller, sequenceNumber);
-              } else if (actualCommand.playerCommand == COMMAND_SET_MEDIA_ITEM) {
-                setMediaItemItemWithResetPositionForControllerInfo(
-                    controller,
-                    sequenceNumber,
-                    (MediaItem) checkNotNull(actualCommand.parameter),
-                    /* resetPosition= */ true);
-              } else {
-                queueSessionTaskWithPlayerCommand(
-                    controller,
-                    sequenceNumber,
-                    actualCommand.playerCommand,
-                    sendSessionResultSuccess(player -> actualCommand.executePlayerAction(player)));
-              }
-              connectedControllersManager.flushCommandQueue(controller);
-            }
-          });
+      postOrRunOnApplicationHandler(() -> {
+        @Nullable ControllerInfo controller =
+            connectedControllersManager.getController(callerBinder);
+        if (controller == null) {
+          return;
+        }
+        if (!connectedControllersManager.isConnected(controller)) {
+          return;
+        }
+        CommandButton actualCommand;
+        try {
+          actualCommand = CommandButton.convertFromPredefinedCustomCommand(command);
+        } catch (RuntimeException e) {
+          // Catch exception caused by malformed data from a controller.
+          Log.w(TAG, "Failed to convert predefined custom command: " + command.customAction, e);
+          sendSessionResult(
+              sessionImpl,
+              controller,
+              sequenceNumber,
+              new SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE));
+          return;
+        }
+        if (!actualCommand.canExecuteAction()) {
+          Log.w(TAG, "Can't execute predefined custom command: " + command.customAction);
+          sendSessionResult(
+              sessionImpl,
+              controller,
+              sequenceNumber,
+              new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
+          return;
+        }
+        if (actualCommand.sessionCommand != null) {
+          checkState(actualCommand.sessionCommand.commandCode == COMMAND_CODE_SESSION_SET_RATING);
+          dispatchSessionTaskWithSessionCommand(
+              caller,
+              sequenceNumber,
+              COMMAND_CODE_SESSION_SET_RATING,
+              sendSessionResultWhenReady((sessionImplInner, controllerInner, sequenceNum) ->
+                  sessionImplInner.onSetRatingOnHandler(
+                      controllerInner, (Rating) checkNotNull(actualCommand.parameter))));
+        } else {
+          if (actualCommand.isPlayRequestPlayerAction(sessionImpl.getPlayerWrapper())) {
+            playForControllerInfo(controller, sequenceNumber);
+          } else if (actualCommand.playerCommand == COMMAND_SET_MEDIA_ITEM) {
+            setMediaItemItemWithResetPositionForControllerInfo(
+                controller,
+                sequenceNumber,
+                (MediaItem) checkNotNull(actualCommand.parameter),
+                /* resetPosition= */ true);
+          } else {
+            queueSessionTaskWithPlayerCommand(
+                controller,
+                sequenceNumber,
+                actualCommand.playerCommand,
+                sendSessionResultSuccess(player -> actualCommand.executePlayerAction(player)));
+          }
+          connectedControllersManager.flushCommandQueue(controller);
+        }
+      });
     } finally {
       Binder.restoreCallingIdentity(token);
     }
@@ -1112,9 +1100,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_SESSION_SET_RATING,
-        sendSessionResultWhenReady(
-            (sessionImpl, controller, sequenceNum) ->
-                sessionImpl.onSetRatingOnHandler(controller, mediaId, rating)));
+        sendSessionResultWhenReady((sessionImpl, controller, sequenceNum) ->
+            sessionImpl.onSetRatingOnHandler(controller, mediaId, rating)));
   }
 
   @Override
@@ -1134,9 +1121,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_SESSION_SET_RATING,
-        sendSessionResultWhenReady(
-            (sessionImpl, controller, sequenceNum) ->
-                sessionImpl.onSetRatingOnHandler(controller, rating)));
+        sendSessionResultWhenReady((sessionImpl, controller, sequenceNum) ->
+            sessionImpl.onSetRatingOnHandler(controller, rating)));
   }
 
   @Override
@@ -1378,20 +1364,18 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SET_PLAYLIST_METADATA,
-        sendSessionResultWhenReady(
-            (sessionImpl, controller, sequenceNum) -> {
-              MediaMetadata playlistMetadata;
-              try {
-                playlistMetadata =
-                    MediaMetadata.fromBundle(
-                        playlistMetadataBundle, controller.getInterfaceVersion());
-              } catch (RuntimeException e) {
-                Log.w(TAG, "Ignoring malformed Bundle for MediaMetadata", e);
-                return Futures.immediateFailedFuture(e);
-              }
-              sessionImpl.getPlayerWrapper().setPlaylistMetadata(playlistMetadata);
-              return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
-            }));
+        sendSessionResultWhenReady((sessionImpl, controller, sequenceNum) -> {
+          MediaMetadata playlistMetadata;
+          try {
+            playlistMetadata =
+                MediaMetadata.fromBundle(playlistMetadataBundle, controller.getInterfaceVersion());
+          } catch (RuntimeException e) {
+            Log.w(TAG, "Ignoring malformed Bundle for MediaMetadata", e);
+            return Futures.immediateFailedFuture(e);
+          }
+          sessionImpl.getPlayerWrapper().setPlaylistMetadata(playlistMetadata);
+          return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+        }));
   }
 
   @Override
@@ -1528,9 +1512,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
-        sendSessionResultSuccess(
-            (player, controller) ->
-                player.removeMediaItem(maybeCorrectMediaItemIndex(controller, player, index))));
+        sendSessionResultSuccess((player, controller) ->
+            player.removeMediaItem(maybeCorrectMediaItemIndex(controller, player, index))));
   }
 
   @Override
@@ -1543,11 +1526,10 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
-        sendSessionResultSuccess(
-            (player, controller) ->
-                player.removeMediaItems(
-                    maybeCorrectMediaItemIndex(controller, player, fromIndex),
-                    maybeCorrectMediaItemIndex(controller, player, toIndex))));
+        sendSessionResultSuccess((player, controller) ->
+            player.removeMediaItems(
+                maybeCorrectMediaItemIndex(controller, player, fromIndex),
+                maybeCorrectMediaItemIndex(controller, player, toIndex))));
   }
 
   @Override
@@ -1766,20 +1748,19 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SET_VIDEO_SURFACE,
-        sendSessionResultSuccess(
-            player -> {
-              if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
-                player.setVideoSurface(surface);
-              } else {
-                if (surface == null) {
-                  player.setVideoSurfaceHolder(null);
-                  surfaceHolderWithSize = null;
-                } else {
-                  surfaceHolderWithSize = new SurfaceHolderWithSize(surface);
-                  player.setVideoSurfaceHolder(surfaceHolderWithSize);
-                }
-              }
-            }));
+        sendSessionResultSuccess(player -> {
+          if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
+            player.setVideoSurface(surface);
+          } else {
+            if (surface == null) {
+              player.setVideoSurfaceHolder(null);
+              surfaceHolderWithSize = null;
+            } else {
+              surfaceHolderWithSize = new SurfaceHolderWithSize(surface);
+              player.setVideoSurfaceHolder(surfaceHolderWithSize);
+            }
+          }
+        }));
   }
 
   @Override
@@ -1796,20 +1777,19 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SET_VIDEO_SURFACE,
-        sendSessionResultSuccess(
-            player -> {
-              if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
-                player.setVideoSurface(surface);
-              } else {
-                if (surface == null) {
-                  player.setVideoSurfaceHolder(null);
-                  surfaceHolderWithSize = null;
-                } else {
-                  surfaceHolderWithSize = new SurfaceHolderWithSize(surface, width, height);
-                  player.setVideoSurfaceHolder(surfaceHolderWithSize);
-                }
-              }
-            }));
+        sendSessionResultSuccess(player -> {
+          if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
+            player.setVideoSurface(surface);
+          } else {
+            if (surface == null) {
+              player.setVideoSurfaceHolder(null);
+              surfaceHolderWithSize = null;
+            } else {
+              surfaceHolderWithSize = new SurfaceHolderWithSize(surface, width, height);
+              player.setVideoSurfaceHolder(surfaceHolderWithSize);
+            }
+          }
+        }));
   }
 
   @Override
@@ -1822,13 +1802,12 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SET_VIDEO_SURFACE,
-        sendSessionResultSuccess(
-            player -> {
-              if (!checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()
-                  && surfaceHolderWithSize != null) {
-                surfaceHolderWithSize.setFixedSize(width, height);
-              }
-            }));
+        sendSessionResultSuccess(player -> {
+          if (!checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()
+              && surfaceHolderWithSize != null) {
+            surfaceHolderWithSize.setFixedSize(width, height);
+          }
+        }));
   }
 
   @Override
@@ -2014,13 +1993,12 @@ import org.jspecify.annotations.Nullable;
         return;
       }
       IBinder callerBinder = caller.asBinder();
-      postOrRunOnApplicationHandler(
-          () -> {
-            ControllerInfo controllerInfo = connectedControllersManager.getController(callerBinder);
-            if (controllerInfo != null) {
-              connectedControllersManager.flushCommandQueue(controllerInfo);
-            }
-          });
+      postOrRunOnApplicationHandler(() -> {
+        ControllerInfo controllerInfo = connectedControllersManager.getController(callerBinder);
+        if (controllerInfo != null) {
+          connectedControllersManager.flushCommandQueue(controllerInfo);
+        }
+      });
     } finally {
       Binder.restoreCallingIdentity(token);
     }
@@ -2046,12 +2024,11 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_SET_TRACK_SELECTION_PARAMETERS,
-        sendSessionResultSuccess(
-            player -> {
-              TrackSelectionParameters updatedParameters =
-                  updateOverridesUsingUniqueTrackGroupIds(trackSelectionParameters);
-              player.setTrackSelectionParameters(updatedParameters);
-            }));
+        sendSessionResultSuccess(player -> {
+          TrackSelectionParameters updatedParameters =
+              updateOverridesUsingUniqueTrackGroupIds(trackSelectionParameters);
+          player.setTrackSelectionParameters(updatedParameters);
+        }));
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////
@@ -2076,9 +2053,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onGetLibraryRootOnHandler(controller, libraryParams)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onGetLibraryRootOnHandler(controller, libraryParams)));
   }
 
   @Override
@@ -2095,9 +2071,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_GET_ITEM,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onGetItemOnHandler(controller, mediaId)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onGetItemOnHandler(controller, mediaId)));
   }
 
   @Override
@@ -2135,10 +2110,9 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_GET_CHILDREN,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onGetChildrenOnHandler(
-                    controller, parentId, page, pageSize, libraryParams)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onGetChildrenOnHandler(
+                controller, parentId, page, pageSize, libraryParams)));
   }
 
   @Override
@@ -2166,9 +2140,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_SEARCH,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onSearchOnHandler(controller, query, libraryParams)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onSearchOnHandler(controller, query, libraryParams)));
   }
 
   @Override
@@ -2206,10 +2179,9 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_GET_SEARCH_RESULT,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onGetSearchResultOnHandler(
-                    controller, query, page, pageSize, libraryParams)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onGetSearchResultOnHandler(
+                controller, query, page, pageSize, libraryParams)));
   }
 
   @Override
@@ -2237,9 +2209,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_SUBSCRIBE,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onSubscribeOnHandler(controller, parentId, libraryParams)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onSubscribeOnHandler(controller, parentId, libraryParams)));
   }
 
   @Override
@@ -2256,9 +2227,8 @@ import org.jspecify.annotations.Nullable;
         caller,
         sequenceNumber,
         COMMAND_CODE_LIBRARY_UNSUBSCRIBE,
-        sendLibraryResultWhenReady(
-            (librarySessionImpl, controller, sequenceNum) ->
-                librarySessionImpl.onUnsubscribeOnHandler(controller, parentId)));
+        sendLibraryResultWhenReady((librarySessionImpl, controller, sequenceNum) ->
+            librarySessionImpl.onUnsubscribeOnHandler(controller, parentId)));
   }
 
   /* package */ PlayerInfo updatePlayerInfoWithUniqueTrackGroupIds(PlayerInfo playerInfo) {

@@ -1175,13 +1175,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         playerHolders
             .get(i)
             .player
-            .createMessage(
-                (unused, message) -> {
-                  HardwareBufferFrameReader frameReader =
-                      (HardwareBufferFrameReader) checkNotNull(message);
-                  frameReader.flush();
-                  checkNotNull(frameAggregator).flush(sequenceIndex);
-                })
+            .createMessage((unused, message) -> {
+              HardwareBufferFrameReader frameReader =
+                  (HardwareBufferFrameReader) checkNotNull(message);
+              frameReader.flush();
+              checkNotNull(frameAggregator).flush(sequenceIndex);
+            })
             .setPayload(playerHolders.get(i).hardwareBufferFrameReaderSupplier.get())
             .send();
       }
@@ -1635,29 +1634,27 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       // HardwareBufferFrameReader.
       final FrameAggregator currentFrameAggregator = frameAggregator;
       hardwareBufferFrameReaderSupplier =
-          Suppliers.memoize(
-              () ->
-                  new HardwareBufferFrameReader(
-                      composition,
-                      sequenceIndex,
-                      /* frameConsumer= */ asyncFrame -> {
-                        if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
-                          checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
-                        } else {
-                          checkNotNull(currentFrameAggregator)
-                              .queueFrame(asyncFrame, sequenceIndex);
-                        }
-                      },
-                      checkNotNull(playbackThread).getLooper(),
-                      /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
-                      imageReaderAdapterFactory,
-                      e ->
-                          maybeUpdatePlaybackError(
-                              "HardwareBufferFrameReader error",
-                              e,
-                              PlaybackException.ERROR_CODE_UNSPECIFIED),
-                      compositionInternalListenerHandler,
-                      checkNotNull(hardwareBufferJniWrapper)));
+          Suppliers.memoize(() ->
+              new HardwareBufferFrameReader(
+                  composition,
+                  sequenceIndex,
+                  /* frameConsumer= */ asyncFrame -> {
+                    if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
+                      checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
+                    } else {
+                      checkNotNull(currentFrameAggregator).queueFrame(asyncFrame, sequenceIndex);
+                    }
+                  },
+                  checkNotNull(playbackThread).getLooper(),
+                  /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+                  imageReaderAdapterFactory,
+                  e ->
+                      maybeUpdatePlaybackError(
+                          "HardwareBufferFrameReader error",
+                          e,
+                          PlaybackException.ERROR_CODE_UNSPECIFIED),
+                  compositionInternalListenerHandler,
+                  checkNotNull(hardwareBufferJniWrapper)));
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,
@@ -2484,11 +2481,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Override
     public void onFirstFrameRendered() {
-      applicationHandler.post(
-          () -> {
-            CompositionPlayer.this.renderedFirstFrame = true;
-            invalidateState();
-          });
+      applicationHandler.post(() -> {
+        CompositionPlayer.this.renderedFirstFrame = true;
+        invalidateState();
+      });
     }
 
     @Override
@@ -2508,17 +2504,16 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Override
     public void onFrameProcessed() {
-      applicationHandler.post(
-          () -> {
-            if (waitingForFrameAfterSeek) {
-              waitingForFrameAfterSeek = false;
-              if (pendingSeekPositionMs != C.TIME_UNSET) {
-                long pendingSeekPosition = pendingSeekPositionMs;
-                pendingSeekPositionMs = C.TIME_UNSET;
-                handleSeekInternal(pendingSeekPosition);
-              }
-            }
-          });
+      applicationHandler.post(() -> {
+        if (waitingForFrameAfterSeek) {
+          waitingForFrameAfterSeek = false;
+          if (pendingSeekPositionMs != C.TIME_UNSET) {
+            long pendingSeekPosition = pendingSeekPositionMs;
+            pendingSeekPositionMs = C.TIME_UNSET;
+            handleSeekInternal(pendingSeekPosition);
+          }
+        }
+      });
     }
 
     @Override
@@ -2575,12 +2570,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public void onError(VideoFrameProcessingException videoFrameProcessingException) {
       // The error will also be surfaced from the underlying ExoPlayer instance via
       // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
-      applicationHandler.post(
-          () ->
-              maybeUpdatePlaybackError(
-                  "Error processing video frames",
-                  videoFrameProcessingException,
-                  PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
+      applicationHandler.post(() ->
+          maybeUpdatePlaybackError(
+              "Error processing video frames",
+              videoFrameProcessingException,
+              PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
     }
 
     // HandlerExecutor.Listener methods

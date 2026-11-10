@@ -1763,14 +1763,13 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   private void onImageAvailable(Bitmap bitmap) {
-    mainLooperHandler.post(
-        () -> {
-          setImage(new BitmapDrawable(getResources(), bitmap));
-          if (!hasSelectedVideoTrack()) {
-            showImage();
-            closeShutter();
-          }
-        });
+    mainLooperHandler.post(() -> {
+      setImage(new BitmapDrawable(getResources(), bitmap));
+      if (!hasSelectedVideoTrack()) {
+        showImage();
+        closeShutter();
+      }
+    });
   }
 
   private void closeShutter() {
@@ -2028,19 +2027,17 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     public void postRegister(
         Handler mainLooperHandler, SurfaceView surfaceView, Runnable invalidate) {
-      mainLooperHandler.post(
-          () -> {
-            @Nullable AttachedSurfaceControl rootSurfaceControl =
-                surfaceView.getRootSurfaceControl();
-            if (rootSurfaceControl == null) {
-              // The SurfaceView isn't attached to a window, so don't apply the workaround.
-              return;
-            }
-            surfaceSyncGroup = new SurfaceSyncGroup("exo-sync-b-334901521");
-            checkState(surfaceSyncGroup.add(rootSurfaceControl, () -> {}));
-            invalidate.run();
-            rootSurfaceControl.applyTransactionOnDraw(new SurfaceControl.Transaction());
-          });
+      mainLooperHandler.post(() -> {
+        @Nullable AttachedSurfaceControl rootSurfaceControl = surfaceView.getRootSurfaceControl();
+        if (rootSurfaceControl == null) {
+          // The SurfaceView isn't attached to a window, so don't apply the workaround.
+          return;
+        }
+        surfaceSyncGroup = new SurfaceSyncGroup("exo-sync-b-334901521");
+        checkState(surfaceSyncGroup.add(rootSurfaceControl, () -> {}));
+        invalidate.run();
+        rootSurfaceControl.applyTransactionOnDraw(new SurfaceControl.Transaction());
+      });
     }
 
     public void maybeMarkSyncReadyAndClear() {

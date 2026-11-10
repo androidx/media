@@ -88,27 +88,24 @@ public final class CompositionPlayerSurfaceViewDisplayTest {
 
   @After
   public void tearDown() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (compositionPlayer != null) {
-            compositionPlayer.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (compositionPlayer != null) {
+        compositionPlayer.release();
+      }
+    });
     activityRule.getScenario().close();
   }
 
   @Test
   public void prepare_withFrameProcessorAndSurfaceView_displaysFrameOnScreen() throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              glFrameProcessorTestRule.createCompositionPlayerBuilder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(createSingleItemComposition());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = glFrameProcessorTestRule.createCompositionPlayerBuilder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(createSingleItemComposition());
+      compositionPlayer.prepare();
+    });
     try {
       firstFrameRenderedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
     } catch (TimeoutException e) {
@@ -167,16 +164,15 @@ public final class CompositionPlayerSurfaceViewDisplayTest {
 
   private Rect getSurfaceViewScreenBounds(int screenshotWidth, int screenshotHeight) {
     Rect bounds = new Rect();
-    instrumentation.runOnMainSync(
-        () -> {
-          int[] locationOnScreen = new int[2];
-          surfaceView.getLocationOnScreen(locationOnScreen);
-          bounds.set(
-              locationOnScreen[0],
-              locationOnScreen[1],
-              locationOnScreen[0] + surfaceView.getWidth(),
-              locationOnScreen[1] + surfaceView.getHeight());
-        });
+    instrumentation.runOnMainSync(() -> {
+      int[] locationOnScreen = new int[2];
+      surfaceView.getLocationOnScreen(locationOnScreen);
+      bounds.set(
+          locationOnScreen[0],
+          locationOnScreen[1],
+          locationOnScreen[0] + surfaceView.getWidth(),
+          locationOnScreen[1] + surfaceView.getHeight());
+    });
     if (!bounds.intersect(0, 0, screenshotWidth, screenshotHeight)) {
       bounds.setEmpty();
     }

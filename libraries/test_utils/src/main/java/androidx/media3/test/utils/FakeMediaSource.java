@@ -455,13 +455,12 @@ public class FakeMediaSource extends BaseMediaSource {
   public synchronized void setNewSourceInfo(Timeline newTimeline, boolean sendManifestLoadEvents) {
     checkState(preparationAllowed);
     if (sourceInfoRefreshHandler != null) {
-      sourceInfoRefreshHandler.post(
-          () -> {
-            assertThat(releasedSource).isFalse();
-            assertThat(preparedSource).isTrue();
-            timeline = newTimeline;
-            finishSourcePreparation(sendManifestLoadEvents);
-          });
+      sourceInfoRefreshHandler.post(() -> {
+        assertThat(releasedSource).isFalse();
+        assertThat(preparedSource).isTrue();
+        timeline = newTimeline;
+        finishSourcePreparation(sendManifestLoadEvents);
+      });
     } else {
       timeline = newTimeline;
     }

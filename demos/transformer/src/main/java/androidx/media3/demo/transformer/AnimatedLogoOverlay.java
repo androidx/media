@@ -142,22 +142,20 @@ public class AnimatedLogoOverlay extends DrawableOverlay {
     }
 
     public void stopAnimation() {
-      mainThreadHandler.post(
-          () -> {
-            rotationAnimator.cancel();
-            positionAnimator.cancel();
-          });
+      mainThreadHandler.post(() -> {
+        rotationAnimator.cancel();
+        positionAnimator.cancel();
+      });
     }
 
     private void maybeStartAnimator() {
       if (!started) {
         CountDownLatch latch = new CountDownLatch(1);
-        mainThreadHandler.post(
-            () -> {
-              rotationAnimator.start();
-              positionAnimator.start();
-              latch.countDown();
-            });
+        mainThreadHandler.post(() -> {
+          rotationAnimator.start();
+          positionAnimator.start();
+          latch.countDown();
+        });
         try {
           // Block until the animators are actually started, or they'll return null values.
           latch.await();

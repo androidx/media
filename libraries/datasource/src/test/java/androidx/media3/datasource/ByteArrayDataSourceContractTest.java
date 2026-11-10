@@ -50,15 +50,14 @@ public class ByteArrayDataSourceContractTest extends DataSourceContractTest {
 
   @Override
   protected DataSource createDataSource() {
-    return new ByteArrayDataSource(
-        uri -> {
-          if (uri.equals(URI_1)) {
-            return DATA_1;
-          } else if (uri.equals(URI_2)) {
-            return DATA_2;
-          } else {
-            throw new IOException("Unrecognized URI: " + uri);
-          }
-        });
+    return new ByteArrayDataSource(uri -> {
+      if (uri.equals(URI_1)) {
+        return DATA_1;
+      } else if (uri.equals(URI_2)) {
+        return DATA_2;
+      } else {
+        throw new IOException("Unrecognized URI: " + uri);
+      }
+    });
   }
 }

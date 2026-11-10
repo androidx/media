@@ -1033,33 +1033,32 @@ public final class TransformerActivity extends AppCompatActivity {
 
       // Update the UI on the main thread and wait for the output surface to be available.
       CountDownLatch surfaceCreatedCountDownLatch = new CountDownLatch(1);
-      runOnUiThread(
-          () -> {
-            surfaceView = new SurfaceView(/* context= */ TransformerActivity.this);
-            AspectRatioFrameLayout debugFrame = TransformerActivity.this.debugFrame;
-            debugFrame.addView(surfaceView);
-            debugFrame.setAspectRatio((float) width / height);
-            surfaceView
-                .getHolder()
-                .addCallback(
-                    new SurfaceHolder.Callback() {
-                      @Override
-                      public void surfaceCreated(SurfaceHolder surfaceHolder) {
-                        surfaceCreatedCountDownLatch.countDown();
-                      }
+      runOnUiThread(() -> {
+        surfaceView = new SurfaceView(/* context= */ TransformerActivity.this);
+        AspectRatioFrameLayout debugFrame = TransformerActivity.this.debugFrame;
+        debugFrame.addView(surfaceView);
+        debugFrame.setAspectRatio((float) width / height);
+        surfaceView
+            .getHolder()
+            .addCallback(
+                new SurfaceHolder.Callback() {
+                  @Override
+                  public void surfaceCreated(SurfaceHolder surfaceHolder) {
+                    surfaceCreatedCountDownLatch.countDown();
+                  }
 
-                      @Override
-                      public void surfaceChanged(
-                          SurfaceHolder surfaceHolder, int format, int width, int height) {
-                        // Do nothing.
-                      }
+                  @Override
+                  public void surfaceChanged(
+                      SurfaceHolder surfaceHolder, int format, int width, int height) {
+                    // Do nothing.
+                  }
 
-                      @Override
-                      public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-                        // Do nothing.
-                      }
-                    });
-          });
+                  @Override
+                  public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
+                    // Do nothing.
+                  }
+                });
+      });
       try {
         surfaceCreatedCountDownLatch.await();
       } catch (InterruptedException e) {

@@ -54,7 +54,7 @@ public class PlayerMessageTest {
 
   @Before
   public void setUp() {
-    PlayerMessage.Sender sender = (message) -> {};
+    PlayerMessage.Sender sender = message -> {};
     PlayerMessage.Target target = (messageType, payload) -> {};
     handlerThread = new HandlerThread("TestHandler");
     handlerThread.start();
@@ -100,21 +100,19 @@ public class PlayerMessageTest {
     CountDownLatch prepareLatch = new CountDownLatch(1);
     ExecutorService executorService = Executors.newSingleThreadExecutor();
     Future<Boolean> future =
-        executorService.submit(
-            () -> {
-              prepareLatch.await();
-              message.markAsProcessed(true);
-              return true;
-            });
+        executorService.submit(() -> {
+          prepareLatch.await();
+          message.markAsProcessed(true);
+          return true;
+        });
 
     when(clock.elapsedRealtime())
         .thenReturn(0L)
-        .then(
-            (invocation) -> {
-              // Signal the background thread to call PlayerMessage#markAsProcessed.
-              prepareLatch.countDown();
-              return TIMEOUT_MS - 1;
-            });
+        .then(invocation -> {
+          // Signal the background thread to call PlayerMessage#markAsProcessed.
+          prepareLatch.countDown();
+          return TIMEOUT_MS - 1;
+        });
 
     try {
       assertThat(message.blockUntilDelivered(TIMEOUT_MS)).isTrue();

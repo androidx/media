@@ -484,10 +484,8 @@ import org.jspecify.annotations.Nullable;
         @Nullable String audioEncoderName,
         @Nullable String videoEncoderName) {
       checkState(
-          applicationHandler.post(
-              () ->
-                  componentListener.onCompleted(
-                      processedInputs, audioEncoderName, videoEncoderName)));
+          applicationHandler.post(() ->
+              componentListener.onCompleted(processedInputs, audioEncoderName, videoEncoderName)));
       quitInternalThreadLazily();
     }
 
@@ -498,10 +496,9 @@ import org.jspecify.annotations.Nullable;
         @Nullable String videoEncoderName,
         ExportException exportException) {
       checkState(
-          applicationHandler.post(
-              () ->
-                  componentListener.onError(
-                      processedInputs, audioEncoderName, videoEncoderName, exportException)));
+          applicationHandler.post(() ->
+              componentListener.onError(
+                  processedInputs, audioEncoderName, videoEncoderName, exportException)));
       quitInternalThreadLazily();
     }
 

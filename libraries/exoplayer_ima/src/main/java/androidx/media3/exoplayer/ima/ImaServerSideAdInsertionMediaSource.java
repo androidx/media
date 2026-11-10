@@ -779,11 +779,10 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     super.releaseSourceInternal();
     if (loader != null) {
       loader.release();
-      mainHandler.post(
-          () -> {
-            player.removeListener(componentListener);
-            setStreamManager(/* streamManager= */ null);
-          });
+      mainHandler.post(() -> {
+        player.removeListener(componentListener);
+        setStreamManager(/* streamManager= */ null);
+      });
       loader = null;
     }
     contentTimeline = null;
@@ -903,11 +902,10 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
               contentMediaSourceFactory.createMediaSource(contentMediaItem), componentListener);
       this.serverSideAdInsertionMediaSource = serverSideAdInsertionMediaSource;
       if (isLiveStream) {
-        mainHandler.post(
-            () ->
-                setAdPlaybackState(
-                    new AdPlaybackState(adsId)
-                        .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)));
+        mainHandler.post(() ->
+            setAdPlaybackState(
+                new AdPlaybackState(adsId)
+                    .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)));
       }
       prepareChildSource(/* id= */ null, serverSideAdInsertionMediaSource);
     }
@@ -1205,11 +1203,10 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     public void load() throws IOException {
       try {
         // SDK will call loadUrl on stream player for SDK once manifest uri is available.
-        streamPlayer.setStreamLoadListener(
-            (streamUri, subtitles) -> {
-              contentUri = Uri.parse(streamUri);
-              conditionVariable.open();
-            });
+        streamPlayer.setStreamLoadListener((streamUri, subtitles) -> {
+          contentUri = Uri.parse(streamUri);
+          conditionVariable.open();
+        });
         if (adErrorListener != null) {
           adsLoader.addAdErrorListener(adErrorListener);
         }

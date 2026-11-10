@@ -108,49 +108,45 @@ public class TransformerProgressTest {
     Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     AtomicReference<@Nullable Transformer> transformerRef = new AtomicReference<>();
     AtomicReference<@Nullable Exception> exceptionRef = new AtomicReference<>();
-    instrumentation.runOnMainSync(
-        () -> {
-          try {
-            // A composition with a custom effect that's slow: puts the video processing thread to
-            // sleep on every received frame.
-            Composition composition =
-                new Composition.Builder(
-                        EditedMediaItemSequence.withAudioAndVideoFrom(
-                            ImmutableList.of(
-                                new EditedMediaItem.Builder(
-                                        MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                    .setEffects(
-                                        new Effects(
-                                            /* audioProcessors= */ ImmutableList.of(),
-                                            /* videoEffects= */ ImmutableList.of(
-                                                new DelayEffect(/* delayMs= */ DELAY_MS))))
-                                    .build())))
-                    .build();
-            File outputVideoFile =
-                createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
-            Transformer transformer = new Transformer.Builder(context).build();
-            transformer.addListener(listener);
-            transformer.start(composition, outputVideoFile.getPath());
-            transformerRef.set(transformer);
-          } catch (Exception e) {
-            exceptionRef.set(e);
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      try {
+        // A composition with a custom effect that's slow: puts the video processing thread to
+        // sleep on every received frame.
+        Composition composition =
+            new Composition.Builder(
+                    EditedMediaItemSequence.withAudioAndVideoFrom(
+                        ImmutableList.of(
+                            new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                                .setEffects(
+                                    new Effects(
+                                        /* audioProcessors= */ ImmutableList.of(),
+                                        /* videoEffects= */ ImmutableList.of(
+                                            new DelayEffect(/* delayMs= */ DELAY_MS))))
+                                .build())))
+                .build();
+        File outputVideoFile =
+            createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+        Transformer transformer = new Transformer.Builder(context).build();
+        transformer.addListener(listener);
+        transformer.start(composition, outputVideoFile.getPath());
+        transformerRef.set(transformer);
+      } catch (Exception e) {
+        exceptionRef.set(e);
+      }
+    });
 
     assertThat(exceptionRef.get()).isNull();
 
     ArrayList<Integer> progresses = new ArrayList<>();
     while (!completed.get()) {
-      instrumentation.runOnMainSync(
-          () -> {
-            Transformer transformer = checkNotNull(transformerRef.get());
-            ProgressHolder progressHolder = new ProgressHolder();
-            if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
-                && (progresses.isEmpty()
-                    || Iterables.getLast(progresses) != progressHolder.progress)) {
-              progresses.add(progressHolder.progress);
-            }
-          });
+      instrumentation.runOnMainSync(() -> {
+        Transformer transformer = checkNotNull(transformerRef.get());
+        ProgressHolder progressHolder = new ProgressHolder();
+        if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
+            && (progresses.isEmpty() || Iterables.getLast(progresses) != progressHolder.progress)) {
+          progresses.add(progressHolder.progress);
+        }
+      });
 
       Thread.sleep(DELAY_MS);
     }
@@ -209,27 +205,25 @@ public class TransformerProgressTest {
     File outputVideoFile = createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                testTransformer.start(mediaItem, outputVideoFile.getAbsolutePath());
-                // Catch all exceptions to report. Exceptions thrown here that are not caught will
-                // NOT propagate.
-              } catch (RuntimeException e) {
-                transformerExceptionFuture.set(e);
-              }
-            });
+        .runOnMainSync(() -> {
+          try {
+            testTransformer.start(mediaItem, outputVideoFile.getAbsolutePath());
+            // Catch all exceptions to report. Exceptions thrown here that are not caught will
+            // NOT propagate.
+          } catch (RuntimeException e) {
+            transformerExceptionFuture.set(e);
+          }
+        });
     while (!transformerExceptionFuture.isDone()) {
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                ProgressHolder progressHolder = new ProgressHolder();
-                if (testTransformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
-                    && (progresses.isEmpty()
-                        || Iterables.getLast(progresses) != progressHolder.progress)) {
-                  progresses.add(progressHolder.progress);
-                }
-              });
+          .runOnMainSync(() -> {
+            ProgressHolder progressHolder = new ProgressHolder();
+            if (testTransformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
+                && (progresses.isEmpty()
+                    || Iterables.getLast(progresses) != progressHolder.progress)) {
+              progresses.add(progressHolder.progress);
+            }
+          });
       Thread.sleep(/* millis= */ 200);
     }
 
@@ -289,46 +283,44 @@ public class TransformerProgressTest {
     File outputVideoFile = createInternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                testTransformer.start(mediaItem, outputVideoFile.getAbsolutePath());
-                // Catch all exceptions to report. Exceptions thrown here that are not caught will
-                // NOT propagate.
-              } catch (RuntimeException e) {
-                transformerExceptionFuture.set(e);
-              }
-            });
+        .runOnMainSync(() -> {
+          try {
+            testTransformer.start(mediaItem, outputVideoFile.getAbsolutePath());
+            // Catch all exceptions to report. Exceptions thrown here that are not caught will
+            // NOT propagate.
+          } catch (RuntimeException e) {
+            transformerExceptionFuture.set(e);
+          }
+        });
     while (!transformerExceptionFuture.isDone()) {
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                @Transformer.ProgressState
-                int progressState = transformer.getProgress(new ProgressHolder());
-                if (progressState == PROGRESS_STATE_UNAVAILABLE) {
+          .runOnMainSync(() -> {
+            @Transformer.ProgressState
+            int progressState = transformer.getProgress(new ProgressHolder());
+            if (progressState == PROGRESS_STATE_UNAVAILABLE) {
+              foundInconsistentState.set(true);
+              return;
+            }
+            switch (previousProgressState.get()) {
+              case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
+                break;
+              case PROGRESS_STATE_AVAILABLE:
+                if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
                   foundInconsistentState.set(true);
                   return;
                 }
-                switch (previousProgressState.get()) {
-                  case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-                    break;
-                  case PROGRESS_STATE_AVAILABLE:
-                    if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-                      foundInconsistentState.set(true);
-                      return;
-                    }
-                    break;
-                  case PROGRESS_STATE_NOT_STARTED:
-                    if (progressState != PROGRESS_STATE_NOT_STARTED) {
-                      foundInconsistentState.set(true);
-                      return;
-                    }
-                    break;
-                  default:
-                    throw new IllegalStateException();
+                break;
+              case PROGRESS_STATE_NOT_STARTED:
+                if (progressState != PROGRESS_STATE_NOT_STARTED) {
+                  foundInconsistentState.set(true);
+                  return;
                 }
-                previousProgressState.set(progressState);
-              });
+                break;
+              default:
+                throw new IllegalStateException();
+            }
+            previousProgressState.set(progressState);
+          });
       Thread.sleep(/* millis= */ 200);
     }
 

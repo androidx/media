@@ -82,21 +82,19 @@ public class FakeVideoRenderer extends FakeRenderer {
   protected void onStopped() {
     super.onStopped();
     handler.post(() -> eventListener.onDroppedFrames(/* count= */ 0, /* elapsedMs= */ 0));
-    handler.post(
-        () ->
-            eventListener.onVideoFrameProcessingOffset(
-                /* totalProcessingOffsetUs= */ 400000, /* frameCount= */ 10));
+    handler.post(() ->
+        eventListener.onVideoFrameProcessingOffset(
+            /* totalProcessingOffsetUs= */ 400000, /* frameCount= */ 10));
   }
 
   @Override
   protected void onDisabled() {
     super.onDisabled();
     videoSizeRef.set(VideoSize.UNKNOWN);
-    handler.post(
-        () -> {
-          eventListener.onVideoDisabled(decoderCounters);
-          eventListener.onVideoSizeChanged(VideoSize.UNKNOWN);
-        });
+    handler.post(() -> {
+      eventListener.onVideoDisabled(decoderCounters);
+      eventListener.onVideoSizeChanged(VideoSize.UNKNOWN);
+    });
   }
 
   @Override
@@ -111,12 +109,11 @@ public class FakeVideoRenderer extends FakeRenderer {
   protected void onFormatChanged(Format format) {
     handler.post(
         () -> eventListener.onVideoInputFormatChanged(format, /* decoderReuseEvaluation= */ null));
-    handler.post(
-        () ->
-            eventListener.onVideoDecoderInitialized(
-                /* decoderName= */ "fake.video.decoder",
-                /* initializedTimestampMs= */ SystemClock.elapsedRealtime(),
-                /* initializationDurationMs= */ 0));
+    handler.post(() ->
+        eventListener.onVideoDecoderInitialized(
+            /* decoderName= */ "fake.video.decoder",
+            /* initializedTimestampMs= */ SystemClock.elapsedRealtime(),
+            /* initializationDurationMs= */ 0));
     this.format = format;
   }
 
@@ -169,19 +166,17 @@ public class FakeVideoRenderer extends FakeRenderer {
       }
       if (!renderedFirstFrameAfterReset && output != null) {
         Format format = this.format;
-        handler.post(
-            () -> {
-              VideoSize videoSize =
-                  new VideoSize(format.width, format.height, format.pixelWidthHeightRatio);
-              if (!Objects.equals(videoSize, videoSizeRef.get())) {
-                eventListener.onVideoSizeChanged(videoSize);
-                videoSizeRef.set(videoSize);
-              }
-            });
-        handler.post(
-            () ->
-                eventListener.onRenderedFirstFrame(
-                    output, /* renderTimeMs= */ SystemClock.elapsedRealtime()));
+        handler.post(() -> {
+          VideoSize videoSize =
+              new VideoSize(format.width, format.height, format.pixelWidthHeightRatio);
+          if (!Objects.equals(videoSize, videoSizeRef.get())) {
+            eventListener.onVideoSizeChanged(videoSize);
+            videoSizeRef.set(videoSize);
+          }
+        });
+        handler.post(() ->
+            eventListener.onRenderedFirstFrame(
+                output, /* renderTimeMs= */ SystemClock.elapsedRealtime()));
         renderedFirstFrameAfterReset = true;
         renderedFirstFrameAfterEnable = true;
       }

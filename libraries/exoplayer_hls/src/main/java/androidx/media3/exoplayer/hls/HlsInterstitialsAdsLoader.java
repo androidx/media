@@ -1265,9 +1265,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
     boolean adPlaybackStateUpdated = putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
     if (!adsMediaSourceSessionManager.isUnsupportedContentMediaSource(adsId)) {
-      notifyListeners(
-          listener ->
-              listener.onContentTimelineChanged(adsMediaSource.getMediaItem(), adsId, timeline));
+      notifyListeners(listener ->
+          listener.onContentTimelineChanged(adsMediaSource.getMediaItem(), adsId, timeline));
     }
     return adPlaybackStateUpdated;
   }
@@ -1277,10 +1276,9 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       AdsMediaSource adsMediaSource, int adGroupIndex, int adIndexInAdGroup) {
     Object adsId = adsMediaSource.getAdsId();
     if (!isReleased && !adsMediaSourceSessionManager.isUnsupportedContentMediaSource(adsId)) {
-      notifyListeners(
-          listener ->
-              listener.onPrepareCompleted(
-                  adsMediaSource.getMediaItem(), adsId, adGroupIndex, adIndexInAdGroup));
+      notifyListeners(listener ->
+          listener.onPrepareCompleted(
+              adsMediaSource.getMediaItem(), adsId, adGroupIndex, adIndexInAdGroup));
     }
   }
 
@@ -1296,10 +1294,9 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         checkNotNull(session).adPlaybackState.withAdLoadError(adGroupIndex, adIndexInAdGroup);
     putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
     if (!isReleased && !adsMediaSourceSessionManager.isUnsupportedContentMediaSource(adsId)) {
-      notifyListeners(
-          listener ->
-              listener.onPrepareError(
-                  adsMediaSource.getMediaItem(), adsId, adGroupIndex, adIndexInAdGroup, exception));
+      notifyListeners(listener ->
+          listener.onPrepareError(
+              adsMediaSource.getMediaItem(), adsId, adGroupIndex, adIndexInAdGroup, exception));
     }
   }
 
@@ -1326,12 +1323,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         // Update the resumption state in case the user has added one.
         resumptionStates.put(adsId, adPlaybackState);
       }
-      notifyListeners(
-          listener ->
-              listener.onStop(
-                  adsMediaSource.getMediaItem(),
-                  adsMediaSource.getAdsId(),
-                  checkNotNull(adPlaybackState)));
+      notifyListeners(listener ->
+          listener.onStop(
+              adsMediaSource.getMediaItem(),
+              adsMediaSource.getAdsId(),
+              checkNotNull(adPlaybackState)));
     }
     if (pendingAssetListResolutionMessage != null
         && adsMediaSource
@@ -1380,13 +1376,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                 .build(),
             new LoaderCallback(assetListData),
             /* defaultMinRetryCount= */ 1);
-    notifyListeners(
-        (listener) ->
-            listener.onAssetListLoadStarted(
-                assetListData.mediaItem,
-                assetListData.adsId,
-                assetListData.adGroupIndex,
-                assetListData.adIndexInAdGroup));
+    notifyListeners(listener ->
+        listener.onAssetListLoadStarted(
+            assetListData.mediaItem,
+            assetListData.adsId,
+            assetListData.adGroupIndex,
+            assetListData.adIndexInAdGroup));
   }
 
   private void maybeExecuteOrSetNextAssetListResolutionMessage(
@@ -2040,10 +2035,9 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       MediaItem currentMediaItem = checkNotNull(player.getCurrentMediaItem());
       int currentAdGroupIndex = player.getCurrentAdGroupIndex();
       int currentAdIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
-      notifyListeners(
-          listener ->
-              listener.onMetadata(
-                  currentMediaItem, adsId, currentAdGroupIndex, currentAdIndexInAdGroup, metadata));
+      notifyListeners(listener ->
+          listener.onMetadata(
+              currentMediaItem, adsId, currentAdGroupIndex, currentAdIndexInAdGroup, metadata));
     }
 
     @Override
@@ -2101,13 +2095,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                 if (session.awaitingFirstAdToStart) {
                   session.awaitingFirstAdToStart = false;
                 }
-                notifyListeners(
-                    listener ->
-                        listener.onAdStarted(
-                            checkNotNull(newPosition.mediaItem),
-                            adsId,
-                            newPosition.adGroupIndex,
-                            newPosition.adIndexInAdGroup));
+                notifyListeners(listener ->
+                    listener.onAdStarted(
+                        checkNotNull(newPosition.mediaItem),
+                        adsId,
+                        newPosition.adGroupIndex,
+                        newPosition.adIndexInAdGroup));
               }
             } else if (reason == DISCONTINUITY_REASON_SEEK
                 || reason == DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
@@ -2126,23 +2119,21 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
               if (oldPosition.adIndexInAdGroup == C.INDEX_UNSET
                   && newPosition.adIndexInAdGroup != C.INDEX_UNSET) {
                 // An ad started after the user sought beyond an ad cue point.
-                notifyListeners(
-                    listener ->
-                        listener.onAdStarted(
-                            checkNotNull(newPosition.mediaItem),
-                            adsId,
-                            newPosition.adGroupIndex,
-                            newPosition.adIndexInAdGroup));
+                notifyListeners(listener ->
+                    listener.onAdStarted(
+                        checkNotNull(newPosition.mediaItem),
+                        adsId,
+                        newPosition.adGroupIndex,
+                        newPosition.adIndexInAdGroup));
               }
             } else if (oldPosition.adGroupIndex != C.INDEX_UNSET
                 && reason == DISCONTINUITY_REASON_SKIP) {
-              notifyListeners(
-                  listener ->
-                      listener.onAdSkipped(
-                          checkNotNull(oldPosition.mediaItem),
-                          adsId,
-                          oldPosition.adGroupIndex,
-                          oldPosition.adIndexInAdGroup));
+              notifyListeners(listener ->
+                  listener.onAdSkipped(
+                      checkNotNull(oldPosition.mediaItem),
+                      adsId,
+                      oldPosition.adGroupIndex,
+                      oldPosition.adIndexInAdGroup));
             }
           });
     }
@@ -2162,13 +2153,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
               HlsAdSession session = adsMediaSourceSessionManager.getSession(adsId);
               if (session != null && session.awaitingFirstAdToStart) {
                 session.awaitingFirstAdToStart = false;
-                notifyListeners(
-                    listener ->
-                        listener.onAdStarted(
-                            checkNotNull(player.getCurrentMediaItem()),
-                            adsId,
-                            player.getCurrentAdGroupIndex(),
-                            player.getCurrentAdIndexInAdGroup()));
+                notifyListeners(listener ->
+                    listener.onAdStarted(
+                        checkNotNull(player.getCurrentMediaItem()),
+                        adsId,
+                        player.getCurrentAdGroupIndex(),
+                        player.getCurrentAdIndexInAdGroup()));
               }
             }
           });
@@ -2440,15 +2430,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
               // The ad was manipulated manually since the asset loading was started. Ignore asset
               // list and make sure the next asset list is scheduled for loading (if any).
               maybeContinueAssetResolution();
-              notifyListeners(
-                  listener ->
-                      listener.onAssetListLoadFailed(
-                          assetListData.mediaItem,
-                          assetListData.adsId,
-                          assetListData.adGroupIndex,
-                          assetListData.adIndexInAdGroup,
-                          /* ioException= */ null,
-                          /* cancelled= */ true));
+              notifyListeners(listener ->
+                  listener.onAssetListLoadFailed(
+                      assetListData.mediaItem,
+                      assetListData.adsId,
+                      assetListData.adGroupIndex,
+                      assetListData.adIndexInAdGroup,
+                      /* ioException= */ null,
+                      /* cancelled= */ true));
               return;
             } else if (assetList == null || assetList.assets.isEmpty()) {
               // Mark the ad as failed and schedule the next asset list for loading (if any).
@@ -2545,15 +2534,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                 adPlaybackState.withContentResumeOffsetUs(
                     assetListData.adGroupIndex, correctedAdGroupContentResumeOffsetUs);
             putAndNotifyAdPlaybackStateUpdate(assetListData.adsId, adPlaybackState);
-            notifyListeners(
-                listener ->
-                    listener.onAssetListLoadCompleted(
-                        assetListData.mediaItem,
-                        assetListData.adsId,
-                        assetListData.adGroupIndex,
-                        assetListData.adIndexInAdGroup,
-                        assetList,
-                        /* rawAssetListJson= */ result.second));
+            notifyListeners(listener ->
+                listener.onAssetListLoadCompleted(
+                    assetListData.mediaItem,
+                    assetListData.adsId,
+                    assetListData.adGroupIndex,
+                    assetListData.adIndexInAdGroup,
+                    assetList,
+                    /* rawAssetListJson= */ result.second));
             maybeContinueAssetResolution();
           });
     }
@@ -2582,15 +2570,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     private void handleAssetResolutionFailed(@Nullable IOException error, boolean cancelled) {
       notifyAssetResolutionFailed(
           assetListData.adsId, assetListData.adGroupIndex, assetListData.adIndexInAdGroup);
-      notifyListeners(
-          listener ->
-              listener.onAssetListLoadFailed(
-                  assetListData.mediaItem,
-                  assetListData.adsId,
-                  assetListData.adGroupIndex,
-                  assetListData.adIndexInAdGroup,
-                  error,
-                  cancelled));
+      notifyListeners(listener ->
+          listener.onAssetListLoadFailed(
+              assetListData.mediaItem,
+              assetListData.adsId,
+              assetListData.adGroupIndex,
+              assetListData.adIndexInAdGroup,
+              error,
+              cancelled));
       maybeContinueAssetResolution();
     }
 

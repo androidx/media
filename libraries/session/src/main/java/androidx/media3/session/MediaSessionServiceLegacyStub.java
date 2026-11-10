@@ -74,30 +74,29 @@ import org.jspecify.annotations.Nullable;
 
     AtomicReference<MediaSession.ConnectionResult> resultReference = new AtomicReference<>();
     ConditionVariable haveResult = new ConditionVariable();
-    postOrRunOnApplicationHandler(
-        () -> {
-          ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
-              sessionImpl.onConnectOnHandler(controller);
-          Futures.addCallback(
-              connectionResultFuture,
-              new FutureCallback<MediaSession.ConnectionResult>() {
-                @Override
-                public void onSuccess(MediaSession.ConnectionResult result) {
-                  // Running on arbitrary future callback.
-                  resultReference.set(result);
-                  haveResult.open();
-                }
+    postOrRunOnApplicationHandler(() -> {
+      ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
+          sessionImpl.onConnectOnHandler(controller);
+      Futures.addCallback(
+          connectionResultFuture,
+          new FutureCallback<MediaSession.ConnectionResult>() {
+            @Override
+            public void onSuccess(MediaSession.ConnectionResult result) {
+              // Running on arbitrary future callback.
+              resultReference.set(result);
+              haveResult.open();
+            }
 
-                @Override
-                public void onFailure(Throwable t) {
-                  // Running on arbitrary future callback.
-                  // Should not happen, onConnect should at least return a rejected result.
-                  resultReference.set(MediaSession.ConnectionResult.reject());
-                  haveResult.open();
-                }
-              },
-              MoreExecutors.directExecutor());
-        });
+            @Override
+            public void onFailure(Throwable t) {
+              // Running on arbitrary future callback.
+              // Should not happen, onConnect should at least return a rejected result.
+              resultReference.set(MediaSession.ConnectionResult.reject());
+              haveResult.open();
+            }
+          },
+          MoreExecutors.directExecutor());
+    });
     try {
       haveResult.block();
     } catch (InterruptedException e) {
@@ -108,14 +107,13 @@ import org.jspecify.annotations.Nullable;
     if (result == null || !result.isAccepted) {
       return null;
     }
-    postOrRunOnApplicationHandler(
-        () -> {
-          if (sessionImpl.isReleased()) {
-            return;
-          }
-          connectedControllersManager.addController(
-              info, controller, result.availableSessionCommands, result.availablePlayerCommands);
-        });
+    postOrRunOnApplicationHandler(() -> {
+      if (sessionImpl.isReleased()) {
+        return;
+      }
+      connectedControllersManager.addController(
+          info, controller, result.availableSessionCommands, result.availablePlayerCommands);
+    });
     // No library root, but keep browser compat connected to allow getting session.
     return MediaUtils.defaultBrowserRoot;
   }

@@ -67,12 +67,11 @@ public final class HlsMediaChunkTest {
   public void load_extractorThrowsEOFExceptionAfterFullyLoadedChunk_throwsParserException()
       throws Exception {
     when(mockExtractor.read(any(ExtractorInput.class)))
-        .thenAnswer(
-            invocation -> {
-              ExtractorInput input = invocation.getArgument(0);
-              input.skipFully(100);
-              throw new EOFException();
-            });
+        .thenAnswer(invocation -> {
+          ExtractorInput input = invocation.getArgument(0);
+          input.skipFully(100);
+          throw new EOFException();
+        });
     HlsMediaPlaylist.Segment segment =
         new HlsMediaPlaylist.Segment(
             "https://example.com/segment.ts",
@@ -90,12 +89,11 @@ public final class HlsMediaChunkTest {
   public void load_extractorThrowsEOFExceptionBeforeFullyLoadedChunk_propagatesEOFException()
       throws Exception {
     when(mockExtractor.read(any(ExtractorInput.class)))
-        .thenAnswer(
-            invocation -> {
-              ExtractorInput input = invocation.getArgument(0);
-              input.skipFully(50); // Premature read (less than segment's 100 length)
-              throw new EOFException();
-            });
+        .thenAnswer(invocation -> {
+          ExtractorInput input = invocation.getArgument(0);
+          input.skipFully(50); // Premature read (less than segment's 100 length)
+          throw new EOFException();
+        });
     HlsMediaPlaylist.Segment segment =
         new HlsMediaPlaylist.Segment(
             "https://example.com/segment.ts",
@@ -112,10 +110,9 @@ public final class HlsMediaChunkTest {
   public void load_extractorThrowsEOFExceptionForUnsetLengthChunk_propagatesEOFException()
       throws Exception {
     when(mockExtractor.read(any(ExtractorInput.class)))
-        .thenAnswer(
-            invocation -> {
-              throw new EOFException();
-            });
+        .thenAnswer(invocation -> {
+          throw new EOFException();
+        });
     HlsMediaPlaylist.Segment segment =
         new HlsMediaPlaylist.Segment(
             "https://example.com/segment.ts",

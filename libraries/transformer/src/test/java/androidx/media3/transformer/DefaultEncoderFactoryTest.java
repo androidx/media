@@ -421,7 +421,7 @@ public class DefaultEncoderFactoryTest {
         ExportException.class,
         () ->
             new DefaultEncoderFactory.Builder(context)
-                .setVideoEncoderSelector((mimeType) -> ImmutableList.of())
+                .setVideoEncoderSelector(mimeType -> ImmutableList.of())
                 .build()
                 .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null));
   }

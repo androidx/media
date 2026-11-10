@@ -73,12 +73,11 @@ public class VideoCompositionPreviewPerformanceTest {
 
   @After
   public void tearDown() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (player != null) {
-            player.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (player != null) {
+        player.release();
+      }
+    });
     rule.getScenario().close();
   }
 
@@ -90,33 +89,30 @@ public class VideoCompositionPreviewPerformanceTest {
   @Ignore("TODO: b/375349144 - Fix this test and re-enable it")
   public void compositionPlayerCompositionPreviewTest() throws Exception {
     SettableFuture<Void> readyFuture = SettableFuture.create();
-    instrumentation.runOnMainSync(
-        () -> {
-          player = new CompositionPlayer.Builder(getApplicationContext()).build();
-          player.setVideoSurfaceView(surfaceView);
-          player.setPlayWhenReady(false);
-          readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
-          player.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withAudioAndVideoFrom(
-                          ImmutableList.of(
-                              getClippedEditedMediaItem(MP4_ADVANCED_ASSET.uri, new Contrast(.2f)),
-                              getClippedEditedMediaItem(
-                                  MP4_ADVANCED_ASSET.uri, new Contrast(-.2f)))))
-                  .build());
-          player.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      player = new CompositionPlayer.Builder(getApplicationContext()).build();
+      player.setVideoSurfaceView(surfaceView);
+      player.setPlayWhenReady(false);
+      readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
+      player.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withAudioAndVideoFrom(
+                      ImmutableList.of(
+                          getClippedEditedMediaItem(MP4_ADVANCED_ASSET.uri, new Contrast(.2f)),
+                          getClippedEditedMediaItem(MP4_ADVANCED_ASSET.uri, new Contrast(-.2f)))))
+              .build());
+      player.prepare();
+    });
 
     readyFuture.get();
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     AtomicLong playbackStartTimeMs = new AtomicLong();
-    instrumentation.runOnMainSync(
-        () -> {
-          playbackStartTimeMs.set(SystemClock.elapsedRealtime());
-          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-          checkNotNull(player).play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      playbackStartTimeMs.set(SystemClock.elapsedRealtime());
+      endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+      checkNotNull(player).play();
+    });
 
     endedFuture.get();
     long compositionDurationMs = MEDIA_ITEM_CLIP_DURATION_MS * 2;

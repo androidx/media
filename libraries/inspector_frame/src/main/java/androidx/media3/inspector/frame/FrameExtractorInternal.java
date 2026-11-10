@@ -302,7 +302,7 @@ import org.jspecify.annotations.Nullable;
 
             return Futures.transformAsync(
                 prepareFuture,
-                (prepareResult) -> {
+                prepareResult -> {
                   long timestampToExtractMs =
                       isThumbnailRequest ? getThumbnailPresentationTimeMs() : request.positionMs;
                   if (prepareResult.presentationTimeMs == timestampToExtractMs) {
@@ -334,19 +334,18 @@ import org.jspecify.annotations.Nullable;
 
   /** Gets the decoder counters from the player. */
   /* package */ ListenableFuture<@Nullable DecoderCounters> getDecoderCounters() {
-    return CallbackToFutureAdapter.<@Nullable DecoderCounters>getFuture(
-        completer -> {
-          ListenableFuture<Void> unused =
-              executionSequencer.submit(
-                  () -> {
-                    DecoderCounters counters =
-                        (player != null) ? player.getVideoDecoderCounters() : null;
-                    completer.set(counters);
-                    return null;
-                  },
-                  playerHandler::post);
-          return "FrameExtractorInternal.getDecoderCounters";
-        });
+    return CallbackToFutureAdapter.<@Nullable DecoderCounters>getFuture(completer -> {
+      ListenableFuture<Void> unused =
+          executionSequencer.submit(
+              () -> {
+                DecoderCounters counters =
+                    (player != null) ? player.getVideoDecoderCounters() : null;
+                completer.set(counters);
+                return null;
+              },
+              playerHandler::post);
+      return "FrameExtractorInternal.getDecoderCounters";
+    });
   }
 
   private static void assertTracksSupported(Tracks tracks) {
@@ -385,33 +384,32 @@ import org.jspecify.annotations.Nullable;
       ImmutableList<Effect> videoEffects,
       boolean needsNewPlayer,
       boolean needsPrepare) {
-    return CallbackToFutureAdapter.getFuture(
-        completer -> {
-          if (!activeTaskCompleter.compareAndSet(null, completer)) {
-            completer.setException(new IllegalStateException("Another task is already active"));
-            return "FrameExtractorInternal.processTask - conflict";
-          }
+    return CallbackToFutureAdapter.getFuture(completer -> {
+      if (!activeTaskCompleter.compareAndSet(null, completer)) {
+        completer.setException(new IllegalStateException("Another task is already active"));
+        return "FrameExtractorInternal.processTask - conflict";
+      }
 
-          ensurePlayerInitialized(request, needsNewPlayer);
+      ensurePlayerInitialized(request, needsNewPlayer);
 
-          ExoPlayer player = checkNotNull(this.player);
-          if (needsPrepare) {
-            currentVideoEffects = videoEffects;
-            lastSeekDedupeFrame = null;
-            extractedFrameNeedsRendering.set(true);
-            thumbnailPresentationTimeMs = C.TIME_UNSET;
-            player.setVideoEffects(videoEffects);
-            player.setMediaItem(request.mediaItem);
-            player.setSeekParameters(request.seekParameters);
-            player.prepare();
-          } else {
-            extractedFrameNeedsRendering.set(false);
-            player.setVideoEffects(videoEffects);
-            player.setSeekParameters(request.seekParameters);
-            player.seekTo(request.positionMs);
-          }
-          return "FrameExtractorInternal.processTask - scheduled";
-        });
+      ExoPlayer player = checkNotNull(this.player);
+      if (needsPrepare) {
+        currentVideoEffects = videoEffects;
+        lastSeekDedupeFrame = null;
+        extractedFrameNeedsRendering.set(true);
+        thumbnailPresentationTimeMs = C.TIME_UNSET;
+        player.setVideoEffects(videoEffects);
+        player.setMediaItem(request.mediaItem);
+        player.setSeekParameters(request.seekParameters);
+        player.prepare();
+      } else {
+        extractedFrameNeedsRendering.set(false);
+        player.setVideoEffects(videoEffects);
+        player.setSeekParameters(request.seekParameters);
+        player.seekTo(request.positionMs);
+      }
+      return "FrameExtractorInternal.processTask - scheduled";
+    });
   }
 
   private void ensurePlayerInitialized(FrameExtractionRequest request, boolean needsNewPlayer) {

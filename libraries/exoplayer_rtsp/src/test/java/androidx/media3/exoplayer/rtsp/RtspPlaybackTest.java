@@ -104,7 +104,7 @@ public final class RtspPlaybackTest {
   @Test
   public void prepare_withSupportedTrack_playsTrackUntilEnded() throws Exception {
     FakeUdpDataSourceRtpDataChannel fakeRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeRtpDataChannel;
+    RtpDataChannel.Factory rtpDataChannelFactory = trackId -> fakeRtpDataChannel;
     ResponseProvider responseProvider =
         new ResponseProvider(
             clock,
@@ -129,7 +129,7 @@ public final class RtspPlaybackTest {
   @Test
   public void prepare_noSupportedTrack_throwsPreparationError() throws Exception {
     FakeUdpDataSourceRtpDataChannel fakeRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeRtpDataChannel;
+    RtpDataChannel.Factory rtpDataChannelFactory = trackId -> fakeRtpDataChannel;
     rtspServer =
         new RtspServer(
             new ResponseProvider(
@@ -159,7 +159,7 @@ public final class RtspPlaybackTest {
   public void prepare_withUdpUnsupportedWithFallback_fallsbackToTcpAndPlaysUntilEnd()
       throws Exception {
     FakeTcpDataSourceRtpDataChannel fakeTcpRtpDataChannel = new FakeTcpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpTcpDataChannelFactory = (trackId) -> fakeTcpRtpDataChannel;
+    RtpDataChannel.Factory rtpTcpDataChannelFactory = trackId -> fakeTcpRtpDataChannel;
     ResponseProviderSupportingOnlyTcp responseProviderSupportingOnlyTcp =
         new ResponseProviderSupportingOnlyTcp(
             clock,
@@ -188,7 +188,7 @@ public final class RtspPlaybackTest {
   public void prepare_withUdpUnsupportedWithoutFallback_throwsRtspPlaybackException()
       throws Exception {
     FakeUdpDataSourceRtpDataChannel fakeUdpRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeUdpRtpDataChannel;
+    RtpDataChannel.Factory rtpDataChannelFactory = trackId -> fakeUdpRtpDataChannel;
     ResponseProviderSupportingOnlyTcp responseProvider =
         new ResponseProviderSupportingOnlyTcp(
             clock,
@@ -222,7 +222,7 @@ public final class RtspPlaybackTest {
   public void prepare_withUdpUnsupportedWithUdpFallback_throwsRtspUdpUnsupportedTransportException()
       throws Exception {
     FakeUdpDataSourceRtpDataChannel fakeUdpRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeUdpRtpDataChannel;
+    RtpDataChannel.Factory rtpDataChannelFactory = trackId -> fakeUdpRtpDataChannel;
     ResponseProviderSupportingOnlyTcp responseProviderSupportingOnlyTcp =
         new ResponseProviderSupportingOnlyTcp(
             clock,
@@ -256,7 +256,7 @@ public final class RtspPlaybackTest {
   public void play_withCustomSessionTimeoutDuration_sendsKeepAliveOptionsRequest()
       throws Exception {
     FakeUdpDataSourceRtpDataChannel fakeRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeRtpDataChannel;
+    RtpDataChannel.Factory rtpDataChannelFactory = trackId -> fakeRtpDataChannel;
     Optional<AtomicInteger> optionsRequestCounter = Optional.of(new AtomicInteger());
     ResponseProvider responseProvider =
         new ResponseProvider(
@@ -281,7 +281,7 @@ public final class RtspPlaybackTest {
   @Test
   public void seekToEnd_afterLoadingFinished_doesNotLoadAgain() throws Exception {
     FakeUdpDataSourceRtpDataChannel fakeRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
-    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeRtpDataChannel;
+    RtpDataChannel.Factory rtpDataChannelFactory = trackId -> fakeRtpDataChannel;
     ResponseProvider responseProvider =
         new ResponseProvider(
             clock,

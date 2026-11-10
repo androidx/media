@@ -88,12 +88,13 @@ import org.jspecify.annotations.Nullable;
  * The {@link TrackSelectorResult} returned by {@link #selectTracks(RendererCapabilities[],
  * TrackGroupArray, MediaPeriodId, Timeline)} contains not only {@link TrackSelection}s for each
  * renderer, but also {@link RendererConfiguration}s defining configuration parameters that the
- * renderers should apply when consuming the corresponding media. Whilst it may seem counter-
- * intuitive for a track selector to also specify renderer configuration information, in practice
- * the two are tightly bound together. It may only be possible to play a certain combination tracks
- * if the renderers are configured in a particular way. Equally, it may only be possible to
- * configure renderers in a particular way if certain tracks are selected. Hence it makes sense to
- * determine the track selection and corresponding renderer configurations in a single step.
+ * renderers should apply when consuming the corresponding media. Whilst it may seem
+ * counter-intuitive for a track selector to also specify renderer configuration information, in
+ * practice the two are tightly bound together. It may only be possible to play a certain
+ * combination tracks if the renderers are configured in a particular way. Equally, it may only be
+ * possible to configure renderers in a particular way if certain tracks are selected. Hence it
+ * makes sense to determine the track selection and corresponding renderer configurations in a
+ * single step.
  *
  * <h2>Threading model</h2>
  *

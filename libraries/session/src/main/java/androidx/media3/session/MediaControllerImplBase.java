@@ -497,9 +497,8 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(mediaItemIndex >= 0);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.seekToDefaultPositionWithMediaItemIndex(controllerStub, seq, mediaItemIndex));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.seekToDefaultPositionWithMediaItemIndex(controllerStub, seq, mediaItemIndex));
 
     seekToInternal(mediaItemIndex, /* positionMs= */ C.TIME_UNSET);
   }
@@ -523,9 +522,8 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(mediaItemIndex >= 0);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.seekToWithMediaItemIndex(controllerStub, seq, mediaItemIndex, positionMs));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.seekToWithMediaItemIndex(controllerStub, seq, mediaItemIndex, positionMs));
 
     seekToInternal(mediaItemIndex, positionMs);
   }
@@ -690,9 +688,8 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setPlaybackParameters(controllerStub, seq, playbackParameters.toBundle()));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setPlaybackParameters(controllerStub, seq, playbackParameters.toBundle()));
 
     if (!playerInfo.playbackParameters.equals(playbackParameters)) {
       playerInfo = playerInfo.copyWithPlaybackParameters(playbackParameters);
@@ -835,12 +832,11 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setMediaItem(
-                controllerStub,
-                seq,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setMediaItem(
+            controllerStub,
+            seq,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
 
     setMediaItemsInternal(
         Collections.singletonList(mediaItem),
@@ -855,13 +851,12 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setMediaItemWithStartPosition(
-                controllerStub,
-                seq,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()),
-                startPositionMs));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setMediaItemWithStartPosition(
+            controllerStub,
+            seq,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()),
+            startPositionMs));
 
     setMediaItemsInternal(
         Collections.singletonList(mediaItem),
@@ -876,13 +871,12 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setMediaItemWithResetPosition(
-                controllerStub,
-                seq,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()),
-                resetPosition));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setMediaItemWithResetPosition(
+            controllerStub,
+            seq,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()),
+            resetPosition));
 
     setMediaItemsInternal(
         Collections.singletonList(mediaItem),
@@ -897,17 +891,15 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setMediaItems(
-                controllerStub,
-                seq,
-                new BundleListRetriever(
-                    BundleCollectionUtil.toBundleList(
-                        mediaItems,
-                        item ->
-                            item.toBundleIncludeLocalConfiguration(
-                                getSessionInterfaceVersion())))));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setMediaItems(
+            controllerStub,
+            seq,
+            new BundleListRetriever(
+                BundleCollectionUtil.toBundleList(
+                    mediaItems,
+                    item ->
+                        item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())))));
 
     setMediaItemsInternal(
         mediaItems,
@@ -922,17 +914,15 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setMediaItemsWithResetPosition(
-                controllerStub,
-                seq,
-                new BundleListRetriever(
-                    BundleCollectionUtil.toBundleList(
-                        mediaItems,
-                        item ->
-                            item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()))),
-                resetPosition));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setMediaItemsWithResetPosition(
+            controllerStub,
+            seq,
+            new BundleListRetriever(
+                BundleCollectionUtil.toBundleList(
+                    mediaItems,
+                    item -> item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()))),
+            resetPosition));
 
     setMediaItemsInternal(
         mediaItems,
@@ -947,18 +937,16 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setMediaItemsWithStartIndex(
-                controllerStub,
-                seq,
-                new BundleListRetriever(
-                    BundleCollectionUtil.toBundleList(
-                        mediaItems,
-                        item ->
-                            item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()))),
-                startIndex,
-                startPositionMs));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setMediaItemsWithStartIndex(
+            controllerStub,
+            seq,
+            new BundleListRetriever(
+                BundleCollectionUtil.toBundleList(
+                    mediaItems,
+                    item -> item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()))),
+            startIndex,
+            startPositionMs));
 
     setMediaItemsInternal(
         mediaItems, startIndex, startPositionMs, /* resetToDefaultPosition= */ false);
@@ -970,10 +958,9 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setPlaylistMetadata(
-                controllerStub, seq, playlistMetadata.toBundle(getSessionInterfaceVersion())));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setPlaylistMetadata(
+            controllerStub, seq, playlistMetadata.toBundle(getSessionInterfaceVersion())));
 
     if (!playerInfo.playlistMetadata.equals(playlistMetadata)) {
       playerInfo = playerInfo.copyWithPlaylistMetadata(playlistMetadata);
@@ -995,12 +982,11 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.addMediaItem(
-                controllerStub,
-                seq,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.addMediaItem(
+            controllerStub,
+            seq,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
 
     addMediaItemsInternal(
         getCurrentTimeline().getWindowCount(), Collections.singletonList(mediaItem));
@@ -1013,13 +999,12 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(index >= 0);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.addMediaItemWithIndex(
-                controllerStub,
-                seq,
-                index,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.addMediaItemWithIndex(
+            controllerStub,
+            seq,
+            index,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
 
     addMediaItemsInternal(index, Collections.singletonList(mediaItem));
   }
@@ -1030,17 +1015,15 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.addMediaItems(
-                controllerStub,
-                seq,
-                new BundleListRetriever(
-                    BundleCollectionUtil.toBundleList(
-                        mediaItems,
-                        item ->
-                            item.toBundleIncludeLocalConfiguration(
-                                getSessionInterfaceVersion())))));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.addMediaItems(
+            controllerStub,
+            seq,
+            new BundleListRetriever(
+                BundleCollectionUtil.toBundleList(
+                    mediaItems,
+                    item ->
+                        item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())))));
 
     addMediaItemsInternal(getCurrentTimeline().getWindowCount(), mediaItems);
   }
@@ -1052,18 +1035,16 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(index >= 0);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.addMediaItemsWithIndex(
-                controllerStub,
-                seq,
-                index,
-                new BundleListRetriever(
-                    BundleCollectionUtil.toBundleList(
-                        mediaItems,
-                        item ->
-                            item.toBundleIncludeLocalConfiguration(
-                                getSessionInterfaceVersion())))));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.addMediaItemsWithIndex(
+            controllerStub,
+            seq,
+            index,
+            new BundleListRetriever(
+                BundleCollectionUtil.toBundleList(
+                    mediaItems,
+                    item ->
+                        item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())))));
 
     addMediaItemsInternal(index, mediaItems);
   }
@@ -1394,9 +1375,8 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(fromIndex >= 0 && fromIndex <= toIndex && newIndex >= 0);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.moveMediaItems(controllerStub, seq, fromIndex, toIndex, newIndex));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.moveMediaItems(controllerStub, seq, fromIndex, toIndex, newIndex));
 
     moveMediaItemsInternal(fromIndex, toIndex, newIndex);
   }
@@ -1408,23 +1388,22 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(index >= 0);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) -> {
-          if (getSessionInterfaceVersion() >= 2) {
-            iSession.replaceMediaItem(
-                controllerStub,
-                seq,
-                index,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()));
-          } else {
-            iSession.addMediaItemWithIndex(
-                controllerStub,
-                seq,
-                index + 1,
-                mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()));
-            iSession.removeMediaItem(controllerStub, seq, index);
-          }
-        });
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) -> {
+      if (getSessionInterfaceVersion() >= 2) {
+        iSession.replaceMediaItem(
+            controllerStub,
+            seq,
+            index,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()));
+      } else {
+        iSession.addMediaItemWithIndex(
+            controllerStub,
+            seq,
+            index + 1,
+            mediaItem.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion()));
+        iSession.removeMediaItem(controllerStub, seq, index);
+      }
+    });
     replaceMediaItemsInternal(
         /* fromIndex= */ index, /* toIndex= */ index + 1, ImmutableList.of(mediaItem));
   }
@@ -1436,22 +1415,19 @@ import org.jspecify.annotations.Nullable;
     }
     checkArgument(fromIndex >= 0 && fromIndex <= toIndex);
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) -> {
-          IBinder mediaItemsBundleBinder =
-              new BundleListRetriever(
-                  BundleCollectionUtil.toBundleList(
-                      mediaItems,
-                      item ->
-                          item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
-          if (getSessionInterfaceVersion() >= 2) {
-            iSession.replaceMediaItems(
-                controllerStub, seq, fromIndex, toIndex, mediaItemsBundleBinder);
-          } else {
-            iSession.addMediaItemsWithIndex(controllerStub, seq, toIndex, mediaItemsBundleBinder);
-            iSession.removeMediaItems(controllerStub, seq, fromIndex, toIndex);
-          }
-        });
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) -> {
+      IBinder mediaItemsBundleBinder =
+          new BundleListRetriever(
+              BundleCollectionUtil.toBundleList(
+                  mediaItems,
+                  item -> item.toBundleIncludeLocalConfiguration(getSessionInterfaceVersion())));
+      if (getSessionInterfaceVersion() >= 2) {
+        iSession.replaceMediaItems(controllerStub, seq, fromIndex, toIndex, mediaItemsBundleBinder);
+      } else {
+        iSession.addMediaItemsWithIndex(controllerStub, seq, toIndex, mediaItemsBundleBinder);
+        iSession.removeMediaItems(controllerStub, seq, fromIndex, toIndex);
+      }
+    });
     replaceMediaItemsInternal(fromIndex, toIndex, mediaItems);
   }
 
@@ -1704,14 +1680,13 @@ import org.jspecify.annotations.Nullable;
     }
 
     float newVolume = 0f;
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) -> {
-          if (getSessionInterfaceVersion() >= 6) {
-            iSession.mute(controllerStub, seq);
-          } else {
-            iSession.setVolume(controllerStub, seq, newVolume);
-          }
-        });
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) -> {
+      if (getSessionInterfaceVersion() >= 6) {
+        iSession.mute(controllerStub, seq);
+      } else {
+        iSession.setVolume(controllerStub, seq, newVolume);
+      }
+    });
 
     if (playerInfo.volume != newVolume) {
       playerInfo = playerInfo.copyWithVolume(newVolume);
@@ -1729,14 +1704,13 @@ import org.jspecify.annotations.Nullable;
     }
 
     float unmuteVolume = playerInfo.unmuteVolume;
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) -> {
-          if (getSessionInterfaceVersion() >= 6) {
-            iSession.unmute(controllerStub, seq);
-          } else {
-            iSession.setVolume(controllerStub, seq, unmuteVolume);
-          }
-        });
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) -> {
+      if (getSessionInterfaceVersion() >= 6) {
+        iSession.unmute(controllerStub, seq);
+      } else {
+        iSession.setVolume(controllerStub, seq, unmuteVolume);
+      }
+    });
 
     if (playerInfo.volume != playerInfo.unmuteVolume && playerInfo.volume == 0) {
       playerInfo = playerInfo.copyWithVolume(unmuteVolume);
@@ -1946,10 +1920,9 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setAudioAttributes(
-                controllerStub, seq, audioAttributes.toBundle(), handleAudioFocus));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setAudioAttributes(
+            controllerStub, seq, audioAttributes.toBundle(), handleAudioFocus));
 
     if (!playerInfo.audioAttributes.equals(audioAttributes)) {
       playerInfo = playerInfo.copyWithAudioAttributes(audioAttributes);
@@ -2116,9 +2089,8 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     if (getSessionInterfaceVersion() >= 8) {
-      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) ->
-              iSession.setVideoSurfaceWithSize(controllerStub, seq, surface, width, height));
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture((iSession, seq) ->
+          iSession.setVideoSurfaceWithSize(controllerStub, seq, surface, width, height));
     } else {
       dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
           (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, surface));
@@ -2151,9 +2123,8 @@ import org.jspecify.annotations.Nullable;
       return;
     }
 
-    dispatchRemoteSessionTaskWithPlayerCommand(
-        (iSession, seq) ->
-            iSession.setTrackSelectionParameters(controllerStub, seq, parameters.toBundle()));
+    dispatchRemoteSessionTaskWithPlayerCommand((iSession, seq) ->
+        iSession.setTrackSelectionParameters(controllerStub, seq, parameters.toBundle()));
 
     if (parameters != playerInfo.trackSelectionParameters) {
       playerInfo = playerInfo.copyWithTrackSelectionParameters(parameters);
@@ -2779,24 +2750,23 @@ import org.jspecify.annotations.Nullable;
     // updates sent to the application looper.
     sequencedFutureManager.setFutureResult(seq, futureResult);
     getInstance()
-        .runOnApplicationLooper(
-            () -> {
-              pendingMaskingSequencedFutureNumbers.remove(seq);
-              pendingCustomActionProgressListeners.delete(seq);
-              if (connectedToken != null
-                  && connectedToken.getInterfaceVersion() < 5
-                  && pendingMaskingSequencedFutureNumbers.isEmpty()) {
-                // Older session versions didn't reliably send a final PlayerInfo update. As a
-                // fallback, assume no actual final update is coming after 500ms.
-                fallbackPlaybackInfoUpdateHandler.postDelayed(
-                    () -> {
-                      if (pendingPlayerInfo != null) {
-                        onPlayerInfoChanged(pendingPlayerInfo, BundlingExclusions.NONE);
-                      }
-                    },
-                    500);
-              }
-            });
+        .runOnApplicationLooper(() -> {
+          pendingMaskingSequencedFutureNumbers.remove(seq);
+          pendingCustomActionProgressListeners.delete(seq);
+          if (connectedToken != null
+              && connectedToken.getInterfaceVersion() < 5
+              && pendingMaskingSequencedFutureNumbers.isEmpty()) {
+            // Older session versions didn't reliably send a final PlayerInfo update. As a
+            // fallback, assume no actual final update is coming after 500ms.
+            fallbackPlaybackInfoUpdateHandler.postDelayed(
+                () -> {
+                  if (pendingPlayerInfo != null) {
+                    onPlayerInfoChanged(pendingPlayerInfo, BundlingExclusions.NONE);
+                  }
+                },
+                500);
+          }
+        });
   }
 
   void onConnected(ConnectionState result) {
@@ -2907,14 +2877,13 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     getInstance()
-        .notifyControllerListener(
-            listener -> {
-              ListenableFuture<SessionResult> future =
-                  checkNotNull(
-                      listener.onCustomCommand(getInstance(), command, args),
-                      "ControllerCallback#onCustomCommand() must not return null");
-              sendControllerResultWhenReady(seq, future);
-            });
+        .notifyControllerListener(listener -> {
+          ListenableFuture<SessionResult> future =
+              checkNotNull(
+                  listener.onCustomCommand(getInstance(), command, args),
+                  "ControllerCallback#onCustomCommand() must not return null");
+          sendControllerResultWhenReady(seq, future);
+        });
   }
 
   void onCustomCommandProgressUpdate(
@@ -3076,9 +3045,8 @@ import org.jspecify.annotations.Nullable;
     }
     if (sessionCommandsChanged) {
       getInstance()
-          .notifyControllerListener(
-              listener ->
-                  listener.onAvailableSessionCommandsChanged(getInstance(), sessionCommands));
+          .notifyControllerListener(listener ->
+              listener.onAvailableSessionCommandsChanged(getInstance(), sessionCommands));
     }
     if (customLayoutChanged) {
       getInstance()
@@ -3087,10 +3055,9 @@ import org.jspecify.annotations.Nullable;
     }
     if (mediaButtonPreferencesChanged) {
       getInstance()
-          .notifyControllerListener(
-              listener ->
-                  listener.onMediaButtonPreferencesChanged(
-                      getInstance(), resolvedMediaButtonPreferences));
+          .notifyControllerListener(listener ->
+              listener.onMediaButtonPreferencesChanged(
+                  getInstance(), resolvedMediaButtonPreferences));
     }
   }
 
@@ -3142,10 +3109,9 @@ import org.jspecify.annotations.Nullable;
     }
     if (mediaButtonPreferencesChanged) {
       getInstance()
-          .notifyControllerListener(
-              listener ->
-                  listener.onMediaButtonPreferencesChanged(
-                      getInstance(), resolvedMediaButtonPreferences));
+          .notifyControllerListener(listener ->
+              listener.onMediaButtonPreferencesChanged(
+                  getInstance(), resolvedMediaButtonPreferences));
     }
   }
 
@@ -3175,21 +3141,19 @@ import org.jspecify.annotations.Nullable;
         !resolvedMediaButtonPreferences.equals(oldMediaButtonPreferences);
     boolean customLayoutChanged = !resolvedCustomLayout.equals(oldCustomLayout);
     getInstance()
-        .notifyControllerListener(
-            listener -> {
-              ListenableFuture<SessionResult> future =
-                  checkNotNull(
-                      listener.onSetCustomLayout(getInstance(), resolvedCustomLayout),
-                      "MediaController.Listener#onSetCustomLayout() must not return null");
-              if (customLayoutChanged) {
-                listener.onCustomLayoutChanged(getInstance(), resolvedCustomLayout);
-              }
-              if (mediaButtonPreferencesChanged) {
-                listener.onMediaButtonPreferencesChanged(
-                    getInstance(), resolvedMediaButtonPreferences);
-              }
-              sendControllerResultWhenReady(seq, future);
-            });
+        .notifyControllerListener(listener -> {
+          ListenableFuture<SessionResult> future =
+              checkNotNull(
+                  listener.onSetCustomLayout(getInstance(), resolvedCustomLayout),
+                  "MediaController.Listener#onSetCustomLayout() must not return null");
+          if (customLayoutChanged) {
+            listener.onCustomLayoutChanged(getInstance(), resolvedCustomLayout);
+          }
+          if (mediaButtonPreferencesChanged) {
+            listener.onMediaButtonPreferencesChanged(getInstance(), resolvedMediaButtonPreferences);
+          }
+          sendControllerResultWhenReady(seq, future);
+        });
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated listener methods.
@@ -3218,21 +3182,19 @@ import org.jspecify.annotations.Nullable;
         !resolvedMediaButtonPreferences.equals(oldMediaButtonPreferences);
     boolean customLayoutChanged = !resolvedCustomLayout.equals(oldCustomLayout);
     getInstance()
-        .notifyControllerListener(
-            listener -> {
-              ListenableFuture<SessionResult> future =
-                  checkNotNull(
-                      listener.onSetCustomLayout(getInstance(), resolvedCustomLayout),
-                      "MediaController.Listener#onSetCustomLayout() must not return null");
-              if (customLayoutChanged) {
-                listener.onCustomLayoutChanged(getInstance(), resolvedCustomLayout);
-              }
-              if (mediaButtonPreferencesChanged) {
-                listener.onMediaButtonPreferencesChanged(
-                    getInstance(), resolvedMediaButtonPreferences);
-              }
-              sendControllerResultWhenReady(seq, future);
-            });
+        .notifyControllerListener(listener -> {
+          ListenableFuture<SessionResult> future =
+              checkNotNull(
+                  listener.onSetCustomLayout(getInstance(), resolvedCustomLayout),
+                  "MediaController.Listener#onSetCustomLayout() must not return null");
+          if (customLayoutChanged) {
+            listener.onCustomLayoutChanged(getInstance(), resolvedCustomLayout);
+          }
+          if (mediaButtonPreferencesChanged) {
+            listener.onMediaButtonPreferencesChanged(getInstance(), resolvedMediaButtonPreferences);
+          }
+          sendControllerResultWhenReady(seq, future);
+        });
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated listener method.
@@ -3261,17 +3223,15 @@ import org.jspecify.annotations.Nullable;
         !resolvedMediaButtonPreferences.equals(oldMediaButtonPreferences);
     boolean customLayoutChanged = !resolvedCustomLayout.equals(oldCustomLayout);
     getInstance()
-        .notifyControllerListener(
-            listener -> {
-              listener.onExtrasChanged(getInstance(), extras);
-              if (customLayoutChanged) {
-                listener.onCustomLayoutChanged(getInstance(), resolvedCustomLayout);
-              }
-              if (mediaButtonPreferencesChanged) {
-                listener.onMediaButtonPreferencesChanged(
-                    getInstance(), resolvedMediaButtonPreferences);
-              }
-            });
+        .notifyControllerListener(listener -> {
+          listener.onExtrasChanged(getInstance(), extras);
+          if (customLayoutChanged) {
+            listener.onCustomLayoutChanged(getInstance(), resolvedCustomLayout);
+          }
+          if (mediaButtonPreferencesChanged) {
+            listener.onMediaButtonPreferencesChanged(getInstance(), resolvedMediaButtonPreferences);
+          }
+        });
   }
 
   public void onSetSessionActivity(int seq, @Nullable PendingIntent sessionActivity) {

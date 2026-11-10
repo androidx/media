@@ -277,14 +277,12 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     SessionResult sessionResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    mediaBrowser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaBrowserConstants.COMMAND_NOT_A_CUSTOM_SESSION_ACTION,
-                            Bundle.EMPTY),
-                        mediaItem,
-                        /* args= */ Bundle.EMPTY))
+            .postAndSync(() ->
+                mediaBrowser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaBrowserConstants.COMMAND_NOT_A_CUSTOM_SESSION_ACTION, Bundle.EMPTY),
+                    mediaItem,
+                    /* args= */ Bundle.EMPTY))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.extras.getString(MediaConstants.EXTRA_KEY_MEDIA_ID))
@@ -313,12 +311,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     SessionResult sessionResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    mediaBrowser.sendCustomCommand(
-                        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY),
-                        mediaItem,
-                        /* args= */ Bundle.EMPTY))
+            .postAndSync(() ->
+                mediaBrowser.sendCustomCommand(
+                    new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY),
+                    mediaItem,
+                    /* args= */ Bundle.EMPTY))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
@@ -421,10 +418,9 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     LibraryResult<ImmutableList<MediaItem>> resultGetChildren =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.getChildren(
-                        testParentId, /* page= */ 0, /* pageSize= */ 12, /* params= */ null))
+            .postAndSync(() ->
+                browser.getChildren(
+                    testParentId, /* page= */ 0, /* pageSize= */ 12, /* params= */ null))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(resultGetChildren.resultCode).isEqualTo(RESULT_SUCCESS);
@@ -436,10 +432,9 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     LibraryResult<ImmutableList<MediaItem>> resultGetChildrenAgain =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.getChildren(
-                        testParentId, /* page= */ 0, /* pageSize= */ 12, /* params= */ null))
+            .postAndSync(() ->
+                browser.getChildren(
+                    testParentId, /* page= */ 0, /* pageSize= */ 12, /* params= */ null))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(resultGetChildrenAgain.value).hasSize(2);
@@ -469,13 +464,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     LibraryResult<MediaItem> resultForLibraryRoot =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  Bundle extras = new Bundle();
-                  extras.putBoolean(EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY, true);
-                  return browser.getLibraryRoot(
-                      new LibraryParams.Builder().setExtras(extras).build());
-                })
+            .postAndSync(() -> {
+              Bundle extras = new Bundle();
+              extras.putBoolean(EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY, true);
+              return browser.getLibraryRoot(new LibraryParams.Builder().setExtras(extras).build());
+            })
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(resultForLibraryRoot.value.mediaId)
@@ -490,13 +483,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     LibraryResult<MediaItem> resultForLibraryRoot =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  Bundle extras = new Bundle();
-                  extras.putBoolean(EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY, false);
-                  return browser.getLibraryRoot(
-                      new LibraryParams.Builder().setExtras(extras).build());
-                })
+            .postAndSync(() -> {
+              Bundle extras = new Bundle();
+              extras.putBoolean(EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY, false);
+              return browser.getLibraryRoot(new LibraryParams.Builder().setExtras(extras).build());
+            })
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(resultForLibraryRoot.value.mediaId).isEqualTo(ROOT_ID);
@@ -558,10 +549,9 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     LibraryResult<ImmutableList<MediaItem>> libraryResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.getChildren(
-                        PARENT_ID, /* page= */ 4, /* pageSize= */ 10, /* params= */ null))
+            .postAndSync(() ->
+                browser.getChildren(
+                    PARENT_ID, /* page= */ 4, /* pageSize= */ 10, /* params= */ null))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(playbackErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -590,10 +580,9 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     LibraryResult<ImmutableList<MediaItem>> libraryResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.getChildren(
-                        PARENT_ID, /* page= */ 4, /* pageSize= */ 10, /* params= */ null))
+            .postAndSync(() ->
+                browser.getChildren(
+                    PARENT_ID, /* page= */ 4, /* pageSize= */ 10, /* params= */ null))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionErrorLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -627,12 +616,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ListenableFuture<SessionResult> resultFuture =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
-                        /* args= */ Bundle.EMPTY));
+            .postAndSync(() ->
+                browser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
+                    /* args= */ Bundle.EMPTY));
     Futures.addCallback(
         resultFuture,
         new FutureCallback<SessionResult>() {
@@ -665,12 +653,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ListenableFuture<SessionResult> resultFuture =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
-                        /* args= */ Bundle.EMPTY));
+            .postAndSync(() ->
+                browser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                    /* args= */ Bundle.EMPTY));
     Futures.addCallback(
         resultFuture,
         new FutureCallback<SessionResult>() {
@@ -704,12 +691,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ListenableFuture<SessionResult> resultFuture =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
-                        args));
+            .postAndSync(() ->
+                browser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                    args));
     Futures.addCallback(
         resultFuture,
         new FutureCallback<SessionResult>() {
@@ -740,12 +726,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     SessionResult sessionResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
-                        args))
+            .postAndSync(() ->
+                browser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                    args))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
@@ -763,12 +748,11 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     SessionResult sessionResult =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
-                        args))
+            .postAndSync(() ->
+                browser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                    args))
             .get(TIMEOUT_MS, MILLISECONDS);
 
     assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
@@ -796,13 +780,12 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ListenableFuture<SessionResult> resultFuture =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    // Not using a ProgressListener sends the action to the session.
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
-                        /* args= */ Bundle.EMPTY));
+            .postAndSync(() ->
+                // Not using a ProgressListener sends the action to the session.
+                browser.sendCustomCommand(
+                    new SessionCommand(
+                        MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
+                    /* args= */ Bundle.EMPTY));
     Futures.addCallback(
         resultFuture,
         new FutureCallback<SessionResult>() {

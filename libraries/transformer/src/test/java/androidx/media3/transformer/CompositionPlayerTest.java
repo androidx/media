@@ -487,16 +487,15 @@ public class CompositionPlayerTest {
     ConditionVariable conditionVariable = new ConditionVariable();
 
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                new Composition.Builder(getApplicationContext()).build();
-              } catch (Exception e) {
-                exception.set(e);
-              } finally {
-                conditionVariable.open();
-              }
-            });
+        new Thread(() -> {
+          try {
+            new Composition.Builder(getApplicationContext()).build();
+          } catch (Exception e) {
+            exception.set(e);
+          } finally {
+            conditionVariable.open();
+          }
+        });
     thread.start();
 
     conditionVariable.block();
@@ -514,16 +513,15 @@ public class CompositionPlayerTest {
     handlerThread.start();
 
     new Handler(handlerThread.getLooper())
-        .post(
-            () -> {
-              try {
-                player.setComposition(buildComposition());
-              } catch (RuntimeException e) {
-                exception.set(e);
-              } finally {
-                conditionVariable.open();
-              }
-            });
+        .post(() -> {
+          try {
+            player.setComposition(buildComposition());
+          } catch (RuntimeException e) {
+            exception.set(e);
+          } finally {
+            conditionVariable.open();
+          }
+        });
     conditionVariable.block();
     player.release();
     handlerThread.quit();
@@ -555,22 +553,20 @@ public class CompositionPlayerTest {
           }
         });
 
-    applicationThreadHandler.post(
-        () -> {
-          player.setComposition(buildComposition());
-          player.prepare();
-        });
+    applicationThreadHandler.post(() -> {
+      player.setComposition(buildComposition());
+      player.prepare();
+    });
     if (!eventsArrived.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException();
     }
     // Use a separate condition variable to releasing the player to avoid race conditions
     // with the condition variable used for the callback.
     ConditionVariable released = new ConditionVariable();
-    applicationThreadHandler.post(
-        () -> {
-          player.release();
-          released.open();
-        });
+    applicationThreadHandler.post(() -> {
+      player.release();
+      released.open();
+    });
     if (!released.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException();
     }
@@ -614,10 +610,9 @@ public class CompositionPlayerTest {
         .e(
             eq("CompPlayerInternal"),
             eq("error while releasing the player"),
-            argThat(
-                throwable ->
-                    throwable instanceof RuntimeException
-                        && throwable.getMessage().contains("AudioSink release error")));
+            argThat(throwable ->
+                throwable instanceof RuntimeException
+                    && throwable.getMessage().contains("AudioSink release error")));
   }
 
   @Test
@@ -4006,10 +4001,9 @@ public class CompositionPlayerTest {
     clock.advanceElapsedRealtime(playToPositionUs / 1000);
 
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                frameProcessor.getQueuedContentTimesUs().size()
-                    >= expectedTimestampsAtPlayToPositionUs.size());
+        .untilBackgroundThreadCondition(() ->
+            frameProcessor.getQueuedContentTimesUs().size()
+                >= expectedTimestampsAtPlayToPositionUs.size());
 
     // All frames should be rendered because FrameTimingEvaluator will ignore audio position and
     // output all available decoded frames.
@@ -4022,9 +4016,8 @@ public class CompositionPlayerTest {
     clock.setManualMode(false);
     advance(player).untilPendingCommandsAreFullyHandled();
     advance(player)
-        .untilBackgroundThreadCondition(
-            () ->
-                frameProcessor.getQueuedContentTimesUs().size() >= expectedTimestampsAtEnd.size());
+        .untilBackgroundThreadCondition(() ->
+            frameProcessor.getQueuedContentTimesUs().size() >= expectedTimestampsAtEnd.size());
     advance(player).untilState(STATE_ENDED);
 
     // There should be no more frames output when the player ends.
@@ -4090,27 +4083,26 @@ public class CompositionPlayerTest {
   private static void runMainLooperUntilContentTimesUs(
       CapturingFrameProcessor frameProcessor, ImmutableList<Long> timestamps)
       throws TimeoutException {
-    runMainLooperUntil(
-        () -> {
-          ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
-          if (events.isEmpty()) {
-            return false;
-          }
-          CapturingFrameProcessor.Event lastEvent = events.get(events.size() - 1);
-          if (!(lastEvent instanceof FramesEvent)) {
-            return false;
-          }
-          ImmutableList<AsyncFrame> lastFrames = ((FramesEvent) lastEvent).frames;
-          if (lastFrames.size() != timestamps.size()) {
-            return false;
-          }
-          for (int i = 0; i < timestamps.size(); i++) {
-            if (lastFrames.get(i).frame.getContentTimeUs() != timestamps.get(i)) {
-              return false;
-            }
-          }
-          return true;
-        });
+    runMainLooperUntil(() -> {
+      ImmutableList<CapturingFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+      if (events.isEmpty()) {
+        return false;
+      }
+      CapturingFrameProcessor.Event lastEvent = events.get(events.size() - 1);
+      if (!(lastEvent instanceof FramesEvent)) {
+        return false;
+      }
+      ImmutableList<AsyncFrame> lastFrames = ((FramesEvent) lastEvent).frames;
+      if (lastFrames.size() != timestamps.size()) {
+        return false;
+      }
+      for (int i = 0; i < timestamps.size(); i++) {
+        if (lastFrames.get(i).frame.getContentTimeUs() != timestamps.get(i)) {
+          return false;
+        }
+      }
+      return true;
+    });
   }
 
   private static ImmutableList<Frame> getQueuedFrames(
@@ -4119,11 +4111,10 @@ public class CompositionPlayerTest {
         .filter(event -> !(event instanceof EosEvent))
         .flatMap(event -> ((FramesEvent) event).frames.stream())
         .map(asyncFrame -> asyncFrame.frame)
-        .filter(
-            frame ->
-                Objects.equals(
-                    frame.getMetadata().get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX),
-                    sequenceIndex))
+        .filter(frame ->
+            Objects.equals(
+                frame.getMetadata().get(DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX),
+                sequenceIndex))
         .collect(toImmutableList());
   }
 
@@ -4262,12 +4253,11 @@ public class CompositionPlayerTest {
     public boolean queue(List<AsyncFrame> frames) {
       verifyThread();
       queueCalls.incrementAndGet();
-      listenerExecutor.execute(
-          () -> {
-            for (AsyncFrame asyncFrame : frames) {
-              listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null);
-            }
-          });
+      listenerExecutor.execute(() -> {
+        for (AsyncFrame asyncFrame : frames) {
+          listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null);
+        }
+      });
       return true;
     }
 

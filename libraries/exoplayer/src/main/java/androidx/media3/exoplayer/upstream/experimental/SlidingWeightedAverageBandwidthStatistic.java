@@ -67,7 +67,7 @@ public class SlidingWeightedAverageBandwidthStatistic implements BandwidthStatis
 
   /** Gets a {@link SampleEvictionFunction} that maintains up to {@code maxSamplesCount} samples. */
   public static SampleEvictionFunction getMaxCountEvictionFunction(long maxSamplesCount) {
-    return (samples) -> samples.size() >= maxSamplesCount;
+    return samples -> samples.size() >= maxSamplesCount;
   }
 
   /** Gets a {@link SampleEvictionFunction} that maintains samples up to {@code maxAgeMs}. */
@@ -78,7 +78,7 @@ public class SlidingWeightedAverageBandwidthStatistic implements BandwidthStatis
   @VisibleForTesting
   /* package */ static SampleEvictionFunction getAgeBasedEvictionFunction(
       long maxAgeMs, Clock clock) {
-    return (samples) -> {
+    return samples -> {
       if (samples.isEmpty()) {
         return false;
       }

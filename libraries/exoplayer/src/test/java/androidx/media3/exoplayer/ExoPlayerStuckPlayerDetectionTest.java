@@ -409,11 +409,10 @@ public class ExoPlayerStuckPlayerDetectionTest {
     ConditionVariable blockPlaybackThread = new ConditionVariable();
 
     player
-        .createMessage(
-            (what, payload) -> {
-              clock.onThreadBlocked();
-              blockPlaybackThread.blockUninterruptible();
-            })
+        .createMessage((what, payload) -> {
+          clock.onThreadBlocked();
+          blockPlaybackThread.blockUninterruptible();
+        })
         .send();
     ExoPlaybackException error = advance(player).untilPlayerError();
     long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();

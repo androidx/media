@@ -114,15 +114,14 @@ public class CompositionPlayerPixelTest {
   @After
   public void tearDown() {
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              if (player != null) {
-                player.release();
-              }
-              if (outputImageReader != null) {
-                outputImageReader.close();
-              }
-            });
+        .runOnMainSync(() -> {
+          if (player != null) {
+            player.release();
+          }
+          if (outputImageReader != null) {
+            outputImageReader.close();
+          }
+        });
   }
 
   @Test
@@ -138,47 +137,45 @@ public class CompositionPlayerPixelTest {
             /* maxImages= */ 1);
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              outputImageReader.setOnImageAvailableListener(
-                  imageReader -> {
-                    try (Image image = imageReader.acquireLatestImage()) {
-                      renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
-                    }
-                    hasRenderedFirstFrameCondition.open();
-                  },
-                  Util.createHandlerForCurrentOrMainLooper());
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          outputImageReader.setOnImageAvailableListener(
+              imageReader -> {
+                try (Image image = imageReader.acquireLatestImage()) {
+                  renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+                }
+                hasRenderedFirstFrameCondition.open();
+              },
+              Util.createHandlerForCurrentOrMainLooper());
 
-              player.setVideoSurface(
-                  outputImageReader.getSurface(),
-                  new Size(
-                      MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
-              player.setComposition(
-                  new Composition.Builder(
-                          EditedMediaItemSequence.withAudioAndVideoFrom(
-                              ImmutableList.of(
-                                  new EditedMediaItem.Builder(
-                                          MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                      .setEffects(
-                                          new Effects(
-                                              /* audioProcessors= */ ImmutableList.of(),
-                                              /* videoEffects= */ ImmutableList.of(
-                                                  createTimestampOverlay())))
-                                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                      .build())))
-                      .build());
-              player.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                      // Unblock the main thread promptly.
-                      hasRenderedFirstFrameCondition.open();
-                      playerError.set(error);
-                    }
-                  });
-              player.prepare();
-            });
+          player.setVideoSurface(
+              outputImageReader.getSurface(),
+              new Size(
+                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
+          player.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(),
+                                          /* videoEffects= */ ImmutableList.of(
+                                              createTimestampOverlay())))
+                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                                  .build())))
+                  .build());
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                  // Unblock the main thread promptly.
+                  hasRenderedFirstFrameCondition.open();
+                  playerError.set(error);
+                }
+              });
+          player.prepare();
+        });
 
     boolean conditionOpened = hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS);
     if (playerError.get() != null) {
@@ -216,68 +213,64 @@ public class CompositionPlayerPixelTest {
             /* maxImages= */ 1);
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new CompositionPlayer.Builder(context)
-                      .setVideoGraphFactory(new MultipleInputVideoGraph.Factory())
-                      .build();
-              outputImageReader.setOnImageAvailableListener(
-                  imageReader -> {
-                    try (Image image = imageReader.acquireLatestImage()) {
-                      renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
-                    }
-                    hasRenderedFirstFrameCondition.open();
-                  },
-                  Util.createHandlerForCurrentOrMainLooper());
+        .runOnMainSync(() -> {
+          player =
+              new CompositionPlayer.Builder(context)
+                  .setVideoGraphFactory(new MultipleInputVideoGraph.Factory())
+                  .build();
+          outputImageReader.setOnImageAvailableListener(
+              imageReader -> {
+                try (Image image = imageReader.acquireLatestImage()) {
+                  renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+                }
+                hasRenderedFirstFrameCondition.open();
+              },
+              Util.createHandlerForCurrentOrMainLooper());
 
-              player.setVideoSurface(
-                  outputImageReader.getSurface(),
-                  new Size(
-                      MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
-              player.setComposition(
-                  new Composition.Builder(
-                          EditedMediaItemSequence.withAudioAndVideoFrom(
-                              ImmutableList.of(
-                                  new EditedMediaItem.Builder(
-                                          MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                      .setEffects(
-                                          new Effects(
-                                              /* audioProcessors= */ ImmutableList.of(),
-                                              /* videoEffects= */ ImmutableList.of(
-                                                  createTimestampOverlay())))
-                                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                      .build())),
-                          EditedMediaItemSequence.withAudioAndVideoFrom(
-                              ImmutableList.of(
-                                  new EditedMediaItem.Builder(
-                                          MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                                      .setEffects(
-                                          new Effects(
-                                              /* audioProcessors= */ ImmutableList.of(),
-                                              /* videoEffects= */ ImmutableList.of(
-                                                  (MatrixTransformation)
-                                                      presentationTimeUs -> {
-                                                        Matrix rotationMatrix = new Matrix();
-                                                        rotationMatrix.postRotate(
-                                                            /* degrees= */ 90);
-                                                        return rotationMatrix;
-                                                      })))
-                                      .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
-                                      .build())))
-                      .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
-                      .build());
-              player.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                      playerError.set(error);
-                      // Unblock the main thread promptly.
-                      hasRenderedFirstFrameCondition.open();
-                    }
-                  });
-              player.prepare();
-            });
+          player.setVideoSurface(
+              outputImageReader.getSurface(),
+              new Size(
+                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
+          player.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(),
+                                          /* videoEffects= */ ImmutableList.of(
+                                              createTimestampOverlay())))
+                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                                  .build())),
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(),
+                                          /* videoEffects= */ ImmutableList.of(
+                                              (MatrixTransformation)
+                                                  presentationTimeUs -> {
+                                                    Matrix rotationMatrix = new Matrix();
+                                                    rotationMatrix.postRotate(/* degrees= */ 90);
+                                                    return rotationMatrix;
+                                                  })))
+                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                                  .build())))
+                  .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
+                  .build());
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                  playerError.set(error);
+                  // Unblock the main thread promptly.
+                  hasRenderedFirstFrameCondition.open();
+                }
+              });
+          player.prepare();
+        });
 
     boolean conditionOpened = hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS);
     if (playerError.get() != null) {
@@ -318,75 +311,73 @@ public class CompositionPlayerPixelTest {
 
     long imageDurationUs = 200_000L;
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new CompositionPlayer.Builder(context)
-                      .setVideoGraphFactory(new MultipleInputVideoGraph.Factory())
-                      .build();
-              outputImageReader.setOnImageAvailableListener(
-                  imageReader -> {
-                    try (Image image = imageReader.acquireLatestImage()) {
-                      renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
-                    }
-                    hasRenderedFirstFrameCondition.open();
-                  },
-                  Util.createHandlerForCurrentOrMainLooper());
+        .runOnMainSync(() -> {
+          player =
+              new CompositionPlayer.Builder(context)
+                  .setVideoGraphFactory(new MultipleInputVideoGraph.Factory())
+                  .build();
+          outputImageReader.setOnImageAvailableListener(
+              imageReader -> {
+                try (Image image = imageReader.acquireLatestImage()) {
+                  renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+                }
+                hasRenderedFirstFrameCondition.open();
+              },
+              Util.createHandlerForCurrentOrMainLooper());
 
-              player.setVideoSurface(
-                  outputImageReader.getSurface(),
-                  new Size(PNG_ASSET.videoFormat.width, PNG_ASSET.videoFormat.height));
-              player.setComposition(
-                  new Composition.Builder(
-                          EditedMediaItemSequence.withVideoFrom(
-                              ImmutableList.of(
-                                  new EditedMediaItem.Builder(
-                                          MediaItem.fromUri(PNG_ASSET.uri)
-                                              .buildUpon()
-                                              .setImageDurationMs(usToMs(imageDurationUs))
-                                              .build())
-                                      .setEffects(
-                                          new Effects(
-                                              /* audioProcessors= */ ImmutableList.of(),
-                                              /* videoEffects= */ ImmutableList.of(
-                                                  createTimestampOverlay(/* textSize= */ 30))))
-                                      .setDurationUs(imageDurationUs)
-                                      .setFrameRate(30)
-                                      .build())),
-                          EditedMediaItemSequence.withVideoFrom(
-                              ImmutableList.of(
-                                  new EditedMediaItem.Builder(
-                                          MediaItem.fromUri(PNG_ASSET.uri)
-                                              .buildUpon()
-                                              .setImageDurationMs(usToMs(imageDurationUs))
-                                              .build())
-                                      .setEffects(
-                                          new Effects(
-                                              /* audioProcessors= */ ImmutableList.of(),
-                                              /* videoEffects= */ ImmutableList.of(
-                                                  (MatrixTransformation)
-                                                      presentationTimeUs -> {
-                                                        Matrix rotationMatrix = new Matrix();
-                                                        rotationMatrix.postRotate(
-                                                            /* degrees= */ 90);
-                                                        return rotationMatrix;
-                                                      })))
-                                      .setDurationUs(imageDurationUs)
-                                      .setFrameRate(30)
-                                      .build())))
-                      .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
-                      .build());
-              player.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                      // Unblock the main thread promptly.
-                      hasRenderedFirstFrameCondition.open();
-                      playerError.set(error);
-                    }
-                  });
-              player.prepare();
-            });
+          player.setVideoSurface(
+              outputImageReader.getSurface(),
+              new Size(PNG_ASSET.videoFormat.width, PNG_ASSET.videoFormat.height));
+          player.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(PNG_ASSET.uri)
+                                          .buildUpon()
+                                          .setImageDurationMs(usToMs(imageDurationUs))
+                                          .build())
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(),
+                                          /* videoEffects= */ ImmutableList.of(
+                                              createTimestampOverlay(/* textSize= */ 30))))
+                                  .setDurationUs(imageDurationUs)
+                                  .setFrameRate(30)
+                                  .build())),
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(PNG_ASSET.uri)
+                                          .buildUpon()
+                                          .setImageDurationMs(usToMs(imageDurationUs))
+                                          .build())
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(),
+                                          /* videoEffects= */ ImmutableList.of(
+                                              (MatrixTransformation)
+                                                  presentationTimeUs -> {
+                                                    Matrix rotationMatrix = new Matrix();
+                                                    rotationMatrix.postRotate(/* degrees= */ 90);
+                                                    return rotationMatrix;
+                                                  })))
+                                  .setDurationUs(imageDurationUs)
+                                  .setFrameRate(30)
+                                  .build())))
+                  .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
+                  .build());
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                  // Unblock the main thread promptly.
+                  hasRenderedFirstFrameCondition.open();
+                  playerError.set(error);
+                }
+              });
+          player.prepare();
+        });
 
     boolean conditionOpened = hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS);
     if (playerError.get() != null) {

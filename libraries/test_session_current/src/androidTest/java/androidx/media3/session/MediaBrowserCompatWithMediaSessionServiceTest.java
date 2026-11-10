@@ -109,38 +109,36 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
    */
   void connectForServiceStartWithConnectionHints(Bundle connectionHints) throws Exception {
     CountDownLatch latch = new CountDownLatch(/* count= */ 1);
-    handler.postAndSync(
-        () -> {
-          ListenableFuture<MediaController> future =
-              new MediaController.Builder(
-                      ApplicationProvider.getApplicationContext(),
-                      new SessionToken(
-                          ApplicationProvider.getApplicationContext(), getServiceComponent()))
-                  .setConnectionHints(connectionHints)
-                  .buildAsync();
-          future.addListener(
-              () -> {
-                try {
-                  if (future.isDone()) {
-                    latch.countDown();
-                  }
-                  serviceStartController = future.get();
-                } catch (ExecutionException | InterruptedException e) {
-                  throw new RuntimeException(e);
-                }
-              },
-              MoreExecutors.directExecutor());
-        });
+    handler.postAndSync(() -> {
+      ListenableFuture<MediaController> future =
+          new MediaController.Builder(
+                  ApplicationProvider.getApplicationContext(),
+                  new SessionToken(
+                      ApplicationProvider.getApplicationContext(), getServiceComponent()))
+              .setConnectionHints(connectionHints)
+              .buildAsync();
+      future.addListener(
+          () -> {
+            try {
+              if (future.isDone()) {
+                latch.countDown();
+              }
+              serviceStartController = future.get();
+            } catch (ExecutionException | InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+          },
+          MoreExecutors.directExecutor());
+    });
     assertThat(latch.await(SERVICE_CONNECTION_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   void connectAndWait(Bundle rootHints) throws Exception {
-    handler.postAndSync(
-        () -> {
-          // Make browser's internal handler to be initialized with test thread.
-          browserCompat =
-              new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
-        });
+    handler.postAndSync(() -> {
+      // Make browser's internal handler to be initialized with test thread.
+      browserCompat =
+          new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
+    });
     browserCompat.connect();
     assertThat(connectionCallback.connectedLatch.await(SERVICE_CONNECTION_TIMEOUT_MS, MILLISECONDS))
         .isTrue();
@@ -169,11 +167,10 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
     rootHints.putLong(
         MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS, 100L);
 
-    handler.postAndSync(
-        () -> {
-          browserCompat =
-              new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
-        });
+    handler.postAndSync(() -> {
+      browserCompat =
+          new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
+    });
 
     browserCompat.connect();
 

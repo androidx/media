@@ -352,19 +352,17 @@ public class MediaSessionServiceTest {
     service.addSession(session2);
     // Start the players so that we also create notifications for them.
     new Handler(thread1.getLooper())
-        .post(
-            () -> {
-              player1.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              player1.prepare();
-              player1.play();
-            });
+        .post(() -> {
+          player1.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          player1.prepare();
+          player1.play();
+        });
     new Handler(thread2.getLooper())
-        .post(
-            () -> {
-              player2.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              player2.prepare();
-              player2.play();
-            });
+        .post(() -> {
+          player2.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          player2.prepare();
+          player2.play();
+        });
     runMainLooperUntil(() -> notificationManager.getActiveNotifications().length == 2);
 
     assertThat(getStatusBarNotification(2001)).isNotNull();

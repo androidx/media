@@ -114,7 +114,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       unmappedPixelBuffers.add(texturePixelBuffer);
       return Util.transformFutureAsync(
           texturePixelBuffer.imageSettableFuture,
-          (image) -> processor.processImage(image, presentationTimeUs));
+          image -> processor.processImage(image, presentationTimeUs));
     } catch (GlUtil.GlException | VideoFrameProcessingException e) {
       return immediateFailedFuture(e);
     }

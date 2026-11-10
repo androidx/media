@@ -564,10 +564,9 @@ public class DefaultHlsPlaylistTrackerTest {
             try {
               // Make sure that the playlist for the new url has been refreshed and set it as the
               // current primary playlist, before this method returns.
-              RobolectricUtil.runMainLooperUntil(
-                  () ->
-                      defaultHlsPlaylistTracker.getPlaylistSnapshot(url, /* isForPlayback= */ true)
-                          != null);
+              RobolectricUtil.runMainLooperUntil(() ->
+                  defaultHlsPlaylistTracker.getPlaylistSnapshot(url, /* isForPlayback= */ true)
+                      != null);
             } catch (TimeoutException e) {
               primaryPlaylistChangeExceptionRef.set(e);
             }

@@ -321,15 +321,14 @@ public final class ProgressiveMediaPeriodTest {
     dataSource.setThrowErrorAfterPrepare(true);
     unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          try {
-            mediaPeriod.maybeThrowPrepareError();
-            return false;
-          } catch (IOException e) {
-            return true;
-          }
-        });
+    runMainLooperUntil(() -> {
+      try {
+        mediaPeriod.maybeThrowPrepareError();
+        return false;
+      } catch (IOException e) {
+        return true;
+      }
+    });
     assertThrows(ParserException.class, mediaPeriod::maybeThrowPrepareError);
     assertThat(
             mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
@@ -414,15 +413,14 @@ public final class ProgressiveMediaPeriodTest {
     dataSource.setThrowErrorAfterPrepare(true);
     unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          try {
-            mediaPeriod.maybeThrowPrepareError();
-            return false;
-          } catch (IOException e) {
-            return true;
-          }
-        });
+    runMainLooperUntil(() -> {
+      try {
+        mediaPeriod.maybeThrowPrepareError();
+        return false;
+      } catch (IOException e) {
+        return true;
+      }
+    });
     assertThrows(ParserException.class, mediaPeriod::maybeThrowPrepareError);
     assertThat(
             mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
@@ -1837,15 +1835,14 @@ public final class ProgressiveMediaPeriodTest {
     dataSource.setThrowErrorAfterPrepare(true);
     unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          try {
-            mediaPeriod.maybeThrowPrepareError();
-            return false;
-          } catch (IOException e) {
-            return true;
-          }
-        });
+    runMainLooperUntil(() -> {
+      try {
+        mediaPeriod.maybeThrowPrepareError();
+        return false;
+      } catch (IOException e) {
+        return true;
+      }
+    });
     assertThrows(ParserException.class, mediaPeriod::maybeThrowPrepareError);
     assertThat(
             mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build()))
@@ -1890,11 +1887,10 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEnd = mediaPeriod.setEndPositionUs(300_000);
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return !mediaPeriod.isLoading();
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return !mediaPeriod.isLoading();
+    });
 
     FormatHolder formatHolder = new FormatHolder();
     DecoderInputBuffer buffer =
@@ -1983,22 +1979,20 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEndPosition1 = mediaPeriod.setEndPositionUs(300_000);
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     // Extend end position after loading finished at 300_000us.
     long unusedEndPosition2 = mediaPeriod.setEndPositionUs(600_000);
     boolean unusedLoad2 =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     FormatHolder formatHolder = new FormatHolder();
@@ -2049,11 +2043,10 @@ public final class ProgressiveMediaPeriodTest {
     // Extend end position before cancellation completes.
     long unusedEndPosition2 = mediaPeriod.setEndPositionUs(600_000);
 
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     FormatHolder formatHolder = new FormatHolder();
@@ -2141,11 +2134,10 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEndPosition1 = mediaPeriod.setEndPositionUs(300_000);
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(openCount.get()).isEqualTo(1);
@@ -2154,12 +2146,10 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEndPosition2 = mediaPeriod.setEndPositionUs(600_000);
     boolean unusedLoad2 =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return openCount.get() >= 3
-              && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return openCount.get() >= 3 && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     // Verified that openCount reached at least 3 (1 initial, 2 simulated failure, 3 retry success).
@@ -2207,23 +2197,21 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEndPosition1 = mediaPeriod.setEndPositionUs(300_000);
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     // Extend end position to C.TIME_END_OF_SOURCE after loading finished at 300_000us.
     long unusedEndPosition2 = mediaPeriod.setEndPositionUs(C.TIME_END_OF_SOURCE);
     boolean unusedLoad2 =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE
-              && !mediaPeriod.isLoading();
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE
+          && !mediaPeriod.isLoading();
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     FormatHolder formatHolder = new FormatHolder();
@@ -2317,24 +2305,22 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEndPosition = mediaPeriod.setEndPositionUs(300_000);
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     // Seek to 500ms (beyond clip end of 300ms).
     long seekTimeUs = mediaPeriod.seekToUs(500_000);
     assertThat(seekTimeUs).isEqualTo(500_000);
-    runMainLooperUntil(
-        () -> {
-          boolean unused2 =
-              mediaPeriod.continueLoading(
-                  new LoadingInfo.Builder().setPlaybackPositionUs(500_000).build());
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 500_000);
-          return !mediaPeriod.isLoading();
-        });
+    runMainLooperUntil(() -> {
+      boolean unused2 =
+          mediaPeriod.continueLoading(
+              new LoadingInfo.Builder().setPlaybackPositionUs(500_000).build());
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 500_000);
+      return !mediaPeriod.isLoading();
+    });
     shadowOf(Looper.getMainLooper()).idle();
     assertThat(mediaPeriod.isLoading()).isFalse();
 
@@ -2385,11 +2371,10 @@ public final class ProgressiveMediaPeriodTest {
     // 3. Reduce end position again to 450ms.
     long unusedEndPosition3 = mediaPeriod.setEndPositionUs(450_000);
 
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return !mediaPeriod.isLoading();
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return !mediaPeriod.isLoading();
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     FormatHolder formatHolder = new FormatHolder();
@@ -2443,11 +2428,10 @@ public final class ProgressiveMediaPeriodTest {
     // Later extend the clip to 600ms. State transitions CLIPPED_FINISHED -> IDLE and loading
     // resumes.
     long unusedEndPosition2 = mediaPeriod.setEndPositionUs(600_000);
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return !mediaPeriod.isLoading();
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return !mediaPeriod.isLoading();
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     FormatHolder formatHolder = new FormatHolder();
@@ -2492,11 +2476,10 @@ public final class ProgressiveMediaPeriodTest {
     // Initial load until buffered.
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
     // Read first sample to advance read index past 0.
     FormatHolder formatHolder = new FormatHolder();
@@ -2613,11 +2596,10 @@ public final class ProgressiveMediaPeriodTest {
     long unusedEndPosition1 = mediaPeriod.setEndPositionUs(300_000);
     boolean unusedLoad =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     // Extend end position to 600ms (transitions state to STATE_IDLE).
@@ -2637,11 +2619,10 @@ public final class ProgressiveMediaPeriodTest {
     allowContinueLoading.set(true);
     boolean unusedLoad2 =
         mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-    runMainLooperUntil(
-        () -> {
-          mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
-          return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
-        });
+    runMainLooperUntil(() -> {
+      mediaPeriod.reevaluateBuffer(/* positionUs= */ 0);
+      return mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE;
+    });
     shadowOf(Looper.getMainLooper()).idle();
 
     FormatHolder formatHolder = new FormatHolder();

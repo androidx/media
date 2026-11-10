@@ -155,19 +155,18 @@ public class PreCacheHelperTest {
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     AtomicReference<FakeMediaSource> createdMediaSource = new AtomicReference<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource =
-                  new FakeMediaSource() {
-                    @Override
-                    public void maybeThrowSourceInfoRefreshError() throws IOException {
-                      throw fakeException;
-                    }
-                  };
-              fakeMediaSource.setAllowPreparation(false);
-              createdMediaSource.set(fakeMediaSource);
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource =
+              new FakeMediaSource() {
+                @Override
+                public void maybeThrowSourceInfoRefreshError() throws IOException {
+                  throw fakeException;
+                }
+              };
+          fakeMediaSource.setAllowPreparation(false);
+          createdMediaSource.set(fakeMediaSource);
+          return fakeMediaSource;
+        });
     AtomicBoolean preCacheTerminated = new AtomicBoolean();
     doAnswer(
             invocation -> {
@@ -194,15 +193,14 @@ public class PreCacheHelperTest {
         .onPreCacheProgress(eq(testMediaItem), anyLong(), anyLong(), anyFloat());
     verify(mockPreCacheHelperListener).onPrepareError(eq(testMediaItem), eq(fakeException));
     verify(mockPreCacheHelperListener, never()).onDownloadError(eq(testMediaItem), any());
-    runMainLooperUntil(
-        () -> {
-          try {
-            checkNotNull(createdMediaSource.get()).assertReleased();
-            return true;
-          } catch (AssertionError e) {
-            return false;
-          }
-        });
+    runMainLooperUntil(() -> {
+      try {
+        checkNotNull(createdMediaSource.get()).assertReleased();
+        return true;
+      } catch (AssertionError e) {
+        return false;
+      }
+    });
 
     preCacheHelper.release(/* removeCachedContent= */ false);
     shadowOf(preCacheLooper).idle();
@@ -267,13 +265,12 @@ public class PreCacheHelperTest {
     ArrayList<FakeMediaSource> createdMediaSources = new ArrayList<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              fakeMediaSource.setAllowPreparation(false);
-              createdMediaSources.add(fakeMediaSource);
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          fakeMediaSource.setAllowPreparation(false);
+          createdMediaSources.add(fakeMediaSource);
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -311,12 +308,11 @@ public class PreCacheHelperTest {
     ArrayList<FakeMediaSource> createdMediaSources = new ArrayList<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              createdMediaSources.add(fakeMediaSource);
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          createdMediaSources.add(fakeMediaSource);
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -359,21 +355,20 @@ public class PreCacheHelperTest {
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     CountDownLatch createMediaSourceLatch = new CountDownLatch(2);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource =
-                  new FakeMediaSource() {
-                    @Override
-                    public void maybeThrowSourceInfoRefreshError() throws IOException {
-                      // After the first source created for preparation, we throw an IOException
-                      // for it.
-                      throw new IOException();
-                    }
-                  };
-              fakeMediaSource.setAllowPreparation(false);
-              createMediaSourceLatch.countDown();
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource =
+              new FakeMediaSource() {
+                @Override
+                public void maybeThrowSourceInfoRefreshError() throws IOException {
+                  // After the first source created for preparation, we throw an IOException
+                  // for it.
+                  throw new IOException();
+                }
+              };
+          fakeMediaSource.setAllowPreparation(false);
+          createMediaSourceLatch.countDown();
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -418,12 +413,11 @@ public class PreCacheHelperTest {
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     CountDownLatch createMediaSourceLatch = new CountDownLatch(2);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              createMediaSourceLatch.countDown();
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          createMediaSourceLatch.countDown();
+          return fakeMediaSource;
+        });
     AtomicBoolean preCacheTerminated = new AtomicBoolean();
     doAnswer(
             invocation -> {
@@ -474,12 +468,11 @@ public class PreCacheHelperTest {
     CountDownLatch createMediaSourceLatch = new CountDownLatch(2);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              createMediaSourceLatch.countDown();
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          createMediaSourceLatch.countDown();
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -532,12 +525,11 @@ public class PreCacheHelperTest {
     CountDownLatch createMediaSourceLatch = new CountDownLatch(2);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              createMediaSourceLatch.countDown();
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          createMediaSourceLatch.countDown();
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -622,46 +614,42 @@ public class PreCacheHelperTest {
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     ArrayList<FakeMediaSource> createdMediaSources = new ArrayList<>();
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource =
-                  new FakeMediaSource() {
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource =
+              new FakeMediaSource() {
+                @Override
+                public MediaPeriod createPeriod(
+                    MediaPeriodId id, Allocator allocator, long startPositionUs) {
+                  return new FakeMediaPeriod(
+                      trackGroupArray,
+                      allocator,
+                      getTimeline().getWindow(0, new Timeline.Window()).positionInFirstPeriodUs,
+                      new MediaSourceEventListener.EventDispatcher()
+                          .withParameters(/* windowIndex= */ 0, id)) {
                     @Override
-                    public MediaPeriod createPeriod(
-                        MediaPeriodId id, Allocator allocator, long startPositionUs) {
-                      return new FakeMediaPeriod(
-                          trackGroupArray,
-                          allocator,
-                          getTimeline().getWindow(0, new Timeline.Window()).positionInFirstPeriodUs,
-                          new MediaSourceEventListener.EventDispatcher()
-                              .withParameters(/* windowIndex= */ 0, id)) {
-                        @Override
-                        public List<StreamKey> getStreamKeys(
-                            List<ExoTrackSelection> trackSelections) {
-                          List<StreamKey> result = new ArrayList<>();
-                          for (ExoTrackSelection trackSelection : trackSelections) {
-                            int groupIndex =
-                                trackGroupArray.indexOf(trackSelection.getTrackGroup());
-                            for (int i = 0; i < trackSelection.length(); i++) {
-                              result.add(
-                                  new StreamKey(
-                                      0, groupIndex, trackSelection.getIndexInTrackGroup(i)));
-                            }
-                          }
-                          return result;
+                    public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
+                      List<StreamKey> result = new ArrayList<>();
+                      for (ExoTrackSelection trackSelection : trackSelections) {
+                        int groupIndex = trackGroupArray.indexOf(trackSelection.getTrackGroup());
+                        for (int i = 0; i < trackSelection.length(); i++) {
+                          result.add(
+                              new StreamKey(0, groupIndex, trackSelection.getIndexInTrackGroup(i)));
                         }
-                      };
-                    }
-
-                    @Override
-                    public void releasePeriod(MediaPeriod mediaPeriod) {
-                      // Do nothing.
+                      }
+                      return result;
                     }
                   };
-              fakeMediaSource.setAllowPreparation(false);
-              createdMediaSources.add(fakeMediaSource);
-              return fakeMediaSource;
-            });
+                }
+
+                @Override
+                public void releasePeriod(MediaPeriod mediaPeriod) {
+                  // Do nothing.
+                }
+              };
+          fakeMediaSource.setAllowPreparation(false);
+          createdMediaSources.add(fakeMediaSource);
+          return fakeMediaSource;
+        });
     ArrayList<MediaItem> updatedMediaItemsAfterPreparation = new ArrayList<>();
     CountDownLatch onPreparedCalledLatch = new CountDownLatch(2);
     doAnswer(
@@ -774,13 +762,12 @@ public class PreCacheHelperTest {
     AtomicReference<FakeMediaSource> createdMediaSource = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              fakeMediaSource.setAllowPreparation(false);
-              createdMediaSource.set(fakeMediaSource);
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          fakeMediaSource.setAllowPreparation(false);
+          createdMediaSource.set(fakeMediaSource);
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -855,13 +842,12 @@ public class PreCacheHelperTest {
     AtomicReference<FakeMediaSource> createdMediaSource = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              fakeMediaSource.setAllowPreparation(false);
-              createdMediaSource.set(fakeMediaSource);
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          fakeMediaSource.setAllowPreparation(false);
+          createdMediaSource.set(fakeMediaSource);
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
@@ -939,13 +925,12 @@ public class PreCacheHelperTest {
     AtomicReference<FakeMediaSource> createdMediaSource = new AtomicReference<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
-        .thenAnswer(
-            invocation -> {
-              FakeMediaSource fakeMediaSource = new FakeMediaSource();
-              fakeMediaSource.setAllowPreparation(false);
-              createdMediaSource.set(fakeMediaSource);
-              return fakeMediaSource;
-            });
+        .thenAnswer(invocation -> {
+          FakeMediaSource fakeMediaSource = new FakeMediaSource();
+          fakeMediaSource.setAllowPreparation(false);
+          createdMediaSource.set(fakeMediaSource);
+          return fakeMediaSource;
+        });
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(

@@ -108,11 +108,10 @@ public final class WifiLockManager {
       mainHandler.postDelayed(
           () -> wifiLockManagerInternal.forceReleaseWifiLock(emergencyReleaseNeeded),
           UNREACTIVE_WIFILOCK_HANDLER_RELEASE_DELAY_MS);
-      wifiLockHandler.post(
-          () -> {
-            emergencyReleaseNeeded.set(false);
-            wifiLockManagerInternal.updateWifiLock(enabled, stayAwake);
-          });
+      wifiLockHandler.post(() -> {
+        emergencyReleaseNeeded.set(false);
+        wifiLockManagerInternal.updateWifiLock(enabled, stayAwake);
+      });
     }
   }
 

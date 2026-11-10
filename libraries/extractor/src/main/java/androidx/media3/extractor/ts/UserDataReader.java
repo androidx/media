@@ -43,9 +43,8 @@ import org.jspecify.annotations.Nullable;
     this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[closedCaptionFormats.size()];
     reorderingBufferQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, seiBuffer) ->
-                CeaUtil.consumeCcData(presentationTimeUs, seiBuffer, outputs));
+        new ReorderingBufferQueue((presentationTimeUs, seiBuffer) ->
+            CeaUtil.consumeCcData(presentationTimeUs, seiBuffer, outputs));
     // H.262 doesn't provide a convenient 'max reordering queue size' value, so we hard-code 3
     // as it seems unlikely to see more consecutive B-frames than this.
     reorderingBufferQueue.setMaxSize(3);

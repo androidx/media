@@ -217,10 +217,9 @@ import org.jspecify.annotations.Nullable;
       long startPositionUs,
       @FirstFrameReleaseInstruction int firstFrameReleaseInstruction,
       List<Effect> videoEffects) {
-    executeOrDelay(
-        videoSink ->
-            videoSink.onInputStreamChanged(
-                inputType, format, startPositionUs, firstFrameReleaseInstruction, videoEffects));
+    executeOrDelay(videoSink ->
+        videoSink.onInputStreamChanged(
+            inputType, format, startPositionUs, firstFrameReleaseInstruction, videoEffects));
   }
 
   @Override

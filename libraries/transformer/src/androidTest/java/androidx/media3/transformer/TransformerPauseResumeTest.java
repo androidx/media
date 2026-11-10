@@ -154,11 +154,10 @@ public class TransformerPauseResumeTest {
     Transformer transformer = new Transformer.Builder(context).build();
     String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              transformer.start(composition, firstOutputPath);
-              transformer.cancel();
-            });
+        .runOnMainSync(() -> {
+          transformer.start(composition, firstOutputPath);
+          transformer.cancel();
+        });
 
     // Resume the export.
     ExportTestResult result =
@@ -454,16 +453,15 @@ public class TransformerPauseResumeTest {
     Runnable getProgressRunnable =
         () ->
             InstrumentationRegistry.getInstrumentation()
-                .runOnMainSync(
-                    () -> {
-                      Transformer transformer = transformerHolder.getTransformer();
-                      ProgressHolder progressHolder = new ProgressHolder();
-                      if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
-                          && (progresses.isEmpty()
-                              || Iterables.getLast(progresses) != progressHolder.progress)) {
-                        progresses.add(progressHolder.progress);
-                      }
-                    });
+                .runOnMainSync(() -> {
+                  Transformer transformer = transformerHolder.getTransformer();
+                  ProgressHolder progressHolder = new ProgressHolder();
+                  if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
+                      && (progresses.isEmpty()
+                          || Iterables.getLast(progresses) != progressHolder.progress)) {
+                    progresses.add(progressHolder.progress);
+                  }
+                });
     // Get progress after every sample batch is written.
     BatchProgressReportingMuxer.Factory muxerFactory =
         new BatchProgressReportingMuxer.Factory(
@@ -533,15 +531,14 @@ public class TransformerPauseResumeTest {
     Runnable getProgressRunnable =
         () ->
             InstrumentationRegistry.getInstrumentation()
-                .runOnMainSync(
-                    () -> {
-                      Transformer transformer = transformerHolder.getTransformer();
-                      int currentProgressState = transformer.getProgress(new ProgressHolder());
-                      if (progressStates.isEmpty()
-                          || Iterables.getLast(progressStates) != currentProgressState) {
-                        progressStates.add(currentProgressState);
-                      }
-                    });
+                .runOnMainSync(() -> {
+                  Transformer transformer = transformerHolder.getTransformer();
+                  int currentProgressState = transformer.getProgress(new ProgressHolder());
+                  if (progressStates.isEmpty()
+                      || Iterables.getLast(progressStates) != currentProgressState) {
+                    progressStates.add(currentProgressState);
+                  }
+                });
     // Get progress after every sample batch is written.
     BatchProgressReportingMuxer.Factory muxerFactory =
         new BatchProgressReportingMuxer.Factory(
@@ -630,11 +627,10 @@ public class TransformerPauseResumeTest {
     String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
 
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              initialTransformer.start(composition, firstOutputPath);
-              initialTransformer.cancel();
-            });
+        .runOnMainSync(() -> {
+          initialTransformer.start(composition, firstOutputPath);
+          initialTransformer.cancel();
+        });
 
     SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer.Listener transformerListener =
@@ -655,16 +651,15 @@ public class TransformerPauseResumeTest {
     Runnable getProgressRunnable =
         () ->
             InstrumentationRegistry.getInstrumentation()
-                .runOnMainSync(
-                    () -> {
-                      Transformer transformer = transformerHolder.getTransformer();
-                      ProgressHolder progressHolder = new ProgressHolder();
-                      if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
-                          && (progresses.isEmpty()
-                              || Iterables.getLast(progresses) != progressHolder.progress)) {
-                        progresses.add(progressHolder.progress);
-                      }
-                    });
+                .runOnMainSync(() -> {
+                  Transformer transformer = transformerHolder.getTransformer();
+                  ProgressHolder progressHolder = new ProgressHolder();
+                  if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
+                      && (progresses.isEmpty()
+                          || Iterables.getLast(progresses) != progressHolder.progress)) {
+                    progresses.add(progressHolder.progress);
+                  }
+                });
     BatchProgressReportingMuxer.Factory muxerFactory =
         new BatchProgressReportingMuxer.Factory(
             /* sampleBatchSize= */ 100, getProgressRunnable::run);
@@ -858,11 +853,10 @@ public class TransformerPauseResumeTest {
         };
     String secondOutputPath = temporaryFolder.newFile("SecondOutput.mp4").getAbsolutePath();
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              transformer.resume(composition, secondOutputPath, firstOutputPath);
-              applicationHandler.post(pollProgress);
-            });
+        .runOnMainSync(() -> {
+          transformer.resume(composition, secondOutputPath, firstOutputPath);
+          applicationHandler.post(pollProgress);
+        });
 
     assertThat(transformerExceptionFuture.get()).isNull();
   }

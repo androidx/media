@@ -101,10 +101,9 @@ public class WakeLockManagerTest {
     // Block the wake lock thread to prevent any progress.
     ConditionVariable blockedWakeLockThread = new ConditionVariable();
     new Handler(handlerThread.getLooper())
-        .post(
-            () -> {
-              while (!blockedWakeLockThread.isOpen()) {}
-            });
+        .post(() -> {
+          while (!blockedWakeLockThread.isOpen()) {}
+        });
     wakeLockManager.setEnabled(false);
     ShadowLooper.idleMainLooper();
     assertThat(wakeLock.isHeld()).isTrue(); // Verify it didn't work.

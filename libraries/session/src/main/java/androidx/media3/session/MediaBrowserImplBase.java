@@ -176,9 +176,8 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     getInstance()
-        .notifyBrowserListener(
-            listener ->
-                listener.onSearchResultChanged(getInstance(), query, itemCount, libraryParams));
+        .notifyBrowserListener(listener ->
+            listener.onSearchResultChanged(getInstance(), query, itemCount, libraryParams));
   }
 
   void notifyChildrenChanged(
@@ -187,9 +186,8 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     getInstance()
-        .notifyBrowserListener(
-            listener ->
-                listener.onChildrenChanged(getInstance(), parentId, itemCount, libraryParams));
+        .notifyBrowserListener(listener ->
+            listener.onChildrenChanged(getInstance(), parentId, itemCount, libraryParams));
   }
 
   private <V> ListenableFuture<LibraryResult<V>> dispatchRemoteLibrarySessionTask(

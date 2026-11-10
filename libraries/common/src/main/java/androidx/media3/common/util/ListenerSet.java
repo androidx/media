@@ -327,12 +327,11 @@ public final class ListenerSet<T> {
   public void queueEvent(int eventFlag, Event<T> event) {
     verifyCurrentThread();
     CopyOnWriteArraySet<ListenerHolder<T>> listenerSnapshot = new CopyOnWriteArraySet<>(listeners);
-    queuedEvents.add(
-        () -> {
-          for (ListenerHolder<T> holder : listenerSnapshot) {
-            holder.invoke(eventFlag, event);
-          }
-        });
+    queuedEvents.add(() -> {
+      for (ListenerHolder<T> holder : listenerSnapshot) {
+        holder.invoke(eventFlag, event);
+      }
+    });
   }
 
   /** Notifies listeners of events previously enqueued with {@link #queueEvent(int, Event)}. */

@@ -178,9 +178,8 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(new StyleSpan(Typeface.ITALIC));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting.that(spannable).hasBoldItalicSpanBetween(SPAN_START, SPAN_END));
+        expectFailure(whenTesting ->
+            whenTesting.that(spannable).hasBoldItalicSpanBetween(SPAN_START, SPAN_END));
     assertThat(expected)
         .factKeys()
         .contains(
@@ -293,12 +292,11 @@ public class SpannedSubjectTest {
         createSpannable(new AlignmentSpan.Standard(Alignment.ALIGN_OPPOSITE));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasAlignmentSpanBetween(SPAN_START, SPAN_END)
-                    .withAlignment(Alignment.ALIGN_CENTER));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasAlignmentSpanBetween(SPAN_START, SPAN_END)
+                .withAlignment(Alignment.ALIGN_CENTER));
     assertThat(expected).factValue("value of").contains("alignment");
     assertThat(expected).factValue("expected").contains("ALIGN_CENTER");
     assertThat(expected).factValue("but was").contains("ALIGN_OPPOSITE");
@@ -353,12 +351,11 @@ public class SpannedSubjectTest {
         new ForegroundColorSpan(Color.CYAN), start, end, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasForegroundColorSpanBetween(start, end)
-                    .withColor(Color.BLUE));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasForegroundColorSpanBetween(start, end)
+                .withColor(Color.BLUE));
     assertThat(expected).factValue("value of").contains("foregroundColor");
     assertThat(expected).factValue("expected").contains("0xFF0000FF"); // Color.BLUE
     assertThat(expected).factValue("but was").contains("0xFF00FFFF"); // Color.CYAN
@@ -408,12 +405,11 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(new BackgroundColorSpan(Color.CYAN));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasBackgroundColorSpanBetween(SPAN_START, SPAN_END)
-                    .withColor(Color.BLUE));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasBackgroundColorSpanBetween(SPAN_START, SPAN_END)
+                .withColor(Color.BLUE));
 
     assertThat(expected).factValue("value of").contains("backgroundColor");
     assertThat(expected).factValue("expected").contains("0xFF0000FF"); // Color.BLUE
@@ -464,12 +460,11 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(new TypefaceSpan("courier"));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasTypefaceSpanBetween(SPAN_START, SPAN_END)
-                    .withFamily("roboto"));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasTypefaceSpanBetween(SPAN_START, SPAN_END)
+                .withFamily("roboto"));
 
     assertThat(expected).factValue("value of").contains("family");
     assertThat(expected).factValue("expected").contains("roboto");
@@ -517,12 +512,11 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(new AbsoluteSizeSpan(/* size= */ 5));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasAbsoluteSizeSpanBetween(SPAN_START, SPAN_END)
-                    .withAbsoluteSize(4));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasAbsoluteSizeSpanBetween(SPAN_START, SPAN_END)
+                .withAbsoluteSize(4));
 
     assertThat(expected).factValue("value of").contains("absoluteSize");
     assertThat(expected).factValue("expected").contains("4");
@@ -574,12 +568,11 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(new RelativeSizeSpan(/* proportion= */ 5));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasRelativeSizeSpanBetween(SPAN_START, SPAN_END)
-                    .withSizeChange(4));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasRelativeSizeSpanBetween(SPAN_START, SPAN_END)
+                .withSizeChange(4));
 
     assertThat(expected).factValue("value of").contains("sizeChange");
     assertThat(expected).factValue("expected").contains("4");
@@ -633,12 +626,11 @@ public class SpannedSubjectTest {
         createSpannable(new RubySpan("ruby text", TextAnnotation.POSITION_BEFORE));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasRubySpanBetween(SPAN_START, SPAN_END)
-                    .withTextAndPosition("incorrect text", TextAnnotation.POSITION_BEFORE));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasRubySpanBetween(SPAN_START, SPAN_END)
+                .withTextAndPosition("incorrect text", TextAnnotation.POSITION_BEFORE));
 
     assertThat(expected).factValue("value of").contains("rubyTextAndPosition");
     assertThat(expected).factValue("expected").contains("text='incorrect text'");
@@ -651,12 +643,11 @@ public class SpannedSubjectTest {
         createSpannable(new RubySpan("ruby text", TextAnnotation.POSITION_BEFORE));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasRubySpanBetween(SPAN_START, SPAN_END)
-                    .withTextAndPosition("ruby text", TextAnnotation.POSITION_AFTER));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasRubySpanBetween(SPAN_START, SPAN_END)
+                .withTextAndPosition("ruby text", TextAnnotation.POSITION_AFTER));
 
     assertThat(expected).factValue("value of").contains("rubyTextAndPosition");
     assertThat(expected)
@@ -731,15 +722,14 @@ public class SpannedSubjectTest {
                 TextAnnotation.POSITION_AFTER));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasTextEmphasisSpanBetween(SPAN_START, SPAN_END)
-                    .withMarkAndPosition(
-                        TextEmphasisSpan.MARK_SHAPE_SESAME,
-                        TextEmphasisSpan.MARK_FILL_FILLED,
-                        TextAnnotation.POSITION_AFTER));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasTextEmphasisSpanBetween(SPAN_START, SPAN_END)
+                .withMarkAndPosition(
+                    TextEmphasisSpan.MARK_SHAPE_SESAME,
+                    TextEmphasisSpan.MARK_FILL_FILLED,
+                    TextAnnotation.POSITION_AFTER));
 
     assertThat(expected).factValue("value of").contains("textEmphasisMarkAndPosition");
     assertThat(expected)
@@ -770,15 +760,14 @@ public class SpannedSubjectTest {
                 TextAnnotation.POSITION_AFTER));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasTextEmphasisSpanBetween(SPAN_START, SPAN_END)
-                    .withMarkAndPosition(
-                        TextEmphasisSpan.MARK_SHAPE_CIRCLE,
-                        TextEmphasisSpan.MARK_FILL_OPEN,
-                        TextAnnotation.POSITION_AFTER));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasTextEmphasisSpanBetween(SPAN_START, SPAN_END)
+                .withMarkAndPosition(
+                    TextEmphasisSpan.MARK_SHAPE_CIRCLE,
+                    TextEmphasisSpan.MARK_FILL_OPEN,
+                    TextAnnotation.POSITION_AFTER));
 
     assertThat(expected).factValue("value of").contains("textEmphasisMarkAndPosition");
     assertThat(expected)
@@ -809,15 +798,14 @@ public class SpannedSubjectTest {
                 TextAnnotation.POSITION_BEFORE));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasTextEmphasisSpanBetween(SPAN_START, SPAN_END)
-                    .withMarkAndPosition(
-                        TextEmphasisSpan.MARK_SHAPE_CIRCLE,
-                        TextEmphasisSpan.MARK_FILL_FILLED,
-                        TextAnnotation.POSITION_AFTER));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasTextEmphasisSpanBetween(SPAN_START, SPAN_END)
+                .withMarkAndPosition(
+                    TextEmphasisSpan.MARK_SHAPE_CIRCLE,
+                    TextEmphasisSpan.MARK_FILL_FILLED,
+                    TextAnnotation.POSITION_AFTER));
 
     assertThat(expected).factValue("value of").contains("textEmphasisMarkAndPosition");
     assertThat(expected)
@@ -925,12 +913,11 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(new VoiceSpan("speaker"));
 
     AssertionError expected =
-        expectFailure(
-            whenTesting ->
-                whenTesting
-                    .that(spannable)
-                    .hasVoiceSpanBetween(SPAN_START, SPAN_END)
-                    .withName("different speaker"));
+        expectFailure(whenTesting ->
+            whenTesting
+                .that(spannable)
+                .hasVoiceSpanBetween(SPAN_START, SPAN_END)
+                .withName("different speaker"));
 
     assertThat(expected).factValue("value of").contains("voiceName");
     assertThat(expected).factValue("expected").contains("name=different speaker");
@@ -967,11 +954,10 @@ public class SpannedSubjectTest {
 
     int incorrectStart = SPAN_START + 1;
     AssertionError expected =
-        expectFailure(
-            whenTesting -> {
-              SpannedSubject subject = whenTesting.that(spannable);
-              hasSpanFunction.call(subject, incorrectStart, SPAN_END);
-            });
+        expectFailure(whenTesting -> {
+          SpannedSubject subject = whenTesting.that(spannable);
+          hasSpanFunction.call(subject, incorrectStart, SPAN_END);
+        });
     assertThat(expected).factValue("expected").contains("start=" + incorrectStart);
     assertThat(expected).factValue("but found").contains("start=" + SPAN_START);
     assertThat(expected).factValue("but found").contains(spanToInsert.getClass().getSimpleName());
@@ -982,19 +968,18 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(spanToInsert, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
     AssertionError failure =
-        expectFailure(
-            whenTesting -> {
-              SpannedSubject subject = whenTesting.that(spannable);
-              Object withOrAndFlags = hasSpanFunction.call(subject, SPAN_START, SPAN_END);
-              if (withOrAndFlags instanceof WithSpanFlags) {
-                ((WithSpanFlags) withOrAndFlags).withFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
-              } else if (withOrAndFlags instanceof AndSpanFlags) {
-                ((AndSpanFlags) withOrAndFlags).andFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
-              } else {
-                throw new AssertionError(
-                    "Unexpected return type: " + withOrAndFlags.getClass().getCanonicalName());
-              }
-            });
+        expectFailure(whenTesting -> {
+          SpannedSubject subject = whenTesting.that(spannable);
+          Object withOrAndFlags = hasSpanFunction.call(subject, SPAN_START, SPAN_END);
+          if (withOrAndFlags instanceof WithSpanFlags) {
+            ((WithSpanFlags) withOrAndFlags).withFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+          } else if (withOrAndFlags instanceof AndSpanFlags) {
+            ((AndSpanFlags) withOrAndFlags).andFlags(Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+          } else {
+            throw new AssertionError(
+                "Unexpected return type: " + withOrAndFlags.getClass().getCanonicalName());
+          }
+        });
 
     assertThat(failure)
         .factValue("value of")
@@ -1016,11 +1001,10 @@ public class SpannedSubjectTest {
     SpannableString spannable = createSpannable(spanToInsert);
 
     AssertionError expected =
-        expectFailure(
-            whenTesting -> {
-              SpannedSubject subject = whenTesting.that(spannable);
-              hasNoSpanFunction.call(subject, SPAN_START, SPAN_END);
-            });
+        expectFailure(whenTesting -> {
+          SpannedSubject subject = whenTesting.that(spannable);
+          hasNoSpanFunction.call(subject, SPAN_START, SPAN_END);
+        });
 
     assertThat(expected).factKeys().contains("expected none");
     assertThat(expected).factValue("but found").contains("start=" + SPAN_START);

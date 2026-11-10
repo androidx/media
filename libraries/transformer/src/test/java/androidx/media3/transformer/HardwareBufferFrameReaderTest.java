@@ -574,12 +574,11 @@ public class HardwareBufferFrameReaderTest {
   public void release_closesAllInputSurfaceImageReaders() {
     List<FakeImageReaderAdapter> imageReaders = new ArrayList<>();
     HardwareBufferFrameReader frameReader =
-        createFrameReader(
-            (width, height, format, maxImages, usage) -> {
-              FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
-              imageReaders.add(imageReader);
-              return imageReader;
-            });
+        createFrameReader((width, height, format, maxImages, usage) -> {
+          FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+          imageReaders.add(imageReader);
+          return imageReader;
+        });
     InputSurface unused1 = frameReader.createInputSurface();
     InputSurface unused2 = frameReader.createInputSurface();
 

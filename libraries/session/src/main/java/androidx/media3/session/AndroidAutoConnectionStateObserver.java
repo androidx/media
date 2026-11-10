@@ -57,17 +57,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.changeReceiver = new AndroidAutoChangeReceiver();
     this.isConnected = new AtomicBoolean();
     this.isReleased = new AtomicBoolean();
-    backgroundExecutor.execute(
-        () -> {
-          IntentFilter intentFilter = new IntentFilter(BROADCAST_INTENT);
-          if (SDK_INT >= 33) {
-            this.context.registerReceiver(changeReceiver, intentFilter, Context.RECEIVER_EXPORTED);
-          } else {
-            ContextCompat.registerReceiver(
-                this.context, changeReceiver, intentFilter, ContextCompat.RECEIVER_EXPORTED);
-          }
-          updateConnectionState();
-        });
+    backgroundExecutor.execute(() -> {
+      IntentFilter intentFilter = new IntentFilter(BROADCAST_INTENT);
+      if (SDK_INT >= 33) {
+        this.context.registerReceiver(changeReceiver, intentFilter, Context.RECEIVER_EXPORTED);
+      } else {
+        ContextCompat.registerReceiver(
+            this.context, changeReceiver, intentFilter, ContextCompat.RECEIVER_EXPORTED);
+      }
+      updateConnectionState();
+    });
   }
 
   /** Release the observer. */

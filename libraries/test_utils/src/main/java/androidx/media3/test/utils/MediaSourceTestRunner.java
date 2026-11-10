@@ -98,11 +98,10 @@ public class MediaSourceTestRunner {
    */
   public void runOnPlaybackThread(final Runnable runnable) {
     ListenableFuture<Void> result =
-        asyncRunOnPlaybackThread(
-            () -> {
-              runnable.run();
-              return null;
-            });
+        asyncRunOnPlaybackThread(() -> {
+          runnable.run();
+          return null;
+        });
     try {
       result.get();
     } catch (InterruptedException | ExecutionException e) {
@@ -118,14 +117,13 @@ public class MediaSourceTestRunner {
   public <T extends @Nullable Object> ListenableFuture<T> asyncRunOnPlaybackThread(
       Callable<T> callable) {
     SettableFuture<T> result = SettableFuture.create();
-    playbackHandler.post(
-        () -> {
-          try {
-            result.set(callable.call());
-          } catch (Throwable e) {
-            result.setException(e);
-          }
-        });
+    playbackHandler.post(() -> {
+      try {
+        result.set(callable.call());
+      } catch (Throwable e) {
+        result.setException(e);
+      }
+    });
     return result;
   }
 
@@ -136,18 +134,17 @@ public class MediaSourceTestRunner {
    */
   public Timeline prepareSource() throws IOException {
     final IOException[] prepareError = new IOException[1];
-    runOnPlaybackThread(
-        () -> {
-          mediaSource.prepareSource(mediaSourceListener, PlayerId.UNSET, BandwidthMeter.NO_OP);
-          try {
-            // TODO: This only catches errors that are set synchronously in prepareSource. To
-            // capture async errors we'll need to poll maybeThrowSourceInfoRefreshError until the
-            // first call to onSourceInfoRefreshed.
-            mediaSource.maybeThrowSourceInfoRefreshError();
-          } catch (IOException e) {
-            prepareError[0] = e;
-          }
-        });
+    runOnPlaybackThread(() -> {
+      mediaSource.prepareSource(mediaSourceListener, PlayerId.UNSET, BandwidthMeter.NO_OP);
+      try {
+        // TODO: This only catches errors that are set synchronously in prepareSource. To
+        // capture async errors we'll need to poll maybeThrowSourceInfoRefreshError until the
+        // first call to onSourceInfoRefreshed.
+        mediaSource.maybeThrowSourceInfoRefreshError();
+      } catch (IOException e) {
+        prepareError[0] = e;
+      }
+    });
     if (prepareError[0] != null) {
       throw prepareError[0];
     }
@@ -193,23 +190,22 @@ public class MediaSourceTestRunner {
   public CountDownLatch preparePeriod(final MediaPeriod mediaPeriod, final long positionUs) {
     final ConditionVariable prepareCalled = new ConditionVariable();
     final CountDownLatch preparedLatch = new CountDownLatch(1);
-    runOnPlaybackThread(
-        () -> {
-          mediaPeriod.prepare(
-              new MediaPeriod.Callback() {
-                @Override
-                public void onPrepared(MediaPeriod mediaPeriod1) {
-                  preparedLatch.countDown();
-                }
+    runOnPlaybackThread(() -> {
+      mediaPeriod.prepare(
+          new MediaPeriod.Callback() {
+            @Override
+            public void onPrepared(MediaPeriod mediaPeriod1) {
+              preparedLatch.countDown();
+            }
 
-                @Override
-                public void onContinueLoadingRequested(MediaPeriod source) {
-                  // Do nothing.
-                }
-              },
-              positionUs);
-          prepareCalled.open();
-        });
+            @Override
+            public void onContinueLoadingRequested(MediaPeriod source) {
+              // Do nothing.
+            }
+          },
+          positionUs);
+      prepareCalled.open();
+    });
     prepareCalled.block();
     return preparedLatch;
   }

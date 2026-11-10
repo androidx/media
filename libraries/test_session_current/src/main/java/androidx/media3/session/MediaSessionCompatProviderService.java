@@ -92,15 +92,14 @@ public class MediaSessionCompatProviderService extends Service {
     @Override
     public void create(String sessionTag) throws RemoteException {
       try {
-        handler.postAndSync(
-            () -> {
-              MediaSessionCompat session =
-                  new MediaSessionCompat(MediaSessionCompatProviderService.this, sessionTag);
-              CallCountingCallback callback = new CallCountingCallback(sessionTag);
-              session.setCallback(callback);
-              sessionMap.put(sessionTag, session);
-              callbackMap.put(sessionTag, callback);
-            });
+        handler.postAndSync(() -> {
+          MediaSessionCompat session =
+              new MediaSessionCompat(MediaSessionCompatProviderService.this, sessionTag);
+          CallCountingCallback callback = new CallCountingCallback(sessionTag);
+          session.setCallback(callback);
+          sessionMap.put(sessionTag, session);
+          callbackMap.put(sessionTag, callback);
+        });
       } catch (Exception e) {
         Log.e(TAG, "Exception occurred while creating MediaSessionCompat", e);
       }

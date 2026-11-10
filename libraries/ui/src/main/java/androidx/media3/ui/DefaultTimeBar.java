@@ -380,11 +380,10 @@ public class DefaultTimeBar extends View implements TimeBar {
     }
     scrubberScale = 1.0f;
     scrubberScalingAnimator = new ValueAnimator();
-    scrubberScalingAnimator.addUpdateListener(
-        animation -> {
-          scrubberScale = (float) animation.getAnimatedValue();
-          invalidate(seekBounds);
-        });
+    scrubberScalingAnimator.addUpdateListener(animation -> {
+      scrubberScale = (float) animation.getAnimatedValue();
+      invalidate(seekBounds);
+    });
     duration = C.TIME_UNSET;
     keyTimeIncrement = C.TIME_UNSET;
     keyCountIncrement = DEFAULT_INCREMENT_COUNT;

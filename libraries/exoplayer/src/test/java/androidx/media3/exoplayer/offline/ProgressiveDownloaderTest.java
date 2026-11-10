@@ -139,26 +139,25 @@ public class ProgressiveDownloaderTest {
     // Fake data which briefly sets the playback priority while downloading for the first time.
     FakeDataSet data = new FakeDataSet();
     data.newData(uri)
-        .appendReadAction(
-            () -> {
-              if (!hasSetPlaybackPriority.getAndSet(true)) {
-                // This only interrupts the download the next time the DataSource checks for the
-                // priority, so delay the removal of the playback priority slightly. As we can't
-                // check when the DataSource throws the PriorityTooLowException exactly, we need to
-                // use an arbitrary delay.
-                priorityTaskManager.add(C.PRIORITY_PLAYBACK);
-                new Thread(
-                        () -> {
-                          try {
-                            Thread.sleep(200);
-                          } catch (InterruptedException e) {
-                            // Ignore.
-                          }
-                          priorityTaskManager.remove(C.PRIORITY_PLAYBACK);
-                        })
-                    .start();
-              }
-            })
+        .appendReadAction(() -> {
+          if (!hasSetPlaybackPriority.getAndSet(true)) {
+            // This only interrupts the download the next time the DataSource checks for the
+            // priority, so delay the removal of the playback priority slightly. As we can't
+            // check when the DataSource throws the PriorityTooLowException exactly, we need to
+            // use an arbitrary delay.
+            priorityTaskManager.add(C.PRIORITY_PLAYBACK);
+            new Thread(
+                    () -> {
+                      try {
+                        Thread.sleep(200);
+                      } catch (InterruptedException e) {
+                        // Ignore.
+                      }
+                      priorityTaskManager.remove(C.PRIORITY_PLAYBACK);
+                    })
+                .start();
+          }
+        })
         .appendReadData(2_000_000);
     DataSource.Factory upstreamDataSource = new FakeDataSource.Factory().setFakeDataSet(data);
     MediaItem mediaItem = MediaItem.fromUri(uri);

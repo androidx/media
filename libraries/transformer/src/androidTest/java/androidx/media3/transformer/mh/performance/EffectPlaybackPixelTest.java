@@ -128,34 +128,32 @@ public class EffectPlaybackPixelTest {
     AtomicReference<Bitmap> renderedFirstFrameBitmap = new AtomicReference<>();
     ConditionVariable hasRenderedFirstFrameCondition = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
-          checkNotNull(outputImageReader);
-          outputImageReader.setOnImageAvailableListener(
-              imageReader -> {
-                try (Image image = imageReader.acquireLatestImage()) {
-                  renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
-                }
-                hasRenderedFirstFrameCondition.open();
-              },
-              Util.createHandlerForCurrentOrMainLooper());
+    instrumentation.runOnMainSync(() -> {
+      player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+      checkNotNull(outputImageReader);
+      outputImageReader.setOnImageAvailableListener(
+          imageReader -> {
+            try (Image image = imageReader.acquireLatestImage()) {
+              renderedFirstFrameBitmap.set(createArgb8888BitmapFromRgba8888Image(image));
+            }
+            hasRenderedFirstFrameCondition.open();
+          },
+          Util.createHandlerForCurrentOrMainLooper());
 
-          setOutputSurfaceAndSizeOnPlayer(
-              player,
-              checkNotNull(findVideoRenderer(player)),
-              outputImageReader.getSurface(),
-              new Size(
-                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
+      setOutputSurfaceAndSizeOnPlayer(
+          player,
+          checkNotNull(findVideoRenderer(player)),
+          outputImageReader.getSurface(),
+          new Size(MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
 
-          player.setPlayWhenReady(false);
-          player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
+      player.setPlayWhenReady(false);
+      player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
 
-          // Adding an EventLogger to use its log output in case the test fails.
-          player.addAnalyticsListener(new EventLogger());
-          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
-          player.prepare();
-        });
+      // Adding an EventLogger to use its log output in case the test fails.
+      player.addAnalyticsListener(new EventLogger());
+      player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
+      player.prepare();
+    });
 
     if (!hasRenderedFirstFrameCondition.block(TEST_TIMEOUT_MS)) {
       throw new TimeoutException(
@@ -185,56 +183,54 @@ public class EffectPlaybackPixelTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     ConditionVariable readAllOutputFrames = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          Context context = ApplicationProvider.getApplicationContext();
-          Renderer videoRenderer = new NoFrameDroppingVideoRenderer(context);
-          player =
-              new ExoPlayer.Builder(context)
-                  .setRenderersFactory(
-                      new DefaultRenderersFactory(context) {
-                        @Override
-                        protected void buildVideoRenderers(
-                            Context context,
-                            @ExtensionRendererMode int extensionRendererMode,
-                            MediaCodecSelector mediaCodecSelector,
-                            boolean enableDecoderFallback,
-                            Handler eventHandler,
-                            VideoRendererEventListener eventListener,
-                            long allowedVideoJoiningTimeMs,
-                            ArrayList<Renderer> out) {
-                          out.add(videoRenderer);
-                        }
-                      })
-                  .build();
+    instrumentation.runOnMainSync(() -> {
+      Context context = ApplicationProvider.getApplicationContext();
+      Renderer videoRenderer = new NoFrameDroppingVideoRenderer(context);
+      player =
+          new ExoPlayer.Builder(context)
+              .setRenderersFactory(
+                  new DefaultRenderersFactory(context) {
+                    @Override
+                    protected void buildVideoRenderers(
+                        Context context,
+                        @ExtensionRendererMode int extensionRendererMode,
+                        MediaCodecSelector mediaCodecSelector,
+                        boolean enableDecoderFallback,
+                        Handler eventHandler,
+                        VideoRendererEventListener eventListener,
+                        long allowedVideoJoiningTimeMs,
+                        ArrayList<Renderer> out) {
+                      out.add(videoRenderer);
+                    }
+                  })
+              .build();
 
-          checkNotNull(outputImageReader);
-          outputImageReader.setOnImageAvailableListener(
-              imageReader -> {
-                try (Image image = imageReader.acquireNextImage()) {
-                  readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
-                }
-                if (renderedFramesCount.incrementAndGet() == MP4_ADVANCED_ASSET.videoFrameCount) {
-                  readAllOutputFrames.open();
-                }
-              },
-              Util.createHandlerForCurrentOrMainLooper());
+      checkNotNull(outputImageReader);
+      outputImageReader.setOnImageAvailableListener(
+          imageReader -> {
+            try (Image image = imageReader.acquireNextImage()) {
+              readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
+            }
+            if (renderedFramesCount.incrementAndGet() == MP4_ADVANCED_ASSET.videoFrameCount) {
+              readAllOutputFrames.open();
+            }
+          },
+          Util.createHandlerForCurrentOrMainLooper());
 
-          setOutputSurfaceAndSizeOnPlayer(
-              player,
-              videoRenderer,
-              outputImageReader.getSurface(),
-              new Size(
-                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
-          player.setPlayWhenReady(true);
-          player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
+      setOutputSurfaceAndSizeOnPlayer(
+          player,
+          videoRenderer,
+          outputImageReader.getSurface(),
+          new Size(MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
+      player.setPlayWhenReady(true);
+      player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
 
-          // Adding an EventLogger to use its log output in case the test fails.
-          player.addAnalyticsListener(new EventLogger());
-          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
-          player.prepare();
-        });
+      // Adding an EventLogger to use its log output in case the test fails.
+      player.addAnalyticsListener(new EventLogger());
+      endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+      player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
+      player.prepare();
+    });
 
     endedFuture.get();
 
@@ -283,86 +279,83 @@ public class EffectPlaybackPixelTest {
     ConditionVariable readAllOutputFrames = new ConditionVariable();
     Handler mainHandler = new Handler(instrumentation.getTargetContext().getMainLooper());
 
-    instrumentation.runOnMainSync(
-        () -> {
-          Context context = ApplicationProvider.getApplicationContext();
-          Renderer videoRenderer = new ReplayVideoRenderer(context);
-          player =
-              new ExoPlayer.Builder(context)
-                  .setRenderersFactory(
-                      new DefaultRenderersFactory(context) {
-                        @Override
-                        protected void buildVideoRenderers(
-                            Context context,
-                            @ExtensionRendererMode int extensionRendererMode,
-                            MediaCodecSelector mediaCodecSelector,
-                            boolean enableDecoderFallback,
-                            Handler eventHandler,
-                            VideoRendererEventListener eventListener,
-                            long allowedVideoJoiningTimeMs,
-                            ArrayList<Renderer> builtVideoRenderers) {
-                          builtVideoRenderers.add(videoRenderer);
-                        }
-                      })
-                  .build();
+    instrumentation.runOnMainSync(() -> {
+      Context context = ApplicationProvider.getApplicationContext();
+      Renderer videoRenderer = new ReplayVideoRenderer(context);
+      player =
+          new ExoPlayer.Builder(context)
+              .setRenderersFactory(
+                  new DefaultRenderersFactory(context) {
+                    @Override
+                    protected void buildVideoRenderers(
+                        Context context,
+                        @ExtensionRendererMode int extensionRendererMode,
+                        MediaCodecSelector mediaCodecSelector,
+                        boolean enableDecoderFallback,
+                        Handler eventHandler,
+                        VideoRendererEventListener eventListener,
+                        long allowedVideoJoiningTimeMs,
+                        ArrayList<Renderer> builtVideoRenderers) {
+                      builtVideoRenderers.add(videoRenderer);
+                    }
+                  })
+              .build();
 
-          checkNotNull(outputImageReader);
-          outputImageReader.setOnImageAvailableListener(
-              imageReader -> {
-                try (Image image = imageReader.acquireNextImage()) {
-                  if (renderedFramesCount.getAndIncrement() < 2) {
-                    // Record only the first and replayed frames.
-                    readImageBuffers.add(
-                        BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
-                  } else {
-                    readAllOutputFrames.open();
-                  }
-                }
-              },
-              Util.createHandlerForCurrentOrMainLooper());
+      checkNotNull(outputImageReader);
+      outputImageReader.setOnImageAvailableListener(
+          imageReader -> {
+            try (Image image = imageReader.acquireNextImage()) {
+              if (renderedFramesCount.getAndIncrement() < 2) {
+                // Record only the first and replayed frames.
+                readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
+              } else {
+                readAllOutputFrames.open();
+              }
+            }
+          },
+          Util.createHandlerForCurrentOrMainLooper());
 
-          setOutputSurfaceAndSizeOnPlayer(
-              player,
-              videoRenderer,
-              outputImageReader.getSurface(),
-              new Size(
-                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
-          player.setPlayWhenReady(false);
-          AdjustableContrast contrast = new AdjustableContrast();
-          player.setVideoEffects(ImmutableList.of(createTimestampOverlay(), contrast));
+      setOutputSurfaceAndSizeOnPlayer(
+          player,
+          videoRenderer,
+          outputImageReader.getSurface(),
+          new Size(MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
+      player.setPlayWhenReady(false);
+      AdjustableContrast contrast = new AdjustableContrast();
+      player.setVideoEffects(ImmutableList.of(createTimestampOverlay(), contrast));
 
-          // Adding an EventLogger to use its log output in case the test fails.
-          player.addAnalyticsListener(new EventLogger());
-          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-          player.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                if (presentationTimeUs != 0) {
-                  return;
-                }
+      // Adding an EventLogger to use its log output in case the test fails.
+      player.addAnalyticsListener(new EventLogger());
+      endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+      player.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            if (presentationTimeUs != 0) {
+              return;
+            }
 
-                if (firstFrameRenderedCount.get() == 0) {
-                  // Render the current frame, and redraw a frame with some delay. This is to ensure
-                  // that the first frame is rendered with the original effect, and the second
-                  // frame is rendered with the new effect. Following this call, the first frame
-                  // will be rendered twice.
-                  mainHandler.postDelayed(
-                      () -> {
-                        contrast.changeContrast(-0.8f);
-                        player.setVideoEffects(VideoFrameProcessor.REDRAW);
-                      },
-                      /* delayMillis= */ 500);
-                } else if (firstFrameRenderedCount.get() == 1) {
-                  // Redraw another frame. This renders the first frame for the third time.
-                  instrumentation.runOnMainSync(
-                      () -> player.setVideoEffects(VideoFrameProcessor.REDRAW));
-                } else {
-                  instrumentation.runOnMainSync(player::play);
-                }
-                firstFrameRenderedCount.getAndIncrement();
-              });
-          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
-          player.prepare();
-        });
+            if (firstFrameRenderedCount.get() == 0) {
+              // Render the current frame, and redraw a frame with some delay. This is to ensure
+              // that the first frame is rendered with the original effect, and the second
+              // frame is rendered with the new effect. Following this call, the first frame
+              // will be rendered twice.
+              mainHandler.postDelayed(
+                  () -> {
+                    contrast.changeContrast(-0.8f);
+                    player.setVideoEffects(VideoFrameProcessor.REDRAW);
+                  },
+                  /* delayMillis= */ 500);
+            } else if (firstFrameRenderedCount.get() == 1) {
+              // Redraw another frame. This renders the first frame for the third time.
+              instrumentation.runOnMainSync(
+                  () -> player.setVideoEffects(VideoFrameProcessor.REDRAW));
+            } else {
+              instrumentation.runOnMainSync(player::play);
+            }
+            firstFrameRenderedCount.getAndIncrement();
+          });
+      player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
+      player.prepare();
+    });
 
     endedFuture.get();
 
@@ -419,59 +412,57 @@ public class EffectPlaybackPixelTest {
             PixelFormat.RGBA_8888,
             /* maxImages= */ 10);
 
-    instrumentation.runOnMainSync(
-        () -> {
-          Context context = ApplicationProvider.getApplicationContext();
-          Renderer videoRenderer = new NoFrameDroppingVideoRenderer(context);
-          player =
-              new ExoPlayer.Builder(context)
-                  .setRenderersFactory(
-                      new DefaultRenderersFactory(context) {
-                        @Override
-                        protected void buildVideoRenderers(
-                            Context context,
-                            @ExtensionRendererMode int extensionRendererMode,
-                            MediaCodecSelector mediaCodecSelector,
-                            boolean enableDecoderFallback,
-                            Handler eventHandler,
-                            VideoRendererEventListener eventListener,
-                            long allowedVideoJoiningTimeMs,
-                            ArrayList<Renderer> out) {
-                          out.add(videoRenderer);
-                        }
-                      })
-                  .build();
+    instrumentation.runOnMainSync(() -> {
+      Context context = ApplicationProvider.getApplicationContext();
+      Renderer videoRenderer = new NoFrameDroppingVideoRenderer(context);
+      player =
+          new ExoPlayer.Builder(context)
+              .setRenderersFactory(
+                  new DefaultRenderersFactory(context) {
+                    @Override
+                    protected void buildVideoRenderers(
+                        Context context,
+                        @ExtensionRendererMode int extensionRendererMode,
+                        MediaCodecSelector mediaCodecSelector,
+                        boolean enableDecoderFallback,
+                        Handler eventHandler,
+                        VideoRendererEventListener eventListener,
+                        long allowedVideoJoiningTimeMs,
+                        ArrayList<Renderer> out) {
+                      out.add(videoRenderer);
+                    }
+                  })
+              .build();
 
-          checkNotNull(outputImageReader);
-          outputImageReader.setOnImageAvailableListener(
-              imageReader -> {
-                try (Image image = imageReader.acquireNextImage()) {
-                  readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
-                }
-                if (renderedFramesCount.incrementAndGet() == MP4_ADVANCED_ASSET.videoFrameCount) {
-                  readAllOutputFrames.open();
-                }
-              },
-              Util.createHandlerForCurrentOrMainLooper());
+      checkNotNull(outputImageReader);
+      outputImageReader.setOnImageAvailableListener(
+          imageReader -> {
+            try (Image image = imageReader.acquireNextImage()) {
+              readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
+            }
+            if (renderedFramesCount.incrementAndGet() == MP4_ADVANCED_ASSET.videoFrameCount) {
+              readAllOutputFrames.open();
+            }
+          },
+          Util.createHandlerForCurrentOrMainLooper());
 
-          setOutputSurfaceAndSizeOnPlayer(
-              player,
-              videoRenderer,
-              outputImageReader.getSurface(),
-              new Size(
-                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
-          player.setPlayWhenReady(true);
-          player.setVideoEffects(
-              ImmutableList.of(
-                  new TimestampWrapper(
-                      new Brightness(0.5f), /* startTimeUs= */ 166833, /* endTimeUs= */ 510000)));
+      setOutputSurfaceAndSizeOnPlayer(
+          player,
+          videoRenderer,
+          outputImageReader.getSurface(),
+          new Size(MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
+      player.setPlayWhenReady(true);
+      player.setVideoEffects(
+          ImmutableList.of(
+              new TimestampWrapper(
+                  new Brightness(0.5f), /* startTimeUs= */ 166833, /* endTimeUs= */ 510000)));
 
-          // Adding an EventLogger to use its log output in case the test fails.
-          player.addAnalyticsListener(new EventLogger());
-          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
-          player.prepare();
-        });
+      // Adding an EventLogger to use its log output in case the test fails.
+      player.addAnalyticsListener(new EventLogger());
+      endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+      player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
+      player.prepare();
+    });
 
     endedFuture.get();
 

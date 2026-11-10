@@ -88,21 +88,19 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void onReadyToAcceptInputFrame() {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          downstreamShaderProgramCapacity++;
-          maybeQueueToShaderProgram();
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      downstreamShaderProgramCapacity++;
+      maybeQueueToShaderProgram();
+    });
   }
 
   @Override
   public void queueInputBitmap(
       Bitmap inputBitmap, FrameInfo frameInfo, TimestampIterator inStreamOffsetsUs) {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          setupBitmap(inputBitmap, frameInfo, inStreamOffsetsUs);
-          currentInputStreamEnded = false;
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      setupBitmap(inputBitmap, frameInfo, inStreamOffsetsUs);
+      currentInputStreamEnded = false;
+    });
   }
 
   @Override
@@ -113,27 +111,25 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void signalEndOfCurrentInputStream() {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          if (pendingBitmaps.isEmpty()) {
-            checkNotNull(repeatingGainmapShaderProgram).signalEndOfCurrentInputStream();
-            DebugTraceUtil.logEvent(
-                COMPONENT_BITMAP_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
-          } else {
-            currentInputStreamEnded = true;
-          }
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      if (pendingBitmaps.isEmpty()) {
+        checkNotNull(repeatingGainmapShaderProgram).signalEndOfCurrentInputStream();
+        DebugTraceUtil.logEvent(
+            COMPONENT_BITMAP_TEXTURE_MANAGER, EVENT_SIGNAL_EOS, C.TIME_END_OF_SOURCE);
+      } else {
+        currentInputStreamEnded = true;
+      }
+    });
   }
 
   @Override
   public void release() {
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          if (currentSdrGlTextureInfo != null) {
-            currentSdrGlTextureInfo.release();
-          }
-          pendingBitmaps.clear();
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      if (currentSdrGlTextureInfo != null) {
+        currentSdrGlTextureInfo.release();
+      }
+      pendingBitmaps.clear();
+    });
   }
 
   // Methods that must be called on the GL thread.

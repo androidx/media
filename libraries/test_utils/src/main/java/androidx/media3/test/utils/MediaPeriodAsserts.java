@@ -198,22 +198,21 @@ public final class MediaPeriodAsserts {
     AtomicReference<TrackGroupArray> trackGroupArray = new AtomicReference<>();
     DummyMainThread testThread = new DummyMainThread();
     ConditionVariable preparedCondition = new ConditionVariable();
-    testThread.runOnMainThread(
-        () ->
-            mediaPeriod.prepare(
-                new Callback() {
-                  @Override
-                  public void onPrepared(MediaPeriod mediaPeriod) {
-                    trackGroupArray.set(mediaPeriod.getTrackGroups());
-                    preparedCondition.open();
-                  }
+    testThread.runOnMainThread(() ->
+        mediaPeriod.prepare(
+            new Callback() {
+              @Override
+              public void onPrepared(MediaPeriod mediaPeriod) {
+                trackGroupArray.set(mediaPeriod.getTrackGroups());
+                preparedCondition.open();
+              }
 
-                  @Override
-                  public void onContinueLoadingRequested(MediaPeriod source) {
-                    // Ignore.
-                  }
-                },
-                /* positionUs= */ 0));
+              @Override
+              public void onContinueLoadingRequested(MediaPeriod source) {
+                // Ignore.
+              }
+            },
+            /* positionUs= */ 0));
     try {
       preparedCondition.block();
     } catch (InterruptedException e) {

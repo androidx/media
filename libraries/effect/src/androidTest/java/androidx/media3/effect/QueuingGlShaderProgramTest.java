@@ -55,7 +55,7 @@ public class QueuingGlShaderProgramTest {
   private static final int BLANK_FRAME_WIDTH = 100;
   private static final int BLANK_FRAME_HEIGHT = 50;
   private static final Consumer<SpannableString> TEXT_SPAN_CONSUMER =
-      (text) -> {
+      text -> {
         text.setSpan(
             new ForegroundColorSpan(Color.BLACK),
             /* start= */ 0,

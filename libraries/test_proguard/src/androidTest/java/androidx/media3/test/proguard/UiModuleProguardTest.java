@@ -30,19 +30,16 @@ public final class UiModuleProguardTest {
   @Test
   public void playerView_inflateSphericalGLSurfaceView_succeeds() {
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                UiModuleProguard.inflatePlayerViewWithSphericalGLSurfaceView(
-                    getApplicationContext()));
+        .runOnMainSync(() ->
+            UiModuleProguard.inflatePlayerViewWithSphericalGLSurfaceView(getApplicationContext()));
   }
 
   @Test
   public void playerView_inflateVideoDecoderGLSurfaceView_succeeds() {
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                UiModuleProguard.inflatePlayerViewWithVideoDecoderGLSurfaceView(
-                    getApplicationContext()));
+        .runOnMainSync(() ->
+            UiModuleProguard.inflatePlayerViewWithVideoDecoderGLSurfaceView(
+                getApplicationContext()));
   }
 
   @Test

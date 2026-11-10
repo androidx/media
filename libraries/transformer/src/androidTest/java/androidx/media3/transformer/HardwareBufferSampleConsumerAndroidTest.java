@@ -82,11 +82,10 @@ public class HardwareBufferSampleConsumerAndroidTest {
       throws InterruptedException {
     CountDownLatch framesReceivedLatch = new CountDownLatch(CAPACITY);
     sampleConsumer =
-        createSampleConsumer(
-            /* onFrame= */ (frame) -> {
-              receivedFrames.add(frame);
-              framesReceivedLatch.countDown();
-            });
+        createSampleConsumer(/* onFrame= */ frame -> {
+          receivedFrames.add(frame);
+          framesReceivedLatch.countDown();
+        });
     Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
     sampleConsumer.onMediaItemChanged(
         /* editedMediaItem= */ null,

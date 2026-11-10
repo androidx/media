@@ -85,7 +85,7 @@ public final class BitmapToHardwareBufferConverterTest {
             HardwareBufferJni.INSTANCE,
             /* internalExecutor= */ executorService,
             /* errorExecutor= */ directExecutor(),
-            /* errorCallback= */ (e) -> {
+            /* errorCallback= */ e -> {
               throw new AssertionError(e);
             });
     resourcesToClose = new ArrayList<>();

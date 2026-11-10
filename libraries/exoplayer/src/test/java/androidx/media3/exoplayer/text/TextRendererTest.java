@@ -129,11 +129,10 @@ public class TextRendererTest {
 
     // Render until the first two samples are decoded on the background thread, freeing the
     // decoder's input buffers so the renderer can peek the following format and sample.
-    runMainLooperUntil(
-        () -> {
-          renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
-          return outputCueGroups.size() == 3;
-        });
+    runMainLooperUntil(() -> {
+      renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
+      return outputCueGroups.size() == 3;
+    });
 
     // Verify that the last sample (at 2_000_000) is NOT yet read.
     assertThat(renderer.getReadingPositionUs()).isEqualTo(123_450_000);

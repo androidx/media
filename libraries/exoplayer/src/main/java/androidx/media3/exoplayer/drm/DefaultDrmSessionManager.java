@@ -957,21 +957,20 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
      */
     public void acquire(Format format) {
       checkNotNull(playbackHandler)
-          .post(
-              () -> {
-                if (prepareCallsCount == 0 || isReleased) {
-                  // The manager has been fully released or this reference has already been
-                  // released. Abort the acquisition attempt.
-                  return;
-                }
-                this.session =
-                    acquireSession(
-                        checkNotNull(playbackLooper),
-                        eventDispatcher,
-                        format,
-                        /* shouldReleasePreacquiredSessionsBeforeRetrying= */ false);
-                preacquiredSessionReferences.add(this);
-              });
+          .post(() -> {
+            if (prepareCallsCount == 0 || isReleased) {
+              // The manager has been fully released or this reference has already been
+              // released. Abort the acquisition attempt.
+              return;
+            }
+            this.session =
+                acquireSession(
+                    checkNotNull(playbackLooper),
+                    eventDispatcher,
+                    format,
+                    /* shouldReleasePreacquiredSessionsBeforeRetrying= */ false);
+            preacquiredSessionReferences.add(this);
+          });
     }
 
     @Override

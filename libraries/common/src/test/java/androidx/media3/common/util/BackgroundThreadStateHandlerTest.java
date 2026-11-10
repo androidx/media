@@ -79,11 +79,10 @@ public class BackgroundThreadStateHandlerTest {
     AtomicReference<TestState> backgroundState = new AtomicReference<>();
     CountDownLatch waitForBackgroundState = new CountDownLatch(1);
     new Handler(backgroundThread.getLooper())
-        .post(
-            () -> {
-              backgroundState.set(handler.get().get());
-              waitForBackgroundState.countDown();
-            });
+        .post(() -> {
+          backgroundState.set(handler.get().get());
+          waitForBackgroundState.countDown();
+        });
     waitForBackgroundState.await();
 
     assertThat(foregroundState).isEqualTo(initialState);

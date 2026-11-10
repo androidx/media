@@ -114,17 +114,15 @@ public final class BackgroundThreadStateHandler<T> {
       Function<T, T> placeholderState, Function<T, T> backgroundStateUpdate) {
     checkState(Looper.myLooper() == foregroundHandler.getLooper());
     pendingOperations++;
-    runInBackground(
-        () -> {
-          backgroundState = backgroundStateUpdate.apply(backgroundState);
-          T newState = backgroundState;
-          runInForeground(
-              () -> {
-                if (--pendingOperations == 0) {
-                  updateStateInForeground(newState);
-                }
-              });
-        });
+    runInBackground(() -> {
+      backgroundState = backgroundStateUpdate.apply(backgroundState);
+      T newState = backgroundState;
+      runInForeground(() -> {
+        if (--pendingOperations == 0) {
+          updateStateInForeground(newState);
+        }
+      });
+    });
     updateStateInForeground(placeholderState.apply(foregroundState));
   }
 
@@ -138,12 +136,11 @@ public final class BackgroundThreadStateHandler<T> {
    */
   public void setStateInBackground(T newState) {
     backgroundState = newState;
-    runInForeground(
-        () -> {
-          if (pendingOperations == 0) {
-            updateStateInForeground(newState);
-          }
-        });
+    runInForeground(() -> {
+      if (pendingOperations == 0) {
+        updateStateInForeground(newState);
+      }
+    });
   }
 
   /**

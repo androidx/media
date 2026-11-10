@@ -1005,34 +1005,32 @@ public final class MediaItemExportTest {
                     }
                   }
                 })
-            .setAssetLoaderFactory(
-                (editedMediaItem, looper, listener, compositionSettings) -> {
-                  assetLoaderCreationStartedLatch.countDown();
-                  // Keep creating the AssetLoader until cancel() blocks.
-                  Uninterruptibles.awaitUninterruptibly(applicationThreadBlockedLatch);
-                  return new AssetLoader() {
-                    @Override
-                    public void start() {
-                      assetLoaderStarted.set(true);
-                    }
+            .setAssetLoaderFactory((editedMediaItem, looper, listener, compositionSettings) -> {
+              assetLoaderCreationStartedLatch.countDown();
+              // Keep creating the AssetLoader until cancel() blocks.
+              Uninterruptibles.awaitUninterruptibly(applicationThreadBlockedLatch);
+              return new AssetLoader() {
+                @Override
+                public void start() {
+                  assetLoaderStarted.set(true);
+                }
 
-                    @Override
-                    public @Transformer.ProgressState int getProgress(
-                        ProgressHolder progressHolder) {
-                      return PROGRESS_STATE_NOT_STARTED;
-                    }
+                @Override
+                public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
+                  return PROGRESS_STATE_NOT_STARTED;
+                }
 
-                    @Override
-                    public ImmutableMap<Integer, String> getDecoderNames() {
-                      return ImmutableMap.of();
-                    }
+                @Override
+                public ImmutableMap<Integer, String> getDecoderNames() {
+                  return ImmutableMap.of();
+                }
 
-                    @Override
-                    public void release() {
-                      assetLoaderReleased.set(true);
-                    }
-                  };
-                })
+                @Override
+                public void release() {
+                  assetLoaderReleased.set(true);
+                }
+              };
+            })
             .addListener(
                 new Transformer.Listener() {
                   @Override
@@ -1069,11 +1067,10 @@ public final class MediaItemExportTest {
     AtomicReference<@Nullable Looper> assetLoaderCreationLooper = new AtomicReference<>();
     Transformer transformer =
         new TestTransformerBuilder(context)
-            .setAssetLoaderFactory(
-                (editedMediaItem, looper, listener, compositionSettings) -> {
-                  assetLoaderCreationLooper.set(Looper.myLooper());
-                  throw assetLoaderException;
-                })
+            .setAssetLoaderFactory((editedMediaItem, looper, listener, compositionSettings) -> {
+              assetLoaderCreationLooper.set(Looper.myLooper());
+              throw assetLoaderException;
+            })
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
 
@@ -1287,17 +1284,16 @@ public final class MediaItemExportTest {
     CountDownLatch countDownLatch = new CountDownLatch(1);
 
     new Handler(looper)
-        .post(
-            () -> {
-              try {
-                transformer.start(mediaItem, outputDir.newFile().getPath());
-                TransformerTestRunner.runLooper(transformer);
-              } catch (Exception e) {
-                exception.set(e);
-              } finally {
-                countDownLatch.countDown();
-              }
-            });
+        .post(() -> {
+          try {
+            transformer.start(mediaItem, outputDir.newFile().getPath());
+            TransformerTestRunner.runLooper(transformer);
+          } catch (Exception e) {
+            exception.set(e);
+          } finally {
+            countDownLatch.countDown();
+          }
+        });
     if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
       throw new TimeoutException();
     }
@@ -1320,16 +1316,15 @@ public final class MediaItemExportTest {
     String outputPath = outputDir.newFile().getPath();
     anotherThread.start();
     new Handler(anotherThread.getLooper())
-        .post(
-            () -> {
-              try {
-                transformer.start(mediaItem, outputPath);
-              } catch (IllegalStateException e) {
-                illegalStateException.set(e);
-              } finally {
-                countDownLatch.countDown();
-              }
-            });
+        .post(() -> {
+          try {
+            transformer.start(mediaItem, outputPath);
+          } catch (IllegalStateException e) {
+            illegalStateException.set(e);
+          } finally {
+            countDownLatch.countDown();
+          }
+        });
     if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
       throw new TimeoutException();
     }
@@ -1673,16 +1668,15 @@ public final class MediaItemExportTest {
 
     anotherThread.start();
     new Handler(anotherThread.getLooper())
-        .post(
-            () -> {
-              try {
-                transformer.getProgress(new ProgressHolder());
-              } catch (IllegalStateException e) {
-                illegalStateException.set(e);
-              } finally {
-                countDownLatch.countDown();
-              }
-            });
+        .post(() -> {
+          try {
+            transformer.getProgress(new ProgressHolder());
+          } catch (IllegalStateException e) {
+            illegalStateException.set(e);
+          } finally {
+            countDownLatch.countDown();
+          }
+        });
     if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
       throw new TimeoutException();
     }
@@ -1831,16 +1825,15 @@ public final class MediaItemExportTest {
 
     anotherThread.start();
     new Handler(anotherThread.getLooper())
-        .post(
-            () -> {
-              try {
-                transformer.cancel();
-              } catch (IllegalStateException e) {
-                illegalStateException.set(e);
-              } finally {
-                countDownLatch.countDown();
-              }
-            });
+        .post(() -> {
+          try {
+            transformer.cancel();
+          } catch (IllegalStateException e) {
+            illegalStateException.set(e);
+          } finally {
+            countDownLatch.countDown();
+          }
+        });
     if (!countDownLatch.await(TEST_TIMEOUT_SECONDS, SECONDS)) {
       throw new TimeoutException();
     }

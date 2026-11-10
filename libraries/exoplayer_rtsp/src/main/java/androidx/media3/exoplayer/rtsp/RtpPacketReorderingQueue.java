@@ -53,11 +53,9 @@ import org.jspecify.annotations.Nullable;
   /** Creates an instance. */
   public RtpPacketReorderingQueue() {
     packetQueue =
-        new TreeSet<>(
-            (packetContainer1, packetContainer2) ->
-                calculateSequenceNumberShift(
-                    packetContainer1.packet.sequenceNumber,
-                    packetContainer2.packet.sequenceNumber));
+        new TreeSet<>((packetContainer1, packetContainer2) ->
+            calculateSequenceNumberShift(
+                packetContainer1.packet.sequenceNumber, packetContainer2.packet.sequenceNumber));
 
     reset();
   }

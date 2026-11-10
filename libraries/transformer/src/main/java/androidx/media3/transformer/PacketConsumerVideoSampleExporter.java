@@ -188,7 +188,7 @@ import org.jspecify.annotations.Nullable;
             composition.sequences.size(),
             composition.videoFrameAggregationParameters.frameRate,
             thisRef::queueAggregatedFrames,
-            /* onFlush= */ (unused) -> {});
+            /* onFlush= */ unused -> {});
     // Create the per sequence consumers that feed buffers from the decoders into the
     // FrameAggregator.
     ImmutableList.Builder<HardwareBufferSampleConsumer> sampleConsumerBuilder =
@@ -198,21 +198,20 @@ import org.jspecify.annotations.Nullable;
       Consumer<AsyncFrame> frameConsumer =
           // TODO: b/478781219 - Remove the handlerWrapper.post once HardwareBufferSampleConsumer is
           // only accessed from a single thread.
-          (asyncFrame) ->
-              handlerWrapper.post(
-                  () -> {
-                    // Frames may be produced by the underlying players after Transformer has been
-                    // canceled. Immediately release these frames.
-                    if (released) {
-                      TransformerUtil.releaseIfNeeded(asyncFrame.frame, /* releaseFence= */ null);
-                      return;
-                    }
-                    if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
-                      checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
-                    } else {
-                      checkNotNull(frameAggregator).queueFrame(asyncFrame, sequenceIndex);
-                    }
-                  });
+          asyncFrame ->
+              handlerWrapper.post(() -> {
+                // Frames may be produced by the underlying players after Transformer has been
+                // canceled. Immediately release these frames.
+                if (released) {
+                  TransformerUtil.releaseIfNeeded(asyncFrame.frame, /* releaseFence= */ null);
+                  return;
+                }
+                if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
+                  checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+                } else {
+                  checkNotNull(frameAggregator).queueFrame(asyncFrame, sequenceIndex);
+                }
+              });
       HardwareBufferSampleConsumer sampleConsumer =
           new HardwareBufferSampleConsumer(
               composition,

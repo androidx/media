@@ -897,11 +897,10 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     rootHints.putInt(
         MockMediaLibraryService.CONNECTION_HINTS_KEY_REMOVE_COMMAND_CODE,
         SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN);
-    handler.postAndSync(
-        () -> {
-          browserCompat =
-              new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
-        });
+    handler.postAndSync(() -> {
+      browserCompat =
+          new MediaBrowserCompat(context, getServiceComponent(), connectionCallback, rootHints);
+    });
 
     browserCompat.connect();
 

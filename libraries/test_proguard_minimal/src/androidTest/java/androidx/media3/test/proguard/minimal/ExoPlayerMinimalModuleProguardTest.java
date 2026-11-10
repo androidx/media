@@ -46,9 +46,8 @@ public final class ExoPlayerMinimalModuleProguardTest {
   @Test
   public void createAndReleaseExoPlayer_succeeds() {
     getInstrumentation()
-        .runOnMainSync(
-            () ->
-                ExoPlayerMinimalModuleProguard.createAndReleaseExoPlayer(getApplicationContext()));
+        .runOnMainSync(() ->
+            ExoPlayerMinimalModuleProguard.createAndReleaseExoPlayer(getApplicationContext()));
   }
 
   @Test

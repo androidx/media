@@ -1130,11 +1130,10 @@ public class DefaultMediaNotificationProviderTest {
     Context context = ApplicationProvider.getApplicationContext();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
         new DefaultMediaNotificationProvider.Builder(context)
-            .setNotificationIdProvider(
-                session -> {
-                  checkNotNull(session);
-                  return 3;
-                })
+            .setNotificationIdProvider(session -> {
+              checkNotNull(session);
+              return 3;
+            })
             .setChannelName(/* channelNameResourceId= */ R.string.media3_controls_play_description)
             .build();
     BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);

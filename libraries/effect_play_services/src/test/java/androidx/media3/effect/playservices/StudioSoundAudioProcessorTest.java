@@ -506,17 +506,16 @@ public final class StudioSoundAudioProcessorTest {
         new StudioSoundAudioProcessor(fakeClient, newDirectExecutorService());
     ConditionVariable resetCompleted = new ConditionVariable();
 
-    internalExecutorService.execute(
-        () -> {
-          try {
-            processor.configure(STEREO_16BIT_PCM);
-            processor.flush(StreamMetadata.DEFAULT);
-            processor.reset();
-            resetCompleted.open();
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-        });
+    internalExecutorService.execute(() -> {
+      try {
+        processor.configure(STEREO_16BIT_PCM);
+        processor.flush(StreamMetadata.DEFAULT);
+        processor.reset();
+        resetCompleted.open();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
     alwaysPendingTask.setResult(fakeSession);
 
     assertThat(resetCompleted.block(TIMEOUT_MS)).isTrue();

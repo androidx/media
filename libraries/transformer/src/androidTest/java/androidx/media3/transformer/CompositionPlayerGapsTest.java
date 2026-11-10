@@ -95,12 +95,11 @@ public final class CompositionPlayerGapsTest {
 
   @After
   public void tearDown() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (compositionPlayer != null) {
-            compositionPlayer.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (compositionPlayer != null) {
+        compositionPlayer.release();
+      }
+    });
     rule.getScenario().close();
   }
 
@@ -140,18 +139,16 @@ public final class CompositionPlayerGapsTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 
@@ -201,18 +198,16 @@ public final class CompositionPlayerGapsTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 
@@ -262,18 +257,16 @@ public final class CompositionPlayerGapsTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 
@@ -323,18 +316,16 @@ public final class CompositionPlayerGapsTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 
@@ -385,18 +376,16 @@ public final class CompositionPlayerGapsTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 
@@ -447,18 +436,16 @@ public final class CompositionPlayerGapsTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-          // Set a surface on the player even though there is no UI on this test. We need a surface
-          // otherwise the player will skip/drop video frames.
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(composition);
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
+      // Set a surface on the player even though there is no UI on this test. We need a surface
+      // otherwise the player will skip/drop video frames.
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
 
     endedFuture.get();
 

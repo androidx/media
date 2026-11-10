@@ -170,10 +170,9 @@ public class SingleInputVideoGraph implements VideoGraph {
                   hasProducedFrameWithTimestampZero = true;
                 }
                 lastProcessedFramePresentationTimeUs = presentationTimeUs;
-                listenerExecutor.execute(
-                    () ->
-                        listener.onOutputFrameAvailableForRendering(
-                            presentationTimeUs, isRedrawnFrame));
+                listenerExecutor.execute(() ->
+                    listener.onOutputFrameAvailableForRendering(
+                        presentationTimeUs, isRedrawnFrame));
               }
 
               @Override

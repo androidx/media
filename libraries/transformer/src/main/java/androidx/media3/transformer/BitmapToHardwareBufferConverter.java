@@ -147,7 +147,7 @@ import org.jspecify.annotations.Nullable;
               new DefaultHardwareBufferFrame.Builder(
                       buffer,
                       /* releaseExecutor= */ directExecutor(),
-                      /* releaseCallback= */ (fence) -> {
+                      /* releaseCallback= */ fence -> {
                         if (shouldCloseBuffer) {
                           releaseBuffer(currentBuffer, fence);
                         }
@@ -246,19 +246,17 @@ import org.jspecify.annotations.Nullable;
       return;
     }
     try {
-      internalExecutor.execute(
-          () -> {
-            try {
-              // Wait on the fence on the executor thread to avoid blocking the caller.
-              checkState(releaseFence.await(RELEASE_TIMEOUT));
-            } catch (IllegalStateException e) {
-              errorExecutor.execute(
-                  () -> errorCallback.accept(new VideoFrameProcessingException(e)));
-            } finally {
-              releaseFence.close();
-              buffer.close();
-            }
-          });
+      internalExecutor.execute(() -> {
+        try {
+          // Wait on the fence on the executor thread to avoid blocking the caller.
+          checkState(releaseFence.await(RELEASE_TIMEOUT));
+        } catch (IllegalStateException e) {
+          errorExecutor.execute(() -> errorCallback.accept(new VideoFrameProcessingException(e)));
+        } finally {
+          releaseFence.close();
+          buffer.close();
+        }
+      });
     } catch (RejectedExecutionException e) {
       // This class has been released, shut down the fence without waiting on it to avoid leaking
       // it.

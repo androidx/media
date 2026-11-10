@@ -345,39 +345,35 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   /** Called when the given {@link MediaSource} completes preloading. */
   protected final void onCompleted(
       MediaSource mediaSource, Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
-    applicationHandler.post(
-        () -> {
-          PreloadStatusT targetPreloadStatus =
-              getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
-          if (targetPreloadStatus == null) {
-            return;
-          }
+    applicationHandler.post(() -> {
+      PreloadStatusT targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
+      if (targetPreloadStatus == null) {
+        return;
+      }
 
-          MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaSource));
-          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
-            maybeAdvanceToNextMediaSourceHolder();
-          }
-        });
+      MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaSource));
+      if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+        listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
+        maybeAdvanceToNextMediaSourceHolder();
+      }
+    });
   }
 
   /** Called when the given {@link MediaItem} completes preloading. */
   protected final void onCompleted(
       MediaItem mediaItem, Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
-    applicationHandler.post(
-        () -> {
-          PreloadStatusT targetPreloadStatus =
-              getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
-          if (targetPreloadStatus == null) {
-            return;
-          }
+    applicationHandler.post(() -> {
+      PreloadStatusT targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+      if (targetPreloadStatus == null) {
+        return;
+      }
 
-          MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaItem));
-          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
-            maybeAdvanceToNextMediaSourceHolder();
-          }
-        });
+      MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaItem));
+      if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+        listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
+        maybeAdvanceToNextMediaSourceHolder();
+      }
+    });
   }
 
   /** Called when an error occurs. */
@@ -385,19 +381,17 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
       PreloadException error,
       MediaSource mediaSource,
       Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
-    applicationHandler.post(
-        () -> {
-          PreloadStatusT targetPreloadStatus =
-              getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
-          if (targetPreloadStatus == null) {
-            return;
-          }
+    applicationHandler.post(() -> {
+      PreloadStatusT targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
+      if (targetPreloadStatus == null) {
+        return;
+      }
 
-          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(listener -> listener.onError(error));
-            maybeAdvanceToNextMediaSourceHolder();
-          }
-        });
+      if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+        listeners.sendEvent(listener -> listener.onError(error));
+        maybeAdvanceToNextMediaSourceHolder();
+      }
+    });
   }
 
   /** Called when an error occurs. */
@@ -405,19 +399,17 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
       PreloadException error,
       MediaItem mediaItem,
       Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
-    applicationHandler.post(
-        () -> {
-          PreloadStatusT targetPreloadStatus =
-              getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
-          if (targetPreloadStatus == null) {
-            return;
-          }
+    applicationHandler.post(() -> {
+      PreloadStatusT targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+      if (targetPreloadStatus == null) {
+        return;
+      }
 
-          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(listener -> listener.onError(error));
-            maybeAdvanceToNextMediaSourceHolder();
-          }
-        });
+      if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+        listeners.sendEvent(listener -> listener.onError(error));
+        maybeAdvanceToNextMediaSourceHolder();
+      }
+    });
   }
 
   /** Called when the given {@link MediaSource} has been skipped before completing preloading. */

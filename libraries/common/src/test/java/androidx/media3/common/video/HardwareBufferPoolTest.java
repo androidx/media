@@ -301,11 +301,10 @@ public final class HardwareBufferPoolTest {
 
         CountDownLatch returnLatch = new CountDownLatch(CAPACITY);
         for (HardwareBufferPool.HardwareBufferWithFence result : results) {
-          testExecutor.execute(
-              () -> {
-                pool.recycle(result.hardwareBuffer, result.acquireFence);
-                returnLatch.countDown();
-              });
+          testExecutor.execute(() -> {
+            pool.recycle(result.hardwareBuffer, result.acquireFence);
+            returnLatch.countDown();
+          });
         }
         assertThat(returnLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
       }

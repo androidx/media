@@ -412,30 +412,28 @@ public final class SessionToken {
           return new SessionToken(compatToken, packageName, uid, controller.getSessionInfo());
         };
 
-    return CallbackToFutureAdapter.getFuture(
-        completer -> {
-          handler.postDelayed(
-              () -> completer.set(fallbackLegacyTokenSupplier.get()),
-              WAIT_TIME_MS_FOR_SESSION3_TOKEN);
-          controller.sendCommand(
-              MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN,
-              /* params= */ null,
-              new ResultReceiver(handler) {
-                @Override
-                protected void onReceiveResult(int resultCode, Bundle resultData) {
-                  // Remove timeout callback.
-                  handler.removeCallbacksAndMessages(null);
-                  try {
-                    completer.set(SessionToken.fromBundle(resultData, compatToken.getToken()));
-                  } catch (RuntimeException e) {
-                    // Fallback to a legacy token if we receive an unexpected result, e.g. a
-                    // legacy session acknowledging commands by a success callback.
-                    completer.set(fallbackLegacyTokenSupplier.get());
-                  }
-                }
-              });
-          return "createSessionToken";
-        });
+    return CallbackToFutureAdapter.getFuture(completer -> {
+      handler.postDelayed(
+          () -> completer.set(fallbackLegacyTokenSupplier.get()), WAIT_TIME_MS_FOR_SESSION3_TOKEN);
+      controller.sendCommand(
+          MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN,
+          /* params= */ null,
+          new ResultReceiver(handler) {
+            @Override
+            protected void onReceiveResult(int resultCode, Bundle resultData) {
+              // Remove timeout callback.
+              handler.removeCallbacksAndMessages(null);
+              try {
+                completer.set(SessionToken.fromBundle(resultData, compatToken.getToken()));
+              } catch (RuntimeException e) {
+                // Fallback to a legacy token if we receive an unexpected result, e.g. a
+                // legacy session acknowledging commands by a success callback.
+                completer.set(fallbackLegacyTokenSupplier.get());
+              }
+            }
+          });
+      return "createSessionToken";
+    });
   }
 
   /**

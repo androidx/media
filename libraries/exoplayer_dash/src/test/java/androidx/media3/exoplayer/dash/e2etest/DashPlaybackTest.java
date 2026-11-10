@@ -1102,13 +1102,11 @@ public final class DashPlaybackTest {
         new ExoPlayer.Builder(context, capturingRenderersFactory)
             .setClock(clock)
             .setMediaSourceFactory(
-                new DefaultMediaSourceFactory(
-                    () ->
-                        new DelayingDataSource(
-                            defaultDataSourceFactory.createDataSource(),
-                            clock,
-                            /* shouldDelay= */ dataSpec ->
-                                dataSpec.uri.toString().contains("audio"))))
+                new DefaultMediaSourceFactory(() ->
+                    new DelayingDataSource(
+                        defaultDataSourceFactory.createDataSource(),
+                        clock,
+                        /* shouldDelay= */ dataSpec -> dataSpec.uri.toString().contains("audio"))))
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);

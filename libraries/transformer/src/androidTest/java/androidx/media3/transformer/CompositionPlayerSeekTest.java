@@ -896,37 +896,36 @@ public class CompositionPlayerSeekTest {
     AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+        .runOnMainSync(() -> {
+          compositionPlayer.set(
+              new CompositionPlayer.Builder(applicationContext)
+                  .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build());
+          // Set a surface on the player even though there is no UI on this test. We need a
+          // surface otherwise the player will skip/drop video frames.
+          compositionPlayer.get().setVideoSurfaceView(surfaceView);
+          compositionPlayer
+              .get()
+              .addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                      playbackException.set(error);
+                    }
+                  });
+          compositionPlayer
+              .get()
+              .setComposition(
+                  new Composition.Builder(
+                          new EditedMediaItemSequence.Builder(
+                                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                              .addItems(mediaItems)
+                              .build())
                       .build());
-              // Set a surface on the player even though there is no UI on this test. We need a
-              // surface otherwise the player will skip/drop video frames.
-              compositionPlayer.get().setVideoSurfaceView(surfaceView);
-              compositionPlayer
-                  .get()
-                  .addListener(
-                      new Player.Listener() {
-                        @Override
-                        public void onPlayerError(PlaybackException error) {
-                          playbackException.set(error);
-                        }
-                      });
-              compositionPlayer
-                  .get()
-                  .setComposition(
-                      new Composition.Builder(
-                              new EditedMediaItemSequence.Builder(
-                                      ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                                  .addItems(mediaItems)
-                                  .build())
-                          .build());
-              compositionPlayer.get().prepare();
-              compositionPlayer.get().play();
-            });
+          compositionPlayer.get().prepare();
+          compositionPlayer.get().play();
+        });
 
     if (playbackException.get() != null) {
       throw playbackException.get();
@@ -935,46 +934,42 @@ public class CompositionPlayerSeekTest {
     // Video is 1000ms long, image is 200ms
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              compositionPlayer.get().seekTo(1020);
-              compositionPlayer.get().seekTo(150);
-              compositionPlayer.get().seekTo(150);
-              compositionPlayer.get().seekTo(1020);
-              compositionPlayer.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          compositionPlayer.get().seekTo(1020);
+          compositionPlayer.get().seekTo(150);
+          compositionPlayer.get().seekTo(150);
+          compositionPlayer.get().seekTo(1020);
+          compositionPlayer.get().setScrubbingModeEnabled(false);
+        });
     Thread.sleep(/* millis= */ 50);
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              compositionPlayer.get().seekTo(500);
-              compositionPlayer.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          compositionPlayer.get().seekTo(500);
+          compositionPlayer.get().setScrubbingModeEnabled(false);
+        });
     Thread.sleep(/* millis= */ 50);
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              compositionPlayer.get().seekTo(1100);
-              compositionPlayer.get().seekTo(500);
-              compositionPlayer.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          compositionPlayer.get().seekTo(1100);
+          compositionPlayer.get().seekTo(500);
+          compositionPlayer.get().setScrubbingModeEnabled(false);
+        });
     Thread.sleep(/* millis= */ 50);
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              compositionPlayer.get().seekTo(1100);
-              compositionPlayer.get().seekTo(1199);
-              compositionPlayer.get().seekTo(500);
-              compositionPlayer.get().seekTo(499);
-              compositionPlayer.get().setScrubbingModeEnabled(false);
-              endedFuture.setFuture(
-                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          compositionPlayer.get().seekTo(1100);
+          compositionPlayer.get().seekTo(1199);
+          compositionPlayer.get().seekTo(500);
+          compositionPlayer.get().seekTo(499);
+          compositionPlayer.get().setScrubbingModeEnabled(false);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
+        });
     endedFuture.get();
 
     assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1043,28 +1038,25 @@ public class CompositionPlayerSeekTest {
     // Advance the player first to seek backwards.
     SettableFuture<Void> passed500MsFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().setComposition(composition);
-              passed500MsFuture.setFuture(
-                  futureWhen(player.get()).passesContentPosition(/* targetPositionMs= */ 500));
-              player.get().prepare();
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          player.set(new CompositionPlayer.Builder(applicationContext).build());
+          player.get().setComposition(composition);
+          passed500MsFuture.setFuture(
+              futureWhen(player.get()).passesContentPosition(/* targetPositionMs= */ 500));
+          player.get().prepare();
+          player.get().play();
+        });
     passed500MsFuture.get();
 
     SettableFuture<Void> readyFuture = SettableFuture.create();
     // Seek backwards to avoid any seeking optimization (e.g. decode forward).
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(/* positionMs= */ 100);
-              player.get().setScrubbingModeEnabled(false);
-              readyFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(/* positionMs= */ 100);
+          player.get().setScrubbingModeEnabled(false);
+          readyFuture.setFuture(futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
+        });
     readyFuture.get();
 
     assertWithMessage("AudioProcessor never received expected position offset.")
@@ -1097,28 +1089,25 @@ public class CompositionPlayerSeekTest {
     // Advance the player first to seek backwards.
     SettableFuture<Void> passed500MsFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new CompositionPlayer.Builder(applicationContext).build());
-              player.get().setComposition(composition);
-              passed500MsFuture.setFuture(
-                  futureWhen(player.get()).passesContentPosition(/* targetPositionMs= */ 500));
-              player.get().prepare();
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          player.set(new CompositionPlayer.Builder(applicationContext).build());
+          player.get().setComposition(composition);
+          passed500MsFuture.setFuture(
+              futureWhen(player.get()).passesContentPosition(/* targetPositionMs= */ 500));
+          player.get().prepare();
+          player.get().play();
+        });
     passed500MsFuture.get();
 
     SettableFuture<Void> readyFuture = SettableFuture.create();
     // Seek backwards to avoid any seeking optimization (e.g. decode forward).
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(/* positionMs= */ 100);
-              player.get().setScrubbingModeEnabled(false);
-              readyFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(/* positionMs= */ 100);
+          player.get().setScrubbingModeEnabled(false);
+          readyFuture.setFuture(futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
+        });
     readyFuture.get();
 
     // Use ConditionVariable because there is a race condition between player being ready and
@@ -1157,18 +1146,17 @@ public class CompositionPlayerSeekTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(
-                  glFrameProcessorTestRule
-                      .createCompositionPlayerBuilder(applicationContext)
-                      .setFrameProcessorFactory(frameProcessorFactory)
-                      .build());
-              player.get().setVideoSurfaceView(surfaceView);
-              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
+        .runOnMainSync(() -> {
+          player.set(
+              glFrameProcessorTestRule
+                  .createCompositionPlayerBuilder(applicationContext)
+                  .setFrameProcessorFactory(frameProcessorFactory)
+                  .build());
+          player.get().setVideoSurfaceView(surfaceView);
+          firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
+          player.get().setComposition(composition);
+          player.get().prepare();
+        });
 
     firstFrameRenderedFuture.get();
     assertThat(frameQueued.isOpen()).isTrue();
@@ -1179,12 +1167,11 @@ public class CompositionPlayerSeekTest {
     // Seek forwards
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(500);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(500);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(2);
@@ -1195,12 +1182,11 @@ public class CompositionPlayerSeekTest {
     // Seek backwards
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(200);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(200);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(3);
@@ -1211,12 +1197,11 @@ public class CompositionPlayerSeekTest {
     // Seek forwards
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(750);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(750);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(4);
@@ -1259,18 +1244,17 @@ public class CompositionPlayerSeekTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(
-                  glFrameProcessorTestRule
-                      .createCompositionPlayerBuilder(applicationContext)
-                      .setFrameProcessorFactory(frameProcessorFactory)
-                      .build());
-              player.get().setVideoSurfaceView(surfaceView);
-              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
+        .runOnMainSync(() -> {
+          player.set(
+              glFrameProcessorTestRule
+                  .createCompositionPlayerBuilder(applicationContext)
+                  .setFrameProcessorFactory(frameProcessorFactory)
+                  .build());
+          player.get().setVideoSurfaceView(surfaceView);
+          firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
+          player.get().setComposition(composition);
+          player.get().prepare();
+        });
 
     firstFrameRenderedFuture.get();
     assertThat(frameQueued.isOpen()).isTrue();
@@ -1281,12 +1265,11 @@ public class CompositionPlayerSeekTest {
     // Seek forwards
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(500);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(500);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(2);
@@ -1297,12 +1280,11 @@ public class CompositionPlayerSeekTest {
     // Seek backwards
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(200);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(200);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(3);
@@ -1313,12 +1295,11 @@ public class CompositionPlayerSeekTest {
     // Seek forwards
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(750);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(750);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(4);
@@ -1355,18 +1336,17 @@ public class CompositionPlayerSeekTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(
-                  glFrameProcessorTestRule
-                      .createCompositionPlayerBuilder(applicationContext)
-                      .setFrameProcessorFactory(frameProcessorFactory)
-                      .build());
-              player.get().setVideoSurfaceView(surfaceView);
-              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
+        .runOnMainSync(() -> {
+          player.set(
+              glFrameProcessorTestRule
+                  .createCompositionPlayerBuilder(applicationContext)
+                  .setFrameProcessorFactory(frameProcessorFactory)
+                  .build());
+          player.get().setVideoSurfaceView(surfaceView);
+          firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
+          player.get().setComposition(composition);
+          player.get().prepare();
+        });
 
     firstFrameRenderedFuture.get();
     assertThat(frameQueued.isOpen()).isTrue();
@@ -1376,12 +1356,11 @@ public class CompositionPlayerSeekTest {
 
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(750);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(750);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(2);
@@ -1391,12 +1370,10 @@ public class CompositionPlayerSeekTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              endedFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          endedFuture.setFuture(futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
+          player.get().play();
+        });
 
     endedFuture.get();
   }
@@ -1435,18 +1412,17 @@ public class CompositionPlayerSeekTest {
             .build();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(
-                  glFrameProcessorTestRule
-                      .createCompositionPlayerBuilder(applicationContext)
-                      .setFrameProcessorFactory(frameProcessorFactory)
-                      .build());
-              player.get().setVideoSurfaceView(surfaceView);
-              firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
-              player.get().setComposition(composition);
-              player.get().prepare();
-            });
+        .runOnMainSync(() -> {
+          player.set(
+              glFrameProcessorTestRule
+                  .createCompositionPlayerBuilder(applicationContext)
+                  .setFrameProcessorFactory(frameProcessorFactory)
+                  .build());
+          player.get().setVideoSurfaceView(surfaceView);
+          firstFrameRenderedFuture.setFuture(futureWhen(player.get()).rendersFirstFrame());
+          player.get().setComposition(composition);
+          player.get().prepare();
+        });
 
     firstFrameRenderedFuture.get();
     assertThat(frameQueued.isOpen()).isTrue();
@@ -1456,12 +1432,11 @@ public class CompositionPlayerSeekTest {
 
     frameQueued.close();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(750);
-              player.get().setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          player.get().seekTo(750);
+          player.get().setScrubbingModeEnabled(false);
+        });
 
     assertThat(frameQueued.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(queuedFramesCount.get()).isEqualTo(2);
@@ -1471,12 +1446,10 @@ public class CompositionPlayerSeekTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              endedFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          endedFuture.setFuture(futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
+          player.get().play();
+        });
 
     endedFuture.get();
   }
@@ -1510,36 +1483,35 @@ public class CompositionPlayerSeekTest {
     AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
-                      .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+        .runOnMainSync(() -> {
+          compositionPlayer.set(
+              new CompositionPlayer.Builder(applicationContext)
+                  .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                  .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build());
+          // Set a surface on the player even though there is no UI on this test. We need a
+          // surface otherwise the player will skip/drop video frames.
+          compositionPlayer.get().setVideoSurfaceView(surfaceView);
+          compositionPlayer
+              .get()
+              .addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                      playbackException.set(error);
+                      waitUntilNumberOfFramesOrError.countDown();
+                    }
+                  });
+          compositionPlayer
+              .get()
+              .setComposition(
+                  new Composition.Builder(
+                          EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
                       .build());
-              // Set a surface on the player even though there is no UI on this test. We need a
-              // surface otherwise the player will skip/drop video frames.
-              compositionPlayer.get().setVideoSurfaceView(surfaceView);
-              compositionPlayer
-                  .get()
-                  .addListener(
-                      new Player.Listener() {
-                        @Override
-                        public void onPlayerError(PlaybackException error) {
-                          playbackException.set(error);
-                          waitUntilNumberOfFramesOrError.countDown();
-                        }
-                      });
-              compositionPlayer
-                  .get()
-                  .setComposition(
-                      new Composition.Builder(
-                              EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
-                          .build());
-              compositionPlayer.get().prepare();
-              compositionPlayer.get().play();
-            });
+          compositionPlayer.get().prepare();
+          compositionPlayer.get().play();
+        });
 
     // Wait until the number of frames are received, block further input on the shader program.
     assertWithMessage("Timeout reached while waiting for frames.")
@@ -1550,14 +1522,13 @@ public class CompositionPlayerSeekTest {
     }
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              compositionPlayer.get().seekTo(seekTimeMs);
-              compositionPlayer.get().setScrubbingModeEnabled(false);
-              endedFuture.setFuture(
-                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          compositionPlayer.get().seekTo(seekTimeMs);
+          compositionPlayer.get().setScrubbingModeEnabled(false);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
+        });
     endedFuture.get();
 
     assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1607,47 +1578,45 @@ public class CompositionPlayerSeekTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.set(
-                  new CompositionPlayer.Builder(applicationContext)
-                      .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+        .runOnMainSync(() -> {
+          compositionPlayer.set(
+              new CompositionPlayer.Builder(applicationContext)
+                  .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build());
+          // Set a surface on the player even though there is no UI on this test. We need a
+          // surface otherwise the player will skip/drop video frames.
+          compositionPlayer.get().setVideoSurfaceView(surfaceView);
+          endedFuture.setFuture(
+              futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
+          compositionPlayer
+              .get()
+              .addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onPlayerError(PlaybackException error) {
+                      playbackException.set(error);
+                    }
+                  });
+          compositionPlayer
+              .get()
+              .setComposition(
+                  new Composition.Builder(
+                          EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
                       .build());
-              // Set a surface on the player even though there is no UI on this test. We need a
-              // surface otherwise the player will skip/drop video frames.
-              compositionPlayer.get().setVideoSurfaceView(surfaceView);
-              endedFuture.setFuture(
-                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
-              compositionPlayer
-                  .get()
-                  .addListener(
-                      new Player.Listener() {
-                        @Override
-                        public void onPlayerError(PlaybackException error) {
-                          playbackException.set(error);
-                        }
-                      });
-              compositionPlayer
-                  .get()
-                  .setComposition(
-                      new Composition.Builder(
-                              EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
-                          .build());
-              compositionPlayer.get().prepare();
-              compositionPlayer.get().play();
-            });
+          compositionPlayer.get().prepare();
+          compositionPlayer.get().play();
+        });
     endedFuture.get();
     SettableFuture<Void> endedFuture2 = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              compositionPlayer.get().seekTo(seekTimeMs);
-              compositionPlayer.get().setScrubbingModeEnabled(false);
-              endedFuture2.setFuture(
-                  futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
-            });
+        .runOnMainSync(() -> {
+          compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+          compositionPlayer.get().seekTo(seekTimeMs);
+          compositionPlayer.get().setScrubbingModeEnabled(false);
+          endedFuture2.setFuture(
+              futureWhen(compositionPlayer.get()).entersPlaybackState(Player.STATE_ENDED));
+        });
     endedFuture2.get();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
     if (playbackException.get() != null

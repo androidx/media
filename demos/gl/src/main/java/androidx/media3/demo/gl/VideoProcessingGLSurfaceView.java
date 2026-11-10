@@ -177,31 +177,29 @@ public final class VideoProcessingGLSurfaceView extends GLSurfaceView {
   protected void onDetachedFromWindow() {
     super.onDetachedFromWindow();
     // Post to make sure we occur in order with any onSurfaceTextureAvailable calls.
-    mainHandler.post(
-        () -> {
-          if (surface != null) {
-            if (player != null) {
-              player.setVideoSurface(null);
-            }
-            releaseSurface(surfaceTexture, surface);
-            surfaceTexture = null;
-            surface = null;
-          }
-        });
+    mainHandler.post(() -> {
+      if (surface != null) {
+        if (player != null) {
+          player.setVideoSurface(null);
+        }
+        releaseSurface(surfaceTexture, surface);
+        surfaceTexture = null;
+        surface = null;
+      }
+    });
   }
 
   private void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture) {
-    mainHandler.post(
-        () -> {
-          SurfaceTexture oldSurfaceTexture = this.surfaceTexture;
-          Surface oldSurface = VideoProcessingGLSurfaceView.this.surface;
-          this.surfaceTexture = surfaceTexture;
-          this.surface = new Surface(surfaceTexture);
-          releaseSurface(oldSurfaceTexture, oldSurface);
-          if (player != null) {
-            player.setVideoSurface(surface);
-          }
-        });
+    mainHandler.post(() -> {
+      SurfaceTexture oldSurfaceTexture = this.surfaceTexture;
+      Surface oldSurface = VideoProcessingGLSurfaceView.this.surface;
+      this.surfaceTexture = surfaceTexture;
+      this.surface = new Surface(surfaceTexture);
+      releaseSurface(oldSurfaceTexture, oldSurface);
+      if (player != null) {
+        player.setVideoSurface(surface);
+      }
+    });
   }
 
   private static void releaseSurface(
@@ -247,11 +245,10 @@ public final class VideoProcessingGLSurfaceView extends GLSurfaceView {
         Log.e(TAG, "Failed to create an external texture", e);
       }
       surfaceTexture = new SurfaceTexture(texture);
-      surfaceTexture.setOnFrameAvailableListener(
-          surfaceTexture -> {
-            frameAvailable.set(true);
-            requestRender();
-          });
+      surfaceTexture.setOnFrameAvailableListener(surfaceTexture -> {
+        frameAvailable.set(true);
+        requestRender();
+      });
       onSurfaceTextureAvailable(surfaceTexture);
     }
 

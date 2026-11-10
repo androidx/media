@@ -207,14 +207,13 @@ public class Cast {
     }
     castContextInitializer
         .init()
-        .addOnCompleteListener(
-            task -> {
-              if (task.isSuccessful()) {
-                setCastContext(task.getResult());
-              } else {
-                onCastContextLoadFailure(task.getException());
-              }
-            });
+        .addOnCompleteListener(task -> {
+          if (task.isSuccessful()) {
+            setCastContext(task.getResult());
+          } else {
+            onCastContextLoadFailure(task.getException());
+          }
+        });
     isInitOngoing = true;
   }
 

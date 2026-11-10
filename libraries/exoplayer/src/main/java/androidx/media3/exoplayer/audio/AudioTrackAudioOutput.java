@@ -502,12 +502,11 @@ public final class AudioTrackAudioOutput implements AudioOutput {
                   audioTrack.release();
                 } finally {
                   if (audioTrackThreadHandler.getLooper().getThread().isAlive()) {
-                    audioTrackThreadHandler.post(
-                        () -> {
-                          if (listeners.isRunningOnCorrectThread()) {
-                            listeners.sendEvent(Listener::onReleased);
-                          }
-                        });
+                    audioTrackThreadHandler.post(() -> {
+                      if (listeners.isRunningOnCorrectThread()) {
+                        listeners.sendEvent(Listener::onReleased);
+                      }
+                    });
                   }
                   synchronized (releaseExecutorLock) {
                     pendingReleaseCount--;
@@ -637,20 +636,18 @@ public final class AudioTrackAudioOutput implements AudioOutput {
         return;
       }
       BackgroundExecutor.get()
-          .execute(
-              () -> {
-                @Nullable AudioDeviceInfo routedDevice = router.getRoutedDevice();
-                if (routedDevice != null) {
-                  playbackThreadHandler.post(
-                      () -> {
-                        if (listener == null) {
-                          // Stale event.
-                          return;
-                        }
-                        capabilityChangeListener.onRoutedDeviceChanged(routedDevice);
-                      });
+          .execute(() -> {
+            @Nullable AudioDeviceInfo routedDevice = router.getRoutedDevice();
+            if (routedDevice != null) {
+              playbackThreadHandler.post(() -> {
+                if (listener == null) {
+                  // Stale event.
+                  return;
                 }
+                capabilityChangeListener.onRoutedDeviceChanged(routedDevice);
               });
+            }
+          });
     }
   }
 

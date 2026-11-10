@@ -75,16 +75,15 @@ public class AudioPositionAdvancingTest {
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
     AtomicLong playbackTriggeredSystemTimeMs = new AtomicLong(C.TIME_UNSET);
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
-              player.get().addAnalyticsListener(analyticsListener);
-              player.get().addListener(playerListener);
-              player.get().setMediaItem(mediaItem);
-              player.get().prepare();
-              playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
+          player.get().addAnalyticsListener(analyticsListener);
+          player.get().addListener(playerListener);
+          player.get().setMediaItem(mediaItem);
+          player.get().prepare();
+          playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
+          player.get().play();
+        });
 
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
     assertWithMessage("Unexpected playback exception thrown: ")
@@ -105,11 +104,10 @@ public class AudioPositionAdvancingTest {
         .isNull();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
+          player.get().play();
+        });
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
     assertWithMessage("Unexpected playback exception thrown: ")
         .that(playbackException.get())
@@ -146,15 +144,14 @@ public class AudioPositionAdvancingTest {
         };
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
-              player.get().addAnalyticsListener(analyticsListener);
-              player.get().addListener(playerListener);
-              player.get().setMediaItem(mediaItem);
-              player.get().prepare();
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
+          player.get().addAnalyticsListener(analyticsListener);
+          player.get().addListener(playerListener);
+          player.get().setMediaItem(mediaItem);
+          player.get().prepare();
+          player.get().play();
+        });
 
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
     assertWithMessage("Unexpected playback exception thrown: ")
@@ -164,12 +161,11 @@ public class AudioPositionAdvancingTest {
 
     AtomicLong playbackTriggeredSystemTimeMs = new AtomicLong(C.TIME_UNSET);
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().pause();
-              playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
-              player.get().play();
-            });
+        .runOnMainSync(() -> {
+          player.get().pause();
+          playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
+          player.get().play();
+        });
 
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
     assertWithMessage("Unexpected playback exception thrown: ")
@@ -216,29 +212,26 @@ public class AudioPositionAdvancingTest {
           AtomicLong calculatedStartSystemTimeMs = new AtomicLong();
           ConditionVariable calculationMessageHandled = new ConditionVariable();
           getInstrumentation()
-              .runOnMainSync(
-                  () -> {
-                    ExoPlayer player =
-                        new ExoPlayer.Builder(getInstrumentation().getContext()).build();
-                    playerRef.set(player);
-                    player.addAnalyticsListener(analyticsListener);
-                    player.addListener(playerListener);
-                    player.setMediaItem(mediaItem);
-                    player.prepare();
-                    // Assume that after 1 second, the playback position is reliable enough to
-                    // calculate the actual start time manually.
-                    player
-                        .createMessage(
-                            (type, message) -> {
-                              calculatedStartSystemTimeMs.set(
-                                  System.currentTimeMillis() - player.getCurrentPosition());
-                              calculationMessageHandled.open();
-                            })
-                        .setLooper(Looper.getMainLooper())
-                        .setPosition(1000)
-                        .send();
-                    player.play();
-                  });
+              .runOnMainSync(() -> {
+                ExoPlayer player = new ExoPlayer.Builder(getInstrumentation().getContext()).build();
+                playerRef.set(player);
+                player.addAnalyticsListener(analyticsListener);
+                player.addListener(playerListener);
+                player.setMediaItem(mediaItem);
+                player.prepare();
+                // Assume that after 1 second, the playback position is reliable enough to
+                // calculate the actual start time manually.
+                player
+                    .createMessage((type, message) -> {
+                      calculatedStartSystemTimeMs.set(
+                          System.currentTimeMillis() - player.getCurrentPosition());
+                      calculationMessageHandled.open();
+                    })
+                    .setLooper(Looper.getMainLooper())
+                    .setPosition(1000)
+                    .send();
+                player.play();
+              });
 
           assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
           assertWithMessage("Unexpected playback exception thrown: ")

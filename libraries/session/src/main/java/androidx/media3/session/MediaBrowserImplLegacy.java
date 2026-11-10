@@ -305,28 +305,26 @@ import org.jspecify.annotations.Nullable;
           public void onSearchResult(
               String query, @Nullable Bundle extras, List<MediaBrowserCompat.MediaItem> items) {
             getInstance()
-                .notifyBrowserListener(
-                    listener -> {
-                      // Set extra null here, because 'extra' have different meanings between old
-                      // API and new API as follows.
-                      // - Old API: Extra/Option specified with search().
-                      // - New API: Extra from MediaLibraryService to MediaBrowser
-                      // TODO(b/193193565): Cache search result for later getSearchResult() calls.
-                      listener.onSearchResultChanged(getInstance(), query, items.size(), null);
-                    });
+                .notifyBrowserListener(listener -> {
+                  // Set extra null here, because 'extra' have different meanings between old
+                  // API and new API as follows.
+                  // - Old API: Extra/Option specified with search().
+                  // - New API: Extra from MediaLibraryService to MediaBrowser
+                  // TODO(b/193193565): Cache search result for later getSearchResult() calls.
+                  listener.onSearchResultChanged(getInstance(), query, items.size(), null);
+                });
           }
 
           @Override
           public void onError(String query, @Nullable Bundle extras) {
             getInstance()
-                .notifyBrowserListener(
-                    listener -> {
-                      // Set extra null here, because 'extra' have different meanings between old
-                      // API and new API as follows.
-                      // - Old API: Extra/Option specified with search().
-                      // - New API: Extra from MediaLibraryService to MediaBrowser
-                      listener.onSearchResultChanged(getInstance(), query, 0, null);
-                    });
+                .notifyBrowserListener(listener -> {
+                  // Set extra null here, because 'extra' have different meanings between old
+                  // API and new API as follows.
+                  // - Old API: Extra/Option specified with search().
+                  // - New API: Extra from MediaLibraryService to MediaBrowser
+                  listener.onSearchResultChanged(getInstance(), query, 0, null);
+                });
           }
         });
     // No way to get result. Just return success.
@@ -576,13 +574,12 @@ import org.jspecify.annotations.Nullable;
         // redundant call to `subscribe` that can be expected to be not expensive as it just returns
         // an exception.
         getInstance()
-            .notifyBrowserListener(
-                listener ->
-                    listener.onChildrenChanged(
-                        getInstance(),
-                        parentId,
-                        Integer.MAX_VALUE,
-                        new LibraryParams.Builder().setExtras(options).build()));
+            .notifyBrowserListener(listener ->
+                listener.onChildrenChanged(
+                    getInstance(),
+                    parentId,
+                    Integer.MAX_VALUE,
+                    new LibraryParams.Builder().setExtras(options).build()));
       }
       // Don't need to unsubscribe here, because MediaBrowserServiceCompat can notify children
       // changed after the initial failure and MediaBrowserCompat could receive the changes.
@@ -615,10 +612,9 @@ import org.jspecify.annotations.Nullable;
               context, browserCompat.getNotifyChildrenChangedOptions());
       receivedChildren = children;
       getInstance()
-          .notifyBrowserListener(
-              listener -> {
-                listener.onChildrenChanged(getInstance(), parentId, children.size(), params);
-              });
+          .notifyBrowserListener(listener -> {
+            listener.onChildrenChanged(getInstance(), parentId, children.size(), params);
+          });
       future.set(LibraryResult.ofVoid());
     }
 

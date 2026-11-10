@@ -83,10 +83,9 @@ public final class AudioBecomingNoisyManager {
       return;
     }
     if (enabled) {
-      backgroundHandler.post(
-          () ->
-              context.registerReceiver(
-                  receiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)));
+      backgroundHandler.post(() ->
+          context.registerReceiver(
+              receiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)));
       isEnabled = true;
     } else {
       backgroundHandler.post(() -> context.unregisterReceiver(receiver));

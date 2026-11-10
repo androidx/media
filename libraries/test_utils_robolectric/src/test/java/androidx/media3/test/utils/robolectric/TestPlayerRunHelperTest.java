@@ -67,11 +67,10 @@ public final class TestPlayerRunHelperTest {
         () ->
             advance(player)
                 .withTimeoutMs(100)
-                .untilBackgroundThreadCondition(
-                    () -> {
-                      conditionCheckCount.incrementAndGet();
-                      return false;
-                    }));
+                .untilBackgroundThreadCondition(() -> {
+                  conditionCheckCount.incrementAndGet();
+                  return false;
+                }));
     int conditionCheckCountAfterTimeout = conditionCheckCount.get();
     assertThat(conditionCheckCountAfterTimeout).isGreaterThan(0);
 

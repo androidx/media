@@ -97,12 +97,11 @@ public class CompositionPlaybackTest {
   @After
   public void tearDown() {
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              if (player != null) {
-                player.release();
-              }
-            });
+        .runOnMainSync(() -> {
+          if (player != null) {
+            player.release();
+          }
+        });
   }
 
   @Test
@@ -117,28 +116,26 @@ public class CompositionPlaybackTest {
                 EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(item)))
             .build();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new CompositionPlayer.Builder(context)
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                      .build();
-              readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player =
+              new CompositionPlayer.Builder(context)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          readyFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_READY));
+          player.setComposition(composition);
+          player.prepare();
+          player.play();
+        });
     readyFuture.get();
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setScrubbingModeEnabled(true);
-              player.seekTo(500);
-              player.setScrubbingModeEnabled(false);
-            });
+        .runOnMainSync(() -> {
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setScrubbingModeEnabled(true);
+          player.seekTo(500);
+          player.setScrubbingModeEnabled(false);
+        });
 
     endedFuture.get();
   }
@@ -246,15 +243,14 @@ public class CompositionPlaybackTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.seekTo(250);
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.seekTo(250);
+          player.play();
+        });
     endedFuture.get();
 
     // Next audio frame after seek of 250ms is 252.979ms (b/458654879).
@@ -281,15 +277,14 @@ public class CompositionPlaybackTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.seekTo(250);
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.seekTo(250);
+          player.play();
+        });
     endedFuture.get();
 
     // Next audio frame after seek of 250ms and clip start of 500ms is 763.818ms.
@@ -313,15 +308,14 @@ public class CompositionPlaybackTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.seekTo(250);
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.seekTo(250);
+          player.play();
+        });
     endedFuture.get();
 
     // Seek at 250ms resolves to 500ms, and next audio frame is 508.399ms (b/458654879).
@@ -381,15 +375,14 @@ public class CompositionPlaybackTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.seekTo(100);
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.seekTo(100);
+          player.play();
+        });
     endedFuture.get();
 
     // Seek at 100ms with clip start of 500ms resolves to 700ms (500ms + 100ms * 2x). Next audio
@@ -411,28 +404,25 @@ public class CompositionPlaybackTest {
     AtomicReference<ListenableFuture<Void>> supervisedFuture = new AtomicReference<>();
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPositionDiscontinuity(
-                        Player.PositionInfo oldPosition,
-                        Player.PositionInfo newPosition,
-                        int reason) {
-                      if (reason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
-                        twoRepetitions.countDown();
-                      }
-                    }
-                  });
-              supervisedFuture.set(futureWhen(player).withSupervision(twoRepetitions));
-              player.setComposition(composition);
-              player.setRepeatMode(REPEAT_MODE_ALL);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPositionDiscontinuity(
+                    Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
+                  if (reason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
+                    twoRepetitions.countDown();
+                  }
+                }
+              });
+          supervisedFuture.set(futureWhen(player).withSupervision(twoRepetitions));
+          player.setComposition(composition);
+          player.setRepeatMode(REPEAT_MODE_ALL);
+          player.prepare();
+          player.play();
+        });
     supervisedFuture.get().get();
 
     getInstrumentation().runOnMainSync(() -> player.setRepeatMode(REPEAT_MODE_OFF));
@@ -511,14 +501,13 @@ public class CompositionPlaybackTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.play();
+        });
     endedFuture.get();
     assertThat(samplesProcessedCount.get()).isEqualTo(20);
   }
@@ -551,14 +540,13 @@ public class CompositionPlaybackTest {
 
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player = new CompositionPlayer.Builder(context).setAudioSink(sink).build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player = new CompositionPlayer.Builder(context).setAudioSink(sink).build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.play();
+        });
     endedFuture.get();
     assertThat(underrunCount.get()).isEqualTo(0);
   }
@@ -776,19 +764,18 @@ public class CompositionPlaybackTest {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     DecoderCountersListener decoderCountersListener = new DecoderCountersListener();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new CompositionPlayer.Builder(context)
-                      .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                      .build();
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.addAnalyticsListener(decoderCountersListener);
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player =
+              new CompositionPlayer.Builder(context)
+                  .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.addAnalyticsListener(decoderCountersListener);
+          player.setComposition(composition);
+          player.prepare();
+          player.play();
+        });
     endedFuture.get();
     return decoderCountersListener.getVideoDecoderCounters();
   }

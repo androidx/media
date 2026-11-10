@@ -254,15 +254,14 @@ public class AudioCapabilitiesEndToEndTest {
     shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC);
     setUiModeToTv();
     RenderersFactory renderersFactory =
-        createRenderersFactory(
-            /* onProcessedOutputBufferRunnable= */ () -> {
-              // Right after we write the first buffer to audio sink, direct playback support
-              // is added, and AudioTrack begins to support the audio format directly.
-              if (!directPlaybackSupportAddedReference.get()) {
-                addDirectPlaybackSupportForAC3();
-                directPlaybackSupportAddedReference.set(true);
-              }
-            });
+        createRenderersFactory(/* onProcessedOutputBufferRunnable= */ () -> {
+          // Right after we write the first buffer to audio sink, direct playback support
+          // is added, and AudioTrack begins to support the audio format directly.
+          if (!directPlaybackSupportAddedReference.get()) {
+            addDirectPlaybackSupportForAC3();
+            directPlaybackSupportAddedReference.set(true);
+          }
+        });
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -328,15 +327,14 @@ public class AudioCapabilitiesEndToEndTest {
     shadowMediaCodecConfig.addDecoders(CODEC_INFO_AAC, CODEC_INFO_AC3);
     setUiModeToTv();
     RenderersFactory renderersFactory =
-        createRenderersFactory(
-            /* onProcessedOutputBufferRunnable= */ () -> {
-              // Right after we write the first buffer to audio sink, direct playback support
-              // is added, and AudioTrack begins to support the audio format directly.
-              if (!directPlaybackSupportAddedReference.get()) {
-                addDirectPlaybackSupportForAC3();
-                directPlaybackSupportAddedReference.set(true);
-              }
-            });
+        createRenderersFactory(/* onProcessedOutputBufferRunnable= */ () -> {
+          // Right after we write the first buffer to audio sink, direct playback support
+          // is added, and AudioTrack begins to support the audio format directly.
+          if (!directPlaybackSupportAddedReference.get()) {
+            addDirectPlaybackSupportForAC3();
+            directPlaybackSupportAddedReference.set(true);
+          }
+        });
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -402,15 +400,14 @@ public class AudioCapabilitiesEndToEndTest {
     setupDefaultPcmSupport();
     setUiModeToTv();
     RenderersFactory renderersFactory =
-        createRenderersFactory(
-            /* onProcessedOutputBufferRunnable= */ () -> {
-              // Right after we write the first buffer to audio sink, direct playback support
-              // is added, and AudioTrack begins to support the audio format directly.
-              if (!directPlaybackSupportAddedReference.get()) {
-                addDirectPlaybackSupportForAC3();
-                directPlaybackSupportAddedReference.set(true);
-              }
-            });
+        createRenderersFactory(/* onProcessedOutputBufferRunnable= */ () -> {
+          // Right after we write the first buffer to audio sink, direct playback support
+          // is added, and AudioTrack begins to support the audio format directly.
+          if (!directPlaybackSupportAddedReference.get()) {
+            addDirectPlaybackSupportForAC3();
+            directPlaybackSupportAddedReference.set(true);
+          }
+        });
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))

@@ -2689,14 +2689,13 @@ public class TransformerEndToEndTest {
     assertThat(firstFrameLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                transformer.cancel();
-              } catch (RuntimeException e) {
-                exceptionReference.set(ExportException.createForUnexpected(e));
-              }
-            });
+        .runOnMainSync(() -> {
+          try {
+            transformer.cancel();
+          } catch (RuntimeException e) {
+            exceptionReference.set(ExportException.createForUnexpected(e));
+          }
+        });
 
     assertThat(exceptionReference.get()).isNull();
     assertThat(completedReference.get()).isFalse();
@@ -2759,14 +2758,13 @@ public class TransformerEndToEndTest {
     assertThat(muxerCreatedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                transformer.cancel();
-              } catch (RuntimeException e) {
-                exceptionReference.set(ExportException.createForUnexpected(e));
-              }
-            });
+        .runOnMainSync(() -> {
+          try {
+            transformer.cancel();
+          } catch (RuntimeException e) {
+            exceptionReference.set(ExportException.createForUnexpected(e));
+          }
+        });
 
     assertThat(exceptionReference.get()).isNull();
     assertThat(completedReference.get()).isFalse();

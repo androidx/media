@@ -351,20 +351,18 @@ public final class FakeClockTest {
 
     // Post a series of immediate and delayed messages.
     ArrayList<Long> clockTimes = new ArrayList<>();
-    handler.post(
-        () -> {
-          handler.postDelayed(
-              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 100);
-          handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 50);
-          handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
-          handler.postDelayed(
-              () -> {
-                clockTimes.add(fakeClock.elapsedRealtime());
-                handler.postDelayed(
-                    () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 50);
-              },
-              /* delayMs= */ 20);
-        });
+    handler.post(() -> {
+      handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 100);
+      handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 50);
+      handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
+      handler.postDelayed(
+          () -> {
+            clockTimes.add(fakeClock.elapsedRealtime());
+            handler.postDelayed(
+                () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 50);
+          },
+          /* delayMs= */ 20);
+    });
     ShadowLooper.idleMainLooper();
     shadowOf(handler.getLooper()).idle();
     quitAndJoin(handlerThread);
@@ -388,16 +386,12 @@ public final class FakeClockTest {
 
     // Post a series of immediate and delayed messages with one that is too far in the future.
     ArrayList<Long> clockTimes = new ArrayList<>();
-    handler.post(
-        () -> {
-          handler.postDelayed(
-              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 400);
-          handler.postDelayed(
-              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 801);
-          handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
-          handler.postDelayed(
-              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 200);
-        });
+    handler.post(() -> {
+      handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 400);
+      handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 801);
+      handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
+      handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 200);
+    });
     ShadowLooper.idleMainLooper();
     shadowOf(handler.getLooper()).idle();
     quitAndJoin(handlerThread);
@@ -420,24 +414,21 @@ public final class FakeClockTest {
 
     ConditionVariable messagesFinished = new ConditionVariable();
     ArrayList<Integer> executionOrder = new ArrayList<>();
-    handler1.post(
-        () -> {
-          executionOrder.add(1);
-          handler2.post(() -> executionOrder.add(2));
-          handler1.post(() -> executionOrder.add(3));
-          handler2.post(
-              () -> {
-                executionOrder.add(4);
-                handler2.post(() -> executionOrder.add(7));
-                handler1.post(
-                    () -> {
-                      executionOrder.add(8);
-                      messagesFinished.open();
-                    });
-              });
-          handler2.post(() -> executionOrder.add(5));
-          handler1.post(() -> executionOrder.add(6));
+    handler1.post(() -> {
+      executionOrder.add(1);
+      handler2.post(() -> executionOrder.add(2));
+      handler1.post(() -> executionOrder.add(3));
+      handler2.post(() -> {
+        executionOrder.add(4);
+        handler2.post(() -> executionOrder.add(7));
+        handler1.post(() -> {
+          executionOrder.add(8);
+          messagesFinished.open();
         });
+      });
+      handler2.post(() -> executionOrder.add(5));
+      handler1.post(() -> executionOrder.add(6));
+    });
     ShadowLooper.idleMainLooper();
     messagesFinished.block();
     quitAndJoin(handlerThread1, handlerThread2);
@@ -460,29 +451,27 @@ public final class FakeClockTest {
 
     ConditionVariable testFinished = new ConditionVariable();
     ArrayList<Integer> executionOrder = new ArrayList<>();
-    handler1.post(
-        () -> {
-          executionOrder.add(1);
-          ConditionVariable blockingCondition = new ConditionVariable();
-          handler2.postDelayed(
-              () -> {
-                executionOrder.add(2);
-                blockingCondition.open();
-              },
-              /* delayMs= */ 50);
-          handler1.post(
-              () -> {
-                executionOrder.add(4);
-                testFinished.open();
-              });
-          fakeClock.onThreadBlocked();
-          try {
-            blockingCondition.block();
-          } catch (InterruptedException e) {
-            // Ignore.
-          }
-          executionOrder.add(3);
-        });
+    handler1.post(() -> {
+      executionOrder.add(1);
+      ConditionVariable blockingCondition = new ConditionVariable();
+      handler2.postDelayed(
+          () -> {
+            executionOrder.add(2);
+            blockingCondition.open();
+          },
+          /* delayMs= */ 50);
+      handler1.post(() -> {
+        executionOrder.add(4);
+        testFinished.open();
+      });
+      fakeClock.onThreadBlocked();
+      try {
+        blockingCondition.block();
+      } catch (InterruptedException e) {
+        // Ignore.
+      }
+      executionOrder.add(3);
+    });
     ShadowLooper.idleMainLooper();
     testFinished.block();
     quitAndJoin(handlerThread1, handlerThread2);
@@ -506,31 +495,29 @@ public final class FakeClockTest {
 
     ConditionVariable testFinished = new ConditionVariable();
     ArrayList<Integer> executionOrder = new ArrayList<>();
-    handler1.post(
-        () -> {
-          executionOrder.add(1);
-          ConditionVariable blockingCondition = new ConditionVariable();
-          handler2.postDelayed(
-              () -> {
-                executionOrder.add(2);
-                ThreadTestUtil.unblockThreadsWaitingForProgressOnCurrentLooper();
-              },
-              /* delayMs= */ 100);
-          handler1.post(
-              () -> {
-                executionOrder.add(4);
-                testFinished.open();
-              });
-          ThreadTestUtil.registerThreadIsBlockedUntilProgressOnLooper(
-              blockingCondition, handlerThread2.getLooper());
-          fakeClock.onThreadBlocked();
-          try {
-            blockingCondition.block();
-          } catch (InterruptedException e) {
-            // Ignore.
-          }
-          executionOrder.add(3);
-        });
+    handler1.post(() -> {
+      executionOrder.add(1);
+      ConditionVariable blockingCondition = new ConditionVariable();
+      handler2.postDelayed(
+          () -> {
+            executionOrder.add(2);
+            ThreadTestUtil.unblockThreadsWaitingForProgressOnCurrentLooper();
+          },
+          /* delayMs= */ 100);
+      handler1.post(() -> {
+        executionOrder.add(4);
+        testFinished.open();
+      });
+      ThreadTestUtil.registerThreadIsBlockedUntilProgressOnLooper(
+          blockingCondition, handlerThread2.getLooper());
+      fakeClock.onThreadBlocked();
+      try {
+        blockingCondition.block();
+      } catch (InterruptedException e) {
+        // Ignore.
+      }
+      executionOrder.add(3);
+    });
     ShadowLooper.idleMainLooper();
     testFinished.block();
     quitAndJoin(handlerThread1, handlerThread2);
@@ -553,38 +540,36 @@ public final class FakeClockTest {
     ConditionVariable testFinished = new ConditionVariable();
     ArrayList<Integer> executionOrder = new ArrayList<>();
 
-    handler1.post(
-        () -> {
-          executionOrder.add(1);
-          ConditionVariable deadlockCondition1 = new ConditionVariable();
-          ConditionVariable deadlockCondition2 = new ConditionVariable();
-          handler2.postDelayed(
-              () -> {
-                executionOrder.add(2);
-                fakeClock.onThreadBlocked();
-                try {
-                  deadlockCondition2.block();
-                } catch (InterruptedException e) {
-                  // Ignore.
-                }
-              },
-              /* delayMs= */ 100);
-          handler1.post(
-              () -> {
-                executionOrder.add(4);
-                testFinished.open();
-              });
-          ThreadTestUtil.registerThreadIsBlockedUntilProgressOnLooper(
-              deadlockCondition1, handlerThread2.getLooper());
-          fakeClock.onThreadBlocked();
-          try {
-            deadlockCondition1.block();
-          } catch (InterruptedException e) {
-            // Ignore.
-          }
-          executionOrder.add(3);
-          deadlockCondition2.open();
-        });
+    handler1.post(() -> {
+      executionOrder.add(1);
+      ConditionVariable deadlockCondition1 = new ConditionVariable();
+      ConditionVariable deadlockCondition2 = new ConditionVariable();
+      handler2.postDelayed(
+          () -> {
+            executionOrder.add(2);
+            fakeClock.onThreadBlocked();
+            try {
+              deadlockCondition2.block();
+            } catch (InterruptedException e) {
+              // Ignore.
+            }
+          },
+          /* delayMs= */ 100);
+      handler1.post(() -> {
+        executionOrder.add(4);
+        testFinished.open();
+      });
+      ThreadTestUtil.registerThreadIsBlockedUntilProgressOnLooper(
+          deadlockCondition1, handlerThread2.getLooper());
+      fakeClock.onThreadBlocked();
+      try {
+        deadlockCondition1.block();
+      } catch (InterruptedException e) {
+        // Ignore.
+      }
+      executionOrder.add(3);
+      deadlockCondition2.open();
+    });
     ShadowLooper.idleMainLooper();
     testFinished.block();
     quitAndJoin(handlerThread1, handlerThread2);
@@ -631,24 +616,23 @@ public final class FakeClockTest {
         fakeClock.createHandler(handlerThread2.getLooper(), /* callback= */ null);
 
     ArrayList<Integer> executionOrder = new ArrayList<>();
-    handler1.post(
-        () -> {
-          executionOrder.add(1);
-          ConditionVariable blockingCondition = new ConditionVariable(fakeClock);
-          handler2.postDelayed(
-              () -> {
-                executionOrder.add(2);
-                blockingCondition.open();
-              },
-              /* delayMs= */ 50);
-          handler1.post(() -> executionOrder.add(4));
-          try {
-            blockingCondition.block();
-          } catch (InterruptedException e) {
-            // Ignore.
-          }
-          executionOrder.add(3);
-        });
+    handler1.post(() -> {
+      executionOrder.add(1);
+      ConditionVariable blockingCondition = new ConditionVariable(fakeClock);
+      handler2.postDelayed(
+          () -> {
+            executionOrder.add(2);
+            blockingCondition.open();
+          },
+          /* delayMs= */ 50);
+      handler1.post(() -> executionOrder.add(4));
+      try {
+        blockingCondition.block();
+      } catch (InterruptedException e) {
+        // Ignore.
+      }
+      executionOrder.add(3);
+    });
     ShadowLooper.idleMainLooper();
     shadowOf(handler1.getLooper()).idle();
     shadowOf(handler2.getLooper()).idle();
@@ -725,12 +709,11 @@ public final class FakeClockTest {
     AtomicBoolean mainMessageRun = new AtomicBoolean();
     ConditionVariable backgroundTaskFinished = new ConditionVariable();
 
-    rawBackgroundHandler.post(
-        () -> {
-          handlerThread.quit();
-          mainHandler.post(() -> mainMessageRun.set(true));
-          backgroundTaskFinished.open();
-        });
+    rawBackgroundHandler.post(() -> {
+      handlerThread.quit();
+      mainHandler.post(() -> mainMessageRun.set(true));
+      backgroundTaskFinished.open();
+    });
 
     backgroundTaskFinished.block();
     quitAndJoin(handlerThread);
@@ -764,14 +747,13 @@ public final class FakeClockTest {
           allMessagesFinished.open();
         },
         /* delayMs= */ 500);
-    handler1.post(
-        () -> {
-          backgroundMessageStarted.open();
-          allowBackgroundMessageToFinish.blockUninterruptible();
-          executionTimes.add(fakeClock.elapsedRealtime());
-          handler1.postDelayed(
-              () -> executionTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 10);
-        });
+    handler1.post(() -> {
+      backgroundMessageStarted.open();
+      allowBackgroundMessageToFinish.blockUninterruptible();
+      executionTimes.add(fakeClock.elapsedRealtime());
+      handler1.postDelayed(
+          () -> executionTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 10);
+    });
     ShadowLooper.idleMainLooper();
     backgroundMessageStarted.block();
 
@@ -802,20 +784,19 @@ public final class FakeClockTest {
     ConditionVariable allowBackgroundMessageToFinish = new ConditionVariable();
     ConditionVariable allMessagesFinished = new ConditionVariable();
     List<Long> executionTimes = Collections.synchronizedList(new ArrayList<>());
-    rawHandler1.post(
-        () -> {
-          handler2.postDelayed(
-              () -> {
-                executionTimes.add(fakeClock.elapsedRealtime());
-                allMessagesFinished.open();
-              },
-              /* delayMs= */ 500);
-          handler1.postDelayed(
-              () -> executionTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 10);
-          backgroundMessageStarted.open();
-          allowBackgroundMessageToFinish.blockUninterruptible();
-          executionTimes.add(fakeClock.elapsedRealtime());
-        });
+    rawHandler1.post(() -> {
+      handler2.postDelayed(
+          () -> {
+            executionTimes.add(fakeClock.elapsedRealtime());
+            allMessagesFinished.open();
+          },
+          /* delayMs= */ 500);
+      handler1.postDelayed(
+          () -> executionTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 10);
+      backgroundMessageStarted.open();
+      allowBackgroundMessageToFinish.blockUninterruptible();
+      executionTimes.add(fakeClock.elapsedRealtime());
+    });
     backgroundMessageStarted.block();
 
     // Call onThreadBlocked() from the main looper while handlerThread1 is mid-message after
@@ -850,25 +831,23 @@ public final class FakeClockTest {
     // onMessageHandled callback so mainLooper becomes activeMessageLooper (queued in Robolectric's
     // paused main MessageQueue, not yet executing).
     ConditionVariable mainMessageQueued = new ConditionVariable();
-    rawCallerHandler.post(
-        () -> {
-          mainHandler.post(() -> mainMessageRun.set(true));
-          mainMessageQueued.open();
-        });
+    rawCallerHandler.post(() -> {
+      mainHandler.post(() -> mainMessageRun.set(true));
+      mainMessageQueued.open();
+    });
     mainMessageQueued.block();
     shadowOf(callerThread.getLooper()).idle();
 
     // Now post a task on callerThread that posts to workerHandler and blocks waiting for it,
     // without idling the main looper first (simulating ExoPlayer.release() from a secondary
     // looper while a main-looper listener notification is still pending).
-    rawCallerHandler.post(
-        () -> {
-          ConditionVariable workerDone = new ConditionVariable(fakeClock);
-          workerHandler.post(workerDone::open);
-          workerDone.blockUninterruptible();
-          callerUnblocked.set(true);
-          callerFinished.open();
-        });
+    rawCallerHandler.post(() -> {
+      ConditionVariable workerDone = new ConditionVariable(fakeClock);
+      workerHandler.post(workerDone::open);
+      workerDone.blockUninterruptible();
+      callerUnblocked.set(true);
+      callerFinished.open();
+    });
     callerFinished.block();
     quitAndJoin(callerThread, workerThread);
 
@@ -896,15 +875,14 @@ public final class FakeClockTest {
     Handler rawHandler1 = new Handler(handlerThread1.getLooper());
     ConditionVariable deadLooperPrepared = new ConditionVariable();
     ConditionVariable handler2Done = new ConditionVariable();
-    rawHandler1.post(
-        () -> {
-          // Claim activeMessageLooper on handlerThread1, queue a message on handler1 and handler2,
-          // and then quit handlerThread1 before its onMessageHandled callback can run.
-          handler1.sendEmptyMessage(1);
-          handler2.post(handler2Done::open);
-          handlerThread1.quit();
-          deadLooperPrepared.open();
-        });
+    rawHandler1.post(() -> {
+      // Claim activeMessageLooper on handlerThread1, queue a message on handler1 and handler2,
+      // and then quit handlerThread1 before its onMessageHandled callback can run.
+      handler1.sendEmptyMessage(1);
+      handler2.post(handler2Done::open);
+      handlerThread1.quit();
+      deadLooperPrepared.open();
+    });
     deadLooperPrepared.block();
     handlerThread1.join();
 

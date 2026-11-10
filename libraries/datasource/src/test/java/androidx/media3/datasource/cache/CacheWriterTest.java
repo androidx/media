@@ -348,10 +348,9 @@ public final class CacheWriterTest {
     FakeDataSet fakeDataSet =
         new FakeDataSet()
             .newData("test_data")
-            .appendReadAction(
-                () -> {
-                  throw new IllegalStateException();
-                })
+            .appendReadAction(() -> {
+              throw new IllegalStateException();
+            })
             .appendReadData(1)
             .endData();
     FakeDataSource dataSource = new FakeDataSource(fakeDataSet);

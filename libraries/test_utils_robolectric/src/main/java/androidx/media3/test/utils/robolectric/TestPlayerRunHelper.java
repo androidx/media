@@ -202,11 +202,10 @@ public final class TestPlayerRunHelper {
         throws PlaybackException, TimeoutException {
       checkArgument(adGroupIndex >= 0);
       checkArgument(adIndexInAdGroup >= 0);
-      runUntil(
-          () ->
-              player.isPlayingAd()
-                  && player.getCurrentAdGroupIndex() == adGroupIndex
-                  && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup);
+      runUntil(() ->
+          player.isPlayingAd()
+              && player.getCurrentAdGroupIndex() == adGroupIndex
+              && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup);
     }
 
     /**
@@ -447,9 +446,8 @@ public final class TestPlayerRunHelper {
       // Then post on the target thread again to get behind all immediate messages triggered by
       // these messages and post back to the main thread to get behind all main thread updates
       // triggered by those messages.
-      targetHandler.post(
-          () ->
-              targetHandler.post(() -> mainHandler.post(() -> receivedMessageCallback.set(true))));
+      targetHandler.post(() ->
+          targetHandler.post(() -> mainHandler.post(() -> receivedMessageCallback.set(true))));
 
       runMainLooperUntil(receivedMessageCallback::get, timeoutMs, Clock.DEFAULT);
     }
@@ -674,10 +672,9 @@ public final class TestPlayerRunHelper {
           .setLooper(Looper.getMainLooper())
           .send();
       player.play();
-      runUntil(
-          () ->
-              player.getCurrentMediaItemIndex() == mediaItemIndex
-                  && player.getContentPosition() >= positionMs);
+      runUntil(() ->
+          player.getCurrentMediaItemIndex() == mediaItemIndex
+              && player.getContentPosition() >= positionMs);
     }
 
     /**
@@ -707,24 +704,23 @@ public final class TestPlayerRunHelper {
       Looper applicationLooper = Util.getCurrentOrMainLooper();
       AtomicBoolean messageHandled = new AtomicBoolean(false);
       player
-          .createMessage(
-              (messageType, payload) -> {
-                // Block playback thread until the main app thread is able to trigger further
-                // actions.
-                ConditionVariable blockPlaybackThreadCondition = new ConditionVariable();
-                ThreadTestUtil.registerThreadIsBlockedUntilProgressOnLooper(
-                    blockPlaybackThreadCondition, applicationLooper);
-                player
-                    .getClock()
-                    .createHandler(applicationLooper, /* callback= */ null)
-                    .post(() -> messageHandled.set(true));
-                try {
-                  player.getClock().onThreadBlocked();
-                  blockPlaybackThreadCondition.block();
-                } catch (InterruptedException e) {
-                  // Ignore.
-                }
-              })
+          .createMessage((messageType, payload) -> {
+            // Block playback thread until the main app thread is able to trigger further
+            // actions.
+            ConditionVariable blockPlaybackThreadCondition = new ConditionVariable();
+            ThreadTestUtil.registerThreadIsBlockedUntilProgressOnLooper(
+                blockPlaybackThreadCondition, applicationLooper);
+            player
+                .getClock()
+                .createHandler(applicationLooper, /* callback= */ null)
+                .post(() -> messageHandled.set(true));
+            try {
+              player.getClock().onThreadBlocked();
+              blockPlaybackThreadCondition.block();
+            } catch (InterruptedException e) {
+              // Ignore.
+            }
+          })
           .setPosition(mediaItemIndex, positionMs)
           .send();
       player.play();
@@ -783,12 +779,11 @@ public final class TestPlayerRunHelper {
       checkArgument(adGroupIndex >= 0);
       checkArgument(adIndexInAdGroup >= 0);
       checkArgument(adPositionMs >= 0);
-      untilBackgroundThreadCondition(
-          () ->
-              player.isPlayingAd()
-                  && player.getCurrentAdGroupIndex() == adGroupIndex
-                  && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup
-                  && player.getCurrentPosition() >= adPositionMs);
+      untilBackgroundThreadCondition(() ->
+          player.isPlayingAd()
+              && player.getCurrentAdGroupIndex() == adGroupIndex
+              && player.getCurrentAdIndexInAdGroup() == adIndexInAdGroup
+              && player.getCurrentPosition() >= adPositionMs);
     }
 
     /**
@@ -881,13 +876,12 @@ public final class TestPlayerRunHelper {
      *     created via {@link #withTimeoutMs(long)}.
      */
     public void untilFullyBuffered() throws PlaybackException, TimeoutException {
-      untilBackgroundThreadCondition(
-          () -> {
-            long remainingDurationMs = getRemainingPlaybackDuration(player);
-            return remainingDurationMs != C.TIME_UNSET
-                && player.getTotalBufferedDuration() >= remainingDurationMs
-                && !player.isLoading();
-          });
+      untilBackgroundThreadCondition(() -> {
+        long remainingDurationMs = getRemainingPlaybackDuration(player);
+        return remainingDurationMs != C.TIME_UNSET
+            && player.getTotalBufferedDuration() >= remainingDurationMs
+            && !player.isLoading();
+      });
     }
 
     @Override

@@ -77,11 +77,10 @@ public final class MainActivity extends Activity {
     setContentView(R.layout.main_activity);
     playerControlView = findViewById(R.id.player_control_view);
     fullscreenView = findViewById(R.id.full_screen_view);
-    fullscreenView.setOnClickListener(
-        v -> {
-          setCurrentOutputView(nonFullscreenView);
-          checkNotNull(fullscreenView).setVisibility(View.GONE);
-        });
+    fullscreenView.setOnClickListener(v -> {
+      setCurrentOutputView(nonFullscreenView);
+      checkNotNull(fullscreenView).setVisibility(View.GONE);
+    });
     attachSurfaceListener(fullscreenView);
     isOwner = getIntent().getBooleanExtra(OWNER_EXTRA, /* defaultValue= */ true);
     GridLayout gridLayout = findViewById(R.id.grid_layout);
@@ -96,29 +95,26 @@ public final class MainActivity extends Activity {
         Button button = new Button(/* context= */ this);
         view = button;
         button.setText(getString(R.string.full_screen_label));
-        button.setOnClickListener(
-            v -> {
-              setCurrentOutputView(fullscreenView);
-              checkNotNull(fullscreenView).setVisibility(View.VISIBLE);
-            });
+        button.setOnClickListener(v -> {
+          setCurrentOutputView(fullscreenView);
+          checkNotNull(fullscreenView).setVisibility(View.VISIBLE);
+        });
       } else if (i == 2) {
         Button button = new Button(/* context= */ this);
         view = button;
         button.setText(getString(R.string.new_activity_label));
-        button.setOnClickListener(
-            v ->
-                startActivity(
-                    new Intent(MainActivity.this, MainActivity.class)
-                        .putExtra(OWNER_EXTRA, /* value= */ false)));
+        button.setOnClickListener(v ->
+            startActivity(
+                new Intent(MainActivity.this, MainActivity.class)
+                    .putExtra(OWNER_EXTRA, /* value= */ false)));
       } else {
         SurfaceView surfaceView = new SurfaceView(this);
         view = surfaceView;
         attachSurfaceListener(surfaceView);
-        surfaceView.setOnClickListener(
-            v -> {
-              setCurrentOutputView(surfaceView);
-              nonFullscreenView = surfaceView;
-            });
+        surfaceView.setOnClickListener(v -> {
+          setCurrentOutputView(surfaceView);
+          nonFullscreenView = surfaceView;
+        });
         if (nonFullscreenView == null) {
           nonFullscreenView = surfaceView;
         }

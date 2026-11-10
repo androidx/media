@@ -1320,10 +1320,9 @@ public class FrameAggregatorTest {
     primaryFrames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0));
     secondaryFrames.forEach(frame -> frameAggregator.queueFrame(frame, /* sequenceIndex= */ 1));
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
-    outputFrames.forEach(
-        packet ->
-            packet.forEach(
-                frame -> TransformerUtil.releaseIfNeeded(frame.frame, /* releaseFence= */ null)));
+    outputFrames.forEach(packet ->
+        packet.forEach(
+            frame -> TransformerUtil.releaseIfNeeded(frame.frame, /* releaseFence= */ null)));
 
     assertThat(outputFrames).hasSize(2);
     assertThat(outputFrames.get(1)).containsExactly(primaryFrames.get(1));
@@ -2628,7 +2627,7 @@ public class FrameAggregatorTest {
         new DefaultHardwareBufferFrame.Builder(
                 placeholderBuffer,
                 directExecutor(),
-                (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
+                releaseFence -> releasedFrameTimestamps.add(presentationTimeUs))
             .setContentTimeUs(sequencePresentationTimeUs)
             .setMetadata(
                 ImmutableMap.of(

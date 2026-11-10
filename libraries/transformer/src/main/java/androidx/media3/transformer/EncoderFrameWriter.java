@@ -154,7 +154,7 @@ public class EncoderFrameWriter implements FrameWriter {
             .setUsage(Frame.USAGE_VIDEO_ENCODE | usage)
             .setMaxImages(CAPACITY)
             .build();
-    imageWriter.setOnImageReleasedListener((writer) -> onImageReleased(), imageReleaseHandler);
+    imageWriter.setOnImageReleasedListener(writer -> onImageReleased(), imageReleaseHandler);
   }
 
   @Override

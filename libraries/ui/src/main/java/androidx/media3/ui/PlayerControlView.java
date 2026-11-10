@@ -2275,13 +2275,12 @@ public class PlayerControlView extends FrameLayout {
         holder.itemView.setSelected(false);
         holder.checkView.setVisibility(INVISIBLE);
       }
-      holder.itemView.setOnClickListener(
-          v -> {
-            if (position != selectedIndex) {
-              setPlaybackSpeed(playbackSpeeds[position]);
-            }
-            settingsWindow.dismiss();
-          });
+      holder.itemView.setOnClickListener(v -> {
+        if (position != selectedIndex) {
+          setPlaybackSpeed(playbackSpeeds[position]);
+        }
+        settingsWindow.dismiss();
+      });
     }
 
     @Override
@@ -2340,23 +2339,20 @@ public class PlayerControlView extends FrameLayout {
         }
       }
       holder.checkView.setVisibility(isTrackSelectionOff ? VISIBLE : INVISIBLE);
-      holder.itemView.setOnClickListener(
-          v -> {
-            if (player != null
-                && player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
-              TrackSelectionParameters trackSelectionParameters =
-                  player.getTrackSelectionParameters();
-              player.setTrackSelectionParameters(
-                  trackSelectionParameters
-                      .buildUpon()
-                      .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                      .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_FORCED)
-                      .setPreferredTextLanguage(null)
-                      .setPreferredTextRoleFlags(0)
-                      .build());
-              settingsWindow.dismiss();
-            }
-          });
+      holder.itemView.setOnClickListener(v -> {
+        if (player != null && player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
+          TrackSelectionParameters trackSelectionParameters = player.getTrackSelectionParameters();
+          player.setTrackSelectionParameters(
+              trackSelectionParameters
+                  .buildUpon()
+                  .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                  .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_FORCED)
+                  .setPreferredTextLanguage(null)
+                  .setPreferredTextRoleFlags(0)
+                  .build());
+          settingsWindow.dismiss();
+        }
+      });
     }
 
     @Override
@@ -2384,26 +2380,23 @@ public class PlayerControlView extends FrameLayout {
       TrackSelectionParameters parameters = checkNotNull(player).getTrackSelectionParameters();
       boolean hasSelectionOverride = hasSelectionOverride(parameters);
       holder.checkView.setVisibility(hasSelectionOverride ? INVISIBLE : VISIBLE);
-      holder.itemView.setOnClickListener(
-          v -> {
-            if (player == null
-                || !player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
-              return;
-            }
-            TrackSelectionParameters trackSelectionParameters =
-                player.getTrackSelectionParameters();
-            castNonNull(player)
-                .setTrackSelectionParameters(
-                    trackSelectionParameters
-                        .buildUpon()
-                        .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, /* disabled= */ false)
-                        .build());
-            settingsAdapter.setSubTextAtPosition(
-                SETTINGS_AUDIO_TRACK_SELECTION_POSITION,
-                getResources().getString(R.string.exo_track_selection_auto));
-            settingsWindow.dismiss();
-          });
+      holder.itemView.setOnClickListener(v -> {
+        if (player == null || !player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
+          return;
+        }
+        TrackSelectionParameters trackSelectionParameters = player.getTrackSelectionParameters();
+        castNonNull(player)
+            .setTrackSelectionParameters(
+                trackSelectionParameters
+                    .buildUpon()
+                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, /* disabled= */ false)
+                    .build());
+        settingsAdapter.setSubTextAtPosition(
+            SETTINGS_AUDIO_TRACK_SELECTION_POSITION,
+            getResources().getString(R.string.exo_track_selection_auto));
+        settingsWindow.dismiss();
+      });
     }
 
     private boolean hasSelectionOverride(TrackSelectionParameters trackSelectionParameters) {
@@ -2488,24 +2481,22 @@ public class PlayerControlView extends FrameLayout {
             params.overrides.get(mediaTrackGroup) != null && track.isSelected();
         holder.textView.setText(track.trackName);
         holder.checkView.setVisibility(explicitlySelected ? VISIBLE : INVISIBLE);
-        holder.itemView.setOnClickListener(
-            v -> {
-              if (!player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
-                return;
-              }
-              TrackSelectionParameters trackSelectionParameters =
-                  player.getTrackSelectionParameters();
-              player.setTrackSelectionParameters(
-                  trackSelectionParameters
-                      .buildUpon()
-                      .setOverrideForType(
-                          new TrackSelectionOverride(
-                              mediaTrackGroup, ImmutableList.of(track.trackIndex)))
-                      .setTrackTypeDisabled(track.trackGroup.getType(), /* disabled= */ false)
-                      .build());
-              onTrackSelection(track.trackName);
-              settingsWindow.dismiss();
-            });
+        holder.itemView.setOnClickListener(v -> {
+          if (!player.isCommandAvailable(COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
+            return;
+          }
+          TrackSelectionParameters trackSelectionParameters = player.getTrackSelectionParameters();
+          player.setTrackSelectionParameters(
+              trackSelectionParameters
+                  .buildUpon()
+                  .setOverrideForType(
+                      new TrackSelectionOverride(
+                          mediaTrackGroup, ImmutableList.of(track.trackIndex)))
+                  .setTrackTypeDisabled(track.trackGroup.getType(), /* disabled= */ false)
+                  .build());
+          onTrackSelection(track.trackName);
+          settingsWindow.dismiss();
+        });
       }
     }
 

@@ -124,12 +124,11 @@ public class CompositionPlayerParameterizedPlaybackTest {
   @After
   public void tearDown() {
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              if (player != null) {
-                player.release();
-              }
-            });
+        .runOnMainSync(() -> {
+          if (player != null) {
+            player.release();
+          }
+        });
     rule.getScenario().close();
   }
 
@@ -226,21 +225,20 @@ public class CompositionPlayerParameterizedPlaybackTest {
       throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new CompositionPlayer.Builder(context)
-                      .setVideoGraphFactory(videoGraphFactory)
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                      .build();
-              // Set a surface on the player even though there is no UI on this test. We need a
-              // surface otherwise the player will skip/drop video frames.
-              player.setVideoSurfaceView(surfaceView);
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player =
+              new CompositionPlayer.Builder(context)
+                  .setVideoGraphFactory(videoGraphFactory)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          // Set a surface on the player even though there is no UI on this test. We need a
+          // surface otherwise the player will skip/drop video frames.
+          player.setVideoSurfaceView(surfaceView);
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.play();
+        });
     endedFuture.get();
   }
 
@@ -249,21 +247,20 @@ public class CompositionPlayerParameterizedPlaybackTest {
       Composition composition, FrameProcessor.Factory frameProcessorFactory) throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player =
-                  new CompositionPlayer.Builder(context)
-                      .setFrameProcessorFactory(frameProcessorFactory)
-                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                      .build();
-              // Set a surface on the player even though there is no UI on this test. We need a
-              // surface otherwise the player will skip/drop video frames.
-              player.setVideoSurfaceView(surfaceView);
-              endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
-              player.setComposition(composition);
-              player.prepare();
-              player.play();
-            });
+        .runOnMainSync(() -> {
+          player =
+              new CompositionPlayer.Builder(context)
+                  .setFrameProcessorFactory(frameProcessorFactory)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          // Set a surface on the player even though there is no UI on this test. We need a
+          // surface otherwise the player will skip/drop video frames.
+          player.setVideoSurfaceView(surfaceView);
+          endedFuture.setFuture(futureWhen(player).entersPlaybackState(Player.STATE_ENDED));
+          player.setComposition(composition);
+          player.prepare();
+          player.play();
+        });
     endedFuture.get();
   }
 

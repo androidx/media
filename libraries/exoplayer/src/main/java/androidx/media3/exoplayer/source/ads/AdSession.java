@@ -194,12 +194,11 @@ import java.util.function.Consumer;
       endedAds.clear();
     } else {
       AdPlaybackState updatedState = state;
-      endedAds.removeIf(
-          adKey ->
-              isUnplayedAd(
-                  updatedState,
-                  /* adGroupIndex= */ (int) (adKey >>> 32),
-                  /* adIndexInAdGroup= */ (int) adKey.longValue()));
+      endedAds.removeIf(adKey ->
+          isUnplayedAd(
+              updatedState,
+              /* adGroupIndex= */ (int) (adKey >>> 32),
+              /* adIndexInAdGroup= */ (int) adKey.longValue()));
     }
     contentCompletedNotified = false;
     if (!areAllAdsCompleted(state)) {

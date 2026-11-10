@@ -64,7 +64,7 @@ public abstract class BaseGlShaderProgram implements GlShaderProgram {
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
     errorListener =
-        (frameProcessingException) ->
+        frameProcessingException ->
             Log.e(
                 TAG,
                 "Exception caught by default BaseGlShaderProgram errorListener.",

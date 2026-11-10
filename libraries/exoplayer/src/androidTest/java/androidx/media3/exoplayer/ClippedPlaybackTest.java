@@ -90,17 +90,16 @@ public final class ClippedPlaybackTest {
     SettableFuture<Void> playerEndedFuture = SettableFuture.create();
     TextCapturingPlaybackListener textCapturer = new TextCapturingPlaybackListener();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(
-                  buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
-              player.get().addListener(textCapturer);
-              player.get().setMediaItem(mediaItem);
-              player.get().prepare();
-              playWhenLoadingIsDone(player.get());
-              playerEndedFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
-            });
+        .runOnMainSync(() -> {
+          player.set(
+              buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
+          player.get().addListener(textCapturer);
+          player.get().setMediaItem(mediaItem);
+          player.get().prepare();
+          playWhenLoadingIsDone(player.get());
+          playerEndedFuture.setFuture(
+              futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
+        });
 
     try {
       playerEndedFuture.get();
@@ -143,20 +142,19 @@ public final class ClippedPlaybackTest {
     SettableFuture<Void> playerEndedFuture = SettableFuture.create();
     TextCapturingPlaybackListener textCapturer = new TextCapturingPlaybackListener();
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.set(
-                  buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
-              player.get().addListener(textCapturer);
-              player.get().setMediaItems(mediaItems);
-              player.get().prepare();
-              // We don't need playWhenLoadingIsDone here because playback already waits at the end
-              // of the first period for subtitles to be fully loaded beforetransitioning to the
-              // second period.
-              player.get().play();
-              playerEndedFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
-            });
+        .runOnMainSync(() -> {
+          player.set(
+              buildPlayer(getInstrumentation().getContext(), parseSubtitlesDuringExtraction));
+          player.get().addListener(textCapturer);
+          player.get().setMediaItems(mediaItems);
+          player.get().prepare();
+          // We don't need playWhenLoadingIsDone here because playback already waits at the end
+          // of the first period for subtitles to be fully loaded beforetransitioning to the
+          // second period.
+          player.get().play();
+          playerEndedFuture.setFuture(
+              futureWhen(player.get()).entersPlaybackState(Player.STATE_ENDED));
+        });
 
     try {
       playerEndedFuture.get();

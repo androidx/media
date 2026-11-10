@@ -303,14 +303,13 @@ import org.jspecify.annotations.Nullable;
       pendingWakeupListener = null;
       pendingWakeupExecutor = null;
     }
-    executor.execute(
-        () -> {
-          try {
-            listener.run();
-          } catch (RuntimeException e) {
-            errorConsumer.accept(VideoFrameProcessingException.from(e));
-          }
-        });
+    executor.execute(() -> {
+      try {
+        listener.run();
+      } catch (RuntimeException e) {
+        errorConsumer.accept(VideoFrameProcessingException.from(e));
+      }
+    });
   }
 
   private static boolean canBypassCompositing(List<GlTextureFrame> frames) {

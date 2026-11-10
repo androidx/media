@@ -103,29 +103,27 @@ public class DownloadManagerDashTest {
     // Configure fakeDataSet to block until interrupted when TEST_MPD is read.
     fakeDataSet
         .newData(TEST_MPD_URI)
-        .appendReadAction(
-            () -> {
-              try {
-                // Wait until interrupted.
-                while (true) {
-                  Thread.sleep(100000);
-                }
-              } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-              }
-            })
+        .appendReadAction(() -> {
+          try {
+            // Wait until interrupted.
+            while (true) {
+              Thread.sleep(100000);
+            }
+          } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+          }
+        })
         .appendReadData(TEST_MPD)
         .endData();
 
     // Run DM accessing code on UI/main thread as it should be. Also not to block handling of loaded
     // actions.
-    runOnMainThread(
-        () -> {
-          // Setup an Action and immediately release the DM.
-          DownloadRequest request = getDownloadRequest(fakeStreamKey1, fakeStreamKey2);
-          downloadManager.addDownload(request);
-          downloadManager.release();
-        });
+    runOnMainThread(() -> {
+      // Setup an Action and immediately release the DM.
+      DownloadRequest request = getDownloadRequest(fakeStreamKey1, fakeStreamKey2);
+      downloadManager.addDownload(request);
+      downloadManager.release();
+    });
 
     assertCacheEmpty(cache);
 
@@ -218,22 +216,21 @@ public class DownloadManagerDashTest {
   }
 
   private void createDownloadManager() {
-    runOnMainThread(
-        () -> {
-          Factory fakeDataSourceFactory = new FakeDataSource.Factory().setFakeDataSet(fakeDataSet);
-          DefaultDownloaderFactory downloaderFactory =
-              new DefaultDownloaderFactory(
-                  new CacheDataSource.Factory()
-                      .setCache(cache)
-                      .setUpstreamDataSourceFactory(fakeDataSourceFactory),
-                  /* executor= */ Runnable::run);
-          downloadManager =
-              new DownloadManager(
-                  ApplicationProvider.getApplicationContext(), downloadIndex, downloaderFactory);
-          downloadManager.setRequirements(new Requirements(0));
-          downloadManagerListener = new TestDownloadManagerListener(downloadManager);
-          downloadManager.resumeDownloads();
-        });
+    runOnMainThread(() -> {
+      Factory fakeDataSourceFactory = new FakeDataSource.Factory().setFakeDataSet(fakeDataSet);
+      DefaultDownloaderFactory downloaderFactory =
+          new DefaultDownloaderFactory(
+              new CacheDataSource.Factory()
+                  .setCache(cache)
+                  .setUpstreamDataSourceFactory(fakeDataSourceFactory),
+              /* executor= */ Runnable::run);
+      downloadManager =
+          new DownloadManager(
+              ApplicationProvider.getApplicationContext(), downloadIndex, downloaderFactory);
+      downloadManager.setRequirements(new Requirements(0));
+      downloadManagerListener = new TestDownloadManagerListener(downloadManager);
+      downloadManager.resumeDownloads();
+    });
   }
 
   private void runOnMainThread(TestRunnable r) {

@@ -100,56 +100,51 @@ public class MediaSessionKeyEventTest {
     // - SDK < 26: Player should be playing for receiving key events
     // - SDK >= 26: Play a media item in the same process of the session for receiving key events.
     if (SDK_INT < 26) {
-      handler.postAndSync(
-          () -> {
-            player.notifyPlayWhenReadyChanged(
-                /* playWhenReady= */ true,
-                Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-                Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-            player.notifyPlaybackStateChanged(Player.STATE_READY);
-          });
+      handler.postAndSync(() -> {
+        player.notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        player.notifyPlaybackStateChanged(Player.STATE_READY);
+      });
     } else {
       CountDownLatch latch = new CountDownLatch(1);
-      handler.postAndSync(
-          () -> {
-            // Pick the shortest media to finish within the timeout.
-            mediaPlayer = MediaPlayer.create(context, R.raw.camera_click);
-            mediaPlayer.setOnCompletionListener(
-                player -> {
-                  if (mediaPlayer != null) {
-                    mediaPlayer.release();
-                    mediaPlayer = null;
-                    latch.countDown();
-                  }
-                });
-            mediaPlayer.start();
-          });
+      handler.postAndSync(() -> {
+        // Pick the shortest media to finish within the timeout.
+        mediaPlayer = MediaPlayer.create(context, R.raw.camera_click);
+        mediaPlayer.setOnCompletionListener(player -> {
+          if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
+            latch.countDown();
+          }
+        });
+        mediaPlayer.start();
+      });
       assertThat(latch.await(LONG_TIMEOUT_MS, MILLISECONDS)).isTrue();
     }
   }
 
   @After
   public void tearDown() throws Exception {
-    handler.postAndSync(
-        () -> {
-          if (mediaPlayer != null) {
-            mediaPlayer.release();
-            mediaPlayer = null;
-          }
-        });
+    handler.postAndSync(() -> {
+      if (mediaPlayer != null) {
+        mediaPlayer.release();
+        mediaPlayer = null;
+      }
+    });
     session.release();
   }
 
   @Test
   public void playKeyEvent() throws Exception {
-    handler.postAndSync(
-        () -> {
-          // Update state to allow play event to be triggered.
-          player.notifyPlayWhenReadyChanged(
-              /* playWhenReady= */ false,
-              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-        });
+    handler.postAndSync(() -> {
+      // Update state to allow play event to be triggered.
+      player.notifyPlayWhenReadyChanged(
+          /* playWhenReady= */ false,
+          Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+          Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    });
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -157,15 +152,14 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void pauseKeyEvent() throws Exception {
-    handler.postAndSync(
-        () -> {
-          // Update state to allow pause event to be triggered.
-          player.notifyPlayWhenReadyChanged(
-              /* playWhenReady= */ true,
-              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-          player.notifyPlaybackStateChanged(Player.STATE_READY);
-        });
+    handler.postAndSync(() -> {
+      // Update state to allow pause event to be triggered.
+      player.notifyPlayWhenReadyChanged(
+          /* playWhenReady= */ true,
+          Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+          Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+      player.notifyPlaybackStateChanged(Player.STATE_READY);
+    });
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PAUSE, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
@@ -278,10 +272,9 @@ public class MediaSessionKeyEventTest {
   @Test
   public void playPauseKeyEvent_paused_play(@TestParameter PlayPauseEvent playPauseEvent)
       throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playbackState = Player.STATE_READY;
-        });
+    handler.postAndSync(() -> {
+      player.playbackState = Player.STATE_READY;
+    });
 
     dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
@@ -294,10 +287,9 @@ public class MediaSessionKeyEventTest {
   @Test
   public void playPauseKeyEvent_fromIdle_prepareAndPlay(
       @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playbackState = Player.STATE_IDLE;
-        });
+    handler.postAndSync(() -> {
+      player.playbackState = Player.STATE_IDLE;
+    });
 
     dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
@@ -311,11 +303,10 @@ public class MediaSessionKeyEventTest {
   @Test
   public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay(
       @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playWhenReady = true;
-          player.playbackState = STATE_ENDED;
-        });
+    handler.postAndSync(() -> {
+      player.playWhenReady = true;
+      player.playbackState = STATE_ENDED;
+    });
 
     dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
@@ -325,11 +316,10 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playPauseKeyEvent_playing_pause() throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playWhenReady = true;
-          player.playbackState = Player.STATE_READY;
-        });
+    handler.postAndSync(() -> {
+      player.playWhenReady = true;
+      player.playbackState = Player.STATE_READY;
+    });
 
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
 
@@ -338,11 +328,10 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void headsetHookKeyEvent_playing_pause() throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playWhenReady = true;
-          player.playbackState = Player.STATE_READY;
-        });
+    handler.postAndSync(() -> {
+      player.playWhenReady = true;
+      player.playbackState = Player.STATE_READY;
+    });
 
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
@@ -351,11 +340,10 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playPauseKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playWhenReady = true;
-          player.playbackState = Player.STATE_READY;
-        });
+    handler.postAndSync(() -> {
+      player.playWhenReady = true;
+      player.playbackState = Player.STATE_READY;
+    });
 
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ true);
 
@@ -364,11 +352,10 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void headsetHookKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
-    handler.postAndSync(
-        () -> {
-          player.playWhenReady = true;
-          player.playbackState = Player.STATE_READY;
-        });
+    handler.postAndSync(() -> {
+      player.playWhenReady = true;
+      player.playbackState = Player.STATE_READY;
+    });
 
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ true);
 
@@ -434,17 +421,16 @@ public class MediaSessionKeyEventTest {
   private MediaController connectMediaNotificationController() throws Exception {
     return threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              Bundle connectionHints = new Bundle();
-              connectionHints.putBoolean(
-                  MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, /* value= */ true);
-              return new MediaController.Builder(
-                      ApplicationProvider.getApplicationContext(), session.getToken())
-                  .setConnectionHints(connectionHints)
-                  .buildAsync()
-                  .get();
-            });
+        .postAndSync(() -> {
+          Bundle connectionHints = new Bundle();
+          connectionHints.putBoolean(
+              MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, /* value= */ true);
+          return new MediaController.Builder(
+                  ApplicationProvider.getApplicationContext(), session.getToken())
+              .setConnectionHints(connectionHints)
+              .buildAsync()
+              .get();
+        });
   }
 
   private void dispatchMediaKeyEvent(int keyCode, boolean doubleTap) {

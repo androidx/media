@@ -538,15 +538,14 @@ public final class RtspClientTest {
     AtomicBoolean optionsResponseSent = new AtomicBoolean();
     AtomicBoolean onSessionTimelineRequestFailed = new AtomicBoolean();
     rtspServer =
-        new RtspServer(
-            () -> {
-              optionsResponseSent.set(true);
-              // Return an OPTIONS response that does NOT include DESCRIBE.
-              // If this is incorrectly processed after close(), it will trigger a failure.
-              return new RtspResponse(
-                  /* status= */ 200,
-                  new RtspHeaders.Builder().add(RtspHeaders.PUBLIC, "OPTIONS").build());
-            });
+        new RtspServer(() -> {
+          optionsResponseSent.set(true);
+          // Return an OPTIONS response that does NOT include DESCRIBE.
+          // If this is incorrectly processed after close(), it will trigger a failure.
+          return new RtspResponse(
+              /* status= */ 200,
+              new RtspHeaders.Builder().add(RtspHeaders.PUBLIC, "OPTIONS").build());
+        });
     rtspClient =
         new RtspClient(
             new SessionInfoListener() {
@@ -670,11 +669,10 @@ public final class RtspClientTest {
             new RtspClient.TrackSetupInfo(
                 testUri.buildUpon().appendEncodedPath("track1").build(),
                 "RTP/AVP;unicast;client_port=65536-65537")));
-    RobolectricUtil.runMainLooperUntil(
-        () ->
-            rtspClient.getState() == RtspClient.RTSP_STATE_READY
-                || playbackError.get() != null
-                || onSessionTimelineRequestFailed.get());
+    RobolectricUtil.runMainLooperUntil(() ->
+        rtspClient.getState() == RtspClient.RTSP_STATE_READY
+            || playbackError.get() != null
+            || onSessionTimelineRequestFailed.get());
 
     assertThat(onSessionTimelineRequestFailed.get()).isFalse();
     assertThat(playbackError.get()).isNull();

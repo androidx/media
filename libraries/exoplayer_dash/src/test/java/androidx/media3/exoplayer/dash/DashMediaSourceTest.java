@@ -325,10 +325,9 @@ public final class DashMediaSourceTest {
   public void prepare_withSuggestedPresentationDelayAndMinBufferTime_usesManifestValue()
       throws Exception {
     DashMediaSource mediaSource =
-        new DashMediaSource.Factory(
-                () ->
-                    createSampleMpdDataSource(
-                        SAMPLE_MPD_LIVE_WITH_SUGGESTED_PRESENTATION_DELAY_2S_MIN_BUFFER_TIME_500MS))
+        new DashMediaSource.Factory(() ->
+            createSampleMpdDataSource(
+                SAMPLE_MPD_LIVE_WITH_SUGGESTED_PRESENTATION_DELAY_2S_MIN_BUFFER_TIME_500MS))
             .setFallbackTargetLiveOffsetMs(1234L)
             .createMediaSource(
                 new MediaItem.Builder()
@@ -364,10 +363,9 @@ public final class DashMediaSourceTest {
                     .build())
             .build();
     DashMediaSource mediaSource =
-        new DashMediaSource.Factory(
-                () ->
-                    createSampleMpdDataSource(
-                        SAMPLE_MPD_LIVE_WITH_SUGGESTED_PRESENTATION_DELAY_2S_MIN_BUFFER_TIME_500MS))
+        new DashMediaSource.Factory(() ->
+            createSampleMpdDataSource(
+                SAMPLE_MPD_LIVE_WITH_SUGGESTED_PRESENTATION_DELAY_2S_MIN_BUFFER_TIME_500MS))
             .setFallbackTargetLiveOffsetMs(1234L)
             .createMediaSource(mediaItem);
 
@@ -444,10 +442,9 @@ public final class DashMediaSourceTest {
                     .build())
             .build();
     DashMediaSource mediaSource =
-        new DashMediaSource.Factory(
-                () ->
-                    createSampleMpdDataSource(
-                        SAMPLE_MPD_LIVE_WITH_SUGGESTED_PRESENTATION_DELAY_2S_MIN_BUFFER_TIME_500MS))
+        new DashMediaSource.Factory(() ->
+            createSampleMpdDataSource(
+                SAMPLE_MPD_LIVE_WITH_SUGGESTED_PRESENTATION_DELAY_2S_MIN_BUFFER_TIME_500MS))
             .createMediaSource(mediaItem);
 
     MediaItem.LiveConfiguration liveConfiguration =

@@ -81,9 +81,8 @@ public final class ExternallyLoadedImagePlaybackTest {
     ArrayList<Uri> externalLoaderUris = new ArrayList<>();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
-            .setExternalImageLoader(
-                request ->
-                    listeningExecutorService.submit(() -> externalLoaderUris.add(request.uri)));
+            .setExternalImageLoader(request ->
+                listeningExecutorService.submit(() -> externalLoaderUris.add(request.uri)));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(clock)
@@ -131,12 +130,10 @@ public final class ExternallyLoadedImagePlaybackTest {
     RuntimeException exception = new RuntimeException("My Exception");
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
-            .setExternalImageLoader(
-                unused ->
-                    listeningExecutorService.submit(
-                        () -> {
-                          throw exception;
-                        }));
+            .setExternalImageLoader(unused ->
+                listeningExecutorService.submit(() -> {
+                  throw exception;
+                }));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(clock)
@@ -170,9 +167,8 @@ public final class ExternallyLoadedImagePlaybackTest {
     ConditionVariable loadingComplete = new ConditionVariable();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
-            .setExternalImageLoader(
-                unused ->
-                    listeningExecutorService.submit(() -> loadingComplete.blockUninterruptible()));
+            .setExternalImageLoader(unused ->
+                listeningExecutorService.submit(() -> loadingComplete.blockUninterruptible()));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(clock)
@@ -212,9 +208,8 @@ public final class ExternallyLoadedImagePlaybackTest {
     ArrayList<Uri> externalLoaderUris = new ArrayList<>();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
-            .setExternalImageLoader(
-                request ->
-                    listeningExecutorService.submit(() -> externalLoaderUris.add(request.uri)));
+            .setExternalImageLoader(request ->
+                listeningExecutorService.submit(() -> externalLoaderUris.add(request.uri)));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(clock)

@@ -2124,13 +2124,12 @@ public class MediaSessionPlayerTest {
             .build();
     sessionReference.set(session);
 
-    MainLooperTestRule.runOnMainSync(
-        () -> {
-          MediaControllerCompat controller =
-              new MediaControllerCompat(
-                  context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
-          controller.addQueueItem(new MediaDescriptionCompat.Builder().setMediaId("id").build());
-        });
+    MainLooperTestRule.runOnMainSync(() -> {
+      MediaControllerCompat controller =
+          new MediaControllerCompat(
+              context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
+      controller.addQueueItem(new MediaDescriptionCompat.Builder().setMediaId("id").build());
+    });
     eventHandled.await();
     session.release();
 

@@ -795,14 +795,13 @@ public final class DefaultVideoCompositorPixelTest {
       }
       videoCompositor.release();
       Future<?> unused =
-          sharedExecutorService.submit(
-              () -> {
-                try {
-                  glObjectsProvider.release(GlUtil.getDefaultEglDisplay());
-                } catch (Exception e) {
-                  Log.e(TAG, "Error releasing GlObjectsProvider", e);
-                }
-              });
+          sharedExecutorService.submit(() -> {
+            try {
+              glObjectsProvider.release(GlUtil.getDefaultEglDisplay());
+            } catch (Exception e) {
+              Log.e(TAG, "Error releasing GlObjectsProvider", e);
+            }
+          });
       try {
         sharedExecutorService.shutdown();
         if (!sharedExecutorService.awaitTermination(timeoutMs, MILLISECONDS)) {

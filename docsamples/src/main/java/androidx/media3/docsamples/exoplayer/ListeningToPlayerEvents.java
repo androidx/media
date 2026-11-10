@@ -119,10 +119,9 @@ public final class ListeningToPlayerEvents {
   public static void executePlayerMessage(ExoPlayer player, Object customPayloadData) {
     // [START execute_player_message]
     player
-        .createMessage(
-            (messageType, payload) -> {
-              // Do something at the specified playback position.
-            })
+        .createMessage((messageType, payload) -> {
+          // Do something at the specified playback position.
+        })
         .setLooper(Looper.getMainLooper())
         .setPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 120_000)
         .setPayload(customPayloadData)

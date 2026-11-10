@@ -117,15 +117,14 @@ public final class DashPreloadMediaSourceTest {
   public void preload_loadPeriodToTargetPreloadPosition() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     when(mockPreloadControl.onContinueLoadingRequested(any(), anyLong()))
-        .thenAnswer(
-            invocation -> {
-              long bufferedDurationUs = invocation.getArgument(1);
-              if (bufferedDurationUs >= TARGET_PRELOAD_DURATION_US) {
-                preloadTerminated.set(true);
-                return false;
-              }
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          long bufferedDurationUs = invocation.getArgument(1);
+          if (bufferedDurationUs >= TARGET_PRELOAD_DURATION_US) {
+            preloadTerminated.set(true);
+            return false;
+          }
+          return true;
+        });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
     trackSelector.init(unused -> {}, bandwidthMeter);
@@ -157,11 +156,10 @@ public final class DashPreloadMediaSourceTest {
   public void preload_stopWhenTracksSelectedByPreloadControl() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     when(mockPreloadControl.onTracksSelected(any()))
-        .thenAnswer(
-            invocation -> {
-              preloadTerminated.set(true);
-              return false;
-            });
+        .thenAnswer(invocation -> {
+          preloadTerminated.set(true);
+          return false;
+        });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
     trackSelector.init(unused -> {}, bandwidthMeter);
@@ -193,11 +191,10 @@ public final class DashPreloadMediaSourceTest {
   public void preload_stopWhenSourcePreparedByPreloadControl() throws Exception {
     AtomicBoolean preloadTerminated = new AtomicBoolean();
     when(mockPreloadControl.onSourcePrepared(any()))
-        .thenAnswer(
-            invocation -> {
-              preloadTerminated.set(true);
-              return false;
-            });
+        .thenAnswer(invocation -> {
+          preloadTerminated.set(true);
+          return false;
+        });
     TrackSelector trackSelector =
         new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
     trackSelector.init(unused -> {}, bandwidthMeter);

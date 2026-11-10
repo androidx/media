@@ -105,9 +105,8 @@ public final class MediaProjectionAssetLoaderTest {
         new AtomicReference<>();
     ActivityScenario.launch(
             new Intent(getInstrumentation().getContext(), MediaProjectionActivity.class))
-        .onActivity(
-            (activity) ->
-                mediaProjectionActivityAtomicReference.set((MediaProjectionActivity) activity));
+        .onActivity(activity ->
+            mediaProjectionActivityAtomicReference.set((MediaProjectionActivity) activity));
     MediaProjectionActivity mediaProjectionActivity = mediaProjectionActivityAtomicReference.get();
     Future<Intent> mediaProjectionIntentFuture =
         mediaProjectionActivity.getScreenCaptureTokenFuture();
@@ -163,12 +162,11 @@ public final class MediaProjectionAssetLoaderTest {
     Transformer transformer =
         new Transformer.Builder(context)
             .setMuxerFactory(
-                new InterceptingMuxerFactory(
-                    (format, byteBuffer, bufferInfo) -> {
-                      if (MimeTypes.isVideo(format.sampleMimeType)) {
-                        videoSamplesWrittenCountDownLatch.countDown();
-                      }
-                    }))
+                new InterceptingMuxerFactory((format, byteBuffer, bufferInfo) -> {
+                  if (MimeTypes.isVideo(format.sampleMimeType)) {
+                    videoSamplesWrittenCountDownLatch.countDown();
+                  }
+                }))
             .setAssetLoaderFactory(mediaProjectionAssetLoaderFactory)
             .build();
     EditedMediaItem editedMediaItem =

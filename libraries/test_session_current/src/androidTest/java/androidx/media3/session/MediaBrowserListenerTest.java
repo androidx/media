@@ -547,19 +547,18 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
     LibraryResult<Void> result =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  // Bundle to request to call onChildrenChanged() after a given delay.
-                  Bundle requestNotifyChildren =
-                      createNotifyChildrenChangedBundle(
-                          expectedParentId,
-                          /* itemCount= */ 12,
-                          /* delayMs= */ 250L,
-                          /* broadcast= */ false);
-                  return browser.subscribe(
+            .postAndSync(() -> {
+              // Bundle to request to call onChildrenChanged() after a given delay.
+              Bundle requestNotifyChildren =
+                  createNotifyChildrenChangedBundle(
                       expectedParentId,
-                      new LibraryParams.Builder().setExtras(requestNotifyChildren).build());
-                })
+                      /* itemCount= */ 12,
+                      /* delayMs= */ 250L,
+                      /* broadcast= */ false);
+              return browser.subscribe(
+                  expectedParentId,
+                  new LibraryParams.Builder().setExtras(requestNotifyChildren).build());
+            })
             .get(TIMEOUT_MS, MILLISECONDS);
     assertThat(result.resultCode).isEqualTo(RESULT_SUCCESS);
 
@@ -615,35 +614,25 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
     LibraryResult<Void> subscriptionResult1 =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  Bundle requestNotifyChildren =
-                      createNotifyChildrenChangedBundle(
-                          mediaId1,
-                          /* itemCount= */ 123,
-                          /* delayMs= */ 200L,
-                          /* broadcast= */ true);
-                  return browser1.subscribe(
-                      mediaId1,
-                      new LibraryParams.Builder().setExtras(requestNotifyChildren).build());
-                })
+            .postAndSync(() -> {
+              Bundle requestNotifyChildren =
+                  createNotifyChildrenChangedBundle(
+                      mediaId1, /* itemCount= */ 123, /* delayMs= */ 200L, /* broadcast= */ true);
+              return browser1.subscribe(
+                  mediaId1, new LibraryParams.Builder().setExtras(requestNotifyChildren).build());
+            })
             .get(TIMEOUT_MS, MILLISECONDS);
     assertThat(subscriptionResult1.resultCode).isEqualTo(RESULT_SUCCESS);
     LibraryResult<Void> result2 =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  Bundle requestNotifyChildren =
-                      createNotifyChildrenChangedBundle(
-                          mediaId2,
-                          /* itemCount= */ 567,
-                          /* delayMs= */ 200L,
-                          /* broadcast= */ true);
-                  return browser2.subscribe(
-                      mediaId2,
-                      new LibraryParams.Builder().setExtras(requestNotifyChildren).build());
-                })
+            .postAndSync(() -> {
+              Bundle requestNotifyChildren =
+                  createNotifyChildrenChangedBundle(
+                      mediaId2, /* itemCount= */ 567, /* delayMs= */ 200L, /* broadcast= */ true);
+              return browser2.subscribe(
+                  mediaId2, new LibraryParams.Builder().setExtras(requestNotifyChildren).build());
+            })
             .get(TIMEOUT_MS, MILLISECONDS);
     assertThat(result2.resultCode).isEqualTo(RESULT_SUCCESS);
 
@@ -654,11 +643,10 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
     assertThat(browser2ItemCounts).containsExactly(Integer.MAX_VALUE, 567).inOrder();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              browser1.release();
-              browser2.release();
-            });
+        .postAndSync(() -> {
+          browser1.release();
+          browser2.release();
+        });
     assertThat(disconnectLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 

@@ -265,36 +265,34 @@ public final class MediaRouteButtonFactory {
       Context context, Consumer<MediaRouteSelector> onCompletion) {
     Cast cast = Cast.getSingletonInstance(context);
     cast.ensureInitialized(context);
-    return CallbackToFutureAdapter.getFuture(
-        completer -> {
-          final MediaRouteSelectorListener mediaRouteSelectorListener =
-              new MediaRouteSelectorListener() {
-                @Override
-                void onMediaRouteSelectorChanged(MediaRouteSelector selector) {
-                  if (!selector.isEmpty()) {
-                    onCompletion.accept(selector);
-                    completer.set(null);
-                  } else {
-                    completer.setException(
-                        new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
-                  }
-                }
-              };
-          MediaRouteSelector selector =
-              cast.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener);
-          if (selector != null) {
-            if (!selector.isEmpty()) {
-              onCompletion.accept(selector);
-              completer.set(null);
-            } else {
-              completer.setException(new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
+    return CallbackToFutureAdapter.getFuture(completer -> {
+      final MediaRouteSelectorListener mediaRouteSelectorListener =
+          new MediaRouteSelectorListener() {
+            @Override
+            void onMediaRouteSelectorChanged(MediaRouteSelector selector) {
+              if (!selector.isEmpty()) {
+                onCompletion.accept(selector);
+                completer.set(null);
+              } else {
+                completer.setException(new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
+              }
             }
-          }
-          completer.addCancellationListener(
-              () -> cast.unregisterListener(mediaRouteSelectorListener),
-              ContextCompat.getMainExecutor(context));
-          return "MediaRouteButtonFactory.setUpMediaRouteButton";
-        });
+          };
+      MediaRouteSelector selector =
+          cast.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener);
+      if (selector != null) {
+        if (!selector.isEmpty()) {
+          onCompletion.accept(selector);
+          completer.set(null);
+        } else {
+          completer.setException(new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
+        }
+      }
+      completer.addCancellationListener(
+          () -> cast.unregisterListener(mediaRouteSelectorListener),
+          ContextCompat.getMainExecutor(context));
+      return "MediaRouteButtonFactory.setUpMediaRouteButton";
+    });
   }
 
   private MediaRouteButtonFactory() {}

@@ -240,9 +240,8 @@ import org.jspecify.annotations.Nullable;
                 playerTransferStateSupplier.get(),
                 targetSnapshot.currentWindowIndex,
                 startPositionMs)
-            .setResultCallback(
-                mediaChannelResult ->
-                    onOperationResult(head, mediaChannelResult, remoteMediaClient));
+            .setResultCallback(mediaChannelResult ->
+                onOperationResult(head, mediaChannelResult, remoteMediaClient));
         return;
       }
       return;

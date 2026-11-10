@@ -94,42 +94,39 @@ public class MediaSessionServiceWithNonMainApplicationThreadTest {
     Looper appLooper = appThread.getLooper();
 
     SettableFuture<Looper> playFuture = SettableFuture.create();
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          ExoPlayer exoPlayer =
-              new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
-                  .setMediaSourceFactory(new FakeMediaSourceFactory())
-                  .setLooper(appLooper)
-                  .build();
-          Player player =
-              new ForwardingPlayer(exoPlayer) {
-                @Override
-                public void play() {
-                  playFuture.set(Looper.myLooper());
-                }
-              };
-          return new MediaSession.Builder(context, player)
-              .setCallback(
-                  new MediaSession.Callback() {
-                    @Override
-                    public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
-                        MediaSession mediaSession,
-                        ControllerInfo controller,
-                        boolean isForPlayback) {
-                      MediaItem item =
-                          new MediaItem.Builder()
-                              .setUri("https://www.example.com")
-                              .setMediaId("mediaItem1")
-                              .build();
-                      return immediateFuture(
-                          new MediaItemsWithStartPosition(
-                              ImmutableList.of(item),
-                              /* startIndex= */ 0,
-                              /* startPositionMs= */ C.TIME_UNSET));
-                    }
-                  })
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      ExoPlayer exoPlayer =
+          new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+              .setMediaSourceFactory(new FakeMediaSourceFactory())
+              .setLooper(appLooper)
               .build();
-        });
+      Player player =
+          new ForwardingPlayer(exoPlayer) {
+            @Override
+            public void play() {
+              playFuture.set(Looper.myLooper());
+            }
+          };
+      return new MediaSession.Builder(context, player)
+          .setCallback(
+              new MediaSession.Callback() {
+                @Override
+                public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+                    MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
+                  MediaItem item =
+                      new MediaItem.Builder()
+                          .setUri("https://www.example.com")
+                          .setMediaId("mediaItem1")
+                          .build();
+                  return immediateFuture(
+                      new MediaItemsWithStartPosition(
+                          ImmutableList.of(item),
+                          /* startIndex= */ 0,
+                          /* startPositionMs= */ C.TIME_UNSET));
+                }
+              })
+          .build();
+    });
     RemoteMediaController controller = controllerTestRule.createRemoteController(token);
 
     controller.play();
@@ -156,41 +153,40 @@ public class MediaSessionServiceWithNonMainApplicationThreadTest {
                     "thrown by "
                         + MediaSessionServiceWithNonMainApplicationThreadTest.class.getName())));
     AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          if (sessionReference.get() != null) {
-            return sessionReference.get();
-          }
-          ExoPlayer exoPlayer =
-              new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
-                  .setMediaSourceFactory(new FakeMediaSourceFactory())
-                  .setLooper(appLooper)
-                  .build();
-          MediaSession session =
-              new MediaSession.Builder(context, exoPlayer)
-                  .setCallback(
-                      new MediaSession.Callback() {
-                        @Override
-                        public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
-                            MediaSession mediaSession,
-                            ControllerInfo controller,
-                            boolean isForPlayback) {
-                          MediaItem item =
-                              new MediaItem.Builder()
-                                  .setUri("https://www.example.com")
-                                  .setMediaId("mediaItem1")
-                                  .build();
-                          return immediateFuture(
-                              new MediaItemsWithStartPosition(
-                                  ImmutableList.of(item),
-                                  /* startIndex= */ 0,
-                                  /* startPositionMs= */ C.TIME_UNSET));
-                        }
-                      })
-                  .build();
-          sessionReference.set(session);
-          return session;
-        });
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      if (sessionReference.get() != null) {
+        return sessionReference.get();
+      }
+      ExoPlayer exoPlayer =
+          new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+              .setMediaSourceFactory(new FakeMediaSourceFactory())
+              .setLooper(appLooper)
+              .build();
+      MediaSession session =
+          new MediaSession.Builder(context, exoPlayer)
+              .setCallback(
+                  new MediaSession.Callback() {
+                    @Override
+                    public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+                        MediaSession mediaSession,
+                        ControllerInfo controller,
+                        boolean isForPlayback) {
+                      MediaItem item =
+                          new MediaItem.Builder()
+                              .setUri("https://www.example.com")
+                              .setMediaId("mediaItem1")
+                              .build();
+                      return immediateFuture(
+                          new MediaItemsWithStartPosition(
+                              ImmutableList.of(item),
+                              /* startIndex= */ 0,
+                              /* startPositionMs= */ C.TIME_UNSET));
+                    }
+                  })
+              .build();
+      sessionReference.set(session);
+      return session;
+    });
     RemoteMediaController controller = controllerTestRule.createRemoteController(token);
     MediaSessionService serviceInstance = testServiceRegistry.getServiceInstance();
     CountDownLatch foregroundServiceStartNotAllowedExceptionLatch =
@@ -219,48 +215,47 @@ public class MediaSessionServiceWithNonMainApplicationThreadTest {
     Looper appLooper = appThread.getLooper();
     AtomicReference<MediaSession> sessionReference = new AtomicReference<>();
     SettableFuture<Looper> playFuture = SettableFuture.create();
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          if (sessionReference.get() != null) {
-            return sessionReference.get();
-          }
-          ExoPlayer exoPlayer =
-              new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
-                  .setMediaSourceFactory(new FakeMediaSourceFactory())
-                  .setLooper(appLooper)
-                  .build();
-          Player player =
-              new ForwardingPlayer(exoPlayer) {
-                @Override
-                public void play() {
-                  playFuture.set(Looper.myLooper());
-                }
-              };
-          MediaSession session =
-              new MediaSession.Builder(context, player)
-                  .setCallback(
-                      new MediaSession.Callback() {
-                        @Override
-                        public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
-                            MediaSession mediaSession,
-                            ControllerInfo controller,
-                            boolean isForPlayback) {
-                          MediaItem item =
-                              new MediaItem.Builder()
-                                  .setUri("https://www.example.com")
-                                  .setMediaId("mediaItem1")
-                                  .build();
-                          return immediateFuture(
-                              new MediaItemsWithStartPosition(
-                                  ImmutableList.of(item),
-                                  /* startIndex= */ 0,
-                                  /* startPositionMs= */ C.TIME_UNSET));
-                        }
-                      })
-                  .build();
-          sessionReference.set(session);
-          return session;
-        });
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      if (sessionReference.get() != null) {
+        return sessionReference.get();
+      }
+      ExoPlayer exoPlayer =
+          new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+              .setMediaSourceFactory(new FakeMediaSourceFactory())
+              .setLooper(appLooper)
+              .build();
+      Player player =
+          new ForwardingPlayer(exoPlayer) {
+            @Override
+            public void play() {
+              playFuture.set(Looper.myLooper());
+            }
+          };
+      MediaSession session =
+          new MediaSession.Builder(context, player)
+              .setCallback(
+                  new MediaSession.Callback() {
+                    @Override
+                    public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+                        MediaSession mediaSession,
+                        ControllerInfo controller,
+                        boolean isForPlayback) {
+                      MediaItem item =
+                          new MediaItem.Builder()
+                              .setUri("https://www.example.com")
+                              .setMediaId("mediaItem1")
+                              .build();
+                      return immediateFuture(
+                          new MediaItemsWithStartPosition(
+                              ImmutableList.of(item),
+                              /* startIndex= */ 0,
+                              /* startPositionMs= */ C.TIME_UNSET));
+                    }
+                  })
+              .build();
+      sessionReference.set(session);
+      return session;
+    });
     RemoteMediaController controller = controllerTestRule.createRemoteController(token);
 
     controller.play();

@@ -1001,7 +1001,7 @@ public class CompositionVideoPacketReleaseControlTest {
         new DefaultHardwareBufferFrame.Builder(
                 placeholderBuffer,
                 directExecutor(),
-                (releaseFence) -> releasedTimestamps.add(100_000L))
+                releaseFence -> releasedTimestamps.add(100_000L))
             .setContentTimeUs(100_000L)
             .setMetadata(
                 ImmutableMap.of(
@@ -1077,7 +1077,7 @@ public class CompositionVideoPacketReleaseControlTest {
         new DefaultHardwareBufferFrame.Builder(
                 checkNotNull(placeholderBuffer),
                 directExecutor(),
-                (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
+                releaseFence -> releasedFrameTimestamps.add(presentationTimeUs))
             .setContentTimeUs(sequencePresentationTimeUs)
             .setMetadata(
                 ImmutableMap.of(

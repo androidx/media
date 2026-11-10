@@ -95,9 +95,8 @@ public final class SteeringManifestTrackerTest {
     mockWebServer = new MockWebServer();
     AtomicInteger requestCounter = new AtomicInteger();
     when(mockCallback.getSteeringQueryParameters())
-        .then(
-            invocation ->
-                ImmutableMap.of("_query_param", String.valueOf(requestCounter.incrementAndGet())));
+        .then(invocation ->
+            ImmutableMap.of("_query_param", String.valueOf(requestCounter.incrementAndGet())));
     enqueueCounter = 0;
     assertedRequestCounter = 0;
     clock = new FakeClock(/* isAutoAdvancing= */ true);

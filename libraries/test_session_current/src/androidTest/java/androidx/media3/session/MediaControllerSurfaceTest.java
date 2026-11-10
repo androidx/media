@@ -160,11 +160,10 @@ public class MediaControllerSurfaceTest {
     SurfaceHolder testSurfaceHolder = activity.getFirstSurfaceHolder();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceHolder(testSurfaceHolder));
 
-    activityRule.runOnUiThread(
-        () -> {
-          SurfaceView firstSurfaceView = activity.getFirstSurfaceView();
-          firstSurfaceView.setVisibility(View.GONE);
-        });
+    activityRule.runOnUiThread(() -> {
+      SurfaceView firstSurfaceView = activity.getFirstSurfaceView();
+      firstSurfaceView.setVisibility(View.GONE);
+    });
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
     activityRule.runOnUiThread(controller::release);
@@ -175,17 +174,15 @@ public class MediaControllerSurfaceTest {
     MediaController controller = createController();
     SurfaceHolder testSurfaceHolder = activity.getFirstSurfaceHolder();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceHolder(testSurfaceHolder));
-    activityRule.runOnUiThread(
-        () -> {
-          SurfaceView firstSurfaceView = activity.getFirstSurfaceView();
-          firstSurfaceView.setVisibility(View.GONE);
-        });
+    activityRule.runOnUiThread(() -> {
+      SurfaceView firstSurfaceView = activity.getFirstSurfaceView();
+      firstSurfaceView.setVisibility(View.GONE);
+    });
 
-    activityRule.runOnUiThread(
-        () -> {
-          SurfaceView firstSurfaceView = activity.getFirstSurfaceView();
-          firstSurfaceView.setVisibility(View.VISIBLE);
-        });
+    activityRule.runOnUiThread(() -> {
+      SurfaceView firstSurfaceView = activity.getFirstSurfaceView();
+      firstSurfaceView.setVisibility(View.VISIBLE);
+    });
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isTrue();
     activityRule.runOnUiThread(controller::release);
@@ -344,12 +341,11 @@ public class MediaControllerSurfaceTest {
     TextureView testTextureView = activity.getFirstTextureView();
     activityRule.runOnUiThread(() -> controller.setVideoTextureView(testTextureView));
 
-    activityRule.runOnUiThread(
-        () -> {
-          ViewGroup rootViewGroup = activity.getRootViewGroup();
-          TextureView firstTextureView = activity.getFirstTextureView();
-          rootViewGroup.removeView(firstTextureView);
-        });
+    activityRule.runOnUiThread(() -> {
+      ViewGroup rootViewGroup = activity.getRootViewGroup();
+      TextureView firstTextureView = activity.getFirstTextureView();
+      rootViewGroup.removeView(firstTextureView);
+    });
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
     activityRule.runOnUiThread(controller::release);
@@ -361,19 +357,17 @@ public class MediaControllerSurfaceTest {
     MediaController controller = createController();
     TextureView testTextureView = activity.getFirstTextureView();
     activityRule.runOnUiThread(() -> controller.setVideoTextureView(testTextureView));
-    activityRule.runOnUiThread(
-        () -> {
-          ViewGroup rootViewGroup = activity.getRootViewGroup();
-          TextureView firstTextureView = activity.getFirstTextureView();
-          rootViewGroup.removeView(firstTextureView);
-        });
+    activityRule.runOnUiThread(() -> {
+      ViewGroup rootViewGroup = activity.getRootViewGroup();
+      TextureView firstTextureView = activity.getFirstTextureView();
+      rootViewGroup.removeView(firstTextureView);
+    });
 
-    activityRule.runOnUiThread(
-        () -> {
-          ViewGroup rootViewGroup = activity.getRootViewGroup();
-          TextureView firstTextureView = activity.getFirstTextureView();
-          rootViewGroup.addView(firstTextureView);
-        });
+    activityRule.runOnUiThread(() -> {
+      ViewGroup rootViewGroup = activity.getRootViewGroup();
+      TextureView firstTextureView = activity.getFirstTextureView();
+      rootViewGroup.addView(firstTextureView);
+    });
 
     PollingCheck.waitFor(TIMEOUT_MS, () -> remoteSession.getMockPlayer().surfaceExists());
     activityRule.runOnUiThread(controller::release);
@@ -495,11 +489,10 @@ public class MediaControllerSurfaceTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              assertThat(controller.getSurfaceSize().getWidth()).isEqualTo(testWidth);
-              assertThat(controller.getSurfaceSize().getHeight()).isEqualTo(testHeight);
-            });
+        .runOnMainSync(() -> {
+          assertThat(controller.getSurfaceSize().getWidth()).isEqualTo(testWidth);
+          assertThat(controller.getSurfaceSize().getHeight()).isEqualTo(testHeight);
+        });
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isTrue();
     assertThat(remoteSession.getMockPlayer().getSurfaceSize().getWidth()).isEqualTo(testWidth);
     assertThat(remoteSession.getMockPlayer().getSurfaceSize().getHeight()).isEqualTo(testHeight);

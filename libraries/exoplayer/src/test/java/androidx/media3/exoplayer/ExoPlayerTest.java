@@ -2597,14 +2597,13 @@ public final class ExoPlayerTest {
             .executeRunnable(() -> mediaSource.setNewSourceInfo(new FakeTimeline()))
             .waitForTimelineChanged()
             // Block until createPeriod has been called on the fake media source.
-            .executeRunnable(
-                () -> {
-                  try {
-                    createPeriodCalledCountDownLatch.await();
-                  } catch (InterruptedException e) {
-                    throw new IllegalStateException(e);
-                  }
-                })
+            .executeRunnable(() -> {
+              try {
+                createPeriodCalledCountDownLatch.await();
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+              }
+            })
             // Seek before preparation completes.
             .seek(5000)
             // Complete preparation of the fake media period.
@@ -3224,11 +3223,10 @@ public final class ExoPlayerTest {
     player.prepare();
     advance(player).untilState(Player.STATE_READY);
     player
-        .createMessage(
-            (type, payload) -> {
-              throw ExoPlaybackException.createForSource(
-                  new IOException(), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
-            })
+        .createMessage((type, payload) -> {
+          throw ExoPlaybackException.createForSource(
+              new IOException(), PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+        })
         .send();
     advance(player).untilPlayerError();
     player.seekTo(/* positionMs= */ 50);
@@ -3285,10 +3283,9 @@ public final class ExoPlayerTest {
             .waitForPlaybackState(Player.STATE_ENDED)
             // Add two sources at once such that the default start position in the shuffled order
             // will be the second source.
-            .executeRunnable(
-                () ->
-                    concatenatingMediaSource.addMediaSources(
-                        ImmutableList.of(new FakeMediaSource(), new FakeMediaSource())))
+            .executeRunnable(() ->
+                concatenatingMediaSource.addMediaSources(
+                    ImmutableList.of(new FakeMediaSource(), new FakeMediaSource())))
             .waitForTimelineChanged()
             .executeRunnable(
                 new PlayerRunnable() {
@@ -4345,10 +4342,9 @@ public final class ExoPlayerTest {
     // seek position. This ensures that playback stops and the assertion on the player position
     // below fails, even if a long time passes between detecting the discontinuity and asserting.
     player
-        .createMessage(
-            (messageType, payload) -> {
-              throw new IllegalStateException();
-            })
+        .createMessage((messageType, payload) -> {
+          throw new IllegalStateException();
+        })
         .setPosition(seekPositionMs - 1)
         .send();
     player.pause();
@@ -7016,12 +7012,11 @@ public final class ExoPlayerTest {
                     windowCounts[0] = player.getCurrentTimeline().getWindowCount();
                   }
                 })
-            .executeRunnable(
-                () ->
-                    concatenatingMediaSource.addMediaSources(
-                        Arrays.asList(
-                            new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
-                            new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT))))
+            .executeRunnable(() ->
+                concatenatingMediaSource.addMediaSources(
+                    Arrays.asList(
+                        new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
+                        new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT))))
             .waitForTimelineChanged()
             .executeRunnable(
                 new PlayerRunnable() {
@@ -7088,12 +7083,11 @@ public final class ExoPlayerTest {
                     windowCounts[0] = player.getCurrentTimeline().getWindowCount();
                   }
                 })
-            .executeRunnable(
-                () ->
-                    concatenatingMediaSource.addMediaSources(
-                        Arrays.asList(
-                            new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
-                            new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT))))
+            .executeRunnable(() ->
+                concatenatingMediaSource.addMediaSources(
+                    Arrays.asList(
+                        new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
+                        new FakeMediaSource(fakeTimeline, ExoPlayerTestRunner.VIDEO_FORMAT))))
             .waitForTimelineChanged()
             .executeRunnable(
                 new PlayerRunnable() {
@@ -8980,21 +8974,17 @@ public final class ExoPlayerTest {
     long firstSampleTimeUs = 4_567_890 + 1_234_567;
     FakeMediaSource firstMediaSource =
         new FakeMediaSource.Builder()
-            .setTrackDataFactory(
-                (unusedFormat, unusedMediaPeriodId) ->
-                    ImmutableList.of(
-                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM))
+            .setTrackDataFactory((unusedFormat, unusedMediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM))
             .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
             .build();
     FakeMediaSource secondMediaSource =
         new FakeMediaSource.Builder()
             .setTimeline(timelineWithOffsets)
-            .setTrackDataFactory(
-                (unusedFormat, unusedMediaPeriodId) ->
-                    ImmutableList.of(
-                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM))
+            .setTrackDataFactory((unusedFormat, unusedMediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM))
             .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
             .build();
     player.setMediaSources(ImmutableList.of(firstMediaSource, secondMediaSource));
@@ -12368,18 +12358,17 @@ public final class ExoPlayerTest {
       throws Exception {
     AtomicReference<Player> playerReference = new AtomicReference<>();
     Thread builderThread =
-        new Thread(
-            () -> {
-              ExoPlayer player =
-                  new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
-              player.addListener(new Listener() {});
-              player.addAnalyticsListener(new AnalyticsListener() {});
-              player.addAudioOffloadListener(new ExoPlayer.AudioOffloadListener() {});
-              player.getClock();
-              player.getApplicationLooper();
-              player.getPlaybackLooper();
-              playerReference.set(player);
-            });
+        new Thread(() -> {
+          ExoPlayer player =
+              new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
+          player.addListener(new Listener() {});
+          player.addAnalyticsListener(new AnalyticsListener() {});
+          player.addAudioOffloadListener(new ExoPlayer.AudioOffloadListener() {});
+          player.getClock();
+          player.getApplicationLooper();
+          player.getPlaybackLooper();
+          playerReference.set(player);
+        });
     AtomicReference<Throwable> builderThrow = new AtomicReference<>();
     builderThread.setUncaughtExceptionHandler((thread, throwable) -> builderThrow.set(throwable));
 
@@ -14596,10 +14585,9 @@ public final class ExoPlayerTest {
 
     advance(player).untilState(Player.STATE_READY);
     player
-        .createMessage(
-            (message, payload) -> {
-              throw new IllegalStateException();
-            })
+        .createMessage((message, payload) -> {
+          throw new IllegalStateException();
+        })
         .send();
     advance(player).untilPlayerError();
     liveSource.setNewSourceInfo(liveTimeline2);
@@ -15114,17 +15102,15 @@ public final class ExoPlayerTest {
     MediaSource sourceA =
         new FakeMediaSource.Builder()
             .setTimeline(periodTimeline)
-            .setTrackDataFactory(
-                (unusedFormat, unusedMediaPeriodId) ->
-                    ImmutableList.of(
-                        oneByteSample(
-                            TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(
-                            TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US
-                                + 300_000,
-                            C.BUFFER_FLAG_KEY_FRAME),
-                        END_OF_STREAM_ITEM))
+            .setTrackDataFactory((unusedFormat, unusedMediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(
+                        TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                        C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(
+                        TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US + 300_000,
+                        C.BUFFER_FLAG_KEY_FRAME),
+                    END_OF_STREAM_ITEM))
             .setFormats(formatAac)
             .build();
     MediaSource sourceB = new FakeMediaSource(periodTimeline, formatOpus);
@@ -15937,15 +15923,14 @@ public final class ExoPlayerTest {
     FakeMediaSource mediaSource1 =
         new FakeMediaSource.Builder()
             .setTimeline(periodTimeline)
-            .setTrackDataFactory(
-                (format, mediaPeriodId) ->
-                    format.equals(videoFormat1)
-                        ? ImmutableList.of(
-                            oneByteSample(0, C.BUFFER_FLAG_KEY_FRAME),
-                            oneByteSample(300_000, C.BUFFER_FLAG_KEY_FRAME),
-                            END_OF_STREAM_ITEM)
-                        : ImmutableList.of(
-                            oneByteSample(0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM))
+            .setTrackDataFactory((format, mediaPeriodId) ->
+                format.equals(videoFormat1)
+                    ? ImmutableList.of(
+                        oneByteSample(0, C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(300_000, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM)
+                    : ImmutableList.of(
+                        oneByteSample(0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM))
             .setFormats(videoFormat1, audioFormat1)
             .build();
     FakeMediaSource mediaSource2 = new FakeMediaSource(periodTimeline, videoFormat2, audioFormat2);
@@ -16170,11 +16155,10 @@ public final class ExoPlayerTest {
             return new DefaultAudioSink.Builder(context)
                 .setAudioOutputProvider(
                     new AudioTrackAudioOutputProvider.Builder(context)
-                        .setAudioTrackBuilderModifier(
-                            (builder, outputConfig) -> {
-                              audioTrackCreateCount.incrementAndGet();
-                              builder.setSessionId(1234);
-                            })
+                        .setAudioTrackBuilderModifier((builder, outputConfig) -> {
+                          audioTrackCreateCount.incrementAndGet();
+                          builder.setSessionId(1234);
+                        })
                         .build())
                 .build();
           }
@@ -16190,13 +16174,12 @@ public final class ExoPlayerTest {
     MediaSource source =
         new FakeMediaSource.Builder()
             .setTimeline(timeline)
-            .setTrackDataFactory(
-                (format, mediaPeriodId) ->
-                    ImmutableList.of(
-                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(firstSampleTimeUs + 10),
-                        oneByteSample(firstSampleTimeUs + 20),
-                        END_OF_STREAM_ITEM))
+            .setTrackDataFactory((format, mediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(firstSampleTimeUs + 10),
+                    oneByteSample(firstSampleTimeUs + 20),
+                    END_OF_STREAM_ITEM))
             .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
             .build();
     Player.Listener listener = mock(Player.Listener.class);
@@ -16925,21 +16908,19 @@ public final class ExoPlayerTest {
     stream(shadowAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS))
         .filter(audioDeviceInfo -> deviceType == audioDeviceInfo.getType())
         .findFirst()
-        .ifPresent(
-            filteredAudioDeviceInfo ->
-                shadowAudioManager.removeOutputDevice(
-                    filteredAudioDeviceInfo, /* notifyAudioDeviceCallbacks= */ true));
+        .ifPresent(filteredAudioDeviceInfo ->
+            shadowAudioManager.removeOutputDevice(
+                filteredAudioDeviceInfo, /* notifyAudioDeviceCallbacks= */ true));
   }
 
   private void triggerAudioFocusChangeListener(ExoPlayer player, int focusChange) {
     AudioManager audioManager = context.getSystemService(AudioManager.class);
     new Handler(player.getPlaybackLooper())
-        .post(
-            () ->
-                shadowOf(audioManager)
-                    .getLastAudioFocusRequest()
-                    .listener
-                    .onAudioFocusChange(focusChange));
+        .post(() ->
+            shadowOf(audioManager)
+                .getLastAudioFocusRequest()
+                .listener
+                .onAudioFocusChange(focusChange));
   }
 
   private static ActionSchedule.Builder addSurfaceSwitch(ActionSchedule.Builder builder) {

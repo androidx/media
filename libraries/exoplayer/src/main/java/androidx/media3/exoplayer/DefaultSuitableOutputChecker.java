@@ -103,37 +103,34 @@ import org.jspecify.annotations.Nullable;
               clock,
               /* onStateChanged= */ (oldState, newState) ->
                   callback.onSelectedOutputSuitabilityChanged(newState));
-      isSuitableForPlaybackState.runInBackground(
-          () -> {
-            checkNotNull(isSuitableForPlaybackState);
-            router = MediaRouter2.getInstance(context);
-            routeCallback = new RouteCallback() {};
-            Executor backgroundExecutor = isSuitableForPlaybackState::runInBackground;
-            router.registerRouteCallback(
-                backgroundExecutor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
-            controllerCallback =
-                new ControllerCallback() {
-                  @Override
-                  public void onControllerUpdated(RoutingController controller) {
-                    isSuitableForPlaybackState.setStateInBackground(
-                        isSelectedOutputSuitableForPlayback(router));
-                  }
-                };
-            router.registerControllerCallback(backgroundExecutor, controllerCallback);
-            isSuitableForPlaybackState.setStateInBackground(
-                isSelectedOutputSuitableForPlayback(router));
-          });
+      isSuitableForPlaybackState.runInBackground(() -> {
+        checkNotNull(isSuitableForPlaybackState);
+        router = MediaRouter2.getInstance(context);
+        routeCallback = new RouteCallback() {};
+        Executor backgroundExecutor = isSuitableForPlaybackState::runInBackground;
+        router.registerRouteCallback(backgroundExecutor, routeCallback, EMPTY_DISCOVERY_PREFERENCE);
+        controllerCallback =
+            new ControllerCallback() {
+              @Override
+              public void onControllerUpdated(RoutingController controller) {
+                isSuitableForPlaybackState.setStateInBackground(
+                    isSelectedOutputSuitableForPlayback(router));
+              }
+            };
+        router.registerControllerCallback(backgroundExecutor, controllerCallback);
+        isSuitableForPlaybackState.setStateInBackground(
+            isSelectedOutputSuitableForPlayback(router));
+      });
     }
 
     @Override
     public void disable() {
       checkNotNull(isSuitableForPlaybackState)
-          .runInBackground(
-              () -> {
-                checkNotNull(router).unregisterControllerCallback(checkNotNull(controllerCallback));
-                controllerCallback = null;
-                router.unregisterRouteCallback(checkNotNull(routeCallback));
-              });
+          .runInBackground(() -> {
+            checkNotNull(router).unregisterControllerCallback(checkNotNull(controllerCallback));
+            controllerCallback = null;
+            router.unregisterRouteCallback(checkNotNull(routeCallback));
+          });
     }
 
     @Override
@@ -190,45 +187,42 @@ import org.jspecify.annotations.Nullable;
               clock,
               /* onStateChanged= */ (oldState, newState) ->
                   callback.onSelectedOutputSuitabilityChanged(newState));
-      isSuitableForPlaybackState.runInBackground(
-          () -> {
-            checkNotNull(isSuitableForPlaybackState);
-            if (!Util.isWear(context)) {
-              return;
-            }
-            AudioManager audioManager =
-                (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-            if (audioManager == null) {
-              return;
-            }
-            this.audioManager = audioManager;
-            audioDeviceCallback =
-                new AudioDeviceCallback() {
-                  @Override
-                  public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-                    isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
-                  }
+      isSuitableForPlaybackState.runInBackground(() -> {
+        checkNotNull(isSuitableForPlaybackState);
+        if (!Util.isWear(context)) {
+          return;
+        }
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager == null) {
+          return;
+        }
+        this.audioManager = audioManager;
+        audioDeviceCallback =
+            new AudioDeviceCallback() {
+              @Override
+              public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+                isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
+              }
 
-                  @Override
-                  public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-                    isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
-                  }
-                };
-            audioManager.registerAudioDeviceCallback(
-                audioDeviceCallback, new Handler(checkNotNull(Looper.myLooper())));
-            isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
-          });
+              @Override
+              public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+                isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
+              }
+            };
+        audioManager.registerAudioDeviceCallback(
+            audioDeviceCallback, new Handler(checkNotNull(Looper.myLooper())));
+        isSuitableForPlaybackState.setStateInBackground(hasSupportedAudioOutput());
+      });
     }
 
     @Override
     public void disable() {
       checkNotNull(isSuitableForPlaybackState)
-          .runInBackground(
-              () -> {
-                if (audioManager != null) {
-                  audioManager.unregisterAudioDeviceCallback(checkNotNull(audioDeviceCallback));
-                }
-              });
+          .runInBackground(() -> {
+            if (audioManager != null) {
+              audioManager.unregisterAudioDeviceCallback(checkNotNull(audioDeviceCallback));
+            }
+          });
     }
 
     @Override

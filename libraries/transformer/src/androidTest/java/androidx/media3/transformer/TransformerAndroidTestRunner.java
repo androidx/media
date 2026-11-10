@@ -162,28 +162,27 @@ public final class TransformerAndroidTestRunner {
     SettableFuture<ExportTestResult> completionFuture = SettableFuture.create();
     String outputFilePath = createOutputFile(testId).getAbsolutePath();
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              transformer.addListener(
-                  new Transformer.Listener() {
-                    @Override
-                    public void onCompleted(Composition composition, ExportResult exportResult) {
-                      completionFuture.set(
-                          new ExportTestResult.Builder(exportResult)
-                              .setFilePath(outputFilePath)
-                              .build());
-                    }
+        .runOnMainSync(() -> {
+          transformer.addListener(
+              new Transformer.Listener() {
+                @Override
+                public void onCompleted(Composition composition, ExportResult exportResult) {
+                  completionFuture.set(
+                      new ExportTestResult.Builder(exportResult)
+                          .setFilePath(outputFilePath)
+                          .build());
+                }
 
-                    @Override
-                    public void onError(
-                        Composition composition,
-                        ExportResult exportResult,
-                        ExportException exportException) {
-                      completionFuture.setException(exportException);
-                    }
-                  });
-              transformer.start(editedMediaItem, outputFilePath);
-            });
+                @Override
+                public void onError(
+                    Composition composition,
+                    ExportResult exportResult,
+                    ExportException exportException) {
+                  completionFuture.setException(exportException);
+                }
+              });
+          transformer.start(editedMediaItem, outputFilePath);
+        });
 
     return completionFuture;
   }
@@ -326,29 +325,28 @@ public final class TransformerAndroidTestRunner {
 
     File outputVideoFile = createOutputFile(testId);
     InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                String outputFilePath = outputVideoFile.getAbsolutePath();
-                if (oldFilePath != null) {
-                  testTransformer.resume((Composition) mediaInput, outputFilePath, oldFilePath);
-                } else if (mediaInput instanceof Composition) {
-                  testTransformer.start((Composition) mediaInput, outputFilePath);
-                } else if (mediaInput instanceof EditedMediaItem) {
-                  testTransformer.start((EditedMediaItem) mediaInput, outputFilePath);
-                } else if (mediaInput instanceof MediaItem) {
-                  testTransformer.start((MediaItem) mediaInput, outputFilePath);
-                } else {
-                  throw new IllegalArgumentException(
-                      "Unsupported mediaInput type: " + mediaInput.getClass().getName());
-                }
-                // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
-                // propagate.
-              } catch (Exception e) {
-                unexpectedExceptionReference.set(e);
-                countDownLatch.countDown();
-              }
-            });
+        .runOnMainSync(() -> {
+          try {
+            String outputFilePath = outputVideoFile.getAbsolutePath();
+            if (oldFilePath != null) {
+              testTransformer.resume((Composition) mediaInput, outputFilePath, oldFilePath);
+            } else if (mediaInput instanceof Composition) {
+              testTransformer.start((Composition) mediaInput, outputFilePath);
+            } else if (mediaInput instanceof EditedMediaItem) {
+              testTransformer.start((EditedMediaItem) mediaInput, outputFilePath);
+            } else if (mediaInput instanceof MediaItem) {
+              testTransformer.start((MediaItem) mediaInput, outputFilePath);
+            } else {
+              throw new IllegalArgumentException(
+                  "Unsupported mediaInput type: " + mediaInput.getClass().getName());
+            }
+            // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
+            // propagate.
+          } catch (Exception e) {
+            unexpectedExceptionReference.set(e);
+            countDownLatch.countDown();
+          }
+        });
 
     awaitTransformerCompletion(countDownLatch, unexpectedExceptionReference);
 

@@ -44,7 +44,7 @@ public class PassthroughShaderProgram implements GlShaderProgram {
   public PassthroughShaderProgram() {
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
-    errorListener = (frameProcessingException) -> {};
+    errorListener = frameProcessingException -> {};
     errorListenerExecutor = MoreExecutors.directExecutor();
     texIdInUse = C.INDEX_UNSET;
   }

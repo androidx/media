@@ -444,10 +444,9 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       }
     }
 
-    listenerExecutor.execute(
-        () ->
-            listener.onFrameAboutToBeRendered(
-                frame.getContentTimeUs(), releaseTimeNs, frame.getFormat()));
+    listenerExecutor.execute(() ->
+        listener.onFrameAboutToBeRendered(
+            frame.getContentTimeUs(), releaseTimeNs, frame.getFormat()));
   }
 
   /**
@@ -477,10 +476,9 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
             hardwareBufferNativeHelpers.nativeCopyHardwareBufferToHardwareBuffer(
                 hardwareBufferFrame.getHardwareBuffer(), imageWriterHardwareBuffer);
         if (!copySuccess) {
-          listenerExecutor.execute(
-              () ->
-                  listener.onError(
-                      new VideoFrameProcessingException("Failed to copy HardwareBuffer via JNI.")));
+          listenerExecutor.execute(() ->
+              listener.onError(
+                  new VideoFrameProcessingException("Failed to copy HardwareBuffer via JNI.")));
           releaseFrameResources(hardwareBufferFrame);
           return false;
         }

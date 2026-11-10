@@ -148,14 +148,13 @@ import org.jspecify.annotations.Nullable;
     // Not running on the executor service thread. Block until task.run() returns.
     try {
       Future<?> taskFuture =
-          singleThreadExecutorService.submit(
-              () -> {
-                try {
-                  task.run();
-                } catch (Exception e) {
-                  handleException(e);
-                }
-              });
+          singleThreadExecutorService.submit(() -> {
+            try {
+              task.run();
+            } catch (Exception e) {
+              handleException(e);
+            }
+          });
       taskFuture.get(EXECUTOR_SERVICE_TIMEOUT_MS, MILLISECONDS);
     } catch (RuntimeException | ExecutionException | TimeoutException e) {
       handleException(e);
@@ -268,31 +267,30 @@ import org.jspecify.annotations.Nullable;
 
   private Future<?> wrapTaskAndSubmitToExecutorService(
       Task defaultPriorityTask, boolean isCancellable) {
-    return singleThreadExecutorService.submit(
-        () -> {
-          try {
-            synchronized (lock) {
-              if (shouldCancelTasks && isCancellable) {
-                return;
-              }
-            }
-
-            @Nullable Task nextHighPriorityTask;
-            while (true) {
-              synchronized (lock) {
-                // Lock only polling to prevent blocking the public method calls.
-                nextHighPriorityTask = highPriorityTasks.poll();
-              }
-              if (nextHighPriorityTask == null) {
-                break;
-              }
-              nextHighPriorityTask.run();
-            }
-            defaultPriorityTask.run();
-          } catch (Exception e) {
-            handleException(e);
+    return singleThreadExecutorService.submit(() -> {
+      try {
+        synchronized (lock) {
+          if (shouldCancelTasks && isCancellable) {
+            return;
           }
-        });
+        }
+
+        @Nullable Task nextHighPriorityTask;
+        while (true) {
+          synchronized (lock) {
+            // Lock only polling to prevent blocking the public method calls.
+            nextHighPriorityTask = highPriorityTasks.poll();
+          }
+          if (nextHighPriorityTask == null) {
+            break;
+          }
+          nextHighPriorityTask.run();
+        }
+        defaultPriorityTask.run();
+      } catch (Exception e) {
+        handleException(e);
+      }
+    });
   }
 
   private void handleException(Exception exception) {

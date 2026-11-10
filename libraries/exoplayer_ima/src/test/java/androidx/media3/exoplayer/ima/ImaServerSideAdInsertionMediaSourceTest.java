@@ -209,20 +209,18 @@ public class ImaServerSideAdInsertionMediaSourceTest {
           throws Exception {
     AtomicReference<VideoStreamPlayer> videoStreamPlayerRef = new AtomicReference<>();
     when(mockImaFactory.createAdsLoader(any(), any(), any(StreamDisplayContainer.class)))
-        .thenAnswer(
-            invocation -> {
-              StreamDisplayContainer container = invocation.getArgument(2);
-              videoStreamPlayerRef.set(container.getVideoStreamPlayer());
-              return mockAdsLoader;
-            });
+        .thenAnswer(invocation -> {
+          StreamDisplayContainer container = invocation.getArgument(2);
+          videoStreamPlayerRef.set(container.getVideoStreamPlayer());
+          return mockAdsLoader;
+        });
     when(mockAdsLoader.requestStream(any()))
-        .thenAnswer(
-            invocation -> {
-              videoStreamPlayerRef
-                  .get()
-                  .loadUrl("https://example.com/manifest.mpd", ImmutableList.of());
-              return null;
-            });
+        .thenAnswer(invocation -> {
+          videoStreamPlayerRef
+              .get()
+              .loadUrl("https://example.com/manifest.mpd", ImmutableList.of());
+          return null;
+        });
     AdPlaybackState adPlaybackState =
         ServerSideAdInsertionUtil.addAdGroupToAdPlaybackState(
                 new AdPlaybackState("2"),
@@ -331,13 +329,12 @@ public class ImaServerSideAdInsertionMediaSourceTest {
   private void setupMocks() {
     AtomicReference<StreamDisplayContainer> displayContainer = new AtomicReference<>();
     when(mockImaFactory.createAdsLoader(any(), any(), any(StreamDisplayContainer.class)))
-        .thenAnswer(
-            invocation -> {
-              StreamDisplayContainer container = invocation.getArgument(2);
-              displayContainer.set(container);
-              container.getVideoStreamPlayer().addCallback(mockStreamPlayerCallback);
-              return mockAdsLoader;
-            });
+        .thenAnswer(invocation -> {
+          StreamDisplayContainer container = invocation.getArgument(2);
+          displayContainer.set(container);
+          container.getVideoStreamPlayer().addCallback(mockStreamPlayerCallback);
+          return mockAdsLoader;
+        });
     List<AdsLoadedListener> adsLoadedListeners = new ArrayList<>();
     doAnswer(
             invocation -> {

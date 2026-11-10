@@ -878,50 +878,49 @@ import org.jspecify.annotations.Nullable;
       Log.d(TAG, "RemoteUserInfo is null, ignoring command=" + command);
       return;
     }
-    postOrRunOnApplicationHandler(
-        () ->
-            handleControllerTaskOnHandler(
-                remoteUserInfo,
-                controller -> {
-                  if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
-                    if (command == COMMAND_PLAY_PAUSE
-                        && !sessionImpl.getPlayerWrapper().getPlayWhenReady()) {
-                      Log.w(
-                          TAG,
-                          "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available."
-                              + " If this play command has started the service for instance for"
-                              + " playback resumption, this may prevent the service from being"
-                              + " started into the foreground.");
-                    }
-                    return;
-                  }
-                  int resultCode = sessionImpl.onPlayerCommandRequestOnHandler(controller, command);
-                  if (resultCode != RESULT_SUCCESS) {
-                    // Don't run rejected command.
-                    return;
-                  }
+    postOrRunOnApplicationHandler(() ->
+        handleControllerTaskOnHandler(
+            remoteUserInfo,
+            controller -> {
+              if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
+                if (command == COMMAND_PLAY_PAUSE
+                    && !sessionImpl.getPlayerWrapper().getPlayWhenReady()) {
+                  Log.w(
+                      TAG,
+                      "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available."
+                          + " If this play command has started the service for instance for"
+                          + " playback resumption, this may prevent the service from being"
+                          + " started into the foreground.");
+                }
+                return;
+              }
+              int resultCode = sessionImpl.onPlayerCommandRequestOnHandler(controller, command);
+              if (resultCode != RESULT_SUCCESS) {
+                // Don't run rejected command.
+                return;
+              }
 
-                  sessionImpl
-                      .callWithControllerForCurrentRequestSet(
-                          controller,
-                          () -> {
-                            try {
-                              task.run(controller);
-                            } catch (RemoteException e) {
-                              // That's TransactionTooLargeException or DeadSystemException.
-                              // We'd better to leave log for those cases because
-                              //   - TransactionTooLargeException means that we may need to fix our
-                              //     code (e.g. add pagination or special way to deliver Bitmap).
-                              //   - DeadSystemException means that errors around it can be ignored.
-                              Log.w(TAG, "Exception in " + controller, e);
-                            }
-                          })
-                      .run();
-                  if (callOnPlayerInteractionFinished) {
-                    sessionImpl.onPlayerInteractionFinishedOnHandler(
-                        controller, new Player.Commands.Builder().add(command).build());
-                  }
-                }));
+              sessionImpl
+                  .callWithControllerForCurrentRequestSet(
+                      controller,
+                      () -> {
+                        try {
+                          task.run(controller);
+                        } catch (RemoteException e) {
+                          // That's TransactionTooLargeException or DeadSystemException.
+                          // We'd better to leave log for those cases because
+                          //   - TransactionTooLargeException means that we may need to fix our
+                          //     code (e.g. add pagination or special way to deliver Bitmap).
+                          //   - DeadSystemException means that errors around it can be ignored.
+                          Log.w(TAG, "Exception in " + controller, e);
+                        }
+                      })
+                  .run();
+              if (callOnPlayerInteractionFinished) {
+                sessionImpl.onPlayerInteractionFinishedOnHandler(
+                    controller, new Player.Commands.Builder().add(command).build());
+              }
+            }));
   }
 
   private void dispatchSessionTaskWithSetRatingSessionCommand(Rating rating) {
@@ -958,33 +957,32 @@ import org.jspecify.annotations.Nullable;
               + (sessionCommand == null ? commandCode : sessionCommand));
       return;
     }
-    postOrRunOnApplicationHandler(
-        () ->
-            handleControllerTaskOnHandler(
-                remoteUserInfo,
-                controller -> {
-                  if (sessionCommand != null) {
-                    if (!connectedControllersManager.isSessionCommandAvailable(
-                        controller, sessionCommand)) {
-                      return;
-                    }
-                  } else {
-                    if (!connectedControllersManager.isSessionCommandAvailable(
-                        controller, commandCode)) {
-                      return;
-                    }
-                  }
-                  try {
-                    task.run(controller);
-                  } catch (RemoteException e) {
-                    // That's TransactionTooLargeException or DeadSystemException.
-                    // We'd better to leave log for those cases because
-                    //   - TransactionTooLargeException means that we may need to fix our code (e.g.
-                    //     add pagination or special way to deliver Bitmap).
-                    //   - DeadSystemException means that errors around it can be ignored.
-                    Log.w(TAG, "Exception in " + controller, e);
-                  }
-                }));
+    postOrRunOnApplicationHandler(() ->
+        handleControllerTaskOnHandler(
+            remoteUserInfo,
+            controller -> {
+              if (sessionCommand != null) {
+                if (!connectedControllersManager.isSessionCommandAvailable(
+                    controller, sessionCommand)) {
+                  return;
+                }
+              } else {
+                if (!connectedControllersManager.isSessionCommandAvailable(
+                    controller, commandCode)) {
+                  return;
+                }
+              }
+              try {
+                task.run(controller);
+              } catch (RemoteException e) {
+                // That's TransactionTooLargeException or DeadSystemException.
+                // We'd better to leave log for those cases because
+                //   - TransactionTooLargeException means that we may need to fix our code (e.g.
+                //     add pagination or special way to deliver Bitmap).
+                //   - DeadSystemException means that errors around it can be ignored.
+                Log.w(TAG, "Exception in " + controller, e);
+              }
+            }));
   }
 
   private void dispatchCustomCommandAsPredefinedCommand(SessionCommand command) {
@@ -1122,14 +1120,13 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void updateLegacySessionPlaybackStateAndQueue(PlayerWrapper playerWrapper) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper));
-          controllerLegacyCbForBroadcast.updateQueue(
-              playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE)
-                  ? playerWrapper.getCurrentTimeline()
-                  : Timeline.EMPTY);
-        });
+    postOrRunOnApplicationHandler(() -> {
+      sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper));
+      controllerLegacyCbForBroadcast.updateQueue(
+          playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE)
+              ? playerWrapper.getCurrentTimeline()
+              : Timeline.EMPTY);
+    });
   }
 
   private void handleMediaRequest(MediaItem mediaItem, boolean play) {

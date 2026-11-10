@@ -237,9 +237,8 @@ public final class SequenceEffectTestUtil {
       Context context, MediaCodecInfo decoderMediaCodecInfo) {
     Codec.DecoderFactory decoderFactory =
         new DefaultDecoderFactory.Builder(context)
-            .setMediaCodecSelector(
-                (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
-                    ImmutableList.of(decoderMediaCodecInfo))
+            .setMediaCodecSelector((mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+                ImmutableList.of(decoderMediaCodecInfo))
             .build();
     AssetLoader.Factory assetLoaderFactory =
         new DefaultAssetLoaderFactory(

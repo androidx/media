@@ -65,6 +65,8 @@
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
         instead.
+    *   Remove `UnrecognizedInputFormatException(String, Uri)`. Use
+        `UnrecognizedInputFormatException(String, Uri, List)` instead.
 
 ## 1.12
 

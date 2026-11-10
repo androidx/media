@@ -133,10 +133,9 @@ import org.jspecify.annotations.Nullable;
   }
 
   public void clearReplicatedLibraryError() {
-    postOrRunOnApplicationHandler(
-        () -> {
-          getMediaSessionLegacyStub().clearLegacyErrorStatus();
-        });
+    postOrRunOnApplicationHandler(() -> {
+      getMediaSessionLegacyStub().clearLegacyErrorStatus();
+    });
   }
 
   public ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRootOnHandler(
@@ -270,14 +269,12 @@ import org.jspecify.annotations.Nullable;
 
   public void notifyChildrenChanged(
       String parentId, int itemCount, @Nullable LibraryParams params) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          List<ControllerInfo> connectedControllers = instance.getConnectedControllers();
-          for (int i = 0; i < connectedControllers.size(); i++) {
-            notifyChildrenChangedOnHandler(
-                connectedControllers.get(i), parentId, itemCount, params);
-          }
-        });
+    postOrRunOnApplicationHandler(() -> {
+      List<ControllerInfo> connectedControllers = instance.getConnectedControllers();
+      for (int i = 0; i < connectedControllers.size(); i++) {
+        notifyChildrenChangedOnHandler(connectedControllers.get(i), parentId, itemCount, params);
+      }
+    });
   }
 
   public void notifyChildrenChanged(
@@ -344,21 +341,20 @@ import org.jspecify.annotations.Nullable;
 
   public void notifySearchResultChanged(
       ControllerInfo browser, String query, int itemCount, @Nullable LibraryParams params) {
-    postOrRunOnApplicationHandler(
-        () -> {
-          ControllerInfo actualBrowser = browser;
-          if (isMediaNotificationControllerConnected()
-              && isMediaNotificationController(actualBrowser)) {
-            ControllerInfo systemUiBrowser = getSystemUiControllerInfo();
-            if (systemUiBrowser == null) {
-              return;
-            }
-            actualBrowser = systemUiBrowser;
-          }
-          dispatchRemoteControllerTaskWithoutReturn(
-              actualBrowser,
-              (callback, seq) -> callback.onSearchResultChanged(seq, query, itemCount, params));
-        });
+    postOrRunOnApplicationHandler(() -> {
+      ControllerInfo actualBrowser = browser;
+      if (isMediaNotificationControllerConnected()
+          && isMediaNotificationController(actualBrowser)) {
+        ControllerInfo systemUiBrowser = getSystemUiControllerInfo();
+        if (systemUiBrowser == null) {
+          return;
+        }
+        actualBrowser = systemUiBrowser;
+      }
+      dispatchRemoteControllerTaskWithoutReturn(
+          actualBrowser,
+          (callback, seq) -> callback.onSearchResultChanged(seq, query, itemCount, params));
+    });
   }
 
   @Override

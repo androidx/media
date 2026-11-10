@@ -149,11 +149,10 @@ public class MainActivity extends AppCompatActivity
     View dialogList = getLayoutInflater().inflate(R.layout.sample_list, null);
     ListView sampleList = dialogList.findViewById(R.id.sample_list);
     sampleList.setAdapter(new SampleListAdapter(this));
-    sampleList.setOnItemClickListener(
-        (parent, view, position, id) -> {
-          playerManager.addItem(DemoUtil.SAMPLES.get(position));
-          mediaQueueListAdapter.notifyItemInserted(playerManager.getMediaQueueSize() - 1);
-        });
+    sampleList.setOnItemClickListener((parent, view, position, id) -> {
+      playerManager.addItem(DemoUtil.SAMPLES.get(position));
+      mediaQueueListAdapter.notifyItemInserted(playerManager.getMediaQueueSize() - 1);
+    });
     return dialogList;
   }
 

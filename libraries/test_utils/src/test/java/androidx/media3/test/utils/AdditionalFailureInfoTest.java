@@ -52,17 +52,16 @@ public final class AdditionalFailureInfoTest {
 
     // Check that the original AssertionError is removed from the chain, and its (augmented) message
     // and stack trace is set on the new one.
-    expectedException.setAssertions(
-        throwable -> {
-          assertThat(throwable).isInstanceOf(AssertionError.class);
-          assertThat(throwable)
-              .hasMessageThat()
-              .isEqualTo("extra info\n" + originalAssertionError.getMessage());
-          assertThat(throwable).hasCauseThat().isNull();
-          assertThat(throwable.getStackTrace()).isEqualTo(originalAssertionError.getStackTrace());
-          assertThat(throwable.toString()).startsWith("extra info");
-          assertThat(throwable.toString()).doesNotContain("AssertionError");
-        });
+    expectedException.setAssertions(throwable -> {
+      assertThat(throwable).isInstanceOf(AssertionError.class);
+      assertThat(throwable)
+          .hasMessageThat()
+          .isEqualTo("extra info\n" + originalAssertionError.getMessage());
+      assertThat(throwable).hasCauseThat().isNull();
+      assertThat(throwable.getStackTrace()).isEqualTo(originalAssertionError.getStackTrace());
+      assertThat(throwable.toString()).startsWith("extra info");
+      assertThat(throwable.toString()).doesNotContain("AssertionError");
+    });
 
     throw originalAssertionError;
   }
@@ -73,17 +72,16 @@ public final class AdditionalFailureInfoTest {
 
     additionalFailureInfo.setInfo("extra info");
 
-    expectedException.setAssertions(
-        throwable -> {
-          assertThat(throwable).hasMessageThat().isEqualTo("extra info");
-          // Note: Deliberately not using instanceof since we don't want to allow subclasses.
-          assertThat(throwable.getClass()).isEqualTo(Exception.class);
-          assertThat(throwable).hasCauseThat().isSameInstanceAs(originalException);
-          assertThat(throwable.getStackTrace()).hasLength(1);
-          // The exception is thrown from an anonymous inner class, so just check the prefix.
-          assertThat(throwable.getStackTrace()[0].getClassName())
-              .startsWith(AdditionalFailureInfo.class.getCanonicalName());
-        });
+    expectedException.setAssertions(throwable -> {
+      assertThat(throwable).hasMessageThat().isEqualTo("extra info");
+      // Note: Deliberately not using instanceof since we don't want to allow subclasses.
+      assertThat(throwable.getClass()).isEqualTo(Exception.class);
+      assertThat(throwable).hasCauseThat().isSameInstanceAs(originalException);
+      assertThat(throwable.getStackTrace()).hasLength(1);
+      // The exception is thrown from an anonymous inner class, so just check the prefix.
+      assertThat(throwable.getStackTrace()[0].getClassName())
+          .startsWith(AdditionalFailureInfo.class.getCanonicalName());
+    });
 
     throw originalException;
   }

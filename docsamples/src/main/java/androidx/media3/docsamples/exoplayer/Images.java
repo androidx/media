@@ -92,15 +92,14 @@ public class Images {
   public static void imagesGlideDecoder(Context context) {
     // [START images_glide_decoder]
     ImageDecoder.Factory glideImageDecoderFactory =
-        new ExternallyLoadedImageDecoder.Factory(
-            request -> {
-              Point displaySize = Util.getCurrentDisplayModeSize(context);
-              return GlideFutures.submit(
-                  Glide.with(context)
-                      .asBitmap()
-                      .load(request.uri)
-                      .override(max(displaySize.x, displaySize.y)));
-            });
+        new ExternallyLoadedImageDecoder.Factory(request -> {
+          Point displaySize = Util.getCurrentDisplayModeSize(context);
+          return GlideFutures.submit(
+              Glide.with(context)
+                  .asBitmap()
+                  .load(request.uri)
+                  .override(max(displaySize.x, displaySize.y)));
+        });
     Player player =
         new ExoPlayer.Builder(context)
             .setRenderersFactory(

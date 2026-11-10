@@ -204,21 +204,19 @@ public final class RequirementsWatcher {
     }
 
     private void postCheckRequirements() {
-      handler.post(
-          () -> {
-            if (networkCallback != null) {
-              checkRequirements();
-            }
-          });
+      handler.post(() -> {
+        if (networkCallback != null) {
+          checkRequirements();
+        }
+      });
     }
 
     private void postRecheckNotMetNetworkRequirements() {
-      handler.post(
-          () -> {
-            if (networkCallback != null) {
-              recheckNotMetNetworkRequirements();
-            }
-          });
+      handler.post(() -> {
+        if (networkCallback != null) {
+          recheckNotMetNetworkRequirements();
+        }
+      });
     }
   }
 }

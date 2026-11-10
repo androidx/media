@@ -433,17 +433,15 @@ import org.jspecify.annotations.Nullable;
               /* foregroundLooper= */ applicationLooper,
               clock,
               /* onStateChanged= */ this::onAudioSessionIdChanged);
-      audioSessionIdState.runInBackground(
-          () -> {
-            int newAudioSessionId = Util.generateAudioSessionId(applicationContext);
-            if (audioSessionIdState.get() != newAudioSessionId) {
-              audioSessionIdState.setStateInBackground(newAudioSessionId);
-              // Provide the audio session ID to the renderers on playback thread to prevent race
-              // condition with player preparation.
-              internalPlayer.setAudioSessionId(
-                  newAudioSessionId, /* isInitialAudioSessionId= */ true);
-            }
-          });
+      audioSessionIdState.runInBackground(() -> {
+        int newAudioSessionId = Util.generateAudioSessionId(applicationContext);
+        if (audioSessionIdState.get() != newAudioSessionId) {
+          audioSessionIdState.setStateInBackground(newAudioSessionId);
+          // Provide the audio session ID to the renderers on playback thread to prevent race
+          // condition with player preparation.
+          internalPlayer.setAudioSessionId(newAudioSessionId, /* isInitialAudioSessionId= */ true);
+        }
+      });
       audioBecomingNoisyManager =
           new AudioBecomingNoisyManager(
               builder.context, playbackLooper, builder.looper, componentListener, clock);
@@ -3811,18 +3809,17 @@ import org.jspecify.annotations.Nullable;
         Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, PlayerId playerId) {
       HandlerWrapper playbackThreadHandler =
           player.getClock().createHandler(player.getPlaybackLooper(), /* callback= */ null);
-      playbackThreadHandler.post(
-          () -> {
-            @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
-            if (listener == null) {
-              Log.w(TAG, "MediaMetricsService unavailable.");
-              return;
-            }
-            if (usePlatformDiagnostics) {
-              player.addAnalyticsListener(listener);
-            }
-            playerId.setLogSessionId(listener.getLogSessionId());
-          });
+      playbackThreadHandler.post(() -> {
+        @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
+        if (listener == null) {
+          Log.w(TAG, "MediaMetricsService unavailable.");
+          return;
+        }
+        if (usePlatformDiagnostics) {
+          player.addAnalyticsListener(listener);
+        }
+        playerId.setLogSessionId(listener.getLogSessionId());
+      });
     }
   }
 

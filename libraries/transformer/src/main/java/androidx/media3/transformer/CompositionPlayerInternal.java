@@ -377,14 +377,13 @@ import org.jspecify.annotations.Nullable;
   private void maybeRaiseError(
       String message, Exception cause, @PlaybackException.ErrorCode int errorCode) {
     try {
-      listenerHandler.post(
-          () -> {
-            // This code runs on the application thread, hence access to the `release` field does
-            // not need to be synchronized.
-            if (!released) {
-              listener.onError(message, cause, errorCode);
-            }
-          });
+      listenerHandler.post(() -> {
+        // This code runs on the application thread, hence access to the `release` field does
+        // not need to be synchronized.
+        if (!released) {
+          listener.onError(message, cause, errorCode);
+        }
+      });
     } catch (RuntimeException e) {
       Log.e(TAG, "error", e);
     }

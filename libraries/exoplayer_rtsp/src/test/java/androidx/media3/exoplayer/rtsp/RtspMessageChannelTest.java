@@ -125,13 +125,12 @@ public final class RtspMessageChannelTest {
         SocketFactory.getDefault().createSocket(connectionUri.getHost(), connectionUri.getPort());
 
     RtspMessageChannel rtspMessageChannel =
-        new RtspMessageChannel(
-            message -> {
-              receivedRtspResponses.add(message);
-              if (receivedRtspResponses.size() == 4 && receivedInterleavedData.size() == 2) {
-                receivingFinished.set(true);
-              }
-            });
+        new RtspMessageChannel(message -> {
+          receivedRtspResponses.add(message);
+          if (receivedRtspResponses.size() == 4 && receivedInterleavedData.size() == 2) {
+            receivingFinished.set(true);
+          }
+        });
 
     rtspMessageChannel.registerInterleavedBinaryDataListener(
         /* channel= */ 0, data -> receivedInterleavedData.put(0, Bytes.asList(data)));

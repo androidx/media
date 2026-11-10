@@ -48,7 +48,7 @@ public class GlTextureFrameTest {
   public void releaseWithoutRetain_releasesFrame() {
     AtomicBoolean isReleased = new AtomicBoolean(false);
     GlTextureFrame frame =
-        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), (u) -> isReleased.set(true))
+        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), u -> isReleased.set(true))
             .build();
 
     frame.release(/* releaseFence= */ null);
@@ -60,7 +60,7 @@ public class GlTextureFrameTest {
   public void releaseAfterRetain_doesNotReleaseFrame() {
     AtomicBoolean isReleased = new AtomicBoolean(false);
     GlTextureFrame frame =
-        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), (u) -> isReleased.set(true))
+        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), u -> isReleased.set(true))
             .build();
 
     frame.retain();
@@ -73,7 +73,7 @@ public class GlTextureFrameTest {
   public void matchingReleaseAndRetainCalls_releasesFrame() {
     AtomicBoolean isReleased = new AtomicBoolean(false);
     GlTextureFrame frame =
-        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), (u) -> isReleased.set(true))
+        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), u -> isReleased.set(true))
             .build();
 
     frame.retain();
@@ -90,7 +90,7 @@ public class GlTextureFrameTest {
     AtomicInteger releaseCount = new AtomicInteger(0);
     GlTextureFrame frame =
         new GlTextureFrame.Builder(
-                TEXTURE_INFO, directExecutor(), (u) -> releaseCount.incrementAndGet())
+                TEXTURE_INFO, directExecutor(), u -> releaseCount.incrementAndGet())
             .build();
 
     frame.release(/* releaseFence= */ null);
@@ -106,7 +106,7 @@ public class GlTextureFrameTest {
   public void retainAfterRelease_throwsIllegalStateException() {
     AtomicBoolean isReleased = new AtomicBoolean(false);
     GlTextureFrame frame =
-        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), (u) -> isReleased.set(true))
+        new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), u -> isReleased.set(true))
             .build();
     frame.release(/* releaseFence= */ null);
 
@@ -125,29 +125,28 @@ public class GlTextureFrameTest {
     List<ListenableFuture<?>> futures = new ArrayList<>();
     GlTextureFrame frame =
         new GlTextureFrame.Builder(
-                TEXTURE_INFO, directExecutor(), (u) -> releaseCallbackCount.incrementAndGet())
+                TEXTURE_INFO, directExecutor(), u -> releaseCallbackCount.incrementAndGet())
             .build();
     for (int i = 0; i < threadCount - 1; i++) {
       frame.retain();
     }
     for (int i = 0; i < threadCount; i++) {
       futures.add(
-          executor.submit(
-              () -> {
-                try {
-                  startLatch.await();
-                  frame.release(/* releaseFence= */ null);
-                } catch (Exception e) {
-                  synchronized (exceptions) {
-                    exceptions.add(e);
-                  }
-                  if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                  }
-                } finally {
-                  doneLatch.countDown();
-                }
-              }));
+          executor.submit(() -> {
+            try {
+              startLatch.await();
+              frame.release(/* releaseFence= */ null);
+            } catch (Exception e) {
+              synchronized (exceptions) {
+                exceptions.add(e);
+              }
+              if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+              }
+            } finally {
+              doneLatch.countDown();
+            }
+          }));
     }
 
     startLatch.countDown();

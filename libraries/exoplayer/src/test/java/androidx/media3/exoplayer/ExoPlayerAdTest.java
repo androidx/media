@@ -2646,24 +2646,22 @@ public class ExoPlayerAdTest {
     FakeMediaSource mediaSource =
         new FakeMediaSource.Builder()
             .setTimeline(initialTimeline)
-            .setTrackDataFactory(
-                (format, mediaPeriodId) ->
-                    ImmutableList.of(
-                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
-                        oneByteSample(firstSampleTimeUs + 4_000_000)))
+            .setTrackDataFactory((format, mediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(firstSampleTimeUs + 4_000_000)))
             .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
             .build();
 
     // Set updated ad group once we reach 20 seconds, and then continue playing until 40 seconds.
     player
-        .createMessage(
-            (message, payload) ->
-                mediaSource.setNewSourceInfo(
-                    new FakeTimeline(
-                        initialTimelineWindowDefinition
-                            .buildUpon()
-                            .setAdPlaybackStates(ImmutableList.of(updatedAdPlaybackState))
-                            .build())))
+        .createMessage((message, payload) ->
+            mediaSource.setNewSourceInfo(
+                new FakeTimeline(
+                    initialTimelineWindowDefinition
+                        .buildUpon()
+                        .setAdPlaybackStates(ImmutableList.of(updatedAdPlaybackState))
+                        .build())))
         .setPosition(2_000L)
         .send();
     player.setMediaSource(mediaSource);

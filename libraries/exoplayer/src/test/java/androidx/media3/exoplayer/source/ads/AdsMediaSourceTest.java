@@ -1043,7 +1043,7 @@ public final class AdsMediaSourceTest {
     verify(mockMediaSourceCaller, times(2)).onSourceInfoRefreshed(any(), timeline.capture());
     assertThat(
             timeline.getAllValues().stream()
-                .map((t) -> t.getPeriod(/* periodIndex= */ 0, new Period()).adPlaybackState))
+                .map(t -> t.getPeriod(/* periodIndex= */ 0, new Period()).adPlaybackState))
         .containsExactly(initialAdPlaybackState, shrunkenAdPlaybackState)
         .inOrder();
   }
@@ -1159,7 +1159,7 @@ public final class AdsMediaSourceTest {
     verify(mockMediaSourceCaller, times(2)).onSourceInfoRefreshed(any(), timeline.capture());
     assertThat(
             timeline.getAllValues().stream()
-                .map((t) -> t.getPeriod(/* periodIndex= */ 0, new Period()).adPlaybackState))
+                .map(t -> t.getPeriod(/* periodIndex= */ 0, new Period()).adPlaybackState))
         .containsExactly(initialAdPlaybackState, adPlaybackStateWithDifferentMediaItem)
         .inOrder();
   }
@@ -1318,9 +1318,8 @@ public final class AdsMediaSourceTest {
         .onSourceInfoRefreshed(any(), timelineArgumentCaptor.capture());
     ImmutableList<AdPlaybackState> capturedAdPlaybackStates =
         timelineArgumentCaptor.getAllValues().stream()
-            .map(
-                timeline ->
-                    timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).adPlaybackState)
+            .map(timeline ->
+                timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).adPlaybackState)
             .collect(toImmutableList());
     // AdsMediaSource replaces durations in empty array of the first ad group with C.TIME_UNSET
     assertThat(capturedAdPlaybackStates)
@@ -1399,7 +1398,7 @@ public final class AdsMediaSourceTest {
         .onSourceInfoRefreshed(any(), timelineArgumentCaptor.capture());
     ImmutableList<AdPlaybackState> capturedAdPlaybackStates =
         timelineArgumentCaptor.getAllValues().stream()
-            .map((timeline) -> timeline.getPeriod(0, new Timeline.Period()).adPlaybackState)
+            .map(timeline -> timeline.getPeriod(0, new Timeline.Period()).adPlaybackState)
             .collect(toImmutableList());
     // Clipping mode enable: AdsMediaSource uses durations from AdPlaybackState.
     assertThat(capturedAdPlaybackStates)

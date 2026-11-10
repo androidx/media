@@ -195,18 +195,17 @@ public final class AndroidTestUtil {
       CountDownLatch countDownLatch = new CountDownLatch(1);
       AtomicReference<@Nullable Exception> unexpectedExceptionReference = new AtomicReference<>();
       InstrumentationRegistry.getInstrumentation()
-          .runOnMainSync(
-              () -> {
-                try {
-                  task.run();
-                  // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
-                  // propagate.
-                } catch (Exception e) {
-                  unexpectedExceptionReference.set(e);
-                } finally {
-                  countDownLatch.countDown();
-                }
-              });
+          .runOnMainSync(() -> {
+            try {
+              task.run();
+              // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
+              // propagate.
+            } catch (Exception e) {
+              unexpectedExceptionReference.set(e);
+            } finally {
+              countDownLatch.countDown();
+            }
+          });
 
       // Block here until timeout reached or latch is counted down.
       if (!countDownLatch.await(timeoutSeconds, SECONDS)) {

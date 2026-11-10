@@ -154,12 +154,11 @@ public class MediaCodecAudioRendererTest {
     when(audioSink.isEnded()).thenReturn(true);
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.supportsFormat(any()))
-        .thenAnswer(
-            invocation -> {
-              Format format = invocation.getArgument(/* index= */ 0, Format.class);
-              return MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)
-                  && format.pcmEncoding == C.ENCODING_PCM_16BIT;
-            });
+        .thenAnswer(invocation -> {
+          Format format = invocation.getArgument(/* index= */ 0, Format.class);
+          return MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)
+              && format.pcmEncoding == C.ENCODING_PCM_16BIT;
+        });
     when(audioSink.getFormatOffloadSupport(any()))
         .thenReturn(AudioOffloadSupport.DEFAULT_UNSUPPORTED);
     doAnswer(
@@ -1888,11 +1887,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being full when trying to write 150_000 us sample.
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
@@ -1947,11 +1945,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being full when trying to write 150_000 us sample.
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
@@ -2053,11 +2050,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being full when trying to write 150_000 us sample.
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
@@ -2109,11 +2105,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being full when trying to write 150_000 us sample.
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
@@ -2164,11 +2159,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
@@ -2218,11 +2212,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
@@ -2269,11 +2262,10 @@ public class MediaCodecAudioRendererTest {
     mediaCodecAudioRenderer.setCurrentStreamFinal();
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
@@ -2353,11 +2345,10 @@ public class MediaCodecAudioRendererTest {
     mediaCodecAudioRenderer.setCurrentStreamFinal();
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     while (!hasCalledRenderToEndOfStream.get()) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
       maybeIdleAsynchronousMediaCodecAdapterThreads();
@@ -2409,11 +2400,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being full when trying to write 150_000 us sample.
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
@@ -2476,11 +2466,10 @@ public class MediaCodecAudioRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 50_000), anyInt()))
-        .thenAnswer(
-            invocation -> {
-              audioSinkListener.get().onPositionAdvancing(0);
-              return true;
-            });
+        .thenAnswer(invocation -> {
+          audioSinkListener.get().onPositionAdvancing(0);
+          return true;
+        });
     // Represents audio sink buffers being full when trying to write 150_000 us sample.
     when(audioSink.handleBuffer(
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))

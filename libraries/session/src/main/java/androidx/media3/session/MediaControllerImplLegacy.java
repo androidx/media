@@ -1407,15 +1407,14 @@ import org.jspecify.annotations.Nullable;
 
   private void connectToSession(MediaSessionCompat.Token sessionCompatToken) {
     getInstance()
-        .runOnApplicationLooper(
-            () -> {
-              controllerCompat = new MediaControllerCompat(context, sessionCompatToken);
-              // Note: registerCallback() will invoke
-              // MediaControllerCompat.Callback#onSessionReady()
-              // if the controller is already ready.
-              controllerCompat.registerCallback(
-                  controllerCompatCallback, getInstance().applicationHandler);
-            });
+        .runOnApplicationLooper(() -> {
+          controllerCompat = new MediaControllerCompat(context, sessionCompatToken);
+          // Note: registerCallback() will invoke
+          // MediaControllerCompat.Callback#onSessionReady()
+          // if the controller is already ready.
+          controllerCompat.registerCallback(
+              controllerCompatCallback, getInstance().applicationHandler);
+        });
     // Post a delayed runnable to mark session as connected if we are working with a framework
     // session.
     getInstance()
@@ -1433,18 +1432,17 @@ import org.jspecify.annotations.Nullable;
 
   private void connectToService() {
     getInstance()
-        .runOnApplicationLooper(
-            () -> {
-              // BrowserCompat can only be used on the thread that it's created.
-              // Create it on the application looper to respect that.
-              browserCompat =
-                  new MediaBrowserCompat(
-                      context,
-                      token.getComponentName(),
-                      new ConnectionCallback(),
-                      instance.getConnectionHints());
-              browserCompat.connect();
-            });
+        .runOnApplicationLooper(() -> {
+          // BrowserCompat can only be used on the thread that it's created.
+          // Create it on the application looper to respect that.
+          browserCompat =
+              new MediaBrowserCompat(
+                  context,
+                  token.getComponentName(),
+                  new ConnectionCallback(),
+                  instance.getConnectionHints());
+          browserCompat.connect();
+        });
   }
 
   private void addQueueItems(List<MediaItem> mediaItems, int startIndex) {
@@ -1534,9 +1532,8 @@ import org.jspecify.annotations.Nullable;
     if (hasPendingExtrasChange) {
       hasPendingExtrasChange = false;
       getInstance()
-          .notifyControllerListener(
-              listener ->
-                  listener.onExtrasChanged(getInstance(), newLegacyPlayerInfo.sessionExtras));
+          .notifyControllerListener(listener ->
+              listener.onExtrasChanged(getInstance(), newLegacyPlayerInfo.sessionExtras));
     }
   }
 
@@ -1581,26 +1578,24 @@ import org.jspecify.annotations.Nullable;
           newControllerInfo.mediaButtonPreferences)) {
         getInstance()
             .applicationHandler
-            .post(
-                () ->
-                    getInstance()
-                        .notifyControllerListener(
-                            listener -> {
-                              ignoreFuture(
-                                  listener.onSetCustomLayout(
-                                      getInstance(), newControllerInfo.mediaButtonPreferences));
-                              listener.onCustomLayoutChanged(
-                                  getInstance(), newControllerInfo.mediaButtonPreferences);
-                              listener.onMediaButtonPreferencesChanged(
-                                  getInstance(), newControllerInfo.mediaButtonPreferences);
-                            }));
+            .post(() ->
+                getInstance()
+                    .notifyControllerListener(listener -> {
+                      ignoreFuture(
+                          listener.onSetCustomLayout(
+                              getInstance(), newControllerInfo.mediaButtonPreferences));
+                      listener.onCustomLayoutChanged(
+                          getInstance(), newControllerInfo.mediaButtonPreferences);
+                      listener.onMediaButtonPreferencesChanged(
+                          getInstance(), newControllerInfo.mediaButtonPreferences);
+                    }));
       }
       return;
     }
     if (!oldControllerInfo.playerInfo.timeline.equals(newControllerInfo.playerInfo.timeline)) {
       listeners.queueEvent(
           Player.EVENT_TIMELINE_CHANGED,
-          (listener) ->
+          listener ->
               listener.onTimelineChanged(
                   newControllerInfo.playerInfo.timeline,
                   newControllerInfo.playerInfo.timelineChangeReason));
@@ -1610,13 +1605,13 @@ import org.jspecify.annotations.Nullable;
         newControllerInfo.playerInfo.playlistMetadata)) {
       listeners.queueEvent(
           Player.EVENT_PLAYLIST_METADATA_CHANGED,
-          (listener) ->
+          listener ->
               listener.onPlaylistMetadataChanged(newControllerInfo.playerInfo.playlistMetadata));
     }
     if (discontinuityReason != null) {
       listeners.queueEvent(
           Player.EVENT_POSITION_DISCONTINUITY,
-          (listener) ->
+          listener ->
               listener.onPositionDiscontinuity(
                   oldControllerInfo.playerInfo.sessionPositionInfo.positionInfo,
                   newControllerInfo.playerInfo.sessionPositionInfo.positionInfo,
@@ -1625,7 +1620,7 @@ import org.jspecify.annotations.Nullable;
     if (mediaItemTransitionReason != null) {
       listeners.queueEvent(
           Player.EVENT_MEDIA_ITEM_TRANSITION,
-          (listener) ->
+          listener ->
               listener.onMediaItemTransition(
                   newControllerInfo.playerInfo.getCurrentMediaItem(), mediaItemTransitionReason));
     }
@@ -1635,27 +1630,25 @@ import org.jspecify.annotations.Nullable;
           LegacyConversions.convertToPlaybackException(
               newLegacyPlayerInfo.playbackStateCompat, context);
       listeners.queueEvent(
-          Player.EVENT_PLAYER_ERROR, (listener) -> listener.onPlayerErrorChanged(error));
+          Player.EVENT_PLAYER_ERROR, listener -> listener.onPlayerErrorChanged(error));
       if (error != null) {
-        listeners.queueEvent(
-            Player.EVENT_PLAYER_ERROR, (listener) -> listener.onPlayerError(error));
+        listeners.queueEvent(Player.EVENT_PLAYER_ERROR, listener -> listener.onPlayerError(error));
       }
     }
     if (oldLegacyPlayerInfo.mediaMetadataCompat != newLegacyPlayerInfo.mediaMetadataCompat) {
       listeners.queueEvent(
           Player.EVENT_MEDIA_METADATA_CHANGED,
-          (listener) -> listener.onMediaMetadataChanged(controllerInfo.playerInfo.mediaMetadata));
+          listener -> listener.onMediaMetadataChanged(controllerInfo.playerInfo.mediaMetadata));
     }
     if (oldControllerInfo.playerInfo.playbackState != newControllerInfo.playerInfo.playbackState) {
       listeners.queueEvent(
           Player.EVENT_PLAYBACK_STATE_CHANGED,
-          (listener) ->
-              listener.onPlaybackStateChanged(newControllerInfo.playerInfo.playbackState));
+          listener -> listener.onPlaybackStateChanged(newControllerInfo.playerInfo.playbackState));
     }
     if (oldControllerInfo.playerInfo.playWhenReady != newControllerInfo.playerInfo.playWhenReady) {
       listeners.queueEvent(
           Player.EVENT_PLAY_WHEN_READY_CHANGED,
-          (listener) ->
+          listener ->
               listener.onPlayWhenReadyChanged(
                   newControllerInfo.playerInfo.playWhenReady,
                   Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE));
@@ -1663,26 +1656,26 @@ import org.jspecify.annotations.Nullable;
     if (oldControllerInfo.playerInfo.isPlaying != newControllerInfo.playerInfo.isPlaying) {
       listeners.queueEvent(
           Player.EVENT_IS_PLAYING_CHANGED,
-          (listener) -> listener.onIsPlayingChanged(newControllerInfo.playerInfo.isPlaying));
+          listener -> listener.onIsPlayingChanged(newControllerInfo.playerInfo.isPlaying));
     }
     if (!oldControllerInfo.playerInfo.playbackParameters.equals(
         newControllerInfo.playerInfo.playbackParameters)) {
       listeners.queueEvent(
           Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
-          (listener) ->
+          listener ->
               listener.onPlaybackParametersChanged(
                   newControllerInfo.playerInfo.playbackParameters));
     }
     if (oldControllerInfo.playerInfo.repeatMode != newControllerInfo.playerInfo.repeatMode) {
       listeners.queueEvent(
           Player.EVENT_REPEAT_MODE_CHANGED,
-          (listener) -> listener.onRepeatModeChanged(newControllerInfo.playerInfo.repeatMode));
+          listener -> listener.onRepeatModeChanged(newControllerInfo.playerInfo.repeatMode));
     }
     if (oldControllerInfo.playerInfo.shuffleModeEnabled
         != newControllerInfo.playerInfo.shuffleModeEnabled) {
       listeners.queueEvent(
           Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
-          (listener) ->
+          listener ->
               listener.onShuffleModeEnabledChanged(
                   newControllerInfo.playerInfo.shuffleModeEnabled));
     }
@@ -1690,26 +1683,26 @@ import org.jspecify.annotations.Nullable;
         newControllerInfo.playerInfo.audioAttributes)) {
       listeners.queueEvent(
           Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
-          (listener) ->
+          listener ->
               listener.onAudioAttributesChanged(newControllerInfo.playerInfo.audioAttributes));
     }
     if (oldControllerInfo.playerInfo.audioSessionId
         != newControllerInfo.playerInfo.audioSessionId) {
       listeners.queueEvent(
           Player.EVENT_AUDIO_SESSION_ID,
-          (listener) ->
+          listener ->
               listener.onAudioSessionIdChanged(newControllerInfo.playerInfo.audioSessionId));
     }
     if (!oldControllerInfo.playerInfo.deviceInfo.equals(newControllerInfo.playerInfo.deviceInfo)) {
       listeners.queueEvent(
           Player.EVENT_DEVICE_INFO_CHANGED,
-          (listener) -> listener.onDeviceInfoChanged(newControllerInfo.playerInfo.deviceInfo));
+          listener -> listener.onDeviceInfoChanged(newControllerInfo.playerInfo.deviceInfo));
     }
     if (oldControllerInfo.playerInfo.deviceVolume != newControllerInfo.playerInfo.deviceVolume
         || oldControllerInfo.playerInfo.deviceMuted != newControllerInfo.playerInfo.deviceMuted) {
       listeners.queueEvent(
           Player.EVENT_DEVICE_VOLUME_CHANGED,
-          (listener) ->
+          listener ->
               listener.onDeviceVolumeChanged(
                   newControllerInfo.playerInfo.deviceVolume,
                   newControllerInfo.playerInfo.deviceMuted));
@@ -1718,30 +1711,27 @@ import org.jspecify.annotations.Nullable;
         newControllerInfo.availablePlayerCommands)) {
       listeners.queueEvent(
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-          (listener) ->
+          listener ->
               listener.onAvailableCommandsChanged(newControllerInfo.availablePlayerCommands));
     }
     if (!oldControllerInfo.availableSessionCommands.equals(
         newControllerInfo.availableSessionCommands)) {
       getInstance()
-          .notifyControllerListener(
-              listener ->
-                  listener.onAvailableSessionCommandsChanged(
-                      getInstance(), newControllerInfo.availableSessionCommands));
+          .notifyControllerListener(listener ->
+              listener.onAvailableSessionCommandsChanged(
+                  getInstance(), newControllerInfo.availableSessionCommands));
     }
     if (!oldControllerInfo.mediaButtonPreferences.equals(
         newControllerInfo.mediaButtonPreferences)) {
       getInstance()
-          .notifyControllerListener(
-              listener -> {
-                ignoreFuture(
-                    listener.onSetCustomLayout(
-                        getInstance(), newControllerInfo.mediaButtonPreferences));
-                listener.onCustomLayoutChanged(
-                    getInstance(), newControllerInfo.mediaButtonPreferences);
-                listener.onMediaButtonPreferencesChanged(
-                    getInstance(), newControllerInfo.mediaButtonPreferences);
-              });
+          .notifyControllerListener(listener -> {
+            ignoreFuture(
+                listener.onSetCustomLayout(
+                    getInstance(), newControllerInfo.mediaButtonPreferences));
+            listener.onCustomLayoutChanged(getInstance(), newControllerInfo.mediaButtonPreferences);
+            listener.onMediaButtonPreferencesChanged(
+                getInstance(), newControllerInfo.mediaButtonPreferences);
+          });
     }
     if (newControllerInfo.sessionError != null) {
       getInstance()
@@ -1782,7 +1772,7 @@ import org.jspecify.annotations.Nullable;
       pendingChangesHandler =
           new Handler(
               applicationLooper,
-              (msg) -> {
+              msg -> {
                 if (msg.what == MSG_HANDLE_PENDING_UPDATES) {
                   handleNewLegacyParameters(/* notifyConnected= */ false, pendingLegacyPlayerInfo);
                 }
@@ -1827,11 +1817,10 @@ import org.jspecify.annotations.Nullable;
       }
       Bundle nonNullExtras = extras == null ? Bundle.EMPTY : extras;
       getInstance()
-          .notifyControllerListener(
-              listener ->
-                  ignoreFuture(
-                      listener.onCustomCommand(
-                          getInstance(), new SessionCommand(event, nonNullExtras), nonNullExtras)));
+          .notifyControllerListener(listener ->
+              ignoreFuture(
+                  listener.onCustomCommand(
+                      getInstance(), new SessionCommand(event, nonNullExtras), nonNullExtras)));
     }
 
     @Override
@@ -1878,18 +1867,17 @@ import org.jspecify.annotations.Nullable;
     @Override
     public void onCaptioningEnabledChanged(boolean enabled) {
       getInstance()
-          .notifyControllerListener(
-              listener -> {
-                Bundle args = new Bundle();
-                args.putBoolean(MediaConstants.ARGUMENT_CAPTIONING_ENABLED, enabled);
-                ignoreFuture(
-                    listener.onCustomCommand(
-                        getInstance(),
-                        new SessionCommand(
-                            MediaConstants.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED,
-                            /* extras= */ Bundle.EMPTY),
-                        args));
-              });
+          .notifyControllerListener(listener -> {
+            Bundle args = new Bundle();
+            args.putBoolean(MediaConstants.ARGUMENT_CAPTIONING_ENABLED, enabled);
+            ignoreFuture(
+                listener.onCustomCommand(
+                    getInstance(),
+                    new SessionCommand(
+                        MediaConstants.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED,
+                        /* extras= */ Bundle.EMPTY),
+                    args));
+          });
     }
 
     @Override

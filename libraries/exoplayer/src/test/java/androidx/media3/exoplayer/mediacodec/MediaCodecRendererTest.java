@@ -627,19 +627,18 @@ public class MediaCodecRendererTest {
   public void render_wrapsIllegalStateExceptionFromMediaCodecInExoPlaybackException()
       throws Exception {
     MediaCodecAdapter.Factory throwingMediaCodecAdapterFactory =
-        new ThrowingMediaCodecAdapter.Factory(
-            () -> {
-              IllegalStateException ise = new IllegalStateException("ISE from inside MediaCodec");
-              StackTraceElement[] stackTrace = ise.getStackTrace();
-              stackTrace[0] =
-                  new StackTraceElement(
-                      "android.media.MediaCodec",
-                      "fakeMethod",
-                      stackTrace[0].getFileName(),
-                      stackTrace[0].getLineNumber());
-              ise.setStackTrace(stackTrace);
-              return ise;
-            });
+        new ThrowingMediaCodecAdapter.Factory(() -> {
+          IllegalStateException ise = new IllegalStateException("ISE from inside MediaCodec");
+          StackTraceElement[] stackTrace = ise.getStackTrace();
+          stackTrace[0] =
+              new StackTraceElement(
+                  "android.media.MediaCodec",
+                  "fakeMethod",
+                  stackTrace[0].getFileName(),
+                  stackTrace[0].getLineNumber());
+          ise.setStackTrace(stackTrace);
+          return ise;
+        });
     TestRenderer renderer = new TestRenderer(throwingMediaCodecAdapterFactory);
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     Format format =
@@ -680,10 +679,9 @@ public class MediaCodecRendererTest {
   @Test
   public void render_wrapsCryptoExceptionFromAnyMediaCodecMethod() throws Exception {
     MediaCodecAdapter.Factory throwingMediaCodecAdapterFactory =
-        new ThrowingMediaCodecAdapter.Factory(
-            () ->
-                new MediaCodec.CryptoException(
-                    MediaDrm.ErrorCodes.ERROR_INSUFFICIENT_OUTPUT_PROTECTION, "Test exception"));
+        new ThrowingMediaCodecAdapter.Factory(() ->
+            new MediaCodec.CryptoException(
+                MediaDrm.ErrorCodes.ERROR_INSUFFICIENT_OUTPUT_PROTECTION, "Test exception"));
     TestRenderer renderer = new TestRenderer(throwingMediaCodecAdapterFactory);
     renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     Format format =

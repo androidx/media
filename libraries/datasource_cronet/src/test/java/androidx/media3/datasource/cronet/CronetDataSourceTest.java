@@ -279,7 +279,7 @@ public final class CronetDataSourceTest {
   public void requestHeadersSet() throws HttpDataSourceException {
     Map<String, String> headersSet = new HashMap<>();
     doAnswer(
-            (invocation) -> {
+            invocation -> {
               String key = invocation.getArgument(0);
               String value = invocation.getArgument(1);
               headersSet.put(key, value);
@@ -437,11 +437,10 @@ public final class CronetDataSourceTest {
     dataSourceUnderTest =
         (CronetDataSource)
             createCronetDataSourceFactory()
-                .setContentTypePredicate(
-                    (String input) -> {
-                      testedContentTypes.add(input);
-                      return false;
-                    })
+                .setContentTypePredicate((String input) -> {
+                  testedContentTypes.add(input);
+                  return false;
+                })
                 .createDataSource();
     mockResponseStartSuccess();
 

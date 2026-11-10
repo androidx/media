@@ -353,15 +353,14 @@ import org.jspecify.annotations.Nullable;
     }
     Player.Commands commandQueuePlayerCommands = info.commandQueuePlayerCommands;
     info.commandQueuePlayerCommands = Player.Commands.EMPTY;
-    info.commandQueue.add(
-        () -> {
-          @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
-          if (sessionImpl != null) {
-            sessionImpl.onPlayerInteractionFinishedOnHandler(
-                controllerInfo, commandQueuePlayerCommands);
-          }
-          return Futures.immediateVoidFuture();
-        });
+    info.commandQueue.add(() -> {
+      @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+      if (sessionImpl != null) {
+        sessionImpl.onPlayerInteractionFinishedOnHandler(
+            controllerInfo, commandQueuePlayerCommands);
+      }
+      return Futures.immediateVoidFuture();
+    });
     if (info.commandQueueIsFlushing) {
       return;
     }

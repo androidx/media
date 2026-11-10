@@ -122,12 +122,11 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
 
   @After
   public void tearDown() {
-    instrumentation.runOnMainSync(
-        () -> {
-          if (compositionPlayer != null) {
-            compositionPlayer.release();
-          }
-        });
+    instrumentation.runOnMainSync(() -> {
+      if (compositionPlayer != null) {
+        compositionPlayer.release();
+      }
+    });
     rule.getScenario().close();
     if (surfaceHolder != null) {
       surfaceHolder.release();
@@ -139,33 +138,31 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     ConditionVariable videoSizeReported = new ConditionVariable();
     AtomicReference<VideoSize> videoSizeAtomicReference = new AtomicReference<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayerBuilder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onVideoSizeChanged(VideoSize videoSize) {
-                  videoSizeAtomicReference.set(videoSize);
-                  videoSizeReported.open();
-                }
-              });
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(
-                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayerBuilder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.addListener(
+          new Player.Listener() {
+            @Override
+            public void onVideoSizeChanged(VideoSize videoSize) {
+              videoSizeAtomicReference.set(videoSize);
+              videoSizeReported.open();
+            }
+          });
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     videoSizeReported.block(TEST_TIMEOUT_MS);
 
     VideoSize videoSize = videoSizeAtomicReference.get();
@@ -180,42 +177,39 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
       throws Exception {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayerBuilder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(
-                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayerBuilder(context).build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+    });
 
     firstFrameRenderedFuture.get();
 
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 240, /* height= */ 270, Config.ARGB_8888);
     ConditionVariable pixelCopyFinished = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () ->
-            PixelCopy.request(
-                surfaceView,
-                bitmap,
-                result -> {
-                  if (result == PixelCopy.SUCCESS) {
-                    pixelCopyFinished.open();
-                  }
-                },
-                surfaceView.getHandler()));
+    instrumentation.runOnMainSync(() ->
+        PixelCopy.request(
+            surfaceView,
+            bitmap,
+            result -> {
+              if (result == PixelCopy.SUCCESS) {
+                pixelCopyFinished.open();
+              }
+            },
+            surfaceView.getHandler()));
     assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
 
     Bitmap expectedBitmap =
@@ -252,27 +246,25 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          surfaceView.getHolder().addCallback(callback);
-          compositionPlayer = createCompositionPlayerBuilder(context).build();
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(
-                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.setPlayWhenReady(false);
-        });
+    instrumentation.runOnMainSync(() -> {
+      surfaceView.getHolder().addCallback(callback);
+      compositionPlayer = createCompositionPlayerBuilder(context).build();
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.setPlayWhenReady(false);
+    });
 
     firstFrameRenderedFuture.get();
 
@@ -294,17 +286,16 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 240, /* height= */ 270, Config.ARGB_8888);
     ConditionVariable pixelCopyFinished = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () ->
-            PixelCopy.request(
-                surfaceView,
-                bitmap,
-                result -> {
-                  if (result == PixelCopy.SUCCESS) {
-                    pixelCopyFinished.open();
-                  }
-                },
-                surfaceView.getHandler()));
+    instrumentation.runOnMainSync(() ->
+        PixelCopy.request(
+            surfaceView,
+            bitmap,
+            result -> {
+              if (result == PixelCopy.SUCCESS) {
+                pixelCopyFinished.open();
+              }
+            },
+            surfaceView.getHandler()));
     assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
 
     Bitmap expectedBitmap =
@@ -348,24 +339,23 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
           }
         };
 
-    instrumentation.runOnMainSync(
-        () -> {
-          surfaceView.getHolder().addCallback(callback);
-          compositionPlayer = createCompositionPlayerBuilder(context).build();
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
-                                  .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.setPlayWhenReady(false);
-        });
+    instrumentation.runOnMainSync(() -> {
+      surfaceView.getHolder().addCallback(callback);
+      compositionPlayer = createCompositionPlayerBuilder(context).build();
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
+                              .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.setPlayWhenReady(false);
+    });
 
     firstFrameRenderedFuture.get();
 
@@ -387,17 +377,16 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     Bitmap bitmap = Bitmap.createBitmap(/* width= */ 1920, /* height= */ 1080, Config.RGBA_1010102);
     ConditionVariable pixelCopyFinished = new ConditionVariable();
 
-    instrumentation.runOnMainSync(
-        () ->
-            PixelCopy.request(
-                surfaceView,
-                bitmap,
-                result -> {
-                  if (result == PixelCopy.SUCCESS) {
-                    pixelCopyFinished.open();
-                  }
-                },
-                surfaceView.getHandler()));
+    instrumentation.runOnMainSync(() ->
+        PixelCopy.request(
+            surfaceView,
+            bitmap,
+            result -> {
+              if (result == PixelCopy.SUCCESS) {
+                pixelCopyFinished.open();
+              }
+            },
+            surfaceView.getHandler()));
     assertThat(pixelCopyFinished.block(TEST_TIMEOUT_MS)).isTrue();
     assertThat(isBitmapBlackOrEmpty(bitmap)).isFalse();
   }
@@ -408,45 +397,41 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
     AtomicReference<Format> formatAtomicReference = new AtomicReference<>();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer =
-              createCompositionPlayerBuilder(context)
-                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-                  .build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                videoTimestamps.add(presentationTimeUs);
-                if (formatAtomicReference.get() != null) {
-                  assertThat(formatAtomicReference.get()).isEqualTo(format);
-                } else {
-                  formatAtomicReference.set(format);
-                }
-              });
-          endedFuture.setFuture(
-              futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      new MediaItem.Builder()
-                                          .setUri(
-                                              MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
-                                          .setClippingConfiguration(
-                                              new MediaItem.ClippingConfiguration.Builder()
-                                                  .setEndPositionMs(500)
-                                                  .build())
-                                          .build())
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.play();
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer =
+          createCompositionPlayerBuilder(context)
+              .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+              .build();
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+            videoTimestamps.add(presentationTimeUs);
+            if (formatAtomicReference.get() != null) {
+              assertThat(formatAtomicReference.get()).isEqualTo(format);
+            } else {
+              formatAtomicReference.set(format);
+            }
+          });
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  new MediaItem.Builder()
+                                      .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                      .setClippingConfiguration(
+                                          new MediaItem.ClippingConfiguration.Builder()
+                                              .setEndPositionMs(500)
+                                              .build())
+                                      .build())
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
     endedFuture.get();
 
     assertThat(videoTimestamps)
@@ -469,26 +454,24 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     surfaceHolder = new ImageReaderSurfaceHolder();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayerBuilder(context).build();
-          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(
-                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
-                                  .setDurationUs(
-                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
-                                          .videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.setPlayWhenReady(true);
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayerBuilder(context).build();
+      compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                              .setDurationUs(
+                                  MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.setPlayWhenReady(true);
+    });
     firstFrameRenderedFuture.get();
 
     int actualDataSpace = surfaceHolder.getLatestDataSpace();
@@ -509,23 +492,22 @@ public class CompositionPlayerFrameProcessorSurfaceViewPixelTest {
     SettableFuture<Void> firstFrameRenderedFuture = SettableFuture.create();
     surfaceHolder = new ImageReaderSurfaceHolder();
 
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = createCompositionPlayerBuilder(context).build();
-          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
-          firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
-          compositionPlayer.setComposition(
-              new Composition.Builder(
-                      EditedMediaItemSequence.withVideoFrom(
-                          ImmutableList.of(
-                              new EditedMediaItem.Builder(
-                                      MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
-                                  .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
-                                  .build())))
-                  .build());
-          compositionPlayer.prepare();
-          compositionPlayer.setPlayWhenReady(true);
-        });
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayerBuilder(context).build();
+      compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+      firstFrameRenderedFuture.setFuture(futureWhen(compositionPlayer).rendersFirstFrame());
+      compositionPlayer.setComposition(
+          new Composition.Builder(
+                  EditedMediaItemSequence.withVideoFrom(
+                      ImmutableList.of(
+                          new EditedMediaItem.Builder(
+                                  MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
+                              .setDurationUs(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoDurationUs)
+                              .build())))
+              .build());
+      compositionPlayer.prepare();
+      compositionPlayer.setPlayWhenReady(true);
+    });
     firstFrameRenderedFuture.get();
 
     int actualDataSpace = surfaceHolder.getLatestDataSpace();

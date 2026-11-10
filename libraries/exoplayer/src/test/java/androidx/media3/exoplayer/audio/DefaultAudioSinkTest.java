@@ -205,12 +205,11 @@ public final class DefaultAudioSinkTest {
                 })
             .build();
     configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
     ShadowSystemClock.advanceBy(1, TimeUnit.SECONDS);
 
@@ -274,12 +273,9 @@ public final class DefaultAudioSinkTest {
     long outputStreamOffsetUs = 8_000_000;
     defaultAudioSink.setOutputStreamOffsetUs(outputStreamOffsetUs);
 
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                presentationTimeUs,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(), presentationTimeUs, /* encodedAccessUnitCount= */ 1));
 
     // positionOffsetUs = presentationTimeUs - outputStreamOffsetUs + period.getPositionInWindowUs()
     // positionOffsetUs = 10s - 8s + (-5s) = -3_000_000
@@ -299,12 +295,11 @@ public final class DefaultAudioSinkTest {
     // After reset and re-configure we can successfully queue more input.
     defaultAudioSink.reset();
     configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
   }
 
   @Test
@@ -321,12 +316,11 @@ public final class DefaultAudioSinkTest {
     // After reset and re-configure we can successfully queue more input.
     defaultAudioSink.reset();
     configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
     assertThat(defaultAudioSink.getPlaybackParameters())
         .isEqualTo(new PlaybackParameters(/* speed= */ 1.5f));
   }
@@ -344,12 +338,11 @@ public final class DefaultAudioSinkTest {
     // After reset and re-configure we can successfully queue more input.
     defaultAudioSink.reset();
     configureDefaultAudioSink(CHANNEL_COUNT_MONO);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
   }
 
   @Test
@@ -366,12 +359,11 @@ public final class DefaultAudioSinkTest {
     // After reset and re-configure we can successfully queue more input.
     defaultAudioSink.reset();
     configureDefaultAudioSink(CHANNEL_COUNT_MONO);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
     assertThat(defaultAudioSink.getPlaybackParameters())
         .isEqualTo(new PlaybackParameters(/* speed= */ 1.5f));
   }
@@ -1543,12 +1535,11 @@ public final class DefaultAudioSinkTest {
 
     defaultAudioSink.reset();
     configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 8 * C.MICROS_PER_SECOND,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 8 * C.MICROS_PER_SECOND,
+            /* encodedAccessUnitCount= */ 1));
     assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false))
         .isEqualTo(8 * C.MICROS_PER_SECOND);
   }
@@ -1569,20 +1560,17 @@ public final class DefaultAudioSinkTest {
     ByteBuffer firstNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
     ByteBuffer silenceBuffer = create1Sec44100HzSilenceBuffer();
     ByteBuffer secondNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                secondNoisyBuffer,
-                /* presentationTimeUs= */ 1_200_000,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            secondNoisyBuffer,
+            /* presentationTimeUs= */ 1_200_000,
+            /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
 
     // Advance playout to 150ms (still within the first 200ms noisy buffer). The buffered skipped
@@ -1630,22 +1618,19 @@ public final class DefaultAudioSinkTest {
     ByteBuffer firstNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
     ByteBuffer firstSilenceBuffer = create1Sec44100HzSilenceBuffer();
     ByteBuffer secondNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                firstSilenceBuffer,
-                /* presentationTimeUs= */ 200_000,
-                /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                secondNoisyBuffer,
-                /* presentationTimeUs= */ 1_200_000,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            firstSilenceBuffer,
+            /* presentationTimeUs= */ 200_000,
+            /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            secondNoisyBuffer,
+            /* presentationTimeUs= */ 1_200_000,
+            /* encodedAccessUnitCount= */ 1));
 
     // Trigger a mid-stream parameter change at media time 1_400_000us (playout position 680_000us:
     // 200ms noise + 280ms shortened silence + 200ms noise), followed by another 1s silence buffer
@@ -1653,18 +1638,16 @@ public final class DefaultAudioSinkTest {
     defaultAudioSink.setPlaybackParameters(PlaybackParameters.DEFAULT);
     ByteBuffer secondSilenceBuffer = create1Sec44100HzSilenceBuffer();
     ByteBuffer thirdNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                secondSilenceBuffer,
-                /* presentationTimeUs= */ 1_400_000,
-                /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                thirdNoisyBuffer,
-                /* presentationTimeUs= */ 2_400_000,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            secondSilenceBuffer,
+            /* presentationTimeUs= */ 1_400_000,
+            /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            thirdNoisyBuffer,
+            /* presentationTimeUs= */ 2_400_000,
+            /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
 
     // Playout at 150ms (before the first silence): no skipped silence included yet.
@@ -1713,20 +1696,17 @@ public final class DefaultAudioSinkTest {
     ByteBuffer firstNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
     ByteBuffer silenceBuffer = create1Sec44100HzSilenceBuffer();
     ByteBuffer secondNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 200);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                secondNoisyBuffer,
-                /* presentationTimeUs= */ 1_200_000,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            firstNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            secondNoisyBuffer,
+            /* presentationTimeUs= */ 1_200_000,
+            /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
     playoutPositionUs.set(150_000);
     assertThat(defaultAudioSink.getCurrentPositionUs(/* sourceEnded= */ false)).isEqualTo(150_000);
@@ -1735,10 +1715,9 @@ public final class DefaultAudioSinkTest {
     defaultAudioSink.flush();
     playoutPositionUs.set(0);
     ByteBuffer resumedNoisyBuffer = create44100HzNoiseBuffer(/* durationMs= */ 600);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                resumedNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            resumedNoisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
     playoutPositionUs.set(500_000);
 
@@ -1795,14 +1774,12 @@ public final class DefaultAudioSinkTest {
         ByteBuffer.allocateDirect(
                 (SAMPLE_RATE_44_1 * 480 / 1000) * CHANNEL_COUNT_STEREO * BYTES_PER_FRAME_16_BIT)
             .order(ByteOrder.nativeOrder());
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                noisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            noisyBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            silenceBuffer, /* presentationTimeUs= */ 200_000, /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
 
     // First playToEndOfStream() queues EOS on the pipeline (which skips frames from the trailing
@@ -1994,11 +1971,10 @@ public final class DefaultAudioSinkTest {
     CountDownLatch releaseTriggeredLatch = new CountDownLatch(1);
 
     // The test thread is the expected usage thread. Create audio sink on a background thread.
-    backgroundHandler1.post(
-        () -> {
-          audioSinkRef.set(new DefaultAudioSink.Builder().build());
-          sinkCreatedLatch.countDown();
-        });
+    backgroundHandler1.post(() -> {
+      audioSinkRef.set(new DefaultAudioSink.Builder().build());
+      sinkCreatedLatch.countDown();
+    });
     checkState(sinkCreatedLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
     AudioSink audioSink = audioSinkRef.get();
     // Start a playback from the usage thread.
@@ -2010,26 +1986,23 @@ public final class DefaultAudioSinkTest {
             .setSampleRate(SAMPLE_RATE_44_1)
             .build();
     audioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
-    retryUntilTrue(
-        () ->
-            audioSink.handleBuffer(
-                testBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        audioSink.handleBuffer(
+            testBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
     audioSink.play();
     // Attempt to access current position from another thread.
     ShadowSystemClock.advanceBy(1000, TimeUnit.MILLISECONDS);
-    backgroundHandler2.post(
-        () -> {
-          long unused = audioSink.getCurrentPositionUs(/* sourceEnded= */ false);
-          positionObtainedLatch.countDown();
-        });
+    backgroundHandler2.post(() -> {
+      long unused = audioSink.getCurrentPositionUs(/* sourceEnded= */ false);
+      positionObtainedLatch.countDown();
+    });
     checkState(positionObtainedLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
     // Flush and release sink from the another thread.
-    backgroundHandler2.post(
-        () -> {
-          audioSink.flush();
-          audioSink.release();
-          releaseTriggeredLatch.countDown();
-        });
+    backgroundHandler2.post(() -> {
+      audioSink.flush();
+      audioSink.release();
+      releaseTriggeredLatch.countDown();
+    });
     checkState(releaseTriggeredLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
     // Wait for any uncontrolled pending background operations to run.
     Thread.sleep(100);
@@ -3342,21 +3315,19 @@ public final class DefaultAudioSinkTest {
     // 441 frames at 44,100 Hz is 10,000 us of encoder delay.
     configureDefaultAudioSink(
         CHANNEL_COUNT_STEREO, /* trimStartFrames= */ 441, /* trimEndFrames= */ 0);
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
 
     // Trigger a mid-stream pipeline drain and flush after TrimmingAudioProcessor has deactivated.
     defaultAudioSink.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2f));
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 1_000_000,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 1_000_000,
+            /* encodedAccessUnitCount= */ 1));
 
     assertThat(trackingProcessor.lastStreamMetadata.positionOffsetUs).isEqualTo(990_000);
   }
@@ -3404,10 +3375,9 @@ public final class DefaultAudioSinkTest {
         new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
             .setOriginalMimeType(MimeTypes.AUDIO_E_AC3_JOC)
             .build());
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                firstBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            firstBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
     defaultAudioSink.play();
     ShadowSystemClock.advanceBy(2, TimeUnit.SECONDS);
 
@@ -3415,12 +3385,11 @@ public final class DefaultAudioSinkTest {
         new AudioSink.AudioSinkConfig.Builder(pcm5Point1)
             .setOriginalMimeType(MimeTypes.AUDIO_AC4)
             .build());
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                secondBuffer,
-                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            secondBuffer,
+            /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+            /* encodedAccessUnitCount= */ 1));
 
     assertThat(createdOutputConfigs).hasSize(2);
     assertThat(createdOutputConfigs.get(0).originalMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
@@ -3462,23 +3431,21 @@ public final class DefaultAudioSinkTest {
         new AudioSink.AudioSinkConfig.Builder(stereoPcm)
             .setOriginalMimeType(MimeTypes.AUDIO_AAC)
             .build());
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ 0,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
 
     defaultAudioSink.configure(
         new AudioSink.AudioSinkConfig.Builder(stereoPcm)
             .setOriginalMimeType(MimeTypes.AUDIO_OPUS)
             .build());
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                create1Sec44100HzSilenceBuffer(),
-                /* presentationTimeUs= */ C.MICROS_PER_SECOND,
-                /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ C.MICROS_PER_SECOND,
+            /* encodedAccessUnitCount= */ 1));
 
     assertThat(createdOutputConfigs).hasSize(1);
     assertThat(createdOutputConfigs.get(0).originalMimeType).isNull();
@@ -3532,10 +3499,9 @@ public final class DefaultAudioSinkTest {
         new AudioAttributes.Builder()
             .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_AUTO)
             .build());
-    retryUntilTrue(
-        () ->
-            defaultAudioSink.handleBuffer(
-                buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
+    retryUntilTrue(() ->
+        defaultAudioSink.handleBuffer(
+            buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1));
 
     assertThat(createdOutputConfigs).hasSize(1);
     assertThat(createdOutputConfigs.get(0).originalMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);

@@ -58,7 +58,7 @@ public final class DefaultGainProvider implements GainProvider {
       gainMap = TreeRangeMap.create();
       // Add default value for all possible positions.
       this.defaultGain = defaultGain;
-      gainMap.put(Range.all(), (a) -> GAIN_UNSET);
+      gainMap.put(Range.all(), a -> GAIN_UNSET);
     }
 
     /**
@@ -76,7 +76,7 @@ public final class DefaultGainProvider implements GainProvider {
       checkArgument(durationUs > 1);
       gainMap.put(
           Range.closedOpen(positionUs, positionUs + durationUs),
-          (positionSampleRatePair) -> {
+          positionSampleRatePair -> {
             int sampleRate = positionSampleRatePair.second;
             long relativeSamplePosition =
                 positionSampleRatePair.first - durationUsToSampleCount(positionUs, sampleRate);

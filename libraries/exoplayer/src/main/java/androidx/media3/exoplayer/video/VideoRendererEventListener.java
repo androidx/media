@@ -185,11 +185,10 @@ public interface VideoRendererEventListener {
     public void decoderInitialized(
         String decoderName, long initializedTimestampMs, long initializationDurationMs) {
       if (handler != null) {
-        handler.post(
-            () ->
-                castNonNull(listener)
-                    .onVideoDecoderInitialized(
-                        decoderName, initializedTimestampMs, initializationDurationMs));
+        handler.post(() ->
+            castNonNull(listener)
+                .onVideoDecoderInitialized(
+                    decoderName, initializedTimestampMs, initializationDurationMs));
       }
     }
 
@@ -215,10 +214,9 @@ public interface VideoRendererEventListener {
     /** Invokes {@link VideoRendererEventListener#onVideoFrameProcessingOffset}. */
     public void reportVideoFrameProcessingOffset(long totalProcessingOffsetUs, int frameCount) {
       if (handler != null) {
-        handler.post(
-            () ->
-                castNonNull(listener)
-                    .onVideoFrameProcessingOffset(totalProcessingOffsetUs, frameCount));
+        handler.post(() ->
+            castNonNull(listener)
+                .onVideoFrameProcessingOffset(totalProcessingOffsetUs, frameCount));
       }
     }
 
@@ -249,11 +247,10 @@ public interface VideoRendererEventListener {
     public void disabled(DecoderCounters counters) {
       counters.ensureUpdated();
       if (handler != null) {
-        handler.post(
-            () -> {
-              counters.ensureUpdated();
-              castNonNull(listener).onVideoDisabled(counters);
-            });
+        handler.post(() -> {
+          counters.ensureUpdated();
+          castNonNull(listener).onVideoDisabled(counters);
+        });
       }
     }
 

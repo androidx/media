@@ -213,7 +213,7 @@ import org.jspecify.annotations.Nullable;
                   checkNotNull(preparationFuture).set(new InternalResult(trackGroups, timeline));
                 }
               },
-              (e) -> { // onFailure
+              e -> { // onFailure
                 synchronized (lock) {
                   checkNotNull(preparationFuture).setException(e);
                 }

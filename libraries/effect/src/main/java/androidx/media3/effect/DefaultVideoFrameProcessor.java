@@ -409,24 +409,23 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
           glObjectsProvider == null ? new DefaultGlObjectsProvider() : glObjectsProvider;
 
       Future<DefaultVideoFrameProcessor> defaultVideoFrameProcessorFuture =
-          instanceExecutorService.submit(
-              () ->
-                  createOpenGlObjectsAndFrameProcessor(
-                      context,
-                      debugViewProvider,
-                      outputColorInfo,
-                      sdrWorkingColorSpace,
-                      renderFramesAutomatically,
-                      videoFrameProcessingTaskExecutor,
-                      listenerExecutor,
-                      listener,
-                      instanceGlObjectsProvider,
-                      shouldReleaseGlObjectsProvider,
-                      enableReplayableCache,
-                      textureOutputListener,
-                      textureOutputCapacity,
-                      experimentalAdjustSurfaceTextureTransformationMatrix,
-                      experimentalRepeatInputBitmapWithoutResampling));
+          instanceExecutorService.submit(() ->
+              createOpenGlObjectsAndFrameProcessor(
+                  context,
+                  debugViewProvider,
+                  outputColorInfo,
+                  sdrWorkingColorSpace,
+                  renderFramesAutomatically,
+                  videoFrameProcessingTaskExecutor,
+                  listenerExecutor,
+                  listener,
+                  instanceGlObjectsProvider,
+                  shouldReleaseGlObjectsProvider,
+                  enableReplayableCache,
+                  textureOutputListener,
+                  textureOutputCapacity,
+                  experimentalAdjustSurfaceTextureTransformationMatrix,
+                  experimentalRepeatInputBitmapWithoutResampling));
 
       try {
         return defaultVideoFrameProcessorFuture.get();
@@ -625,12 +624,11 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       // Don't redraw right after flush, because the frame cache is also be flushed and it's empty.
       return;
     }
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          finalShaderProgramWrapper.prepareToRedraw(
-              castNonNull(frameCache).getReplayFramePresentationTimeUs());
-          frameCache.replayFrame();
-        });
+    videoFrameProcessingTaskExecutor.submit(() -> {
+      finalShaderProgramWrapper.prepareToRedraw(
+          castNonNull(frameCache).getReplayFramePresentationTimeUs());
+      frameCache.replayFrame();
+    });
   }
 
   /**
@@ -1126,10 +1124,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         }
       }
 
-      listenerExecutor.execute(
-          () ->
-              listener.onInputStreamRegistered(
-                  inputStreamInfo.inputType, inputStreamInfo.format, inputStreamInfo.effects));
+      listenerExecutor.execute(() ->
+          listener.onInputStreamRegistered(
+              inputStreamInfo.inputType, inputStreamInfo.format, inputStreamInfo.effects));
       if (currentInputStreamInfo == null
           || inputStreamInfo.format.frameRate != currentInputStreamInfo.format.frameRate) {
         listenerExecutor.execute(

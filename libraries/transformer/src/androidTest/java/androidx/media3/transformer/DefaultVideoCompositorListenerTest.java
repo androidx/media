@@ -78,15 +78,14 @@ public final class DefaultVideoCompositorListenerTest {
     sharedExecutorService = Util.newSingleThreadExecutor("Effect:Shared:GlThread");
     sharedExecutorService
         .invokeAll(
-            ImmutableList.of(
-                () -> {
-                  eglDisplay = GlUtil.getDefaultEglDisplay();
-                  eglContext = GlUtil.createEglContext(eglDisplay);
-                  glObjectsProvider = new DefaultGlObjectsProvider();
-                  GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
-                  inputTextureInfos = createInputTextureInfos(/* count= */ 10);
-                  return null;
-                }))
+            ImmutableList.of(() -> {
+              eglDisplay = GlUtil.getDefaultEglDisplay();
+              eglContext = GlUtil.createEglContext(eglDisplay);
+              glObjectsProvider = new DefaultGlObjectsProvider();
+              GlUtil.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
+              inputTextureInfos = createInputTextureInfos(/* count= */ 10);
+              return null;
+            }))
         // get the result of the gl setup task to ensure any exceptions thrown immediately fail the
         // tests, rather than attempting to run the test cases.
         .get(0)

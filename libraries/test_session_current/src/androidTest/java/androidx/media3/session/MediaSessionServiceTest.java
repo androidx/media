@@ -138,48 +138,45 @@ public class MediaSessionServiceTest {
     List<ControllerInfo> onDisconnectedCommandControllerInfos = new ArrayList<>();
     AtomicReference<MediaSession> session = new AtomicReference<>();
     ConditionVariable disconnected = new ConditionVariable();
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          // The controllerInfo passed to the onGetSession of the service.
-          onGetSessionControllerInfos.add(controllerInfo);
-          Player player = new ExoPlayer.Builder(context).build();
-          ForwardingPlayer forwardingPlayer =
-              new ForwardingPlayer(player) {
-                @Override
-                public void setRepeatMode(@Player.RepeatMode int repeatMode) {
-                  // The controllerInfo assigned for the current player command request.
-                  playbackCommandControllerInfos.add(
-                      session.get().getControllerForCurrentRequest());
-                  super.setRepeatMode(repeatMode);
-                }
-              };
-          session.set(
-              new MediaSession.Builder(context, forwardingPlayer)
-                  .setCallback(
-                      new MediaSession.Callback() {
-                        @Override
-                        public ListenableFuture<ConnectionResult> onConnectAsync(
-                            MediaSession session, ControllerInfo controller) {
-                          if (!session.isMediaNotificationController(controller)) {
-                            // The controllerInfo passed to MediaSession.Callback.onConnect()
-                            onConnectControllerInfos.add(controllerInfo);
-                          }
-                          return MediaSession.Callback.super.onConnectAsync(session, controller);
-                        }
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      // The controllerInfo passed to the onGetSession of the service.
+      onGetSessionControllerInfos.add(controllerInfo);
+      Player player = new ExoPlayer.Builder(context).build();
+      ForwardingPlayer forwardingPlayer =
+          new ForwardingPlayer(player) {
+            @Override
+            public void setRepeatMode(@Player.RepeatMode int repeatMode) {
+              // The controllerInfo assigned for the current player command request.
+              playbackCommandControllerInfos.add(session.get().getControllerForCurrentRequest());
+              super.setRepeatMode(repeatMode);
+            }
+          };
+      session.set(
+          new MediaSession.Builder(context, forwardingPlayer)
+              .setCallback(
+                  new MediaSession.Callback() {
+                    @Override
+                    public ListenableFuture<ConnectionResult> onConnectAsync(
+                        MediaSession session, ControllerInfo controller) {
+                      if (!session.isMediaNotificationController(controller)) {
+                        // The controllerInfo passed to MediaSession.Callback.onConnect()
+                        onConnectControllerInfos.add(controllerInfo);
+                      }
+                      return MediaSession.Callback.super.onConnectAsync(session, controller);
+                    }
 
-                        @Override
-                        public void onDisconnected(
-                            MediaSession session, ControllerInfo controller) {
-                          if (!session.isMediaNotificationController(controller)) {
-                            // The controllerInfo when disconnecting.
-                            onDisconnectedCommandControllerInfos.add(controller);
-                            disconnected.open();
-                          }
-                        }
-                      })
-                  .build());
-          return session.get();
-        });
+                    @Override
+                    public void onDisconnected(MediaSession session, ControllerInfo controller) {
+                      if (!session.isMediaNotificationController(controller)) {
+                        // The controllerInfo when disconnecting.
+                        onDisconnectedCommandControllerInfos.add(controller);
+                        disconnected.open();
+                      }
+                    }
+                  })
+              .build());
+      return session.get();
+    });
     // Create the remote controller to start the service.
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
@@ -192,16 +189,15 @@ public class MediaSessionServiceTest {
     controller.setRepeatMode(Player.REPEAT_MODE_ONE);
     List<ControllerInfo> connectedControllerManagerControllerInfos =
         new TestHandler(Looper.getMainLooper())
-            .postAndSync(
-                () -> {
-                  List<ControllerInfo> controllers = new ArrayList<>();
-                  for (ControllerInfo controllerInfo : session.get().getConnectedControllers()) {
-                    if (!session.get().isMediaNotificationController(controllerInfo)) {
-                      controllers.add(controllerInfo);
-                    }
-                  }
-                  return controllers;
-                });
+            .postAndSync(() -> {
+              List<ControllerInfo> controllers = new ArrayList<>();
+              for (ControllerInfo controllerInfo : session.get().getConnectedControllers()) {
+                if (!session.get().isMediaNotificationController(controllerInfo)) {
+                  controllers.add(controllerInfo);
+                }
+              }
+              return controllers;
+            });
 
     // The controller that was bound to the service unbinds when released. Because the service was
     // never started (as in `onStartCommand()` was never called), the service is immediately
@@ -232,25 +228,24 @@ public class MediaSessionServiceTest {
     AtomicReference<ControllerInfo> onGetSessionControllerInfo = new AtomicReference<>();
     SettableFuture<@Nullable ControllerInfo> playCommandControllerInfo = SettableFuture.create();
     AtomicReference<MediaSession> session = new AtomicReference<>();
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          if (session.get() != null) {
-            return session.get();
-          }
-          onGetSessionControllerInfo.set(controllerInfo);
-          Player player = new ExoPlayer.Builder(context).build();
-          player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-          player.prepare();
-          ForwardingPlayer forwardingPlayer =
-              new ForwardingPlayer(player) {
-                @Override
-                public void play() {
-                  playCommandControllerInfo.set(session.get().getControllerForCurrentRequest());
-                }
-              };
-          session.set(new MediaSession.Builder(context, forwardingPlayer).build());
-          return session.get();
-        });
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      if (session.get() != null) {
+        return session.get();
+      }
+      onGetSessionControllerInfo.set(controllerInfo);
+      Player player = new ExoPlayer.Builder(context).build();
+      player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+      player.prepare();
+      ForwardingPlayer forwardingPlayer =
+          new ForwardingPlayer(player) {
+            @Override
+            public void play() {
+              playCommandControllerInfo.set(session.get().getControllerForCurrentRequest());
+            }
+          };
+      session.set(new MediaSession.Builder(context, forwardingPlayer).build());
+      return session.get();
+    });
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
             token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
@@ -261,13 +256,12 @@ public class MediaSessionServiceTest {
           .isEqualTo(onGetSessionControllerInfo.get());
     } finally {
       controller.release();
-      MainLooperTestRule.runOnMainSync(
-          () -> {
-            if (session.get() != null) {
-              session.get().getPlayer().release();
-              session.get().release();
-            }
-          });
+      MainLooperTestRule.runOnMainSync(() -> {
+        if (session.get() != null) {
+          session.get().getPlayer().release();
+          session.get().release();
+        }
+      });
     }
   }
 
@@ -276,44 +270,42 @@ public class MediaSessionServiceTest {
     TestServiceRegistry testServiceRegistry = TestServiceRegistry.getInstance();
     ConditionVariable mediaItemsAdded = new ConditionVariable();
     AtomicBoolean controllerBoundWhenMediaItemsAdded = new AtomicBoolean(false);
-    testServiceRegistry.setOnGetSessionHandler(
-        controllerInfo -> {
-          // Save bound state at the point where media items are added and listeners are informed.
-          MockMediaSessionService service =
-              (MockMediaSessionService) testServiceRegistry.getServiceInstance();
-          Player player = new ExoPlayer.Builder(service).build();
-          player.addListener(
-              new Player.Listener() {
+    testServiceRegistry.setOnGetSessionHandler(controllerInfo -> {
+      // Save bound state at the point where media items are added and listeners are informed.
+      MockMediaSessionService service =
+          (MockMediaSessionService) testServiceRegistry.getServiceInstance();
+      Player player = new ExoPlayer.Builder(service).build();
+      player.addListener(
+          new Player.Listener() {
+            @Override
+            public void onEvents(Player player, Player.Events events) {
+              if (events.contains(Player.EVENT_TIMELINE_CHANGED)
+                  && !player.getCurrentTimeline().isEmpty()) {
+                controllerBoundWhenMediaItemsAdded.set(service.hasBoundController());
+                mediaItemsAdded.open();
+              }
+            }
+          });
+      // Add short delay for resolving media items.
+      return new MediaSession.Builder(service, player)
+          .setCallback(
+              new MediaSession.Callback() {
                 @Override
-                public void onEvents(Player player, Player.Events events) {
-                  if (events.contains(Player.EVENT_TIMELINE_CHANGED)
-                      && !player.getCurrentTimeline().isEmpty()) {
-                    controllerBoundWhenMediaItemsAdded.set(service.hasBoundController());
-                    mediaItemsAdded.open();
-                  }
+                public ListenableFuture<List<MediaItem>> onAddMediaItems(
+                    MediaSession mediaSession,
+                    ControllerInfo controller,
+                    List<MediaItem> mediaItems) {
+                  SettableFuture<List<MediaItem>> future = SettableFuture.create();
+                  MediaItem playableItem =
+                      mediaItems.get(0).buildUpon().setUri("https://test.test").build();
+                  new Handler(Looper.myLooper())
+                      .postDelayed(
+                          () -> future.set(ImmutableList.of(playableItem)), /* delayMillis= */ 500);
+                  return future;
                 }
-              });
-          // Add short delay for resolving media items.
-          return new MediaSession.Builder(service, player)
-              .setCallback(
-                  new MediaSession.Callback() {
-                    @Override
-                    public ListenableFuture<List<MediaItem>> onAddMediaItems(
-                        MediaSession mediaSession,
-                        ControllerInfo controller,
-                        List<MediaItem> mediaItems) {
-                      SettableFuture<List<MediaItem>> future = SettableFuture.create();
-                      MediaItem playableItem =
-                          mediaItems.get(0).buildUpon().setUri("https://test.test").build();
-                      new Handler(Looper.myLooper())
-                          .postDelayed(
-                              () -> future.set(ImmutableList.of(playableItem)),
-                              /* delayMillis= */ 500);
-                      return future;
-                    }
-                  })
-              .build();
-        });
+              })
+          .build();
+    });
     RemoteMediaController controller =
         controllerTestRule.createRemoteController(
             token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
@@ -359,13 +351,12 @@ public class MediaSessionServiceTest {
     CountDownLatch latch = new CountDownLatch(2);
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              exoPlayer.prepare();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          exoPlayer.prepare();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCustomLayout(Lists.newArrayList(button1, button2))
@@ -483,13 +474,12 @@ public class MediaSessionServiceTest {
     CountDownLatch latch = new CountDownLatch(2);
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              exoPlayer.prepare();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          exoPlayer.prepare();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setMediaButtonPreferences(Lists.newArrayList(button1, button2))
@@ -668,11 +658,10 @@ public class MediaSessionServiceTest {
               public void onDestroyed() {}
             });
     TestServiceRegistry.getInstance()
-        .setOnGetSessionHandler(
-            controllerInfo -> {
-              onGetSessionControllerInfoRef.set(controllerInfo);
-              return sessionRef.get();
-            });
+        .setOnGetSessionHandler(controllerInfo -> {
+          onGetSessionControllerInfoRef.set(controllerInfo);
+          return sessionRef.get();
+        });
     context.startService(new Intent(context, LocalMockMediaSessionService.class));
     try {
       assertThat(serviceCreatedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -697,21 +686,18 @@ public class MediaSessionServiceTest {
           },
           new Handler(Looper.getMainLooper()));
 
-      MainLooperTestRule.runOnMainSync(
-          () -> {
-            // Call onStartCommand() to build and connect the media notification controller.
-            int unused =
-                service.onStartCommand(/* intent= */ null, /* flags= */ 0, /* startId= */ 1);
-          });
+      MainLooperTestRule.runOnMainSync(() -> {
+        // Call onStartCommand() to build and connect the media notification controller.
+        int unused = service.onStartCommand(/* intent= */ null, /* flags= */ 0, /* startId= */ 1);
+      });
       assertThat(queueChangedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
       runPendingMainThreadMessages();
 
       assertThat(initialQueue).hasSize(2);
       AtomicInteger mediaItemCount = new AtomicInteger();
-      MainLooperTestRule.runOnMainSync(
-          () ->
-              mediaItemCount.set(
-                  service.getSessions().get(0).getPlayer().getCurrentTimeline().getWindowCount()));
+      MainLooperTestRule.runOnMainSync(() ->
+          mediaItemCount.set(
+              service.getSessions().get(0).getPlayer().getCurrentTimeline().getWindowCount()));
       assertThat(mediaItemCount.get()).isEqualTo(2);
       assertThat(onGetSessionControllerInfoRef.get().getPackageName())
           .isEqualTo(ControllerInfo.FALLBACK_PACKAGE_NAME);
@@ -725,15 +711,14 @@ public class MediaSessionServiceTest {
       assertThat(queueUpdates).containsExactly((Object) null);
       assertThat(mediaControllerCompat.getQueue()).isNull();
     } finally {
-      MainLooperTestRule.runOnMainSync(
-          () -> {
-            if (sessionRef.get() != null) {
-              sessionRef.get().release();
-            }
-            if (playerRef.get() != null) {
-              playerRef.get().release();
-            }
-          });
+      MainLooperTestRule.runOnMainSync(() -> {
+        if (sessionRef.get() != null) {
+          sessionRef.get().release();
+        }
+        if (playerRef.get() != null) {
+          playerRef.get().release();
+        }
+      });
     }
   }
 
@@ -761,63 +746,61 @@ public class MediaSessionServiceTest {
     AtomicReference<ExoPlayer> exoPlayerRef = new AtomicReference<>();
     List<ControllerInfo> requestingControllerInfos = new ArrayList<>();
     TestServiceRegistry.getInstance()
-        .setOnGetSessionHandler(
-            controllerInfo -> {
-              requestingControllerInfos.add(controllerInfo);
-              ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
-              exoPlayerRef.set(exoPlayer);
-              MediaLibrarySession session =
-                  new MediaLibrarySession.Builder(
-                          context,
-                          exoPlayer,
-                          new MediaLibrarySession.Callback() {
-                            @Override
-                            public ListenableFuture<MediaItemsWithStartPosition>
-                                onPlaybackResumption(
-                                    MediaSession mediaSession,
-                                    ControllerInfo controller,
-                                    boolean isForPlayback) {
-                              return immediateFuture(
-                                  new MediaItemsWithStartPosition(
-                                      ImmutableList.of(
-                                          MediaItem.fromUri(
-                                              "asset://android_asset/media/mp4/preroll-5s.mp4"),
-                                          playbackResumptionMediaItem),
-                                      /* startIndex= */ 1,
-                                      /* startPositionMs= */ 0));
-                            }
-                          })
-                      .setId("session-id")
-                      .build();
-              exoPlayer.addListener(
-                  new Listener() {
-                    @Override
-                    public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-                      if (mediaItem != null) {
-                        mediaItems.add(mediaItem);
-                        playbackStartedLatch.countDown();
-                      }
-                    }
+        .setOnGetSessionHandler(controllerInfo -> {
+          requestingControllerInfos.add(controllerInfo);
+          ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
+          exoPlayerRef.set(exoPlayer);
+          MediaLibrarySession session =
+              new MediaLibrarySession.Builder(
+                      context,
+                      exoPlayer,
+                      new MediaLibrarySession.Callback() {
+                        @Override
+                        public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+                            MediaSession mediaSession,
+                            ControllerInfo controller,
+                            boolean isForPlayback) {
+                          return immediateFuture(
+                              new MediaItemsWithStartPosition(
+                                  ImmutableList.of(
+                                      MediaItem.fromUri(
+                                          "asset://android_asset/media/mp4/preroll-5s.mp4"),
+                                      playbackResumptionMediaItem),
+                                  /* startIndex= */ 1,
+                                  /* startPositionMs= */ 0));
+                        }
+                      })
+                  .setId("session-id")
+                  .build();
+          exoPlayer.addListener(
+              new Listener() {
+                @Override
+                public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+                  if (mediaItem != null) {
+                    mediaItems.add(mediaItem);
+                    playbackStartedLatch.countDown();
+                  }
+                }
 
-                    @Override
-                    public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
-                      if (playWhenReady) {
-                        playbackStartedLatch.countDown();
-                      }
-                    }
+                @Override
+                public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+                  if (playWhenReady) {
+                    playbackStartedLatch.countDown();
+                  }
+                }
 
-                    @Override
-                    public void onPositionDiscontinuity(
-                        PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-                      if (oldPosition.mediaItemIndex == 1
-                          && newPosition.mediaItemIndex == 0
-                          && reason == DISCONTINUITY_REASON_SEEK) {
-                        seekLatch.countDown();
-                      }
-                    }
-                  });
-              return session;
-            });
+                @Override
+                public void onPositionDiscontinuity(
+                    PositionInfo oldPosition, PositionInfo newPosition, int reason) {
+                  if (oldPosition.mediaItemIndex == 1
+                      && newPosition.mediaItemIndex == 0
+                      && reason == DISCONTINUITY_REASON_SEEK) {
+                    seekLatch.countDown();
+                  }
+                }
+              });
+          return session;
+        });
 
     Bundle playbackIntentBundle = new Bundle();
     playbackIntentBundle.putString("intentBundleKey", "intentBundleValue");
@@ -872,7 +855,7 @@ public class MediaSessionServiceTest {
     Context context = ApplicationProvider.getApplicationContext();
 
     TestServiceRegistry.getInstance().setOnDestroyListener(onDestroyLatch::countDown);
-    TestServiceRegistry.getInstance().setOnGetSessionHandler((controllerInfo) -> null);
+    TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> null);
 
     new PlaybackPendingIntentBuilder(
             context, COMMAND_PLAY_PAUSE, LocalMockMediaSessionService.class)
@@ -897,70 +880,67 @@ public class MediaSessionServiceTest {
     List<SessionCommand> receivedCustomCommands = new ArrayList<>();
     List<Bundle> receivedArgs = new ArrayList<>();
     TestServiceRegistry.getInstance()
-        .setOnGetSessionHandler(
-            controllerInfo -> {
-              ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
-              exoPlayerRef.set(exoPlayer);
-              MediaLibrarySession session =
-                  new MediaLibrarySession.Builder(
-                          context,
-                          exoPlayer,
-                          new MediaLibrarySession.Callback() {
-                            @Override
-                            public ListenableFuture<ConnectionResult> onConnectAsync(
-                                MediaSession session, ControllerInfo controller) {
-                              return immediateFuture(
-                                  new AcceptedResultBuilder(session, controller)
-                                      .setAvailableSessionCommands(
-                                          new SessionCommands.Builder()
-                                              .addAllPredefinedCommands()
-                                              .addSessionCommands(
-                                                  ImmutableList.of(expectedCustomCommand))
-                                              .build())
-                                      .build());
-                            }
+        .setOnGetSessionHandler(controllerInfo -> {
+          ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
+          exoPlayerRef.set(exoPlayer);
+          MediaLibrarySession session =
+              new MediaLibrarySession.Builder(
+                      context,
+                      exoPlayer,
+                      new MediaLibrarySession.Callback() {
+                        @Override
+                        public ListenableFuture<ConnectionResult> onConnectAsync(
+                            MediaSession session, ControllerInfo controller) {
+                          return immediateFuture(
+                              new AcceptedResultBuilder(session, controller)
+                                  .setAvailableSessionCommands(
+                                      new SessionCommands.Builder()
+                                          .addAllPredefinedCommands()
+                                          .addSessionCommands(
+                                              ImmutableList.of(expectedCustomCommand))
+                                          .build())
+                                  .build());
+                        }
 
-                            @Override
-                            public ListenableFuture<SessionResult> onCustomCommand(
-                                MediaSession session,
-                                ControllerInfo controller,
-                                SessionCommand customCommand,
-                                Bundle args) {
-                              if (customCommand.customAction.equals(
-                                  expectedCustomCommand.customAction)) {
-                                receivedCustomCommands.add(customCommand);
-                                receivedArgs.add(args);
-                                customCommandsLatch.countDown();
-                              }
-                              return immediateFuture(
-                                  new SessionResult(SessionResult.RESULT_SUCCESS));
-                            }
+                        @Override
+                        public ListenableFuture<SessionResult> onCustomCommand(
+                            MediaSession session,
+                            ControllerInfo controller,
+                            SessionCommand customCommand,
+                            Bundle args) {
+                          if (customCommand.customAction.equals(
+                              expectedCustomCommand.customAction)) {
+                            receivedCustomCommands.add(customCommand);
+                            receivedArgs.add(args);
+                            customCommandsLatch.countDown();
+                          }
+                          return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+                        }
 
-                            @Override
-                            public ListenableFuture<MediaItemsWithStartPosition>
-                                onPlaybackResumption(
-                                    MediaSession mediaSession,
-                                    ControllerInfo controller,
-                                    boolean isForPlayback) {
-                              return immediateFuture(
-                                  new MediaItemsWithStartPosition(
-                                      ImmutableList.of(playbackResumptionMediaItem),
-                                      /* startIndex= */ 0,
-                                      /* startPositionMs= */ 0));
-                            }
-                          })
-                      .build();
-              exoPlayer.addListener(
-                  new Listener() {
-                    @Override
-                    public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-                      if (mediaItem != null) {
-                        playbackStartedLatch.countDown();
-                      }
-                    }
-                  });
-              return session;
-            });
+                        @Override
+                        public ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+                            MediaSession mediaSession,
+                            ControllerInfo controller,
+                            boolean isForPlayback) {
+                          return immediateFuture(
+                              new MediaItemsWithStartPosition(
+                                  ImmutableList.of(playbackResumptionMediaItem),
+                                  /* startIndex= */ 0,
+                                  /* startPositionMs= */ 0));
+                        }
+                      })
+                  .build();
+          exoPlayer.addListener(
+              new Listener() {
+                @Override
+                public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+                  if (mediaItem != null) {
+                    playbackStartedLatch.countDown();
+                  }
+                }
+              });
+          return session;
+        });
     // We need to start the service into the foreground first by starting playback.
     new PlaybackPendingIntentBuilder(
             context, COMMAND_PLAY_PAUSE, LocalMockMediaSessionService.class)
@@ -1196,14 +1176,13 @@ public class MediaSessionServiceTest {
   public void createPlaybackWithoutPlay_doesNotStartForegroundService() throws Exception {
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
-              exoPlayer.prepare();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+          exoPlayer.prepare();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player).build();
     TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
@@ -1226,14 +1205,13 @@ public class MediaSessionServiceTest {
   public void startPlayback_startsForegroundService() throws Exception {
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
-              exoPlayer.prepare();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+          exoPlayer.prepare();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player).build();
     TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
@@ -1263,15 +1241,14 @@ public class MediaSessionServiceTest {
     int foregroundServiceTimeoutMs = 200;
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
-              exoPlayer.prepare();
-              exoPlayer.play();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+          exoPlayer.prepare();
+          exoPlayer.play();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player).build();
     TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
@@ -1308,15 +1285,14 @@ public class MediaSessionServiceTest {
   public void pauseAllPlayersAndStopSelf_stopsForegroundService() throws Exception {
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-              exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
-              exoPlayer.prepare();
-              exoPlayer.play();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+          exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+          exoPlayer.prepare();
+          exoPlayer.play();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player).build();
     TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
@@ -1355,21 +1331,20 @@ public class MediaSessionServiceTest {
     byte[] artworkBytes = bitmapOutputStream.toByteArray();
     TestHandler handler = new TestHandler(Looper.getMainLooper());
     ExoPlayer player =
-        handler.postAndSync(
-            () -> {
-              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
-              exoPlayer.setMediaItem(
-                  new MediaItem.Builder()
-                      .setUri("asset:///media/mp4/sample.mp4")
-                      .setMediaMetadata(
-                          new MediaMetadata.Builder()
-                              .setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
-                              .build())
-                      .build());
-              exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
-              exoPlayer.prepare();
-              return exoPlayer;
-            });
+        handler.postAndSync(() -> {
+          ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+          exoPlayer.setMediaItem(
+              new MediaItem.Builder()
+                  .setUri("asset:///media/mp4/sample.mp4")
+                  .setMediaMetadata(
+                      new MediaMetadata.Builder()
+                          .setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                          .build())
+                  .build());
+          exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+          exoPlayer.prepare();
+          return exoPlayer;
+        });
     MediaSession mediaSession =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player).build();
     TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);

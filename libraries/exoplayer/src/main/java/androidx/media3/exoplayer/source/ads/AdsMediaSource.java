@@ -281,14 +281,9 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     this.componentListener = componentListener;
     contentTimeline = contentMediaSource.getTimeline();
     prepareChildSource(CHILD_SOURCE_MEDIA_PERIOD_ID, contentMediaSource);
-    mainHandler.post(
-        () ->
-            adsLoader.start(
-                /* adsMediaSource= */ this,
-                adTagDataSpec,
-                adsId,
-                adViewProvider,
-                componentListener));
+    mainHandler.post(() ->
+        adsLoader.start(
+            /* adsMediaSource= */ this, adTagDataSpec, adsId, adViewProvider, componentListener));
   }
 
   @Override
@@ -395,16 +390,15 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     } else {
       contentTimeline = newTimeline;
       ComponentListener componentListener = checkNotNull(this.componentListener);
-      mainHandler.post(
-          () -> {
-            boolean sourceInfoUpdated = adsLoader.handleContentTimelineChanged(this, newTimeline);
-            // The ad playback state must not be updated when lazy preparation is used.
-            checkState(!sourceInfoUpdated || !useLazyContentSourcePreparation);
-            // If the source isn't updated by the ads loader we do, if not already published.
-            if (!sourceInfoUpdated && !useLazyContentSourcePreparation) {
-              componentListener.onContentTimelineChanged();
-            }
-          });
+      mainHandler.post(() -> {
+        boolean sourceInfoUpdated = adsLoader.handleContentTimelineChanged(this, newTimeline);
+        // The ad playback state must not be updated when lazy preparation is used.
+        checkState(!sourceInfoUpdated || !useLazyContentSourcePreparation);
+        // If the source isn't updated by the ads loader we do, if not already published.
+        if (!sourceInfoUpdated && !useLazyContentSourcePreparation) {
+          componentListener.onContentTimelineChanged();
+        }
+      });
       if (useLazyContentSourcePreparation) {
         // If lazy preparation is used, the ads loader is not allowed to update the ad playback
         // state on timeline change. We can synchronously publish the timeline as early as possible.
@@ -622,13 +616,12 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       if (stopped) {
         return;
       }
-      playerHandler.post(
-          () -> {
-            if (stopped) {
-              return;
-            }
-            AdsMediaSource.this.maybeUpdateSourceInfo();
-          });
+      playerHandler.post(() -> {
+        if (stopped) {
+          return;
+        }
+        AdsMediaSource.this.maybeUpdateSourceInfo();
+      });
     }
 
     @Override
@@ -636,13 +629,12 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       if (stopped) {
         return;
       }
-      playerHandler.post(
-          () -> {
-            if (stopped) {
-              return;
-            }
-            AdsMediaSource.this.onAdPlaybackState(adPlaybackState);
-          });
+      playerHandler.post(() -> {
+        if (stopped) {
+          return;
+        }
+        AdsMediaSource.this.onAdPlaybackState(adPlaybackState);
+      });
     }
 
     @Override
@@ -673,12 +665,11 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
 
     @Override
     public void onPrepareComplete(MediaPeriodId mediaPeriodId) {
-      mainHandler.post(
-          () ->
-              adsLoader.handlePrepareComplete(
-                  /* adsMediaSource= */ AdsMediaSource.this,
-                  mediaPeriodId.adGroupIndex,
-                  mediaPeriodId.adIndexInAdGroup));
+      mainHandler.post(() ->
+          adsLoader.handlePrepareComplete(
+              /* adsMediaSource= */ AdsMediaSource.this,
+              mediaPeriodId.adGroupIndex,
+              mediaPeriodId.adIndexInAdGroup));
     }
 
     @Override
@@ -693,13 +684,12 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
               C.DATA_TYPE_AD,
               AdLoadException.createForAd(exception),
               /* wasCanceled= */ true);
-      mainHandler.post(
-          () ->
-              adsLoader.handlePrepareError(
-                  /* adsMediaSource= */ AdsMediaSource.this,
-                  mediaPeriodId.adGroupIndex,
-                  mediaPeriodId.adIndexInAdGroup,
-                  exception));
+      mainHandler.post(() ->
+          adsLoader.handlePrepareError(
+              /* adsMediaSource= */ AdsMediaSource.this,
+              mediaPeriodId.adGroupIndex,
+              mediaPeriodId.adIndexInAdGroup,
+              exception));
     }
   }
 

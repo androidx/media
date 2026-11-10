@@ -179,15 +179,11 @@ public class MediaControllerWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              assertThat(
-                      controller
-                          .getAvailableCommands()
-                          .contains(Player.COMMAND_SET_SPEED_AND_PITCH))
-                  .isTrue();
-              controller.setPlaybackSpeed(2.0f);
-            });
+        .postAndSync(() -> {
+          assertThat(controller.getAvailableCommands().contains(Player.COMMAND_SET_SPEED_AND_PITCH))
+              .isTrue();
+          controller.setPlaybackSpeed(2.0f);
+        });
 
     assertThat(countDownLatch.await(1000, MILLISECONDS)).isTrue();
     assertThat(parametersRef.get().speed).isEqualTo(2.0f);
@@ -206,13 +202,10 @@ public class MediaControllerWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                assertThat(
-                        controller
-                            .getAvailableCommands()
-                            .contains(Player.COMMAND_SET_SPEED_AND_PITCH))
-                    .isFalse());
+        .postAndSync(() ->
+            assertThat(
+                    controller.getAvailableCommands().contains(Player.COMMAND_SET_SPEED_AND_PITCH))
+                .isFalse());
   }
 
   @Test
@@ -229,13 +222,10 @@ public class MediaControllerWithMediaSessionCompatTest {
 
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () ->
-                assertThat(
-                        controller
-                            .getAvailableCommands()
-                            .contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM))
-                    .isTrue());
+        .postAndSync(() ->
+            assertThat(
+                    controller.getAvailableCommands().contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM))
+                .isTrue());
   }
 
   @Test
@@ -440,25 +430,24 @@ public class MediaControllerWithMediaSessionCompatTest {
     AtomicLong durationInTimelineRef = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              positionRef.set(controller.getCurrentPosition());
-              bufferedPositionRef.set(controller.getBufferedPosition());
-              speedRef.set(controller.getPlaybackParameters().speed);
-              mediaItemRef.set(controller.getCurrentMediaItem());
-              playWhenReadyRef.set(controller.getPlayWhenReady());
-              playbackStateRef.set(controller.getPlaybackState());
-              repeatModeRef.set(controller.getRepeatMode());
-              shuffleModeEnabledRef.set(controller.getShuffleModeEnabled());
-              playlistMetadataRef.set(controller.getPlaylistMetadata());
-              isPlayingAdRef.set(controller.isPlayingAd());
-              durationRef.set(controller.getDuration());
-              durationInTimelineRef.set(
-                  controller
-                      .getCurrentTimeline()
-                      .getWindow(/* windowIndex= */ 0, new Timeline.Window())
-                      .getDurationMs());
-            });
+        .postAndSync(() -> {
+          positionRef.set(controller.getCurrentPosition());
+          bufferedPositionRef.set(controller.getBufferedPosition());
+          speedRef.set(controller.getPlaybackParameters().speed);
+          mediaItemRef.set(controller.getCurrentMediaItem());
+          playWhenReadyRef.set(controller.getPlayWhenReady());
+          playbackStateRef.set(controller.getPlaybackState());
+          repeatModeRef.set(controller.getRepeatMode());
+          shuffleModeEnabledRef.set(controller.getShuffleModeEnabled());
+          playlistMetadataRef.set(controller.getPlaylistMetadata());
+          isPlayingAdRef.set(controller.isPlayingAd());
+          durationRef.set(controller.getDuration());
+          durationInTimelineRef.set(
+              controller
+                  .getCurrentTimeline()
+                  .getWindow(/* windowIndex= */ 0, new Timeline.Window())
+                  .getDurationMs());
+        });
 
     assertThat(positionRef.get())
         .isIn(Range.closedOpen(position, position + (long) (speed * TIMEOUT_MS)));
@@ -2077,11 +2066,10 @@ public class MediaControllerWithMediaSessionCompatTest {
     long currentPositionMs =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () -> {
-                  Thread.sleep(100);
-                  return controller.getCurrentPosition();
-                });
+            .postAndSync(() -> {
+              Thread.sleep(100);
+              return controller.getCurrentPosition();
+            });
 
     assertThat(currentPositionMs).isEqualTo(500);
   }
@@ -2102,13 +2090,12 @@ public class MediaControllerWithMediaSessionCompatTest {
     AtomicLong currentPositionMs = new AtomicLong();
     threadTestRule
         .getHandler()
-        .postAndSync(
-            () -> {
-              Thread.sleep(100);
-              timeBeforeGetCurrentPosition.set(SystemClock.elapsedRealtime());
-              currentPositionMs.set(controller.getCurrentPosition());
-              timeAfterGetCurrentPosition.set(SystemClock.elapsedRealtime());
-            });
+        .postAndSync(() -> {
+          Thread.sleep(100);
+          timeBeforeGetCurrentPosition.set(SystemClock.elapsedRealtime());
+          currentPositionMs.set(controller.getCurrentPosition());
+          timeAfterGetCurrentPosition.set(SystemClock.elapsedRealtime());
+        });
 
     long minTimeElapsedMs = timeBeforeGetCurrentPosition.get() - timeAfterControllerCreated;
     long maxTimeElapsedMs = timeAfterGetCurrentPosition.get() - timeBeforeSetPlaybackState;

@@ -48,9 +48,8 @@ public final class SeiReader {
     this.containerMimeType = containerMimeType;
     outputs = new TrackOutput[closedCaptionFormats.size()];
     reorderingBufferQueue =
-        new ReorderingBufferQueue(
-            (presentationTimeUs, seiBuffer) ->
-                CeaUtil.consume(presentationTimeUs, seiBuffer, outputs));
+        new ReorderingBufferQueue((presentationTimeUs, seiBuffer) ->
+            CeaUtil.consume(presentationTimeUs, seiBuffer, outputs));
   }
 
   public void createTracks(ExtractorOutput extractorOutput, TrackIdGenerator idGenerator) {

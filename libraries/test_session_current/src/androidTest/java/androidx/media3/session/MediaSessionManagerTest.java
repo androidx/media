@@ -83,11 +83,10 @@ public class MediaSessionManagerTest {
     handler = threadTestRule.getHandler();
 
     // Use TestExoPlayerBuilder to create a real player on the handler thread.
-    handler.postAndSync(
-        () -> {
-          player = new TestExoPlayerBuilder(context).build();
-          player.setPlayWhenReady(true);
-        });
+    handler.postAndSync(() -> {
+      player = new TestExoPlayerBuilder(context).build();
+      player.setPlayWhenReady(true);
+    });
 
     session = new MediaSession.Builder(context, player).setId(TAG).build();
   }
@@ -135,14 +134,13 @@ public class MediaSessionManagerTest {
     MediaSessionManager.OnActiveSessionsChangedListener listener =
         activeSessions -> latch.countDown();
 
-    handler.postAndSync(
-        () ->
-            MediaSessionManager.addOnActiveSessionsChangedListener(
-                context,
-                context.getPackageName(),
-                listener,
-                ContextCompat.getMainExecutor(context),
-                /* notificationListener= */ null));
+    handler.postAndSync(() ->
+        MediaSessionManager.addOnActiveSessionsChangedListener(
+            context,
+            context.getPackageName(),
+            listener,
+            ContextCompat.getMainExecutor(context),
+            /* notificationListener= */ null));
 
     // Wait for a short period to ensure no unexpected callback occurs.
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isFalse();
@@ -162,14 +160,13 @@ public class MediaSessionManagerTest {
     assertThrows(
         SecurityException.class,
         () ->
-            handler.postAndSync(
-                () ->
-                    MediaSessionManager.addOnActiveSessionsChangedListener(
-                        context,
-                        /* packageName= */ "other.package",
-                        listener,
-                        ContextCompat.getMainExecutor(context),
-                        /* notificationListener= */ null)));
+            handler.postAndSync(() ->
+                MediaSessionManager.addOnActiveSessionsChangedListener(
+                    context,
+                    /* packageName= */ "other.package",
+                    listener,
+                    ContextCompat.getMainExecutor(context),
+                    /* notificationListener= */ null)));
   }
 
   @Test
@@ -196,14 +193,13 @@ public class MediaSessionManagerTest {
           }
         };
 
-    handler.postAndSync(
-        () ->
-            MediaSessionManager.addOnActiveSessionsChangedListener(
-                context,
-                context.getPackageName(),
-                listener,
-                ContextCompat.getMainExecutor(context),
-                /* notificationListener= */ null));
+    handler.postAndSync(() ->
+        MediaSessionManager.addOnActiveSessionsChangedListener(
+            context,
+            context.getPackageName(),
+            listener,
+            ContextCompat.getMainExecutor(context),
+            /* notificationListener= */ null));
 
     List<SessionToken> unused =
         waitAndGetActiveSessions(context.getPackageName(), /* notificationListener= */ null);
@@ -211,25 +207,23 @@ public class MediaSessionManagerTest {
     final MediaSession[] session2 = new MediaSession[1];
     final Player[] player2 = new Player[1];
     try {
-      handler.postAndSync(
-          () -> {
-            player2[0] = new TestExoPlayerBuilder(context).build();
-            player2[0].setPlayWhenReady(true);
-            session2[0] = new MediaSession.Builder(context, player2[0]).setId(TAG + "_2").build();
-          });
+      handler.postAndSync(() -> {
+        player2[0] = new TestExoPlayerBuilder(context).build();
+        player2[0].setPlayWhenReady(true);
+        session2[0] = new MediaSession.Builder(context, player2[0]).setId(TAG + "_2").build();
+      });
 
       assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     } finally {
-      handler.postAndSync(
-          () -> {
-            MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener);
-            if (session2[0] != null) {
-              session2[0].release();
-            }
-            if (player2[0] != null) {
-              player2[0].release();
-            }
-          });
+      handler.postAndSync(() -> {
+        MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener);
+        if (session2[0] != null) {
+          session2[0].release();
+        }
+        if (player2[0] != null) {
+          player2[0].release();
+        }
+      });
     }
   }
 
@@ -336,35 +330,32 @@ public class MediaSessionManagerTest {
         };
 
     // Call on handler thread to ensure looper is prepared.
-    handler.postAndSync(
-        () ->
-            MediaSessionManager.addOnActiveSessionsChangedListener(
-                context, null, listenerCallback, ContextCompat.getMainExecutor(context), null));
+    handler.postAndSync(() ->
+        MediaSessionManager.addOnActiveSessionsChangedListener(
+            context, null, listenerCallback, ContextCompat.getMainExecutor(context), null));
 
     // Create a SECOND session to trigger a change!
     final MediaSession[] session2 = new MediaSession[1];
     final Player[] player2 = new Player[1];
     try {
-      handler.postAndSync(
-          () -> {
-            player2[0] = new TestExoPlayerBuilder(context).build();
-            player2[0].setPlayWhenReady(true);
-            session2[0] = new MediaSession.Builder(context, player2[0]).setId(TAG + "_2").build();
-          });
+      handler.postAndSync(() -> {
+        player2[0] = new TestExoPlayerBuilder(context).build();
+        player2[0].setPlayWhenReady(true);
+        session2[0] = new MediaSession.Builder(context, player2[0]).setId(TAG + "_2").build();
+      });
 
       // Wait for the latch to be counted down.
       assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     } finally {
-      handler.postAndSync(
-          () -> {
-            MediaSessionManager.removeOnActiveSessionsChangedListener(context, listenerCallback);
-            if (session2[0] != null) {
-              session2[0].release();
-            }
-            if (player2[0] != null) {
-              player2[0].release();
-            }
-          });
+      handler.postAndSync(() -> {
+        MediaSessionManager.removeOnActiveSessionsChangedListener(context, listenerCallback);
+        if (session2[0] != null) {
+          session2[0].release();
+        }
+        if (player2[0] != null) {
+          player2[0].release();
+        }
+      });
     }
   }
 
@@ -386,39 +377,36 @@ public class MediaSessionManagerTest {
         };
 
     // Call on handler thread to ensure looper is prepared.
-    handler.postAndSync(
-        () ->
-            MediaSessionManager.addOnActiveSessionsChangedListener(
-                context,
-                null,
-                listenerCallback,
-                ContextCompat.getMainExecutor(context),
-                testNotificationListener));
+    handler.postAndSync(() ->
+        MediaSessionManager.addOnActiveSessionsChangedListener(
+            context,
+            null,
+            listenerCallback,
+            ContextCompat.getMainExecutor(context),
+            testNotificationListener));
 
     // Create a SECOND session to trigger a change!
     final MediaSession[] session2 = new MediaSession[1];
     final Player[] player2 = new Player[1];
     try {
-      handler.postAndSync(
-          () -> {
-            player2[0] = new TestExoPlayerBuilder(context).build();
-            player2[0].setPlayWhenReady(true);
-            session2[0] = new MediaSession.Builder(context, player2[0]).setId(TAG + "_2").build();
-          });
+      handler.postAndSync(() -> {
+        player2[0] = new TestExoPlayerBuilder(context).build();
+        player2[0].setPlayWhenReady(true);
+        session2[0] = new MediaSession.Builder(context, player2[0]).setId(TAG + "_2").build();
+      });
 
       // Wait for the latch to be counted down.
       assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     } finally {
-      handler.postAndSync(
-          () -> {
-            MediaSessionManager.removeOnActiveSessionsChangedListener(context, listenerCallback);
-            if (session2[0] != null) {
-              session2[0].release();
-            }
-            if (player2[0] != null) {
-              player2[0].release();
-            }
-          });
+      handler.postAndSync(() -> {
+        MediaSessionManager.removeOnActiveSessionsChangedListener(context, listenerCallback);
+        if (session2[0] != null) {
+          session2[0].release();
+        }
+        if (player2[0] != null) {
+          player2[0].release();
+        }
+      });
     }
   }
 
@@ -509,19 +497,18 @@ public class MediaSessionManagerTest {
   public void getMediaKeyEventSession_afterApi33_doesNotCrash() throws Exception {
     adoptMediaContentControlPermission();
 
-    handler.postAndSync(
-        () -> {
-          AudioAttributes audioAttributes =
-              new AudioAttributes.Builder()
-                  .setUsage(C.USAGE_MEDIA)
-                  .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                  .build();
-          player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true);
+    handler.postAndSync(() -> {
+      AudioAttributes audioAttributes =
+          new AudioAttributes.Builder()
+              .setUsage(C.USAGE_MEDIA)
+              .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+              .build();
+      player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true);
 
-          player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
-          player.prepare();
-          player.play();
-        });
+      player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+      player.prepare();
+      player.play();
+    });
 
     long startTime = SystemClock.elapsedRealtime();
     SessionToken token = null;
@@ -554,14 +541,13 @@ public class MediaSessionManagerTest {
     MediaSessionManager.OnActiveSessionsChangedListener listenerCallback =
         activeSessions -> latch.countDown();
 
-    handler.postAndSync(
-        () ->
-            MediaSessionManager.addOnActiveSessionsChangedListener(
-                context,
-                /* packageName= */ null,
-                listenerCallback,
-                ContextCompat.getMainExecutor(context),
-                /* notificationListener= */ null));
+    handler.postAndSync(() ->
+        MediaSessionManager.addOnActiveSessionsChangedListener(
+            context,
+            /* packageName= */ null,
+            listenerCallback,
+            ContextCompat.getMainExecutor(context),
+            /* notificationListener= */ null));
 
     // Remove the listener
     handler.postAndSync(
@@ -570,12 +556,11 @@ public class MediaSessionManagerTest {
     // Create a SECOND session to trigger a change!
     final MediaSession[] session2 = new MediaSession[1];
     try {
-      handler.postAndSync(
-          () -> {
-            Player player2 = new TestExoPlayerBuilder(context).build();
-            player2.setPlayWhenReady(true);
-            session2[0] = new MediaSession.Builder(context, player2).setId(TAG + "_2").build();
-          });
+      handler.postAndSync(() -> {
+        Player player2 = new TestExoPlayerBuilder(context).build();
+        player2.setPlayWhenReady(true);
+        session2[0] = new MediaSession.Builder(context, player2).setId(TAG + "_2").build();
+      });
 
       // Latch shouldn't trigger
       assertThat(latch.await(1000, MILLISECONDS)).isFalse();
@@ -597,21 +582,20 @@ public class MediaSessionManagerTest {
     AtomicReference<Throwable> thrown = new AtomicReference<>();
 
     Thread thread =
-        new Thread(
-            () -> {
-              try {
-                MediaSessionManager.addOnActiveSessionsChangedListener(
-                    context,
-                    /* packageName= */ null,
-                    listener,
-                    ContextCompat.getMainExecutor(context),
-                    /* notificationListener= */ null);
-                latch.countDown();
-              } catch (Throwable t) {
-                thrown.set(t);
-                latch.countDown();
-              }
-            });
+        new Thread(() -> {
+          try {
+            MediaSessionManager.addOnActiveSessionsChangedListener(
+                context,
+                /* packageName= */ null,
+                listener,
+                ContextCompat.getMainExecutor(context),
+                /* notificationListener= */ null);
+            latch.countDown();
+          } catch (Throwable t) {
+            thrown.set(t);
+            latch.countDown();
+          }
+        });
     thread.start();
 
     assertWithMessage("Thread timed out").that(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
