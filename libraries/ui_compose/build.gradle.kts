@@ -22,6 +22,8 @@ android {
   namespace = "androidx.media3.ui.compose"
 
   buildFeatures { compose = true }
+
+  sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets/") }
 }
 
 dependencies {
@@ -40,4 +42,14 @@ dependencies {
   testImplementation(libs.robolectric)
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.coil.compose)
+
+  androidTestImplementation(libs.androidx.activity.compose)
+  androidTestImplementation(libs.androidx.compose.material3)
+  androidTestImplementation(libs.androidx.test.core)
+  androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.kotlinx.coroutines.android)
+  androidTestImplementation(libs.truth)
+  androidTestImplementation(project(":lib-exoplayer"))
+  androidTestImplementation(project(":test-utils"))
 }
