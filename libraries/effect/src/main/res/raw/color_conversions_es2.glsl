@@ -57,8 +57,16 @@ const mat3 BT709_FULL_RANGE_YUV_TO_RGB =
          0.0000, -0.1873, 1.8556,
          1.5748, -0.4681, 0.0000);
 
-// YUV to RGB offset vectors (subtracted from YUV values before multiplying them
-// by the YUV-to-RGB matrix):
+// RGB to YUV transform matrix (column-major format for OpenGL)
+// clang-format off
+const mat3 BT709_LIMITED_RANGE_RGB_TO_YUV =
+    mat3(0.1826, -0.1006,  0.4392,
+         0.6142, -0.3386, -0.3989,
+         0.0620,  0.4392, -0.0403);
+// clang-format on
+
+// YUV offset vectors (subtracted before YUV-to-RGB matrix multiplication and
+// added after RGB-to-YUV matrix multiplication):
 // - For Y, limited-range values are in [16, 235] (offset by 16), while
 //   full-range values are in [0, 255] (offset by 0).
 // - For U and V, values in both limited and full range are in [-128, +127]
@@ -84,6 +92,13 @@ vec3 yuvElectricalToRgbElectrical(
                          : BT709_LIMITED_RANGE_YUV_TO_RGB;
   }
   return clamp(yuvToRgbMatrix * (yuv - yuvOffset), 0.0, 1.0);
+}
+
+// Transforms BT.709 RGB electrical values in [0.0, 1.0] to limited-range BT.709
+// YUV electrical values in [0.0, 1.0].
+vec3 rgbElectricalToYuvElectrical(vec3 rgb) {
+  return clamp(BT709_LIMITED_RANGE_RGB_TO_YUV * rgb + LIMITED_RANGE_YUV_OFFSET,
+               0.0, 1.0);
 }
 
 // Transforms electrical SDR to linear optical SDR using the vectorized sRGB EOTF.

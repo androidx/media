@@ -114,6 +114,11 @@ public final class GlslShaderCompilationTest {
         compiledResIds,
         R.raw.vertex_shader_transformation_es2,
         R.raw.color_conversions_es2,
+        R.raw.fragment_shader_rgba_to_yuy2_es2);
+    compileGlProgram(
+        compiledResIds,
+        R.raw.vertex_shader_transformation_es2,
+        R.raw.color_conversions_es2,
         R.raw.fragment_shader_transformation_sdr_internal_color_conversion_es2);
     compileGlProgram(
         compiledResIds,
