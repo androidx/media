@@ -23,10 +23,12 @@ import static java.lang.Math.min;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -148,6 +150,8 @@ import org.jspecify.annotations.Nullable;
   private final Loader loader;
   private final ProgressiveMediaExtractor progressiveMediaExtractor;
   private final ConditionVariable loadCondition;
+  private final Object preparePauseLock;
+  private final boolean pauseLoaderOnPreparationReady;
   private final Runnable maybeFinishPrepareRunnable;
   private final Runnable onContinueLoadingRequestedRunnable;
   private final Handler handler;
@@ -159,9 +163,13 @@ import org.jspecify.annotations.Nullable;
   // TODO(b/457738425) - Consider merging controledTrackOutputs, sampleQueues together, since they
   // are essentially the same objects.
   private ControlledTrackOutput[] controlledTrackOutputs;
-  private SampleQueue[] sampleQueues;
+  private volatile SampleQueue[] sampleQueues;
   private TrackId[] sampleQueueTrackIds;
-  private boolean sampleQueuesBuilt;
+  private volatile boolean sampleQueuesBuilt;
+  private volatile boolean seekMapReceived;
+
+  @GuardedBy("preparePauseLock")
+  private boolean loadPausedForPreparation;
 
   private boolean prepared;
   private boolean haveAudioVideoTracks;
@@ -243,6 +251,9 @@ import org.jspecify.annotations.Nullable;
     this.progressiveMediaExtractor = progressiveMediaExtractor;
     this.singleSampleDurationUs = singleSampleDurationUs;
     loadCondition = new ConditionVariable();
+    preparePauseLock = new Object();
+    pauseLoaderOnPreparationReady =
+        Flags.isEnabled(Flags.FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY);
     maybeFinishPrepareRunnable = this::maybeFinishPrepare;
     onContinueLoadingRequestedRunnable =
         () -> {
@@ -287,6 +298,9 @@ import org.jspecify.annotations.Nullable;
     this.callback = callback;
     loadingStateMachine.onPrepared(/* isSingleTrack= */ singleTrackFormat != null, positionUs);
     if (singleTrackFormat != null) {
+      synchronized (preparePauseLock) {
+        loadPausedForPreparation = true;
+      }
       // track() and endTracks() are meant to be called on the loading thread, which doesn't exist
       // yet (we're on the playback thread here). Starting the loading thread will provide a memory
       // barrier to ensure any changes done here are visible on the loading thread after it starts.
@@ -527,7 +541,8 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public boolean isLoading() {
-    return loadingStateMachine.isLoading() && loadCondition.isOpen();
+    return loadingStateMachine.isLoading()
+        && (loadCondition.isOpen() || (!prepared && isLoadPausedForPreparation()));
   }
 
   @Override
@@ -944,11 +959,14 @@ import org.jspecify.annotations.Nullable;
   @Override
   public void endTracks() {
     sampleQueuesBuilt = true;
+    maybePauseLoaderForPreparation();
     handler.post(maybeFinishPrepareRunnable);
   }
 
   @Override
   public void seekMap(SeekMap seekMap) {
+    seekMapReceived = true;
+    maybePauseLoaderForPreparation();
     handler.post(() -> setSeekMap(seekMap));
   }
 
@@ -962,6 +980,7 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void onUpstreamFormatChanged(Format format) {
+    maybePauseLoaderForPreparation();
     handler.post(maybeFinishPrepareRunnable);
   }
 
@@ -1014,6 +1033,30 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  private void maybePauseLoaderForPreparation() {
+    if (!pauseLoaderOnPreparationReady || !sampleQueuesBuilt || !seekMapReceived) {
+      return;
+    }
+    synchronized (preparePauseLock) {
+      if (loadPausedForPreparation) {
+        return;
+      }
+      for (SampleQueue sampleQueue : sampleQueues) {
+        if (sampleQueue.getUpstreamFormat() == null) {
+          return;
+        }
+      }
+      loadPausedForPreparation = true;
+      loadCondition.close();
+    }
+  }
+
+  private boolean isLoadPausedForPreparation() {
+    synchronized (preparePauseLock) {
+      return loadPausedForPreparation;
+    }
+  }
+
   private void maybeFinishPrepare() {
     if (released || prepared || !sampleQueuesBuilt || seekMap == null) {
       return;
@@ -1023,7 +1066,10 @@ import org.jspecify.annotations.Nullable;
         return;
       }
     }
-    loadCondition.close();
+    synchronized (preparePauseLock) {
+      loadPausedForPreparation = true;
+      loadCondition.close();
+    }
     isWaitingForContinueLoading = true;
     int trackCount = sampleQueues.length;
     int primaryTrackIndex = 0;
@@ -1401,6 +1447,16 @@ import org.jspecify.annotations.Nullable;
       int result = Extractor.RESULT_CONTINUE;
       String etag = null;
       while (result == Extractor.RESULT_CONTINUE && !loadCanceled) {
+        if (pauseLoaderOnPreparationReady) {
+          try {
+            loadCondition.block();
+          } catch (InterruptedException e) {
+            throw new InterruptedIOException();
+          }
+          if (loadCanceled) {
+            break;
+          }
+        }
         // The extractor is shared between all loadables of the period, so until it has been
         // initialized with an input for this load attempt, its current input position may still
         // belong to a previous load.
@@ -1447,6 +1503,9 @@ import org.jspecify.annotations.Nullable;
               loadCondition.block();
             } catch (InterruptedException e) {
               throw new InterruptedIOException();
+            }
+            if (loadCanceled) {
+              break;
             }
             result = progressiveMediaExtractor.read(positionHolder);
             long currentInputPosition = progressiveMediaExtractor.getCurrentInputPosition();

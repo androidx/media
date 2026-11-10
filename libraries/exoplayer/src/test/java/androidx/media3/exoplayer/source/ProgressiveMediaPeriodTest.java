@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Util.createHandlerForCurrentLooper;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -27,6 +28,7 @@ import android.net.Uri;
 import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -48,6 +50,7 @@ import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
@@ -57,6 +60,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.IndexSeekMap;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
@@ -65,10 +69,12 @@ import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.test.utils.BindFlag;
 import androidx.media3.test.utils.FakeTrackSelection;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -82,13 +88,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** Unit test for {@link ProgressiveMediaPeriod}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class ProgressiveMediaPeriodTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
+
+  @TestParameter
+  @BindFlag(Flags.FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY)
+  private boolean pauseLoaderOnPreparationReady;
 
   @Test
   public void prepareUsingBundledExtractors_updatesSourceInfoBeforeOnPreparedCallback()
@@ -2895,6 +2909,14 @@ public final class ProgressiveMediaPeriodTest {
     ConditionVariable chunkPausedCondition = new ConditionVariable();
     AtomicInteger initCount = new AtomicInteger();
     AtomicInteger readCount = new AtomicInteger();
+    TrackingDataSource dataSource =
+        new TrackingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            /* onClose= */ () -> {
+              if (readCount.get() == 1) {
+                chunkPausedCondition.open();
+              }
+            });
     ProgressiveMediaExtractor extractor =
         new FakeProgressiveMediaExtractor() {
           @Override
@@ -2911,8 +2933,6 @@ public final class ProgressiveMediaPeriodTest {
                   .format(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
               output.endTracks();
               output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
-            } else {
-              chunkPausedCondition.open();
             }
           }
 
@@ -2931,6 +2951,8 @@ public final class ProgressiveMediaPeriodTest {
     ProgressiveMediaPeriod mediaPeriod =
         createMediaPeriod(
             Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            dataSource,
+            new DefaultLoadErrorHandlingPolicy(),
             extractor,
             /* imageDurationUs= */ C.TIME_UNSET,
             /* executor= */ null,
@@ -2951,6 +2973,708 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(continuedBeforeRunnable).isFalse();
     assertThat(isLoadingBeforeRunnable).isFalse();
     assertThat(readCount.get()).isEqualTo(2);
+  }
+
+  private enum PreparationCompletionStep {
+    INIT,
+    UPSTREAM_FORMAT,
+    SEEK_MAP,
+    END_TRACKS
+  }
+
+  @Test
+  public void prepare_whenMetadataCompletes_pausesLoadingImmediately(
+      @TestParameter PreparationCompletionStep completionStep) throws Exception {
+    assumeTrue(pauseLoaderOnPreparationReady);
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    ConditionVariable metadataReadyCondition = new ConditionVariable();
+    AtomicInteger readCount = new AtomicInteger();
+    AtomicBoolean prepared = new AtomicBoolean();
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable ExtractorOutput extractorOutput;
+          private @Nullable TrackOutput videoTrackOutput;
+          private @Nullable TrackOutput audioTrackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            extractorOutput = output;
+            videoTrackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+            audioTrackOutput = output.track(1, C.TRACK_TYPE_AUDIO);
+            videoTrackOutput.format(
+                new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+            if (completionStep != PreparationCompletionStep.UPSTREAM_FORMAT) {
+              audioTrackOutput.format(
+                  new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+            }
+            if (completionStep != PreparationCompletionStep.SEEK_MAP) {
+              output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+            }
+            if (completionStep != PreparationCompletionStep.END_TRACKS) {
+              output.endTracks();
+            }
+            if (completionStep == PreparationCompletionStep.INIT) {
+              metadataReadyCondition.open();
+            }
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1
+                && completionStep != PreparationCompletionStep.INIT) {
+              switch (completionStep) {
+                case UPSTREAM_FORMAT:
+                  audioTrackOutput.format(
+                      new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+                  break;
+                case SEEK_MAP:
+                  extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+                  break;
+                case END_TRACKS:
+                  extractorOutput.endTracks();
+                  break;
+                case INIT:
+                  break;
+              }
+              currentInputPosition = 100;
+              metadataReadyCondition.open();
+              return Extractor.RESULT_CONTINUE;
+            }
+            byte[] sampleBytes = new byte[1024];
+            videoTrackOutput.sampleData(new ParsableByteArray(sampleBytes), sampleBytes.length);
+            videoTrackOutput.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                sampleBytes.length,
+                /* offset= */ 0,
+                /* cryptoData= */ null);
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createUnpreparedMediaPeriod(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()), extractor, allocator);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0);
+    metadataReadyCondition.block();
+    boolean isLoadingBeforeOnPrepared = mediaPeriod.isLoading();
+    boolean continuedBeforeOnPrepared =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(prepared::get);
+    int readCountAfterPrepare = readCount.get();
+    int allocatedBytesAfterPrepare = allocator.getTotalBytesAllocated();
+    boolean isLoadingAfterOnPrepared = mediaPeriod.isLoading();
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
+    boolean continuedAfterOnPrepared =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    int allocatedBytesAfterContinueLoading = allocator.getTotalBytesAllocated();
+    mediaPeriod.release();
+
+    int expectedReadCountAfterPrepare = completionStep == PreparationCompletionStep.INIT ? 0 : 1;
+    assertThat(isLoadingBeforeOnPrepared).isTrue();
+    assertThat(continuedBeforeOnPrepared).isFalse();
+    assertThat(readCountAfterPrepare).isEqualTo(expectedReadCountAfterPrepare);
+    assertThat(allocatedBytesAfterPrepare).isEqualTo(0);
+    assertThat(isLoadingAfterOnPrepared).isFalse();
+    assertThat(continuedAfterOnPrepared).isTrue();
+    assertThat(readCount.get()).isEqualTo(expectedReadCountAfterPrepare + 1);
+    assertThat(allocatedBytesAfterContinueLoading).isGreaterThan(0);
+  }
+
+  @Test
+  public void prepare_whenReadCompletingMetadataReturnsSeek_pausesBeforeReopeningDataSource()
+      throws Exception {
+    assumeTrue(pauseLoaderOnPreparationReady);
+    ConditionVariable firstCloseCondition = new ConditionVariable();
+    AtomicInteger initCount = new AtomicInteger();
+    AtomicInteger readCount = new AtomicInteger();
+    AtomicBoolean prepared = new AtomicBoolean();
+    TrackingDataSource dataSource =
+        new TrackingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            /* onClose= */ () -> {
+              if (readCount.get() == 1) {
+                firstCloseCondition.open();
+              }
+            });
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable ExtractorOutput extractorOutput;
+          private @Nullable TrackOutput videoTrackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            extractorOutput = output;
+            if (initCount.incrementAndGet() == 1) {
+              videoTrackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+              output.endTracks();
+            }
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              videoTrackOutput.format(
+                  new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+              extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+              positionHolder.position = 100;
+              return Extractor.RESULT_SEEK;
+            }
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod = createUnpreparedMediaPeriod(dataSource, extractor);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0);
+    firstCloseCondition.block();
+    runMainLooperUntil(prepared::get);
+    int openCountBeforeContinueLoading = dataSource.openCount.get();
+    int initCountBeforeContinueLoading = initCount.get();
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
+    boolean continuedLoading =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> !mediaPeriod.isLoading());
+    int openCountAfterContinueLoading = dataSource.openCount.get();
+    int initCountAfterContinueLoading = initCount.get();
+    mediaPeriod.release();
+
+    assertThat(openCountBeforeContinueLoading).isEqualTo(1);
+    assertThat(initCountBeforeContinueLoading).isEqualTo(1);
+    assertThat(continuedLoading).isTrue();
+    assertThat(openCountAfterContinueLoading).isEqualTo(2);
+    assertThat(initCountAfterContinueLoading).isEqualTo(2);
+    assertThat(dataSource.openedPositions).containsExactly(0L, 100L).inOrder();
+    assertThat(readCount.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void prepare_exceedingCheckIntervalBeforePrepared_reportsNotLoadingUntilResumed()
+      throws Exception {
+    assumeTrue(pauseLoaderOnPreparationReady);
+    ConditionVariable secondReadFinishedCondition = new ConditionVariable();
+    AtomicInteger readCount = new AtomicInteger();
+    AtomicBoolean prepared = new AtomicBoolean();
+    AtomicBoolean continueLoadingRequested = new AtomicBoolean();
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable TrackOutput audioTrackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            TrackOutput videoTrackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+            audioTrackOutput = output.track(1, C.TRACK_TYPE_AUDIO);
+            output.endTracks();
+            output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+            videoTrackOutput.format(
+                new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            int count = readCount.incrementAndGet();
+            if (count == 1) {
+              currentInputPosition =
+                  ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES + 1;
+              return Extractor.RESULT_CONTINUE;
+            }
+            if (count == 2) {
+              audioTrackOutput.format(
+                  new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+              currentInputPosition =
+                  ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES + 100;
+              secondReadFinishedCondition.open();
+              return Extractor.RESULT_CONTINUE;
+            }
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createUnpreparedMediaPeriod(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()), extractor);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {
+            continueLoadingRequested.set(true);
+          }
+        },
+        /* positionUs= */ 0);
+    runMainLooperUntil(continueLoadingRequested::get);
+    boolean preparedAtIntervalPause = prepared.get();
+    boolean isLoadingAtIntervalPause = mediaPeriod.isLoading();
+    boolean resumedAfterIntervalPause =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    secondReadFinishedCondition.block();
+    boolean isLoadingAtPreparationPauseBeforeOnPrepared = mediaPeriod.isLoading();
+    runMainLooperUntil(prepared::get);
+    boolean isLoadingAfterOnPrepared = mediaPeriod.isLoading();
+    int readCountAfterOnPrepared = readCount.get();
+    mediaPeriod.release();
+
+    assertThat(preparedAtIntervalPause).isFalse();
+    assertThat(isLoadingAtIntervalPause).isFalse();
+    assertThat(resumedAfterIntervalPause).isTrue();
+    assertThat(isLoadingAtPreparationPauseBeforeOnPrepared).isTrue();
+    assertThat(isLoadingAfterOnPrepared).isFalse();
+    assertThat(readCountAfterOnPrepared).isEqualTo(2);
+  }
+
+  @Test
+  public void prepare_withPauseLoaderOnPreparationReadyDisabled_continuesReadingUntilPrepared()
+      throws Exception {
+    assumeFalse(pauseLoaderOnPreparationReady);
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    ConditionVariable secondReadFinishedCondition = new ConditionVariable();
+    AtomicInteger readCount = new AtomicInteger();
+    AtomicBoolean prepared = new AtomicBoolean();
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable TrackOutput videoTrackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            videoTrackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+            output.endTracks();
+            output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+            videoTrackOutput.format(
+                new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              currentInputPosition = 100;
+              return Extractor.RESULT_CONTINUE;
+            }
+            byte[] sampleBytes = new byte[1024];
+            videoTrackOutput.sampleData(new ParsableByteArray(sampleBytes), sampleBytes.length);
+            videoTrackOutput.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                sampleBytes.length,
+                /* offset= */ 0,
+                /* cryptoData= */ null);
+            secondReadFinishedCondition.open();
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createUnpreparedMediaPeriod(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()), extractor, allocator);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0);
+    secondReadFinishedCondition.block();
+    runMainLooperUntil(prepared::get);
+    int allocatedBytesAfterPrepare = allocator.getTotalBytesAllocated();
+    mediaPeriod.release();
+
+    assertThat(readCount.get()).isEqualTo(2);
+    assertThat(allocatedBytesAfterPrepare).isGreaterThan(0);
+  }
+
+  @Test
+  public void prepare_withSingleTrackFormat_doesNotPauseExtractionAfterPrepare() throws Exception {
+    AtomicBoolean prepared = new AtomicBoolean();
+    AtomicInteger readCount = new AtomicInteger();
+    TrackingDataSource dataSource =
+        new TrackingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            /* onClose= */ () -> {});
+    Format singleTrackFormat =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_SUBRIP).build();
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable TrackOutput trackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            trackOutput = output.track(/* id= */ 42, C.TRACK_TYPE_TEXT);
+            trackOutput.format(singleTrackFormat.buildUpon().setLanguage("en").build());
+            output.endTracks();
+            output.seekMap(
+                new IndexSeekMap(
+                    /* positions= */ new long[] {0},
+                    /* timesUs= */ new long[] {0},
+                    /* durationUs= */ C.TIME_UNSET));
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              return Extractor.RESULT_CONTINUE;
+            }
+            byte[] sampleBytes = new byte[] {1, 2, 3, 4};
+            trackOutput.sampleData(new ParsableByteArray(sampleBytes), sampleBytes.length);
+            trackOutput.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                sampleBytes.length,
+                /* offset= */ 0,
+                /* cryptoData= */ null);
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod =
+        createUnpreparedMediaPeriod(
+            dataSource,
+            extractor,
+            new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+            /* singleTrackId= */ 42,
+            singleTrackFormat);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0);
+    boolean isLoadingBeforeOnPrepared = mediaPeriod.isLoading();
+    runMainLooperUntil(prepared::get);
+    int openCountAfterPrepare = dataSource.openCount.get();
+    selectOnlyTrack(mediaPeriod, /* trackIndex= */ 0);
+    boolean continuedLoading =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
+    mediaPeriod.release();
+
+    assertThat(isLoadingBeforeOnPrepared).isFalse();
+    assertThat(openCountAfterPrepare).isEqualTo(0);
+    assertThat(continuedLoading).isTrue();
+    assertThat(readCount.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void release_whenPausedAfterReadCompletingMetadataReturnsSeek_doesNotReopenDataSource()
+      throws Exception {
+    assumeTrue(pauseLoaderOnPreparationReady);
+    ConditionVariable firstCloseCondition = new ConditionVariable();
+    ConditionVariable extractorReleasedCondition = new ConditionVariable();
+    AtomicInteger readCount = new AtomicInteger();
+    AtomicBoolean prepared = new AtomicBoolean();
+    TrackingDataSource dataSource =
+        new TrackingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            /* onClose= */ () -> {
+              if (readCount.get() == 1) {
+                firstCloseCondition.open();
+              }
+            });
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable ExtractorOutput extractorOutput;
+          private @Nullable TrackOutput videoTrackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            extractorOutput = output;
+            videoTrackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+            output.endTracks();
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              videoTrackOutput.format(
+                  new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+              extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ 2_000_000));
+              positionHolder.position = 100;
+              return Extractor.RESULT_SEEK;
+            }
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+
+          @Override
+          public void release() {
+            extractorReleasedCondition.open();
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod = createUnpreparedMediaPeriod(dataSource, extractor);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0);
+    firstCloseCondition.block();
+    runMainLooperUntil(prepared::get);
+    mediaPeriod.release();
+    extractorReleasedCondition.block();
+
+    assertThat(dataSource.openCount.get()).isEqualTo(1);
+    assertThat(readCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      selectTracks_atNonZeroPositionWhenPausedAfterReadCompletingMetadataReturnsSeek_skipsIntermediateOpen()
+          throws Exception {
+    assumeTrue(pauseLoaderOnPreparationReady);
+    ConditionVariable firstCloseCondition = new ConditionVariable();
+    AtomicInteger readCount = new AtomicInteger();
+    AtomicBoolean prepared = new AtomicBoolean();
+    AtomicBoolean continueLoadingRequested = new AtomicBoolean();
+    TrackingDataSource dataSource =
+        new TrackingDataSource(
+            new AssetDataSource(ApplicationProvider.getApplicationContext()),
+            /* onClose= */ () -> {
+              if (readCount.get() == 1) {
+                firstCloseCondition.open();
+              }
+            });
+    ProgressiveMediaExtractor extractor =
+        new FakeProgressiveMediaExtractor() {
+          private @Nullable ExtractorOutput extractorOutput;
+          private @Nullable TrackOutput videoTrackOutput;
+
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            extractorOutput = output;
+            if (dataSource.openCount.get() == 1) {
+              videoTrackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+              output.endTracks();
+            }
+          }
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            if (readCount.incrementAndGet() == 1) {
+              videoTrackOutput.format(
+                  new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+              extractorOutput.seekMap(
+                  new IndexSeekMap(
+                      /* positions= */ new long[] {100, 500},
+                      /* timesUs= */ new long[] {0, 1_000_000},
+                      /* durationUs= */ 2_000_000));
+              positionHolder.position = 100;
+              return Extractor.RESULT_SEEK;
+            }
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+    ProgressiveMediaPeriod mediaPeriod = createUnpreparedMediaPeriod(dataSource, extractor);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            prepared.set(true);
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {
+            continueLoadingRequested.set(true);
+          }
+        },
+        /* positionUs= */ 0);
+    firstCloseCondition.block();
+    runMainLooperUntil(prepared::get);
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @Nullable ExoTrackSelection[] selections =
+        new ExoTrackSelection[] {
+          new FakeTrackSelection(trackGroups.get(0), /* selectedIndex= */ 0)
+        };
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            new boolean[1],
+            new SampleStream[1],
+            new boolean[1],
+            /* positionUs= */ 1_000_000);
+    runMainLooperUntil(continueLoadingRequested::get);
+    boolean continuedLoading =
+        mediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(1_000_000).build());
+    runMainLooperUntil(() -> readCount.get() == 2 && !mediaPeriod.isLoading());
+    mediaPeriod.release();
+
+    assertThat(continuedLoading).isTrue();
+    assertThat(dataSource.openedPositions).containsExactly(0L, 500L).inOrder();
+  }
+
+  private static ProgressiveMediaPeriod createUnpreparedMediaPeriod(
+      DataSource dataSource, ProgressiveMediaExtractor extractor) {
+    return createUnpreparedMediaPeriod(
+        dataSource,
+        extractor,
+        new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
+        /* singleTrackId= */ 0,
+        /* singleTrackFormat= */ null);
+  }
+
+  private static ProgressiveMediaPeriod createUnpreparedMediaPeriod(
+      DataSource dataSource, ProgressiveMediaExtractor extractor, Allocator allocator) {
+    return createUnpreparedMediaPeriod(
+        dataSource, extractor, allocator, /* singleTrackId= */ 0, /* singleTrackFormat= */ null);
+  }
+
+  private static ProgressiveMediaPeriod createUnpreparedMediaPeriod(
+      DataSource dataSource,
+      ProgressiveMediaExtractor extractor,
+      Allocator allocator,
+      int singleTrackId,
+      @Nullable Format singleTrackFormat) {
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
+    return new ProgressiveMediaPeriod(
+        Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+        dataSource,
+        extractor,
+        DrmSessionManager.DRM_UNSUPPORTED,
+        new DrmSessionEventListener.EventDispatcher()
+            .withParameters(/* windowIndex= */ 0, mediaPeriodId),
+        new DefaultLoadErrorHandlingPolicy(),
+        new MediaSourceEventListener.EventDispatcher()
+            .withParameters(/* windowIndex= */ 0, mediaPeriodId),
+        (durationUs, seekMap, isLive) -> {},
+        allocator,
+        /* customCacheKey= */ null,
+        ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
+        /* loadOnlySelectedTracks= */ true,
+        singleTrackId,
+        singleTrackFormat,
+        /* singleSampleDurationUs= */ C.TIME_UNSET,
+        /* downloadExecutor= */ null);
+  }
+
+  private static final class TrackingDataSource implements DataSource {
+    private final DataSource delegate;
+    private final Runnable onClose;
+    private final AtomicInteger openCount;
+    private final List<Long> openedPositions;
+
+    private TrackingDataSource(DataSource delegate, Runnable onClose) {
+      this.delegate = delegate;
+      this.onClose = onClose;
+      this.openCount = new AtomicInteger();
+      this.openedPositions = new CopyOnWriteArrayList<>();
+    }
+
+    @Override
+    public void addTransferListener(TransferListener transferListener) {
+      delegate.addTransferListener(transferListener);
+    }
+
+    @Override
+    public long open(DataSpec dataSpec) throws IOException {
+      openCount.incrementAndGet();
+      openedPositions.add(dataSpec.position);
+      return delegate.open(dataSpec);
+    }
+
+    @Override
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+      return delegate.read(buffer, offset, length);
+    }
+
+    @Override
+    public @Nullable Uri getUri() {
+      return delegate.getUri();
+    }
+
+    @Override
+    public Map<String, List<String>> getResponseHeaders() {
+      return delegate.getResponseHeaders();
+    }
+
+    @Override
+    public void close() throws IOException {
+      try {
+        delegate.close();
+      } finally {
+        onClose.run();
+      }
+    }
   }
 
   private static final class ExecutionTrackingThread extends Thread {

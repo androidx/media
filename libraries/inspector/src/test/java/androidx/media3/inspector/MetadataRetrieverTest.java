@@ -29,10 +29,13 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Looper;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4TimestampData;
@@ -41,12 +44,19 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.ExtractorInput;
+import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -57,8 +67,10 @@ import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.LooperMode;
@@ -70,6 +82,8 @@ import org.robolectric.shadows.ShadowLooper;
 public class MetadataRetrieverTest {
 
   private static final long TEST_TIMEOUT_SEC = 10;
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private Context context;
   private FakeClock clock;
@@ -614,5 +628,95 @@ public class MetadataRetrieverTest {
               () -> trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS));
       assertThat(thrown).hasCauseThat().isInstanceOf(UnrecognizedInputFormatException.class);
     }
+  }
+
+  @Test
+  public void retrieveMetadata_progressiveStream_pausesLoadingOnceMetadataExtracted()
+      throws Exception {
+    AtomicInteger readCount = new AtomicInteger();
+    Extractor extractor =
+        new Extractor() {
+          private TrackOutput trackOutput;
+
+          @Override
+          public boolean sniff(ExtractorInput input) {
+            return true;
+          }
+
+          @Override
+          public void init(ExtractorOutput output) {
+            trackOutput = output.track(0, C.TRACK_TYPE_VIDEO);
+            output.endTracks();
+            output.seekMap(new SeekMap.Unseekable(/* durationUs= */ 5_000_000));
+          }
+
+          @Override
+          public int read(ExtractorInput input, PositionHolder seekPosition) {
+            if (readCount.incrementAndGet() == 1) {
+              trackOutput.format(
+                  new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+              return RESULT_CONTINUE;
+            }
+            byte[] sampleBytes = new byte[C.DEFAULT_BUFFER_SEGMENT_SIZE];
+            trackOutput.sampleData(new ParsableByteArray(sampleBytes), sampleBytes.length);
+            trackOutput.sampleMetadata(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME,
+                sampleBytes.length,
+                /* offset= */ 0,
+                /* cryptoData= */ null);
+            return RESULT_END_OF_INPUT;
+          }
+
+          @Override
+          public void seek(long position, long timeUs) {}
+
+          @Override
+          public void release() {}
+        };
+    MediaSource.Factory mediaSourceFactory =
+        new DefaultMediaSourceFactory(context, () -> new Extractor[] {extractor});
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
+
+    TrackGroupArray trackGroups;
+    long durationUs;
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem)
+            .setClock(clock)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()) {
+      ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+      ListenableFuture<Long> durationFuture = retriever.retrieveDurationUs();
+      trackGroups = trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      durationUs = durationFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    assertThat(trackGroups.length).isEqualTo(1);
+    assertThat(trackGroups.get(0).getFormat(0).sampleMimeType).isEqualTo(MimeTypes.VIDEO_H264);
+    assertThat(durationUs).isEqualTo(5_000_000);
+    assertThat(readCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void retrieveMetadata_withPauseLoaderOnPreparationReadyDisabled_completesRetrieval()
+      throws Exception {
+    Flags.disableFlag(Flags.FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY);
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp3/bear-id3.mp3"));
+
+    TrackGroupArray trackGroups;
+    long durationUs;
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
+      ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+      ListenableFuture<Long> durationFuture = retriever.retrieveDurationUs();
+      trackGroups = trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      durationUs = durationFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    assertThat(trackGroups.length).isEqualTo(1);
+    assertThat(trackGroups.get(0).getFormat(0).sampleMimeType).isEqualTo(MimeTypes.AUDIO_MPEG);
+    assertThat(durationUs).isEqualTo(2_808_000);
   }
 }
