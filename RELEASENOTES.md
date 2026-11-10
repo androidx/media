@@ -37,6 +37,12 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Fix an issue where `PlayerSurface` and `ContentFrame` with
+        `SURFACE_TYPE_SURFACE_VIEW` turned surrounding Compose backgrounds black
+        on Android 11 and earlier
+        ([#2638](https://github.com/androidx/media/issues/2638),
+        [#3285](https://github.com/androidx/media/issues/3285),
+        [#3466](https://github.com/androidx/media/issues/3466)).
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

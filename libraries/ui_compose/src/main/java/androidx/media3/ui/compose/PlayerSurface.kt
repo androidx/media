@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -101,7 +102,11 @@ fun PlayerSurface(
 
       PlayerSurfaceInternal(
         player,
-        modifier,
+        // Compose's AndroidViewsHandler disables clipChildren, and before API 31 (where
+        // Canvas.punchHole was introduced) SurfaceView punches its hole using an unbounded
+        // PorterDuff.Mode.CLEAR fill that can clear an ancestor clipped graphicsLayer (such as
+        // Material3's Surface) to black: https://github.com/androidx/media/issues/3466.
+        modifier = if (SDK_INT <= 30) modifier.clipToBounds() else modifier,
         createView = createSurfaceView,
         setVideoView = Player::setVideoSurfaceView,
         clearVideoView = Player::clearVideoSurfaceView,
