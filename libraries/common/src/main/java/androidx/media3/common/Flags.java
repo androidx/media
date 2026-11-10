@@ -124,6 +124,7 @@ public final class Flags {
    *   <li>{@link #FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT}
    *   <li>{@link #FLAG_IMAGE_READER_PLACEHOLDER_SURFACE}
    *   <li>{@link #FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION}
+   *   <li>{@link #FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY}
    * </ul>
    */
   @Documented
@@ -145,6 +146,7 @@ public final class Flags {
         FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT,
         FLAG_IMAGE_READER_PLACEHOLDER_SURFACE,
         FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION,
+        FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY,
       })
   public @interface Flag {}
 
@@ -295,7 +297,14 @@ public final class Flags {
   @ExperimentalApi // TODO(b/577053786): Remove this flag (earliest cleanup: 2026-12-24).
   public static final int FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION = 13;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 14;
+  /**
+   * Flag to pause {@code ProgressiveMediaPeriod} loading on the loader thread as soon as tracks,
+   * seek map, and upstream track formats required for preparation are ready.
+   */
+  @ExperimentalApi // TODO(b/577057587): Remove this flag (earliest cleanup: 2027-01-15).
+  public static final int FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY = 14;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 15;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
