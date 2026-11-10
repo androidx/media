@@ -18,11 +18,13 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.CompositionFrameMetadata.asFrameMetadata;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
+import android.graphics.PixelFormat;
 import android.hardware.DataSpace;
 import android.hardware.HardwareBuffer;
 import android.os.Handler;
@@ -126,7 +128,9 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull Format lastAdjustedFormat;
 
   private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
-  private @Nullable BitmapToHardwareBufferConverter bitmapToHardwareBufferConverter;
+
+  @GuardedBy("this")
+  private @Nullable BitmapToFrameConverter<?> bitmapToFrameConverter;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /** The number of frames that are currently in use by the downstream consumer. */
@@ -205,20 +209,26 @@ import org.jspecify.annotations.Nullable;
   // into account.
   void outputBitmap(
       Bitmap bitmap, TimestampIterator timestampIterator, long sequenceOffsetUs, int indexOfItem) {
+    if (SDK_INT < 28) {
+      // TODO(b/582230137): Investigate whether non-ARGB_8888 Bitmap configs need to be supported.
+      checkArgument(bitmap.getConfig() == Bitmap.Config.ARGB_8888);
+    }
     String sampleMimeType =
         SDK_INT >= 34 && Api34.hasGainmap(bitmap) ? MimeTypes.IMAGE_JPEG_R : MimeTypes.IMAGE_RAW;
-    Format format =
+    Format.Builder formatBuilder =
         new Format.Builder()
             .setSampleMimeType(sampleMimeType)
             .setWidth(bitmap.getWidth())
             .setHeight(bitmap.getHeight())
             .setColorInfo(resolveColorInfoFromBitmap(bitmap))
-            .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
-            .build();
+            .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE);
+    if (SDK_INT < 28) {
+      formatBuilder.setPixelFormat(PixelFormat.RGBA_8888);
+    }
     synchronized (this) {
       pendingFrameInfo.add(
           FrameInfo.createForBitmap(
-              bitmap, timestampIterator, sequenceOffsetUs, indexOfItem, format));
+              bitmap, timestampIterator, sequenceOffsetUs, indexOfItem, formatBuilder.build()));
     }
     maybeOutputPendingBitmaps();
   }
@@ -318,8 +328,8 @@ import org.jspecify.annotations.Nullable;
   void flush() {
     synchronized (this) {
       pendingFrameInfo.clear();
-      if (SDK_INT >= 26 && bitmapToHardwareBufferConverter != null) {
-        bitmapToHardwareBufferConverter.flush();
+      if (bitmapToFrameConverter != null) {
+        bitmapToFrameConverter.flush();
       }
     }
   }
@@ -331,10 +341,10 @@ import org.jspecify.annotations.Nullable;
       for (int i = 0; i < inputSurfacesToRelease.size(); i++) {
         inputSurfacesToRelease.get(i).release();
       }
-    }
-    if (SDK_INT >= 26 && bitmapToHardwareBufferConverter != null) {
-      bitmapToHardwareBufferConverter.close();
-      bitmapToHardwareBufferConverter = null;
+      if (bitmapToFrameConverter != null) {
+        bitmapToFrameConverter.close();
+        bitmapToFrameConverter = null;
+      }
     }
   }
 
@@ -367,7 +377,6 @@ import org.jspecify.annotations.Nullable;
 
         long itemPresentationTimeUs = frameInfo.timestampIterator.next();
         long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
-        framesInUse++;
         AsyncFrame asyncFrame =
             createAsyncFrameFromBitmap(
                 checkNotNull(frameInfo.bitmap),
@@ -375,6 +384,7 @@ import org.jspecify.annotations.Nullable;
                 sequenceOffsetUs,
                 frameInfo.itemIndex,
                 frameInfo.format);
+        framesInUse++;
         frameConsumer.accept(asyncFrame);
       }
     }
@@ -417,59 +427,67 @@ import org.jspecify.annotations.Nullable;
         additionalMetadata);
   }
 
-  private @Nullable BitmapToHardwareBufferConverter getOrCreateBitmapToHardwareBufferConverter() {
-    if (SDK_INT >= 26 && bitmapToHardwareBufferConverter == null) {
-      bitmapToHardwareBufferConverter =
-          new BitmapToHardwareBufferConverter(
-              hardwareBufferJniWrapper,
-              /* internalExecutor= */ Util.newSingleThreadExecutor(
-                  "BitmapToHardwareBufferConverter::Thread"),
-              /* errorExecutor= */ playbackExecutor,
-              /* errorCallback= */ listener::onError);
+  @GuardedBy("this")
+  private BitmapToFrameConverter<?> getOrCreateBitmapToFrameConverter() {
+    if (bitmapToFrameConverter == null) {
+      bitmapToFrameConverter =
+          SDK_INT >= 28
+              ? new BitmapToHardwareBufferConverter(
+                  hardwareBufferJniWrapper,
+                  /* internalExecutor= */ Util.newSingleThreadExecutor(
+                      "BitmapToHardwareBufferConverter::Thread"),
+                  /* errorExecutor= */ playbackExecutor,
+                  /* errorCallback= */ listener::onError)
+              : new BitmapToImagePlanesConverter();
     }
-    return bitmapToHardwareBufferConverter;
+    return bitmapToFrameConverter;
   }
 
+  @GuardedBy("this")
   private AsyncFrame createAsyncFrameFromBitmap(
       Bitmap bitmap, long presentationTimeUs, long sequenceOffsetUs, int itemIndex, Format format) {
     // TODO: b/449956936 - Copy the Bitmap into a HardwareBuffer using NDK on earlier API levels.
-    if (SDK_INT >= 31 && checkNotNull(bitmap).getConfig() == Bitmap.Config.HARDWARE) {
-      HardwareBuffer hardwareBuffer = checkNotNull(bitmap.getHardwareBuffer());
-      checkState(!hardwareBuffer.isClosed());
-      return createAsyncFrame(
-          hardwareBuffer,
-          bitmap,
-          playbackExecutor,
-          /* releaseCallback= */ releaseFence -> {
-            // Do not manually release the hardware buffer backing the bitmap, it will be reused
-            // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
-            releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
-          },
-          presentationTimeUs,
-          sequenceOffsetUs,
-          itemIndex,
-          format,
-          /* additionalMetadata= */ ImmutableMap.of());
-    }
-    // TODO(b/531653682): Support frame types not backed by HardwareBuffer.
-    DefaultHardwareBufferFrame retainedHandle =
-        checkNotNull(getOrCreateBitmapToHardwareBufferConverter()).getOrCreateRetainedFrame(bitmap);
-    return createAsyncFrame(
-        checkNotNull(retainedHandle.getHardwareBuffer()),
-        bitmap,
-        playbackExecutor,
-        /* releaseCallback= */ releaseFence -> {
-          retainedHandle.release(releaseFence);
-          releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, /* releaseFence= */ null);
-        },
-        presentationTimeUs,
-        sequenceOffsetUs,
-        itemIndex,
-        format,
-        /* additionalMetadata= */ ImmutableMap.of());
+    Frame frame =
+        getOrCreateBitmapToFrameConverter()
+            .convert(
+                bitmap,
+                /* contentTimeUs= */ presentationTimeUs + sequenceOffsetUs,
+                resolveFrameFormat(format),
+                createFrameMetadata(
+                    presentationTimeUs, itemIndex, /* additionalMetadata= */ ImmutableMap.of()),
+                playbackExecutor,
+                /* onFrameReleased= */ releaseFence ->
+                    releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence));
+    return new AsyncFrame(frame, /* acquireFence= */ null);
   }
 
-  @SuppressWarnings({"deprecation", "NewApi"}) // Uses deprecated CompositionFrameMetadata.
+  private static Format resolveFrameFormat(Format format) {
+    // COLOR_TRANSFER_SRGB may not be supported by the encoder or display, but is equivalent to
+    // COLOR_TRANSFER_SDR on Android which is widely supported.
+    if (format.colorInfo != null
+        && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
+        && !Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R)) {
+      ColorInfo adjustedColorInfo =
+          format.colorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_SDR).build();
+      format = format.buildUpon().setColorInfo(adjustedColorInfo).build();
+    }
+    return format;
+  }
+
+  @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
+  private ImmutableMap<String, Object> createFrameMetadata(
+      long presentationTimeUs, int itemIndex, ImmutableMap<String, Object> additionalMetadata) {
+    CompositionFrameMetadata compositionFrameMetadata =
+        new CompositionFrameMetadata(composition, sequenceIndex, itemIndex);
+    return ImmutableMap.<String, Object>builder()
+        .put(Frame.KEY_PRESENTATION_TIME_US, presentationTimeUs)
+        .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
+        .putAll(asFrameMetadata(compositionFrameMetadata))
+        .putAll(additionalMetadata)
+        .buildOrThrow();
+  }
+
+  @RequiresApi(26)
   private AsyncFrame createAsyncFrame(
       HardwareBuffer hardwareBuffer,
       @Nullable Object internalImage,
@@ -480,30 +498,11 @@ import org.jspecify.annotations.Nullable;
       int itemIndex,
       Format format,
       ImmutableMap<String, Object> additionalMetadata) {
-    // COLOR_TRANSFER_SRGB may not be supported by the encoder or display, but is equivalent to
-    // COLOR_TRANSFER_SDR on Android which is widely supported.
-    if (format.colorInfo != null
-        && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
-        && !Objects.equals(format.sampleMimeType, MimeTypes.IMAGE_JPEG_R)) {
-      ColorInfo adjustedColorInfo =
-          format.colorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_SDR).build();
-      format = format.buildUpon().setColorInfo(adjustedColorInfo).build();
-    }
-    long sequencePresentationTimeUs = presentationTimeUs + sequenceOffsetUs;
-    CompositionFrameMetadata compositionFrameMetadata =
-        new CompositionFrameMetadata(composition, sequenceIndex, itemIndex);
-    ImmutableMap<String, Object> metadata =
-        ImmutableMap.<String, Object>builder()
-            .put(Frame.KEY_PRESENTATION_TIME_US, presentationTimeUs)
-            .put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, compositionFrameMetadata)
-            .putAll(asFrameMetadata(compositionFrameMetadata))
-            .putAll(additionalMetadata)
-            .buildOrThrow();
     DefaultHardwareBufferFrame frame =
         new DefaultHardwareBufferFrame.Builder(hardwareBuffer, releaseExecutor, releaseCallback)
-            .setContentTimeUs(sequencePresentationTimeUs)
-            .setMetadata(metadata)
-            .setFormat(format)
+            .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
+            .setMetadata(createFrameMetadata(presentationTimeUs, itemIndex, additionalMetadata))
+            .setFormat(resolveFrameFormat(format))
             .setInternalImage(internalImage)
             .build();
     return new AsyncFrame(frame, /* acquireFence= */ null);

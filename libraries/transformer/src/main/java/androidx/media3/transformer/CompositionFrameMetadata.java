@@ -23,7 +23,6 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.Effect;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.Frame;
@@ -76,7 +75,6 @@ public class CompositionFrameMetadata {
   }
 
   /** Converts the {@link CompositionFrameMetadata} to a map for {@link Frame#getMetadata()}. */
-  @RequiresApi(26)
   public static ImmutableMap<String, Object> asFrameMetadata(
       CompositionFrameMetadata compositionFrameMetadata) {
     Composition composition = compositionFrameMetadata.composition;

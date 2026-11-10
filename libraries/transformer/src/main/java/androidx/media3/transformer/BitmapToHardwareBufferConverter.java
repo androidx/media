@@ -16,21 +16,22 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.hardware.HardwareBuffer;
-import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.ReleaseCallback;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -51,7 +52,8 @@ import org.jspecify.annotations.Nullable;
  * references.
  */
 @RequiresApi(26)
-/* package */ final class BitmapToHardwareBufferConverter implements AutoCloseable {
+/* package */ final class BitmapToHardwareBufferConverter
+    extends BitmapToFrameConverter<DefaultHardwareBufferFrame> {
 
   private static final Duration RELEASE_TIMEOUT = Duration.ofMillis(500);
 
@@ -59,15 +61,6 @@ import org.jspecify.annotations.Nullable;
   private final ExecutorService internalExecutor;
   private final Executor errorExecutor;
   private final Consumer<VideoFrameProcessingException> errorCallback;
-
-  @GuardedBy("this")
-  private @Nullable DefaultHardwareBufferFrame currentFrame;
-
-  @GuardedBy("this")
-  private @Nullable Bitmap currentBitmap;
-
-  @GuardedBy("this")
-  private int currentBitmapGenerationId;
 
   /**
    * Creates an instance.
@@ -92,104 +85,91 @@ import org.jspecify.annotations.Nullable;
     this.errorCallback = errorCallback;
   }
 
-  /**
-   * Returns a retained {@link DefaultHardwareBufferFrame} containing the {@link HardwareBuffer} for
-   * the given {@link Bitmap}.
-   *
-   * <p>The caller must release the returned frame when finished with it.
-   */
-  /* package */ DefaultHardwareBufferFrame getOrCreateRetainedFrame(Bitmap nextBitmap) {
-    synchronized (this) {
-      checkState(!internalExecutor.isShutdown());
-      // Check whether the current bitmap should be updated.
-      if (currentFrame != null
-          && (currentBitmap != nextBitmap
-              || currentBitmapGenerationId != nextBitmap.getGenerationId())) {
-        // Release this reference, the buffer will be cleaned up once other references are released.
-        checkNotNull(currentFrame).release(/* releaseFence= */ null);
-        currentFrame = null;
-        currentBitmap = null;
-        currentBitmapGenerationId = C.INDEX_UNSET;
+  @Override
+  protected DefaultHardwareBufferFrame createCachedValue(Bitmap nextBitmap) {
+    @Nullable HardwareBuffer buffer = null;
+    boolean bitmapOwnsBuffer = false;
+    try {
+      if (SDK_INT >= 31 && nextBitmap.getConfig() == Config.HARDWARE) {
+        // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
+        buffer = nextBitmap.getHardwareBuffer();
+        bitmapOwnsBuffer = buffer != null;
       }
-
-      if (currentFrame == null) {
-        HardwareBuffer buffer = null;
-        boolean bitmapOwnsBuffer = false;
-        try {
-          if (SDK_INT >= 31 && nextBitmap.getConfig() == Config.HARDWARE) {
-            // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
-            buffer = nextBitmap.getHardwareBuffer();
-            bitmapOwnsBuffer = buffer != null;
+      // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
+      // null, or SDK_INT < 31.
+      if (buffer == null) {
+        if (nextBitmap.getConfig() == Config.HARDWARE) {
+          // Input is HARDWARE but API < 31: HardwareBuffer is not directly accessible.
+          // We must first copy to a software Bitmap (e.g. ARGB_8888)
+          // and then copy that to a new HardwareBuffer via JNI.
+          Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
+          try {
+            buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
+          } finally {
+            softwareBitmap.recycle();
           }
-          // Fallback to the native helper when the HardwareBuffer retrieved from the Bitmap was
-          // null, or SDK_INT < 31.
-          if (buffer == null) {
-            if (nextBitmap.getConfig() == Config.HARDWARE) {
-              // Input is HARDWARE but API < 31: HardwareBuffer is not directly accessible.
-              // We must first copy to a software Bitmap (e.g. ARGB_8888)
-              // and then copy that to a new HardwareBuffer via JNI.
-              Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
-              try {
-                buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
-              } finally {
-                softwareBitmap.recycle();
-              }
-            } else {
-              // Input is not HARDWARE: Copy the software Bitmap to a new HardwareBuffer via JNI.
-              buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
-            }
-          }
-
-          currentBitmap = nextBitmap;
-          HardwareBuffer currentBuffer = buffer;
-          boolean shouldCloseBuffer = !bitmapOwnsBuffer;
-          currentFrame =
-              new DefaultHardwareBufferFrame.Builder(
-                      buffer,
-                      /* releaseExecutor= */ directExecutor(),
-                      /* releaseCallback= */ fence -> {
-                        if (shouldCloseBuffer) {
-                          releaseBuffer(currentBuffer, fence);
-                        }
-                      })
-                  .build();
-          // Save the generationId from after the native copy, as AndroidBitmap_unlockPixels can
-          // cause the generationId to increment.
-          currentBitmapGenerationId = nextBitmap.getGenerationId();
-        } catch (IllegalStateException e) {
-          // If the native copy failed, the buffer is not wrapped in a DefaultHardwareBufferFrame,
-          // so it needs to be closed here to avoid leaking.
-          if (buffer != null && !bitmapOwnsBuffer) {
-            buffer.close();
-          }
-          throw e;
+        } else {
+          // Input is not HARDWARE: Copy the software Bitmap to a new HardwareBuffer via JNI.
+          buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
         }
       }
 
-      return checkNotNull(currentFrame).buildUpon().shouldIncrementReferenceCount().build();
-    }
-  }
-
-  /** Releases the cached frame and resets state. */
-  /* package */ void flush() {
-    synchronized (this) {
-      if (currentFrame != null) {
-        currentFrame.release(/* releaseFence= */ null);
-        currentFrame = null;
-        currentBitmap = null;
-        currentBitmapGenerationId = C.INDEX_UNSET;
+      HardwareBuffer currentBuffer = buffer;
+      boolean shouldCloseBuffer = !bitmapOwnsBuffer;
+      return new DefaultHardwareBufferFrame.Builder(
+              buffer,
+              /* releaseExecutor= */ directExecutor(),
+              /* releaseCallback= */ fence -> {
+                if (shouldCloseBuffer) {
+                  releaseBuffer(currentBuffer, fence);
+                } else if (fence != null) {
+                  fence.close();
+                }
+              })
+          .build();
+    } catch (IllegalStateException e) {
+      // If the native copy failed, the buffer is not wrapped in a DefaultHardwareBufferFrame,
+      // so it needs to be closed here to avoid leaking.
+      if (buffer != null && !bitmapOwnsBuffer) {
+        buffer.close();
       }
+      throw e;
     }
   }
 
   @Override
-  public void close() {
-    synchronized (this) {
-      flush();
-      if (!internalExecutor.isShutdown()) {
-        internalExecutor.shutdown();
-      }
-    }
+  protected Frame createFrame(
+      DefaultHardwareBufferFrame cachedFrame,
+      Bitmap bitmap,
+      long contentTimeUs,
+      Format format,
+      Map<String, Object> metadata,
+      Executor releaseExecutor,
+      ReleaseCallback onFrameReleased) {
+    DefaultHardwareBufferFrame retainedHandle =
+        cachedFrame.buildUpon().shouldIncrementReferenceCount().build();
+    return new DefaultHardwareBufferFrame.Builder(
+            retainedHandle.getHardwareBuffer(),
+            releaseExecutor,
+            /* releaseCallback= */ releaseFence -> {
+              retainedHandle.release(releaseFence);
+              onFrameReleased.release(/* releaseFence= */ null);
+            })
+        .setContentTimeUs(contentTimeUs)
+        .setFormat(format)
+        .setMetadata(metadata)
+        .setInternalImage(bitmap)
+        .build();
+  }
+
+  @Override
+  protected void releaseCachedValue(DefaultHardwareBufferFrame cachedFrame) {
+    cachedFrame.release(/* releaseFence= */ null);
+  }
+
+  @Override
+  protected void onClose() {
+    internalExecutor.shutdown();
   }
 
   /**

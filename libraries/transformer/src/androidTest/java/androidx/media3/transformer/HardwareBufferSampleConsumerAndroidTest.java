@@ -54,7 +54,7 @@ import org.junit.runner.RunWith;
  * hardware buffers seems unsupported on robolectric.
  */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 26)
+@SdkSuppress(minSdkVersion = 28)
 public class HardwareBufferSampleConsumerAndroidTest {
 
   private static final long TEST_TIMEOUT_MS = 500L;

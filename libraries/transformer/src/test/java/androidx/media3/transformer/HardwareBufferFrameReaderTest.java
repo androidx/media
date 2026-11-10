@@ -16,6 +16,9 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
@@ -23,14 +26,17 @@ import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FR
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.round;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Gainmap;
 import android.graphics.ImageFormat;
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.os.HandlerThread;
 import android.view.Surface;
@@ -44,8 +50,10 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.InputSurface;
 import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
@@ -58,6 +66,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,6 +76,8 @@ import org.robolectric.annotation.Config;
 /** Robolectric tests for {@link HardwareBufferFrameReader}. */
 @RunWith(AndroidJUnit4.class)
 public class HardwareBufferFrameReaderTest {
+
+  private static final String TEST_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
 
   private List<AsyncFrame> receivedFrames;
   private HardwareBufferFrameReader hardwareBufferFrameReader;
@@ -458,6 +469,7 @@ public class HardwareBufferFrameReaderTest {
   }
 
   @Test
+  @Config(minSdk = 28)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_reusesHardwareBufferForRepeatedBitmap() {
     HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
@@ -514,6 +526,7 @@ public class HardwareBufferFrameReaderTest {
   }
 
   @Test
+  @Config(minSdk = 28)
   public void outputBitmap_withConverterAndDifferentBitmap_createsNewHardwareBuffer() {
     HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
     when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
@@ -557,6 +570,110 @@ public class HardwareBufferFrameReaderTest {
         .isNotSameInstanceAs(getHardwareBuffer(frames.get(1)));
 
     frameReader.release();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void outputBitmap_belowApi28_outputsRgba8888ImagePlanesFrameMatchingBitmap()
+      throws Exception {
+    Bitmap bitmap = readBitmap(TEST_PNG_ASSET_PATH);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap,
+        createTimestampIterator(/* frameCount= */ 1),
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    assertThat(receivedFrames).hasSize(1);
+    ImagePlanesFrame frame = (ImagePlanesFrame) receivedFrames.get(0).frame;
+    assertThat(frame.getFormat().pixelFormat).isEqualTo(PixelFormat.RGBA_8888);
+    assertThat(frame.getPlanes()).hasSize(1);
+    ImagePlanesFrame.Plane plane = frame.getPlanes().get(0);
+    assertThat(plane.getBuffer().isDirect()).isTrue();
+    assertThat(plane.getRowStride()).isEqualTo(bitmap.getRowBytes());
+    assertThat(plane.getPixelStride()).isEqualTo(4);
+    Bitmap actualBitmap = createBitmapFromImagePlanesFrame(frame);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                bitmap, actualBitmap, /* testId= */ null))
+        .isEqualTo(0);
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void outputBitmap_belowApi28WithRepeatedFrames_outputsFramesMatchingBitmap()
+      throws Exception {
+    Bitmap bitmap = readBitmap(TEST_PNG_ASSET_PATH);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap,
+        createTimestampIterator(/* frameCount= */ 2),
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    assertThat(receivedFrames).hasSize(2);
+    assertFramePresentationTimes(
+        receivedFrames, /* firstFrameIndex= */ 0, /* sequenceOffsetUs= */ 0);
+    Bitmap firstFrameBitmap =
+        createBitmapFromImagePlanesFrame((ImagePlanesFrame) receivedFrames.get(0).frame);
+    Bitmap secondFrameBitmap =
+        createBitmapFromImagePlanesFrame((ImagePlanesFrame) receivedFrames.get(1).frame);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                bitmap, firstFrameBitmap, /* testId= */ null))
+        .isEqualTo(0);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                bitmap, secondFrameBitmap, /* testId= */ null))
+        .isEqualTo(0);
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void outputBitmap_belowApi28WithDifferentBitmap_outputsFramesMatchingEachBitmap()
+      throws Exception {
+    Bitmap bitmap1 = readBitmap(TEST_PNG_ASSET_PATH);
+    Bitmap bitmap2 =
+        createArgb8888BitmapWithSolidColor(/* width= */ 2, /* height= */ 2, Color.BLUE);
+
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap1,
+        createTimestampIterator(/* frameCount= */ 1),
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+    hardwareBufferFrameReader.outputBitmap(
+        bitmap2,
+        createTimestampIterator(/* frameCount= */ 1),
+        /* sequenceOffsetUs= */ 10_000,
+        /* indexOfItem= */ 1);
+
+    assertThat(receivedFrames).hasSize(2);
+    Bitmap actualBitmap1 =
+        createBitmapFromImagePlanesFrame((ImagePlanesFrame) receivedFrames.get(0).frame);
+    Bitmap actualBitmap2 =
+        createBitmapFromImagePlanesFrame((ImagePlanesFrame) receivedFrames.get(1).frame);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                bitmap1, actualBitmap1, /* testId= */ null))
+        .isEqualTo(0);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                bitmap2, actualBitmap2, /* testId= */ null))
+        .isEqualTo(0);
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void outputBitmap_belowApi28WithNonArgb8888Bitmap_throwsIllegalArgumentException() {
+    Bitmap rgb565Bitmap =
+        Bitmap.createBitmap(/* width= */ 2, /* height= */ 2, Bitmap.Config.RGB_565);
+    TimestampIterator timestampIterator = createTimestampIterator(/* frameCount= */ 1);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            hardwareBufferFrameReader.outputBitmap(
+                rgb565Bitmap, timestampIterator, /* sequenceOffsetUs= */ 0, /* indexOfItem= */ 0));
   }
 
   @Test
@@ -673,12 +790,22 @@ public class HardwareBufferFrameReaderTest {
     return presentationTimeUs != null ? presentationTimeUs : asyncFrame.frame.getContentTimeUs();
   }
 
-  private static Object getInternalImage(AsyncFrame asyncFrame) {
+  private static @Nullable Object getInternalImage(AsyncFrame asyncFrame) {
+    if (asyncFrame.frame instanceof DefaultImagePlanesFrame) {
+      return ((DefaultImagePlanesFrame) asyncFrame.frame).getInternalImage();
+    }
     return ((DefaultHardwareBufferFrame) asyncFrame.frame).getInternalImage();
   }
 
   private static HardwareBuffer getHardwareBuffer(AsyncFrame asyncFrame) {
     return ((HardwareBufferFrame) asyncFrame.frame).getHardwareBuffer();
+  }
+
+  private static Bitmap createBitmapFromImagePlanesFrame(ImagePlanesFrame frame) {
+    Format format = frame.getFormat();
+    Bitmap bitmap = Bitmap.createBitmap(format.width, format.height, Bitmap.Config.ARGB_8888);
+    bitmap.copyPixelsFromBuffer(frame.getPlanes().get(0).getBuffer());
+    return bitmap;
   }
 
   /** Returns a 30 fps {@link TimestampIterator} producing exactly {@code frameCount} timestamps. */

@@ -16,6 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
@@ -32,6 +34,7 @@ import android.media.Image;
 import android.media.ImageWriter;
 import android.os.Handler;
 import android.os.HandlerThread;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -45,6 +48,7 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJni;
 import androidx.media3.transformer.HardwareBufferFrameReader.InputSurface;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -66,9 +70,9 @@ import org.junit.runner.RunWith;
  * frames into a Surface seems unsupported on robolectric.
  */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 28)
 public class HardwareBufferFrameReaderAndroidTest {
 
+  private static final String TEST_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
   private static final long TEST_TIMEOUT_MS = 10_000;
   private static final Format TEST_FORMAT =
       new Format.Builder()
@@ -119,6 +123,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void frameReader_queueFrame_receivesFrame() throws Exception {
     inputSurface.queueFrame(
@@ -144,6 +149,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_releaseSurfaceFrame_closesTheHardwareBuffer() throws Exception {
     inputSurface.queueFrame(
         /* presentationTimeUs= */ 1234,
@@ -155,7 +161,7 @@ public class HardwareBufferFrameReaderAndroidTest {
 
     AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(receivedFrame).isNotNull();
-    HardwareBuffer hardwareBuffer = checkNotNull(getHardwareBuffer(receivedFrame));
+    HardwareBuffer hardwareBuffer = checkNotNull(Api26.getHardwareBuffer(receivedFrame));
 
     releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
     flushHandlerThread();
@@ -176,7 +182,7 @@ public class HardwareBufferFrameReaderAndroidTest {
 
     AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(receivedFrame).isNotNull();
-    HardwareBuffer hardwareBuffer = checkNotNull(getHardwareBuffer(receivedFrame));
+    HardwareBuffer hardwareBuffer = checkNotNull(Api26.getHardwareBuffer(receivedFrame));
 
     releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
     flushHandlerThread();
@@ -187,6 +193,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_releaseOutputFrame_freesUpCapacity() throws Exception {
     inputSurface.queueFrame(
         /* presentationTimeUs= */ 1234,
@@ -208,6 +215,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_releaseOutputFrame_callsWakeupListener() throws Exception {
     AtomicBoolean onWakeupCalled = new AtomicBoolean();
     inputSurface.queueFrame(
@@ -230,6 +238,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
   public void produceSurfaceFrame_withPendingBitmap_outputsBitmap() throws Exception {
     // SRGB ColorTransfer is replaced with SDR.
@@ -275,6 +284,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_queueFrameThenQueueEndOfStream_receivesFrameThenEos() throws Exception {
     long frameTimeUs = 1234;
     inputSurface.queueFrame(
@@ -302,6 +312,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_queueEndOfStreamThenQueueFrame_receivesEosThenFrame() throws Exception {
     long frameTimeUs = 5678;
     hardwareBufferFrameReader.queueEndOfStream();
@@ -333,6 +344,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_queueMultipleSurfaceFramesAndEos_receivesInOrder() throws Exception {
     long frameTimeUs1 = 1000;
     long frameTimeUs2 = 2000;
@@ -397,6 +409,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void queueFrame_nullColorInfo_setsDefaultColorInfo() throws Exception {
     long frameTimeUs1 = 1000;
     Format nullColorInfoFormat = new Format.Builder().setWidth(10).build();
@@ -417,6 +430,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void queueFrame_unsetColorInfo_setsDefaultColorInfo() throws Exception {
     long frameTimeUs1 = 1000;
     Format unsetColorSpaceFormat =
@@ -446,6 +460,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_reusesHardwareBufferForRepeatedBitmap()
           throws Exception {
@@ -475,8 +490,8 @@ public class HardwareBufferFrameReaderAndroidTest {
       assertThat(hardwareBufferFrameReaderException.get()).isNull();
       assertThat(frame1).isNotNull();
       assertThat(frame2).isNotNull();
-      HardwareBuffer hardwareBuffer1 = getHardwareBuffer(frame1);
-      HardwareBuffer hardwareBuffer2 = getHardwareBuffer(frame2);
+      HardwareBuffer hardwareBuffer1 = Api26.getHardwareBuffer(frame1);
+      HardwareBuffer hardwareBuffer2 = Api26.getHardwareBuffer(frame2);
       assertThat(hardwareBuffer1).isNotNull();
       assertThat(hardwareBuffer2).isNotNull();
       assertThat(hardwareBuffer1).isSameInstanceAs(hardwareBuffer2);
@@ -496,6 +511,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_differentBitmap_createsNewHardwareBuffer()
           throws Exception {
@@ -530,8 +546,8 @@ public class HardwareBufferFrameReaderAndroidTest {
       assertThat(hardwareBufferFrameReaderException.get()).isNull();
       assertThat(frame1).isNotNull();
       assertThat(frame2).isNotNull();
-      HardwareBuffer hardwareBuffer1 = getHardwareBuffer(frame1);
-      HardwareBuffer hardwareBuffer2 = getHardwareBuffer(frame2);
+      HardwareBuffer hardwareBuffer1 = Api26.getHardwareBuffer(frame1);
+      HardwareBuffer hardwareBuffer2 = Api26.getHardwareBuffer(frame2);
       assertThat(hardwareBuffer1).isNotNull();
       assertThat(hardwareBuffer2).isNotNull();
       assertThat(hardwareBuffer1).isNotSameInstanceAs(hardwareBuffer2);
@@ -544,6 +560,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void
       outputBitmap_withBitmapToHardwareBufferConverter_releaseOutputFrameAndReader_closesHardwareBuffer()
           throws Exception {
@@ -569,7 +586,7 @@ public class HardwareBufferFrameReaderAndroidTest {
 
       AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
       assertThat(receivedFrame).isNotNull();
-      HardwareBuffer hardwareBuffer = checkNotNull(getHardwareBuffer(receivedFrame));
+      HardwareBuffer hardwareBuffer = checkNotNull(Api26.getHardwareBuffer(receivedFrame));
 
       releaseIfNeeded(receivedFrame.frame, /* releaseFence= */ null);
       frameReader.release();
@@ -580,6 +597,26 @@ public class HardwareBufferFrameReaderAndroidTest {
     } finally {
       frameReader.release();
     }
+  }
+
+  @Test
+  @SdkSuppress(maxSdkVersion = 27)
+  public void outputBitmap_belowApi28_copiesPixelsCorrectly() throws Exception {
+    Bitmap expectedBitmap = readBitmap(TEST_PNG_ASSET_PATH);
+
+    hardwareBufferFrameReader.outputBitmap(
+        expectedBitmap,
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f),
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+    AsyncFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(receivedFrame).isNotNull();
+    Bitmap actualBitmap = createBitmapFromImagePlanesFrame((ImagePlanesFrame) receivedFrame.frame);
+    assertThat(
+            getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                expectedBitmap, actualBitmap, /* testId= */ null))
+        .isEqualTo(0);
   }
 
   private void flushHandlerThread() throws Exception {
@@ -598,16 +635,19 @@ public class HardwareBufferFrameReaderAndroidTest {
     }
   }
 
+  private static Bitmap createBitmapFromImagePlanesFrame(ImagePlanesFrame frame) {
+    Format format = frame.getFormat();
+    Bitmap bitmap = Bitmap.createBitmap(format.width, format.height, Config.ARGB_8888);
+    bitmap.copyPixelsFromBuffer(frame.getPlanes().get(0).getBuffer().duplicate());
+    return bitmap;
+  }
+
   private static long getPresentationTimeUs(AsyncFrame asyncFrame) {
     return checkNotNull((Long) asyncFrame.frame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US));
   }
 
   private static Object getInternalImage(AsyncFrame asyncFrame) {
     return ((DefaultHardwareBufferFrame) asyncFrame.frame).getInternalImage();
-  }
-
-  private static HardwareBuffer getHardwareBuffer(AsyncFrame asyncFrame) {
-    return ((HardwareBufferFrame) asyncFrame.frame).getHardwareBuffer();
   }
 
   @SuppressWarnings("deprecation") // Uses deprecated CompositionFrameMetadata.
@@ -618,5 +658,12 @@ public class HardwareBufferFrameReaderAndroidTest {
                 .frame
                 .getMetadata()
                 .get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA));
+  }
+
+  @RequiresApi(26)
+  private static final class Api26 {
+    private static HardwareBuffer getHardwareBuffer(AsyncFrame asyncFrame) {
+      return ((HardwareBufferFrame) asyncFrame.frame).getHardwareBuffer();
+    }
   }
 }

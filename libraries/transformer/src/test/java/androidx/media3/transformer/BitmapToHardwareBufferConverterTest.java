@@ -24,9 +24,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.graphics.Bitmap;
+import androidx.media3.common.Format;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.After;
@@ -71,11 +73,11 @@ public final class BitmapToHardwareBufferConverterTest {
   }
 
   @Test
-  public void getOrCreateRetainedFrame_sameBitmap_reusesCachedFrame() {
+  public void convert_sameBitmap_reusesCachedFrame() {
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
 
-    HardwareBufferFrame frame1 = converter.getOrCreateRetainedFrame(bitmap);
-    HardwareBufferFrame frame2 = converter.getOrCreateRetainedFrame(bitmap);
+    HardwareBufferFrame frame1 = convert(bitmap);
+    HardwareBufferFrame frame2 = convert(bitmap);
 
     assertThat(frame1.getHardwareBuffer()).isNotNull();
     assertThat(frame1.getHardwareBuffer()).isSameInstanceAs(frame2.getHardwareBuffer());
@@ -85,12 +87,12 @@ public final class BitmapToHardwareBufferConverterTest {
   }
 
   @Test
-  public void getOrCreateRetainedFrame_differentBitmap_createsNewFrame() {
+  public void convert_differentBitmap_createsNewFrame() {
     Bitmap bitmap1 = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
     Bitmap bitmap2 = Bitmap.createBitmap(20, 20, Bitmap.Config.ARGB_8888);
 
-    HardwareBufferFrame frame1 = converter.getOrCreateRetainedFrame(bitmap1);
-    HardwareBufferFrame frame2 = converter.getOrCreateRetainedFrame(bitmap2);
+    HardwareBufferFrame frame1 = convert(bitmap1);
+    HardwareBufferFrame frame2 = convert(bitmap2);
 
     assertThat(frame1.getHardwareBuffer()).isNotNull();
     assertThat(frame2.getHardwareBuffer()).isNotNull();
@@ -104,9 +106,9 @@ public final class BitmapToHardwareBufferConverterTest {
   public void flush_withoutErrors_releasesCachedFrame() {
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
 
-    HardwareBufferFrame frame1 = converter.getOrCreateRetainedFrame(bitmap);
+    HardwareBufferFrame frame1 = convert(bitmap);
     converter.flush();
-    HardwareBufferFrame frame2 = converter.getOrCreateRetainedFrame(bitmap);
+    HardwareBufferFrame frame2 = convert(bitmap);
 
     assertThat(frame1.getHardwareBuffer()).isNotNull();
     assertThat(frame2.getHardwareBuffer()).isNotNull();
@@ -117,10 +119,21 @@ public final class BitmapToHardwareBufferConverterTest {
   }
 
   @Test
-  public void getOrCreateRetainedFrame_nativeCopyFails_throwsIllegalStateException() {
+  public void convert_nativeCopyFails_throwsIllegalStateException() {
     when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(false);
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
 
-    assertThrows(IllegalStateException.class, () -> converter.getOrCreateRetainedFrame(bitmap));
+    assertThrows(IllegalStateException.class, () -> convert(bitmap));
+  }
+
+  private HardwareBufferFrame convert(Bitmap bitmap) {
+    return (HardwareBufferFrame)
+        converter.convert(
+            bitmap,
+            /* contentTimeUs= */ 0,
+            new Format.Builder().build(),
+            /* metadata= */ ImmutableMap.of(),
+            directExecutor(),
+            /* onFrameReleased= */ unused -> {});
   }
 }
