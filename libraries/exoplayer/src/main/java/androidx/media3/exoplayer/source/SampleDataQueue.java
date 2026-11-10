@@ -126,11 +126,15 @@ import org.jspecify.annotations.Nullable;
    *
    * @param buffer The buffer to populate.
    * @param extrasHolder The extras holder whose offset should be read and subsequently adjusted.
+   * @param includeSampleData Whether to include copying the sample data and supplemental data into
+   *     the buffer.
    * @throws InsufficientCapacityException If the {@code buffer} has insufficient capacity to hold
    *     the data being read.
    */
-  public void readToBuffer(DecoderInputBuffer buffer, SampleExtrasHolder extrasHolder) {
-    readAllocationNode = readSampleData(readAllocationNode, buffer, extrasHolder, scratch);
+  public void readToBuffer(
+      DecoderInputBuffer buffer, SampleExtrasHolder extrasHolder, boolean includeSampleData) {
+    readAllocationNode =
+        readSampleData(readAllocationNode, buffer, extrasHolder, scratch, includeSampleData);
   }
 
   /**
@@ -139,11 +143,16 @@ import org.jspecify.annotations.Nullable;
    *
    * @param buffer The buffer to populate.
    * @param extrasHolder The extras holder whose offset should be read and subsequently adjusted.
+   * @param includeSampleData Whether to include copying the sample data and supplemental data into
+   *     the buffer.
    * @throws InsufficientCapacityException If the {@code buffer} has insufficient capacity to hold
    *     the data being peeked.
    */
-  public void peekToBuffer(DecoderInputBuffer buffer, SampleExtrasHolder extrasHolder) {
-    readSampleData(readAllocationNode, buffer, extrasHolder, scratch);
+  public void peekToBuffer(
+      DecoderInputBuffer buffer, SampleExtrasHolder extrasHolder, boolean includeSampleData) {
+    @SuppressWarnings("nullness:assignment")
+    AllocationNode unused =
+        readSampleData(readAllocationNode, buffer, extrasHolder, scratch, includeSampleData);
   }
 
   /**
@@ -258,6 +267,8 @@ import org.jspecify.annotations.Nullable;
    * @param buffer The buffer to populate.
    * @param extrasHolder The extras holder whose offset should be read and subsequently adjusted.
    * @param scratch A scratch {@link ParsableByteArray}.
+   * @param includeSampleData Whether to include copying the sample data and supplemental data into
+   *     the buffer.
    * @return The first {@link AllocationNode} that contains unread bytes after the last byte that
    *     the invocation read.
    * @throws InsufficientCapacityException If the {@code buffer} has insufficient capacity to hold
@@ -267,7 +278,8 @@ import org.jspecify.annotations.Nullable;
       AllocationNode allocationNode,
       DecoderInputBuffer buffer,
       SampleExtrasHolder extrasHolder,
-      ParsableByteArray scratch) {
+      ParsableByteArray scratch,
+      boolean includeSampleData) {
     if (buffer.isEncrypted()) {
       allocationNode = readEncryptionData(allocationNode, buffer, extrasHolder, scratch);
     }
@@ -280,21 +292,39 @@ import org.jspecify.annotations.Nullable;
       extrasHolder.offset += 4;
       extrasHolder.size -= 4;
 
-      // Write the sample data.
-      buffer.ensureSpaceForWrite(sampleSize);
-      allocationNode = readData(allocationNode, extrasHolder.offset, buffer.data, sampleSize);
+      if (includeSampleData) {
+        // Write the sample data.
+        buffer.ensureSpaceForWrite(sampleSize);
+        allocationNode = readData(allocationNode, extrasHolder.offset, buffer.data, sampleSize);
+      } else {
+        allocationNode =
+            getNodeContainingPosition(allocationNode, extrasHolder.offset + sampleSize);
+      }
       extrasHolder.offset += sampleSize;
       extrasHolder.size -= sampleSize;
+      extrasHolder.payloadSize = sampleSize;
 
-      // Write the remaining data as supplemental data.
-      buffer.resetSupplementalData(extrasHolder.size);
-      allocationNode =
-          readData(allocationNode, extrasHolder.offset, buffer.supplementalData, extrasHolder.size);
+      if (includeSampleData) {
+        // Write the remaining data as supplemental data.
+        buffer.resetSupplementalData(extrasHolder.size);
+        allocationNode =
+            readData(
+                allocationNode, extrasHolder.offset, buffer.supplementalData, extrasHolder.size);
+      } else {
+        allocationNode =
+            getNodeContainingPosition(allocationNode, extrasHolder.offset + extrasHolder.size);
+      }
     } else {
-      // Write the sample data.
-      buffer.ensureSpaceForWrite(extrasHolder.size);
-      allocationNode =
-          readData(allocationNode, extrasHolder.offset, buffer.data, extrasHolder.size);
+      extrasHolder.payloadSize = extrasHolder.size;
+      if (includeSampleData) {
+        // Write the sample data.
+        buffer.ensureSpaceForWrite(extrasHolder.size);
+        allocationNode =
+            readData(allocationNode, extrasHolder.offset, buffer.data, extrasHolder.size);
+      } else {
+        allocationNode =
+            getNodeContainingPosition(allocationNode, extrasHolder.offset + extrasHolder.size);
+      }
     }
     return allocationNode;
   }

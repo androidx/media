@@ -4,6 +4,10 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   `SampleStream.FLAG_OMIT_SAMPLE_DATA` now ensures that
+        `DecoderInputBuffer.cryptoInfo` is populated for encrypted samples.
+        Custom `SampleStream` implementations must be updated to adhere to this
+        contract.
     *   Fix an issue where calling `seekTo` while an ad is playing could freeze
         `getCurrentPosition()` if another player operation (such as
         `setPlayWhenReady`) was still pending on the playback thread

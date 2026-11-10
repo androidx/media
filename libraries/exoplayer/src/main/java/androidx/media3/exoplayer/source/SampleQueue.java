@@ -86,6 +86,7 @@ public class SampleQueue implements TrackOutput {
   private final SampleDataQueue sampleDataQueue;
   private final SampleExtrasHolder extrasHolder;
   private final SpannedData<SharedSampleMetadata> sharedSampleMetadata;
+  private final DecoderInputBuffer scratchNoDataBuffer;
   private final @Nullable DrmSessionManager drmSessionManager;
   private final DrmSessionEventListener.@Nullable EventDispatcher drmEventDispatcher;
   private @Nullable UpstreamFormatChangedListener upstreamFormatChangeListener;
@@ -211,6 +212,7 @@ public class SampleQueue implements TrackOutput {
     cryptoDatas = EMPTY_CRYPTO_DATA_ARRAY;
     sharedSampleMetadata =
         new SpannedData<>(/* removeCallback= */ metadata -> metadata.drmSessionReference.release());
+    scratchNoDataBuffer = DecoderInputBuffer.newNoDataInstance();
     startTimeUs = Long.MIN_VALUE;
     largestDiscardedTimestampUs = Long.MIN_VALUE;
     largestQueuedTimestampUs = Long.MIN_VALUE;
@@ -499,6 +501,33 @@ public class SampleQueue implements TrackOutput {
   }
 
   /**
+   * Returns the exact size of the payload for the next sample to be read, or -1 if no sample is
+   * available.
+   */
+  public final synchronized int peekNextSampleSize() {
+    int readIndex = getReadIndex();
+    boolean readEndTimeReached =
+        readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex;
+    if (!hasNextSample() || isReadEndTimeIndexMaybeReached() || readEndTimeReached) {
+      return -1;
+    }
+    int relativeReadIndex = getRelativeIndex(readPosition);
+    int sampleSize = sizes[relativeReadIndex];
+    int sampleFlags = this.flags[relativeReadIndex];
+    if ((sampleFlags & C.BUFFER_FLAG_ENCRYPTED) == 0
+        && (sampleFlags & C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA) == 0) {
+      return sampleSize;
+    }
+    extrasHolder.size = sampleSize;
+    extrasHolder.offset = offsets[relativeReadIndex];
+    extrasHolder.cryptoData = cryptoDatas[relativeReadIndex];
+    scratchNoDataBuffer.clear();
+    scratchNoDataBuffer.setFlags(sampleFlags);
+    sampleDataQueue.peekToBuffer(scratchNoDataBuffer, extrasHolder, /* includeSampleData= */ false);
+    return extrasHolder.payloadSize;
+  }
+
+  /**
    * Attempts to read from the queue.
    *
    * <p>{@link Format Formats} read from this method may be associated to a {@link DrmSession}
@@ -531,12 +560,16 @@ public class SampleQueue implements TrackOutput {
             extrasHolder);
     if (result == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
       boolean peek = (readFlags & FLAG_PEEK) != 0;
-      if ((readFlags & FLAG_OMIT_SAMPLE_DATA) == 0) {
-        if (peek) {
-          sampleDataQueue.peekToBuffer(buffer, extrasHolder);
-        } else {
-          sampleDataQueue.readToBuffer(buffer, extrasHolder);
-        }
+      if (peek) {
+        sampleDataQueue.peekToBuffer(
+            buffer,
+            extrasHolder,
+            /* includeSampleData= */ (readFlags & FLAG_OMIT_SAMPLE_DATA) == 0);
+      } else {
+        sampleDataQueue.readToBuffer(
+            buffer,
+            extrasHolder,
+            /* includeSampleData= */ (readFlags & FLAG_OMIT_SAMPLE_DATA) == 0);
       }
       if (!peek) {
         readPosition++;
@@ -1350,6 +1383,7 @@ public class SampleQueue implements TrackOutput {
   /* package */ static final class SampleExtrasHolder {
 
     public int size;
+    public int payloadSize;
     public long offset;
     public @Nullable CryptoData cryptoData;
   }
