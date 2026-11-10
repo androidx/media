@@ -64,8 +64,9 @@ public interface SampleStream {
   int FLAG_REQUIRE_FORMAT = 1 << 1;
 
   /**
-   * Specifies that {@link DecoderInputBuffer#data}, {@link DecoderInputBuffer#supplementalData} and
-   * {@link DecoderInputBuffer#cryptoInfo} should not be populated when reading a sample buffer.
+   * Specifies that {@link DecoderInputBuffer#data} and {@link DecoderInputBuffer#supplementalData}
+   * should not be populated when reading a sample buffer. {@link DecoderInputBuffer#cryptoInfo} is
+   * populated for encrypted samples.
    *
    * <p>This flag is useful for efficiently reading or (when combined with {@link #FLAG_PEEK})
    * peeking sample metadata. It can also be used for efficiency by a caller wishing to skip a

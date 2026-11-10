@@ -16,6 +16,7 @@
 package androidx.media3.inspector;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.exoplayer.source.SampleStream.FLAG_OMIT_SAMPLE_DATA;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.inspector.MediaExtractorCompat.SEEK_TO_CLOSEST_SYNC;
@@ -112,7 +113,6 @@ import org.jspecify.annotations.Nullable;
   private final SampleMetadataQueue sampleMetadataQueue;
   private final FormatHolder formatHolder;
   private final DecoderInputBuffer sampleHolderWithBufferReplacementDisabled;
-  private final DecoderInputBuffer sampleHolderWithBufferReplacementEnabled;
   private final Set<Integer> selectedTrackIndices;
 
   private boolean hasBeenPrepared;
@@ -156,8 +156,6 @@ import org.jspecify.annotations.Nullable;
     sampleMetadataQueue = new SampleMetadataQueue();
     formatHolder = new FormatHolder();
     sampleHolderWithBufferReplacementDisabled = DecoderInputBuffer.newNoDataInstance();
-    sampleHolderWithBufferReplacementEnabled =
-        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
     selectedTrackIndices = new HashSet<>();
   }
 
@@ -401,9 +399,6 @@ import org.jspecify.annotations.Nullable;
     sampleHolderWithBufferReplacementDisabled.clear();
     sampleHolderWithBufferReplacementDisabled.data = null;
     sampleHolderWithBufferReplacementDisabled.supplementalData = null;
-    sampleHolderWithBufferReplacementEnabled.clear();
-    sampleHolderWithBufferReplacementEnabled.data = null;
-    sampleHolderWithBufferReplacementEnabled.supplementalData = null;
     progressiveMediaExtractor.release();
     seekMap = null;
     pendingSeek = null;
@@ -555,7 +550,8 @@ import org.jspecify.annotations.Nullable;
     buffer.position(offset);
     sampleHolderWithBufferReplacementDisabled.data = buffer;
     try {
-      peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
+      peekNextSelectedTrackSample(
+          sampleHolderWithBufferReplacementDisabled, /* omitSampleData= */ false);
     } finally {
       sampleHolderWithBufferReplacementDisabled.data = null;
     }
@@ -580,10 +576,9 @@ import org.jspecify.annotations.Nullable;
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
-    int sampleSize = checkNotNull(sampleHolderWithBufferReplacementEnabled.data).position();
-    sampleHolderWithBufferReplacementEnabled.clear();
-    return sampleSize;
+    MediaExtractorTrack trackOfSample =
+        tracks.get(checkNotNull(sampleMetadataQueue.peekFirst()).trackIndex);
+    return trackOfSample.sampleQueue.peekNextSampleSize();
   }
 
   /**
@@ -621,14 +616,18 @@ import org.jspecify.annotations.Nullable;
     if (!isEncrypted) {
       return false;
     }
-    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
-    populatePlatformCryptoInfoParameters(info);
-    sampleHolderWithBufferReplacementEnabled.clear();
+    try {
+      peekNextSelectedTrackSample(
+          sampleHolderWithBufferReplacementDisabled, /* omitSampleData= */ true);
+      populatePlatformCryptoInfoParameters(info);
+    } finally {
+      sampleHolderWithBufferReplacementDisabled.clear();
+    }
     return true;
   }
 
   private void populatePlatformCryptoInfoParameters(MediaCodec.CryptoInfo info) {
-    CryptoInfo cryptoInfo = checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo);
+    CryptoInfo cryptoInfo = checkNotNull(sampleHolderWithBufferReplacementDisabled.cryptoInfo);
     MediaCodec.CryptoInfo platformCryptoInfo = cryptoInfo.getFrameworkCryptoInfo();
     info.numSubSamples = platformCryptoInfo.numSubSamples;
     info.numBytesOfClearData = platformCryptoInfo.numBytesOfClearData;
@@ -777,18 +776,26 @@ import org.jspecify.annotations.Nullable;
    * @param decoderInputBuffer The buffer to populate.
    * @throws IllegalStateException If a sample is not peeked as a result of calling this method.
    */
-  private void peekNextSelectedTrackSample(DecoderInputBuffer decoderInputBuffer) {
+  private void peekNextSelectedTrackSample(
+      DecoderInputBuffer decoderInputBuffer, boolean omitSampleData) {
     MediaExtractorTrack trackOfSample =
         tracks.get(checkNotNull(sampleMetadataQueue.peekFirst()).trackIndex);
     SampleQueue sampleQueue = trackOfSample.sampleQueue;
     @ReadDataResult
     int result =
-        sampleQueue.read(formatHolder, decoderInputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
+        sampleQueue.read(
+            formatHolder,
+            decoderInputBuffer,
+            FLAG_PEEK | (omitSampleData ? FLAG_OMIT_SAMPLE_DATA : 0),
+            /* loadingFinished= */ false);
     if (result == C.RESULT_FORMAT_READ) {
       // We've consumed a downstream format. Now consume the actual sample.
       result =
           sampleQueue.read(
-              formatHolder, decoderInputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
+              formatHolder,
+              decoderInputBuffer,
+              FLAG_PEEK | (omitSampleData ? FLAG_OMIT_SAMPLE_DATA : 0),
+              /* loadingFinished= */ false);
     }
     formatHolder.clear();
     // This method must only be called when there is a sample available for reading.

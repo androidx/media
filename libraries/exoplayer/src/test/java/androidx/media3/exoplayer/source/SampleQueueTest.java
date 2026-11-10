@@ -2772,4 +2772,218 @@ public final class SampleQueueTest {
           : C.CRYPTO_TYPE_NONE;
     }
   }
+
+  @Test
+  public void peekNextSampleSize_withoutSamples_returnsNegativeOne() {
+    int sampleSize = sampleQueue.peekNextSampleSize();
+
+    assertThat(sampleSize).isEqualTo(-1);
+  }
+
+  @Test
+  public void peekNextSampleSize_withNormalSample_returnsPayloadSize() {
+    sampleQueue.format(FORMAT_1);
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+    writeSample(sampleData, /* timestampUs= */ 0, C.BUFFER_FLAG_KEY_FRAME);
+
+    int sampleSize = sampleQueue.peekNextSampleSize();
+
+    assertThat(sampleSize).isEqualTo(4);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        sampleData,
+        /* offset= */ 0,
+        /* length= */ 4);
+  }
+
+  @Test
+  public void peekNextSampleSize_withEncryptedSample_returnsPayloadSize() {
+    when(mockDrmSession.getState()).thenReturn(DrmSession.STATE_OPENED_WITH_KEYS);
+    sampleQueue.format(FORMAT_ENCRYPTED);
+    byte[] initializationVector = new byte[] {1, 2, 3, 4, 5, 6, 7, 8};
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+    byte[] encryptedSampleData =
+        Bytes.concat(
+            new byte[] {
+              0x08, // subsampleEncryption = false (1 bit), ivSize = 8 (7 bits).
+            },
+            initializationVector,
+            sampleData);
+    writeSample(
+        encryptedSampleData,
+        /* timestampUs= */ 0,
+        C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_ENCRYPTED);
+
+    int sampleSize = sampleQueue.peekNextSampleSize();
+
+    assertThat(sampleSize).isEqualTo(4);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_ENCRYPTED_WITH_EXO_MEDIA_CRYPTO_TYPE);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ true,
+        sampleData,
+        /* offset= */ 0,
+        /* length= */ 4);
+  }
+
+  @Test
+  public void peekNextSampleSize_withSupplementalData_returnsPayloadSize() {
+    sampleQueue.format(FORMAT_1);
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+    byte[] supplementalData = new byte[] {9, 8, 7};
+
+    int size = sampleData.length;
+    byte[] scratch =
+        new byte[] {(byte) (size >>> 24), (byte) (size >>> 16), (byte) (size >>> 8), (byte) size};
+    byte[] sampleWithSupplemental = Bytes.concat(scratch, sampleData, supplementalData);
+    writeSample(
+        sampleWithSupplemental,
+        /* timestampUs= */ 0,
+        C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+
+    int sampleSize = sampleQueue.peekNextSampleSize();
+
+    assertThat(sampleSize).isEqualTo(4);
+
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    formatHolder.clear();
+    inputBuffer.clear();
+    int result =
+        sampleQueue.read(
+            formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
+
+    assertThat(result).isEqualTo(RESULT_BUFFER_READ);
+    assertThat(inputBuffer.timeUs).isEqualTo(0);
+    assertThat(inputBuffer.isKeyFrame()).isTrue();
+    inputBuffer.flip();
+    byte[] readData = new byte[inputBuffer.data.limit()];
+    inputBuffer.data.get(readData);
+    assertThat(readData).isEqualTo(sampleData);
+    assertThat(inputBuffer.hasSupplementalData()).isTrue();
+    byte[] readSupplementalData = new byte[inputBuffer.supplementalData.limit()];
+    inputBuffer.supplementalData.get(readSupplementalData);
+    assertThat(readSupplementalData).isEqualTo(supplementalData);
+  }
+
+  @Test
+  public void read_withOmitSampleDataOnEncryptedSample_populatesCryptoInfoOnly() {
+    when(mockDrmSession.getState()).thenReturn(DrmSession.STATE_OPENED_WITH_KEYS);
+    sampleQueue.format(FORMAT_ENCRYPTED);
+    byte[] initializationVector = new byte[] {1, 2, 3, 4, 5, 6, 7, 8};
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+    byte[] encryptedSampleData =
+        Bytes.concat(
+            new byte[] {
+              0x08, // subsampleEncryption = false (1 bit), ivSize = 8 (7 bits).
+            },
+            initializationVector,
+            sampleData);
+    writeSample(
+        encryptedSampleData,
+        /* timestampUs= */ 0,
+        C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_ENCRYPTED);
+    byte[] secondSampleData = new byte[] {5, 6, 7, 8};
+    writeSample(secondSampleData, /* timestampUs= */ 1000000, C.BUFFER_FLAG_KEY_FRAME);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_ENCRYPTED_WITH_EXO_MEDIA_CRYPTO_TYPE);
+    formatHolder.clear();
+    inputBuffer.clear();
+
+    int result =
+        sampleQueue.read(
+            formatHolder, inputBuffer, FLAG_OMIT_SAMPLE_DATA, /* loadingFinished= */ false);
+    boolean firstSampleEncrypted = inputBuffer.isEncrypted();
+    byte[] firstSampleIv = inputBuffer.cryptoInfo.iv;
+    boolean firstSampleDataIsNull = inputBuffer.data == null;
+    inputBuffer.clear();
+    int result2 =
+        sampleQueue.read(
+            formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
+
+    assertThat(result).isEqualTo(RESULT_BUFFER_READ);
+    assertThat(firstSampleEncrypted).isTrue();
+    assertThat(firstSampleIv)
+        .isEqualTo(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0, 0, 0, 0});
+    assertThat(firstSampleDataIsNull).isTrue();
+    assertThat(result2).isEqualTo(RESULT_BUFFER_READ);
+    inputBuffer.flip();
+    byte[] readData2 = new byte[inputBuffer.data.limit()];
+    inputBuffer.data.get(readData2);
+    assertThat(readData2).isEqualTo(secondSampleData);
+  }
+
+  @Test
+  public void read_withOmitSampleDataOnSupplementalData_omitsDataAndSupplementalData() {
+    sampleQueue.format(FORMAT_1);
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+    byte[] supplementalData = new byte[] {9, 8, 7};
+    int size = sampleData.length;
+    byte[] scratch =
+        new byte[] {(byte) (size >>> 24), (byte) (size >>> 16), (byte) (size >>> 8), (byte) size};
+    byte[] sampleWithSupplemental = Bytes.concat(scratch, sampleData, supplementalData);
+    writeSample(
+        sampleWithSupplemental,
+        /* timestampUs= */ 0,
+        C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    byte[] secondSampleData = new byte[] {5, 6, 7, 8};
+    writeSample(secondSampleData, /* timestampUs= */ 1000000, C.BUFFER_FLAG_KEY_FRAME);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    formatHolder.clear();
+    inputBuffer.clear();
+
+    int result =
+        sampleQueue.read(
+            formatHolder, inputBuffer, FLAG_OMIT_SAMPLE_DATA, /* loadingFinished= */ false);
+    boolean firstSampleDataIsNull = inputBuffer.data == null;
+    boolean firstSampleHasSupplemental = inputBuffer.hasSupplementalData();
+    boolean firstSampleSupplementalIsNull = inputBuffer.supplementalData == null;
+    inputBuffer.clear();
+    int result2 =
+        sampleQueue.read(
+            formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
+
+    assertThat(result).isEqualTo(RESULT_BUFFER_READ);
+    assertThat(firstSampleDataIsNull).isTrue();
+    assertThat(firstSampleHasSupplemental).isTrue();
+    assertThat(firstSampleSupplementalIsNull).isTrue();
+    assertThat(result2).isEqualTo(RESULT_BUFFER_READ);
+    inputBuffer.flip();
+    byte[] readData2 = new byte[inputBuffer.data.limit()];
+    inputBuffer.data.get(readData2);
+    assertThat(readData2).isEqualTo(secondSampleData);
+  }
+
+  @Test
+  public void read_withOmitSampleDataOnNormalSample_omitsData() {
+    sampleQueue.format(FORMAT_1);
+    byte[] sampleData = new byte[] {1, 2, 3, 4};
+    writeSample(sampleData, /* timestampUs= */ 0, C.BUFFER_FLAG_KEY_FRAME);
+    byte[] secondSampleData = new byte[] {5, 6, 7, 8};
+    writeSample(secondSampleData, /* timestampUs= */ 1000000, C.BUFFER_FLAG_KEY_FRAME);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    formatHolder.clear();
+    inputBuffer.clear();
+
+    int result =
+        sampleQueue.read(
+            formatHolder, inputBuffer, FLAG_OMIT_SAMPLE_DATA, /* loadingFinished= */ false);
+    boolean firstSampleDataIsNull = inputBuffer.data == null;
+    boolean firstSampleHasSupplemental = inputBuffer.hasSupplementalData();
+    inputBuffer.clear();
+    int result2 =
+        sampleQueue.read(
+            formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
+
+    assertThat(result).isEqualTo(RESULT_BUFFER_READ);
+    assertThat(firstSampleDataIsNull).isTrue();
+    assertThat(firstSampleHasSupplemental).isFalse();
+    assertThat(result2).isEqualTo(RESULT_BUFFER_READ);
+    inputBuffer.flip();
+    byte[] readData2 = new byte[inputBuffer.data.limit()];
+    inputBuffer.data.get(readData2);
+    assertThat(readData2).isEqualTo(secondSampleData);
+  }
 }
