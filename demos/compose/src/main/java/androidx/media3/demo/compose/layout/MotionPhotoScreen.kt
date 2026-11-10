@@ -47,6 +47,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.ui.compose.motionphoto.MotionPhoto
 import androidx.media3.ui.compose.motionphoto.MotionPhotoConfig
 import androidx.media3.ui.compose.motionphoto.rememberMotionPhotoState
@@ -69,7 +70,10 @@ private enum class ConfigMode {
 @Composable
 internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifier) {
   val context = LocalContext.current
-  val player = remember(context) { ExoPlayer.Builder(context).build() }
+  val player =
+    remember(context) {
+      ExoPlayer.Builder(context).build().apply { addAnalyticsListener(EventLogger()) }
+    }
   DisposableEffect(player) { onDispose { player.release() } }
 
   val appContext = context.applicationContext

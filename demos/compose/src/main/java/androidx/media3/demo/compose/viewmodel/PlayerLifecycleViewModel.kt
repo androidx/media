@@ -27,6 +27,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.util.EventLogger
 import kotlin.math.max
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -102,6 +103,7 @@ internal class PlayerLifecycleViewModel(
     if (_player.value == null) {
       val exoPlayer =
         ExoPlayer.Builder(getApplication()).build().apply {
+          addAnalyticsListener(EventLogger())
           trackSelectionParameters = startTrackSelectionParameters
           playWhenReady = startAutoPlay
           volume = startVolume
