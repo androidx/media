@@ -43,6 +43,9 @@
         ([#2638](https://github.com/androidx/media/issues/2638),
         [#3285](https://github.com/androidx/media/issues/3285),
         [#3466](https://github.com/androidx/media/issues/3466)).
+    *   Configure a width-based fractional seek tolerance in
+        `ExoPlayer.getScrubbingModeParameters()` when `ProgressSlider` in
+        `media3-ui-compose-material3` is used with `ExoPlayer`.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

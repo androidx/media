@@ -14,6 +14,44 @@
 }
 
 -if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *FractionalSeekTolerance*(...);
+}
+-keepnames class androidx.media3.exoplayer.ExoPlayer {}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *FractionalSeekTolerance*(...);
+}
+-keepclassmembers class androidx.media3.exoplayer.ExoPlayer {
+  androidx.media3.exoplayer.ScrubbingModeParameters getScrubbingModeParameters();
+  void setScrubbingModeParameters(androidx.media3.exoplayer.ScrubbingModeParameters);
+}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *FractionalSeekTolerance*(...);
+}
+-keepnames class androidx.media3.exoplayer.ScrubbingModeParameters {}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *FractionalSeekTolerance*(...);
+}
+-keepclassmembers class androidx.media3.exoplayer.ScrubbingModeParameters {
+  androidx.media3.exoplayer.ScrubbingModeParameters$Builder buildUpon();
+}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *FractionalSeekTolerance*(...);
+}
+-keepnames class androidx.media3.exoplayer.ScrubbingModeParameters$Builder {}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
+  *** *FractionalSeekTolerance*(...);
+}
+-keepclassmembers class androidx.media3.exoplayer.ScrubbingModeParameters$Builder {
+  androidx.media3.exoplayer.ScrubbingModeParameters$Builder setFractionalSeekTolerance(java.lang.Double, java.lang.Double);
+  androidx.media3.exoplayer.ScrubbingModeParameters build();
+}
+
+-if class androidx.media3.ui.compose.material3.util.ScrubbingModeUtil {
   *** *ScrubbingModeEnabled(...);
 }
 -keepnames class androidx.media3.transformer.CompositionPlayer {}
