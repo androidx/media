@@ -17,9 +17,15 @@
 package androidx.media3.ui.compose.material3.indicator
 
 import android.content.Context
+import android.os.Looper
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -30,12 +36,16 @@ import androidx.compose.ui.test.assertRangeInfoEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.test.utils.FakeMediaSource
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.test.utils.TestExoPlayerBuilder
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -48,6 +58,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,6 +67,7 @@ import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 private const val SLIDER_TAG = "slider"
@@ -64,9 +76,16 @@ private const val SLIDER_TAG = "slider"
 @RunWith(AndroidJUnit4::class)
 class ProgressSliderTest {
   private val testDispatcher = StandardTestDispatcher(TestCoroutineScheduler())
+  private val playersToRelease = mutableListOf<ExoPlayer>()
   @OptIn(ExperimentalTestApi::class)
   @get:Rule
   val composeTestRule = createComposeRule(testDispatcher)
+
+  @After
+  fun tearDown() {
+    playersToRelease.forEach { it.release() }
+    playersToRelease.clear()
+  }
 
   @Test
   fun slider_whenItemIsNotSeekable_becomesDisabled() =
@@ -679,6 +698,308 @@ class ProgressSliderTest {
 
       composeTestRule.onNodeWithTag(SLIDER_TAG).assertIsNotEnabled()
     }
+
+  @Test
+  fun slider_withExoPlayer_setsFractionalSeekToleranceFromWidth() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      player.scrubbingModeParameters =
+        player.scrubbingModeParameters
+          .buildUpon()
+          .setShouldIncreaseCodecOperatingRate(false)
+          .build()
+
+      composeTestRule.setContent {
+        ProgressSlider(player = player, modifier = Modifier.width(200.dp).testTag(SLIDER_TAG))
+      }
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.01)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.01)
+      assertThat(player.scrubbingModeParameters.shouldIncreaseCodecOperatingRate).isFalse()
+    }
+
+  @Test
+  fun slider_withExoPlayerAndCustomDensity_setsDensityIndependentFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+
+      composeTestRule.setContent {
+        CompositionLocalProvider(LocalDensity provides Density(2f)) {
+          ProgressSlider(player = player, modifier = Modifier.width(100.dp).testTag(SLIDER_TAG))
+        }
+      }
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.02)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.02)
+    }
+
+  @Test
+  fun slider_withExoPlayerAndHorizontalPadding_excludesPaddingFromFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+
+      composeTestRule.setContent {
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.width(250.dp).padding(horizontal = 25.dp).testTag(SLIDER_TAG),
+        )
+      }
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.01)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.01)
+    }
+
+  @Test
+  fun slider_withExoPlayerAndZeroWidth_leavesFractionalSeekToleranceNull() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+
+      composeTestRule.setContent {
+        ProgressSlider(player = player, modifier = Modifier.width(0.dp).testTag(SLIDER_TAG))
+      }
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isNull()
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isNull()
+    }
+
+  @Test
+  fun slider_withExoPlayerInZeroWidthParent_leavesFractionalSeekToleranceNull() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+
+      composeTestRule.setContent { Box(Modifier.width(0.dp)) { ProgressSlider(player = player) } }
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isNull()
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isNull()
+    }
+
+  @Test
+  fun slider_withExoPlayerAndWidthSmallerThanTolerance_clampsFractionalSeekToleranceToOne() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+
+      composeTestRule.setContent {
+        ProgressSlider(player = player, modifier = Modifier.width(1.dp).testTag(SLIDER_TAG))
+      }
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(1.0)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(1.0)
+    }
+
+  @Test
+  fun slider_withExoPlayerAndWidthChanged_updatesFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      val sliderWidth = mutableStateOf(100.dp)
+      composeTestRule.setContent {
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.width(sliderWidth.value).testTag(SLIDER_TAG),
+        )
+      }
+      composeTestRule.waitForIdle()
+
+      sliderWidth.value = 250.dp
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.008)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.008)
+    }
+
+  @Test
+  fun slider_withExoPlayerAndWidthCollapsedToZero_clearsFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      val sliderWidth = mutableStateOf(100.dp)
+      composeTestRule.setContent {
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.width(sliderWidth.value).testTag(SLIDER_TAG),
+        )
+      }
+      composeTestRule.waitForIdle()
+
+      sliderWidth.value = 0.dp
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isNull()
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isNull()
+    }
+
+  @Test
+  fun slider_receivesNewExoPlayer_clearsOldAndSetsNewFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player1 = createExoPlayer()
+      val player2 = createExoPlayer()
+      val currentPlayer = mutableStateOf(player1)
+      composeTestRule.setContent {
+        ProgressSlider(
+          player = currentPlayer.value,
+          modifier = Modifier.width(250.dp).testTag(SLIDER_TAG),
+        )
+      }
+      composeTestRule.waitForIdle()
+
+      currentPlayer.value = player2
+      composeTestRule.waitForIdle()
+
+      assertThat(player1.scrubbingModeParameters.fractionalSeekToleranceBefore).isNull()
+      assertThat(player1.scrubbingModeParameters.fractionalSeekToleranceAfter).isNull()
+      assertThat(player2.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.008)
+      assertThat(player2.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.008)
+    }
+
+  @Test
+  fun slider_disposed_clearsFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      player.scrubbingModeParameters =
+        player.scrubbingModeParameters
+          .buildUpon()
+          .setShouldIncreaseCodecOperatingRate(false)
+          .build()
+      val showSlider = mutableStateOf(true)
+      composeTestRule.setContent {
+        if (showSlider.value) {
+          ProgressSlider(player = player, modifier = Modifier.width(200.dp).testTag(SLIDER_TAG))
+        }
+      }
+      composeTestRule.waitForIdle()
+
+      showSlider.value = false
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isNull()
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isNull()
+      assertThat(player.scrubbingModeParameters.shouldIncreaseCodecOperatingRate).isFalse()
+    }
+
+  @Test
+  fun slider_disposedAfterAnotherSliderSharesExoPlayer_preservesNewSliderFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      val showFirstSlider = mutableStateOf(true)
+      val showSecondSlider = mutableStateOf(false)
+      composeTestRule.setContent {
+        if (showFirstSlider.value) {
+          ProgressSlider(player = player, modifier = Modifier.width(100.dp))
+        }
+        if (showSecondSlider.value) {
+          ProgressSlider(player = player, modifier = Modifier.width(250.dp))
+        }
+      }
+      composeTestRule.waitForIdle()
+      showSecondSlider.value = true
+      composeTestRule.waitForIdle()
+
+      showFirstSlider.value = false
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.008)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.008)
+    }
+
+  @Test
+  fun slider_dragAfterOverlaySliderDisposed_restoresFractionalSeekToleranceOnDragStart() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      player.setMediaSource(FakeMediaSource())
+      player.prepare()
+      while (player.playbackState != STATE_READY) {
+        shadowOf(Looper.getMainLooper()).idle()
+      }
+      val showOverlaySlider = mutableStateOf(false)
+      var slop = 0f
+      composeTestRule.setContent {
+        slop = LocalViewConfiguration.current.touchSlop
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.width(100.dp).testTag(SLIDER_TAG),
+          scope = backgroundScope,
+        )
+        if (showOverlaySlider.value) {
+          ProgressSlider(
+            player = player,
+            modifier = Modifier.width(250.dp),
+            scope = backgroundScope,
+          )
+        }
+      }
+      composeTestRule.waitForIdle()
+      showOverlaySlider.value = true
+      composeTestRule.waitForIdle()
+      showOverlaySlider.value = false
+      composeTestRule.waitForIdle()
+
+      composeTestRule.onNodeWithTag(SLIDER_TAG).performTouchInput {
+        down(center)
+        moveBy(Offset(slop, 0f))
+      }
+      testScheduler.runCurrent()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.02)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.02)
+    }
+
+  @Test
+  fun slider_scrubbingDisabledAfterBeingEnabled_clearsFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      val scrubbingEnabled = mutableStateOf(true)
+      composeTestRule.setContent {
+        ProgressSlider(
+          player = player,
+          modifier = Modifier.width(200.dp).testTag(SLIDER_TAG),
+          scrubbingEnabled = scrubbingEnabled.value,
+        )
+      }
+      composeTestRule.waitForIdle()
+
+      scrubbingEnabled.value = false
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isNull()
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isNull()
+    }
+
+  @Test
+  fun slider_scrubbingDisabled_doesNotModifyFractionalSeekTolerance() =
+    runTest(testDispatcher) {
+      val player = createExoPlayer()
+      player.scrubbingModeParameters =
+        player.scrubbingModeParameters
+          .buildUpon()
+          .setFractionalSeekTolerance(/* toleranceBefore= */ 0.1, /* toleranceAfter= */ 0.1)
+          .build()
+      val showSlider = mutableStateOf(true)
+      composeTestRule.setContent {
+        if (showSlider.value) {
+          ProgressSlider(
+            player = player,
+            modifier = Modifier.width(200.dp).testTag(SLIDER_TAG),
+            scrubbingEnabled = false,
+          )
+        }
+      }
+      composeTestRule.waitForIdle()
+
+      showSlider.value = false
+      composeTestRule.waitForIdle()
+
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceBefore).isEqualTo(0.1)
+      assertThat(player.scrubbingModeParameters.fractionalSeekToleranceAfter).isEqualTo(0.1)
+    }
+
+  private fun createExoPlayer(): ExoPlayer {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    return TestExoPlayerBuilder(context).build().also { playersToRelease.add(it) }
+  }
 
   private fun assertThatSliderValueEquals(value: Float) {
     composeTestRule

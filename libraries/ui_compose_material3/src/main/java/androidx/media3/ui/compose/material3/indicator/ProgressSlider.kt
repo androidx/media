@@ -30,17 +30,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.indicators.ProgressIndicator
+import androidx.media3.ui.compose.material3.util.clearFractionalSeekToleranceIfEquals
 import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
+import androidx.media3.ui.compose.material3.util.setFractionalSeekTolerance
 import androidx.media3.ui.compose.material3.util.setScrubbingModeEnabled
 import kotlinx.coroutines.CoroutineScope
 
 /**
  * A Material3 [Slider] that displays the current position of the player.
+ *
+ * When [player] is an `ExoPlayer`, this composable automatically configures
+ * `ScrubbingModeParameters.fractionalSeekToleranceBefore` and
+ * `ScrubbingModeParameters.fractionalSeekToleranceAfter` based on the slider's width and clears
+ * them to `null` when disposed.
  *
  * @param player The [Player] to get the progress from.
  * @param modifier The [Modifier] to be applied to the slider.
@@ -74,7 +83,10 @@ fun ProgressSlider(player: Player?, modifier: Modifier = Modifier) {
  * @param colors [SliderColors] that will be used to resolve the colors used for this slider in
  *   different states. See [SliderDefaults.colors].
  * @param scrubbingEnabled Whether the time bar should seek immediately as the user drags the
- *   scrubber around (true), or only seek when the user releases the scrubber (false).
+ *   scrubber around (true), or only seek when the user releases the scrubber (false). When `true`
+ *   and [player] is an `ExoPlayer`, `ScrubbingModeParameters.fractionalSeekToleranceBefore` and
+ *   `ScrubbingModeParameters.fractionalSeekToleranceAfter` are automatically configured based on
+ *   the slider's width and cleared to `null` when disposed.
  * @param interactionSource the [MutableInteractionSource] representing the stream of
  *   [Interactions][androidx.compose.foundation.interaction.Interaction] for this slider. You can
  *   create and pass in your own `remember`ed instance to observe `Interactions` and customize the
@@ -93,10 +105,23 @@ fun ProgressSlider(
   interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
+  val tolerancePx = with(LocalDensity.current) { SCRUBBING_TOLERANCE.toPx() }
   ProgressIndicator(player, totalTickCount = sliderWidthPx, scope) {
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
 
+    if (scrubbingEnabled && sliderWidthPx > 0) {
+      val tolerance = (tolerancePx.toDouble() / sliderWidthPx).coerceIn(0.0, 1.0)
+      DisposableEffect(player, tolerance) {
+        player.setFractionalSeekTolerance(toleranceBefore = tolerance, toleranceAfter = tolerance)
+        onDispose {
+          player.clearFractionalSeekToleranceIfEquals(
+            toleranceBefore = tolerance,
+            toleranceAfter = tolerance,
+          )
+        }
+      }
+    }
     // Fallback for navigating away before the trailing invoke in onValueChangeFinished is called
     DisposableEffect(player) {
       onDispose {
@@ -112,6 +137,13 @@ fun ProgressSlider(
       value = if (isDragging) seekPosition else currentPositionProgress,
       onValueChange = {
         if (!isDragging && scrubbingEnabled) {
+          if (sliderWidthPx > 0) {
+            val tolerance = (tolerancePx.toDouble() / sliderWidthPx).coerceIn(0.0, 1.0)
+            player.setFractionalSeekTolerance(
+              toleranceBefore = tolerance,
+              toleranceAfter = tolerance,
+            )
+          }
           player.setScrubbingModeEnabled(true)
           scrubbingEnabledForThisPlayer = player.isScrubbingModeEnabled()
         }
@@ -133,10 +165,17 @@ fun ProgressSlider(
       // will actually represent the visible and draggable Track. The final size of ProgressSlider
       // might end up larger due to application of padding (minimumInteractiveComponentSize), but
       // that should not affect the position update interval.
-      modifier = modifier.onSizeChanged { (w, _) -> sliderWidthPx = w },
+      modifier =
+        modifier.layout { measurable, constraints ->
+          val placeable = measurable.measure(constraints)
+          sliderWidthPx = minOf(placeable.width, constraints.maxWidth)
+          layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+        },
       enabled = changingProgressEnabled,
       colors = colors,
       interactionSource = interactionSource,
     )
   }
 }
+
+private val SCRUBBING_TOLERANCE = 2.dp
