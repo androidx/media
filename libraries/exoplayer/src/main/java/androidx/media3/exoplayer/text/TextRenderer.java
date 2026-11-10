@@ -15,8 +15,11 @@
  */
 package androidx.media3.exoplayer.text;
 
+import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Handler;
@@ -25,8 +28,10 @@ import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.ExperimentalApi;
@@ -112,6 +117,11 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private final CueDecoder cueDecoder;
   private final DecoderInputBuffer cueDecoderInputBuffer;
   private @MonotonicNonNull CuesResolver cuesResolver;
+  private float playbackSpeed;
+  private long nextCueChangePositionUs;
+  private long nextSourceReadPositionUs;
+  private boolean sourceReadPending;
+  private boolean waitingForFinalEndOfStream;
 
   // Fields used when handling Subtitle objects from legacy samples.
   private final SubtitleDecoderFactory subtitleDecoderFactory;
@@ -171,6 +181,10 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     finalStreamEndPositionUs = C.TIME_UNSET;
     lastRendererPositionUs = C.TIME_UNSET;
     legacyDecodingEnabled = false;
+    playbackSpeed = 1f;
+    nextCueChangePositionUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
   }
 
   @Override
@@ -210,11 +224,107 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
+  public void setPlaybackSpeed(float currentPlaybackSpeed, float targetPlaybackSpeed) {
+    this.playbackSpeed = currentPlaybackSpeed;
+  }
+
+  @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (!Flags.isEnabled(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS)
+        || getState() == STATE_DISABLED
+        || streamFormat == null
+        || !isCuesWithTiming(streamFormat)) {
+      return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+    }
+
+    boolean isStarted = getState() == STATE_STARTED;
+    if (outputStreamEnded) {
+      // If the text stream ended early in a period with a known end position, wake up at the end
+      // of the stream so period transition or playback completion is not delayed.
+      if (isStarted) {
+        long streamEndPositionUs = getStreamEndPositionUs();
+        long streamEndRendererPositionUs =
+            isCurrentStreamFinal() && finalStreamEndPositionUs != C.TIME_UNSET
+                ? finalStreamEndPositionUs
+                : (streamEndPositionUs != C.TIME_UNSET
+                    ? getStreamOffsetUs() + streamEndPositionUs
+                    : C.TIME_UNSET);
+        if (streamEndRendererPositionUs != C.TIME_UNSET
+            && positionUs < streamEndRendererPositionUs) {
+          return calculateDurationToProgressUs(
+              positionUs, streamEndRendererPositionUs, playbackSpeed);
+        }
+      }
+      return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+
+    // Check if the final stream has reached its end position or is ready to consume its final
+    // end-of-stream signal.
+    if ((isCurrentStreamFinal()
+            && finalStreamEndPositionUs != C.TIME_UNSET
+            && positionUs >= finalStreamEndPositionUs)
+        || (waitingForFinalEndOfStream && isCurrentStreamFinal())) {
+      return 0;
+    }
+
+    // Before the first render() pass populates cue timing state, poll at the default active rate.
+    if (nextCueChangePositionUs == C.TIME_UNSET) {
+      return DEFAULT_DURATION_TO_PROGRESS_US;
+    }
+
+    // Compute the next position at which already-decoded cues or the final stream end require
+    // rendering.
+    long targetPositionUs =
+        nextCueChangePositionUs != C.TIME_END_OF_SOURCE ? nextCueChangePositionUs : Long.MAX_VALUE;
+    if (isCurrentStreamFinal() && finalStreamEndPositionUs != C.TIME_UNSET) {
+      targetPositionUs = min(targetPositionUs, finalStreamEndPositionUs);
+    }
+
+    if (nextSourceReadPositionUs == C.TIME_UNSET) {
+      // SampleStream has no data ready yet (e.g. still loading), so cap sleep at the default
+      // active rate while started or when a source read is pending.
+      if (targetPositionUs <= positionUs) {
+        return 0;
+      }
+      if (!isStarted) {
+        return sourceReadPending
+            ? DEFAULT_DURATION_TO_PROGRESS_US
+            : super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+      }
+      return targetPositionUs == Long.MAX_VALUE
+          ? DEFAULT_DURATION_TO_PROGRESS_US
+          : min(
+              DEFAULT_DURATION_TO_PROGRESS_US,
+              calculateDurationToProgressUs(positionUs, targetPositionUs, playbackSpeed));
+    }
+
+    // Both the next cue change and next source read positions are known; wake at whichever comes
+    // first.
+    if (nextSourceReadPositionUs != C.TIME_END_OF_SOURCE) {
+      targetPositionUs = min(targetPositionUs, nextSourceReadPositionUs);
+    }
+    if (targetPositionUs <= positionUs) {
+      return 0;
+    }
+    if (!isStarted) {
+      return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+    }
+    return targetPositionUs == Long.MAX_VALUE
+        ? DEFAULT_IDLE_DURATION_TO_PROGRESS_US
+        : calculateDurationToProgressUs(positionUs, targetPositionUs, playbackSpeed);
+  }
+
+  @Override
   protected void onStreamChanged(
       Format[] formats,
       long startPositionUs,
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
+    cueDecoderInputBuffer.clear();
+    nextCueChangePositionUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
+    waitingForFinalEndOfStream = false;
     streamFormat = formats[0];
     if (!isCuesWithTiming(streamFormat)) {
       assertLegacyDecodingEnabledIfRequired();
@@ -242,6 +352,11 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     inputStreamEnded = false;
     outputStreamEnded = false;
     finalStreamEndPositionUs = C.TIME_UNSET;
+    cueDecoderInputBuffer.clear();
+    nextCueChangePositionUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
+    waitingForFinalEndOfStream = false;
     if (streamFormat != null && !isCuesWithTiming(streamFormat)) {
       if (decoderReplacementState != REPLACEMENT_STATE_NONE) {
         replaceSubtitleDecoder();
@@ -255,7 +370,17 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
+  protected void onTimelineChanged(Timeline timeline) {
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
+  }
+
+  @Override
   public void render(long positionUs, long elapsedRealtimeUs) {
+    nextCueChangePositionUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = false;
+    waitingForFinalEndOfStream = false;
     if (isCurrentStreamFinal()
         && finalStreamEndPositionUs != C.TIME_UNSET
         && positionUs >= finalStreamEndPositionUs) {
@@ -317,8 +442,13 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long previousCueChangeTimeUs = cuesResolver.getPreviousCueChangeTimeUs(positionUs);
       updateOutput(new CueGroup(cuesAtTimeUs, getPresentationTimeUs(previousCueChangeTimeUs)));
       cuesResolver.discardCuesBeforeTimeUs(previousCueChangeTimeUs);
+      nextCueChangeTimeUs = cuesResolver.getNextCueChangeTimeUs(positionUs);
     }
     lastRendererPositionUs = positionUs;
+    nextCueChangePositionUs =
+        nextCueChangeTimeUs == C.TIME_END_OF_SOURCE && inputStreamEnded && !outputStreamEnded
+            ? positionUs
+            : nextCueChangeTimeUs;
   }
 
   /**
@@ -330,8 +460,11 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @RequiresNonNull("this.cuesResolver")
   private boolean readAndDecodeCuesWithTiming(long positionUs) {
     if (inputStreamEnded) {
+      nextSourceReadPositionUs = C.TIME_END_OF_SOURCE;
       return false;
     }
+    boolean wasReadStreamToEnd = hasReadStreamToEnd();
+    cueDecoderInputBuffer.clear();
     @ReadDataResult
     int readResult =
         readSource(
@@ -339,6 +472,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             cueDecoderInputBuffer,
             SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
     while (readResult == C.RESULT_FORMAT_READ) {
+      cueDecoderInputBuffer.clear();
       readResult =
           readSource(
               formatHolder,
@@ -347,10 +481,12 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     }
     if (readResult == C.RESULT_NOTHING_READ && !cueDecoderInputBuffer.isEndOfStream()) {
       // Nothing to consume yet.
+      nextSourceReadPositionUs = C.TIME_UNSET;
       return false;
     } else if (readResult == C.RESULT_BUFFER_READ && !cueDecoderInputBuffer.isEndOfStream()) {
       // New buffer available, only consume if close enough to the current position.
       if (positionUs < cueDecoderInputBuffer.timeUs - MAX_READ_AHEAD_DURATION_US) {
+        nextSourceReadPositionUs = cueDecoderInputBuffer.timeUs - MAX_READ_AHEAD_DURATION_US;
         return false;
       }
     } else if (readResult == C.RESULT_BUFFER_READ || readResult == C.RESULT_NOTHING_READ) {
@@ -359,14 +495,20 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long positionInPeriodUs = positionUs - getStreamOffsetUs();
       if (streamEndPositionUs == C.TIME_UNSET
           || positionInPeriodUs < streamEndPositionUs - MAX_READ_AHEAD_DURATION_US) {
+        nextSourceReadPositionUs =
+            streamEndPositionUs == C.TIME_UNSET
+                ? C.TIME_END_OF_SOURCE
+                : getStreamOffsetUs() + streamEndPositionUs - MAX_READ_AHEAD_DURATION_US;
         return false;
       }
     }
+    cueDecoderInputBuffer.clear();
     readResult = readSource(formatHolder, cueDecoderInputBuffer, /* readFlags= */ 0);
     switch (readResult) {
       case C.RESULT_BUFFER_READ:
         if (cueDecoderInputBuffer.isEndOfStream()) {
           inputStreamEnded = true;
+          nextSourceReadPositionUs = C.TIME_END_OF_SOURCE;
           return false;
         }
         cueDecoderInputBuffer.flip();
@@ -378,11 +520,30 @@ public final class TextRenderer extends BaseRenderer implements Callback {
                 cueData.arrayOffset(),
                 cueData.limit());
         cueDecoderInputBuffer.clear();
+        nextSourceReadPositionUs = positionUs;
 
         return cuesResolver.addCues(cuesWithTiming, positionUs);
       case C.RESULT_FORMAT_READ:
+        nextSourceReadPositionUs = positionUs;
+        return false;
       case C.RESULT_NOTHING_READ:
+        if (cueDecoderInputBuffer.isEndOfStream()) {
+          waitingForFinalEndOfStream = true;
+          long streamEndPositionUs = getStreamEndPositionUs();
+          if (!wasReadStreamToEnd && hasReadStreamToEnd()) {
+            nextSourceReadPositionUs = positionUs;
+          } else if (streamEndPositionUs != C.TIME_UNSET
+              && positionUs < getStreamOffsetUs() + streamEndPositionUs) {
+            nextSourceReadPositionUs = getStreamOffsetUs() + streamEndPositionUs;
+          } else {
+            nextSourceReadPositionUs = C.TIME_END_OF_SOURCE;
+          }
+        } else {
+          nextSourceReadPositionUs = C.TIME_UNSET;
+        }
+        return false;
       default:
+        nextSourceReadPositionUs = C.TIME_UNSET;
         return false;
     }
   }
@@ -529,12 +690,26 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @Override
   protected void onDisabled() {
     streamFormat = null;
+    cueDecoderInputBuffer.clear();
     finalStreamEndPositionUs = C.TIME_UNSET;
+    nextCueChangePositionUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
+    waitingForFinalEndOfStream = false;
     clearOutput();
     lastRendererPositionUs = C.TIME_UNSET;
     if (subtitleDecoder != null) {
       releaseSubtitleDecoder();
     }
+  }
+
+  @Override
+  protected void onReset() {
+    cueDecoderInputBuffer.clear();
+    nextCueChangePositionUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
+    waitingForFinalEndOfStream = false;
   }
 
   @Override
@@ -697,5 +872,20 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @SideEffectFree
   private static boolean isCuesWithTiming(Format format) {
     return Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_MEDIA3_CUES);
+  }
+
+  @SideEffectFree
+  private static long calculateDurationToProgressUs(
+      long positionUs, long targetPositionUs, float playbackSpeed) {
+    if (positionUs >= targetPositionUs) {
+      return 0;
+    }
+    long playoutDurationUs =
+        Util.getPlayoutDurationForMediaDuration(targetPositionUs - positionUs, playbackSpeed);
+    if (playoutDurationUs >= Long.MAX_VALUE - 1_000L) {
+      return Long.MAX_VALUE;
+    }
+    long playoutDurationMs = max(1L, Util.ceilDivide(playoutDurationUs, 1_000L));
+    return msToUs(playoutDurationMs);
   }
 }
