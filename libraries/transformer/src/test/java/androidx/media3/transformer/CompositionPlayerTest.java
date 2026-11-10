@@ -578,10 +578,30 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void release_onNewlyCreateInstance() {
+  public void release_onNewlyCreatedInstance_releasesPlaybackThread() throws Exception {
     player = createTestCompositionPlayer();
+    Thread playbackThread = player.getPlaybackLooper().getThread();
 
     player.release();
+    playbackThread.join(TEST_TIMEOUT_MS);
+
+    assertThat(playbackThread.isAlive()).isFalse();
+  }
+
+  @Test
+  public void
+      release_onNewlyCreatedInstanceWithFrameProcessor_releasesPlaybackThreadAndFrameProcessor()
+          throws Exception {
+    FakeFrameProcessor.Factory fakeFrameProcessorFactory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true);
+    player = createTestHardwareBufferCompositionPlayerBuilder(fakeFrameProcessorFactory).build();
+    Thread playbackThread = player.getPlaybackLooper().getThread();
+
+    player.release();
+    playbackThread.join(TEST_TIMEOUT_MS);
+
+    assertThat(playbackThread.isAlive()).isFalse();
+    assertThat(fakeFrameProcessorFactory.createdProcessor.closed.get()).isTrue();
   }
 
   @Test
