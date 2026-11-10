@@ -1338,7 +1338,11 @@ public final class DashPlaybackTest {
     for (String asset : contents) {
       try {
         Uri assetUri =
-            new Uri.Builder().scheme("asset").appendPath(assetDirectory).appendPath(asset).build();
+            new Uri.Builder()
+                .scheme(C.ASSET_SCHEME)
+                .appendPath(assetDirectory)
+                .appendPath(asset)
+                .build();
         assetDataSource.open(new DataSpec(assetUri));
         resources.add(
             new WebServerDispatcher.Resource.Builder()

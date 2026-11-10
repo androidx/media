@@ -195,7 +195,7 @@ public class DefaultLoadControl implements LoadControl {
           DataSchemeDataSource.SCHEME_DATA,
           ContentResolver.SCHEME_ANDROID_RESOURCE,
           RawResourceDataSource.RAW_RESOURCE_SCHEME,
-          "asset");
+          C.ASSET_SCHEME);
 
   /** Builder for {@link DefaultLoadControl}. */
   public static final class Builder {

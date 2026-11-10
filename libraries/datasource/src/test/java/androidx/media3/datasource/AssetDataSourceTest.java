@@ -49,4 +49,19 @@ public final class AssetDataSourceTest {
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), DATA_PATH),
         true);
   }
+
+  @Test
+  public void readFileUriWithAndroidAssetAuthority() throws Exception {
+    // TODO: b/575894089 - Remove support for the malformed file://android_asset/<path> URI (two
+    // slashes instead of three, making "android_asset" the authority rather than the first path
+    // segment). DefaultDataSource does not recognize it as an asset URI, and this test only
+    // enforces backward compatibility for callers passing it directly to AssetDataSource.
+    AssetDataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
+    DataSpec dataSpec = new DataSpec(Uri.parse("file://android_asset/" + DATA_PATH));
+    TestUtil.assertDataSourceContent(
+        dataSource,
+        dataSpec,
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), DATA_PATH),
+        true);
+  }
 }

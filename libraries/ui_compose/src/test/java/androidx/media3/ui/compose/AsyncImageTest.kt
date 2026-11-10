@@ -171,6 +171,70 @@ class AsyncImageTest {
   }
 
   @Test
+  fun asyncImage_withAssetUri_displaysDecodedImage() = runComposeUiTest {
+    setContent {
+      AsyncImage(
+        source = ImageSource.Uri("asset:///media/png/media3test.png".toUri()),
+        modifier = Modifier.wrapContentSize().testTag(TAG),
+        placeholder = placeholder,
+        error = error,
+        fallback = fallback,
+        loadingContext = UnconfinedTestDispatcher(),
+      )
+    }
+
+    assertDisplayedSizePx(widthPx = 304, heightPx = 84)
+  }
+
+  @Test
+  fun asyncImage_withFileAndroidAssetUri_displaysDecodedImage() = runComposeUiTest {
+    setContent {
+      AsyncImage(
+        source = ImageSource.Uri("file:///android_asset/media/png/media3test.png".toUri()),
+        modifier = Modifier.wrapContentSize().testTag(TAG),
+        placeholder = placeholder,
+        error = error,
+        fallback = fallback,
+        loadingContext = UnconfinedTestDispatcher(),
+      )
+    }
+
+    assertDisplayedSizePx(widthPx = 304, heightPx = 84)
+  }
+
+  @Test
+  fun asyncImage_withMissingAssetUriAndDefaultLoader_showsErrorPainter() = runComposeUiTest {
+    setContent {
+      AsyncImage(
+        source = ImageSource.Uri("asset:///media/png/missing.png".toUri()),
+        modifier = Modifier.wrapContentSize().testTag(TAG),
+        placeholder = placeholder,
+        error = error,
+        fallback = fallback,
+        loadingContext = UnconfinedTestDispatcher(),
+      )
+    }
+
+    assertDisplayedSizePx(ERROR_SIZE_PX)
+  }
+
+  @Test
+  fun asyncImage_withOpaqueAssetUriAndDefaultLoader_showsErrorPainter() = runComposeUiTest {
+    setContent {
+      AsyncImage(
+        source = ImageSource.Uri("asset:media/png/media3test.png".toUri()),
+        modifier = Modifier.wrapContentSize().testTag(TAG),
+        placeholder = placeholder,
+        error = error,
+        fallback = fallback,
+        loadingContext = UnconfinedTestDispatcher(),
+      )
+    }
+
+    assertDisplayedSizePx(ERROR_SIZE_PX)
+  }
+
+  @Test
   fun asyncImage_withNullSource_showsFallbackPainterOnFirstFrame() = runComposeUiTest {
     mainClock.autoAdvance = false
 
@@ -639,8 +703,12 @@ class AsyncImageTest {
     onNodeWithTag(TAG).fetchSemanticsNode().size.width
 
   private fun ComposeUiTest.assertDisplayedSizePx(sizePx: Int) {
+    assertDisplayedSizePx(widthPx = sizePx, heightPx = sizePx)
+  }
+
+  private fun ComposeUiTest.assertDisplayedSizePx(widthPx: Int, heightPx: Int) {
     with(density) {
-      onNodeWithTag(TAG).assertWidthIsEqualTo(sizePx.toDp()).assertHeightIsEqualTo(sizePx.toDp())
+      onNodeWithTag(TAG).assertWidthIsEqualTo(widthPx.toDp()).assertHeightIsEqualTo(heightPx.toDp())
     }
   }
 

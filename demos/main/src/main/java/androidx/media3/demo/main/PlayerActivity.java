@@ -497,7 +497,7 @@ public class PlayerActivity extends AppCompatActivity
       playerView.setTimeBarScrubbingEnabled(
           TextUtils.isEmpty(uriScheme)
               || uriScheme.equals(ContentResolver.SCHEME_FILE)
-              || uriScheme.equals("asset")
+              || uriScheme.equals(C.ASSET_SCHEME)
               || uriScheme.equals(DataSchemeDataSource.SCHEME_DATA)
               || uriScheme.equals(ContentResolver.SCHEME_ANDROID_RESOURCE));
     }

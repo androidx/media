@@ -25,6 +25,7 @@ import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -76,11 +77,15 @@ public final class AssetDataSource extends BaseDataSource {
   public long open(DataSpec dataSpec) throws AssetDataSourceException {
     try {
       uri = dataSpec.uri;
-      String path = checkNotNull(uri.getPath());
-      if (path.startsWith("/android_asset/")) {
-        path = path.substring(15);
-      } else if (path.startsWith("/")) {
-        path = path.substring(1);
+      @Nullable String path = Util.getAssetPath(uri);
+      if (path == null) {
+        // TODO: b/575894089 - Remove support for non-asset URIs (such as the malformed
+        // file://android_asset/<path>, where "android_asset" is the authority rather than the first
+        // path segment) once callers passing them directly to AssetDataSource are migrated.
+        path = checkNotNull(uri.getPath());
+        if (path.startsWith("/")) {
+          path = path.substring(1);
+        }
       }
       transferInitializing(dataSpec);
       inputStream = assetManager.open(path, AssetManager.ACCESS_RANDOM);

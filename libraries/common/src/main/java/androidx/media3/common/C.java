@@ -113,6 +113,9 @@ public final class C {
   /** The {@link Uri#getScheme() URI scheme} used for content with client side ad insertion. */
   @UnstableApi public static final String CSAI_SCHEME = "csai";
 
+  /** The {@link Uri#getScheme() URI scheme} used for assets in the application's APK. */
+  @UnstableApi public static final String ASSET_SCHEME = "asset";
+
   /**
    * The suggested maximum size in bytes of data to be transferred for inter-process communication
    * using the {@link IBinder} interface.

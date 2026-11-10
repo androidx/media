@@ -47,6 +47,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.Util
 import java.io.FileInputStream
 import java.io.IOException
+import java.io.InputStream
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -76,8 +77,8 @@ private const val TAG = "AsyncImage"
  * Displays a bitmap loaded from [source].
  *
  * If [bitmapLoader] is not provided, it falls back to a default implementation that supports
- * reading local URIs (`content`, `android.resource`, and `file` schemes, or file paths without a
- * scheme) and image bytes.
+ * reading local URIs (`content`, `android.resource`, `file`, and `asset` schemes, or file paths
+ * without a scheme) and image bytes.
  *
  * @param source The image to load, or `null` if there is no image.
  * @param modifier The [Modifier] to be applied to this composable.
@@ -202,30 +203,33 @@ private suspend fun defaultDecodeByteArray(
     checkDecoded(BitmapFactory.decodeByteArray(data, 0, data.size))
   }
 
-// The URI may be untrusted (e.g. MediaMetadata.artworkUri set by another app's session), but its
-// content is only decoded into a bitmap drawn by this composable, and is never returned to whoever
-// provided the URI.
-@Suppress("ContentResolverUri")
 private suspend fun defaultLoadUri(
   context: Context,
   uri: Uri,
   loadingContext: CoroutineContext,
 ): Bitmap =
   withContext(Dispatchers.IO + loadingContext) {
-    // TODO: b/575394983 - Compare schemes case-insensitively, together with DefaultDataSource.
-    val scheme = uri.scheme
-    val inputStream =
-      when {
-        // Like DefaultDataSource, treat a URI without a scheme as a file path.
-        Util.isLocalFileUri(uri) ->
-          FileInputStream(uri.path ?: throw IOException("Invalid file URI: $uri"))
-        scheme == ContentResolver.SCHEME_CONTENT ||
-          scheme == ContentResolver.SCHEME_ANDROID_RESOURCE ->
-          context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open $uri")
-        else -> throw IOException("Unsupported URI scheme: ${uri.scheme}")
-      }
-    inputStream.use { checkDecoded(BitmapFactory.decodeStream(it)) }
+    openUriInputStream(context, uri).use { checkDecoded(BitmapFactory.decodeStream(it)) }
   }
+
+// The URI may be untrusted (e.g. MediaMetadata.artworkUri set by another app's session), but its
+// content is only decoded into a bitmap drawn by this composable, and is never returned to whoever
+// provided the URI.
+@Suppress("ContentResolverUri")
+private fun openUriInputStream(context: Context, uri: Uri): InputStream {
+  // TODO: b/575394983 - Compare schemes case-insensitively, together with DefaultDataSource.
+  val scheme = uri.scheme
+  val assetPath = Util.getAssetPath(uri)
+  return when {
+    assetPath != null -> context.assets.open(assetPath)
+    // Like DefaultDataSource, treat a URI without a scheme as a file path.
+    Util.isLocalFileUri(uri) ->
+      FileInputStream(uri.path ?: throw IOException("Invalid file URI: $uri"))
+    scheme == ContentResolver.SCHEME_CONTENT || scheme == ContentResolver.SCHEME_ANDROID_RESOURCE ->
+      context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open $uri")
+    else -> throw IOException("Unsupported or invalid URI: $uri")
+  }
+}
 
 /** Returns [bitmap], or throws if it's `null` because [BitmapFactory] couldn't decode the image. */
 private fun checkDecoded(bitmap: Bitmap?): Bitmap =

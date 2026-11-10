@@ -351,6 +351,35 @@ public class UtilTest {
   }
 
   @Test
+  public void getAssetPath_assetUri_returnsAssetPath(
+      @TestParameter({
+            "asset:///path/to/asset",
+            "asset:///android_asset/path/to/asset",
+            "asset://android_asset/path/to/asset",
+            "asset://authority/path/to/asset",
+            "file:///android_asset/path/to/asset",
+            "/android_asset/path/to/asset"
+          })
+          String uriString) {
+    assertThat(Util.getAssetPath(Uri.parse(uriString))).isEqualTo("path/to/asset");
+  }
+
+  @Test
+  public void getAssetPath_nonAssetUri_returnsNull(
+      @TestParameter({
+            "file:///path/to/file",
+            "/path/to/file",
+            "file://android_asset/path/to/asset",
+            "file://authority/android_asset/path/to/asset",
+            "content://authority/android_asset/path",
+            "https://example.com/android_asset/path",
+            "asset:path/to/asset"
+          })
+          String uriString) {
+    assertThat(Util.getAssetPath(Uri.parse(uriString))).isNull();
+  }
+
+  @Test
   public void arrayBinarySearchFloor_emptyArrayAndStayInBoundsFalse_returnsMinus1() {
     assertThat(
             binarySearchFloor(

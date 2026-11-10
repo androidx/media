@@ -23,7 +23,10 @@ android {
 
   buildFeatures { compose = true }
 
-  sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets/") }
+  sourceSets {
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets/")
+    getByName("test").assets.directories.add("../test_data/src/test/assets/")
+  }
 }
 
 dependencies {

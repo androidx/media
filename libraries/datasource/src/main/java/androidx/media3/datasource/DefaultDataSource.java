@@ -123,7 +123,6 @@ public final class DefaultDataSource implements DataSource {
 
   private static final String TAG = "DefaultDataSource";
 
-  private static final String SCHEME_ASSET = "asset";
   private static final String SCHEME_CONTENT = ContentResolver.SCHEME_CONTENT;
   private static final String SCHEME_RTMP = "rtmp";
   private static final String SCHEME_UDP = "udp";
@@ -251,15 +250,10 @@ public final class DefaultDataSource implements DataSource {
     checkState(dataSource == null);
     // Choose the correct source for the scheme.
     String scheme = dataSpec.uri.getScheme();
-    if (Util.isLocalFileUri(dataSpec.uri)) {
-      String uriPath = dataSpec.uri.getPath();
-      if (uriPath != null && uriPath.startsWith("/android_asset/")) {
-        dataSource = getAssetDataSource();
-      } else {
-        dataSource = getFileDataSource();
-      }
-    } else if (SCHEME_ASSET.equals(scheme)) {
+    if (Util.getAssetPath(dataSpec.uri) != null) {
       dataSource = getAssetDataSource();
+    } else if (Util.isLocalFileUri(dataSpec.uri)) {
+      dataSource = getFileDataSource();
     } else if (SCHEME_CONTENT.equals(scheme)) {
       dataSource = getContentDataSource();
     } else if (SCHEME_RTMP.equals(scheme)) {

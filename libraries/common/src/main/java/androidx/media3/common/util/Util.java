@@ -219,6 +219,8 @@ public final class Util {
 
   private static final int ZLIB_INFLATE_HEADER = 0x78;
 
+  private static final String ANDROID_ASSET_PATH_PREFIX = "/android_asset/";
+
   // Replacement map of ISO language codes used for normalization.
   private static @Nullable HashMap<String, String> languageTagReplacementMap;
 
@@ -510,6 +512,37 @@ public final class Util {
   public static boolean isLocalFileUri(Uri uri) {
     String scheme = uri.getScheme();
     return TextUtils.isEmpty(scheme) || Objects.equals(scheme, ContentResolver.SCHEME_FILE);
+  }
+
+  /**
+   * Returns the path of the asset that {@code uri} refers to, or {@code null} if {@code uri} isn't
+   * an asset URI.
+   *
+   * <p>An asset URI is a hierarchical URI that either has the {@code asset} scheme (for example
+   * {@code asset:///path/to/asset}), or is a {@linkplain #isLocalFileUri(Uri) local file URI} with
+   * no authority whose path starts with {@code /android_asset/} (for example {@code
+   * file:///android_asset/path/to/asset}).
+   *
+   * @param uri The URI.
+   * @return The path relative to the assets directory, without the leading {@code /android_asset/}
+   *     or {@code /} (for example {@code path/to/asset}), or {@code null} if {@code uri} isn't an
+   *     asset URI.
+   */
+  @UnstableApi
+  public static @Nullable String getAssetPath(Uri uri) {
+    @Nullable String path = uri.getPath();
+    if (path == null) {
+      return null;
+    }
+    boolean isAssetScheme = Objects.equals(uri.getScheme(), C.ASSET_SCHEME);
+    if (path.startsWith(ANDROID_ASSET_PATH_PREFIX)
+        && (isAssetScheme || (isLocalFileUri(uri) && TextUtils.isEmpty(uri.getAuthority())))) {
+      return path.substring(ANDROID_ASSET_PATH_PREFIX.length());
+    } else if (isAssetScheme) {
+      return path.startsWith("/") ? path.substring(1) : path;
+    } else {
+      return null;
+    }
   }
 
   /** Returns true if the code path is currently running on an emulator. */

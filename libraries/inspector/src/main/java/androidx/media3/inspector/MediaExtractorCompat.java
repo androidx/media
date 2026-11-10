@@ -535,11 +535,9 @@ public final class MediaExtractorCompat {
     public long open(DataSpec dataSpec) throws IOException {
       checkState(currentDataSource == null);
       String scheme = dataSpec.uri.getScheme();
-      if (Util.isLocalFileUri(dataSpec.uri)) {
-        String uriPath = dataSpec.uri.getPath();
-        if (uriPath != null && uriPath.startsWith("/android_asset/")) {
-          throw new IOException("Asset URIs require a Context: " + dataSpec.uri);
-        }
+      if (Util.getAssetPath(dataSpec.uri) != null) {
+        throw new IOException("Asset URIs require a Context: " + dataSpec.uri);
+      } else if (Util.isLocalFileUri(dataSpec.uri)) {
         if (fileDataSource == null) {
           fileDataSource = new FileDataSource();
         }
