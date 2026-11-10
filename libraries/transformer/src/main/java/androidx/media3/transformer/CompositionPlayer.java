@@ -1054,18 +1054,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   protected ListenableFuture<?> handleRelease() {
     DebugTraceUtil.logEvent(
         COMPONENT_COMPOSITION_PLAYER, EVENT_RELEASE, /* presentationTimeUs= */ C.TIME_UNSET);
-    if (composition == null) {
-      return Futures.immediateVoidFuture();
-    }
-
     audioFocusManager.release();
-    checkState(checkNotNull(playbackThread).isAlive());
+    checkState(playbackThread.isAlive());
     // Release the players first so that they stop rendering.
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).release();
     }
     playerHolders.clear();
-    boolean internalPlayerSuccessfullyReleased = checkNotNull(compositionPlayerInternal).release();
+    boolean internalPlayerSuccessfullyReleased =
+        compositionPlayerInternal == null || compositionPlayerInternal.release();
     waitingForFrameAfterSeek = false;
     pendingSeekPositionMs = C.TIME_UNSET;
     removeSurfaceCallbacks();
@@ -1083,7 +1080,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
     displaySurface = null;
-    checkNotNull(playbackThread).quitSafely();
+    playbackThread.quitSafely();
     applicationHandler.removeCallbacksAndMessages(/* token= */ null);
     if (!internalPlayerSuccessfullyReleased) {
       // The parent class will call getState() after this method returns, where the exception will
