@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
+import android.graphics.PixelFormat;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.video.DefaultImagePlanesFrame;
@@ -111,8 +112,12 @@ public final class DefaultFrameToGlTextureConverterTest {
     return new DefaultImagePlanesFrame.Builder(
             ImmutableList.of(
                 new DefaultPlane(
-                    ByteBuffer.allocateDirect(64), /* rowStride= */ 16, /* pixelStride= */ 4)))
-        .setFormat(new Format.Builder().setWidth(4).setHeight(4).build())
+                    ByteBuffer.allocateDirect(64), /* rowStride= */ 16, /* pixelStride= */ 4)),
+            new Format.Builder()
+                .setWidth(4)
+                .setHeight(4)
+                .setPixelFormat(PixelFormat.RGBA_8888)
+                .build())
         .build();
   }
 

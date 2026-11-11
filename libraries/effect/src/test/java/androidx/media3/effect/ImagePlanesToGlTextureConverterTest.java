@@ -82,9 +82,13 @@ public final class ImagePlanesToGlTextureConverterTest {
   public void convert_whenClosed_returnsNull() throws Exception {
     converter.close();
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
-            .setFormat(
-                new Format.Builder().setWidth(DEFAULT_WIDTH).setHeight(DEFAULT_HEIGHT).build())
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(DEFAULT_RGBA_PLANE),
+                new Format.Builder()
+                    .setWidth(DEFAULT_WIDTH)
+                    .setHeight(DEFAULT_HEIGHT)
+                    .setPixelFormat(PixelFormat.RGBA_8888)
+                    .build())
             .build();
 
     assertThat(
@@ -99,30 +103,13 @@ public final class ImagePlanesToGlTextureConverterTest {
   @Test
   public void convert_unsetFrameDimensions_throwsIllegalArgumentException() {
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
-            .setFormat(new Format.Builder().setPixelFormat(PixelFormat.RGBA_8888).build())
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(DEFAULT_RGBA_PLANE),
+                new Format.Builder().setPixelFormat(PixelFormat.RGBA_8888).build())
             .build();
 
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            converter.convert(
-                frame,
-                /* glExecutor= */ DIRECT_EXECUTOR,
-                /* listenerExecutor= */ DIRECT_EXECUTOR,
-                LISTENER));
-  }
-
-  @Test
-  public void convert_unsetPixelFormat_throwsUnsupportedOperationException() {
-    Format format = new Format.Builder().setWidth(DEFAULT_WIDTH).setHeight(DEFAULT_HEIGHT).build();
-    ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
-            .setFormat(format)
-            .build();
-
-    assertThrows(
-        UnsupportedOperationException.class,
         () ->
             converter.convert(
                 frame,
@@ -140,9 +127,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setPixelFormat(PixelFormat.RGB_565)
             .build();
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
-            .setFormat(format)
-            .build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE), format).build();
 
     assertThrows(
         UnsupportedOperationException.class,
@@ -164,9 +149,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setColorInfo(BT2020_LINEAR)
             .build();
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE))
-            .setFormat(format)
-            .build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(DEFAULT_RGBA_PLANE), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -188,8 +171,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .build();
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
-                ImmutableList.of(DEFAULT_RGBA_PLANE, DEFAULT_RGBA_PLANE))
-            .setFormat(format)
+                ImmutableList.of(DEFAULT_RGBA_PLANE, DEFAULT_RGBA_PLANE), format)
             .build();
 
     assertThrows(
@@ -217,7 +199,7 @@ public final class ImagePlanesToGlTextureConverterTest {
         new DefaultPlane(
             ByteBuffer.allocateDirect(rowStride * DEFAULT_HEIGHT), rowStride, invalidPixelStride);
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -244,7 +226,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             /* rowStride= */ DEFAULT_RGBA_ROW_STRIDE - RGBA_BYTES_PER_PIXEL,
             /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -271,7 +253,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             unalignedRowStride,
             /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -297,7 +279,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             DEFAULT_RGBA_ROW_STRIDE,
             /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -326,7 +308,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             paddedRowStride,
             /* pixelStride= */ RGBA_BYTES_PER_PIXEL);
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -354,8 +336,8 @@ public final class ImagePlanesToGlTextureConverterTest {
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
                 ImmutableList.of(
-                    invalidLumaPlane, createPlanarChromaPlane(), createPlanarChromaPlane()))
-            .setFormat(format)
+                    invalidLumaPlane, createPlanarChromaPlane(), createPlanarChromaPlane()),
+                format)
             .build();
 
     assertThrows(
@@ -384,8 +366,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             /* pixelStride= */ invalidPixelStride);
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
-                ImmutableList.of(createLumaPlane(), invalidChromaPlane, invalidChromaPlane))
-            .setFormat(format)
+                ImmutableList.of(createLumaPlane(), invalidChromaPlane, invalidChromaPlane), format)
             .build();
 
     assertThrows(
@@ -412,8 +393,8 @@ public final class ImagePlanesToGlTextureConverterTest {
                 ImmutableList.of(
                     createLumaPlane(),
                     createSemiPlanarChromaPlane(semiPlanarChromaRowStride),
-                    createPlanarChromaPlane()))
-            .setFormat(format)
+                    createPlanarChromaPlane()),
+                format)
             .build();
 
     assertThrows(
@@ -440,8 +421,8 @@ public final class ImagePlanesToGlTextureConverterTest {
                 ImmutableList.of(
                     createLumaPlane(),
                     createSemiPlanarChromaPlane(chromaRowStride),
-                    createSemiPlanarChromaPlane(chromaRowStride + SEMI_PLANAR_CHROMA_PIXEL_STRIDE)))
-            .setFormat(format)
+                    createSemiPlanarChromaPlane(chromaRowStride + SEMI_PLANAR_CHROMA_PIXEL_STRIDE)),
+                format)
             .build();
 
     assertThrows(
@@ -476,8 +457,8 @@ public final class ImagePlanesToGlTextureConverterTest {
                 ImmutableList.of(
                     createLumaPlane(),
                     createSemiPlanarChromaPlane(chromaRowStride),
-                    undersizedChromaPlane))
-            .setFormat(format)
+                    undersizedChromaPlane),
+                format)
             .build();
 
     assertThrows(
@@ -499,9 +480,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setPixelFormat(ImageFormat.YUV_420_888)
             .build();
     ImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(createLumaPlane()))
-            .setFormat(format)
-            .build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(createLumaPlane()), format).build();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -529,8 +508,8 @@ public final class ImagePlanesToGlTextureConverterTest {
     ImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
                 ImmutableList.of(
-                    createLumaPlane(), createPlanarChromaPlane(), undersizedChromaPlane))
-            .setFormat(format)
+                    createLumaPlane(), createPlanarChromaPlane(), undersizedChromaPlane),
+                format)
             .build();
 
     assertThrows(

@@ -257,8 +257,7 @@ import org.jspecify.annotations.Nullable;
     Format outputFormat = checkNotNull(this.outputFormat);
     Format frameFormat = frame.getFormat();
     checkArgument(
-        frameFormat.pixelFormat == PixelFormat.RGBA_8888
-            || frameFormat.pixelFormat == Format.NO_VALUE,
+        frameFormat.pixelFormat == PixelFormat.RGBA_8888,
         "Unsupported pixel format: %s",
         frameFormat.pixelFormat);
     checkArgument(

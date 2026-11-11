@@ -30,6 +30,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -1709,9 +1710,13 @@ public final class DefaultGlFrameProcessorTest {
             ImmutableList.of(
                 new DefaultPlane(
                     ByteBuffer.allocateDirect(16), /* rowStride= */ 4, /* pixelStride= */ 1)),
+            new Format.Builder()
+                .setWidth(4)
+                .setHeight(4)
+                .setPixelFormat(PixelFormat.RGBA_8888)
+                .build(),
             /* releaseExecutor= */ Runnable::run,
             /* releaseCallback= */ unused -> {})
-        .setFormat(new Format.Builder().setWidth(4).setHeight(4).build())
         .setMetadata(createFrameMetadata(/* sequenceIndex= */ 0, itemEffect))
         .build();
   }

@@ -62,9 +62,8 @@ import java.util.concurrent.Executor;
             /* rowStride= */ bitmap.getRowBytes(),
             /* pixelStride= */ RGBA_8888_BYTES_PER_PIXEL);
     return new DefaultImagePlanesFrame.Builder(
-            ImmutableList.of(plane), releaseExecutor, onFrameReleased)
+            ImmutableList.of(plane), format, releaseExecutor, onFrameReleased)
         .setContentTimeUs(contentTimeUs)
-        .setFormat(format)
         .setMetadata(metadata)
         .setInternalImage(bitmap)
         .build();

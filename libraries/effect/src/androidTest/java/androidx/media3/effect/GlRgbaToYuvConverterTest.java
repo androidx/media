@@ -187,8 +187,7 @@ public final class GlRgbaToYuvConverterTest {
               .setPixelFormat(ImageFormat.YUV_420_888)
               .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
               .build();
-      ImagePlanesFrame yuvFrame =
-          new DefaultImagePlanesFrame.Builder(yuvPlanes).setFormat(yuvFormat).build();
+      ImagePlanesFrame yuvFrame = new DefaultImagePlanesFrame.Builder(yuvPlanes, yuvFormat).build();
       GlTextureFrame decodedFrame =
           checkNotNull(
               yuvToGlConverter.convert(

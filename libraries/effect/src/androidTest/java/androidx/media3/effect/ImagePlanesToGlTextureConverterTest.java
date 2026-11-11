@@ -280,7 +280,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
     ImagePlanesFrame rotatedFrame =
-        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(inputFormat).build();
+        new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), inputFormat).build();
     Matrix rotationMatrix = new Matrix();
     rotationMatrix.postRotate(rotationDegrees);
     Bitmap expectedBitmap =
@@ -808,7 +808,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setPixelFormat(PixelFormat.RGBA_8888)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-    return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane)).setFormat(format).build();
+    return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format).build();
   }
 
   private static void addRgbaToBuffer(int pixelColor, ByteBuffer buffer) {
@@ -860,7 +860,7 @@ public final class ImagePlanesToGlTextureConverterTest {
             .setPixelFormat(ImageFormat.YUV_420_888)
             .setColorInfo(yuvColorInfo)
             .build();
-    return new DefaultImagePlanesFrame.Builder(planes).setFormat(format).build();
+    return new DefaultImagePlanesFrame.Builder(planes, format).build();
   }
 
   /**

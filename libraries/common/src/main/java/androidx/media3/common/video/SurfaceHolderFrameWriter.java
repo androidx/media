@@ -362,10 +362,13 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       planeListBuilder.add(
           new DefaultPlane(plane.getBuffer(), plane.getRowStride(), plane.getPixelStride()));
     }
+    Format frameFormat =
+        currentFormat.pixelFormat == Format.NO_VALUE
+            ? currentFormat.buildUpon().setPixelFormat(image.getFormat()).build()
+            : currentFormat;
     DefaultImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(planeListBuilder.build())
+        new DefaultImagePlanesFrame.Builder(planeListBuilder.build(), frameFormat)
             .setInternalImage(internalImage)
-            .setFormat(currentFormat)
             .build();
     return new AsyncFrame(frame, /* acquireFence= */ null);
   }

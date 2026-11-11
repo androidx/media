@@ -29,7 +29,7 @@ import java.util.Map;
  * from {@link android.media.Image} or {@link ByteBuffer} instances).
  *
  * <p>The pixel format of the planes is specified by {@link Format#pixelFormat} on the frame's
- * {@linkplain #getFormat() format}.
+ * {@linkplain #getFormat() format} and is guaranteed to be set (i.e. not {@link Format#NO_VALUE}).
  */
 // TODO: b/531653682 - Remove LIBRARY_GROUP restriction when ImagePlanesFrame pipeline is ready.
 @RestrictTo(Scope.LIBRARY_GROUP)

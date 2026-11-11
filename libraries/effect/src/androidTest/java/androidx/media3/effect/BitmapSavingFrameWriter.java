@@ -332,9 +332,11 @@ import org.jspecify.annotations.Nullable;
       buffer.position(rgbaBufferPositionOffset);
       Plane plane =
           new DefaultPlane(buffer, rowStride, /* pixelStride= */ RGBA_8888_BYTES_PER_PIXEL);
-      return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane))
-          .setFormat(configuredFormat)
-          .build();
+      Format frameFormat =
+          configuredFormat.pixelFormat == Format.NO_VALUE
+              ? configuredFormat.buildUpon().setPixelFormat(PixelFormat.RGBA_8888).build()
+              : configuredFormat;
+      return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), frameFormat).build();
     }
 
     @Override
@@ -342,7 +344,7 @@ import org.jspecify.annotations.Nullable;
       checkArgument(frame instanceof ImagePlanesFrame);
       ImagePlanesFrame imagePlanesFrame = (ImagePlanesFrame) frame;
       Format format = imagePlanesFrame.getFormat();
-      checkArgument(isFormatSupported(format));
+      checkArgument(format.pixelFormat == PixelFormat.RGBA_8888);
       Plane plane = imagePlanesFrame.getPlanes().get(0);
       return createArgb8888BitmapFromRgba8888ImageBuffer(
           new ImageBuffer(

@@ -284,8 +284,7 @@ public final class DefaultGlFrameProcessorTest {
             .setPixelFormat(PixelFormat.RGBA_8888)
             .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
             .build();
-    return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane))
-        .setFormat(format)
+    return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format)
         .setMetadata(DEFAULT_FRAME_METADATA)
         .build();
   }

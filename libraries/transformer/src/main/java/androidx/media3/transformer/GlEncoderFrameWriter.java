@@ -701,8 +701,8 @@ import org.jspecify.annotations.Nullable;
       DefaultImagePlanesFrame frame =
           new DefaultImagePlanesFrame.Builder(
                   ImmutableList.of(
-                      new DefaultPlane(buffer, rowStride, /* pixelStride= */ RGBA_BYTES_PER_PIXEL)))
-              .setFormat(format)
+                      new DefaultPlane(buffer, rowStride, /* pixelStride= */ RGBA_BYTES_PER_PIXEL)),
+                  format)
               .build();
       return new AsyncFrame(frame, /* acquireFence= */ null);
     }

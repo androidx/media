@@ -213,8 +213,8 @@ public final class SurfaceHolderFrameWriterTest {
         new DefaultImagePlanesFrame.Builder(
                 ImmutableList.of(
                     new DefaultPlane(
-                        ByteBuffer.allocateDirect(1), /* rowStride= */ 1, /* pixelStride= */ 1)))
-            .setFormat(DEFAULT_FORMAT)
+                        ByteBuffer.allocateDirect(1), /* rowStride= */ 1, /* pixelStride= */ 1)),
+                DEFAULT_FORMAT.buildUpon().setPixelFormat(ImageFormat.YV12).build())
             .build();
     frameWriter.configure(DEFAULT_FORMAT, /* usage= */ 0);
 

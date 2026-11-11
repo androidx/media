@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import android.graphics.ImageFormat;
 import androidx.media3.common.Format;
 import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -34,6 +35,13 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class DefaultImagePlanesFrameTest {
 
+  private static final Format SAMPLE_FORMAT =
+      new Format.Builder()
+          .setWidth(64)
+          .setHeight(64)
+          .setPixelFormat(ImageFormat.YUV_420_888)
+          .build();
+
   @Test
   public void defaultPlaneConstructor_withNonDirectBuffer_throwsIllegalArgumentException() {
     ByteBuffer nonDirectBuffer = ByteBuffer.allocate(64);
@@ -44,14 +52,43 @@ public final class DefaultImagePlanesFrameTest {
   }
 
   @Test
+  public void builderConstructor_withoutPixelFormat_throwsIllegalArgumentException() {
+    Format formatWithoutPixelFormat = new Format.Builder().setWidth(64).setHeight(64).build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new DefaultImagePlanesFrame.Builder(createSamplePlanes(), formatWithoutPixelFormat));
+  }
+
+  @Test
+  public void
+      builderConstructorWithReleaseCallback_withoutPixelFormat_throwsIllegalArgumentException() {
+    Format formatWithoutPixelFormat = new Format.Builder().setWidth(64).setHeight(64).build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new DefaultImagePlanesFrame.Builder(
+                createSamplePlanes(), formatWithoutPixelFormat, directExecutor(), fence -> {}));
+  }
+
+  @Test
+  public void setFormat_withoutPixelFormat_throwsIllegalArgumentException() {
+    DefaultImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(createSamplePlanes(), SAMPLE_FORMAT).build();
+    DefaultImagePlanesFrame.Builder builder = frame.buildUpon();
+    Format formatWithoutPixelFormat = new Format.Builder().setWidth(64).setHeight(64).build();
+
+    assertThrows(IllegalArgumentException.class, () -> builder.setFormat(formatWithoutPixelFormat));
+  }
+
+  @Test
   public void buildUpon_buildWithoutModifications_returnsNewHandleWithSameProperties() {
     ImmutableList<ImagePlanesFrame.Plane> planes = createSamplePlanes();
-    Format format = new Format.Builder().setWidth(128).setHeight(128).build();
     ImmutableMap<String, Object> metadata = ImmutableMap.of("key", "value");
     Object internalImage = new Object();
     DefaultImagePlanesFrame frame1 =
-        new DefaultImagePlanesFrame.Builder(planes)
-            .setFormat(format)
+        new DefaultImagePlanesFrame.Builder(planes, SAMPLE_FORMAT)
             .setMetadata(metadata)
             .setInternalImage(internalImage)
             .setContentTimeUs(1_000_000L)
@@ -61,7 +98,7 @@ public final class DefaultImagePlanesFrameTest {
 
     assertThat(frame2).isNotSameInstanceAs(frame1);
     assertThat(frame2.getPlanes()).isEqualTo(planes);
-    assertThat(frame2.getFormat()).isEqualTo(format);
+    assertThat(frame2.getFormat()).isEqualTo(SAMPLE_FORMAT);
     assertThat(frame2.getMetadata()).isEqualTo(metadata);
     assertThat(frame2.getContentTimeUs()).isEqualTo(1_000_000L);
     assertThat(frame2.getInternalImage()).isSameInstanceAs(internalImage);
@@ -70,12 +107,10 @@ public final class DefaultImagePlanesFrameTest {
   @Test
   public void buildUpon_withModifiedMetadata_updatesMetadataAndPreservesOtherProperties() {
     ImmutableList<ImagePlanesFrame.Plane> planes = createSamplePlanes();
-    Format format = new Format.Builder().setWidth(128).setHeight(128).build();
     ImmutableMap<String, Object> initialMetadata = ImmutableMap.of("initialKey", "initialValue");
     Object internalImage = new Object();
     DefaultImagePlanesFrame frame1 =
-        new DefaultImagePlanesFrame.Builder(planes)
-            .setFormat(format)
+        new DefaultImagePlanesFrame.Builder(planes, SAMPLE_FORMAT)
             .setMetadata(initialMetadata)
             .setInternalImage(internalImage)
             .setContentTimeUs(1_000_000L)
@@ -86,7 +121,7 @@ public final class DefaultImagePlanesFrameTest {
 
     assertThat(frame2).isNotSameInstanceAs(frame1);
     assertThat(frame2.getMetadata()).isEqualTo(newMetadata);
-    assertThat(frame2.getFormat()).isEqualTo(format);
+    assertThat(frame2.getFormat()).isEqualTo(SAMPLE_FORMAT);
     assertThat(frame2.getPlanes()).isEqualTo(planes);
     assertThat(frame2.getContentTimeUs()).isEqualTo(1_000_000L);
     assertThat(frame2.getInternalImage()).isSameInstanceAs(internalImage);
@@ -97,7 +132,10 @@ public final class DefaultImagePlanesFrameTest {
     AtomicInteger callbackCount = new AtomicInteger();
     DefaultImagePlanesFrame frame1 =
         new DefaultImagePlanesFrame.Builder(
-                createSamplePlanes(), directExecutor(), fence -> callbackCount.incrementAndGet())
+                createSamplePlanes(),
+                SAMPLE_FORMAT,
+                directExecutor(),
+                fence -> callbackCount.incrementAndGet())
             .build();
     DefaultImagePlanesFrame unusedFrame2 =
         frame1.buildUpon().shouldIncrementReferenceCount().build();
@@ -112,7 +150,10 @@ public final class DefaultImagePlanesFrameTest {
     AtomicInteger callbackCount = new AtomicInteger();
     DefaultImagePlanesFrame frame1 =
         new DefaultImagePlanesFrame.Builder(
-                createSamplePlanes(), directExecutor(), fence -> callbackCount.incrementAndGet())
+                createSamplePlanes(),
+                SAMPLE_FORMAT,
+                directExecutor(),
+                fence -> callbackCount.incrementAndGet())
             .build();
     DefaultImagePlanesFrame frame2 = frame1.buildUpon().shouldIncrementReferenceCount().build();
 
@@ -125,7 +166,7 @@ public final class DefaultImagePlanesFrameTest {
   @Test
   public void shouldIncrementReferenceCount_onUnmanagedFrame_throwsIllegalStateException() {
     DefaultImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(createSamplePlanes()).build();
+        new DefaultImagePlanesFrame.Builder(createSamplePlanes(), SAMPLE_FORMAT).build();
     DefaultImagePlanesFrame.Builder builder = frame.buildUpon();
 
     assertThrows(IllegalStateException.class, builder::shouldIncrementReferenceCount);
@@ -134,7 +175,7 @@ public final class DefaultImagePlanesFrameTest {
   @Test
   public void buildUpon_afterRelease_throwsIllegalStateException() {
     DefaultImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(createSamplePlanes()).build();
+        new DefaultImagePlanesFrame.Builder(createSamplePlanes(), SAMPLE_FORMAT).build();
     frame.release(/* releaseFence= */ null);
 
     assertThrows(IllegalStateException.class, frame::buildUpon);
@@ -143,7 +184,7 @@ public final class DefaultImagePlanesFrameTest {
   @Test
   public void release_withoutLifecycleManagement_closesReleaseFence() {
     DefaultImagePlanesFrame frame =
-        new DefaultImagePlanesFrame.Builder(createSamplePlanes()).build();
+        new DefaultImagePlanesFrame.Builder(createSamplePlanes(), SAMPLE_FORMAT).build();
     SyncFenceWrapper mockReleaseFence = mock(SyncFenceWrapper.class);
 
     frame.release(mockReleaseFence);
@@ -156,7 +197,10 @@ public final class DefaultImagePlanesFrameTest {
     AtomicInteger callbackCount = new AtomicInteger();
     DefaultImagePlanesFrame frame =
         new DefaultImagePlanesFrame.Builder(
-                createSamplePlanes(), directExecutor(), fence -> callbackCount.incrementAndGet())
+                createSamplePlanes(),
+                SAMPLE_FORMAT,
+                directExecutor(),
+                fence -> callbackCount.incrementAndGet())
             .build();
     frame.release(/* releaseFence= */ null);
 

@@ -91,12 +91,17 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
      * Creates a builder for {@link ImagePlanesFrame} instances without lifecycle management.
      *
      * @param planes The {@link Plane} instances backing this frame.
+     * @param format The {@link Format} of the frame. {@link Format#pixelFormat} must be set (i.e.
+     *     not {@link Format#NO_VALUE}).
+     * @throws IllegalArgumentException If {@code planes} is empty or {@link Format#pixelFormat} on
+     *     {@code format} is {@link Format#NO_VALUE}.
      */
-    public Builder(List<Plane> planes) {
+    public Builder(List<Plane> planes, Format format) {
       checkArgument(!planes.isEmpty(), "planes cannot be empty");
+      checkArgument(format.pixelFormat != Format.NO_VALUE, "Format.pixelFormat must be set.");
       this.planes = ImmutableList.copyOf(planes);
       this.delegateCounterBuilder = new SharedStateReferenceCounter.Builder();
-      this.format = new Format.Builder().build();
+      this.format = format;
       this.metadata = ImmutableMap.of();
       this.contentTimeUs = C.TIME_UNSET;
     }
@@ -105,15 +110,24 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
      * Creates a builder for reference-counted {@link ImagePlanesFrame} instances.
      *
      * @param planes The {@link Plane} instances backing this frame.
+     * @param format The {@link Format} of the frame. {@link Format#pixelFormat} must be set (i.e.
+     *     not {@link Format#NO_VALUE}).
      * @param releaseExecutor The {@link Executor} on which {@code releaseCallback} is called.
      * @param releaseCallback The callback invoked when the frame is fully released.
+     * @throws IllegalArgumentException If {@code planes} is empty or {@link Format#pixelFormat} on
+     *     {@code format} is {@link Format#NO_VALUE}.
      */
-    public Builder(List<Plane> planes, Executor releaseExecutor, ReleaseCallback releaseCallback) {
+    public Builder(
+        List<Plane> planes,
+        Format format,
+        Executor releaseExecutor,
+        ReleaseCallback releaseCallback) {
       checkArgument(!planes.isEmpty(), "planes cannot be empty");
+      checkArgument(format.pixelFormat != Format.NO_VALUE, "Format.pixelFormat must be set.");
       this.planes = ImmutableList.copyOf(planes);
       this.delegateCounterBuilder =
           new SharedStateReferenceCounter.Builder(releaseExecutor, releaseCallback);
-      this.format = new Format.Builder().build();
+      this.format = format;
       this.metadata = ImmutableMap.of();
       this.contentTimeUs = C.TIME_UNSET;
     }
@@ -154,8 +168,18 @@ public final class DefaultImagePlanesFrame implements ImagePlanesFrame, Referenc
       return this;
     }
 
+    /**
+     * Sets the {@link Format} associated with the frame.
+     *
+     * @param format The {@link Format} of the frame. {@link Format#pixelFormat} must be set (i.e.
+     *     not {@link Format#NO_VALUE}).
+     * @return This builder.
+     * @throws IllegalArgumentException If {@link Format#pixelFormat} on {@code format} is {@link
+     *     Format#NO_VALUE}.
+     */
     @CanIgnoreReturnValue
     public DefaultImagePlanesFrame.Builder setFormat(Format format) {
+      checkArgument(format.pixelFormat != Format.NO_VALUE, "Format.pixelFormat must be set.");
       this.format = format;
       return this;
     }
