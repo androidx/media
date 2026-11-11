@@ -1181,6 +1181,139 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  public void
+      getSampleCryptoInfoAndSampleSize_forSamplesWithSupplementalData_excludesSupplementalBytes()
+          throws IOException {
+    TrackOutput.CryptoData cryptoData =
+        new TrackOutput.CryptoData(
+            /* cryptoMode= */ C.CRYPTO_MODE_AES_CTR,
+            /* encryptionKey= */ new byte[] {5, 6, 7, 8},
+            /* encryptedBlocks= */ 0,
+            /* clearBlocks= */ 0);
+    byte[] clearPayload = new byte[] {1, 2, 3};
+    byte[] clearSampleWithSupplemental =
+        Bytes.concat(new byte[] {0, 0, 0, 3}, clearPayload, new byte[] {9, 8, 7, 6});
+    byte[] encryptedPayload = new byte[] {4, 5};
+    byte[] encryptedSampleWithSupplemental =
+        buildEncryptedSampleData(
+            Bytes.concat(new byte[] {0, 0, 0, 2}, encryptedPayload, new byte[] {9, 9}));
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction((input, seekPosition) -> {
+      outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+      outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+      extractorOutput.endTracks();
+      return Extractor.RESULT_CONTINUE;
+    });
+    fakeExtractor.addReadAction((input, seekPosition) -> {
+      outputSampleData(outputs[0], clearSampleWithSupplemental);
+      outputs[0].sampleMetadata(
+          /* timeUs= */ 0,
+          C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+          /* size= */ clearSampleWithSupplemental.length,
+          /* offset= */ 0,
+          /* cryptoData= */ null);
+      outputSampleData(outputs[0], encryptedSampleWithSupplemental);
+      outputs[0].sampleMetadata(
+          /* timeUs= */ 1000,
+          C.BUFFER_FLAG_ENCRYPTED | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+          /* size= */ encryptedSampleWithSupplemental.length,
+          /* offset= */ 0,
+          cryptoData);
+      return Extractor.RESULT_END_OF_INPUT;
+    });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+    ByteBuffer firstBuffer = ByteBuffer.allocate(10);
+    ByteBuffer secondBuffer = ByteBuffer.allocate(10);
+    MediaCodec.CryptoInfo secondSampleCryptoInfo = new MediaCodec.CryptoInfo();
+
+    long firstSampleSize = mediaExtractorCompat.getSampleSize();
+    int firstReadBytes = mediaExtractorCompat.readSampleData(firstBuffer, /* offset= */ 0);
+    boolean advanced = mediaExtractorCompat.advance();
+    long secondSampleSize = mediaExtractorCompat.getSampleSize();
+    boolean secondHasCryptoInfo = mediaExtractorCompat.getSampleCryptoInfo(secondSampleCryptoInfo);
+    int secondReadBytes = mediaExtractorCompat.readSampleData(secondBuffer, /* offset= */ 0);
+
+    assertThat(firstSampleSize).isEqualTo(clearPayload.length);
+    assertThat(firstReadBytes).isEqualTo(clearPayload.length);
+    assertThat(firstBuffer).isEqualTo(ByteBuffer.wrap(clearPayload));
+    assertThat(advanced).isTrue();
+    assertThat(secondSampleSize).isEqualTo(encryptedPayload.length);
+    assertThat(secondHasCryptoInfo).isTrue();
+    assertThat(secondSampleCryptoInfo.numSubSamples).isEqualTo(1);
+    assertThat(secondSampleCryptoInfo.numBytesOfClearData).asList().containsExactly(0);
+    assertThat(secondSampleCryptoInfo.numBytesOfEncryptedData)
+        .asList()
+        .containsExactly(encryptedPayload.length);
+    assertThat(secondReadBytes).isEqualTo(encryptedPayload.length);
+    assertThat(secondBuffer).isEqualTo(ByteBuffer.wrap(encryptedPayload));
+  }
+
+  @Test
+  public void getSampleCryptoInfo_acrossSamples_copiesArraysAndIsolatesInternalState()
+      throws IOException {
+    byte[] originalKey = TestUtil.buildTestData(16, /* seed= */ 10);
+    byte[] expectedKeyCopy = originalKey.clone();
+    TrackOutput.CryptoData cryptoData =
+        new TrackOutput.CryptoData(
+            /* cryptoMode= */ C.CRYPTO_MODE_AES_CTR,
+            /* encryptionKey= */ originalKey,
+            /* encryptedBlocks= */ 0,
+            /* clearBlocks= */ 0);
+    byte[] firstIv = TestUtil.buildTestData(16, /* seed= */ 1);
+    byte[] firstEncryptedSample =
+        Bytes.concat(
+            new byte[] {(byte) 0x90}, // subsampleEncryption = true, ivSize = 16
+            firstIv,
+            new byte[] {0, 2}, // subsampleCount = 2
+            new byte[] {0, 4, 0, 0, 0, 16}, // clear = 4, encrypted = 16
+            new byte[] {0, 6, 0, 0, 0, 32}, // clear = 6, encrypted = 32
+            TestUtil.buildTestData(58, /* seed= */ 2));
+    byte[] secondShortIv = new byte[] {9, 8, 7, 6, 5, 4, 3, 2};
+    byte[] secondEncryptedSample =
+        Bytes.concat(
+            new byte[] {(byte) 0x88}, // subsampleEncryption = true, ivSize = 8
+            secondShortIv,
+            new byte[] {0, 1}, // subsampleCount = 1
+            new byte[] {0, 5, 0, 0, 0, 24}, // clear = 5, encrypted = 24
+            TestUtil.buildTestData(29, /* seed= */ 3));
+    queueEncryptedSamples(cryptoData, firstEncryptedSample, secondEncryptedSample);
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+    mediaExtractorCompat.selectTrack(0);
+    MediaCodec.CryptoInfo cryptoInfo = new MediaCodec.CryptoInfo();
+    boolean firstHasCryptoInfo = mediaExtractorCompat.getSampleCryptoInfo(cryptoInfo);
+    byte[] firstReturnedKey = cryptoInfo.key;
+    byte[] firstReturnedIv = cryptoInfo.iv;
+    int[] firstReturnedClearSizes = cryptoInfo.numBytesOfClearData;
+    int[] firstReturnedEncryptedSizes = cryptoInfo.numBytesOfEncryptedData;
+    // Mutate the caller's key array to verify TrackOutput.CryptoData.encryptionKey is isolated.
+    firstReturnedKey[0] ^= (byte) 0xFF;
+    boolean advanced = mediaExtractorCompat.advance();
+
+    boolean secondHasCryptoInfo = mediaExtractorCompat.getSampleCryptoInfo(cryptoInfo);
+    int unused = mediaExtractorCompat.readSampleData(ByteBuffer.allocate(29), /* offset= */ 0);
+
+    assertThat(firstHasCryptoInfo).isTrue();
+    assertThat(firstReturnedKey).isNotSameInstanceAs(originalKey);
+    assertThat(firstReturnedIv).isEqualTo(firstIv);
+    assertThat(firstReturnedClearSizes).asList().containsExactly(4, 6).inOrder();
+    assertThat(firstReturnedEncryptedSizes).asList().containsExactly(16, 32).inOrder();
+    assertThat(advanced).isTrue();
+    assertThat(secondHasCryptoInfo).isTrue();
+    assertThat(originalKey).isEqualTo(expectedKeyCopy);
+    assertThat(cryptoInfo.key).isNotSameInstanceAs(originalKey);
+    assertThat(cryptoInfo.key).isNotSameInstanceAs(firstReturnedKey);
+    assertThat(cryptoInfo.key).isEqualTo(expectedKeyCopy);
+    assertThat(cryptoInfo.iv).isNotSameInstanceAs(firstReturnedIv);
+    assertThat(cryptoInfo.iv).isEqualTo(Bytes.concat(secondShortIv, new byte[8]));
+    assertThat(cryptoInfo.numSubSamples).isEqualTo(1);
+    assertThat(cryptoInfo.numBytesOfClearData).isNotSameInstanceAs(firstReturnedClearSizes);
+    assertThat(cryptoInfo.numBytesOfClearData).asList().containsExactly(5);
+    assertThat(cryptoInfo.numBytesOfEncryptedData).isNotSameInstanceAs(firstReturnedEncryptedSizes);
+    assertThat(cryptoInfo.numBytesOfEncryptedData).asList().containsExactly(24);
+  }
+
+  @Test
   public void getTrackFormat_withProfileAndLevelInCodecString_returnsExpectedProfileAndLevel()
       throws IOException {
     fakeExtractor.addReadAction((input, seekPosition) -> {
@@ -1392,6 +1525,28 @@ public class MediaExtractorCompatTest {
         },
         ENCRYPTED_SAMPLE_INITIALIZATION_VECTOR.toArray(),
         sampleData);
+  }
+
+  private void queueEncryptedSamples(TrackOutput.CryptoData cryptoData, byte[]... samples) {
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction((input, seekPosition) -> {
+      outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+      outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+      extractorOutput.endTracks();
+      return Extractor.RESULT_CONTINUE;
+    });
+    fakeExtractor.addReadAction((input, seekPosition) -> {
+      for (int i = 0; i < samples.length; i++) {
+        outputSampleData(outputs[0], samples[i]);
+        outputs[0].sampleMetadata(
+            /* timeUs= */ i * 1000L,
+            (i == 0 ? C.BUFFER_FLAG_KEY_FRAME : 0) | C.BUFFER_FLAG_ENCRYPTED,
+            /* size= */ samples[i].length,
+            /* offset= */ 0,
+            cryptoData);
+      }
+      return Extractor.RESULT_END_OF_INPUT;
+    });
   }
 
   /**

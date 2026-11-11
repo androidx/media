@@ -83,6 +83,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -628,13 +629,14 @@ import org.jspecify.annotations.Nullable;
 
   private void populatePlatformCryptoInfoParameters(MediaCodec.CryptoInfo info) {
     CryptoInfo cryptoInfo = checkNotNull(sampleHolderWithBufferReplacementDisabled.cryptoInfo);
-    MediaCodec.CryptoInfo platformCryptoInfo = cryptoInfo.getFrameworkCryptoInfo();
-    info.numSubSamples = platformCryptoInfo.numSubSamples;
-    info.numBytesOfClearData = platformCryptoInfo.numBytesOfClearData;
-    info.numBytesOfEncryptedData = platformCryptoInfo.numBytesOfEncryptedData;
-    info.key = platformCryptoInfo.key;
-    info.iv = platformCryptoInfo.iv;
-    info.mode = platformCryptoInfo.mode;
+    int numSubSamples = cryptoInfo.numSubSamples;
+    info.set(
+        numSubSamples,
+        Arrays.copyOf(checkNotNull(cryptoInfo.numBytesOfClearData), numSubSamples),
+        Arrays.copyOf(checkNotNull(cryptoInfo.numBytesOfEncryptedData), numSubSamples),
+        checkNotNull(cryptoInfo.key).clone(),
+        checkNotNull(cryptoInfo.iv).clone(),
+        cryptoInfo.mode);
     info.setPattern(
         new MediaCodec.CryptoInfo.Pattern(cryptoInfo.encryptedBlocks, cryptoInfo.clearBlocks));
   }

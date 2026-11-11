@@ -8,6 +8,9 @@
         `DecoderInputBuffer.cryptoInfo` is populated for encrypted samples.
         Custom `SampleStream` implementations must be updated to adhere to this
         contract.
+    *   Fix `CryptoInfo.numBytesOfEncryptedData` over-reporting the encrypted
+        payload size for full-sample encrypted samples with supplemental data
+        (such as encrypted WebM/Matroska streams with block additions).
     *   Fix an issue where calling `seekTo` while an ad is playing could freeze
         `getCurrentPosition()` if another player operation (such as
         `setPlayWhenReady`) was still pending on the playback thread
@@ -23,6 +26,10 @@
 *   Track Selection:
 *   Extractors:
 *   Inspector:
+    *   Fix `MediaExtractorCompat.getSampleCryptoInfo` to copy all array fields
+        into the caller's `MediaCodec.CryptoInfo`, matching the platform
+        `MediaExtractor` and preventing subsequent calls or reads from
+        overwriting previously returned arrays.
 *   Inspector Frame:
 *   Audio:
 *   Video:
