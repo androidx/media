@@ -46,6 +46,9 @@
     *   Configure a width-based fractional seek tolerance in
         `ExoPlayer.getScrubbingModeParameters()` when `ProgressSlider` in
         `media3-ui-compose-material3` is used with `ExoPlayer`.
+    *   Fix `PlayerControlView` settings popup alignment when the control view
+        or its parent has padding or window insets applied
+        ([#234](https://github.com/androidx/media/issues/234)).
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:
