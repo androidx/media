@@ -31,6 +31,7 @@ dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation("androidx.compose.material:material-icons-extended")
   implementation(libs.androidx.mediarouter)
+  implementation(libs.androidx.window.core)
   implementation(libs.androidx.test.core)
   implementation(libs.androidx.test.ext.junit)
   implementation(libs.androidx.test.runner)
