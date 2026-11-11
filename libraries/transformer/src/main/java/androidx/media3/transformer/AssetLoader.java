@@ -57,6 +57,8 @@ public interface AssetLoader {
     /**
      * Creates an {@link AssetLoader} instance.
      *
+     * <p>{@link Transformer} calls this method on the thread of {@code looper}.
+     *
      * @param editedMediaItem The {@link EditedMediaItem} to load.
      * @param looper The {@link Looper} that's used to access the {@link AssetLoader} after it's
      *     been created.

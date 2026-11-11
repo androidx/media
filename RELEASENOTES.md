@@ -14,6 +14,12 @@
         ([#3512](https://github.com/androidx/media/issues/3512)).
 *   CompositionPlayer:
 *   Transformer:
+    *   Run all export work, including `AssetLoader.Factory.createAssetLoader`
+        calls and creating the output, on an internal thread instead of the
+        application thread. `Transformer.Listener` callbacks are still called on
+        the application thread. Exceptions thrown by `AssetLoader.Factory` are
+        now reported to `Transformer.Listener.onError` instead of being thrown
+        from `Transformer.start`.
 *   Track Selection:
 *   Extractors:
 *   Inspector:

@@ -1085,6 +1085,42 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void
+      start_trimOptimizedAndAssetLoaderCreationThrows_createsAssetLoaderOffMainThreadAndReportsError()
+          throws Exception {
+    IllegalStateException assetLoaderException =
+        new IllegalStateException("AssetLoader creation failed");
+    AtomicReference<@Nullable Looper> assetLoaderCreationLooper = new AtomicReference<>();
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setAssetLoaderFactory((editedMediaItem, looper, listener, compositionSettings) -> {
+              assetLoaderCreationLooper.set(Looper.myLooper());
+              throw assetLoaderException;
+            })
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    // Clip starting at a keyframe so that the export falls back to processing the full input.
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(12_500)
+                    .setEndPositionMs(14_000)
+                    .build())
+            .build();
+
+    transformer.start(mediaItem, outputDir.newFile().getPath());
+    ExportException exception =
+        assertThrows(ExportException.class, () -> TransformerTestRunner.runLooper(transformer));
+
+    assertThat(assetLoaderCreationLooper.get()).isNotNull();
+    assertThat(assetLoaderCreationLooper.get()).isNotEqualTo(Looper.getMainLooper());
+    assertThat(exception.errorCode).isEqualTo(ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK);
+    assertThat(exception).hasCauseThat().isSameInstanceAs(assetLoaderException);
+  }
+
+  @Test
   public void start_flattenForSlowMotionVideoOnly_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =

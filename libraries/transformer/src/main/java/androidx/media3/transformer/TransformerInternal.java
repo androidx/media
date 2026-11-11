@@ -64,7 +64,6 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
@@ -162,7 +161,6 @@ import org.jspecify.annotations.Nullable;
 
   private final List<SampleExporter> sampleExporters;
   private final MuxerWrapper muxerWrapper;
-  private final ConditionVariable canceledConditionVariable;
   private final Object setMaxSequenceDurationUsLock;
   private final Object progressLock;
   private final ProgressHolder internalProgressHolder;
@@ -294,7 +292,6 @@ import org.jspecify.annotations.Nullable;
     compositionHasLoopingSequence =
         nonLoopingSequencesWithNonFinalDuration != composition.sequences.size();
     setMaxSequenceDurationUsLock = new Object();
-    canceledConditionVariable = new ConditionVariable();
     progressLock = new Object();
     internalProgressHolder = new ProgressHolder();
     releaseLock = new Object();
@@ -331,28 +328,13 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  /** Cancels the export. Must be called on the internal thread. */
   public void cancel() {
-    if (Looper.myLooper() == internalHandlerThread.getLooper()) {
-      // Already on the internal thread, so release directly instead of blocking on it.
-      if (released) {
-        return;
-      }
-      endInternal(END_REASON_CANCELLED, /* exportException= */ null);
-    } else {
-      synchronized (releaseLock) {
-        if (released) {
-          return;
-        }
-        verifyInternalThreadAlive();
-        internalHandler
-            .obtainMessage(
-                MSG_END, END_REASON_CANCELLED, /* unused */ 0, /* exportException */ null)
-            .sendToTarget();
-      }
-      clock.onThreadBlocked();
-      canceledConditionVariable.blockUninterruptible();
+    checkState(Looper.myLooper() == internalHandlerThread.getLooper());
+    if (released) {
+      return;
     }
-    canceledConditionVariable.close();
+    endInternal(END_REASON_CANCELLED, /* exportException= */ null);
     if (cancelException != null) {
       throw cancelException;
     }
@@ -386,9 +368,7 @@ import org.jspecify.annotations.Nullable;
 
   private boolean handleMessage(Message msg) {
     // Some messages cannot be ignored when resources have been released. End messages must be
-    // handled to report release timeouts and to unblock the transformer condition variable in case
-    // of cancellation. Progress update messages must be handled to unblock the transformer
-    // condition variable.
+    // handled to report release timeouts.
     if (released && msg.what != MSG_END) {
       return true;
     }
@@ -485,8 +465,8 @@ import org.jspecify.annotations.Nullable;
         } catch (RuntimeException e) {
           if (releaseExportException == null) {
             releaseExportException = ExportException.createForUnexpected(e);
-            // cancelException is not reported through a listener. It is thrown in cancel(), as this
-            // method is blocking.
+            // cancelException is thrown in cancel(), as cancellation isn't reported through the
+            // listener.
             cancelException = e;
           }
         }
@@ -507,7 +487,6 @@ import org.jspecify.annotations.Nullable;
     }
 
     if (forCancellation) {
-      canceledConditionVariable.open();
       return;
     }
 

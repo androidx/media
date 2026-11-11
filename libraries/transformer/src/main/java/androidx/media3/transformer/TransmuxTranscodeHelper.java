@@ -26,8 +26,6 @@ import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -69,22 +67,6 @@ import org.jspecify.annotations.Nullable;
 
   // Large enough to copy efficiently, small enough that cancel() isn't blocked for long.
   private static final int COPY_BUFFER_SIZE = 64 * 1024;
-
-  public static ListenableFuture<Mp4Info> getMp4Info(
-      Context context, String filePath, long timeUs) {
-    SettableFuture<Mp4Info> mp4InfoSettableFuture = SettableFuture.create();
-    new Thread("TransmuxTranscodeHelper:Mp4Info") {
-      @Override
-      public void run() {
-        try {
-          mp4InfoSettableFuture.set(Mp4Info.create(context, filePath, timeUs));
-        } catch (Exception ex) {
-          mp4InfoSettableFuture.setException(ex);
-        }
-      }
-    }.start();
-    return mp4InfoSettableFuture;
-  }
 
   public static Composition buildUponCompositionForTrimOptimization(
       Composition oldComposition,
