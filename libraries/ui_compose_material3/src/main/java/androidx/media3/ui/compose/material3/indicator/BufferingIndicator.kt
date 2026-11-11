@@ -45,6 +45,8 @@ import kotlinx.coroutines.delay
  * @param displayMode The [DisplayMode] specifying when to show buffering. Defaults to
  *   [SHOW_BUFFERING_ALWAYS].
  * @param delay The delay duration before the buffering indicator is shown.
+ * @param content The composable content to be displayed for the buffering indicator. Defaults to
+ *   [CircularProgressIndicator].
  */
 @UnstableApi
 @Composable

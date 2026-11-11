@@ -66,6 +66,7 @@ fun rememberPlayPauseButtonState(
  *   indicators over a generic play indicator.
  * @property[showReplay] true if the replay indicator should be shown based on the [displayMode].
  * @property[showRetry] true if the retry indicator should be shown based on the [displayMode].
+ * @param player The [Player] to observe.
  * @param displayMode The [@DisplayMode][DisplayMode] specifying when to show buffering, replay, or
  *   retry.
  */
