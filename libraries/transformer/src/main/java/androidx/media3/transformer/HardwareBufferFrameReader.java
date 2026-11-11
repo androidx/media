@@ -656,13 +656,13 @@ import org.jspecify.annotations.Nullable;
 
     /**
      * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
-     * #getSurface()}.
+     * InputSurface#getSurface()}.
      */
     final @Nullable Bitmap bitmap;
 
     /**
      * The pending frame timestamps, or {@code null} if the frame will be output via {@link
-     * #getSurface()}.
+     * InputSurface#getSurface()}.
      */
     final @Nullable TimestampIterator timestampIterator;
 
