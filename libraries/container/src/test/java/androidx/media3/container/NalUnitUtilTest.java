@@ -562,6 +562,56 @@ public final class NalUnitUtilTest {
   }
 
   @Test
+  public void isDependedOn_h264LengthZero_returnsTrue() {
+    Format h264Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+
+    boolean result = isDependedOn(new byte[0], /* offset= */ 0, /* length= */ 0, h264Video);
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  public void isDependedOn_h265LengthLessThan2_returnsTrue() {
+    Format h265Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build();
+
+    boolean result = isDependedOn(new byte[] {0x00}, /* offset= */ 0, /* length= */ 1, h265Video);
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  public void isDependedOn_h265Aud_returnsFalse() {
+    Format h265Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build();
+    byte[] audNalUnit = new byte[] {0x46, 0x01};
+
+    boolean result = isDependedOn(audNalUnit, /* offset= */ 0, /* length= */ 2, h265Video);
+
+    assertThat(result).isFalse();
+  }
+
+  @Test
+  public void isDependedOn_h265SubLayerNonReferenceHighestTemporalLayer_returnsFalse() {
+    Format h265Video =
+        new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).setMaxSubLayers(3).build();
+    byte[] nalUnit = new byte[] {0x04, 0x03};
+
+    boolean result = isDependedOn(nalUnit, /* offset= */ 0, /* length= */ 2, h265Video);
+
+    assertThat(result).isFalse();
+  }
+
+  @Test
+  public void isDependedOn_h265Reference_returnsTrue() {
+    Format h265Video =
+        new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).setMaxSubLayers(3).build();
+    byte[] nalUnit = new byte[] {0x02, 0x03};
+
+    boolean result = isDependedOn(nalUnit, /* offset= */ 0, /* length= */ 2, h265Video);
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
   public void isNalUnitSei_vvc() {
     Format vvcFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H266).build();
 

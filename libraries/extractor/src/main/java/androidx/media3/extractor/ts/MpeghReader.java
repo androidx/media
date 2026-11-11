@@ -62,7 +62,7 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   private final String containerMimeType;
   private final ParsableByteArray headerScratchBytes;
-  private final ParsableBitArray headerScratchBits;
+  private final ParsableBitArray scratchBits;
   private final ParsableByteArray dataScratchBytes;
 
   private @State int state;
@@ -100,7 +100,7 @@ public final class MpeghReader implements ElementaryStreamReader {
     state = STATE_FINDING_SYNC;
     headerScratchBytes =
         new ParsableByteArray(new byte[MAX_MHAS_PACKET_HEADER_SIZE], MIN_MHAS_PACKET_HEADER_SIZE);
-    headerScratchBits = new ParsableBitArray();
+    scratchBits = new ParsableBitArray();
     dataScratchBytes = new ParsableByteArray();
     header = new MpeghUtil.MhasPacketHeader();
     samplingRate = C.RATE_UNSET_INT;
@@ -181,7 +181,9 @@ public final class MpeghReader implements ElementaryStreamReader {
               headerScratchBytes.reset(MIN_MHAS_PACKET_HEADER_SIZE);
 
               // Prepare dataScratchBytes to read new MHAS packet
-              dataScratchBytes.reset(header.packetLength);
+              if (shouldParsePacket(header.packetType)) {
+                dataScratchBytes.reset(header.packetLength);
+              }
 
               headerDataFinished = true;
 
@@ -201,12 +203,13 @@ public final class MpeghReader implements ElementaryStreamReader {
           }
           writeSampleData(data);
           if (payloadBytesRead == header.packetLength) {
+            if (shouldParsePacket(header.packetType)) {
+              scratchBits.reset(dataScratchBytes.getData(), dataScratchBytes.limit());
+            }
             if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DACFG) {
-              parseConfig(new ParsableBitArray(dataScratchBytes.getData()));
+              parseConfig(scratchBits);
             } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
-              truncationSamples =
-                  MpeghUtil.parseAudioTruncationInfo(
-                      new ParsableBitArray(dataScratchBytes.getData()));
+              truncationSamples = MpeghUtil.parseAudioTruncationInfo(scratchBits);
             } else if (header.packetType == MpeghUtil.MhasPacketHeader.PACTYP_MPEGH3DAFRAME) {
               finalizeFrame();
             }
@@ -278,10 +281,10 @@ public final class MpeghReader implements ElementaryStreamReader {
    */
   private boolean parseHeader() throws ParserException {
     int headerLength = headerScratchBytes.limit();
-    headerScratchBits.reset(headerScratchBytes.getData(), headerLength);
+    scratchBits.reset(headerScratchBytes.getData(), headerLength);
 
     // parse the MHAS packet header
-    boolean result = MpeghUtil.parseMhasPacketHeader(headerScratchBits, header);
+    boolean result = MpeghUtil.parseMhasPacketHeader(scratchBits, header);
 
     if (result) {
       payloadBytesRead = 0;

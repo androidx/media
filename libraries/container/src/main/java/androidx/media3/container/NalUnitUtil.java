@@ -758,6 +758,9 @@ public final class NalUnitUtil {
    * @param format The sample {@link Format}.
    */
   public static boolean isDependedOn(byte[] data, int offset, int length, Format format) {
+    if (length == 0) {
+      return true;
+    }
     if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
       return isH264NalUnitDependedOn(data[offset]);
     }
@@ -769,14 +772,18 @@ public final class NalUnitUtil {
 
   private static boolean isH265NalUnitDependedOn(
       byte[] data, int offset, int length, Format format) {
-    H265NalHeader header =
-        parseH265NalHeader(new ParsableNalUnitBitArray(data, offset, /* limit= */ offset + length));
-    if (header.nalUnitType == H265_NAL_UNIT_TYPE_AUD) {
+    if (length < 2) {
+      return true;
+    }
+    int nalUnitType = (data[offset] & 0x7E) >> 1;
+    int temporalId = (data[offset + 1] & 0x07) - 1;
+
+    if (nalUnitType == H265_NAL_UNIT_TYPE_AUD) {
       // NAL unit delimiters are not depended on.
       return false;
     }
-    boolean isSubLayerNonReferencePicture = header.nalUnitType <= 14 && header.nalUnitType % 2 == 0;
-    if (isSubLayerNonReferencePicture && header.temporalId == format.maxSubLayers - 1) {
+    boolean isSubLayerNonReferencePicture = nalUnitType <= 14 && nalUnitType % 2 == 0;
+    if (isSubLayerNonReferencePicture && temporalId == format.maxSubLayers - 1) {
       // Sub-layer non-reference (SLNR) pictures cannot be used for inter prediction in the same
       // temporal layer. That is, SLNR pictures are not depended on if they are part of the highest
       // temporal layer.
