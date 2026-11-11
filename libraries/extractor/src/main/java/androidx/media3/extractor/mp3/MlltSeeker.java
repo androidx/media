@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.mp3;
 
-import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
@@ -73,18 +72,16 @@ import androidx.media3.extractor.metadata.id3.MlltFrame;
   @Override
   public SeekPoints getSeekPoints(long timeUs) {
     timeUs = Util.constrainValue(timeUs, 0, durationUs);
-    Pair<Long, Long> timeMsAndPosition =
-        linearlyInterpolate(Util.usToMs(timeUs), referenceTimesMs, referencePositions);
-    timeUs = Util.msToUs(timeMsAndPosition.first);
-    long position = timeMsAndPosition.second;
-    return new SeekPoints(new SeekPoint(timeUs, position));
+    long timeMs = Util.usToMs(timeUs);
+    long clampedTimeMs = Math.min(timeMs, referenceTimesMs[referenceTimesMs.length - 1]);
+    long position = linearlyInterpolate(clampedTimeMs, referenceTimesMs, referencePositions);
+    return new SeekPoints(new SeekPoint(Util.msToUs(clampedTimeMs), position));
   }
 
   @Override
   public long getTimeUs(long position) {
-    Pair<Long, Long> positionAndTimeMs =
-        linearlyInterpolate(position, referencePositions, referenceTimesMs);
-    return Util.msToUs(positionAndTimeMs.second);
+    long timeMs = linearlyInterpolate(position, referencePositions, referenceTimesMs);
+    return Util.msToUs(timeMs);
   }
 
   @Override
@@ -102,25 +99,22 @@ import androidx.media3.extractor.metadata.id3.MlltFrame;
    * @param yReferences y coordinates of reference points.
    * @return The linearly interpolated y-axis value.
    */
-  private static Pair<Long, Long> linearlyInterpolate(
-      long x, long[] xReferences, long[] yReferences) {
+  private static long linearlyInterpolate(long x, long[] xReferences, long[] yReferences) {
     int previousReferenceIndex =
         Util.binarySearchFloor(xReferences, x, /* inclusive= */ true, /* stayInBounds= */ true);
     long xPreviousReference = xReferences[previousReferenceIndex];
     long yPreviousReference = yReferences[previousReferenceIndex];
     int nextReferenceIndex = previousReferenceIndex + 1;
     if (nextReferenceIndex == xReferences.length) {
-      return Pair.create(xPreviousReference, yPreviousReference);
-    } else {
-      long xNextReference = xReferences[nextReferenceIndex];
-      long yNextReference = yReferences[nextReferenceIndex];
-      double proportion =
-          xNextReference == xPreviousReference
-              ? 0.0
-              : ((double) x - xPreviousReference) / (xNextReference - xPreviousReference);
-      long y = (long) (proportion * (yNextReference - yPreviousReference)) + yPreviousReference;
-      return Pair.create(x, y);
+      return yPreviousReference;
     }
+    long xNextReference = xReferences[nextReferenceIndex];
+    long yNextReference = yReferences[nextReferenceIndex];
+    double proportion =
+        xNextReference == xPreviousReference
+            ? 0.0
+            : ((double) x - xPreviousReference) / (xNextReference - xPreviousReference);
+    return (long) (proportion * (yNextReference - yPreviousReference)) + yPreviousReference;
   }
 
   @Override
