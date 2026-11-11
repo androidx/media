@@ -55,6 +55,12 @@
     *   Fix `PlayerControlView` settings popup alignment when the control view
         or its parent has padding or window insets applied
         ([#234](https://github.com/androidx/media/issues/234)).
+    *   Apply the user's system caption style and text size in `SubtitleView`
+        (and therefore `PlayerView`) even if the system "Show captions" setting
+        is off, so that subtitles turned on in the app match the user's
+        preferences. This is guarded by
+        `Flags.FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED`, which is
+        enabled in canary mode.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

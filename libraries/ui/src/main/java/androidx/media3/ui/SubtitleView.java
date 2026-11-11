@@ -32,6 +32,7 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import androidx.annotation.Dimension;
 import androidx.annotation.IntDef;
+import androidx.media3.common.Flags;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueUtil;
 import androidx.media3.common.text.SubtitleStyle;
@@ -229,9 +230,11 @@ public final class SubtitleView extends FrameLayout {
 
   /**
    * Sets the text size based on {@link CaptioningManager#getFontScale()} if {@link
-   * CaptioningManager} is available and enabled.
+   * CaptioningManager} is available, or a default font scale of 1.0 otherwise.
    *
-   * <p>Otherwise (and always before API level 19) uses a default font scale of 1.0.
+   * <p>If {@link Flags#FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED} is enabled, the font
+   * scale is applied even if {@link CaptioningManager#isEnabled()} is false, because that only
+   * indicates whether captions should be shown by default.
    */
   public void setUserDefaultTextSize() {
     setFractionalTextSize(DEFAULT_TEXT_SIZE_FRACTION * getUserCaptionFontScale());
@@ -296,9 +299,11 @@ public final class SubtitleView extends FrameLayout {
 
   /**
    * Styles the captions using {@link CaptioningManager#getUserStyle()} if {@link CaptioningManager}
-   * is available and enabled.
+   * is available, or a default style otherwise.
    *
-   * <p>Otherwise (and always before API level 19) uses a default style.
+   * <p>If {@link Flags#FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED} is enabled, the style is
+   * applied even if {@link CaptioningManager#isEnabled()} is false, because that only indicates
+   * whether captions should be shown by default.
    */
   public void setUserDefaultStyle() {
     setStyle(getUserCaptionStyle());
@@ -361,22 +366,33 @@ public final class SubtitleView extends FrameLayout {
     if (isInEditMode()) {
       return 1f;
     }
-    @Nullable CaptioningManager captioningManager =
-        (CaptioningManager) getContext().getSystemService(Context.CAPTIONING_SERVICE);
-    return captioningManager != null && captioningManager.isEnabled()
-        ? captioningManager.getFontScale()
-        : 1f;
+    @Nullable CaptioningManager captioningManager = getCaptioningManagerForUserPreferences();
+    return captioningManager != null ? captioningManager.getFontScale() : 1f;
   }
 
   private SubtitleStyle getUserCaptionStyle() {
     if (isInEditMode()) {
       return SubtitleStyle.DEFAULT;
     }
-    @Nullable CaptioningManager captioningManager =
-        (CaptioningManager) getContext().getSystemService(Context.CAPTIONING_SERVICE);
-    return captioningManager != null && captioningManager.isEnabled()
+    @Nullable CaptioningManager captioningManager = getCaptioningManagerForUserPreferences();
+    return captioningManager != null
         ? SubtitleStyle.fromCaptionStyle(captioningManager.getUserStyle())
         : SubtitleStyle.DEFAULT;
+  }
+
+  /**
+   * Returns the {@link CaptioningManager} to read the user's caption preferences from, or null if
+   * they shouldn't be applied.
+   */
+  private @Nullable CaptioningManager getCaptioningManagerForUserPreferences() {
+    @Nullable CaptioningManager captioningManager =
+        (CaptioningManager) getContext().getSystemService(Context.CAPTIONING_SERVICE);
+    if (captioningManager == null
+        || (!Flags.isEnabled(Flags.FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED)
+            && !captioningManager.isEnabled())) {
+      return null;
+    }
+    return captioningManager;
   }
 
   private void updateOutput() {
