@@ -21,7 +21,7 @@ android {
   namespace = "androidx.media3.demo.compose"
 
   // TODO: b/502167525 - Remove this temporary JVM 11 override once commonConfig.kt
-  // is migrated to Java 11 and the beta01 dependency is reverted back to the BOM.
+  // is migrated to Java 11 and the rc01 dependency is reverted back to the BOM.
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -61,7 +61,7 @@ dependencies {
   implementation(project(":lib-ui-compose-motion-photo"))
   // TODO(b/555710150): Revert this once our Gradle BOM is updated to a stable version that
   // includes the M3 API changes (Slider).
-  implementation("androidx.compose.material3:material3:1.5.0-beta01")
+  implementation("androidx.compose.material3:material3:1.5.0-rc01")
 
   // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
   debugImplementation(libs.leakcanary.android)
