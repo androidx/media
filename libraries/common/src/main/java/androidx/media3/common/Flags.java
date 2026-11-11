@@ -126,6 +126,7 @@ public final class Flags {
    *   <li>{@link #FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION}
    *   <li>{@link #FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY}
    *   <li>{@link #FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS}
+   *   <li>{@link #FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED}
    * </ul>
    */
   @Documented
@@ -149,6 +150,7 @@ public final class Flags {
         FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION,
         FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY,
         FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS,
+        FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED,
       })
   public @interface Flag {}
 
@@ -318,7 +320,20 @@ public final class Flags {
   @ExperimentalApi // TODO(b/582719426): Remove this flag.
   public static final int FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS = 15;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 16;
+  /**
+   * Flag to apply the user's {@link android.view.accessibility.CaptioningManager} caption style and
+   * font scale in {@code SubtitleView} even if {@link
+   * android.view.accessibility.CaptioningManager#isEnabled()} is false.
+   *
+   * <p>When this flag is enabled, {@code SubtitleView.setUserDefaultStyle()} and {@code
+   * SubtitleView.setUserDefaultTextSize()} apply the user's caption preferences whenever {@code
+   * CaptioningManager} is available. When this flag is disabled, they only apply them if the system
+   * "Show captions" setting is on, and use the default style and font scale otherwise.
+   */
+  @ExperimentalApi // TODO(b/580239399): Remove this flag.
+  public static final int FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED = 16;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 17;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
