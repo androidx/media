@@ -77,6 +77,10 @@
         unused.
 *   Leanback extension:
 *   Cast extension:
+    *   Add `Cast.startSession(Intent)` to join an existing Cast session via
+        [intent to join](https://developers.google.com/cast/docs/android_sender/intent_to_join),
+        automatically deferring session startup if `Cast` initialization is
+        still in progress.
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:

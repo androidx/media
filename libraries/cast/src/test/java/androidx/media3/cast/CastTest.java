@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build.VERSION_CODES;
 import androidx.media3.cast.Cast.MediaRouteSelectorListener;
 import androidx.mediarouter.media.MediaRouteSelector;
@@ -46,6 +48,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -235,8 +238,116 @@ public final class CastTest {
   }
 
   @Test
+  public void startSession_afterInit_startsSessionImmediately() {
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+    Intent intent = new Intent();
+
+    cast.startSession(intent);
+
+    verify(mockSessionManager).startSession(intent);
+  }
+
+  @Test
+  public void startSession_withoutInit_throwsException() {
+    Cast cast = Cast.getSingletonInstance(context);
+    Intent intent = new Intent();
+
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> cast.startSession(intent));
+
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Must initialize Cast prior to using it. To achieve this, call"
+                + " androidx.media3.cast.Cast.getSingletoninstance(context).initialize() in"
+                + " Application#onCreate() method.");
+  }
+
+  @Test
+  public void startSession_whileInitOngoing_startsSessionAfterListenersRegistered() {
+    Cast cast = Cast.getSingletonInstance(context);
+    Intent intent = new Intent();
+    cast.addSessionManagerListener(mockListener);
+    cast.initialize(mockCastContextInitializer);
+
+    cast.startSession(intent);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    InOrder inOrder = inOrder(mockSessionManager);
+    inOrder.verify(mockSessionManager).addSessionManagerListener(mockListener, CastSession.class);
+    inOrder.verify(mockSessionManager).startSession(intent);
+  }
+
+  @Test
+  public void startSession_calledMultipleTimesWhileInitOngoing_startsLatestSessionAfterInit() {
+    Cast cast = Cast.getSingletonInstance(context);
+    Intent intent1 = new Intent("action_1");
+    Intent intent2 = new Intent("action_2");
+    cast.initialize(mockCastContextInitializer);
+
+    cast.startSession(intent1);
+    cast.startSession(intent2);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    verify(mockSessionManager, never()).startSession(intent1);
+    verify(mockSessionManager).startSession(intent2);
+  }
+
+  @Test
+  public void startSession_whileInitOngoingAndInitFails_doesNotStartSession() {
+    Cast cast = Cast.getSingletonInstance(context);
+    Intent intent = new Intent();
+    cast.initialize(mockCastContextInitializer);
+
+    cast.startSession(intent);
+    castContextTaskCompletionSource.setException(new RuntimeException("Failed to load"));
+    ShadowLooper.idleMainLooper();
+
+    verify(mockSessionManager, never()).startSession(any());
+  }
+
+  @Test
+  public void startSession_afterFailedInit_doesNotStartSession() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    castContextTaskCompletionSource.setException(new RuntimeException("Failed to load"));
+    ShadowLooper.idleMainLooper();
+    Intent intent = new Intent();
+
+    cast.startSession(intent);
+
+    verify(mockSessionManager, never()).startSession(any());
+  }
+
+  @Test
+  public void startSession_withNullIntent_throwsException() {
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+
+    NullPointerException exception =
+        assertThrows(NullPointerException.class, () -> cast.startSession(null));
+
+    assertThat(exception).hasMessageThat().contains("intent must not be null.");
+  }
+
+  @Test
   public void endCurrentSession_beforeInit_doesNotCrash() {
     Cast.getSingletonInstance(context).endCurrentSession(true);
+  }
+
+  @Test
+  public void endCurrentSession_whileInitOngoing_cancelsPendingStartSession() {
+    Cast cast = Cast.getSingletonInstance(context);
+    Intent intent = new Intent();
+    cast.initialize(mockCastContextInitializer);
+    cast.startSession(intent);
+
+    cast.endCurrentSession(/* stopCasting= */ true);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    verify(mockSessionManager, never()).startSession(any());
   }
 
   @Test

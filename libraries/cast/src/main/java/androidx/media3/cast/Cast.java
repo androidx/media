@@ -20,8 +20,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.text.TextUtils;
@@ -70,6 +72,7 @@ public class Cast {
 
   private final Set<MediaRouteSelectorListener> pendingMediaRouteSelectorListeners;
   private @Nullable CastParams pendingCastParams;
+  private @Nullable Intent pendingStartSessionIntent;
 
   private final @Nullable Context context;
   private @Nullable CastContext castContext;
@@ -122,10 +125,11 @@ public class Cast {
    * <p>Calling this method after initialization has started (and possibly completed) applies the
    * newly provided {@link CastParams Cast parameters}.
    *
-   * <p>Initialization must occur before the creation of a {@link RemoteCastPlayer} or the use of
-   * Cast UI widgets, such as the {@link MediaRouteButtonFactory} or the {@link MediaRouteButtonKt}
-   * composable. The recommended way to do this is calling {@link #initialize(CastParams)} in the
-   * {@link Application#onCreate()} method as follows:
+   * <p>Initialization must occur before the creation of a {@link RemoteCastPlayer}, calling {@link
+   * #startSession(Intent)}, or the use of Cast UI widgets, such as the {@link
+   * MediaRouteButtonFactory} or the {@link MediaRouteButtonKt} composable. The recommended way to
+   * do this is calling {@link #initialize(CastParams)} in the {@link Application#onCreate()} method
+   * as follows:
    *
    * <pre>{@code
    * public class MainApplication extends Application {
@@ -149,9 +153,9 @@ public class Cast {
    * }</pre>
    *
    * <p>If the application doesn't call this method before initialization is needed (by Cast UI
-   * widgets or {@link RemoteCastPlayer}), but provides the cast options tag in the manifest, then
-   * those options are used to perform initialization without the need to call {@link #initialize}
-   * explicitly. For example:
+   * widgets, {@link RemoteCastPlayer}, or {@link #startSession(Intent)}), but provides the cast
+   * options tag in the manifest, then those options are used to perform initialization without the
+   * need to call {@link #initialize} explicitly. For example:
    *
    * <pre>{@code
    * <meta-data
@@ -337,12 +341,65 @@ public class Cast {
   }
 
   /**
-   * If a Cast context is available, ends any ongoing Cast session. Otherwise, does nothing.
+   * Starts or joins a Cast session using the given {@link Intent}.
+   *
+   * <p>Such an {@link Intent} can be obtained when the app is launched or brought to the foreground
+   * by an external component, for example:
+   *
+   * <ul>
+   *   <li><a href="https://developers.google.com/cast/docs/android_sender/intent_to_join">Intent to
+   *       join</a>, which allows a user to join an existing Cast session on the local network (for
+   *       example, started from another device) by tapping the Cast Remote Control Notification to
+   *       launch the app via a configured deep-link URI.
+   *   <li>External apps such as the Google Home app, which can launch the app via an implicit
+   *       {@link Intent} to start or hand off a Cast session.
+   * </ul>
+   *
+   * <p>Call this method when handling an incoming {@link Intent} (for example, in {@link
+   * Activity#onCreate} and {@link Activity#onNewIntent}, or {@link Activity#onResume}) that matches
+   * the {@code <intent-filter>} configured by the app for starting or joining a session, such as
+   * the intent to join deep-link URI. Once processed, {@code intent} is marked as handled so
+   * repeated invocations with the same {@link Intent} instance do not restart the session.
+   *
+   * <p>If initialization is still in progress, starting the session is deferred until
+   * initialization succeeds.
+   *
+   * @param intent The {@link Intent} used to start or bring the app to the foreground to start or
+   *     join a Cast session.
+   * @throws IllegalStateException If any of the following conditions occur:
+   *     <ul>
+   *       <li>This method is not called on the main thread.
+   *       <li>{@link #initialize} has not been called and no Cast options provider is configured in
+   *           the manifest.
+   *     </ul>
+   */
+  public void startSession(Intent intent) {
+    verifyMainThread();
+    checkNotNull(intent, "intent must not be null.");
+    if (context != null) {
+      ensureInitialized(context);
+    }
+    if (castContext != null) {
+      castContext.getSessionManager().startSession(intent);
+    } else if (castContextLoadFailure != null) {
+      Log.w(
+          TAG,
+          "Failed to start session because CastContext failed to load.",
+          castContextLoadFailure);
+    } else {
+      pendingStartSessionIntent = intent;
+    }
+  }
+
+  /**
+   * If a Cast context is available, ends any ongoing Cast session. Otherwise, cancels any pending
+   * {@link #startSession(Intent)} request.
    *
    * @param stopCasting Whether to stop the receiver application.
    */
   public void endCurrentSession(boolean stopCasting) {
     verifyMainThread();
+    pendingStartSessionIntent = null;
     if (castContext != null) {
       castContext.getSessionManager().endCurrentSession(stopCasting);
     }
@@ -370,6 +427,11 @@ public class Cast {
       }
     }
     pendingListeners.clear();
+    if (pendingStartSessionIntent != null) {
+      Intent startSessionIntent = pendingStartSessionIntent;
+      pendingStartSessionIntent = null;
+      sessionManager.startSession(startSessionIntent);
+    }
     MediaRouteSelector selector = castContext.getMergedSelector();
     selector = (selector == null) ? MediaRouteSelector.EMPTY : selector;
     notifyPendingMediaRouteSelectorListeners(selector);
@@ -378,11 +440,16 @@ public class Cast {
   private void onCastContextLoadFailure(@Nullable Exception exception) {
     isInitOngoing = false;
     pendingCastParams = null;
+    boolean hadPendingStartSession = pendingStartSessionIntent != null;
+    pendingStartSessionIntent = null;
     castContextLoadFailure =
         exception != null
             ? exception
             : new UnknownError("Cast context load failed with a null exception.");
     Log.e(TAG, "Failed to load CastContext", castContextLoadFailure);
+    if (hadPendingStartSession) {
+      Log.w(TAG, "Dropping pending startSession request because CastContext failed to load.");
+    }
     // Cast context load has failed, the selector won't become non-empty. Notifying listeners with
     // an empty selector ensures that listeners are not left pending forever.
     notifyPendingMediaRouteSelectorListeners(MediaRouteSelector.EMPTY);
