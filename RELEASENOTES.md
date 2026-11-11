@@ -72,6 +72,8 @@
         `androidx.media3.common.util.BitmapLoader` instead.
     *   Remove `BaseMediaSource.createEventDispatcher(MediaPeriodId, long)`. Use
         `BaseMediaSource.createEventDispatcher(MediaPeriodId)` instead.
+    *   Remove `Cue.toBundle()`. Use `Cue.toSerializableBundle()` or
+        `Cue.toBinderBasedBundle()` instead.
     *   Remove `DefaultDrmSessionManagerProvider.setDrmUserAgent(String)`. Pass
         a custom `DataSource.Factory` to
         `setDrmHttpDataSourceFactory(DataSource.Factory)` instead.

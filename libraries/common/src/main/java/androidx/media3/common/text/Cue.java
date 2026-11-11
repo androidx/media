@@ -916,15 +916,6 @@ public final class Cue {
     return bundle;
   }
 
-  /**
-   * @deprecated Use {@link #toSerializableBundle()} or {@link #toBinderBasedBundle()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public Bundle toBundle() {
-    return toBinderBasedBundle();
-  }
-
   private Bundle toBundleWithoutBitmap() {
     Bundle bundle = new Bundle();
     if (text != null) {

@@ -171,29 +171,6 @@ public class CueTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation") // Testing deprecated Cue.toBundle() method
-  public void roundTripViaBundle_yieldsEqualInstance() {
-    Cue cue =
-        new Cue.Builder()
-            .setText(SpannedString.valueOf("text"))
-            .setTextAlignment(Layout.Alignment.ALIGN_CENTER)
-            .setMultiRowAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setLine(5, Cue.LINE_TYPE_NUMBER)
-            .setLineAnchor(Cue.ANCHOR_TYPE_END)
-            .setPosition(0.4f)
-            .setPositionAnchor(Cue.ANCHOR_TYPE_MIDDLE)
-            .setTextSize(0.2f, Cue.TEXT_SIZE_TYPE_FRACTIONAL)
-            .setSize(0.8f)
-            .setWindowColor(Color.CYAN)
-            .setVerticalType(Cue.VERTICAL_TYPE_RL)
-            .setShearDegrees(-15f)
-            .build();
-    Cue modifiedCue = Cue.fromBundle(cue.toBundle());
-
-    assertThat(modifiedCue).isEqualTo(cue);
-  }
-
-  @Test
   public void roundTripViaBinderBasedBundle_withBitmap_yieldsEqualInstance() {
     Cue cue =
         new Cue.Builder().setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)).build();
@@ -207,16 +184,6 @@ public class CueTest {
     Cue cue =
         new Cue.Builder().setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)).build();
     Cue modifiedCue = Cue.fromBundle(cue.toSerializableBundle());
-
-    assertThat(modifiedCue).isEqualTo(cue);
-  }
-
-  @Test
-  @SuppressWarnings("deprecation") // Testing deprecated Cue.toBundle() method
-  public void roundTripViaBundle_withBitmap_yieldsEqualInstance() {
-    Cue cue =
-        new Cue.Builder().setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)).build();
-    Cue modifiedCue = Cue.fromBundle(cue.toBundle());
 
     assertThat(modifiedCue).isEqualTo(cue);
   }
