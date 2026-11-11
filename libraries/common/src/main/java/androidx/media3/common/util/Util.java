@@ -1852,12 +1852,20 @@ public final class Util {
       durationSeconds += (hours != null) ? Double.parseDouble(hours) * 3600 : 0;
       String minutes = matcher.group(12);
       durationSeconds += (minutes != null) ? Double.parseDouble(minutes) * 60 : 0;
+
+      // Use BigDecimal to avoid floating point errors (e.g. PT1.001S becoming 1000ms).
+      BigDecimal totalSeconds = BigDecimal.valueOf(durationSeconds);
       String seconds = matcher.group(14);
-      durationSeconds += (seconds != null) ? Double.parseDouble(seconds) : 0;
-      long durationMillis = (long) (durationSeconds * 1000);
+      if (seconds != null) {
+        totalSeconds = totalSeconds.add(new BigDecimal(seconds));
+      }
+      long durationMillis = totalSeconds.movePointRight(3).longValue();
       return negated ? -durationMillis : durationMillis;
     } else {
-      return (long) (Double.parseDouble(value) * 3600 * 1000);
+      return new BigDecimal(value.trim())
+          .multiply(BigDecimal.valueOf(3600))
+          .movePointRight(3)
+          .longValue();
     }
   }
 
