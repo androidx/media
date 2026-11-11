@@ -458,6 +458,7 @@ public class PlayerControlView extends FrameLayout {
   @SuppressWarnings("deprecation") // Supporting deprecated listener
   private @Nullable OnFullScreenModeChangedListener onFullScreenModeChangedListener;
 
+  private @Nullable View settingsWindowAnchor;
   private boolean isFullscreen;
   private boolean isAttachedToWindow;
   private boolean showMultiWindowTimeBar;
@@ -1631,12 +1632,14 @@ public class PlayerControlView extends FrameLayout {
   private void updateSettingsWindowSize() {
     settingsView.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
 
-    int maxWidth = getWidth() - settingsWindowMargin * 2;
+    int maxWidth =
+        Math.max(0, getWidth() - getPaddingLeft() - getPaddingRight() - settingsWindowMargin * 2);
     int itemWidth = settingsView.getMeasuredWidth();
     int width = Math.min(itemWidth, maxWidth);
     settingsWindow.setWidth(width);
 
-    int maxHeight = getHeight() - settingsWindowMargin * 2;
+    int maxHeight =
+        Math.max(0, getHeight() - getPaddingTop() - getPaddingBottom() - settingsWindowMargin * 2);
     int totalHeight = settingsView.getMeasuredHeight();
     int height = Math.min(maxHeight, totalHeight);
     settingsWindow.setHeight(height);
@@ -1651,7 +1654,8 @@ public class PlayerControlView extends FrameLayout {
     settingsWindow.dismiss();
     needToHideBars = true;
 
-    int xoff = getWidth() - settingsWindow.getWidth() - settingsWindowMargin;
+    settingsWindowAnchor = anchorView;
+    int xoff = anchorView.getWidth() - settingsWindow.getWidth() - settingsWindowMargin;
     int yoff = -settingsWindow.getHeight() - settingsWindowMargin;
 
     settingsWindow.showAsDropDown(anchorView, xoff, yoff);
@@ -1850,16 +1854,12 @@ public class PlayerControlView extends FrameLayout {
       int oldTop,
       int oldRight,
       int oldBottom) {
-    int width = right - left;
-    int height = bottom - top;
-    int oldWidth = oldRight - oldLeft;
-    int oldHeight = oldBottom - oldTop;
-
-    if ((width != oldWidth || height != oldHeight) && settingsWindow.isShowing()) {
+    View anchorView = settingsWindowAnchor;
+    if (settingsWindow.isShowing() && anchorView != null) {
       updateSettingsWindowSize();
-      int xOffset = getWidth() - settingsWindow.getWidth() - settingsWindowMargin;
+      int xOffset = anchorView.getWidth() - settingsWindow.getWidth() - settingsWindowMargin;
       int yOffset = -settingsWindow.getHeight() - settingsWindowMargin;
-      settingsWindow.update(v, xOffset, yOffset, -1, -1);
+      settingsWindow.update(anchorView, xOffset, yOffset, -1, -1);
     }
   }
 
