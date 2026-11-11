@@ -46,6 +46,18 @@ public final class HagcMetadataTest {
    */
   private static final float TOLERANCE = 1e-6f;
 
+  /**
+   * The start of a payload with an adaptive tone map that has one alternate image, below the
+   * baseline and with a max component mix. The alternate image's gain curve follows.
+   */
+  private static final String ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX =
+      "00" // Version 0, minimum version 0.
+          + "40" // Default reference white, adaptive tone map.
+          + "2710" // Baseline headroom 10000 / 10000 = 1.
+          + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
+          + "0000" // Alternate headroom 0, below the baseline.
+          + "00"; // Component mixing type 0 (max).
+
   @Test
   public void parse_payloadWithReferenceWhiteOnly_returnsReferenceWhiteWithoutToneMap()
       throws Exception {
@@ -287,6 +299,137 @@ public final class HagcMetadataTest {
   }
 
   @Test
+  public void parse_payloadWithPchipSlopes_returnsComputedSlopes() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
+                + "14" // 3 control points, PCHIP slopes.
+                + "03E8" // x[0] = 1000 / 1000 = 1.
+                + "07D0" // x[1] = 2.
+                + "0FA0" // x[2] = 4.
+                + "0000" // y[0] = 0.
+                + "0BB8" // y[1] = -3000 / 10000 = -0.3, negative as the alternate is below.
+                + "0FA0"); // y[2] = -0.4.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    // The expected slopes follow Clause C.3.9: a three-point difference at the left control
+    // point, Formula (C.8) at the interior one, and 0 at the right one, whose three-point
+    // difference has the wrong sign.
+    assertGainCurveIsApproximately(
+        metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {1f, 0f, -23f / 60f},
+          {2f, -0.3f, -27f / 290f},
+          {4f, -0.4f, 0f},
+        });
+  }
+
+  @Test
+  public void parse_pchipSlopesAtTurningPoint_limitsOvershootingEndSlope() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
+                + "14" // 3 control points, PCHIP slopes.
+                + "03E8" // x[0] = 1.
+                + "07D0" // x[1] = 2.
+                + "0BB8" // x[2] = 3.
+                + "2710" // y[0] = -1.
+                + "2328" // y[1] = -0.9.
+                + "4A38"); // y[2] = -1.9.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    // The expected slopes follow Clause C.3.9. The left three-point difference, 0.65, is limited
+    // to 0.3, three times the slope of its interval (0.1). The interior slope is 0 as the curve
+    // turns.
+    assertGainCurveIsApproximately(
+        metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {1f, -1f, 0.3f},
+          {2f, -0.9f, 0f},
+          {3f, -1.9f, -1.55f},
+        });
+  }
+
+  @Test
+  public void parse_equalControlPointXAtStartWithEqualY_returnsZeroSlopeAtDegeneratePoint()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
+                + "14" // 3 control points, PCHIP slopes.
+                + "03E8" // x[0] = 1.
+                + "03E8" // x[1] = 1.
+                + "07D0" // x[2] = 2.
+                + "1388" // y[0] = -0.5.
+                + "1388" // y[1] = -0.5.
+                + "0BB8"); // y[2] = -0.3.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    // The first control point is degenerate. The other two only have the interval between them,
+    // so their slopes are its slope.
+    assertGainCurveIsApproximately(
+        metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {1f, -0.5f, 0f},
+          {1f, -0.5f, 0.2f},
+          {2f, -0.3f, 0.2f},
+        });
+  }
+
+  @Test
+  public void parse_equalControlPointXAtEndWithEqualY_returnsZeroSlopeAtDegeneratePoint()
+      throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
+                + "14" // 3 control points, PCHIP slopes.
+                + "03E8" // x[0] = 1.
+                + "07D0" // x[1] = 2.
+                + "07D0" // x[2] = 2.
+                + "0BB8" // y[0] = -0.3.
+                + "1388" // y[1] = -0.5.
+                + "1388"); // y[2] = -0.5.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    // The first two control points only have the interval between them, so their slopes are its
+    // slope. The last control point is degenerate.
+    assertGainCurveIsApproximately(
+        metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {1f, -0.3f, -0.2f},
+          {2f, -0.5f, -0.2f},
+          {2f, -0.5f, 0f},
+        });
+  }
+
+  @Test
+  public void parse_pchipSlopesWithOneControlPoint_returnsZeroSlope() throws Exception {
+    byte[] payload =
+        getBytesFromHexString(
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
+                + "04" // 1 control point, PCHIP slopes.
+                + "03E8" // x[0] = 1.
+                + "1388"); // y[0] = -0.5.
+
+    HagcMetadata metadata = HagcMetadata.parse(payload);
+
+    assertGainCurveIsApproximately(
+        metadata.headroomAdaptiveToneMap.alternateImages.get(0).gainCurve,
+        new float[][] {
+          // {x, y, slope}
+          {1f, -0.5f, 0f},
+        });
+  }
+
+  @Test
   public void parse_alternateHeadroomAboveBaseline_returnsPositiveGains() throws Exception {
     byte[] payload =
         getBytesFromHexString(
@@ -311,12 +454,7 @@ public final class HagcMetadataTest {
   public void parse_zeroGainBelowBaseline_returnsZero() throws Exception {
     byte[] payload =
         getBytesFromHexString(
-            "00" // Version 0, minimum version 0.
-                + "40" // Default reference white, adaptive tone map.
-                + "2710" // Baseline headroom 1.
-                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
-                + "0000" // Alternate headroom 0, below the baseline.
-                + "00" // Component mixing type 0 (max).
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
                 + "00" // 1 control point, explicit slopes.
                 + "03E8" // x[0] = 1.
                 + "0000" // y[0] = 0.
@@ -909,12 +1047,7 @@ public final class HagcMetadataTest {
   public void parse_decreasingControlPointX_throwsParserException() {
     byte[] payload =
         getBytesFromHexString(
-            "00" // Version 0, minimum version 0.
-                + "40" // Default reference white, adaptive tone map.
-                + "2710" // Baseline headroom 1.
-                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
-                + "0000" // Alternate headroom 0.
-                + "00" // Component mixing type 0 (max).
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
                 + "08" // 2 control points, explicit slopes.
                 + "07D0" // x[0] = 2.
                 + "03E8" // x[1] = 1.
@@ -930,12 +1063,7 @@ public final class HagcMetadataTest {
   public void parse_equalControlPointXWithDifferentY_throwsParserException() {
     byte[] payload =
         getBytesFromHexString(
-            "00" // Version 0, minimum version 0.
-                + "40" // Default reference white, adaptive tone map.
-                + "2710" // Baseline headroom 1.
-                + "18" // 1 alternate image, BT.2020 primaries, no shared parameters.
-                + "0000" // Alternate headroom 0.
-                + "00" // Component mixing type 0 (max).
+            ONE_ALTERNATE_IMAGE_PAYLOAD_PREFIX
                 + "08" // 2 control points, explicit slopes.
                 + "03E8" // x[0] = 1.
                 + "03E8" // x[1] = 1.

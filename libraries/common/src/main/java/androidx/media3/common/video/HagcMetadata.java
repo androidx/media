@@ -18,8 +18,10 @@ package androidx.media3.common.video;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.math.DoubleMath.log2;
+import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
+import static java.lang.Math.signum;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -526,10 +528,8 @@ import org.jspecify.annotations.Nullable;
     }
 
     if (params.usePchipSlopes) {
-      // TODO: b/575451438 - Compute the slopes as specified in Clause C.3.9.
-      throw ParserException.createForUnsupportedContainerFeature(
-          "HAGC gain curve slopes computed with piecewise cubic Hermite interpolation aren't"
-              + " supported yet");
+      return new GainCurve(
+          controlPointsX, controlPointsY, computePchipSlopes(controlPointsX, controlPointsY));
     }
     float[] slopes = new float[controlPointsX.length];
     for (int c = 0; c < controlPointsX.length; c++) {
@@ -540,6 +540,93 @@ import org.jspecify.annotations.Nullable;
               Math.tan((theta - CONTROL_POINT_THETA_OFFSET) * Math.PI / CONTROL_POINT_THETA_SCALE);
     }
     return new GainCurve(controlPointsX, controlPointsY, slopes);
+  }
+
+  /**
+   * Returns the slopes of a gain curve's control points computed with piecewise cubic Hermite
+   * interpolation (PCHIP), as specified in Clause C.3.9.
+   */
+  private static float[] computePchipSlopes(float[] x, float[] y) {
+    int numControlPoints = x.length;
+    // The width (h in Clause C.3.9) and slope (s) of each interval between control points,
+    // Formula (C.7).
+    double[] widths = new double[numControlPoints - 1];
+    double[] intervalSlopes = new double[numControlPoints - 1];
+    for (int i = 0; i < numControlPoints - 1; i++) {
+      widths[i] = (double) x[i + 1] - x[i];
+      intervalSlopes[i] = widths[i] == 0 ? 0 : ((double) y[i + 1] - y[i]) / widths[i];
+    }
+
+    // The slopes of the control points (m in Clause C.3.9).
+    float[] slopes = new float[numControlPoints];
+    for (int i = 0; i < numControlPoints; i++) {
+      boolean hasLeftInterval = i > 0 && x[i - 1] < x[i];
+      boolean hasRightInterval = i + 1 < numControlPoints && x[i] < x[i + 1];
+      double slope;
+      if (hasLeftInterval && hasRightInterval) {
+        // Interior control point, Formula (C.8).
+        double leftSlope = intervalSlopes[i - 1];
+        double rightSlope = intervalSlopes[i];
+        if (signum(leftSlope) != signum(rightSlope) || (leftSlope == 0 && rightSlope == 0)) {
+          slope = 0;
+        } else {
+          slope =
+              3
+                  * (widths[i - 1] + widths[i])
+                  * leftSlope
+                  * rightSlope
+                  / ((2 * widths[i - 1] + widths[i]) * leftSlope
+                      + (widths[i - 1] + 2 * widths[i]) * rightSlope);
+        }
+      } else if (hasRightInterval) {
+        // Left control point, Formula (C.9). It only has an interval on its right: it's the first
+        // control point, or the one before it has the same x coordinate.
+        slope =
+            i + 2 < numControlPoints && x[i + 1] < x[i + 2]
+                ? computeEndControlPointSlope(
+                    widths[i], widths[i + 1], intervalSlopes[i], intervalSlopes[i + 1])
+                : intervalSlopes[i];
+      } else if (hasLeftInterval) {
+        // Right control point, Formula (C.10). It only has an interval on its left: it's the last
+        // control point, or the one after it has the same x coordinate.
+        slope =
+            i >= 2 && x[i - 2] < x[i - 1]
+                ? computeEndControlPointSlope(
+                    widths[i - 1], widths[i - 2], intervalSlopes[i - 1], intervalSlopes[i - 2])
+                : intervalSlopes[i - 1];
+      } else {
+        // Degenerate control point.
+        slope = 0;
+      }
+      slopes[i] = (float) slope;
+    }
+    return slopes;
+  }
+
+  /**
+   * Returns the slope of a control point at the end of a run of increasing control points, as
+   * specified in Clause C.3.9: the three-point finite difference of Formula (C.9) or (C.10), set to
+   * 0 if its sign differs from the slope of the nearer interval, and limited to three times that
+   * slope if its sign differs from the slope of the farther interval and it's more than three times
+   * as steep as the nearer interval.
+   *
+   * @param nearWidth The width of the interval next to the control point.
+   * @param farWidth The width of the interval after that one.
+   * @param nearSlope The slope of the interval next to the control point.
+   * @param farSlope The slope of the interval after that one.
+   * @return The limited slope.
+   */
+  private static double computeEndControlPointSlope(
+      double nearWidth, double farWidth, double nearSlope, double farSlope) {
+    double slope =
+        ((2 * nearWidth + farWidth) * nearSlope - nearWidth * farSlope) / (nearWidth + farWidth);
+    if (signum(slope) != signum(nearSlope)) {
+      return 0;
+    }
+    if (signum(slope) != signum(farSlope) && abs(slope) > 3 * abs(nearSlope)) {
+      return 3 * nearSlope;
+    }
+    return slope;
   }
 
   /** The headroom-adaptive tone map of a frame. */
@@ -795,7 +882,10 @@ import org.jspecify.annotations.Nullable;
      */
     public final float[] y;
 
-    /** The slopes of the curve at the control points. Must not be modified. */
+    /**
+     * The slopes of the curve at the control points. If the payload doesn't specify them, they're
+     * computed with piecewise cubic Hermite interpolation (Clause C.3.9). Must not be modified.
+     */
     public final float[] slopes;
 
     /* package */ GainCurve(float[] x, float[] y, float[] slopes) {
