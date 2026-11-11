@@ -30,6 +30,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -84,6 +85,14 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     setContentView(R.layout.activity_player)
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, windowInsets ->
+      val insets =
+        windowInsets.getInsets(
+          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+      view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
     playerView = findViewById(R.id.player_view)
 
     mediaItemListView = findViewById(R.id.current_playing_list)

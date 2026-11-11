@@ -34,6 +34,8 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -73,6 +75,14 @@ class MainActivity : AppCompatActivity() {
     }
     // setting up the layout
     setContentView(R.layout.activity_main)
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, windowInsets ->
+      val insets =
+        windowInsets.getInsets(
+          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+      view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
     mediaListView = findViewById(R.id.media_list_view)
     mediaListAdapter = FolderMediaItemArrayAdapter(this, R.layout.folder_items, subItemMediaList)
     mediaListView.adapter = mediaListAdapter

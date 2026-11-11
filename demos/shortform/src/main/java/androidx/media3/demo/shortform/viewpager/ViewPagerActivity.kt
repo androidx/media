@@ -15,9 +15,14 @@
  */
 package androidx.media3.demo.shortform.viewpager
 
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.media3.demo.shortform.MainActivity
 import androidx.media3.demo.shortform.MediaItemDatabase
 import androidx.media3.demo.shortform.R
@@ -36,9 +41,24 @@ class ViewPagerActivity : AppCompatActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_view_pager)
+    if (Build.VERSION.SDK_INT >= 35) {
+      val isNightMode =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+          Configuration.UI_MODE_NIGHT_YES
+      WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
+        !isNightMode
+    }
     numberOfPlayers = intent.getIntExtra(MainActivity.NUM_PLAYERS_EXTRA, numberOfPlayers)
     Log.d(TAG, "Using a pool of $numberOfPlayers players")
     viewPagerView = findViewById(R.id.viewPager)
+    ViewCompat.setOnApplyWindowInsetsListener(viewPagerView) { view, windowInsets ->
+      val insets =
+        windowInsets.getInsets(
+          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+      view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
     viewPagerView.offscreenPageLimit = 1
   }
 

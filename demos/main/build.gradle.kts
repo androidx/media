@@ -57,6 +57,7 @@ dependencies {
   coreLibraryDesugaring(libs.desugar.jdk.libs)
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.appcompat)
+  implementation(libs.androidx.core)
   implementation(libs.material)
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-exoplayer-dash"))

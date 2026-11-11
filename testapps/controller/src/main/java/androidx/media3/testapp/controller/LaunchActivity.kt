@@ -19,11 +19,16 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.session.MediaSessionManager as ActiveSessionManager
+import android.os.Build
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.media3.testapp.controller.findapps.FindActiveMediaSessionApps
 import androidx.media3.testapp.controller.findapps.FindMediaApps
 import androidx.media3.testapp.controller.findapps.FindMediaServiceApps
@@ -58,6 +63,19 @@ class LaunchActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
 
     setContentView(R.layout.activity_launch)
+    if (Build.VERSION.SDK_INT >= 35) {
+      WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+    }
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById<View>(R.id.root_view)) {
+      view,
+      windowInsets ->
+      val insets =
+        windowInsets.getInsets(
+          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+      view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
 
     val toolbar: Toolbar? = findViewById(R.id.toolbar)
     setSupportActionBar(toolbar)

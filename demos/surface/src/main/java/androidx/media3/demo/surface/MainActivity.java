@@ -29,6 +29,9 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -75,6 +78,15 @@ public final class MainActivity extends Activity {
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.main_activity);
+    ViewCompat.setOnApplyWindowInsetsListener(
+        findViewById(R.id.controls_layout),
+        (view, windowInsets) -> {
+          Insets insets =
+              windowInsets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+          return WindowInsetsCompat.CONSUMED;
+        });
     playerControlView = findViewById(R.id.player_control_view);
     fullscreenView = findViewById(R.id.full_screen_view);
     fullscreenView.setOnClickListener(v -> {

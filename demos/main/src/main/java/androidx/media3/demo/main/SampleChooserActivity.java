@@ -48,6 +48,9 @@ import android.widget.Toast;
 import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
@@ -99,6 +102,15 @@ public class SampleChooserActivity extends AppCompatActivity
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.sample_chooser_activity);
+    ViewCompat.setOnApplyWindowInsetsListener(
+        findViewById(R.id.root),
+        (view, windowInsets) -> {
+          Insets insets =
+              windowInsets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+          return WindowInsetsCompat.CONSUMED;
+        });
     sampleAdapter = new SampleAdapter();
     sampleListView = findViewById(R.id.sample_list);
 

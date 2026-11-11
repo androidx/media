@@ -2,7 +2,7 @@
 releaseVersion = "1.12.0-beta01"
 releaseVersionCode = "1012000101"
 # SDK
-appTargetSdkVersion = "34"
+appTargetSdkVersion = "37"
 minSdkVersion = "24"
 libTestTargetSdkVersion = "36"
 compileSdkVersion = "37"
@@ -22,7 +22,7 @@ activityComposeVersion = "1.9.0"
 androidXLeanbackVersion = "1.0.0"
 androidxAnnotationExperimentalVersion = "1.3.1"
 androidxAnnotationVersion = "1.6.0"
-androidxAppCompatVersion = "1.6.1"
+androidxAppCompatVersion = "1.7.0"
 androidxCollectionVersion = "1.2.0"
 # See https://developer.android.com/develop/ui/compose/bom/bom-mapping
 androidxComposeBomVersion = "2026.05.00" # TODO: b/502167525 - Upgade

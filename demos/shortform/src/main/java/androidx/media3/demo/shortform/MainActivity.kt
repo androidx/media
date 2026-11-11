@@ -16,12 +16,17 @@
 package androidx.media3.demo.shortform
 
 import android.content.Intent
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.shortform.viewpager.ViewPagerActivity
 import java.lang.Integer.max
@@ -33,6 +38,21 @@ class MainActivity : AppCompatActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
+    if (Build.VERSION.SDK_INT >= 35) {
+      val isNightMode =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+          Configuration.UI_MODE_NIGHT_YES
+      WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
+        !isNightMode
+    }
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, windowInsets ->
+      val insets =
+        windowInsets.getInsets(
+          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+      view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
 
     var numberOfPlayers = 3
     val numPlayersFieldView = findViewById<EditText>(R.id.num_players_field)

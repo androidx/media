@@ -32,6 +32,9 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.ColorUtils;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.cast.MediaRouteButtonFactory;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -62,6 +65,15 @@ public class MainActivity extends AppCompatActivity
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.main_activity);
+    ViewCompat.setOnApplyWindowInsetsListener(
+        findViewById(R.id.root),
+        (view, windowInsets) -> {
+          Insets insets =
+              windowInsets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+          return WindowInsetsCompat.CONSUMED;
+        });
 
     playerView = findViewById(R.id.player_view);
     playerView.requestFocus();

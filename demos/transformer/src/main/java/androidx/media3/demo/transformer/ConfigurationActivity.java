@@ -28,6 +28,7 @@ import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -46,6 +47,10 @@ import androidx.annotation.OptIn;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ExperimentalApi;
@@ -231,6 +236,16 @@ public final class ConfigurationActivity extends AppCompatActivity {
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.configuration_activity);
+    updateSystemBarAppearance(getResources().getConfiguration());
+    ViewCompat.setOnApplyWindowInsetsListener(
+        findViewById(R.id.root),
+        (view, windowInsets) -> {
+          Insets insets =
+              windowInsets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+          return WindowInsetsCompat.CONSUMED;
+        });
 
     findViewById(R.id.export_button).setOnClickListener(view -> startExport());
 
@@ -430,6 +445,21 @@ public final class ConfigurationActivity extends AppCompatActivity {
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
+  }
+
+  @Override
+  public void onConfigurationChanged(Configuration newConfig) {
+    super.onConfigurationChanged(newConfig);
+    updateSystemBarAppearance(newConfig);
+  }
+
+  private void updateSystemBarAppearance(Configuration config) {
+    if (SDK_INT >= 35) {
+      boolean isNightMode =
+          (config.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+      WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
+          .setAppearanceLightStatusBars(!isNightMode);
+    }
   }
 
   private void startExport() {

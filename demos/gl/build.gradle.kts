@@ -38,4 +38,5 @@ dependencies {
   implementation(project(":lib-exoplayer-smoothstreaming"))
   implementation(project(":lib-ui"))
   implementation(libs.androidx.annotation)
+  implementation(libs.androidx.core)
 }

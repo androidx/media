@@ -17,7 +17,9 @@ package androidx.media3.demo.effect
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
 import androidx.compose.animation.animateContentSize
@@ -80,6 +82,13 @@ class EffectActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdge(
+      statusBarStyle =
+        SystemBarStyle.light(
+          scrim = android.graphics.Color.TRANSPARENT,
+          darkScrim = android.graphics.Color.TRANSPARENT,
+        )
+    )
     setContent { EffectDemo(viewModel) }
   }
 

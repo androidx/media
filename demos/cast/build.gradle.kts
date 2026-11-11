@@ -42,6 +42,7 @@ dependencies {
   implementation(project(":lib-ui"))
   implementation(project(":lib-cast"))
   implementation(libs.androidx.appcompat)
+  implementation(libs.androidx.core)
   implementation(libs.androidx.recyclerview)
   implementation(libs.material)
 }

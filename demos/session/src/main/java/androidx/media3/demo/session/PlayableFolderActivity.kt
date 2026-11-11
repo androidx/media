@@ -31,6 +31,8 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -83,6 +85,14 @@ class PlayableFolderActivity : AppCompatActivity() {
       }
     }
     setContentView(R.layout.activity_playable_folder)
+    ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { view, windowInsets ->
+      val insets =
+        windowInsets.getInsets(
+          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+      view.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+      WindowInsetsCompat.CONSUMED
+    }
     supportActionBar!!.setDisplayHomeAsUpEnabled(true)
     mediaList = findViewById(R.id.media_list_view)
     mediaListAdapter =

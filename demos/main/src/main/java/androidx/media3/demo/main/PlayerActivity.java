@@ -30,6 +30,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.ErrorMessageProvider;
@@ -117,6 +120,23 @@ public class PlayerActivity extends AppCompatActivity
     playerView.setControllerVisibilityListener(this);
     playerView.setErrorMessageProvider(new PlayerErrorMessageProvider());
     playerView.requestFocus();
+
+    View debugOverlay = findViewById(R.id.debug_root);
+    View controller = playerView.findViewById(androidx.media3.ui.R.id.exo_controller);
+    ViewCompat.setOnApplyWindowInsetsListener(
+        findViewById(R.id.root),
+        (view, windowInsets) -> {
+          Insets insets =
+              windowInsets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          if (debugOverlay != null) {
+            debugOverlay.setPadding(insets.left, insets.top, insets.right, /* bottom= */ 0);
+          }
+          if (controller != null) {
+            controller.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+          }
+          return WindowInsetsCompat.CONSUMED;
+        });
 
     if (savedInstanceState != null) {
       trackSelectionParameters =

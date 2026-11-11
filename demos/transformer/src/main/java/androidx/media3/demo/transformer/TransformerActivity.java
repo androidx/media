@@ -31,6 +31,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -59,6 +60,10 @@ import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
@@ -172,6 +177,16 @@ public final class TransformerActivity extends AppCompatActivity {
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.transformer_activity);
+    updateSystemBarAppearance(getResources().getConfiguration());
+    ViewCompat.setOnApplyWindowInsetsListener(
+        findViewById(R.id.root),
+        (view, windowInsets) -> {
+          Insets insets =
+              windowInsets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+          return WindowInsetsCompat.CONSUMED;
+        });
 
     inputCardView = findViewById(R.id.input_card_view);
     outputCardView = findViewById(R.id.output_card_view);
@@ -235,6 +250,21 @@ public final class TransformerActivity extends AppCompatActivity {
       screenCaptureToken = null;
     }
     cleanUpExport();
+  }
+
+  @Override
+  public void onConfigurationChanged(Configuration newConfig) {
+    super.onConfigurationChanged(newConfig);
+    updateSystemBarAppearance(newConfig);
+  }
+
+  private void updateSystemBarAppearance(Configuration config) {
+    if (SDK_INT >= 35) {
+      boolean isNightMode =
+          (config.uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+      WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
+          .setAppearanceLightStatusBars(!isNightMode);
+    }
   }
 
   private void startExport() {

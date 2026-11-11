@@ -27,7 +27,7 @@
       app:show_shuffle_button="true"
       app:show_subtitle_button="true"/>
 
-  <LinearLayout
+  <LinearLayout android:id="@+id/debug_root"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:background="#88000000"
