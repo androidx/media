@@ -400,7 +400,15 @@ import org.jspecify.annotations.Nullable;
       }
     } else {
       clearDataSizes[0] = 0;
-      encryptedDataSizes[0] = extrasHolder.size - (int) (offset - extrasHolder.offset);
+      if (buffer.hasSupplementalData()) {
+        // Peek the 4-byte payload size prefix without advancing offset, as readSampleData will
+        // read and consume it when extracting the sample and supplemental data.
+        scratch.reset(4);
+        AllocationNode unused = readData(allocationNode, offset, scratch.getData(), 4);
+        encryptedDataSizes[0] = scratch.readUnsignedIntToInt();
+      } else {
+        encryptedDataSizes[0] = extrasHolder.size - (int) (offset - extrasHolder.offset);
+      }
     }
 
     // Populate the cryptoInfo.

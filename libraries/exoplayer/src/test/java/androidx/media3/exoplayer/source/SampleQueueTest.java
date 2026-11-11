@@ -51,6 +51,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
@@ -2228,6 +2229,61 @@ public final class SampleQueueTest {
         DATA,
         /* offset= */ 0,
         ALLOCATION_SIZE);
+  }
+
+  @Test
+  public void
+      read_encryptedSampleWithSupplementalDataAndOmitSampleData_populatesEncryptedPayloadSize() {
+    SampleQueue queue = SampleQueue.createWithoutDrm(allocator);
+    queue.format(FORMAT_ENCRYPTED);
+    byte[] eightByteIv = new byte[] {1, 2, 3, 4, 5, 6, 7, 8};
+    byte[] payload = TestUtil.buildTestData(11, /* seed= */ 14);
+    byte[] supplemental = TestUtil.buildTestData(6, /* seed= */ 15);
+    byte[] encryptedWithSupplementalSample =
+        Bytes.concat(
+            new byte[] {0x08}, // subsampleEncryption = false, ivSize = 8
+            eightByteIv,
+            new byte[] {0, 0, 0, 11},
+            payload,
+            supplemental);
+    queue.sampleData(
+        new ParsableByteArray(encryptedWithSupplementalSample),
+        encryptedWithSupplementalSample.length);
+    queue.sampleMetadata(
+        /* timeUs= */ 0,
+        BUFFER_FLAG_KEY_FRAME | BUFFER_FLAG_ENCRYPTED | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+        encryptedWithSupplementalSample.length,
+        /* offset= */ 0,
+        CRYPTO_DATA);
+    DecoderInputBuffer flagsOnlyBuffer = DecoderInputBuffer.newNoDataInstance();
+
+    int formatResult =
+        queue.read(formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
+    int omitDataResult =
+        queue.read(
+            formatHolder,
+            flagsOnlyBuffer,
+            FLAG_PEEK | FLAG_OMIT_SAMPLE_DATA,
+            /* loadingFinished= */ false);
+    inputBuffer.clear();
+    int fullReadResult =
+        queue.read(formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
+    inputBuffer.flip();
+
+    assertThat(formatResult).isEqualTo(RESULT_FORMAT_READ);
+    assertThat(omitDataResult).isEqualTo(RESULT_BUFFER_READ);
+    assertThat(flagsOnlyBuffer.cryptoInfo.numSubSamples).isEqualTo(1);
+    assertThat(flagsOnlyBuffer.cryptoInfo.numBytesOfClearData).asList().containsExactly(0);
+    assertThat(flagsOnlyBuffer.cryptoInfo.numBytesOfEncryptedData)
+        .asList()
+        .containsExactly(payload.length);
+    assertThat(fullReadResult).isEqualTo(RESULT_BUFFER_READ);
+    assertThat(inputBuffer.hasSupplementalData()).isTrue();
+    assertThat(inputBuffer.cryptoInfo.numBytesOfEncryptedData)
+        .asList()
+        .containsExactly(payload.length);
+    assertThat(inputBuffer.data).isEqualTo(ByteBuffer.wrap(payload));
+    assertThat(inputBuffer.supplementalData).isEqualTo(ByteBuffer.wrap(supplemental));
   }
 
   // Internal methods.
