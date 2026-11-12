@@ -1020,6 +1020,22 @@ private class ClippingSliderState(
   val playbackProgress: Float?
     get() = if (durationMs > 0) positionProgressState.currentPositionProgress else null
 
+  /**
+   * The current position of the [player] as a fraction of the total duration (0 to 1), or null if
+   * unknown.
+   */
+  private val playerProgress: Float?
+    get() {
+      if (
+        player == null ||
+          durationMs <= 0 ||
+          !player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+      ) {
+        return null
+      }
+      return (player.currentPosition.toFloat() / durationMs).coerceIn(0f, 1f)
+    }
+
   // The presses and drags in progress on each handle. Deriving the interaction flags from these,
   // rather than latching a boolean on gesture start and clearing it in onValueChangeFinished, keeps
   // them correct for interrupted gestures, for which onValueChangeFinished isn't delivered.
@@ -1157,8 +1173,10 @@ private class ClippingSliderState(
       updateProgressSliderRange(newRange)
     }
 
-    // Ensure the player's current position hasn't been left outside the new bounds
-    val currentProgress = playbackProgress
+    // Ensure the player's current position hasn't been left outside the new bounds. The position is
+    // read from the player, because playbackProgress stays at 0 until the slider is measured, which
+    // would otherwise seek to the clipping start when the initial clipping range is applied.
+    val currentProgress = playerProgress
     if (currentProgress != null) {
       if (currentProgress < newRange.start) {
         seekTo(newRange.start)
