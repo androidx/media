@@ -24,8 +24,10 @@ import android.os.Handler.Callback;
 import android.os.Looper;
 import android.os.Message;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.BaseRenderer;
@@ -72,6 +74,9 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   private long subsampleOffsetUs;
   private @Nullable Metadata pendingMetadata;
   private long outputStreamOffsetUs;
+  private float playbackSpeed;
+  private long nextSourceReadPositionUs;
+  private boolean sourceReadPending;
 
   /**
    * Creates an instance that uses {@link MetadataDecoderFactory#DEFAULT} to create {@link
@@ -131,6 +136,9 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
     this.outputMetadataEarly = outputMetadataEarly;
     buffer = new MetadataInputBuffer();
     outputStreamOffsetUs = C.TIME_UNSET;
+    playbackSpeed = 1f;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
   }
 
   @Override
@@ -149,6 +157,67 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
+  public void setPlaybackSpeed(float currentPlaybackSpeed, float targetPlaybackSpeed) {
+    this.playbackSpeed = currentPlaybackSpeed;
+  }
+
+  @Override
+  public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (!Flags.isEnabled(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS)
+        || getState() == STATE_DISABLED) {
+      return super.getDurationToProgressUs(positionUs, elapsedRealtimeUs);
+    }
+
+    boolean isStarted = getState() == STATE_STARTED;
+    if (outputStreamEnded) {
+      // If the metadata stream ended early in a period with a known end position, wake up at the
+      // end of the stream so period transition or playback completion is not delayed.
+      if (isStarted) {
+        long streamEndPositionUs = getStreamEndPositionUs();
+        if (streamEndPositionUs != C.TIME_UNSET) {
+          long streamEndRendererPositionUs = getStreamOffsetUs() + streamEndPositionUs;
+          if (positionUs < streamEndRendererPositionUs) {
+            return Util.calculateDurationToProgressUs(
+                positionUs, streamEndRendererPositionUs, playbackSpeed);
+          }
+        }
+      }
+      return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+
+    // If decoded metadata is pending output, wake when its presentation time is reached.
+    if (pendingMetadata != null) {
+      long targetPositionUs = pendingMetadata.presentationTimeUs + outputStreamOffsetUs;
+      if (outputMetadataEarly || positionUs >= targetPositionUs) {
+        return 0;
+      }
+      return isStarted
+          ? Util.calculateDurationToProgressUs(positionUs, targetPositionUs, playbackSpeed)
+          : DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+
+    if (nextSourceReadPositionUs == C.TIME_UNSET) {
+      // SampleStream cannot be read yet (e.g. before first render, still loading, or waiting for
+      // end-of-stream to become final), so poll at the default active rate while started or when a
+      // source read is pending.
+      return isStarted || sourceReadPending
+          ? DEFAULT_DURATION_TO_PROGRESS_US
+          : DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+
+    // Wake when the next sample or end-of-stream signal enters the read-ahead window.
+    if (nextSourceReadPositionUs == C.TIME_END_OF_SOURCE) {
+      return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+    if (positionUs >= nextSourceReadPositionUs) {
+      return 0;
+    }
+    return isStarted
+        ? Util.calculateDurationToProgressUs(positionUs, nextSourceReadPositionUs, playbackSpeed)
+        : DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+  }
+
+  @Override
   protected void onStreamChanged(
       Format[] formats,
       long startPositionUs,
@@ -161,6 +230,8 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
               pendingMetadata.presentationTimeUs + outputStreamOffsetUs - offsetUs);
     }
     outputStreamOffsetUs = offsetUs;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
   }
 
   @Override
@@ -169,10 +240,20 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
     pendingMetadata = null;
     inputStreamEnded = false;
     outputStreamEnded = false;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
+  }
+
+  @Override
+  protected void onTimelineChanged(Timeline timeline) {
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
   }
 
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) {
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = false;
     boolean working = true;
     while (working) {
       readMetadata(positionUs);
@@ -214,6 +295,8 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
     pendingMetadata = null;
     decoder = null;
     outputStreamOffsetUs = C.TIME_UNSET;
+    nextSourceReadPositionUs = C.TIME_UNSET;
+    sourceReadPending = true;
   }
 
   @Override
@@ -259,6 +342,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
       } else if (result == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
         // New buffer available, only consume if close enough to the current position.
         if (!outputMetadataEarly && positionUs < buffer.timeUs - MAX_READ_AHEAD_DURATION_US) {
+          nextSourceReadPositionUs = buffer.timeUs - MAX_READ_AHEAD_DURATION_US;
           return;
         }
       } else if (result == C.RESULT_BUFFER_READ || result == C.RESULT_NOTHING_READ) {
@@ -267,6 +351,10 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
         long positionInPeriodUs = positionUs - getStreamOffsetUs();
         if (streamEndPositionUs == C.TIME_UNSET
             || positionInPeriodUs < streamEndPositionUs - MAX_READ_AHEAD_DURATION_US) {
+          nextSourceReadPositionUs =
+              streamEndPositionUs == C.TIME_UNSET
+                  ? C.TIME_END_OF_SOURCE
+                  : getStreamOffsetUs() + streamEndPositionUs - MAX_READ_AHEAD_DURATION_US;
           return;
         }
       }
@@ -289,8 +377,12 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
             }
           }
         }
+        if (!inputStreamEnded && pendingMetadata == null) {
+          nextSourceReadPositionUs = positionUs;
+        }
       } else if (result == C.RESULT_FORMAT_READ) {
         subsampleOffsetUs = checkNotNull(formatHolder.format).subsampleOffsetUs;
+        nextSourceReadPositionUs = positionUs;
       }
     }
   }
