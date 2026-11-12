@@ -594,6 +594,11 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             parseOptionalStringAttr(line, REGEX_FRAME_RATE, variableDefinitions, matcherCache);
         if (frameRateString != null) {
           frameRate = Float.parseFloat(frameRateString);
+          if (frameRate <= 0) {
+            // Some playlists (e.g. audio-only streams) advertise FRAME-RATE=0.000. Treat any
+            // non-positive value as unknown, as Format.frameRate must be positive.
+            frameRate = Format.NO_VALUE;
+          }
         }
         float selectionPriority = Format.NO_VALUE;
         String selectionPriorityString =
