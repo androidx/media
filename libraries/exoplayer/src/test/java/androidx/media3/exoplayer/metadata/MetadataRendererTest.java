@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.metadata;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -24,13 +25,19 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.NoSampleRenderer;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -40,21 +47,31 @@ import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.metadata.emsg.EventMessageEncoder;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.extractor.metadata.scte35.TimeSignalCommand;
+import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Media3FlagsRule;
+import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
 import com.google.common.primitives.Bytes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link MetadataRenderer}. */
 @RunWith(AndroidJUnit4.class)
 public class MetadataRendererTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private static final byte[] SCTE35_TIME_SIGNAL_BYTES =
       Bytes.concat(
@@ -637,5 +654,713 @@ public class MetadataRendererTest {
     // Expected playbackPositionUs is ptsToUs(0x5203028f) + subsampleOffsetUs (800_000) + offsetUs
     // (1_000_000) = 15_288_099_722 + 1_800_000 = 15_289_899_722.
     assertThat(timeSignalCommand2.playbackPositionUs).isEqualTo(15_289_899_722L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withFlagDisabled_returnsDefaultDuration() throws Exception {
+    Flags.disableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_afterDisable_returnsDefaultDuration() throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    renderer.stop();
+    renderer.disable();
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_whenEnabledNotStartedWithPendingMetadata_returnsDefaultIdleDuration()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_IDLE_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_whenEnabledNotStartedWithUnreadSampleBeyondMaxReadAhead_returnsDefaultIdleDuration()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_IDLE_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_whenEnabledNotStartedWithEmptySource_returnsDefaultIdleDuration()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(renderer, EMSG_FORMAT, ImmutableList.of());
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_IDLE_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_whenEnabledNotStartedBeforeFirstRender_returnsDefaultDuration()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(renderer, EMSG_FORMAT, ImmutableList.of());
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withStopAfterRenderToEndOfStream_returnsDefaultIdleDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 5_000_000);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        timeline);
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+    renderer.render(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+    renderer.stop();
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.isEnded()).isTrue();
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_IDLE_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_beforeFirstRender_returnsDefaultDuration() throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.start();
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_afterStopAndResetPosition_returnsDefaultDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    FakeSampleStream fakeSampleStream =
+        enableRenderer(
+            renderer,
+            EMSG_FORMAT,
+            ImmutableList.of(
+                sample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                END_OF_STREAM_ITEM));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    renderer.stop();
+    fakeSampleStream.seekToUs(/* positionUs= */ 0, /* allowTimeBeyondBuffer= */ true);
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_afterTimelineDurationResolved_returnsDefaultDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    Timeline resolvedTimeline = createSinglePeriodTimeline(/* durationUs= */ 2_000_000);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(EMSG_FORMAT, ImmutableList.of(END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.setTimeline(Timeline.EMPTY);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {EMSG_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(resolvedTimeline.getUidOfPeriod(0)));
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+    renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationBeforeTimelineResolvedUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+    renderer.setTimeline(resolvedTimeline);
+    long durationAfterTimelineResolvedUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationBeforeTimelineResolvedUs)
+        .isEqualTo(Renderer.DEFAULT_IDLE_DURATION_TO_PROGRESS_US);
+    assertThat(durationAfterTimelineResolvedUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withPendingMetadata_returnsDurationToMetadataTime()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000);
+    renderer.start();
+    renderer.render(/* positionUs= */ 1_000_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 1_100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(400_000L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withPendingMetadataDueNow_returnsZero() throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withPendingMetadataAfterReplaceStream_usesAdjustedStreamOffset()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    FakeSampleStream fakeSampleStream =
+        enableRenderer(
+            renderer,
+            EMSG_FORMAT,
+            ImmutableList.of(
+                sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                END_OF_STREAM_ITEM));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    renderer.replaceStream(
+        new Format[] {EMSG_FORMAT},
+        fakeSampleStream,
+        /* startPositionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        new MediaSource.MediaPeriodId(new Object()));
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(400_000L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withPendingMetadataAndDoublePlaybackSpeed_scalesDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.setPlaybackSpeed(/* currentPlaybackSpeed= */ 2.0f, /* targetPlaybackSpeed= */ 2.0f);
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(200_000L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withFractionalSpeedSubMillisecondDelta_roundsUpToOneMillisecond()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 501_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM));
+    renderer.setPlaybackSpeed(/* currentPlaybackSpeed= */ 1.5f, /* targetPlaybackSpeed= */ 1.5f);
+    renderer.start();
+    renderer.render(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(1_000L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withUnreadSampleBeyondMaxReadAhead_returnsDurationToReadAheadThreshold()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 3_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000);
+    renderer.start();
+    renderer.render(/* positionUs= */ 1_000_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 1_400_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(1_600_000L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withOutputMetadataEarlyAndDeferredEndOfStream_outputsEarlyAndReturnsDurationToEosReadAhead()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    List<Metadata> metadataOutput = new ArrayList<>();
+    MetadataRenderer renderer =
+        new MetadataRenderer(
+            /* output= */ metadataOutput::add,
+            /* outputLooper= */ null,
+            MetadataDecoderFactory.DEFAULT,
+            /* outputMetadataEarly= */ true);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 10_000_000);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 5_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM),
+        /* positionUs= */ 0,
+        /* offsetUs= */ 0,
+        timeline);
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(metadataOutput).hasSize(1);
+    assertThat(metadataOutput.get(0).presentationTimeUs).isEqualTo(5_000_000L);
+    assertThat(durationToProgressUs).isEqualTo(9_000_000L);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withIgnoredPreResetSample_returnsZeroThenDurationToNextSample()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    List<Metadata> metadataOutput = new ArrayList<>();
+    MetadataRenderer renderer =
+        new MetadataRenderer(/* output= */ metadataOutput::add, /* outputLooper= */ null);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            sample(/* timeUs= */ 800_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM),
+        /* positionUs= */ 500_000,
+        /* offsetUs= */ 0);
+    renderer.start();
+
+    renderer.render(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+    long durationAfterPreResetSampleUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+    renderer.render(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+    long durationWithPendingMetadataUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 500_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(metadataOutput).isEmpty();
+    assertThat(durationAfterPreResetSampleUs).isEqualTo(0L);
+    assertThat(durationWithPendingMetadataUs).isEqualTo(300_000L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withEmptySourceNotEnded_returnsDefaultDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    enableRenderer(renderer, EMSG_FORMAT, ImmutableList.of());
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void
+      getDurationToProgressUs_withDeferredEndOfStream_returnsDurationToEndOfStreamReadThreshold()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedEmsg = createTestEncodedEmsg();
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 5_000_000);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+            END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        timeline);
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+    renderer.render(/* positionUs= */ 1_100_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 1_500_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(durationToProgressUs).isEqualTo(3_500_000L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_withNonFinalEndOfStream_returnsDefaultDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 5_000_000);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        timeline);
+    renderer.start();
+    renderer.render(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.hasReadStreamToEnd()).isTrue();
+    assertThat(renderer.isEnded()).isFalse();
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void getDurationToProgressUs_afterEndOfStream_returnsDurationToStreamEnd()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 5_000_000);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        timeline);
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+    renderer.render(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.isEnded()).isTrue();
+    assertThat(durationToProgressUs).isEqualTo(800_000L);
+  }
+
+  @Test
+  public void getDurationToProgressUs_atStreamEndAfterEndOfStream_returnsDefaultIdleDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 5_000_000);
+    enableRenderer(
+        renderer,
+        EMSG_FORMAT,
+        ImmutableList.of(END_OF_STREAM_ITEM),
+        /* positionUs= */ 1_000_000,
+        /* offsetUs= */ 1_000_000,
+        timeline);
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+    renderer.render(/* positionUs= */ 5_200_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 6_000_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.isEnded()).isTrue();
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_IDLE_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
+  public void play_withDurationToProgressMultiPeriodAndFractionalSpeed_outputsAllMetadataToEnd()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_DYNAMIC_SCHEDULING);
+    Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS);
+    EventMessage period1Emsg =
+        new EventMessage(
+            "urn:test-scheme-id",
+            /* value= */ "period1",
+            /* durationMs= */ 1,
+            /* id= */ 1,
+            "data1".getBytes(UTF_8));
+    EventMessage period2Emsg =
+        new EventMessage(
+            "urn:test-scheme-id",
+            /* value= */ "period2",
+            /* durationMs= */ 1,
+            /* id= */ 2,
+            "data2".getBytes(UTF_8));
+    FakeMediaSource firstMediaSource =
+        new FakeMediaSource.Builder()
+            .setTimeline(createSinglePeriodTimeline(/* durationUs= */ 2_000_000))
+            .setFormats(EMSG_FORMAT)
+            .setTrackDataFactory((unusedFormat, unusedMediaPeriodId) ->
+                ImmutableList.of(
+                    sample(
+                        /* timeUs= */ 500_500,
+                        C.BUFFER_FLAG_KEY_FRAME,
+                        eventMessageEncoder.encode(period1Emsg)),
+                    END_OF_STREAM_ITEM))
+            .build();
+    FakeMediaSource secondMediaSource =
+        new FakeMediaSource.Builder()
+            .setTimeline(createSinglePeriodTimeline(/* durationUs= */ 2_000_000))
+            .setFormats(EMSG_FORMAT)
+            .setTrackDataFactory((unusedFormat, unusedMediaPeriodId) ->
+                ImmutableList.of(
+                    sample(
+                        /* timeUs= */ 0,
+                        C.BUFFER_FLAG_KEY_FRAME,
+                        eventMessageEncoder.encode(period2Emsg)),
+                    END_OF_STREAM_ITEM))
+            .build();
+    List<Metadata.Entry> outputEntries = new ArrayList<>();
+    AtomicInteger renderCount = new AtomicInteger();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setRenderersFactory(
+                (eventHandler, videoListener, audioListener, textOutput, metadataOutput) ->
+                    new Renderer[] {
+                      new MetadataRenderer(metadataOutput, eventHandler.getLooper()),
+                      new NoSampleRenderer() {
+                        @Override
+                        public String getName() {
+                          return "RenderCountRenderer";
+                        }
+
+                        @Override
+                        public void render(long positionUs, long elapsedRealtimeUs) {
+                          renderCount.incrementAndGet();
+                        }
+
+                        @Override
+                        public long getDurationToProgressUs(
+                            long positionUs, long elapsedRealtimeUs) {
+                          return Long.MAX_VALUE;
+                        }
+                      }
+                    })
+            .build();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onMetadata(Metadata metadata) {
+            for (int i = 0; i < metadata.length(); i++) {
+              outputEntries.add(metadata.get(i));
+            }
+          }
+        });
+    player.setPlaybackParameters(new PlaybackParameters(/* speed= */ 1.5f));
+    player.setMediaSources(ImmutableList.of(firstMediaSource, secondMediaSource));
+
+    try {
+      player.prepare();
+      player.play();
+      advance(player).untilState(Player.STATE_ENDED);
+    } finally {
+      player.release();
+    }
+
+    assertThat(outputEntries).containsExactly(period1Emsg, period2Emsg).inOrder();
+    assertThat(renderCount.get()).isIn(Range.open(0, 50));
+  }
+
+  private static Timeline createSinglePeriodTimeline(long durationUs) {
+    return new FakeTimeline(
+        new FakeTimeline.TimelineWindowDefinition.Builder()
+            .setDurationUs(durationUs)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build());
+  }
+
+  @CanIgnoreReturnValue
+  private static FakeSampleStream enableRenderer(
+      MetadataRenderer renderer,
+      Format format,
+      ImmutableList<FakeSampleStream.FakeSampleStreamItem> sampleItems)
+      throws ExoPlaybackException {
+    return enableRenderer(renderer, format, sampleItems, /* positionUs= */ 0, /* offsetUs= */ 0);
+  }
+
+  @CanIgnoreReturnValue
+  private static FakeSampleStream enableRenderer(
+      MetadataRenderer renderer,
+      Format format,
+      ImmutableList<FakeSampleStream.FakeSampleStreamItem> sampleItems,
+      long positionUs,
+      long offsetUs)
+      throws ExoPlaybackException {
+    FakeSampleStream fakeSampleStream = createFakeSampleStream(format, sampleItems);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        positionUs,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ positionUs,
+        offsetUs,
+        new MediaSource.MediaPeriodId(new Object()));
+    return fakeSampleStream;
+  }
+
+  @CanIgnoreReturnValue
+  private static FakeSampleStream enableRenderer(
+      MetadataRenderer renderer,
+      Format format,
+      ImmutableList<FakeSampleStream.FakeSampleStreamItem> sampleItems,
+      long positionUs,
+      long offsetUs,
+      Timeline timeline)
+      throws ExoPlaybackException {
+    FakeSampleStream fakeSampleStream = createFakeSampleStream(format, sampleItems);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.setTimeline(timeline);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        positionUs,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ positionUs,
+        offsetUs,
+        new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(0)));
+    return fakeSampleStream;
+  }
+
+  private byte[] createTestEncodedEmsg() {
+    EventMessage emsg =
+        new EventMessage(
+            "urn:test-scheme-id",
+            /* value= */ "",
+            /* durationMs= */ 1,
+            /* id= */ 0,
+            "Test data".getBytes(UTF_8));
+    return eventMessageEncoder.encode(emsg);
   }
 }

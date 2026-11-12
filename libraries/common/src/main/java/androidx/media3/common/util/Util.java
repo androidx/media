@@ -91,6 +91,7 @@ import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.FloatRange;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -2185,6 +2186,36 @@ public final class Util {
       return mediaDuration;
     }
     return Math.round((double) mediaDuration / speed);
+  }
+
+  /**
+   * Calculates the playout duration in microseconds until {@code positionUs} reaches {@code
+   * targetPositionUs} at {@code playbackSpeed}, rounded up to the nearest millisecond.
+   *
+   * <p>Rounding up to whole milliseconds avoids {@code ExoPlayerImplInternal} truncating
+   * sub-millisecond durations to {@code 0 ms} (or waking up slightly before {@code
+   * targetPositionUs}) when converting microseconds to {@link Handler} message delays via {@link
+   * #usToMs(long)}.
+   *
+   * @param positionUs The current position, in microseconds.
+   * @param targetPositionUs The target position to reach, in microseconds.
+   * @param playbackSpeed The playback speed factor (must be greater than zero).
+   * @return The playout duration in microseconds, or {@code 0} if {@code positionUs >=
+   *     targetPositionUs}.
+   */
+  @UnstableApi
+  public static long calculateDurationToProgressUs(
+      long positionUs,
+      long targetPositionUs,
+      @FloatRange(from = 0, fromInclusive = false) float playbackSpeed) {
+    checkArgument(playbackSpeed > 0);
+    if (positionUs >= targetPositionUs) {
+      return 0;
+    }
+    long playoutDurationUs =
+        getPlayoutDurationForMediaDuration(targetPositionUs - positionUs, playbackSpeed);
+    long playoutDurationMs = max(1L, ceilDivide(playoutDurationUs, 1_000L));
+    return msToUs(playoutDurationMs);
   }
 
   /**

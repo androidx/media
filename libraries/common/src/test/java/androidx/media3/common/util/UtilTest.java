@@ -1882,6 +1882,81 @@ public class UtilTest {
         IllegalArgumentException.class, () -> Util.getVideoCodecFlagForMime("video/unsupported"));
   }
 
+  @Test
+  public void calculateDurationToProgressUs_atOrPastTargetPosition_returnsZero() {
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 500_000,
+                /* targetPositionUs= */ 500_000,
+                /* playbackSpeed= */ 1f))
+        .isEqualTo(0L);
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 600_000,
+                /* targetPositionUs= */ 500_000,
+                /* playbackSpeed= */ 1f))
+        .isEqualTo(0L);
+  }
+
+  @Test
+  public void calculateDurationToProgressUs_withUnitSpeed_roundsUpToWholeMilliseconds() {
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 100_000,
+                /* targetPositionUs= */ 500_000,
+                /* playbackSpeed= */ 1f))
+        .isEqualTo(400_000L);
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 500_000,
+                /* targetPositionUs= */ 500_500,
+                /* playbackSpeed= */ 1f))
+        .isEqualTo(1_000L);
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 100_000,
+                /* targetPositionUs= */ 500_001,
+                /* playbackSpeed= */ 1f))
+        .isEqualTo(401_000L);
+  }
+
+  @Test
+  public void
+      calculateDurationToProgressUs_withNonUnitPlaybackSpeed_scalesAndRoundsUpToAtLeastOneMs() {
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 100_000,
+                /* targetPositionUs= */ 500_000,
+                /* playbackSpeed= */ 2.0f))
+        .isEqualTo(200_000L);
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 500_000,
+                /* targetPositionUs= */ 501_000,
+                /* playbackSpeed= */ 1.5f))
+        .isEqualTo(1_000L);
+    assertThat(
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 500_000,
+                /* targetPositionUs= */ 500_001,
+                /* playbackSpeed= */ 3.0f))
+        .isEqualTo(1_000L);
+  }
+
+  @Test
+  public void calculateDurationToProgressUs_withNonPositiveSpeed_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 0, /* targetPositionUs= */ 1_000, /* playbackSpeed= */ 0f));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            Util.calculateDurationToProgressUs(
+                /* positionUs= */ 0, /* targetPositionUs= */ 1_000, /* playbackSpeed= */ -1f));
+  }
+
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {
     assertThat(escapeFileName(fileName)).isEqualTo(escapedFileName);
     assertThat(unescapeFileName(escapedFileName)).isEqualTo(fileName);

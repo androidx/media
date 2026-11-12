@@ -127,6 +127,7 @@ public final class Flags {
    *   <li>{@link #FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY}
    *   <li>{@link #FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS}
    *   <li>{@link #FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED}
+   *   <li>{@link #FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS}
    * </ul>
    */
   @Documented
@@ -151,6 +152,7 @@ public final class Flags {
         FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY,
         FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS,
         FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED,
+        FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS,
       })
   public @interface Flag {}
 
@@ -333,7 +335,18 @@ public final class Flags {
   @ExperimentalApi // TODO(b/580239399): Remove this flag.
   public static final int FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED = 16;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 17;
+  /**
+   * Flag to enable calculating duration-to-progress in {@code MetadataRenderer}.
+   *
+   * <p>When enabled along with {@link #FLAG_DYNAMIC_SCHEDULING}, {@code MetadataRenderer} returns
+   * duration-to-progress aligned with when its next metadata sample can be read or output.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO(b/584185894): Remove this flag.
+  public static final int FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS = 17;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 18;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -347,6 +360,7 @@ public final class Flags {
     STATIC_FLAG_STATES.put(FLAG_PLAY_PAUSE_AUDIO_TRACK_ON_INIT, false);
     STATIC_FLAG_STATES.put(FLAG_IMAGE_READER_PLACEHOLDER_SURFACE, false);
     STATIC_FLAG_STATES.put(FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS, false);
+    STATIC_FLAG_STATES.put(FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS, false);
 
     // Statically enabled flags (kept as fallback for opt-out).
     STATIC_FLAG_STATES.put(FLAG_DYNAMIC_SCHEDULING, true);
