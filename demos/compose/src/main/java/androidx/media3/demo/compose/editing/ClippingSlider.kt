@@ -284,11 +284,7 @@ private fun ClippingSlider(
 ) {
   val currentOnClippingRangeChange by rememberUpdatedState(onClippingRangeChange)
 
-  LaunchedEffect(state) {
-    state.observe(
-      onClippingRangeChange = { currentOnClippingRangeChange?.invoke(state.clippingRangeMs) }
-    )
-  }
+  LaunchedEffect(state) { state.observe() }
 
   LaunchedEffect(state.isUserInteracting, state.minClippedDurationMs, state.durationMs) {
     if (state.isUserInteracting) return@LaunchedEffect
@@ -316,6 +312,10 @@ private fun ClippingSlider(
     ClippingRangeSlider(
       rangeSliderState = state.rangeSliderState,
       bitmaps = bitmaps,
+      onValueChange = { proposedSliderRange ->
+        state.onRangeSliderValueChange(proposedSliderRange)
+        onClippingRangeChange?.invoke(state.clippingRangeMs)
+      },
       modifier = Modifier.fillMaxSize(),
       enabled = state.changingProgressEnabled && state.durationMs > 0,
       onValueChangeFinished = {
@@ -415,6 +415,9 @@ private fun InactiveTrackFilter(
  *   frames asynchronously, pass a fixed-size list upfront using placeholder bitmaps and update
  *   elements as frames load). If this list is empty, the [ClippingSlider] component will render an
  *   empty [Box] instead.
+ * @param onValueChange A callback that is invoked continuously as the user moves a clipping thumb,
+ *   with the proposed range of the thumbs as fractions (0.0 to 1.0) of the slider track. The
+ *   callback is responsible for updating [rangeSliderState].
  * @param modifier The [Modifier] to be applied to this composable.
  * @param enabled Whether interaction with the range slider is enabled.
  * @param onValueChangeFinished An optional callback that is invoked when the user has finished
@@ -434,6 +437,7 @@ private fun InactiveTrackFilter(
 private fun ClippingRangeSlider(
   rangeSliderState: RangeSliderState,
   bitmaps: ImmutableList<Bitmap>,
+  onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
   modifier: Modifier = Modifier,
   enabled: Boolean = true,
   onValueChangeFinished: (() -> Unit)? = null,
@@ -456,13 +460,7 @@ private fun ClippingRangeSlider(
     )
     RangeSlider(
       state = rangeSliderState,
-      onValueChange = {
-        rangeSliderState.startValue = it.start
-        rangeSliderState.endValue = it.endInclusive
-      },
-      // TODO: b/505719491 - Once the onValueChange callback is added to this stateful overload,
-      // move minRangeDelta clamping logic here instead of observing snapshotFlow in
-      // ClippingSliderState
+      onValueChange = onValueChange,
       modifier = Modifier.fillMaxSize(),
       enabled = enabled,
       onValueChangeFinished = onValueChangeFinished,
@@ -890,12 +888,67 @@ private class ClippingSliderState(
   private var lastChangedBoundaryIsStart = true
   val rangeSliderState = RangeSliderState(startValue = 0f, endValue = 1f)
 
-  fun onRangeSliderValueChangeFinished() {
+  /**
+   * Applies the range proposed by the user moving a clipping thumb to [rangeSliderState], keeping
+   * the clipped duration at least [minClippedDurationMs] by holding back the moved thumb.
+   *
+   * The playback position thumb follows the moved clipping thumb, and the player seeks to it if
+   * it's in scrubbing mode.
+   *
+   * @param proposedSliderRange The range of the clipping thumbs proposed by the [RangeSlider], as
+   *   fractions (0 to 1) of the slider track.
+   */
+  internal fun onRangeSliderValueChange(proposedSliderRange: ClosedFloatingPointRange<Float>) {
+    val startChanged = proposedSliderRange.start != rangeSliderState.startValue
+    val endChanged = proposedSliderRange.endInclusive != rangeSliderState.endValue
+    if (!startChanged && !endChanged) return
+    lastChangedBoundaryIsStart = startChanged
+    // The interaction listener also starts scrubbing, but it runs asynchronously and can lag behind
+    // the first value changes of a drag. Keyboard and accessibility changes don't emit
+    // interactions.
+    startScrubbing()
+
+    var sliderRange = proposedSliderRange
+    val minDelta = calculateMinRangeDelta(minClippedDurationMs, durationMs)
+    val proposedRange = clippingRangeFromSliderRange(proposedSliderRange)
+    if (proposedRange.endInclusive - proposedRange.start < minDelta) {
+      sliderRange =
+        sliderRangeFromClippingRange(
+          if (lastChangedBoundaryIsStart) {
+            (proposedRange.endInclusive - minDelta).coerceAtLeast(0f)..proposedRange.endInclusive
+          } else {
+            proposedRange.start..(proposedRange.start + minDelta).coerceAtMost(1f)
+          }
+        )
+    }
+    if (
+      sliderRange.start == rangeSliderState.startValue &&
+        sliderRange.endInclusive == rangeSliderState.endValue
+    ) {
+      // The moved thumb is held back at the minimum clipped duration.
+      return
+    }
+    rangeSliderState.startValue = sliderRange.start
+    rangeSliderState.endValue = sliderRange.endInclusive
+
+    val currentHandle =
+      if (lastChangedBoundaryIsStart) clippingRange.start else clippingRange.endInclusive
+    if (clippingRange.start < clippingRange.endInclusive) {
+      // Widen the position thumb's range before moving it. SliderState coerces its value into
+      // trackRange, so otherwise the thumb can't follow a boundary moving outwards.
+      updateProgressSliderRange(clippingRange)
+      progressSliderState.value = currentHandle
+      // Only seek continuously when scrubbing mode makes frequent seeks cheap. Otherwise, the seek
+      // is deferred to onRangeSliderValueChangeFinished.
+      if (isScrubbing) seekTo(currentHandle)
+    }
+  }
+
+  internal fun onRangeSliderValueChangeFinished() {
     val snapPosition =
       if (lastChangedBoundaryIsStart) clippingRange.start else clippingRange.endInclusive
     seekTo(snapPosition)
     stopScrubbing()
-    updateProgressSliderRange(clippingRange)
     progressSliderState.value = snapPosition
   }
 
@@ -913,7 +966,7 @@ private class ClippingSliderState(
       trackRange = range,
     )
 
-  fun onProgressSliderValueChange(newValue: Float) {
+  internal fun onProgressSliderValueChange(newValue: Float) {
     val coerced =
       if (clippingRange.start < clippingRange.endInclusive) {
         newValue.coerceIn(clippingRange)
@@ -929,7 +982,7 @@ private class ClippingSliderState(
     if (isScrubbing) seekTo(coerced)
   }
 
-  fun onProgressSliderValueChangeFinished() {
+  internal fun onProgressSliderValueChangeFinished() {
     seekTo(progressSliderState.value)
     stopScrubbing()
   }
@@ -1060,7 +1113,7 @@ private class ClippingSliderState(
   /** Converts a fraction (0 to 1) of the total duration into a position in milliseconds. */
   fun progressToPosition(progress: Float) = positionProgressState.progressToPosition(progress)
 
-  fun onDragStarted(isStart: Boolean) {
+  private fun onDragStarted(isStart: Boolean) {
     lastChangedBoundaryIsStart = isStart
     startScrubbing()
   }
@@ -1150,7 +1203,7 @@ private class ClippingSliderState(
     return (start..end) to wasAdjusted
   }
 
-  suspend fun observe(onClippingRangeChange: (() -> Unit)? = null) {
+  suspend fun observe() {
     coroutineScope {
       // Observe Player events (isPlaying, playWhenReady) to keep playback states synchronized.
       launch { playerStateObserver?.observe() }
@@ -1159,11 +1212,6 @@ private class ClippingSliderState(
       launch {
         snapshotFlow { durationMs }.first { it > 0 }
         setClippingRange(initialClippingRangeMs)
-      }
-
-      // Update progress slider state range when clippingRange changes.
-      launch {
-        snapshotFlow { clippingRange }.collect { range -> updateProgressSliderRange(range) }
       }
 
       // Update progress slider state as playback progresses.
@@ -1212,55 +1260,6 @@ private class ClippingSliderState(
         } finally {
           stopScrubbing()
         }
-      }
-
-      // Observe slider movements to enforce minRangeDelta constraints.
-      // TODO: b/505719491 - Potentially migrate to RangeSlider's onValueChange callback
-      //  minRangeDelta clamping logic can be there instead of observing snapshotFlow here.
-      launch {
-        var previousRange = rangeSliderState.startValue..rangeSliderState.endValue
-        snapshotFlow { rangeSliderState.startValue..rangeSliderState.endValue }
-          .collect { currentRange ->
-            if (currentRange.start != previousRange.start) {
-              lastChangedBoundaryIsStart = true
-            } else if (currentRange.endInclusive != previousRange.endInclusive) {
-              lastChangedBoundaryIsStart = false
-            }
-            previousRange = currentRange
-
-            if (isClipping) {
-              val minDelta = calculateMinRangeDelta(minClippedDurationMs, durationMs)
-              val proposedRange = clippingRangeFromSliderRange(currentRange)
-              var start = proposedRange.start
-              var end = proposedRange.endInclusive
-              if (end - start < minDelta) {
-                if (lastChangedBoundaryIsStart) {
-                  start = (end - minDelta).coerceAtLeast(0f)
-                } else {
-                  end = (start + minDelta).coerceAtMost(1f)
-                }
-                val clampedSliderRange = sliderRangeFromClippingRange(start..end)
-                if (rangeSliderState.startValue != clampedSliderRange.start) {
-                  rangeSliderState.startValue = clampedSliderRange.start
-                }
-                if (rangeSliderState.endValue != clampedSliderRange.endInclusive) {
-                  rangeSliderState.endValue = clampedSliderRange.endInclusive
-                }
-              }
-              val currentHandle =
-                if (lastChangedBoundaryIsStart) clippingRange.start else clippingRange.endInclusive
-              if (clippingRange.start < clippingRange.endInclusive) {
-                // Widen the position thumb's range before moving it. SliderState coerces its value
-                // into trackRange, so otherwise the thumb can't follow a boundary moving outwards.
-                updateProgressSliderRange(clippingRange)
-                progressSliderState.value = currentHandle
-                // Only seek continuously when scrubbing mode makes frequent seeks cheap.
-                // Otherwise, the seek is deferred to onRangeSliderValueChangeFinished.
-                if (isScrubbing) seekTo(currentHandle)
-              }
-              onClippingRangeChange?.invoke()
-            }
-          }
       }
 
       // Loop playback back to clipping start when the player reaches or exceeds the clipping end.
