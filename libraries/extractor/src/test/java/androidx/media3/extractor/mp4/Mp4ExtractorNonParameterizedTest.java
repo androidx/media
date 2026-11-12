@@ -16,10 +16,12 @@
 package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
@@ -37,20 +39,26 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Non-parameterized tests for {@link Mp4Extractor}. */
 @RunWith(AndroidJUnit4.class)
 public final class Mp4ExtractorNonParameterizedTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void sniff_reportsUnsupportedBrandsFailure() throws Exception {
@@ -371,6 +379,46 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     // Video track's edit list is ignored: tkhd = 3_738_600 us, mdhd = 3_738_577 us.
     assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(3_738_577L);
+  }
+
+  @Test
+  public void
+      extract_mdhdShorterThanTkhdByMoreThanOneMovieTimescaleTick_fallsBackToTkhdTrackDuration()
+          throws Exception {
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_with_mebx_hagc_track.mp4");
+    int mdhdTypeIndex = Bytes.indexOf(data, "mdhd".getBytes(US_ASCII));
+    // Both tracks have tkhd = 1_003_000 us (movieTimescale = 1_000), mdhd = 1_002_785 us
+    // (11_520 / 11_488), and no edit list. Overwrite the first track's version 0 mdhd duration
+    // with 5_744 (500_000 us at 11_488 Hz), which is shorter than tkhd by more than 1
+    // movieTimescale tick (1_000 us).
+    System.arraycopy(Ints.toByteArray(5_744), 0, data, mdhdTypeIndex + 20, 4);
+    Mp4Extractor mp4Extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(mp4Extractor, data);
+
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(1_003_000L);
+    assertThat(output.trackOutputs.get(1).getDurationUs()).isEqualTo(1_002_785L);
+  }
+
+  @Test
+  public void extract_mdhdShorterThanTkhdWithIgnoreShortMdhdFlagDisabled_prefersMdhdTrackDuration()
+      throws Exception {
+    Flags.disableFlag(Flags.FLAG_IGNORE_SHORT_MP4_MDHD_DURATION);
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_with_mebx_hagc_track.mp4");
+    int mdhdTypeIndex = Bytes.indexOf(data, "mdhd".getBytes(US_ASCII));
+    System.arraycopy(Ints.toByteArray(5_744), 0, data, mdhdTypeIndex + 20, 4);
+    Mp4Extractor mp4Extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(mp4Extractor, data);
+
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(500_000L);
+    assertThat(output.trackOutputs.get(1).getDurationUs()).isEqualTo(1_002_785L);
   }
 
   @Test

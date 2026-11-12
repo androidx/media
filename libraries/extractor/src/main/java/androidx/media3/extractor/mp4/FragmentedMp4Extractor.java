@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static androidx.media3.common.Flags.FLAG_IGNORE_SHORT_MP4_MDHD_DURATION;
+import static androidx.media3.common.Flags.isEnabled;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.nullSafeArrayCopy;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
@@ -71,6 +73,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -874,14 +877,25 @@ public class FragmentedMp4Extractor implements Extractor {
    *
    * <p>If {@code mehd} duration is unset and no edit list is applied to the samples, the {@code
    * mdhd} duration is preferred because it is expressed in the track's own timescale, which is
-   * typically finer than the movie timescale used for the {@code tkhd} duration. Otherwise, {@link
-   * Track#durationUs} (from {@code mehd} or {@code tkhd}) is used.
+   * typically finer than the movie timescale used for the {@code tkhd} duration. However, if {@code
+   * mdhd} is shorter than {@code tkhd} by more than one {@link Track#movieTimescale} tick, {@code
+   * mdhd} is likely under-reported and {@link Track#durationUs} (from {@code tkhd}) is used
+   * instead. Otherwise, {@link Track#durationUs} (from {@code mehd} or {@code tkhd}) is used.
    */
   private static long getTrackDurationUs(Track track, long mehdDuration) {
     if (mehdDuration == C.TIME_UNSET
         && track.editListDurations == null
         && track.mediaDurationUs != C.TIME_UNSET) {
-      return track.mediaDurationUs;
+      if (!isEnabled(FLAG_IGNORE_SHORT_MP4_MDHD_DURATION)
+          || track.durationUs == C.TIME_UNSET
+          || track.movieTimescale <= 0) {
+        return track.mediaDurationUs;
+      }
+      long movieTimescaleTickUs =
+          Util.scaleLargeValue(1, C.MICROS_PER_SECOND, track.movieTimescale, RoundingMode.CEILING);
+      return track.mediaDurationUs >= track.durationUs - movieTimescaleTickUs
+          ? track.mediaDurationUs
+          : track.durationUs;
     }
     return track.durationUs;
   }
