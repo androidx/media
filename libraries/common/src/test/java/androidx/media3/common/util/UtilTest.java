@@ -42,6 +42,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.annotation.Config.NEWEST_SDK;
 
+import android.annotation.SuppressLint;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.media.AudioFormat;
@@ -1918,6 +1919,7 @@ public class UtilTest {
   }
 
   @Test
+  @SuppressLint("Range") // Deliberately testing invalid values
   public void calculateDurationToProgressUs_withNonPositiveSpeed_throwsIllegalArgumentException() {
     assertThrows(
         IllegalArgumentException.class,
