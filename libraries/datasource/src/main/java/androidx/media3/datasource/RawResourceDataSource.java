@@ -77,14 +77,6 @@ public final class RawResourceDataSource extends BaseDataSource {
      * @deprecated Use {@link #RawResourceDataSourceException(String, Throwable, int)}.
      */
     @Deprecated
-    public RawResourceDataSourceException(String message) {
-      super(message, /* cause= */ null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
-    }
-
-    /**
-     * @deprecated Use {@link #RawResourceDataSourceException(String, Throwable, int)}.
-     */
-    @Deprecated
     public RawResourceDataSourceException(Throwable cause) {
       super(cause, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
     }
@@ -220,7 +212,9 @@ public final class RawResourceDataSource extends BaseDataSource {
         throw new RawResourceDataSourceException(
             RAW_RESOURCE_SCHEME
                 + ":// URI must have exactly one path element, found "
-                + pathSegments.size());
+                + pathSegments.size(),
+            /* cause= */ null,
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
       }
     } else if (TextUtils.equals(
         ContentResolver.SCHEME_ANDROID_RESOURCE, normalizedUri.getScheme())) {
