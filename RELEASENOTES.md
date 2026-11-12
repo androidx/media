@@ -19,6 +19,10 @@
         scheduling work and CPU wake-cycles to when metadata samples can be read
         or output. You can enable this using
         `Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS)`.
+    *   Add support for dynamic scheduling in `TextRenderer` to better align
+        scheduling work and CPU wake-cycles to when `CuesWithTiming` subtitle
+        cues change or can be read. You can enable this using
+        `Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS)`.
 *   CompositionPlayer:
 *   Transformer:
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`

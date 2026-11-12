@@ -607,34 +607,6 @@ public class TextRendererTest {
   }
 
   @Test
-  public void
-      getDurationToProgressUs_afterSetCurrentStreamFinalFollowingNonFinalEndOfStream_returnsZero()
-          throws Exception {
-    Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS);
-    byte[] encodedCues = encodeSingleCue("test", /* durationUs= */ 200_000);
-    TextRenderer renderer = new TextRenderer(cueGroup -> {}, /* outputLooper= */ null);
-    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 2_000_000);
-    enableRenderer(
-        renderer,
-        TEXT_FORMAT,
-        ImmutableList.of(
-            sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
-            END_OF_STREAM_ITEM),
-        /* positionUs= */ 0,
-        /* offsetUs= */ 0,
-        timeline);
-    renderer.start();
-    renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
-    renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
-
-    renderer.setCurrentStreamFinal();
-    long durationToProgressUs =
-        renderer.getDurationToProgressUs(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
-
-    assertThat(durationToProgressUs).isEqualTo(0L);
-  }
-
-  @Test
   public void getDurationToProgressUs_withUpcomingCueStartTime_returnsDurationToCueStart()
       throws Exception {
     Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS);
@@ -1140,8 +1112,37 @@ public class TextRendererTest {
   }
 
   @Test
+  public void getDurationToProgressUs_withNonFinalEndOfStream_returnsDefaultDuration()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS);
+    byte[] encodedCues = encodeSingleCue("test", /* durationUs= */ 200_000);
+    TextRenderer renderer = new TextRenderer(cueGroup -> {}, /* outputLooper= */ null);
+    Timeline timeline = createSinglePeriodTimeline(/* durationUs= */ 2_000_000);
+    enableRenderer(
+        renderer,
+        TEXT_FORMAT,
+        ImmutableList.of(
+            sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedCues),
+            END_OF_STREAM_ITEM),
+        /* positionUs= */ 0,
+        /* offsetUs= */ 0,
+        timeline);
+    renderer.start();
+    renderer.render(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
+    // At 1_200_000, non-final EOS is within read-ahead: hasReadStreamToEnd() becomes true.
+    renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+
+    long durationToProgressUs =
+        renderer.getDurationToProgressUs(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.hasReadStreamToEnd()).isTrue();
+    assertThat(renderer.isEnded()).isFalse();
+    assertThat(durationToProgressUs).isEqualTo(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
+  }
+
+  @Test
   public void
-      getDurationToProgressUs_onNonFinalEndOfStreamTransition_returnsZeroThenDurationToStreamEnd()
+      render_afterSetCurrentStreamFinalFollowingNonFinalEndOfStream_consumesEndOfStreamAndEnds()
           throws Exception {
     Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS);
     byte[] encodedCues = encodeSingleCue("test", /* durationUs= */ 200_000);
@@ -1158,18 +1159,13 @@ public class TextRendererTest {
         timeline);
     renderer.start();
     renderer.render(/* positionUs= */ 100_000, /* elapsedRealtimeUs= */ 0);
-
-    // At 1_200_000, non-final EOS is within read-ahead: hasReadStreamToEnd() transitions to true.
+    // Reach withheld non-final end-of-stream within read-ahead.
     renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
-    long durationOnTransitionUs =
-        renderer.getDurationToProgressUs(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
-    renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
-    long durationAfterTransitionUs =
-        renderer.getDurationToProgressUs(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+    renderer.setCurrentStreamFinal();
 
-    assertThat(renderer.hasReadStreamToEnd()).isTrue();
-    assertThat(durationOnTransitionUs).isEqualTo(0L);
-    assertThat(durationAfterTransitionUs).isEqualTo(800_000L);
+    renderer.render(/* positionUs= */ 1_200_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.isEnded()).isTrue();
   }
 
   @Test
