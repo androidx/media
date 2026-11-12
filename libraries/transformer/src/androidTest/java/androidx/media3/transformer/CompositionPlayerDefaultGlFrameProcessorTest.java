@@ -20,12 +20,14 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.PlayerFence.futureWhen;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
 import android.content.Context;
+import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
@@ -43,6 +45,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -88,6 +92,7 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
 
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
   private @MonotonicNonNull SurfaceView surfaceView;
+  private SurfaceHolder.@MonotonicNonNull Callback surfaceCallback;
 
   public CompositionPlayerDefaultGlFrameProcessorTest() {
     instrumentation = InstrumentationRegistry.getInstrumentation();
@@ -105,6 +110,9 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
   @After
   public void releaseResources() {
     instrumentation.runOnMainSync(() -> {
+      if (surfaceView != null && surfaceCallback != null) {
+        surfaceView.getHolder().removeCallback(surfaceCallback);
+      }
       if (compositionPlayer != null) {
         compositionPlayer.release();
       }
@@ -165,6 +173,59 @@ public final class CompositionPlayerDefaultGlFrameProcessorTest {
       compositionPlayer.play();
     });
     endedAfterPlayFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
+  }
+
+  @Test
+  public void compositionPlayer_setVideoSurfaceViewOnEverySurfaceChange_outputsAllFrames()
+      throws Exception {
+    // A 500 ms clip of a 60 fps video.
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(500).build())
+                    .build())
+            .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+    SettableFuture<Void> endedFuture = SettableFuture.create();
+    Set<Long> videoTimestamps = ConcurrentHashMap.newKeySet();
+    // Simulates an app that sets the video output again whenever the surface changes. Setting the
+    // composition also sets the video output again, but releases the underlying players, which can
+    // time out on slow devices.
+    surfaceCallback =
+        new SurfaceHolder.Callback() {
+          @Override
+          public void surfaceCreated(SurfaceHolder holder) {}
+
+          @Override
+          public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            checkNotNull(compositionPlayer).setVideoSurfaceView(surfaceView);
+          }
+
+          @Override
+          public void surfaceDestroyed(SurfaceHolder holder) {}
+        };
+
+    instrumentation.runOnMainSync(() -> {
+      compositionPlayer = createCompositionPlayer();
+      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
+      compositionPlayer.setVideoFrameMetadataListener(
+          (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+              videoTimestamps.add(presentationTimeUs));
+      checkNotNull(surfaceView).getHolder().addCallback(surfaceCallback);
+      compositionPlayer.setVideoSurfaceView(surfaceView);
+      compositionPlayer.setComposition(composition);
+      compositionPlayer.prepare();
+      compositionPlayer.play();
+    });
+    endedFuture.get(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(videoTimestamps).hasSize(30);
   }
 
   @SdkSuppress(minSdkVersion = 34)

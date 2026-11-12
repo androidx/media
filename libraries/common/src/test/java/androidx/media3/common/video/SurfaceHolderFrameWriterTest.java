@@ -24,6 +24,7 @@ import android.graphics.ImageFormat;
 import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.view.SurfaceHolder;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -38,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -343,6 +345,32 @@ public final class SurfaceHolderFrameWriterTest {
     frameWriter.signalEndOfStream();
 
     assertThat(onEnded.get()).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = 33) // Robolectric's ImageWriter.newInstance() fails below API 33.
+  public void setSurfaceHolder_sameHolderAfterConfigure_doesNotTriggerSurfaceChanged() {
+    frameWriter.configure(DEFAULT_FORMAT, /* usage= */ 0);
+    shadowOf(callbackThread.getLooper()).idle();
+    AtomicInteger surfaceChangedCount = new AtomicInteger();
+    surfaceHolder.addCallback(
+        new SurfaceHolder.Callback() {
+          @Override
+          public void surfaceCreated(SurfaceHolder holder) {}
+
+          @Override
+          public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            surfaceChangedCount.incrementAndGet();
+          }
+
+          @Override
+          public void surfaceDestroyed(SurfaceHolder holder) {}
+        });
+
+    frameWriter.setSurfaceHolder(surfaceHolder);
+    shadowOf(callbackThread.getLooper()).idle();
+
+    assertThat(surfaceChangedCount.get()).isEqualTo(0);
   }
 
   @Test

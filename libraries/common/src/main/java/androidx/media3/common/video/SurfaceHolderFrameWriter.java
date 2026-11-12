@@ -206,10 +206,17 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   /**
    * Sets the {@link SurfaceHolder} to which frames will be written.
    *
+   * <p>Setting the {@link SurfaceHolder} that is already in use has no effect.
+   *
    * @param surfaceHolder The {@link SurfaceHolder}, or {@code null} to clear the output.
    */
   public void setSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
     synchronized (lock) {
+      if (surfaceHolder == this.surfaceHolder) {
+        // Resetting the same holder would close the ImageWriter and resize the surface, which
+        // triggers surfaceChanged() callbacks for all the holder's listeners.
+        return;
+      }
       if (this.surfaceHolder != null) {
         this.surfaceHolder.removeCallback(this);
       }
