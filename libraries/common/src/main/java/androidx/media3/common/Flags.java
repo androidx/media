@@ -128,6 +128,7 @@ public final class Flags {
    *   <li>{@link #FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS}
    *   <li>{@link #FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED}
    *   <li>{@link #FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS}
+   *   <li>{@link #FLAG_IGNORE_SHORT_MP4_MDHD_DURATION}
    * </ul>
    */
   @Documented
@@ -153,6 +154,7 @@ public final class Flags {
         FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS,
         FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED,
         FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS,
+        FLAG_IGNORE_SHORT_MP4_MDHD_DURATION,
       })
   public @interface Flag {}
 
@@ -346,7 +348,18 @@ public final class Flags {
   @ExperimentalApi // TODO(b/584185894): Remove this flag.
   public static final int FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS = 17;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 18;
+  /**
+   * Flag to ignore an MP4 {@code mdhd} duration that is shorter than the {@code tkhd} duration by
+   * more than one movie-timescale tick.
+   *
+   * <p>When enabled, {@code Mp4Extractor} and {@code FragmentedMp4Extractor} fall back to the
+   * {@code tkhd} track duration when an unedited track's {@code mdhd} duration is shorter than
+   * {@code tkhd} by more than one {@code mvhd} timescale tick.
+   */
+  @ExperimentalApi // TODO(b/582815028): Remove this flag (earliest cleanup: 2027-01-10).
+  public static final int FLAG_IGNORE_SHORT_MP4_MDHD_DURATION = 18;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 19;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

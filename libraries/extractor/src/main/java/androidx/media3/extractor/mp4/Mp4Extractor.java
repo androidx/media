@@ -19,6 +19,8 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
+import static androidx.media3.common.Flags.FLAG_IGNORE_SHORT_MP4_MDHD_DURATION;
+import static androidx.media3.common.Flags.isEnabled;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
@@ -71,6 +73,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -837,12 +840,23 @@ public final class Mp4Extractor implements Extractor {
    *
    * <p>If no edit list is applied to the samples, the {@code mdhd} duration is preferred because it
    * is expressed in the track's own timescale, which is typically finer than the movie timescale
-   * used for the {@code tkhd} duration. If an edit list is applied, the {@code tkhd} duration
-   * reflects the edited presentation duration and is used instead.
+   * used for the {@code tkhd} duration. However, if {@code mdhd} is shorter than {@code tkhd} by
+   * more than one {@link Track#movieTimescale} tick, {@code mdhd} is likely under-reported and
+   * {@link Track#durationUs} (from {@code tkhd}) is used instead. If an edit list is applied, the
+   * {@code tkhd} duration reflects the edited presentation duration and is used instead.
    */
   private static long getTrackDurationUs(Track track, TrackSampleTable trackSampleTable) {
     if (track.editListDurations == null && track.mediaDurationUs != C.TIME_UNSET) {
-      return track.mediaDurationUs;
+      if (!isEnabled(FLAG_IGNORE_SHORT_MP4_MDHD_DURATION)
+          || track.durationUs == C.TIME_UNSET
+          || track.movieTimescale <= 0) {
+        return track.mediaDurationUs;
+      }
+      long movieTimescaleTickUs =
+          Util.scaleLargeValue(1, C.MICROS_PER_SECOND, track.movieTimescale, RoundingMode.CEILING);
+      return track.mediaDurationUs >= track.durationUs - movieTimescaleTickUs
+          ? track.mediaDurationUs
+          : track.durationUs;
     }
     return track.durationUs != C.TIME_UNSET ? track.durationUs : trackSampleTable.durationUs;
   }
