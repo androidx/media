@@ -35,6 +35,8 @@ import androidx.media3.ui.compose.state.rememberCuesState
  * This view observes cue changes from the [Player] using [rememberCuesState].
  *
  * Text cues are styled using the user's system caption preferences (see [CaptioningManager]).
+ * Styling embedded in the cue text (for example colors, bold or underline) is applied on top of the
+ * caption style.
  *
  * This component currently only supports horizontal text and bitmap cues, support for vertical text
  * cues will be added later.
