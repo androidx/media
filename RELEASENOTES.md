@@ -78,6 +78,10 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix playback failure for multivariant playlists that declare a
+        non-positive `FRAME-RATE` (for example `FRAME-RATE=0.000`), which are
+        now parsed as having an unknown frame rate
+        ([#3540](https://github.com/androidx/media/issues/3540)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
