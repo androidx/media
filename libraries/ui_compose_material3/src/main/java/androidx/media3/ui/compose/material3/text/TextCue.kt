@@ -16,8 +16,7 @@
 
 package androidx.media3.ui.compose.material3.text
 
-import android.text.Layout.Alignment.ALIGN_NORMAL
-import android.text.Layout.Alignment.ALIGN_OPPOSITE
+import android.text.Spanned
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
@@ -41,12 +40,16 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
@@ -57,6 +60,7 @@ import androidx.media3.common.text.CueUtil
 import androidx.media3.common.text.SubtitleStyle
 import androidx.media3.common.util.Log
 import kotlin.math.roundToInt
+import kotlin.math.tan
 
 private const val TAG = "TextCue"
 
@@ -99,15 +103,34 @@ internal fun TextCue(
   var textLayoutResult by remember(cue) { mutableStateOf<TextLayoutResult?>(null) }
   val edgeSizePx = with(density) { EDGE_SIZE.toPx() }
   val windowColor = if (cue.windowColorSet) cue.windowColor else subtitleStyle.windowColor
-  val fontFamily =
-    remember(subtitleStyle.typeface) { subtitleStyle.typeface?.let { FontFamily(it) } }
+  val fontFamily = remember(subtitleStyle.typeface) { subtitleStyle.typeface?.toFontFamily() }
+  // TODO(b/580248271): Wrap bidirectional text with BidiUtils, as in SubtitlePainter.
+  val annotatedText =
+    remember(text, density) {
+      if (text is Spanned) {
+        text.toAnnotatedString(density)
+      } else {
+        AnnotatedString(text.toString())
+      }
+    }
+  // Span colors would override the edge color, so outlines are drawn from a copy without them (as
+  // in SubtitlePainter) and re-measured with measureLike.
+  // TODO(b/574542929): Pass a ColorFilter to drawText instead once DrawScope.drawText supports it.
+  val outlineText =
+    remember(annotatedText, subtitleStyle.edgeType) {
+      if (subtitleStyle.edgeType == SubtitleStyle.EDGE_TYPE_OUTLINE) {
+        annotatedText.withoutSpanColors()
+      } else {
+        annotatedText
+      }
+    }
+  val textMeasurer = rememberTextMeasurer()
 
   Layout(
     modifier = Modifier.offset { IntOffset(viewport.left, viewport.top) },
     content = {
       Text(
-        // TODO(b/374697754): Support conversion of styling spans to Compose AnnotatedString.
-        text = text.toString(),
+        text = annotatedText,
         modifier =
           modifier
             .resizeTextCueBox(cue, viewport.width, density)
@@ -115,7 +138,15 @@ internal fun TextCue(
             .graphicsLayer { alpha = if (textLayoutResult != null) 1f else 0f }
             .background(Color(windowColor))
             .drawBehind {
-              textLayoutResult?.let { drawBackgroundAndEdge(it, subtitleStyle, edgeSizePx) }
+              textLayoutResult?.let { layoutResult ->
+                val outlineLayoutResult =
+                  if (outlineText === annotatedText) {
+                    layoutResult
+                  } else {
+                    textMeasurer.measureLike(layoutResult, outlineText)
+                  }
+                drawBackgroundAndEdge(layoutResult, outlineLayoutResult, subtitleStyle, edgeSizePx)
+              }
             },
         style =
           createTextStyle(
@@ -172,7 +203,13 @@ private fun createTextStyle(
     color = Color(subtitleStyle.foregroundColor),
     fontSize = fontSizeSp,
     fontFamily = fontFamily,
-    textAlign = convertAlignment(cue),
+    textGeometricTransform =
+      if (cue.shearDegrees != 0f) {
+        TextGeometricTransform(skewX = tan(Math.toRadians(cue.shearDegrees.toDouble())).toFloat())
+      } else {
+        null
+      },
+    textAlign = cue.textAlignment?.toTextAlign() ?: TextAlign.Center,
     shadow = createForegroundShadow(subtitleStyle, edgeSizePx),
     // Matches the line heights of SubtitlePainter, whose StaticLayout includes font padding.
     platformStyle = PlatformTextStyle(includeFontPadding = true),
@@ -203,9 +240,13 @@ private fun createForegroundShadow(subtitleStyle: SubtitleStyle, edgeSizePx: Flo
  * Draws the per-line background and, for edge types that need a separate pass, the edge behind the
  * foreground text. Drawing the background here (rather than via [TextStyle.background]) ensures it
  * doesn't cover the edge.
+ *
+ * @param outlineLayoutResult The layout to draw a [SubtitleStyle.EDGE_TYPE_OUTLINE] edge from,
+ *   which mustn't contain span colors.
  */
 private fun DrawScope.drawBackgroundAndEdge(
   layoutResult: TextLayoutResult,
+  outlineLayoutResult: TextLayoutResult,
   subtitleStyle: SubtitleStyle,
   edgeSizePx: Float,
 ) {
@@ -224,7 +265,7 @@ private fun DrawScope.drawBackgroundAndEdge(
   when (subtitleStyle.edgeType) {
     SubtitleStyle.EDGE_TYPE_OUTLINE ->
       drawText(
-        layoutResult,
+        outlineLayoutResult,
         color = Color(subtitleStyle.edgeColor),
         drawStyle = Stroke(width = edgeSizePx, join = StrokeJoin.Round),
       )
@@ -242,6 +283,26 @@ private fun DrawScope.drawBackgroundAndEdge(
     }
     else -> {}
   }
+}
+
+/** Measures [text] with the same style, constraints and density as [layoutResult]. */
+private fun TextMeasurer.measureLike(
+  layoutResult: TextLayoutResult,
+  text: AnnotatedString,
+): TextLayoutResult {
+  val input = layoutResult.layoutInput
+  return measure(
+    text,
+    style = input.style,
+    overflow = input.overflow,
+    softWrap = input.softWrap,
+    maxLines = input.maxLines,
+    placeholders = input.placeholders,
+    constraints = input.constraints,
+    layoutDirection = input.layoutDirection,
+    density = input.density,
+    fontFamilyResolver = input.fontFamilyResolver,
+  )
 }
 
 private fun Modifier.resizeTextCueBox(cue: Cue, viewWidth: Int, density: Density): Modifier {
@@ -302,12 +363,4 @@ private fun getOffset(
   val clampedY = offsetY.coerceIn(0f, maxOffsetY)
 
   return IntOffset(clampedX.roundToInt(), clampedY.roundToInt())
-}
-
-private fun convertAlignment(cue: Cue): TextAlign {
-  return when (cue.textAlignment) {
-    ALIGN_NORMAL -> TextAlign.Start
-    ALIGN_OPPOSITE -> TextAlign.End
-    else -> TextAlign.Center
-  }
 }

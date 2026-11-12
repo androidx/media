@@ -18,6 +18,10 @@ package androidx.media3.ui.compose.material3.text
 
 import android.graphics.Typeface
 import android.text.Layout
+import android.text.SpannableString
+import android.text.style.AlignmentSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,14 +36,21 @@ import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontListFontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntRect
 import androidx.core.graphics.createBitmap
+import androidx.core.text.set
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueUtil
 import androidx.media3.common.text.SubtitleStyle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import kotlin.math.tan
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -452,6 +463,90 @@ class TextCueTest {
   }
 
   @Test
+  fun textCue_withSpannedText_appliesSpanStyles() = runComposeUiTest {
+    val text = SpannableString("Hello")
+    text[0, 5] = ForegroundColorSpan(android.graphics.Color.RED)
+    text[0, 5] = StyleSpan(Typeface.BOLD)
+    val cue = Cue.Builder().setText(text).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000)) }
+
+    val spanStyles = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.text.spanStyles
+    assertThat(spanStyles.map { it.item })
+      .containsExactly(SpanStyle(color = Color.Red), SpanStyle(fontWeight = FontWeight.Bold))
+  }
+
+  @Test
+  fun textCue_withMultiParagraphAlignmentSpan_alignsLinesWithoutExtraBlankLine() =
+    runComposeUiTest {
+      val text = SpannableString("Short\nMuch longer second line")
+      val firstLineWithNewlineLength = "Short\n".length
+      // Include trailing '\n' in the first line's AlignmentSpan (as Html.fromHtml does for <div>).
+      text[0, firstLineWithNewlineLength] = AlignmentSpan.Standard(Layout.Alignment.ALIGN_NORMAL)
+      text[firstLineWithNewlineLength, text.length] =
+        ForegroundColorSpan(android.graphics.Color.YELLOW)
+      val cue = Cue.Builder().setText(text).build()
+
+      setTextCueContent(cue, viewport = IntRect(0, 0, 1000, 1000))
+
+      val layoutResult = onNodeWithText("Short", substring = true).fetchTextLayoutResult()
+      assertThat(layoutResult.lineCount).isEqualTo(2)
+      assertThat(layoutResult.getLineLeft(0)).isWithin(1f).of(0f)
+      assertThat(layoutResult.getLineRight(0)).isLessThan(layoutResult.getLineRight(1))
+      // The '\n' is replaced by the paragraph boundary, so the span shifts back by one.
+      assertThat(layoutResult.layoutInput.text.spanStyles)
+        .containsExactly(
+          AnnotatedString.Range(
+            SpanStyle(color = Color.Yellow),
+            start = firstLineWithNewlineLength - 1,
+            end = text.length - 1,
+          )
+        )
+    }
+
+  @Test
+  fun textCue_withAlignmentSpanOnSecondLineOnly_keepsLineBreak() = runComposeUiTest {
+    val text = SpannableString("Short\nMuch longer second line")
+    text["Short\n".length, text.length] = AlignmentSpan.Standard(Layout.Alignment.ALIGN_OPPOSITE)
+    val cue = Cue.Builder().setText(text).build()
+
+    setTextCueContent(cue, viewport = IntRect(0, 0, 1000, 1000))
+
+    val layoutResult = onNodeWithText("Short", substring = true).fetchTextLayoutResult()
+    assertThat(layoutResult.layoutInput.text.text).isEqualTo("ShortMuch longer second line")
+    assertThat(layoutResult.lineCount).isEqualTo(2)
+    assertThat(layoutResult.getLineEnd(0)).isEqualTo("Short".length)
+  }
+
+  @Test
+  fun textCue_withOutlineEdgeAndSpanColor_keepsSpanColorInText() = runComposeUiTest {
+    val text = SpannableString("Hello")
+    text[0, 5] = ForegroundColorSpan(android.graphics.Color.RED)
+    val cue = Cue.Builder().setText(text).build()
+    val subtitleStyle =
+      SubtitleStyle.Builder()
+        .setEdgeType(SubtitleStyle.EDGE_TYPE_OUTLINE)
+        .setEdgeColor(android.graphics.Color.BLACK)
+        .build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
+
+    val spanStyles = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.text.spanStyles
+    assertThat(spanStyles.map { it.item }).containsExactly(SpanStyle(color = Color.Red))
+  }
+
+  @Test
+  fun textCue_withShearDegrees_appliesSkewX() = runComposeUiTest {
+    val cue = Cue.Builder().setText("Hello").setShearDegrees(-15f).build()
+
+    setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000)) }
+
+    val geometricTransform =
+      onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style.textGeometricTransform
+    assertThat(geometricTransform?.skewX).isWithin(0.001f).of(tan(Math.toRadians(-15.0)).toFloat())
+  }
+
+  @Test
   fun textCue_withDefaultTextSizeFractionAndNoCueTextSize_usesDefaultTextSizeFraction() =
     runComposeUiTest {
       val cue = Cue.Builder().setText("Hello").build()
@@ -480,14 +575,22 @@ class TextCueTest {
   }
 
   @Test
-  fun textCue_withCustomTypeface_appliesFontFamily() = runComposeUiTest {
+  fun textCue_withCustomTypeface_appliesFontFamilyWithStyleVariants() = runComposeUiTest {
     val cue = Cue.Builder().setText("Hello").build()
     val subtitleStyle = SubtitleStyle.Builder().setTypeface(Typeface.SERIF).build()
 
     setContent { TextCue(cue, viewport = IntRect(0, 0, 1000, 1000), subtitleStyle = subtitleStyle) }
 
+    // Bold and italic spans only apply on top of the typeface if it has those variants.
     val style = onNodeWithText("Hello").fetchTextLayoutResult().layoutInput.style
-    assertThat(style.fontFamily).isNotNull()
+    val fonts = (style.fontFamily as FontListFontFamily).fonts
+    assertThat(fonts.map { it.weight to it.style })
+      .containsExactly(
+        FontWeight.Normal to FontStyle.Normal,
+        FontWeight.Bold to FontStyle.Normal,
+        FontWeight.Normal to FontStyle.Italic,
+        FontWeight.Bold to FontStyle.Italic,
+      )
   }
 
   @Test
