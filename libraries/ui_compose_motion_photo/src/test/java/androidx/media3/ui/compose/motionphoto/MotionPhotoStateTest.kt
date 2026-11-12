@@ -23,15 +23,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Metadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.common.Timeline
+import androidx.media3.common.TrackGroup
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.Util.msToUs
+import androidx.media3.extractor.metadata.MotionPhotoMetadata
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.test.utils.createTestTracks
+import androidx.media3.test.utils.createVideoFormat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
@@ -1964,6 +1970,289 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  fun rememberMotionPhotoState_withStartBoundaryPhotoFrameAndMetadata_setsClippingToMetadataTimestampAndOffset() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        )
+
+      setContent {
+        val unused =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
+                startPositionOffsetMs = -50L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(350L)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withStartBoundaryPhotoFrameAtOrBeyondVideoDuration_keepsPhotoVisibleAndPauses() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 1_000_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME),
+          )
+      }
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+
+      // A photo frame beyond the video duration also leaves nothing to play.
+      player.setTracks(
+        createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 1_200_000L)
+      )
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withPlayToPhotoPresetAndPhotoFrameAtStartOfVideo_keepsPhotoVisibleAndPauses() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 0L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig = MotionPhotoConfig.PLAY_TO_PHOTO,
+          )
+      }
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenTracksNoLongerCarryMotionPhotoMetadata_doesNotKeepStalePhotoFrame() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig = MotionPhotoConfig.PLAY_TO_PHOTO,
+          )
+      }
+      waitForIdle()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(400_000L)
+
+      // Populated tracks without the metadata make the photo frame unresolved again, so the photo
+      // stays visible and playback pauses without mutating showPhoto.
+      player.setTracks(createTestTracks(selectedVideoTrackIndex = 0))
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+
+      // Restoring the metadata and then removing COMMAND_GET_TRACKS also resets the cached
+      // timestamp rather than keeping the stale photo frame.
+      player.setTracks(createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L))
+      waitForIdle()
+      assertThat(player.playWhenReady).isTrue()
+
+      player.removeCommands(Player.COMMAND_GET_TRACKS)
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withPlayToPhotoPresetAndMetadata_setsClippingEndToPhotoFrameInUs() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 600_666L),
+        )
+
+      setContent {
+        val unused =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialConfig = MotionPhotoConfig.PLAY_TO_PHOTO,
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionUs).isEqualTo(0L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(600_666L)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withPlayToPhotoPreset_showsPhotoWhenPlaybackEnds() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig = MotionPhotoConfig.PLAY_TO_PHOTO,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(400L)
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+
+      player.setPlaybackState(Player.STATE_ENDED)
+      waitForIdle()
+
+      assertThat(state.showPhoto).isTrue()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenTracksChangeWithMotionPhotoMetadata_updatesClippingConfiguration() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTestTracks(selectedVideoTrackIndex = 0),
+        )
+
+      setContent {
+        val unused =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialConfig =
+              MotionPhotoConfig(startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME),
+          )
+      }
+      waitForIdle()
+      assertThat(player.currentMediaItem).isEqualTo(testMediaItem)
+
+      player.setTracks(createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 320_000L))
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(320L)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withStartAndEndBoundaryAtSamePhotoFrame_keepsPhotoVisibleAndPauses() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
+                endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
+              ),
+          )
+      }
+      waitForIdle()
+
+      assertThat(state.showPhoto).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun config_whenEndBoundaryUpdatedToPhotoFrameAtCurrentPosition_restartsFromStartOfRange() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 600_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+                startPositionOffsetMs = 100L,
+              ),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      // 500ms into the [100ms, 1000ms] range is 600ms in the video, right at the photo frame.
+      player.setPosition(500L)
+
+      state.config = state.config.copy(endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(600_000L)
+      assertThat(player.currentPosition).isEqualTo(0L)
+    }
+
+  @Test
   fun motionPhotoConfig_withInvalidStartBoundaryOrOffset_throwsIllegalArgumentException() {
     assertThrows(IllegalArgumentException::class.java) { MotionPhotoConfig(startBoundary = 0) }
     assertThrows(IllegalArgumentException::class.java) {
@@ -2023,11 +2312,16 @@ class MotionPhotoStateTest {
     assertThat(loopConfig).isNotEqualTo(defaultConfig)
     assertThat(loopConfig.copy(isLooping = false)).isEqualTo(defaultConfig)
 
+    val playToPhotoConfig = MotionPhotoConfig.PLAY_TO_PHOTO
+    assertThat(playToPhotoConfig)
+      .isEqualTo(defaultConfig.copy(endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME))
+    assertThat(playToPhotoConfig).isNotEqualTo(defaultConfig)
+
     val customConfig =
       defaultConfig.copy(
         transitionDurationMs = 350L,
         resumeVideoFromPreviousPosition = true,
-        startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+        startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
         startPositionOffsetMs = -250L,
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
         endPositionOffsetMs = 600L,
@@ -2035,7 +2329,7 @@ class MotionPhotoStateTest {
     assertThat(customConfig.isLooping).isFalse()
     assertThat(customConfig.transitionDurationMs).isEqualTo(350L)
     assertThat(customConfig.resumeVideoFromPreviousPosition).isTrue()
-    assertThat(customConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_END_OF_VIDEO)
+    assertThat(customConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_PHOTO_FRAME)
     assertThat(customConfig.startPositionOffsetMs).isEqualTo(-250L)
     assertThat(customConfig.endBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_START_OF_VIDEO)
     assertThat(customConfig.endPositionOffsetMs).isEqualTo(600L)
@@ -2080,7 +2374,7 @@ class MotionPhotoStateTest {
         MotionPhotoConfig(
             transitionDurationMs = 350L,
             resumeVideoFromPreviousPosition = true,
-            startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+            startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
             startPositionOffsetMs = -250L,
             endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
             endPositionOffsetMs = 600L,
@@ -2092,6 +2386,7 @@ class MotionPhotoStateTest {
   private fun createSeekableFakePlayer(
     durationMs: Long = 1_000L,
     mediaItem: MediaItem = testMediaItem,
+    tracks: Tracks = Tracks.EMPTY,
   ): FakePlayer =
     FakePlayer(
         bufferingDelayMs = 0,
@@ -2100,6 +2395,7 @@ class MotionPhotoStateTest {
             MediaItemData.Builder("motion_photo")
               .setMediaItem(mediaItem)
               .setDurationUs(msToUs(durationMs))
+              .setTracks(tracks)
               .build()
           ),
       )
@@ -2108,4 +2404,42 @@ class MotionPhotoStateTest {
           setOriginalDuration("motion_photo", durationMs)
         }
       }
+
+  /**
+   * Creates tracks shaped like the ones ExoPlayer reports for the output of the JPEG motion photo
+   * extractor: an unselected image track carrying the [MotionPhotoMetadata], which no renderer
+   * supports as it has no sample MIME type, next to the selected video track.
+   */
+  private fun createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs: Long): Tracks =
+    Tracks(
+      listOf(
+        Tracks.Group(
+          TrackGroup(
+            Format.Builder()
+              .setContainerMimeType(MimeTypes.IMAGE_JPEG)
+              .setMetadata(
+                Metadata(
+                  MotionPhotoMetadata(
+                    /* photoStartPosition= */ 0L,
+                    /* photoSize= */ 1_000L,
+                    /* photoPresentationTimestampUs= */ photoPresentationTimestampUs,
+                    /* videoStartPosition= */ 1_000L,
+                    /* videoSize= */ 5_000L,
+                  )
+                )
+              )
+              .build()
+          ),
+          /* adaptiveSupported= */ false,
+          intArrayOf(C.FORMAT_UNSUPPORTED_TYPE),
+          booleanArrayOf(false),
+        ),
+        Tracks.Group(
+          TrackGroup(createVideoFormat(1920, 1080)),
+          /* adaptiveSupported= */ false,
+          intArrayOf(C.FORMAT_HANDLED),
+          booleanArrayOf(true),
+        ),
+      )
+    )
 }

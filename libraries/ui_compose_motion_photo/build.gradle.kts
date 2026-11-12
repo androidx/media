@@ -26,6 +26,7 @@ android {
 dependencies {
   api(project(":lib-common"))
   implementation(project(":lib-common-ktx"))
+  implementation(project(":lib-extractor"))
   implementation(project(":lib-ui-compose"))
 
   api(platform(libs.androidx.compose.bom))
