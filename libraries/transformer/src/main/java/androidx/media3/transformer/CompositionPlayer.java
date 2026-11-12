@@ -1643,7 +1643,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                     }
                   },
                   checkNotNull(playbackThread).getLooper(),
-                  /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+                  // TODO(b/531653682): Move surface pixel format selection into
+                  // HardwareBufferFrameReader.
+                  /* defaultSurfacePixelFormat= */ SDK_INT >= 28
+                      ? ImageFormat.PRIVATE
+                      : ImageFormat.YUV_420_888,
                   imageReaderAdapterFactory,
                   e ->
                       maybeUpdatePlaybackError(

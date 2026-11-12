@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED;
@@ -854,6 +855,30 @@ import org.jspecify.annotations.Nullable;
     @Override
     public @Nullable Timeline getTrackedTimeline() {
       return getTimeline();
+    }
+
+    @Override
+    protected MediaFormat getMediaFormat(
+        Format format,
+        String codecMimeType,
+        CodecMaxValues codecMaxValues,
+        float codecOperatingRate,
+        boolean deviceNeedsNoPostProcessWorkaround,
+        int tunnelingAudioSessionId) {
+      MediaFormat mediaFormat =
+          super.getMediaFormat(
+              format,
+              codecMimeType,
+              codecMaxValues,
+              codecOperatingRate,
+              deviceNeedsNoPostProcessWorkaround,
+              tunnelingAudioSessionId);
+      if (SDK_INT < 28) {
+        // Configure MediaCodec to output a standard YUV420 format to allow readback via
+        // ImageReader.
+        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUV420Flexible);
+      }
+      return mediaFormat;
     }
 
     @Override

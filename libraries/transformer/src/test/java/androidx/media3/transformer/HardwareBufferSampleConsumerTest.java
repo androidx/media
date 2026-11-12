@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
 import android.os.HandlerThread;
 import android.os.Looper;
 import androidx.media3.common.C;
@@ -42,6 +43,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.TestUtil.FakeImageReaderAdapterFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -56,6 +58,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 @RunWith(AndroidJUnit4.class)
 public class HardwareBufferSampleConsumerTest {
@@ -342,6 +345,31 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(receivedFrames).hasSize(1);
     assertThat(receivedFrames.get(0).frame.getMetadata())
         .containsEntry("additionalKey", "additionalValue");
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void registerVideoFrame_belowApi28_outputsImagePlanesFrameWithDisplayTimeNs() {
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+    sampleConsumer.onMediaItemChanged(
+        /* editedMediaItem= */ null,
+        /* durationUs= */ 100_000,
+        /* decodedFormat= */ format,
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    boolean accepted = sampleConsumer.registerVideoFrame(/* presentationTimeUs= */ 33_333);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(accepted).isTrue();
+    assertThat(errorRef.get()).isNull();
+    assertThat(receivedFrames).hasSize(1);
+    AsyncFrame asyncFrame = receivedFrames.get(0);
+    assertThat(asyncFrame.frame).isInstanceOf(ImagePlanesFrame.class);
+    ImagePlanesFrame imagePlanesFrame = (ImagePlanesFrame) asyncFrame.frame;
+    assertThat(getPresentationTimeUs(asyncFrame)).isEqualTo(33_333);
+    assertThat(getDisplayTimeNs(asyncFrame)).isEqualTo(33_333_000L);
+    assertThat(imagePlanesFrame.getFormat().pixelFormat).isEqualTo(ImageFormat.YUV_420_888);
   }
 
   private HardwareBufferSampleConsumer createSampleConsumer(Composition composition) {

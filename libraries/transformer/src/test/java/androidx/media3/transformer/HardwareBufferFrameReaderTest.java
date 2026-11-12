@@ -765,6 +765,52 @@ public class HardwareBufferFrameReaderTest {
     frameReader.release();
   }
 
+  @Test
+  @Config(maxSdk = 27)
+  public void queueFrame_belowApi28_outputsImagePlanesFrameWithYuv420Format() {
+    HardwareBufferFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
+    InputSurface surface = frameReader.createInputSurface();
+
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0L,
+        /* sequenceOffsetUs= */ 0L,
+        /* indexOfItem= */ 0,
+        new Format.Builder().setWidth(16).setHeight(16).build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(receivedFrames).hasSize(1);
+    assertThat(receivedFrames.get(0).frame).isInstanceOf(ImagePlanesFrame.class);
+    ImagePlanesFrame frame = (ImagePlanesFrame) receivedFrames.get(0).frame;
+    assertThat(frame.getFormat().pixelFormat).isEqualTo(ImageFormat.YUV_420_888);
+    assertThat(frame.getPlanes()).hasSize(3);
+    frameReader.release();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void releaseFrame_afterQueueFrameBelowApi28_freesCapacity() {
+    HardwareBufferFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
+    Format inputFormat = new Format.Builder().setWidth(16).setHeight(16).build();
+    InputSurface surface = frameReader.createInputSurface();
+    for (int i = 0; i < CAPACITY; i++) {
+      surface.queueFrame(
+          /* presentationTimeUs= */ i * 33_333L,
+          /* sequenceOffsetUs= */ 0L,
+          /* indexOfItem= */ 0,
+          inputFormat,
+          /* additionalMetadata= */ ImmutableMap.of());
+      shadowOf(handlerThread.getLooper()).idle();
+    }
+
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(surface.canAcceptFrame()).isTrue();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    frameReader.release();
+  }
+
   private HardwareBufferFrameReader createFrameReader(
       ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     EditedMediaItem editedMediaItem =

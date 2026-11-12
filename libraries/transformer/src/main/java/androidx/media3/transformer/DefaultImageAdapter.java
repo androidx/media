@@ -19,6 +19,9 @@ import static android.os.Build.VERSION.SDK_INT;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
+import androidx.media3.common.video.ImagePlanesFrame;
+import com.google.common.collect.ImmutableList;
 import org.jspecify.annotations.Nullable;
 
 /** A default implementation of {@link ImageAdapter} that wraps an {@link Image}. */
@@ -41,6 +44,18 @@ import org.jspecify.annotations.Nullable;
       return image.getHardwareBuffer();
     }
     return null;
+  }
+
+  @Override
+  public ImmutableList<ImagePlanesFrame.Plane> getPlanes() {
+    Image.Plane[] imagePlanes = image.getPlanes();
+    ImmutableList.Builder<ImagePlanesFrame.Plane> planes =
+        ImmutableList.builderWithExpectedSize(imagePlanes.length);
+    for (int i = 0; i < imagePlanes.length; i++) {
+      Image.Plane plane = imagePlanes[i];
+      planes.add(new DefaultPlane(plane.getBuffer(), plane.getRowStride(), plane.getPixelStride()));
+    }
+    return planes.build();
   }
 
   @Override

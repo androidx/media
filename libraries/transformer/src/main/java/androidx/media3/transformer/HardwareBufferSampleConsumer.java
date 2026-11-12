@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -31,6 +32,7 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
 import com.google.common.collect.ImmutableMap;
@@ -118,10 +120,15 @@ import org.jspecify.annotations.Nullable;
             Map<String, Object> updatedMetadata = new HashMap<>(asyncFrame.frame.getMetadata());
             updatedMetadata.put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
             Frame frame =
-                ((DefaultHardwareBufferFrame) asyncFrame.frame)
-                    .buildUpon()
-                    .setMetadata(updatedMetadata)
-                    .build();
+                asyncFrame.frame instanceof ImagePlanesFrame
+                    ? ((ImagePlanesFrame) asyncFrame.frame)
+                        .buildUpon()
+                        .setMetadata(updatedMetadata)
+                        .build()
+                    : ((DefaultHardwareBufferFrame) asyncFrame.frame)
+                        .buildUpon()
+                        .setMetadata(updatedMetadata)
+                        .build();
             asyncFrame = new AsyncFrame(frame, asyncFrame.acquireFence);
           }
           frameConsumer.accept(asyncFrame);
@@ -132,7 +139,11 @@ import org.jspecify.annotations.Nullable;
             sequenceIndex,
             intermediateConsumer,
             playbackLooper,
-            /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+            // TODO(b/531653682): Move surface pixel format selection into
+            // HardwareBufferFrameReader.
+            /* defaultSurfacePixelFormat= */ SDK_INT >= 28
+                ? ImageFormat.PRIVATE
+                : ImageFormat.YUV_420_888,
             imageReaderAdapterFactory,
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
             listenerHandler,

@@ -24,6 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.DataSpace;
 import android.hardware.HardwareBuffer;
@@ -43,6 +44,7 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.ReleaseCallback;
 import androidx.media3.common.video.SyncFenceWrapper;
@@ -348,20 +350,26 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  /** Sets a default {@link ColorInfo} on the given {@link Format}. */
+  /**
+   * Sets a default {@link ColorInfo} (and {@link Format#pixelFormat} below API 28) on the given
+   * {@link Format}.
+   */
   private Format getAdjustedFormat(Format format) {
     if (format.equals(lastFormat)) {
       return checkNotNull(lastAdjustedFormat);
     }
     lastFormat = format;
-    lastAdjustedFormat =
+    Format.Builder formatBuilder =
         format
             .buildUpon()
             .setColorInfo(
                 format.colorInfo == null || !format.colorInfo.isDataSpaceValid()
                     ? ColorInfo.SDR_BT709_LIMITED
-                    : format.colorInfo)
-            .build();
+                    : format.colorInfo);
+    if (SDK_INT < 28) {
+      formatBuilder.setPixelFormat(ImageFormat.YUV_420_888);
+    }
+    lastAdjustedFormat = formatBuilder.build();
     return lastAdjustedFormat;
   }
 
@@ -402,7 +410,6 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  @SuppressWarnings("NewApi")
   private AsyncFrame createAsyncFrameFromImage(
       ImageAdapter image,
       long presentationTimeUs,
@@ -410,9 +417,22 @@ import org.jspecify.annotations.Nullable;
       int indexOfItem,
       Format format,
       ImmutableMap<String, Object> additionalMetadata) {
+    if (SDK_INT < 28) {
+      DefaultImagePlanesFrame frame =
+          new DefaultImagePlanesFrame.Builder(
+                  image.getPlanes(),
+                  resolveFrameFormat(format),
+                  playbackExecutor,
+                  /* releaseCallback= */ releaseFence ->
+                      releaseFrame(image, /* hardwareBuffer= */ null, releaseFence))
+              .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
+              .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
+              .setInternalImage(image.getInternalImage())
+              .build();
+      return new AsyncFrame(frame, /* acquireFence= */ null);
+    }
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
     // AImage_getHardwareBuffer.
-    // TODO(b/531653682): Support frame types not backed by HardwareBuffer.
     HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
     checkState(!hardwareBuffer.isClosed());
     return createAsyncFrame(

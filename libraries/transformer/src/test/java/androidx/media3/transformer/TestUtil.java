@@ -44,7 +44,9 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -459,8 +461,9 @@ public final class TestUtil {
   /**
    * A fake implementation of {@link ImageAdapter} for testing.
    *
-   * <p>This class simply holds a presentation timestamp and an optional {@link HardwareBuffer}
-   * without relying on a real platform {@link android.media.Image}.
+   * <p>This class holds a presentation timestamp and an optional {@link HardwareBuffer}, and
+   * returns 16x16 YUV 4:2:0 {@linkplain #getPlanes() planes} without relying on a real platform
+   * {@link android.media.Image}.
    */
   public static final class FakeImageAdapter implements ImageAdapter {
     private final long timestampNs;
@@ -479,6 +482,17 @@ public final class TestUtil {
     @Override
     public @Nullable HardwareBuffer getHardwareBuffer() {
       return hardwareBuffer;
+    }
+
+    @Override
+    public ImmutableList<ImagePlanesFrame.Plane> getPlanes() {
+      return ImmutableList.of(
+          new DefaultPlane(
+              ByteBuffer.allocateDirect(16 * 16), /* rowStride= */ 16, /* pixelStride= */ 1),
+          new DefaultPlane(
+              ByteBuffer.allocateDirect(8 * 8), /* rowStride= */ 8, /* pixelStride= */ 1),
+          new DefaultPlane(
+              ByteBuffer.allocateDirect(8 * 8), /* rowStride= */ 8, /* pixelStride= */ 1));
     }
 
     @Override

@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
+import androidx.media3.common.video.ImagePlanesFrame;
+import com.google.common.collect.ImmutableList;
 import org.jspecify.annotations.Nullable;
 
 /** An interface that wraps {@link android.media.Image}. */
@@ -29,6 +31,14 @@ import org.jspecify.annotations.Nullable;
    * Returns the {@link HardwareBuffer} associated with this image, or {@code null} if none exists.
    */
   @Nullable HardwareBuffer getHardwareBuffer();
+
+  /**
+   * Returns the {@linkplain ImagePlanesFrame.Plane planes} of this image, or an empty list if the
+   * image is not readable via planes.
+   *
+   * @see Image#getPlanes()
+   */
+  ImmutableList<ImagePlanesFrame.Plane> getPlanes();
 
   /** Returns the underlying platform image object if available, or {@code null}. */
   @Nullable Image getInternalImage();
