@@ -17,7 +17,6 @@ package androidx.media3.muxer;
 
 import static androidx.media3.muxer.MuxerTestUtil.FailingCloseSeekableMuxerOutput.CLOSE_FAILURE_MESSAGE;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -74,8 +73,7 @@ public class WebmMuxerEndToEndTest {
 
     try (WebmMuxer webmMuxer =
         new WebmMuxer.Builder(SeekableMuxerOutput.of(new FileOutputStream(outputPath))).build()) {
-      feedInputDataToMuxer(
-          context, webmMuxer, checkNotNull(testFile.directoryName + testFile.fileName));
+      feedInputDataToMuxer(context, webmMuxer, testFile.directoryName + testFile.fileName);
     }
 
     FakeExtractorOutput fakeExtractorOutput =
