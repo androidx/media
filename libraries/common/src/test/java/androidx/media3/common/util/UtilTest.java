@@ -1008,6 +1008,20 @@ public class UtilTest {
   public void parseXsDuration_returnsParsedDurationInMillis() {
     assertThat(parseXsDuration("PT150.279S")).isEqualTo(150279L);
     assertThat(parseXsDuration("PT1.500S")).isEqualTo(1500L);
+    assertThat(parseXsDuration("PT1.001S")).isEqualTo(1001L);
+    assertThat(parseXsDuration("PT1.013S")).isEqualTo(1013L);
+    assertThat(parseXsDuration("-PT1.013S")).isEqualTo(-1013L);
+    assertThat(parseXsDuration("PT1H2M3.001S")).isEqualTo(3_723_001L);
+
+    assertThat(parseXsDuration("PT1.0006S")).isEqualTo(1000L);
+    assertThat(parseXsDuration("PT1.0004S")).isEqualTo(1000L);
+  }
+
+  @Test
+  public void parseXsDuration_withPlainNumber_returnsHoursAsMillis() {
+    assertThat(parseXsDuration("1.5")).isEqualTo(5_400_000L);
+    assertThat(parseXsDuration("0.011")).isEqualTo(39_600L);
+    assertThat(parseXsDuration("0.019")).isEqualTo(68_400L);
   }
 
   @Test
