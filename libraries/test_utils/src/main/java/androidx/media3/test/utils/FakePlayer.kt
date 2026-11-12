@@ -145,6 +145,22 @@ class FakePlayer(
       .setCurrentMediaItemIndex(startIndex)
   }
 
+  override fun handleReplaceMediaItems(
+    fromIndex: Int,
+    toIndex: Int,
+    mediaItems: MutableList<MediaItem>,
+  ) = handleStateUpdate {
+    require(toIndex - fromIndex == mediaItems.size) {
+      "FakePlayer only supports 1-to-1 item replacement."
+    }
+    val modifiedPlaylist = state.playlist.toMutableList()
+    for (i in mediaItems.indices) {
+      modifiedPlaylist[fromIndex + i] =
+        modifiedPlaylist[fromIndex + i].buildUpon().setMediaItem(mediaItems[i]).build()
+    }
+    setPlaylist(modifiedPlaylist)
+  }
+
   override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: @Player.Command Int) =
     handleStateUpdate {
       if (playbackState != STATE_IDLE) {

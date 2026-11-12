@@ -37,6 +37,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.Util
+import com.google.errorprone.annotations.CanIgnoreReturnValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,11 +47,19 @@ import kotlinx.coroutines.launch
  * Creates and remembers a [MotionPhotoState] for managing Motion Photo playback and visual state.
  *
  * Note: This state holder configures [player] with a single-item playlist containing only
- * [mediaItem] (via [Player.setMediaItem], with a [MediaItem.ClippingConfiguration] reflecting the
- * playback boundaries) and prepares playback. Callers should not modify the [player]'s playlist
- * while it is bound to this state. Changing [mediaItem] creates and remembers a new
- * [MotionPhotoState], resetting [MotionPhotoState.showPhoto] to [initialShowPhoto] and
- * [MotionPhotoState.config] to [initialConfig].
+ * [mediaItem] (via [Player.setMediaItem], updating its [MediaItem.ClippingConfiguration] in place
+ * via [Player.replaceMediaItem] as playback boundaries change) and prepares playback. Callers
+ * should not modify the [player]'s playlist while it is bound to this state. Changing [mediaItem]
+ * creates and remembers a new [MotionPhotoState], resetting [MotionPhotoState.showPhoto] to
+ * [initialShowPhoto] and [MotionPhotoState.config] to [initialConfig].
+ *
+ * The provided [player] must support updating an item's [MediaItem.ClippingConfiguration] in-place
+ * using [Player.replaceMediaItem]. For `ExoPlayer`, this means a `ClippingMediaSource` (with
+ * `ClippingMediaSource.Builder.setEnableClippingInMediaPeriod` enabled) must always be present in
+ * the `MediaSource` chain, even when no clipping is requested. If using
+ * `DefaultMediaSourceFactory`, this can be done using
+ * `DefaultMediaSourceFactory.setEnableClippingInMediaPeriod` and
+ * `DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource`.
  *
  * This state holder also owns [Player.repeatMode] while bound: it is set to
  * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
@@ -96,11 +105,15 @@ fun rememberMotionPhotoState(
  * If the supplied [Player]'s playlist does not already consist solely of [mediaItem] (ignoring its
  * [MediaItem.ClippingConfiguration]), this state holder replaces the playlist via
  * [Player.setMediaItem] so that [mediaItem] is the only item in the playlist, and prepares
- * playback. Playback boundary changes set [mediaItem] again with an updated
- * [MediaItem.ClippingConfiguration], resuming from the current position when only the end changes.
- * The start and end positions of [mediaItem]'s [MediaItem.ClippingConfiguration] are overridden by
- * the resolved boundaries. Callers should not modify the [Player]'s playlist while it is bound to
- * this state.
+ * playback. Playback boundary changes update [mediaItem]'s [MediaItem.ClippingConfiguration] in
+ * place via [Player.replaceMediaItem], keeping the current playback position when only the end
+ * boundary changes (unless the current position is at or beyond the new end) and seeking to the
+ * start position when the start boundary changes. The start and end positions of [mediaItem]'s
+ * [MediaItem.ClippingConfiguration] are overridden by the resolved boundaries. Callers should not
+ * modify the [Player]'s playlist while it is bound to this state.
+ *
+ * The supplied [Player] must support updating an item's [MediaItem.ClippingConfiguration] in-place
+ * using [Player.replaceMediaItem]; see [rememberMotionPhotoState] for how to configure `ExoPlayer`.
  *
  * This state holder also owns [Player.repeatMode] while bound: it is set to
  * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
@@ -169,7 +182,6 @@ internal constructor(
         isPlaybackRangeEmpty = false
         hasRenderedFirstFrame = false
         videoDurationUs = C.TIME_UNSET
-        appliedClippingConfiguration = null
       }
     }
 
@@ -177,7 +189,6 @@ internal constructor(
   private var isPlaybackRangeEmpty by mutableStateOf(false)
   private var hasRenderedFirstFrame by mutableStateOf(false)
   private var videoDurationUs: Long = C.TIME_UNSET
-  private var appliedClippingConfiguration: MediaItem.ClippingConfiguration? = null
 
   private var _showPhoto by mutableStateOf(initialShowPhoto)
 
@@ -226,7 +237,7 @@ internal constructor(
             previousConfig.endBoundary != _config.endBoundary ||
             previousConfig.endPositionOffsetMs != _config.endPositionOffsetMs
         ) {
-          updateClippingConfiguration(currentPlayer)
+          syncMediaItem(currentPlayer)
         }
         when {
           currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping && !_showPhoto ->
@@ -253,40 +264,10 @@ internal constructor(
 
   internal fun bindAndInitialize() {
     val currentPlayer = player ?: return
-    val loadedMediaItem =
-      if (
-        currentPlayer.isCommandAvailable(Player.COMMAND_GET_TIMELINE) &&
-          currentPlayer.mediaItemCount == 1 &&
-          currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
-      ) {
-        currentPlayer.currentMediaItem
-      } else {
-        null
-      }
-    // A player handed over across recompositions or configuration changes may already play
-    // mediaItem with the clipping a previous state applied, so the clipping is ignored in the
-    // comparison and adopted from the player instead of setting the item again.
-    val isMediaItemAlreadyLoaded =
-      loadedMediaItem != null &&
-        loadedMediaItem
-          .buildUpon()
-          .setClippingConfiguration(mediaItem.clippingConfiguration)
-          .build() == mediaItem
-    if (isMediaItemAlreadyLoaded) {
-      appliedClippingConfiguration = loadedMediaItem.clippingConfiguration
-      updateVideoDuration(currentPlayer)
-    }
-    updateClippingConfiguration(currentPlayer, isInitialBind = true)
-    // Without COMMAND_SET_MEDIA_ITEM no new item was set, so an existing error is not stale.
-    syncPlaybackState(
-      currentPlayer,
-      allowPrepareOnError =
-        (!isMediaItemAlreadyLoaded ||
-          loadedMediaItem.clippingConfiguration != appliedClippingConfiguration) &&
-          currentPlayer.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM),
-      isInitialBind = true,
-    )
-    updateClippingConfigurationIfVideoDurationChanged(currentPlayer)
+    updateVideoDuration(currentPlayer)
+    val didUpdateMediaItem = syncMediaItem(currentPlayer)
+    // If no new item or clipping update was applied, an existing error is not stale.
+    syncPlaybackState(currentPlayer, allowPrepareOnError = didUpdateMediaItem, isInitialBind = true)
     updateMotionAvailability(currentPlayer)
   }
 
@@ -322,8 +303,13 @@ internal constructor(
       if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
         syncRepeatMode(this)
       }
-      if (events.contains(Player.EVENT_TIMELINE_CHANGED)) {
-        updateClippingConfigurationIfVideoDurationChanged(this)
+      val didDurationChange =
+        events.containsAny(
+          Player.EVENT_TIMELINE_CHANGED,
+          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+        ) && updateVideoDuration(this)
+      if (didDurationChange || events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
+        syncMediaItem(this)
       }
       if (
         events.contains(Player.EVENT_TRACKS_CHANGED) &&
@@ -444,52 +430,50 @@ internal constructor(
   }
 
   /**
-   * Updates [videoDurationUs] from [currentPlayer] if the duration of the whole video is known.
+   * Returns [currentPlayer]'s current [MediaItem] if its playlist already consists solely of
+   * [mediaItem] (ignoring [MediaItem.clippingConfiguration]), or `null` otherwise.
    *
-   * Once a clipped item is set, [Player.getDuration] only reports the clipped window length, so the
-   * period's original duration is used whenever the player exposes it, and [Player.getDuration] is
-   * only trusted while the player still holds the unclipped [mediaItem].
+   * A player handed over across recompositions or configuration changes may already play
+   * [mediaItem] with the clipping a previous state applied, so the clipping is ignored in the
+   * comparison rather than setting the item from scratch again.
    */
-  private fun updateVideoDuration(currentPlayer: Player) {
-    if (appliedClippingConfiguration == null) {
-      return
-    }
-    var durationMs = C.TIME_UNSET
-    if (currentPlayer.isCommandAvailable(Player.COMMAND_GET_TIMELINE)) {
-      val timeline = currentPlayer.currentTimeline
-      if (!timeline.isEmpty) {
-        val window = timeline.getWindow(currentPlayer.currentMediaItemIndex, Timeline.Window())
-        if (window.firstPeriodIndex == window.lastPeriodIndex) {
-          durationMs =
-            timeline.getPeriod(window.firstPeriodIndex, Timeline.Period()).originalDurationMs
-        }
-      }
-    }
+  private fun getMatchingMediaItemFromPlayer(currentPlayer: Player): MediaItem? {
     if (
-      durationMs == C.TIME_UNSET &&
-        appliedClippingConfiguration == unclippedClippingConfiguration() &&
-        currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+      !currentPlayer.isCommandAvailable(Player.COMMAND_GET_TIMELINE) ||
+        currentPlayer.mediaItemCount != 1 ||
+        !currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
     ) {
-      durationMs = currentPlayer.duration
+      return null
     }
-    if (durationMs != C.TIME_UNSET) {
-      videoDurationUs = Util.msToUs(durationMs)
-    }
+    val currentMediaItem = currentPlayer.currentMediaItem ?: return null
+    val matchesIgnoringClipping =
+      currentMediaItem
+        .buildUpon()
+        .setClippingConfiguration(mediaItem.clippingConfiguration)
+        .build() == mediaItem
+    return if (matchesIgnoringClipping) currentMediaItem else null
   }
 
-  private fun unclippedClippingConfiguration(): MediaItem.ClippingConfiguration =
-    mediaItem.clippingConfiguration
-      .buildUpon()
-      .setStartPositionUs(0L)
-      .setEndPositionUs(C.TIME_END_OF_SOURCE)
-      .build()
-
-  private fun updateClippingConfigurationIfVideoDurationChanged(currentPlayer: Player) {
+  /**
+   * Updates [videoDurationUs] from [currentPlayer] if the duration of the whole video is known (or
+   * resets it to [C.TIME_UNSET] otherwise), and returns whether [videoDurationUs] changed.
+   *
+   * [Timeline.Period.getOriginalDurationMs] is used rather than [Player.getDuration] because
+   * [Player.getDuration] only reports the clipped window length when the item is clipped.
+   */
+  @CanIgnoreReturnValue
+  private fun updateVideoDuration(currentPlayer: Player): Boolean {
     val previousVideoDurationUs = videoDurationUs
-    updateVideoDuration(currentPlayer)
-    if (videoDurationUs != previousVideoDurationUs) {
-      updateClippingConfiguration(currentPlayer)
+    if (getMatchingMediaItemFromPlayer(currentPlayer) == null) {
+      videoDurationUs = C.TIME_UNSET
+      return videoDurationUs != previousVideoDurationUs
     }
+    val timeline = currentPlayer.currentTimeline
+    val window = timeline.getWindow(currentPlayer.currentMediaItemIndex, Timeline.Window())
+    val durationMs =
+      timeline.getPeriod(window.firstPeriodIndex, Timeline.Period()).originalDurationMs
+    videoDurationUs = if (durationMs != C.TIME_UNSET) Util.msToUs(durationMs) else C.TIME_UNSET
+    return videoDurationUs != previousVideoDurationUs
   }
 
   private fun resolveStartPositionUs(): Long {
@@ -528,11 +512,8 @@ internal constructor(
     return baseUs + Util.msToUs(_config.endPositionOffsetMs)
   }
 
-  private fun updateClippingConfiguration(currentPlayer: Player, isInitialBind: Boolean = false) {
-    if (!currentPlayer.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM)) {
-      return
-    }
-    val isInitialSet = appliedClippingConfiguration == null
+  @CanIgnoreReturnValue
+  private fun syncMediaItem(currentPlayer: Player): Boolean {
     val resolvedStartPositionUs = resolveStartPositionUs()
     // A start before the start of the video is clamped to it, as the player would do.
     val startPositionUs =
@@ -545,27 +526,17 @@ internal constructor(
     val isEndOutOfBounds =
       endPositionUs == C.TIME_UNSET ||
         (endPositionUs != C.TIME_END_OF_SOURCE && endPositionUs <= startPositionUs)
+    val loadedMediaItem = getMatchingMediaItemFromPlayer(currentPlayer)
     if (isStartOutOfBounds || isEndOutOfBounds) {
-      // The unclipped item is prepared to learn the video duration. This is also needed when a
-      // position cannot be resolved from an item that is loaded clipped, for example after binding
-      // to a player that does not report the original duration of a clipped period.
-      val unclippedConfiguration = unclippedClippingConfiguration()
-      if (
-        isInitialSet ||
-          ((startPositionUs == C.TIME_UNSET || endPositionUs == C.TIME_UNSET) &&
-            appliedClippingConfiguration != unclippedConfiguration)
-      ) {
-        setMediaItemWithClippingConfiguration(
-          currentPlayer,
-          unclippedConfiguration,
-          isInitialBind = isInitialBind,
-        )
-      }
+      val didUpdateMediaItem =
+        // Ensure mediaItem is set on the player when boundaries cannot be resolved until the
+        // player prepares the item and reports its timeline.
+        loadedMediaItem == null && syncMediaItem(currentPlayer, mediaItem.clippingConfiguration)
       isPlaybackRangeEmpty = true
       if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
         currentPlayer.playWhenReady = false
       }
-      return
+      return didUpdateMediaItem
     }
     val wasPlaybackRangeEmpty = isPlaybackRangeEmpty
     isPlaybackRangeEmpty = false
@@ -577,67 +548,66 @@ internal constructor(
         .setStartPositionUs(startPositionUs)
         .setEndPositionUs(endPositionUs)
         .build()
-    if (clippingConfiguration != appliedClippingConfiguration) {
-      setMediaItemWithClippingConfiguration(
-        currentPlayer,
-        clippingConfiguration,
-        isInitialBind = isInitialBind,
-      )
-    }
+    val didUpdateMediaItem =
+      clippingConfiguration != loadedMediaItem?.clippingConfiguration &&
+        syncMediaItem(currentPlayer, clippingConfiguration)
     if (wasPlaybackRangeEmpty) {
       syncPlaybackState(currentPlayer, allowPrepareOnError = false)
     }
+    return didUpdateMediaItem
   }
 
   /**
-   * Sets [mediaItem] with the given [clippingConfiguration] on [currentPlayer].
+   * Sets [mediaItem] with [clippingConfiguration] on [currentPlayer], or updates its clipping in
+   * place via [Player.replaceMediaItem] if [mediaItem] is already loaded, and returns whether the
+   * item on [currentPlayer] was updated.
    *
-   * A change that keeps the start position resumes from the current position (unless
-   * ([isInitialBind] or [_showPhoto]) is `true` and
-   * [MotionPhotoConfig.resumeVideoFromPreviousPosition] is `false`), while a change of the start
-   * position restarts from the new start. Either way, the still photo covers the video again until
-   * the first frame at the resumed position has rendered (`ContentFrame` covers the surface while
-   * the item is prepared again).
+   * An in-place update that keeps the start position preserves the current playback position
+   * (unless [_showPhoto] is `true` and [MotionPhotoConfig.resumeVideoFromPreviousPosition] is
+   * `false`, or the current position is at or beyond the new end position), while a change of the
+   * start position restarts from the new start.
    */
-  // TODO(b/474538573): Update the clipping in place via Player.replaceMediaItem once
-  // ClippingMediaSource applies clipping changes without re-preparing the item. This also needs an
-  // item prepared without clipping to be wrapped in a ClippingMediaSource (see
-  // DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource).
-  private fun setMediaItemWithClippingConfiguration(
+  private fun syncMediaItem(
     currentPlayer: Player,
     clippingConfiguration: MediaItem.ClippingConfiguration,
-    isInitialBind: Boolean = false,
-  ) {
-    cancelDeferredRewind()
+  ): Boolean {
     val clippedMediaItem =
       mediaItem.buildUpon().setClippingConfiguration(clippingConfiguration).build()
-    val previousClippingConfiguration = appliedClippingConfiguration
-    val rangeDurationUs =
-      if (clippingConfiguration.endPositionUs == C.TIME_END_OF_SOURCE) C.TIME_UNSET
-      else clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs
-    val startPositionMs =
-      if (
-        ((!isInitialBind && !_showPhoto) || _config.resumeVideoFromPreviousPosition) &&
-          previousClippingConfiguration != null &&
-          previousClippingConfiguration.startPositionUs == clippingConfiguration.startPositionUs &&
-          currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
-      ) {
-        val currentPositionMs = currentPlayer.currentPosition
-        // The player would clamp a position at or beyond the new end to that end and report
-        // STATE_ENDED immediately, so restart from the start of the range instead.
-        if (rangeDurationUs != C.TIME_UNSET && Util.msToUs(currentPositionMs) >= rangeDurationUs) {
-          C.TIME_UNSET
-        } else {
-          currentPositionMs
-        }
-      } else {
-        C.TIME_UNSET
+    val loadedMediaItem = getMatchingMediaItemFromPlayer(currentPlayer)
+    if (loadedMediaItem == null) {
+      if (!currentPlayer.isCommandAvailable(Player.COMMAND_SET_MEDIA_ITEM)) {
+        return false
       }
-    // Assigned before setMediaItem so that events delivered for the new item already see the
-    // applied configuration.
-    appliedClippingConfiguration = clippingConfiguration
-    currentPlayer.setMediaItem(clippedMediaItem, startPositionMs)
-    hasRenderedFirstFrame = false
+      cancelDeferredRewind()
+      currentPlayer.setMediaItem(clippedMediaItem)
+      hasRenderedFirstFrame = false
+      return true
+    }
+    if (!currentPlayer.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
+      return false
+    }
+    val previousClippingConfiguration = loadedMediaItem.clippingConfiguration
+    currentPlayer.replaceMediaItem(0, clippedMediaItem)
+    val isCurrentPositionPastEnd =
+      if (
+        previousClippingConfiguration.startPositionUs == clippingConfiguration.startPositionUs &&
+          clippingConfiguration.endPositionUs != C.TIME_END_OF_SOURCE
+      ) {
+        val rangeDurationUs =
+          clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs
+        Util.msToUs(currentPlayer.currentPosition) >= rangeDurationUs
+      } else {
+        false
+      }
+    if (
+      previousClippingConfiguration.startPositionUs != clippingConfiguration.startPositionUs ||
+        (_showPhoto && !_config.resumeVideoFromPreviousPosition) ||
+        isCurrentPositionPastEnd
+    ) {
+      cancelDeferredRewind()
+      seekToStartPosition(currentPlayer)
+    }
+    return true
   }
 
   companion object {
@@ -650,8 +620,9 @@ internal constructor(
 /**
  * Configuration for Motion Photo playback behavior.
  *
- * Playback boundaries are applied through [MediaItem.ClippingConfiguration] and therefore require a
- * [Player] that honors it (`ExoPlayer` does; players that ignore clipping play the whole video).
+ * Playback boundaries are applied through [MediaItem.ClippingConfiguration] via
+ * [Player.setMediaItem] and updated in place via [Player.replaceMediaItem]; see
+ * [rememberMotionPhotoState] for how to configure `ExoPlayer`.
  *
  * @property isLooping Whether the motion video should loop continuously instead of returning to the
  *   still photo when playback reaches the end. If the [Player] supports neither

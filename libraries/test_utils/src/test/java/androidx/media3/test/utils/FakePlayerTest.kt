@@ -67,6 +67,41 @@ class FakePlayerTest {
   }
 
   @Test
+  fun replaceMediaItem_withMatchingRange_updatesMediaItemInPlacePreservingUidAndPeriodData() {
+    val initialItem = MediaItem.fromUri("https://example.com/video.mp4")
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("item_uid")
+              .setMediaItem(initialItem)
+              .setDurationUs(1_000_000L)
+              .build()
+          )
+      )
+    player.setOriginalDuration("item_uid", originalDurationMs = 1_200L)
+    player.setPosition(350L)
+    val replacementItem =
+      initialItem
+        .buildUpon()
+        .setClippingConfiguration(
+          MediaItem.ClippingConfiguration.Builder()
+            .setStartPositionMs(100L)
+            .setEndPositionMs(800L)
+            .build()
+        )
+        .build()
+
+    player.replaceMediaItem(0, replacementItem)
+
+    assertThat(player.currentMediaItem).isEqualTo(replacementItem)
+    assertThat(player.currentTimeline.getWindow(0, Timeline.Window()).uid).isEqualTo("item_uid")
+    assertThat(player.currentTimeline.getPeriod(0, Timeline.Period()).originalDurationUs)
+      .isEqualTo(1_200_000L)
+    assertThat(player.currentPosition).isEqualTo(350L)
+  }
+
+  @Test
   fun setDuration_afterSetMediaItem_updatesDurationByMediaId() {
     val player = FakePlayer()
     player.setMediaItem(MediaItem.Builder().setMediaId("item_id").build())
