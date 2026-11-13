@@ -18,8 +18,11 @@ package androidx.media3.session;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.Process;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import androidx.annotation.IntDef;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -66,20 +69,34 @@ import org.jspecify.annotations.Nullable;
    */
   public static @PackageValidationResult int checkPackageValidity(
       Context context, @Nullable String packageName, int uid) {
-    if (packageName == null) {
+    if (packageName == null || uid < 0) {
       return PACKAGE_INVALID;
+    }
+    if (uid == Process.myUid() && packageName.equals(context.getPackageName())) {
+      return PACKAGE_VALID;
     }
     PackageManager packageManager = context.getPackageManager();
     String[] packagesForUid = packageManager.getPackagesForUid(uid);
-    if (packagesForUid == null || packagesForUid.length == 0) {
-      return PACKAGE_CANT_CHECK;
+    if (packagesForUid != null && packagesForUid.length > 0) {
+      for (String packageForUid : packagesForUid) {
+        if (packageForUid.equals(packageName)) {
+          return PACKAGE_VALID;
+        }
+      }
+      return PACKAGE_INVALID;
     }
-    for (String packageForUid : packagesForUid) {
-      if (packageForUid.equals(packageName)) {
-        return PACKAGE_VALID;
+    if (UserHandle.getUserHandleForUid(uid).equals(Process.myUserHandle())) {
+      try {
+        ApplicationInfo applicationInfo =
+            packageManager.getApplicationInfo(packageName, /* flags= */ 0);
+        return applicationInfo != null && applicationInfo.uid == uid
+            ? PACKAGE_VALID
+            : PACKAGE_INVALID;
+      } catch (PackageManager.NameNotFoundException e) {
+        return PACKAGE_CANT_CHECK;
       }
     }
-    return PACKAGE_INVALID;
+    return PACKAGE_CANT_CHECK;
   }
 
   /**

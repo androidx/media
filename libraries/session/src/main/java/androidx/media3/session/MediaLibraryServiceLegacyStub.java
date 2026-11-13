@@ -390,7 +390,8 @@ import org.jspecify.annotations.Nullable;
         remoteUserInfo,
         ControllerInfo.LEGACY_CONTROLLER_VERSION,
         ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
-        getMediaSessionManager().isTrustedForMediaControl(remoteUserInfo),
+        getMediaSessionManager()
+            .isTrustedForMediaControl(remoteUserInfo, /* isPackageNameVerified= */ true),
         new BrowserLegacyCb(remoteUserInfo),
         /* connectionHints= */ rootHints,
         extractMaxCommandsForMediaItemFromRootHints(rootHints),

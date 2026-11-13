@@ -16,16 +16,24 @@
 package androidx.media3.session;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.NotificationManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.IBinder;
+import android.os.Process;
+import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
 import android.view.KeyEvent;
 import androidx.core.app.NotificationCompat;
@@ -34,6 +42,7 @@ import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
@@ -56,6 +65,7 @@ import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.Shadows;
 import org.robolectric.android.controller.ServiceController;
+import org.robolectric.shadows.ShadowBinder;
 import org.robolectric.shadows.ShadowLooper;
 
 @RunWith(RobolectricTestParameterInjector.class)
@@ -1084,6 +1094,225 @@ public class MediaSessionServiceTest {
     assertThat(service.getSessions()).isEmpty();
     assertThat(Shadows.shadowOf(service).isStoppedBySelf()).isTrue();
     serviceController.destroy();
+  }
+
+  @Test
+  public void
+      legacyStubCreateControllerInfo_unresolvableEnabledNotificationListener_isTrustedAndVerified(
+          @TestParameter boolean isLibrarySession) {
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = createSession(player, isLibrarySession);
+    MediaSessionServiceLegacyStub legacyStub =
+        session
+            .getImpl()
+            .createLegacyBrowserService(
+                session.getImpl().getMediaSessionLegacyStub().getSessionCompat().getSessionToken());
+    RemoteUserInfo remoteUserInfo =
+        new RemoteUserInfo(notificationListenerPackage, /* pid= */ 1234, notificationListenerUid);
+
+    MediaSession.ControllerInfo controllerInfo =
+        legacyStub.createControllerInfo(remoteUserInfo, Bundle.EMPTY);
+
+    assertThat(controllerInfo.getPackageName()).isEqualTo(notificationListenerPackage);
+    assertThat(controllerInfo.isPackageNameVerified()).isTrue();
+    assertThat(controllerInfo.isTrusted()).isTrue();
+    legacyStub.onDestroy();
+    session.release();
+    player.release();
+  }
+
+  @Test
+  public void
+      legacyStubCreateControllerInfo_unresolvableEnabledNotificationListenerInDifferentUser_isUntrustedAndVerified(
+          @TestParameter boolean isLibrarySession) {
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = createSession(player, isLibrarySession);
+    MediaSessionServiceLegacyStub legacyStub =
+        session
+            .getImpl()
+            .createLegacyBrowserService(
+                session.getImpl().getMediaSessionLegacyStub().getSessionCompat().getSessionToken());
+    RemoteUserInfo remoteUserInfo =
+        new RemoteUserInfo(notificationListenerPackage, /* pid= */ 1234, otherUserUid);
+
+    MediaSession.ControllerInfo controllerInfo =
+        legacyStub.createControllerInfo(remoteUserInfo, Bundle.EMPTY);
+
+    assertThat(controllerInfo.getPackageName()).isEqualTo(notificationListenerPackage);
+    assertThat(controllerInfo.isPackageNameVerified()).isTrue();
+    assertThat(controllerInfo.isTrusted()).isFalse();
+    legacyStub.onDestroy();
+    session.release();
+    player.release();
+  }
+
+  @Test
+  public void
+      legacyStubCreateControllerInfo_unresolvableNonNotificationListener_isUntrustedAndVerified(
+          @TestParameter boolean isLibrarySession) {
+    int untrustedUid = Process.myUid() == 10303 ? 10304 : 10303;
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = createSession(player, isLibrarySession);
+    MediaSessionServiceLegacyStub legacyStub =
+        session
+            .getImpl()
+            .createLegacyBrowserService(
+                session.getImpl().getMediaSessionLegacyStub().getSessionCompat().getSessionToken());
+    RemoteUserInfo remoteUserInfo =
+        new RemoteUserInfo(
+            /* packageName= */ "com.example.untrusted", /* pid= */ 1234, untrustedUid);
+
+    MediaSession.ControllerInfo controllerInfo =
+        legacyStub.createControllerInfo(remoteUserInfo, Bundle.EMPTY);
+
+    assertThat(controllerInfo.getPackageName()).isEqualTo("com.example.untrusted");
+    assertThat(controllerInfo.isPackageNameVerified()).isTrue();
+    assertThat(controllerInfo.isTrusted()).isFalse();
+    legacyStub.onDestroy();
+    session.release();
+    player.release();
+  }
+
+  @Test
+  public void serviceBinderConnect_fromEnabledNotificationListener_isTrustedAndVerified(
+      @TestParameter boolean isLibrarySession, @TestParameter boolean isApplicationInfoResolvable)
+      throws Exception {
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    if (isApplicationInfoResolvable) {
+      installPackage(notificationListenerPackage, notificationListenerUid);
+    } else {
+      shadowOf(context.getPackageManager())
+          .setPackagesForUid(notificationListenerUid, notificationListenerPackage);
+    }
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = createSession(player, isLibrarySession);
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken())
+            .buildAsync()
+            .get(TIMEOUT_MS, MILLISECONDS);
+    IMediaController caller = controller.getBinder();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.session = session;
+    IBinder serviceIbinder =
+        checkNotNull(service.onBind(new Intent(MediaSessionService.SERVICE_INTERFACE)));
+    IMediaSessionService serviceBinder = IMediaSessionService.Stub.asInterface(serviceIbinder);
+    ShadowBinder.setCallingUid(notificationListenerUid);
+
+    try {
+      serviceBinder.connect(
+          caller,
+          new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ 1234,
+                  /* connectionHints= */ Bundle.EMPTY,
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+    }
+
+    assertThat(service.onGetSessionCallers).hasSize(1);
+    MediaSession.ControllerInfo callerInfo = service.onGetSessionCallers.get(0);
+    assertThat(callerInfo.getPackageName()).isEqualTo(notificationListenerPackage);
+    assertThat(callerInfo.getUid()).isEqualTo(notificationListenerUid);
+    assertThat(callerInfo.isPackageNameVerified()).isTrue();
+    assertThat(callerInfo.isTrusted()).isTrue();
+    controller.release();
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void
+      serviceBinderConnect_fromEnabledNotificationListenerInDifferentUser_isUntrustedAndVerified(
+          @TestParameter boolean isLibrarySession) throws Exception {
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
+    shadowOf(context.getPackageManager())
+        .setPackagesForUid(otherUserUid, notificationListenerPackage);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = createSession(player, isLibrarySession);
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken())
+            .buildAsync()
+            .get(TIMEOUT_MS, MILLISECONDS);
+    IMediaController caller = controller.getBinder();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.session = session;
+    IBinder serviceIbinder =
+        checkNotNull(service.onBind(new Intent(MediaSessionService.SERVICE_INTERFACE)));
+    IMediaSessionService serviceBinder = IMediaSessionService.Stub.asInterface(serviceIbinder);
+    ShadowBinder.setCallingUid(otherUserUid);
+
+    try {
+      serviceBinder.connect(
+          caller,
+          new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ 1234,
+                  /* connectionHints= */ Bundle.EMPTY,
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+    }
+
+    assertThat(service.onGetSessionCallers).hasSize(1);
+    MediaSession.ControllerInfo callerInfo = service.onGetSessionCallers.get(0);
+    assertThat(callerInfo.getPackageName()).isEqualTo(notificationListenerPackage);
+    assertThat(callerInfo.getUid()).isEqualTo(otherUserUid);
+    assertThat(callerInfo.isPackageNameVerified()).isTrue();
+    assertThat(callerInfo.isTrusted()).isFalse();
+    controller.release();
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  private void installPackage(String packageName, int uid) {
+    ApplicationInfo applicationInfo = new ApplicationInfo();
+    applicationInfo.packageName = packageName;
+    applicationInfo.uid = uid;
+    PackageInfo packageInfo = new PackageInfo();
+    packageInfo.packageName = packageName;
+    packageInfo.applicationInfo = applicationInfo;
+    shadowOf(context.getPackageManager()).installPackage(packageInfo);
+  }
+
+  private MediaSession createSession(ExoPlayer player, boolean isLibrarySession) {
+    return isLibrarySession
+        ? new MediaLibraryService.MediaLibrarySession.Builder(
+                context, player, new MediaLibraryService.MediaLibrarySession.Callback() {})
+            .build()
+        : new MediaSession.Builder(context, player).build();
   }
 
   private @Nullable StatusBarNotification getStatusBarNotification(int notificationId) {

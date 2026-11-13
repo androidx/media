@@ -128,7 +128,7 @@ import org.jspecify.annotations.Nullable;
         info,
         ControllerInfo.LEGACY_CONTROLLER_VERSION,
         ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
-        manager.isTrustedForMediaControl(info),
+        manager.isTrustedForMediaControl(info, /* isPackageNameVerified= */ true),
         /* cb= */ null,
         /* connectionHints= */ rootHints,
         extractMaxCommandsForMediaItemFromRootHints(rootHints),

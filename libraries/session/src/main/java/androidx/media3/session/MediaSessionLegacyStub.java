@@ -518,6 +518,7 @@ import org.jspecify.annotations.Nullable;
     SessionCommand command = new SessionCommand(commandName, /* extras= */ Bundle.EMPTY);
     dispatchSessionTaskWithSessionCommand(
         command,
+        /* isPackageNameEnforcedByPlatform= */ false,
         controller -> {
           ListenableFuture<SessionResult> future =
               sessionImpl.onCustomCommandOnHandler(
@@ -547,6 +548,7 @@ import org.jspecify.annotations.Nullable;
     }
     dispatchSessionTaskWithSessionCommand(
         command,
+        /* isPackageNameEnforcedByPlatform= */ true,
         controller ->
             ignoreFuture(
                 sessionImpl.onCustomCommandOnHandler(
@@ -555,16 +557,22 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public boolean onMediaButtonEvent(Intent intent) {
+    RemoteUserInfo remoteUserInfo = checkNotNull(sessionCompat.getCurrentControllerInfo());
+    @Nullable KeyEvent keyEvent = DefaultActionFactory.getKeyEvent(intent);
+    boolean isPackageNameEnforcedByPlatform =
+        SDK_INT >= 33 && keyEvent != null && KeyEvent.isMediaSessionKey(keyEvent.getKeyCode());
+    boolean isPackageNameVerified =
+        isPackageNameVerified(remoteUserInfo, isPackageNameEnforcedByPlatform);
     return sessionImpl.onMediaButtonEvent(
         new ControllerInfo(
-            checkNotNull(sessionCompat.getCurrentControllerInfo()),
+            remoteUserInfo,
             ControllerInfo.LEGACY_CONTROLLER_VERSION,
             ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
-            /* trusted= */ false,
+            sessionManager.isTrustedForMediaControl(remoteUserInfo, isPackageNameVerified),
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
             /* maxCommandsForMediaItems= */ 0,
-            /* isPackageNameVerified= */ SDK_INT >= 33),
+            isPackageNameVerified),
         intent);
   }
 
@@ -586,6 +594,7 @@ import org.jspecify.annotations.Nullable;
             Util.handlePlayPauseButtonAction(
                 sessionImpl.getPlayerWrapper(), sessionImpl.shouldPlayIfSuppressed()),
         remoteUserInfo,
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -595,6 +604,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_PREPARE,
         controller -> sessionImpl.getPlayerWrapper().prepare(),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -655,6 +665,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_PLAY_PAUSE,
         controller -> Util.handlePauseButtonAction(sessionImpl.getPlayerWrapper()),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -664,6 +675,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_STOP,
         controller -> sessionImpl.getPlayerWrapper().stop(),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -673,6 +685,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
         controller -> sessionImpl.getPlayerWrapper().seekTo(pos),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -683,12 +696,14 @@ import org.jspecify.annotations.Nullable;
           COMMAND_SEEK_TO_NEXT,
           controller -> sessionImpl.getPlayerWrapper().seekToNext(),
           sessionCompat.getCurrentControllerInfo(),
+          /* isPackageNameEnforcedByPlatform= */ true,
           /* callOnPlayerInteractionFinished= */ true);
     } else {
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
           controller -> sessionImpl.getPlayerWrapper().seekToNextMediaItem(),
           sessionCompat.getCurrentControllerInfo(),
+          /* isPackageNameEnforcedByPlatform= */ true,
           /* callOnPlayerInteractionFinished= */ true);
     }
   }
@@ -700,12 +715,14 @@ import org.jspecify.annotations.Nullable;
           COMMAND_SEEK_TO_PREVIOUS,
           controller -> sessionImpl.getPlayerWrapper().seekToPrevious(),
           sessionCompat.getCurrentControllerInfo(),
+          /* isPackageNameEnforcedByPlatform= */ true,
           /* callOnPlayerInteractionFinished= */ true);
     } else {
       dispatchSessionTaskWithPlayerCommand(
           COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
           controller -> sessionImpl.getPlayerWrapper().seekToPreviousMediaItem(),
           sessionCompat.getCurrentControllerInfo(),
+          /* isPackageNameEnforcedByPlatform= */ true,
           /* callOnPlayerInteractionFinished= */ true);
     }
   }
@@ -719,6 +736,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_SET_SPEED_AND_PITCH,
         controller -> sessionImpl.getPlayerWrapper().setPlaybackSpeed(speed),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -736,6 +754,7 @@ import org.jspecify.annotations.Nullable;
           playerWrapper.seekToDefaultPosition((int) queueId);
         },
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -745,6 +764,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_SEEK_FORWARD,
         controller -> sessionImpl.getPlayerWrapper().seekForward(),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -754,6 +774,7 @@ import org.jspecify.annotations.Nullable;
         COMMAND_SEEK_BACK,
         controller -> sessionImpl.getPlayerWrapper().seekBack(),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -787,6 +808,7 @@ import org.jspecify.annotations.Nullable;
                 .setRepeatMode(
                     LegacyConversions.convertToRepeatMode(playbackStateCompatRepeatMode)),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -799,6 +821,7 @@ import org.jspecify.annotations.Nullable;
                 .getPlayerWrapper()
                 .setShuffleModeEnabled(LegacyConversions.convertToShuffleModeEnabled(shuffleMode)),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -841,6 +864,7 @@ import org.jspecify.annotations.Nullable;
           }
         },
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ false,
         /* callOnPlayerInteractionFinished= */ true);
   }
 
@@ -863,6 +887,7 @@ import org.jspecify.annotations.Nullable;
             sessionImpl.handleMediaControllerPlayRequest(
                 controller, /* callOnPlayerInteractionFinished= */ true),
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ false);
   }
 
@@ -870,6 +895,7 @@ import org.jspecify.annotations.Nullable;
       @Player.Command int command,
       SessionTask task,
       @Nullable RemoteUserInfo remoteUserInfo,
+      boolean isPackageNameEnforcedByPlatform,
       boolean callOnPlayerInteractionFinished) {
     if (sessionImpl.isReleased()) {
       return;
@@ -881,6 +907,7 @@ import org.jspecify.annotations.Nullable;
     postOrRunOnApplicationHandler(() ->
         handleControllerTaskOnHandler(
             remoteUserInfo,
+            isPackageNameEnforcedByPlatform,
             controller -> {
               if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
                 if (command == COMMAND_PLAY_PAUSE
@@ -936,20 +963,26 @@ import org.jspecify.annotations.Nullable;
           // MediaControllerCompat#setRating doesn't return a value.
           ignoreFuture(sessionImpl.onSetRatingOnHandler(controller, currentItem.mediaId, rating));
         },
-        sessionCompat.getCurrentControllerInfo());
+        sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true);
   }
 
   private void dispatchSessionTaskWithSessionCommand(
-      SessionCommand sessionCommand, SessionTask task) {
+      SessionCommand sessionCommand, boolean isPackageNameEnforcedByPlatform, SessionTask task) {
     dispatchSessionTaskWithSessionCommandInternal(
-        sessionCommand, COMMAND_CODE_CUSTOM, task, sessionCompat.getCurrentControllerInfo());
+        sessionCommand,
+        COMMAND_CODE_CUSTOM,
+        task,
+        sessionCompat.getCurrentControllerInfo(),
+        isPackageNameEnforcedByPlatform);
   }
 
   private void dispatchSessionTaskWithSessionCommandInternal(
       @Nullable SessionCommand sessionCommand,
       @CommandCode int commandCode,
       SessionTask task,
-      @Nullable RemoteUserInfo remoteUserInfo) {
+      @Nullable RemoteUserInfo remoteUserInfo,
+      boolean isPackageNameEnforcedByPlatform) {
     if (remoteUserInfo == null) {
       Log.d(
           TAG,
@@ -960,6 +993,7 @@ import org.jspecify.annotations.Nullable;
     postOrRunOnApplicationHandler(() ->
         handleControllerTaskOnHandler(
             remoteUserInfo,
+            isPackageNameEnforcedByPlatform,
             controller -> {
               if (sessionCommand != null) {
                 if (!connectedControllersManager.isSessionCommandAvailable(
@@ -1015,12 +1049,14 @@ import org.jspecify.annotations.Nullable;
             actualCommand.playerCommand,
             controller -> actualCommand.executePlayerAction(sessionImpl.getPlayerWrapper()),
             sessionCompat.getCurrentControllerInfo(),
+            /* isPackageNameEnforcedByPlatform= */ true,
             /* callOnPlayerInteractionFinished= */ true);
       }
     }
   }
 
-  private void handleControllerTaskOnHandler(RemoteUserInfo remoteUserInfo, SessionTask task) {
+  private void handleControllerTaskOnHandler(
+      RemoteUserInfo remoteUserInfo, boolean isPackageNameEnforcedByPlatform, SessionTask task) {
     if (sessionImpl.isReleased()) {
       return;
     }
@@ -1046,17 +1082,19 @@ import org.jspecify.annotations.Nullable;
     }
 
     // Try connect.
+    boolean isPackageNameVerified =
+        isPackageNameVerified(remoteUserInfo, isPackageNameEnforcedByPlatform);
     ControllerCb controllerCb = new ControllerLegacyCb(remoteUserInfo);
     ControllerInfo newController =
         new ControllerInfo(
             remoteUserInfo,
             ControllerInfo.LEGACY_CONTROLLER_VERSION,
             ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
-            sessionManager.isTrustedForMediaControl(remoteUserInfo),
+            sessionManager.isTrustedForMediaControl(remoteUserInfo, isPackageNameVerified),
             controllerCb,
             /* connectionHints= */ Bundle.EMPTY,
             /* maxCommandsForMediaItems= */ 0,
-            /* isPackageNameVerified= */ SDK_INT >= 33);
+            isPackageNameVerified);
 
     ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
         sessionImpl.onConnectOnHandler(newController);
@@ -1108,6 +1146,18 @@ import org.jspecify.annotations.Nullable;
           }
         },
         this::postOrRunOnApplicationHandler);
+  }
+
+  private boolean isPackageNameVerified(
+      RemoteUserInfo remoteUserInfo, boolean isPackageNameEnforcedByPlatform) {
+    @SessionUtil.PackageValidationResult
+    int packageValidity =
+        SessionUtil.checkPackageValidity(
+            sessionImpl.getContext(), remoteUserInfo.getPackageName(), remoteUserInfo.getUid());
+    return packageValidity == SessionUtil.PACKAGE_VALID
+        || (packageValidity == SessionUtil.PACKAGE_CANT_CHECK
+            && isPackageNameEnforcedByPlatform
+            && SDK_INT >= 33);
   }
 
   public void setLegacyControllerDisconnectTimeoutMs(long timeoutMs) {
@@ -1181,6 +1231,7 @@ import org.jspecify.annotations.Nullable;
               this::postOrRunOnApplicationHandler);
         },
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ true,
         /* callOnPlayerInteractionFinished= */ false);
   }
 
@@ -1230,6 +1281,7 @@ import org.jspecify.annotations.Nullable;
               this::postOrRunOnApplicationHandler);
         },
         sessionCompat.getCurrentControllerInfo(),
+        /* isPackageNameEnforcedByPlatform= */ false,
         /* callOnPlayerInteractionFinished= */ false);
   }
 

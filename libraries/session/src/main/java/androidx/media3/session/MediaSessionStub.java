@@ -739,7 +739,8 @@ import org.jspecify.annotations.Nullable;
           new MediaSessionManager.RemoteUserInfo(packageName, pid, uid);
       boolean isTrustedForMediaControl =
           MediaSessionManager.getSessionManager(sessionImpl.getContext())
-              .isTrustedForMediaControl(remoteUserInfo);
+              .isTrustedForMediaControl(
+                  remoteUserInfo, /* isPackageNameVerified= */ packageValidity == PACKAGE_VALID);
       ControllerInfo controllerInfo =
           new ControllerInfo(
               remoteUserInfo,

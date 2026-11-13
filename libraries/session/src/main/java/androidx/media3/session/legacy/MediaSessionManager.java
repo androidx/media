@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Process;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import androidx.annotation.RequiresApi;
@@ -46,7 +47,7 @@ public final class MediaSessionManager {
   private static final Object lock = new Object();
   private static volatile @Nullable MediaSessionManager sessionManager;
 
-  MediaSessionManagerImpl impl;
+  private final MediaSessionManagerImpl impl;
 
   /**
    * Gets an instance of the media session manager associated with the context.
@@ -69,18 +70,22 @@ public final class MediaSessionManager {
   /**
    * Checks whether the remote user is a trusted app.
    *
-   * <p>An app is trusted if the app holds the android.Manifest.permission.MEDIA_CONTENT_CONTROL or
-   * android.Manifest.permission.EXECUTE_APP_FUNCTIONS (from API 36) permission or has an enabled
-   * notification listener.
+   * <p>An app is trusted if it runs as {@link Process#SYSTEM_UID} or {@link Process#myUid()}, holds
+   * {@code android.permission.STATUS_BAR_SERVICE}, {@code
+   * android.Manifest.permission.MEDIA_CONTENT_CONTROL}, or {@code
+   * android.Manifest.permission.EXECUTE_APP_FUNCTIONS} (from API 36), or has an enabled
+   * notification listener for the current user.
    *
-   * @param userInfo The remote user info from either {@link
-   *     MediaSessionCompat#getCurrentControllerInfo()} and {@link
-   *     MediaBrowserServiceCompat#getCurrentBrowserInfo()}.
-   * @return {@code true} if the remote user is trusted and its package name matches with the UID.
-   *     {@code false} otherwise.
+   * @param userInfo The remote user info of the calling controller.
+   * @param isPackageNameVerified Whether {@link RemoteUserInfo#getPackageName()} has already been
+   *     verified to belong to {@link RemoteUserInfo#getUid()} by the platform or Binder check. If
+   *     {@code true}, this method checks that the UID belongs to the current user instead of
+   *     re-verifying the package name via {@link PackageManager}.
+   * @return {@code true} if the remote user is trusted for the current user; {@code false}
+   *     otherwise.
    */
-  public boolean isTrustedForMediaControl(RemoteUserInfo userInfo) {
-    return impl.isTrustedForMediaControl(userInfo.impl);
+  public boolean isTrustedForMediaControl(RemoteUserInfo userInfo, boolean isPackageNameVerified) {
+    return impl.isTrustedForMediaControl(userInfo.impl, isPackageNameVerified);
   }
 
   interface RemoteUserInfoImpl {
@@ -99,7 +104,7 @@ public final class MediaSessionManager {
    *
    * <p>See {@link #equals(Object)} to take a look at how it differentiate media controller.
    *
-   * @see #isTrustedForMediaControl(RemoteUserInfo)
+   * @see #isTrustedForMediaControl(RemoteUserInfo, boolean)
    */
   public static final class RemoteUserInfo {
     /**
@@ -119,7 +124,8 @@ public final class MediaSessionManager {
     /**
      * Public constructor.
      *
-     * <p>Can be used for {@link MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo)}}.
+     * <p>Can be used for {@link MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo,
+     * boolean)}.
      *
      * @param packageName package name of the remote user
      * @param pid pid of the remote user
@@ -216,7 +222,7 @@ public final class MediaSessionManager {
     }
   }
 
-  private static class MediaSessionManagerImpl {
+  private static final class MediaSessionManagerImpl {
     private static final String TAG = MediaSessionManager.TAG;
 
     private static final String PERMISSION_STATUS_BAR_SERVICE =
@@ -225,15 +231,16 @@ public final class MediaSessionManager {
         "android.permission.MEDIA_CONTENT_CONTROL";
     private static final String ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners";
 
-    Context context;
-    ContentResolver contentResolver;
+    private final Context context;
+    private final ContentResolver contentResolver;
 
-    MediaSessionManagerImpl(Context context) {
+    private MediaSessionManagerImpl(Context context) {
       this.context = context;
       contentResolver = this.context.getContentResolver();
     }
 
-    public boolean isTrustedForMediaControl(MediaSessionManager.RemoteUserInfoImpl userInfo) {
+    private boolean isTrustedForMediaControl(
+        MediaSessionManager.RemoteUserInfoImpl userInfo, boolean isPackageNameVerified) {
       // Don't use framework's isTrustedForMediaControl().
       // In P, framework's isTrustedForMediaControl() checks whether the UID, PID,
       // and package name match. In MediaSession/MediaController, Context#getPackageName() is
@@ -246,22 +253,28 @@ public final class MediaSessionManager {
       String packageName = userInfo.getPackageName();
       int pid = userInfo.getPid();
       int uid = userInfo.getUid();
-      if (SDK_INT < 28 && uid == RemoteUserInfo.UNKNOWN_UID) {
+      if (SDK_INT < 28 && !isPackageNameVerified && uid == RemoteUserInfo.UNKNOWN_UID) {
         // The UID isn't propagated via the framework before API 28, so we need to look it up
         // based on the package name.
         uid = getPackageUid(packageName);
       }
-      if (uid == RemoteUserInfo.UNKNOWN_UID) {
+      if (uid < 0) {
         return false;
       }
       return uid == Process.SYSTEM_UID
           || uid == Process.myUid()
-          || isPermissionGranted(PERMISSION_STATUS_BAR_SERVICE, packageName, pid, uid)
-          || isPermissionGranted(PERMISSION_MEDIA_CONTENT_CONTROL, packageName, pid, uid)
+          || isPermissionGranted(
+              PERMISSION_STATUS_BAR_SERVICE, packageName, pid, uid, isPackageNameVerified)
+          || isPermissionGranted(
+              PERMISSION_MEDIA_CONTENT_CONTROL, packageName, pid, uid, isPackageNameVerified)
           || (SDK_INT >= 36
               && isPermissionGranted(
-                  android.Manifest.permission.EXECUTE_APP_FUNCTIONS, packageName, pid, uid))
-          || isEnabledNotificationListener(packageName, uid);
+                  android.Manifest.permission.EXECUTE_APP_FUNCTIONS,
+                  packageName,
+                  pid,
+                  uid,
+                  isPackageNameVerified))
+          || isEnabledNotificationListener(packageName, uid, isPackageNameVerified);
     }
 
     private int getPackageUid(String packageName) {
@@ -275,12 +288,21 @@ public final class MediaSessionManager {
       }
     }
 
-    private boolean isPermissionGranted(String permission, String packageName, int pid, int uid) {
+    private boolean isPackageNameMatchingUid(
+        String packageName, int uid, boolean isPackageNameVerified) {
+      if (isPackageNameVerified) {
+        return UserHandle.getUserHandleForUid(uid).equals(Process.myUserHandle());
+      }
+      return uid == getPackageUid(packageName);
+    }
+
+    private boolean isPermissionGranted(
+        String permission, String packageName, int pid, int uid, boolean isPackageNameVerified) {
       if (pid < 0) {
         // This may happen for the MediaBrowserServiceCompat#onGetRoot().
         return context.getPackageManager().checkPermission(permission, packageName)
                 == PackageManager.PERMISSION_GRANTED
-            && uid == getPackageUid(packageName);
+            && isPackageNameMatchingUid(packageName, uid, isPackageNameVerified);
       }
       return context.checkPermission(permission, pid, uid) == PackageManager.PERMISSION_GRANTED;
     }
@@ -292,7 +314,8 @@ public final class MediaSessionManager {
      * @return True if the component is enabled, false otherwise
      */
     @SuppressWarnings("StringSplitter")
-    private boolean isEnabledNotificationListener(String packageName, int uid) {
+    private boolean isEnabledNotificationListener(
+        String packageName, int uid, boolean isPackageNameVerified) {
       String enabledNotifListeners =
           Settings.Secure.getString(contentResolver, ENABLED_NOTIFICATION_LISTENERS);
       if (enabledNotifListeners == null) {
@@ -302,7 +325,7 @@ public final class MediaSessionManager {
       for (int i = 0; i < components.length; i++) {
         ComponentName component = ComponentName.unflattenFromString(components[i]);
         if (component != null && component.getPackageName().equals(packageName)) {
-          return uid == getPackageUid(packageName);
+          return isPackageNameMatchingUid(packageName, uid, isPackageNameVerified);
         }
       }
       return false;

@@ -57,6 +57,10 @@
         ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
 *   Session:
+    *   Fix a bug where platform and legacy controllers from apps with
+        notification listener access were marked as untrusted on API 33+ when
+        the controller package wasn't visible to the session app
+        ([#3507](https://github.com/androidx/media/issues/3507)).
 *   UI:
     *   Fix an issue where `PlayerSurface` and `ContentFrame` with
         `SURFACE_TYPE_SURFACE_VIEW` turned surrounding Compose backgrounds black

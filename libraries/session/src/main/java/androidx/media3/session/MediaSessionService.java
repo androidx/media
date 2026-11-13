@@ -1115,7 +1115,7 @@ public abstract class MediaSessionService extends LifecycleService {
           new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
       boolean isTrusted =
           MediaSessionManager.getSessionManager(mediaSessionService.getApplicationContext())
-              .isTrustedForMediaControl(remoteUserInfo);
+              .isTrustedForMediaControl(remoteUserInfo, /* isPackageNameVerified= */ true);
       pendingControllers.add(caller);
       try {
         handler.post(() -> {
