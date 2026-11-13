@@ -163,7 +163,6 @@ import org.jspecify.annotations.Nullable;
 
   private final ConditionVariable constructorFinished;
   private final Context applicationContext;
-  private final Player wrappingPlayer;
   private final Renderer[] renderers;
   private final @Nullable Renderer[] secondaryRenderers;
   private final TrackSelector trackSelector;
@@ -259,7 +258,7 @@ import org.jspecify.annotations.Nullable;
 
   @SuppressLint("HandlerLeak")
   @SuppressWarnings("deprecation") // Control flow for old volume commands
-  public ExoPlayerImpl(ExoPlayer.Builder builder, @Nullable Player wrappingPlayer) {
+  public ExoPlayerImpl(ExoPlayer.Builder builder) {
     constructorFinished = new ConditionVariable();
     try {
       Log.i(
@@ -318,13 +317,12 @@ import org.jspecify.annotations.Nullable;
       this.enforceAdPlaybackOnTimelineRefresh = builder.enforceAdPlaybackOnTimelineRefresh;
       this.applicationLooper = builder.looper;
       this.clock = builder.clock;
-      this.wrappingPlayer = wrappingPlayer == null ? this : wrappingPlayer;
       this.lastReturnedPositionUs = C.TIME_UNSET;
       listeners =
           new ListenerSet<>(
               applicationLooper,
               clock,
-              (listener, flags) -> listener.onEvents(this.wrappingPlayer, new Events(flags)));
+              (listener, flags) -> listener.onEvents(/* player= */ this, new Events(flags)));
       audioOffloadListeners = new CopyOnWriteArraySet<>();
       mediaSourceHolderSnapshots = new ArrayList<>();
       shuffleOrder = new ShuffleOrder.DefaultShuffleOrder(/* length= */ 0);
@@ -378,7 +376,7 @@ import org.jspecify.annotations.Nullable;
           playbackInfoUpdate ->
               playbackInfoUpdateHandler.post(() -> handlePlaybackInfo(playbackInfoUpdate));
       playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
-      analyticsCollector.setPlayer(this.wrappingPlayer, applicationLooper);
+      analyticsCollector.setPlayer(/* player= */ this, applicationLooper);
       PlayerId playerId = new PlayerId(builder.playerName);
       internalPlayer =
           new ExoPlayerImplInternal(
@@ -2647,7 +2645,7 @@ import org.jspecify.annotations.Nullable;
 
   private void updateAvailableCommands() {
     Commands previousAvailableCommands = availableCommands;
-    availableCommands = Util.getAvailableCommands(wrappingPlayer, permanentAvailableCommands);
+    availableCommands = Util.getAvailableCommands(/* player= */ this, permanentAvailableCommands);
     if (!availableCommands.equals(previousAvailableCommands)) {
       listeners.queueEvent(
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,

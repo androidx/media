@@ -1280,14 +1280,7 @@ public interface ExoPlayer extends Player {
     public ExoPlayer build() {
       checkState(!buildCalled);
       buildCalled = true;
-      return new ExoPlayerImpl(/* builder= */ this, /* wrappingPlayer= */ null);
-    }
-
-    @SuppressWarnings("deprecation") // Building deprecated class.
-    /* package */ SimpleExoPlayer buildSimpleExoPlayer() {
-      checkState(!buildCalled);
-      buildCalled = true;
-      return new SimpleExoPlayer(/* builder= */ this);
+      return new ExoPlayerImpl(/* builder= */ this);
     }
   }
 

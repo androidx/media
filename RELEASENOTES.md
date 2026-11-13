@@ -99,6 +99,10 @@
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
+    *   Remove `androidx.media3.exoplayer.SimpleExoPlayer` and
+        `androidx.media3.exoplayer.SimpleExoPlayer.Builder`. Use
+        `androidx.media3.exoplayer.ExoPlayer` and
+        `androidx.media3.exoplayer.ExoPlayer.Builder` instead.
     *   Remove `androidx.media3.session.BitmapLoader`. Use
         `androidx.media3.common.util.BitmapLoader` instead.
     *   Remove `BaseMediaSource.createEventDispatcher(MediaPeriodId, long)`. Use
