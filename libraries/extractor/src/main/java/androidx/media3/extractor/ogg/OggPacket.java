@@ -29,9 +29,11 @@ import java.util.Arrays;
 /** OGG packet class. */
 /* package */ final class OggPacket {
 
+  private static final int MIN_PACKET_BUFFER_LENGTH = 4096;
+
   private final OggPageHeader pageHeader = new OggPageHeader();
   private final ParsableByteArray packetArray =
-      new ParsableByteArray(new byte[OggPageHeader.MAX_PAGE_PAYLOAD], 0);
+      new ParsableByteArray(new byte[MIN_PACKET_BUFFER_LENGTH], 0);
 
   private int currentSegmentIndex = C.INDEX_UNSET;
   private int segmentCount;
@@ -94,7 +96,10 @@ import java.util.Arrays;
       int size = calculatePacketSize(currentSegmentIndex);
       int segmentIndex = currentSegmentIndex + segmentCount;
       if (size > 0) {
-        packetArray.ensureCapacity(packetArray.limit() + size);
+        int requiredCapacity = packetArray.limit() + size;
+        if (requiredCapacity > packetArray.capacity()) {
+          packetArray.ensureCapacity(max(packetArray.capacity() * 2, requiredCapacity));
+        }
         if (!readFullyQuietly(input, packetArray.getData(), packetArray.limit(), size)) {
           return false;
         }
@@ -147,13 +152,16 @@ import java.util.Arrays;
 
   /** Trims the packet data array. */
   public void trimPayload() {
-    if (packetArray.getData().length == OggPageHeader.MAX_PAGE_PAYLOAD) {
+    int currentLength = packetArray.getData().length;
+    if (currentLength <= MIN_PACKET_BUFFER_LENGTH) {
+      return;
+    }
+    int targetLength = max(MIN_PACKET_BUFFER_LENGTH, packetArray.limit());
+    if (currentLength == targetLength) {
       return;
     }
     packetArray.reset(
-        Arrays.copyOf(
-            packetArray.getData(), max(OggPageHeader.MAX_PAGE_PAYLOAD, packetArray.limit())),
-        /* limit= */ packetArray.limit());
+        Arrays.copyOf(packetArray.getData(), targetLength), /* limit= */ packetArray.limit());
   }
 
   /** Returns whether the populated packet is the last packet completed in the current page. */
