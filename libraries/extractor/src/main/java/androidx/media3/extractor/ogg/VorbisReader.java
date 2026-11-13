@@ -35,7 +35,7 @@ import org.jspecify.annotations.Nullable;
 /** {@link StreamReader} to extract Vorbis data out of Ogg byte stream. */
 /* package */ final class VorbisReader extends StreamReader {
 
-  private @Nullable VorbisSetup vorbisSetup;
+  @VisibleForTesting /* package */ @Nullable VorbisSetup vorbisSetup;
   private int previousPacketBlockSize;
   private boolean seenFirstAudioPacket;
 
@@ -115,7 +115,7 @@ import org.jspecify.annotations.Nullable;
 
     @Nullable Metadata metadata =
         androidx.media3.extractor.VorbisUtil.parseVorbisComments(
-            ImmutableList.copyOf(vorbisSetup.commentHeader.comments));
+            ImmutableList.copyOf(checkNotNull(vorbisSetup.commentHeader).comments));
 
     setupData.format =
         new Format.Builder()
@@ -128,6 +128,14 @@ import org.jspecify.annotations.Nullable;
             .setInitializationData(codecInitializationData)
             .setMetadata(metadata)
             .build();
+
+    commentHeader = null;
+    this.vorbisSetup =
+        new VorbisSetup(
+            vorbisSetup.idHeader,
+            /* commentHeader= */ null,
+            vorbisSetup.setupHeaderData,
+            vorbisSetup.modes);
     return true;
   }
 
@@ -153,10 +161,8 @@ import org.jspecify.annotations.Nullable;
     System.arraycopy(scratch.getData(), 0, setupHeaderData, 0, scratch.limit());
     // partially decode setup header to get the modes
     Mode[] modes = VorbisUtil.readVorbisModes(scratch, vorbisIdHeader.channels);
-    // we need the ilog of modes all the time when extracting, so we compute it once
-    int iLogModes = VorbisUtil.iLog(modes.length - 1);
 
-    return new VorbisSetup(vorbisIdHeader, commentHeader, setupHeaderData, modes, iLogModes);
+    return new VorbisSetup(vorbisIdHeader, commentHeader, setupHeaderData, modes);
   }
 
   @VisibleForTesting
@@ -180,22 +186,19 @@ import org.jspecify.annotations.Nullable;
   /* package */ static final class VorbisSetup {
 
     public final VorbisUtil.VorbisIdHeader idHeader;
-    public final VorbisUtil.CommentHeader commentHeader;
+    public final VorbisUtil.@Nullable CommentHeader commentHeader;
     public final byte[] setupHeaderData;
     public final Mode[] modes;
-    public final int iLogModes;
 
     public VorbisSetup(
         VorbisUtil.VorbisIdHeader idHeader,
-        VorbisUtil.CommentHeader commentHeader,
+        VorbisUtil.@Nullable CommentHeader commentHeader,
         byte[] setupHeaderData,
-        Mode[] modes,
-        int iLogModes) {
+        Mode[] modes) {
       this.idHeader = idHeader;
       this.commentHeader = commentHeader;
       this.setupHeaderData = setupHeaderData;
       this.modes = modes;
-      this.iLogModes = iLogModes;
     }
   }
 }

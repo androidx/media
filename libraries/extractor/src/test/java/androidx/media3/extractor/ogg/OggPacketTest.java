@@ -333,6 +333,83 @@ public final class OggPacketTest {
     assertThat(packetCounter).isEqualTo(277);
   }
 
+  @Test
+  public void trimPayload_underMinPacketBufferLength_doesNotReallocate() {
+    oggPacket.getPayload().reset(new byte[4000], /* limit= */ 100);
+    byte[] originalData = oggPacket.getPayload().getData();
+    originalData[0] = 42;
+
+    oggPacket.trimPayload();
+
+    assertThat(oggPacket.getPayload().getData()).isSameInstanceAs(originalData);
+    assertThat(oggPacket.getPayload().limit()).isEqualTo(100);
+    assertThat(oggPacket.getPayload().getData()[0]).isEqualTo((byte) 42);
+  }
+
+  @Test
+  public void trimPayload_overMinPacketBufferLength_trimsToMinPacketBufferLength() {
+    oggPacket.getPayload().ensureCapacity(100000);
+    oggPacket.getPayload().setLimit(1000);
+    byte[] originalData = oggPacket.getPayload().getData();
+    originalData[0] = 42;
+
+    oggPacket.trimPayload();
+
+    assertThat(oggPacket.getPayload().getData().length).isEqualTo(4096);
+    assertThat(oggPacket.getPayload().limit()).isEqualTo(1000);
+    assertThat(oggPacket.getPayload().getData()[0]).isEqualTo((byte) 42);
+  }
+
+  @Test
+  public void trimPayload_limitOverMinPacketBufferLength_trimsToLimit() {
+    oggPacket.getPayload().ensureCapacity(100000);
+    oggPacket.getPayload().setLimit(80000);
+    byte[] originalData = oggPacket.getPayload().getData();
+    originalData[0] = 42;
+
+    oggPacket.trimPayload();
+
+    assertThat(oggPacket.getPayload().getData().length).isEqualTo(80000);
+    assertThat(oggPacket.getPayload().limit()).isEqualTo(80000);
+    assertThat(oggPacket.getPayload().getData()[0]).isEqualTo((byte) 42);
+  }
+
+  @Test
+  public void trimPayload_lengthEqualsLimitAndGreaterThanMin_doesNotReallocate() {
+    oggPacket.getPayload().ensureCapacity(80000);
+    oggPacket.getPayload().setLimit(80000);
+    byte[] originalData = oggPacket.getPayload().getData();
+    originalData[0] = 42;
+
+    oggPacket.trimPayload();
+
+    assertThat(oggPacket.getPayload().getData()).isSameInstanceAs(originalData);
+    assertThat(oggPacket.getPayload().limit()).isEqualTo(80000);
+    assertThat(oggPacket.getPayload().getData()[0]).isEqualTo((byte) 42);
+  }
+
+  @Test
+  public void populate_withLargePacket_dynamicallyGrowsBuffer() throws Exception {
+    assertThat(oggPacket.getPayload().capacity()).isEqualTo(4096);
+
+    byte[] largePacket = TestUtil.buildTestData(5000, random);
+    byte[] pageHeader =
+        TestUtil.createByteArray(
+            'O', 'g', 'g', 'S', 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 20);
+    byte[] laces = new byte[20];
+    for (int i = 0; i < 19; i++) {
+      laces[i] = (byte) 255;
+    }
+    laces[19] = (byte) 155;
+    byte[] data = Bytes.concat(pageHeader, laces, largePacket);
+
+    FakeExtractorInput input = createInput(data);
+    assertReadPacket(input, largePacket);
+
+    assertThat(oggPacket.getPayload().capacity()).isEqualTo(8192);
+  }
+
   private static FakeExtractorInput createInput(byte[] data) {
     return new FakeExtractorInput.Builder()
         .setData(data)

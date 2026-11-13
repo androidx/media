@@ -18,6 +18,7 @@ package androidx.media3.extractor.ogg;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ogg.VorbisReader.VorbisSetup;
@@ -84,7 +85,6 @@ public final class VorbisReaderTest {
     assertThat(vorbisSetup.idHeader.version).isEqualTo(0);
 
     assertThat(vorbisSetup.commentHeader.vendor).isEqualTo("Xiph.Org libVorbis I 20030909");
-    assertThat(vorbisSetup.iLogModes).isEqualTo(1);
 
     assertThat(vorbisSetup.setupHeaderData[vorbisSetup.setupHeaderData.length - 1])
         .isEqualTo(data[data.length - 1]);
@@ -109,5 +109,42 @@ public final class VorbisReaderTest {
         // Ignore.
       }
     }
+  }
+
+  @Test
+  public void readHeaders_withSetupHeaders_populatesFormatAndClearsCommentHeader()
+      throws IOException {
+    byte[] data =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/ogg/bear_vorbis.ogg");
+    ExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(data)
+            .setSimulateIOErrors(true)
+            .setSimulateUnknownLength(true)
+            .setSimulatePartialReads(true)
+            .build();
+
+    VorbisReader reader = new VorbisReader();
+    StreamReader.SetupData setupData = new StreamReader.SetupData();
+    OggPacket oggPacket = new OggPacket();
+
+    while (true) {
+      try {
+        if (!oggPacket.populate(input)) {
+          break; // Reached end of file
+        }
+        if (!reader.readHeaders(oggPacket.getPayload(), /* position= */ 0, setupData)) {
+          break; // Headers are completely read
+        }
+      } catch (SimulatedIOException e) {
+        // Ignore.
+      }
+    }
+
+    assertThat(setupData.format).isNotNull();
+    assertThat(setupData.format.sampleMimeType).isEqualTo(MimeTypes.AUDIO_VORBIS);
+    assertThat(reader.vorbisSetup).isNotNull();
+    assertThat(reader.vorbisSetup.commentHeader).isNull();
   }
 }
