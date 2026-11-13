@@ -1305,7 +1305,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
    *
    * @throws IllegalStateException If this method is called outside of {@link #onGetRoot} or {@link
    *     #onLoadChildren} or {@link #onLoadItem}.
-   * @see MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo)
+   * @see MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo, boolean)
    */
   public final RemoteUserInfo getCurrentBrowserInfo() {
     return checkNotNull(impl).getCurrentBrowserInfo();

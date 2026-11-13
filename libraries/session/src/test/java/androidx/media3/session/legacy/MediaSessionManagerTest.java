@@ -43,6 +43,7 @@ public class MediaSessionManagerTest {
   private static final String MEDIA_CONTROL_PACKAGE = "com.example.mediacontrol";
   private static final int MEDIA_CONTROL_UID = 10102;
   private static final int OTHER_APP_UID = 10202;
+  private static final int UNTRUSTED_UID = 10303;
 
   private Application context;
   private MediaSessionManager sessionManager;
@@ -58,7 +59,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(context.getPackageName(), Process.myPid(), Process.myUid());
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -68,7 +70,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, OTHER_APP_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -80,7 +83,8 @@ public class MediaSessionManagerTest {
         new RemoteUserInfo(
             /* packageName= */ "com.example.other", Process.myPid(), Process.myUid());
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -91,7 +95,8 @@ public class MediaSessionManagerTest {
         new RemoteUserInfo(
             /* packageName= */ "com.example.invisible", Process.myPid(), Process.myUid());
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -102,7 +107,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(/* packageName= */ "android", /* pid= */ 1000, Process.SYSTEM_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -112,7 +118,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(context.getPackageName(), /* pid= */ 1000, Process.SYSTEM_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -122,7 +129,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(RemoteUserInfo.LEGACY_CONTROLLER, /* pid= */ 1000, Process.SYSTEM_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -136,7 +144,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, MEDIA_CONTROL_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -150,7 +159,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, MEDIA_CONTROL_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -163,7 +173,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, MEDIA_CONTROL_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -176,7 +187,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, OTHER_APP_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -190,7 +202,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, MEDIA_CONTROL_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -205,7 +218,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, MEDIA_CONTROL_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -221,7 +235,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, MEDIA_CONTROL_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -237,7 +252,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, OTHER_APP_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -253,7 +269,8 @@ public class MediaSessionManagerTest {
         new RemoteUserInfo(
             NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, NOTIFICATION_LISTENER_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -268,7 +285,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, OTHER_APP_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -285,7 +303,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, sharedUid);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -297,7 +316,8 @@ public class MediaSessionManagerTest {
         new RemoteUserInfo(
             context.getPackageName(), RemoteUserInfo.UNKNOWN_PID, RemoteUserInfo.UNKNOWN_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -313,7 +333,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, RemoteUserInfo.UNKNOWN_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -331,7 +352,8 @@ public class MediaSessionManagerTest {
         new RemoteUserInfo(
             NOTIFICATION_LISTENER_PACKAGE, RemoteUserInfo.UNKNOWN_PID, RemoteUserInfo.UNKNOWN_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isTrue();
   }
@@ -342,7 +364,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, OTHER_APP_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -354,7 +377,137 @@ public class MediaSessionManagerTest {
         new RemoteUserInfo(
             context.getPackageName(), RemoteUserInfo.UNKNOWN_PID, RemoteUserInfo.UNKNOWN_UID);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  public void
+      isTrustedForMediaControl_unresolvableEnabledNotificationListenerWithVerifiedPackage_returnsTrue() {
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(
+            NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, NOTIFICATION_LISTENER_UID);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
+
+    assertThat(isTrusted).isTrue();
+  }
+
+  @Test
+  public void
+      isTrustedForMediaControl_unresolvableEnabledNotificationListenerWithUnverifiedPackage_returnsFalse() {
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(
+            NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, NOTIFICATION_LISTENER_UID);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  public void
+      isTrustedForMediaControl_unresolvableEnabledNotificationListenerInDifferentUserWithVerifiedPackage_returnsFalse() {
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
+    int otherUserUid = 10 * 100_000 + NOTIFICATION_LISTENER_UID;
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, otherUserUid);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  public void
+      isTrustedForMediaControl_unresolvableNonNotificationListenerWithVerifiedPackage_returnsFalse() {
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(
+            /* packageName= */ "com.example.untrusted", /* pid= */ 1234, UNTRUSTED_UID);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  public void
+      isTrustedForMediaControl_mediaContentControlGrantedWithUnknownPidInDifferentUserAndVerifiedPackage_returnsFalse() {
+    installPackage(
+        MEDIA_CONTROL_PACKAGE, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
+    int otherUserUid = 10 * 100_000 + MEDIA_CONTROL_UID;
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, otherUserUid);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  public void isTrustedForMediaControl_unknownUidWithVerifiedPackage_returnsFalse() {
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(
+            NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, RemoteUserInfo.UNKNOWN_UID);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  public void isTrustedForMediaControl_negativeUidWithVerifiedPackage_returnsFalse() {
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, /* uid= */ -2);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
+
+    assertThat(isTrusted).isFalse();
+  }
+
+  @Test
+  @Config(sdk = 27)
+  public void isTrustedForMediaControl_apiBelow28WithNegativeNonUnknownUid_returnsFalse() {
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
+    RemoteUserInfo userInfo =
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, /* uid= */ -2);
+
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }
@@ -364,7 +517,8 @@ public class MediaSessionManagerTest {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(/* packageName= */ "com.example.nonexistent", /* pid= */ 1234, 10303);
 
-    boolean isTrusted = sessionManager.isTrustedForMediaControl(userInfo);
+    boolean isTrusted =
+        sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
   }

@@ -26,6 +26,7 @@ import android.content.pm.PackageInfo;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Process;
 import android.provider.Settings;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
@@ -45,6 +46,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -551,7 +553,7 @@ public class MediaSessionStubTest {
 
   @Test
   public void
-      binderConnectRequest_withUnverifiedUidSpoofingNotificationListenerPackage_isNotTrusted()
+      binderConnectRequest_withUnverifiedUidSpoofingInstalledNotificationListenerPackage_isRejected()
           throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     String notificationListenerPackage = "com.example.notificationlistener";
@@ -608,12 +610,296 @@ public class MediaSessionStubTest {
       player.release();
     }
 
+    assertThat(connectedControllerRef.get()).isNull();
+  }
+
+  @Test
+  public void binderConnectRequest_fromInstalledEnabledNotificationListener_isTrustedAndVerified()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    ApplicationInfo applicationInfo = new ApplicationInfo();
+    applicationInfo.packageName = notificationListenerPackage;
+    applicationInfo.uid = notificationListenerUid;
+    PackageInfo packageInfo = new PackageInfo();
+    packageInfo.packageName = notificationListenerPackage;
+    packageInfo.applicationInfo = applicationInfo;
+    shadowOf(context.getPackageManager()).installPackage(packageInfo);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    AtomicReference<MediaSession.ControllerInfo> connectedControllerRef = new AtomicReference<>();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("installedNotificationListenerTest")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    connectedControllerRef.set(controller);
+                    return MediaSession.Callback.super.onConnectAsync(session, controller);
+                  }
+                })
+            .build();
+    IMediaSession binder = (IMediaSession) session.getToken().getBinder();
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken()).buildAsync().get();
+    IMediaController caller = controller.getBinder();
+    connectedControllerRef.set(null);
+    ShadowBinder.setCallingUid(notificationListenerUid);
+
+    try {
+      binder.connect(
+          caller,
+          /* seq= */ 0,
+          /* connectionRequest= */ new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ -1,
+                  /* connectionHints= */ new Bundle(),
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+      controller.release();
+      session.release();
+      player.release();
+    }
+
     assertThat(connectedControllerRef.get()).isNotNull();
     assertThat(connectedControllerRef.get().getPackageName())
         .isEqualTo(notificationListenerPackage);
-    assertThat(connectedControllerRef.get().getUid()).isEqualTo(untrustedInvisibleUid);
+    assertThat(connectedControllerRef.get().getUid()).isEqualTo(notificationListenerUid);
+    assertThat(connectedControllerRef.get().isPackageNameVerified()).isTrue();
+    assertThat(connectedControllerRef.get().isTrusted()).isTrue();
+  }
+
+  @Test
+  public void
+      binderConnectRequest_fromUnresolvableEnabledNotificationListener_isNotTrustedAndUnverified()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    AtomicReference<MediaSession.ControllerInfo> connectedControllerRef = new AtomicReference<>();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("unresolvableNotificationListenerTest")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    connectedControllerRef.set(controller);
+                    return MediaSession.Callback.super.onConnectAsync(session, controller);
+                  }
+                })
+            .build();
+    IMediaSession binder = (IMediaSession) session.getToken().getBinder();
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken()).buildAsync().get();
+    IMediaController caller = controller.getBinder();
+    connectedControllerRef.set(null);
+    ShadowBinder.setCallingUid(notificationListenerUid);
+
+    try {
+      binder.connect(
+          caller,
+          /* seq= */ 0,
+          /* connectionRequest= */ new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ -1,
+                  /* connectionHints= */ new Bundle(),
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+      controller.release();
+      session.release();
+      player.release();
+    }
+
+    assertThat(connectedControllerRef.get()).isNotNull();
+    assertThat(connectedControllerRef.get().getPackageName())
+        .isEqualTo(notificationListenerPackage);
+    assertThat(connectedControllerRef.get().getUid()).isEqualTo(notificationListenerUid);
     assertThat(connectedControllerRef.get().isPackageNameVerified()).isFalse();
     assertThat(connectedControllerRef.get().isTrusted()).isFalse();
+  }
+
+  @Test
+  public void
+      binderConnectRequest_fromUidVerifiedUnresolvableEnabledNotificationListener_isTrustedAndVerified()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    shadowOf(context.getPackageManager())
+        .setPackagesForUid(notificationListenerUid, notificationListenerPackage);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    AtomicReference<MediaSession.ControllerInfo> connectedControllerRef = new AtomicReference<>();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("uidVerifiedUnresolvableNotificationListenerTest")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    connectedControllerRef.set(controller);
+                    return MediaSession.Callback.super.onConnectAsync(session, controller);
+                  }
+                })
+            .build();
+    IMediaSession binder = (IMediaSession) session.getToken().getBinder();
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken()).buildAsync().get();
+    IMediaController caller = controller.getBinder();
+    connectedControllerRef.set(null);
+    ShadowBinder.setCallingUid(notificationListenerUid);
+
+    try {
+      binder.connect(
+          caller,
+          /* seq= */ 0,
+          /* connectionRequest= */ new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ -1,
+                  /* connectionHints= */ new Bundle(),
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+      controller.release();
+      session.release();
+      player.release();
+    }
+
+    assertThat(connectedControllerRef.get()).isNotNull();
+    assertThat(connectedControllerRef.get().getPackageName())
+        .isEqualTo(notificationListenerPackage);
+    assertThat(connectedControllerRef.get().getUid()).isEqualTo(notificationListenerUid);
+    assertThat(connectedControllerRef.get().isPackageNameVerified()).isTrue();
+    assertThat(connectedControllerRef.get().isTrusted()).isTrue();
+  }
+
+  @Test
+  public void
+      binderConnectRequest_fromEnabledNotificationListenerInDifferentUser_isNotTrustedAndVerified()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String notificationListenerPackage = "com.example.notificationlistener";
+    int notificationListenerUid = Process.myUid() == 10101 ? 10111 : 10101;
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
+    shadowOf(context.getPackageManager())
+        .setPackagesForUid(otherUserUid, notificationListenerPackage);
+    Settings.Secure.putString(
+        context.getContentResolver(),
+        "enabled_notification_listeners",
+        new ComponentName(notificationListenerPackage, "ListenerService").flattenToString());
+    AtomicReference<MediaSession.ControllerInfo> connectedControllerRef = new AtomicReference<>();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("differentUserNotificationListenerTest")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    connectedControllerRef.set(controller);
+                    return MediaSession.Callback.super.onConnectAsync(session, controller);
+                  }
+                })
+            .build();
+    IMediaSession binder = (IMediaSession) session.getToken().getBinder();
+    MediaController controller =
+        new MediaController.Builder(context, session.getToken()).buildAsync().get();
+    IMediaController caller = controller.getBinder();
+    connectedControllerRef.set(null);
+    ShadowBinder.setCallingUid(otherUserUid);
+
+    try {
+      binder.connect(
+          caller,
+          /* seq= */ 0,
+          /* connectionRequest= */ new ConnectionRequest(
+                  notificationListenerPackage,
+                  /* pid= */ -1,
+                  /* connectionHints= */ new Bundle(),
+                  /* maxCommandsForMediaItems= */ 0)
+              .toBundle());
+      ShadowLooper.idleMainLooper();
+    } finally {
+      ShadowBinder.reset();
+      controller.release();
+      session.release();
+      player.release();
+    }
+
+    assertThat(connectedControllerRef.get()).isNotNull();
+    assertThat(connectedControllerRef.get().getPackageName())
+        .isEqualTo(notificationListenerPackage);
+    assertThat(connectedControllerRef.get().getUid()).isEqualTo(otherUserUid);
+    assertThat(connectedControllerRef.get().isPackageNameVerified()).isTrue();
+    assertThat(connectedControllerRef.get().isTrusted()).isFalse();
+  }
+
+  @Test
+  public void connect_inProcessWithMismatchedPackageManagerUid_connectsAsTrustedAndVerified()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ApplicationInfo applicationInfo = new ApplicationInfo();
+    applicationInfo.packageName = context.getPackageName();
+    PackageInfo packageInfo = new PackageInfo();
+    packageInfo.packageName = context.getPackageName();
+    packageInfo.applicationInfo = applicationInfo;
+    shadowOf(context.getPackageManager()).installPackage(packageInfo);
+    AtomicReference<MediaSession.ControllerInfo> connectedControllerRef = new AtomicReference<>();
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session =
+        new MediaSession.Builder(context, player)
+            .setId("mismatchedOwnUidTest")
+            .setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                      MediaSession session, MediaSession.ControllerInfo controller) {
+                    connectedControllerRef.set(controller);
+                    return MediaSession.Callback.super.onConnectAsync(session, controller);
+                  }
+                })
+            .build();
+    MediaController controller = null;
+
+    try {
+      controller = new MediaController.Builder(context, session.getToken()).buildAsync().get();
+    } finally {
+      if (controller != null) {
+        controller.release();
+      }
+      session.release();
+      player.release();
+    }
+
+    assertThat(connectedControllerRef.get()).isNotNull();
+    assertThat(connectedControllerRef.get().isPackageNameVerified()).isTrue();
+    assertThat(connectedControllerRef.get().isTrusted()).isTrue();
   }
 
   @Test

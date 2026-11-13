@@ -54,6 +54,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
@@ -577,10 +578,16 @@ public class MediaSessionCompat {
    * will fail to get the right one.
    *
    * @see MediaSessionManager.RemoteUserInfo#LEGACY_CONTROLLER
-   * @see MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo)
+   * @see MediaSessionManager#isTrustedForMediaControl(RemoteUserInfo, boolean)
    */
   public final @Nullable RemoteUserInfo getCurrentControllerInfo() {
     return impl.getCurrentControllerInfo();
+  }
+
+  /** Overrides the current controller info for testing. */
+  @VisibleForTesting
+  public final void setCurrentControllerInfo(@Nullable RemoteUserInfo remoteUserInfo) {
+    impl.setCurrentControllerInfo(remoteUserInfo);
   }
 
   /** A helper method for setting the application class loader to the given {@link Bundle}. */
@@ -2116,12 +2123,11 @@ public class MediaSessionCompat {
     }
 
     @Override
-    public void setCurrentControllerInfo(@Nullable RemoteUserInfo remoteUserInfo) {
-      // No-op. {@link MediaSession#getCurrentControllerInfo} would work.
-    }
-
-    @Override
     public final @Nullable RemoteUserInfo getCurrentControllerInfo() {
+      @Nullable RemoteUserInfo overrideInfo = super.getCurrentControllerInfo();
+      if (overrideInfo != null) {
+        return overrideInfo;
+      }
       android.media.session.MediaSessionManager.RemoteUserInfo info =
           sessionFwk.getCurrentControllerInfo();
       return new RemoteUserInfo(info);
