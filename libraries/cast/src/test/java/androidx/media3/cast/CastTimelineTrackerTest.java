@@ -34,6 +34,7 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TimelineAsserts;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
@@ -2012,6 +2013,249 @@ public class CastTimelineTrackerTest {
     IdleReason(int value) {
       this.value = value;
     }
+  }
+
+  @Test
+  public void getCastTimeline_liveStreamWithSlidingSeekableRange_populatesWindowProperties() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(1).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(10_000L)
+            .setEndTime(70_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    // Stub approximate range bounds with a 1-ms difference to verify sliding windows use
+    // endTime - startTime directly without clock-tick jitter.
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(11_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(71_001L);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    Window window = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.isLive()).isTrue();
+    assertThat(window.durationUs).isEqualTo(60_000_000L);
+    assertThat(window.defaultPositionUs).isEqualTo(60_000_000L);
+    assertThat(window.isSeekable).isTrue();
+    assertThat(window.isDynamic).isTrue();
+  }
+
+  @Test
+  public void getCastTimeline_liveStreamWithExpandingSeekableRange_usesApproximateRangeBounds() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live-event.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(1).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(0L)
+            .setEndTime(30_000L)
+            .setIsMovingWindow(false)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(0L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(35_000L);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    Window window = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.isLive()).isTrue();
+    assertThat(window.durationUs).isEqualTo(35_000_000L);
+    assertThat(window.defaultPositionUs).isEqualTo(35_000_000L);
+    assertThat(window.isSeekable).isTrue();
+    assertThat(window.isDynamic).isTrue();
+  }
+
+  @Test
+  public void getCastTimeline_liveStreamWithShrinkingSeekableRange_usesApproximateRangeBounds() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live-ending.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(1).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(10_000L)
+            .setEndTime(70_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(true)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(15_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(70_000L);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    Window window = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.isLive()).isTrue();
+    assertThat(window.durationUs).isEqualTo(55_000_000L);
+    assertThat(window.defaultPositionUs).isEqualTo(55_000_000L);
+    assertThat(window.isSeekable).isTrue();
+    assertThat(window.isDynamic).isTrue();
+  }
+
+  @Test
+  public void getCastTimeline_liveStreamWithFinishedStaticSeekableRange_setsIsDynamicFalse() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live-finished.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(1).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(0L)
+            .setEndTime(120_000L)
+            .setIsMovingWindow(false)
+            .setIsLiveDone(true)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    Window window = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.isLive()).isFalse();
+    assertThat(window.durationUs).isEqualTo(120_000_000L);
+    assertThat(window.defaultPositionUs).isEqualTo(0L);
+    assertThat(window.isSeekable).isTrue();
+    assertThat(window.isDynamic).isFalse();
+  }
+
+  @Test
+  public void getCastTimeline_liveStreamWithoutSeekCommand_setsIsSeekableFalse() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live-unseekable.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaQueueItem queueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(1).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(10_000L)
+            .setEndTime(70_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(false);
+
+    CastTimeline timeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    Window window = timeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(window.isLive()).isTrue();
+    assertThat(window.durationUs).isEqualTo(60_000_000L);
+    assertThat(window.defaultPositionUs).isEqualTo(0L);
+    assertThat(window.isSeekable).isFalse();
+    assertThat(window.isDynamic).isTrue();
+  }
+
+  @Test
+  public void getCastTimeline_liveItemBecomesInactive_resetsLiveWindowProperties() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaInfo vodMediaInfo =
+        new MediaInfo.Builder("https://example.com/vod.mp4")
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setStreamDuration(DURATION_3_MS)
+            .build();
+    MediaQueueItem liveQueueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(10).build();
+    MediaQueueItem vodQueueItem = new MediaQueueItem.Builder(vodMediaInfo).setItemId(20).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(0L)
+            .setEndTime(120_000L)
+            .setIsMovingWindow(false)
+            .setIsLiveDone(true)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(10);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(liveQueueItem, vodQueueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    CastTimeline unused = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+    // Playback advances to item 20 and item 10 is outside mediaStatus.getQueueItems().
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(20);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(vodMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(vodQueueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(null);
+
+    CastTimeline nextTimeline = castTimelineTracker.getCastTimeline(mockRemoteMediaClient);
+
+    Window inactiveLiveWindow = nextTimeline.getWindow(/* windowIndex= */ 0, new Window());
+    assertThat(inactiveLiveWindow.isLive()).isTrue();
+    assertThat(inactiveLiveWindow.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(inactiveLiveWindow.defaultPositionUs).isEqualTo(0L);
+    assertThat(inactiveLiveWindow.isSeekable).isFalse();
+    assertThat(inactiveLiveWindow.isDynamic).isTrue();
   }
 
   private MediaItem createMediaItem(int uid) {

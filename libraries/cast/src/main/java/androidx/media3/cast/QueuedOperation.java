@@ -712,7 +712,12 @@ import org.jspecify.annotations.Nullable;
         return remoteMediaClient.queueJumpToItem(
             receiverItemId, positionMs, /* customData= */ null);
       }
-      return remoteMediaClient.seek(positionMs);
+      long liveSeekableRangeStartMs = CastUtils.getLiveSeekableRangeStartMs(remoteMediaClient);
+      long seekPositionMs =
+          liveSeekableRangeStartMs != C.TIME_UNSET
+              ? positionMs + liveSeekableRangeStartMs
+              : positionMs;
+      return remoteMediaClient.seek(seekPositionMs);
     }
   }
 }

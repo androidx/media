@@ -16,6 +16,9 @@
 package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import androidx.media3.cast.CastTimeline.ItemData;
 import androidx.media3.cast.CastTimeline.ItemUid;
@@ -29,9 +32,18 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlayerTransferState;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
+import com.google.android.gms.cast.MediaQueueItem;
+import com.google.android.gms.cast.MediaStatus;
+import com.google.android.gms.cast.framework.media.MediaQueue;
+import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
+import com.google.android.gms.common.api.PendingResult;
 import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +51,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link QueuedOperation#createMaskedSnapshot}. */
+/** Unit tests for {@link QueuedOperation}. */
 @RunWith(AndroidJUnit4.class)
 public final class QueuedOperationTest {
 
@@ -613,6 +625,113 @@ public final class QueuedOperationTest {
     RemoveMediaItemsOperation operation = new RemoveMediaItemsOperation(ImmutableList.of(uidA));
 
     assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isFalse();
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Verifies deprecated RemoteMediaClient.seek(long) call.
+  public void seek_execute_sameWindowOnLiveStream_addsLiveSeekableRangeStart() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 15_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient).seek(115_000L);
+  }
+
+  @Test
+  public void seek_execute_otherWindowWhileLiveStreamActive_doesNotAddLiveSeekableRangeStart() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    CastTimelineTracker.RegisteredMediaItems registeredItems =
+        timelineTracker.registerMediaItems(
+            ImmutableList.of(createMediaItem("live"), createMediaItem("vod")));
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder(registeredItems.queueItems[0].getMedia().getContentId())
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .setCustomData(registeredItems.queueItems[0].getMedia().getCustomData())
+            .build();
+    MediaQueueItem liveQueueItem = new MediaQueueItem.Builder(liveMediaInfo).setItemId(10).build();
+    MediaQueueItem vodQueueItem =
+        new MediaQueueItem.Builder(registeredItems.queueItems[1].getMedia()).setItemId(20).build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(10);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(liveQueueItem, vodQueueItem));
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    CastTimeline unusedTimeline = timelineTracker.getCastTimeline(mockRemoteMediaClient);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 15_000L,
+            /* targetPeriodUid= */ registeredItems.itemUids.get(1),
+            /* isWindowChange= */ true);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .queueJumpToItem(/* itemId= */ 20, /* playPosition= */ 15_000L, /* customData= */ null);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Verifies deprecated RemoteMediaClient.seek(long) call.
+  public void seek_execute_sameWindowOnVodStream_doesNotAddLiveSeekableRangeStart() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo vodMediaInfo =
+        new MediaInfo.Builder("https://example.com/vod.mp4")
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(vodMediaInfo);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 15_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient).seek(15_000L);
   }
 
   private QueueSnapshot createSampleSnapshot(int currentWindowIndex, String... mediaIds) {

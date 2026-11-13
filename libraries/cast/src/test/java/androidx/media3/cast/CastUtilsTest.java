@@ -20,8 +20,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import androidx.media3.common.C;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
@@ -130,5 +133,102 @@ public final class CastUtilsTest {
     when(mockStatus.getCurrentItemId()).thenReturn(1);
 
     assertThat(CastUtils.hasQueueEnded(mockClient)).isFalse();
+  }
+
+  @Test
+  public void getLiveSeekableRangeStartMs_whenLiveStreamWithRange_returnsApproximateStart() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder().setStartTime(100_000L).setEndTime(160_000L).build();
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockClient.getApproximateLiveSeekableRangeStart()).thenReturn(105_000L);
+
+    assertThat(CastUtils.getLiveSeekableRangeStartMs(mockClient)).isEqualTo(105_000L);
+  }
+
+  @Test
+  public void getLiveSeekableRangeStartMs_whenVodStream_returnsTimeUnset() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    MediaInfo vodMediaInfo =
+        new MediaInfo.Builder("https://example.com/vod.mp4")
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder().setStartTime(100_000L).setEndTime(160_000L).build();
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockStatus.getMediaInfo()).thenReturn(vodMediaInfo);
+    when(mockStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockClient.getApproximateLiveSeekableRangeStart()).thenReturn(105_000L);
+
+    assertThat(CastUtils.getLiveSeekableRangeStartMs(mockClient)).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getLiveSeekableRangeStartMs_whenLoadingItemIsSet_returnsTimeUnset() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder().setStartTime(100_000L).setEndTime(160_000L).build();
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockStatus.getLoadingItemId()).thenReturn(2);
+    when(mockStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockClient.getApproximateLiveSeekableRangeStart()).thenReturn(105_000L);
+
+    assertThat(CastUtils.getLiveSeekableRangeStartMs(mockClient)).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void getLiveSeekableRangeStartMs_whenMissingRange_returnsTimeUnset() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockStatus.getLiveSeekableRange()).thenReturn(null);
+
+    assertThat(CastUtils.getLiveSeekableRangeStartMs(mockClient)).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void toWindowPositionMs_whenLiveStreamWithRange_subtractsStartAndClampsToZero() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    MediaStatus mockStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder().setStartTime(100_000L).setEndTime(160_000L).build();
+    when(mockClient.getMediaStatus()).thenReturn(mockStatus);
+    when(mockStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockClient.getApproximateLiveSeekableRangeStart()).thenReturn(105_000L);
+
+    assertThat(CastUtils.toWindowPositionMs(mockClient, 120_000L)).isEqualTo(15_000L);
+    assertThat(CastUtils.toWindowPositionMs(mockClient, 90_000L)).isEqualTo(0L);
+  }
+
+  @Test
+  public void toWindowPositionMs_whenNoSeekableLiveStream_returnsStreamPositionUnchanged() {
+    RemoteMediaClient mockClient = mock(RemoteMediaClient.class);
+    when(mockClient.getMediaStatus()).thenReturn(null);
+
+    assertThat(CastUtils.toWindowPositionMs(mockClient, 42_000L)).isEqualTo(42_000L);
   }
 }

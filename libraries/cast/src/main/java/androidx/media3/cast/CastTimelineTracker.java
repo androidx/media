@@ -16,7 +16,9 @@
 package androidx.media3.cast;
 
 import static androidx.media3.cast.CastTimeline.ItemData.UNKNOWN_CONTENT_ID;
+import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.max;
 
 import android.util.SparseArray;
 import androidx.annotation.VisibleForTesting;
@@ -28,6 +30,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
@@ -79,6 +82,7 @@ import org.jspecify.annotations.Nullable;
   private final Map<ItemUid, Integer> uidToReceiverItemId;
   private final MediaItemConverter mediaItemConverter;
   private boolean hasPendingQueueFetches;
+  private @Nullable ItemUid lastActiveLiveItemUid;
   @VisibleForTesting /* package */ final HashMap<String, MediaItem> mediaItemsByContentId;
 
   /**
@@ -128,6 +132,7 @@ import org.jspecify.annotations.Nullable;
     uidToReceiverItemId.clear();
     mediaItemsByContentId.clear();
     hasPendingQueueFetches = false;
+    lastActiveLiveItemUid = null;
   }
 
   /** Returns whether any items in the receiver's {@link MediaQueue} are still being fetched. */
@@ -266,6 +271,14 @@ import org.jspecify.annotations.Nullable;
       mediaQueue.fetchItemsForIds(Ints.toArray(itemIdsToFetch));
     }
 
+    // We only have live stream information about the currently active item, so we need to clear
+    // any live info from the previous item when the current item changes.
+    if (lastActiveLiveItemUid != null
+        && !lastActiveLiveItemUid.equals(receiverItemIdToUid.get(currentOrLoadingItemId))) {
+      clearLiveInfo(lastActiveLiveItemUid);
+      lastActiveLiveItemUid = null;
+    }
+
     // Process mediaStatus.getMediaInfo() after mediaStatus.getQueueItems()[...].getMedia(). Static
     // queue items in the Cast SDK do not receive dynamic runtime updates (such as transitioning
     // from buffered to live upon manifest loading). Updating from mediaStatus.getMediaInfo() second
@@ -278,20 +291,7 @@ import org.jspecify.annotations.Nullable;
     // item finishes loading. Skipping prevents overriding the loading item's data with a
     // mismatched item's MediaInfo.
     if (mediaStatus.getLoadingItemId() == MediaQueueItem.INVALID_ITEM_ID) {
-      MediaInfo currentMediaInfo = checkNotNull(mediaStatus.getMediaInfo());
-      ItemUid currentItemUid = getOrCreateItemUid(currentOrLoadingItemId, currentMediaInfo);
-      @Nullable MediaItem mediaItem = getMediaItem(currentItemUid, currentMediaInfo);
-      int playerState = remoteMediaClient.getPlayerState();
-      boolean isMediaInfoResolved =
-          playerState == MediaStatus.PLAYER_STATE_PLAYING
-              || playerState == MediaStatus.PLAYER_STATE_PAUSED;
-      updateItemData(
-          currentItemUid,
-          mediaItem != null ? mediaItem : MediaItem.EMPTY,
-          currentMediaInfo,
-          currentMediaInfo.getContentId(),
-          /* defaultPositionUs= */ C.TIME_UNSET,
-          isMediaInfoResolved);
+      updateActiveItemData(currentOrLoadingItemId, remoteMediaClient);
     }
 
     ImmutableList.Builder<ItemUid> uids = ImmutableList.builderWithExpectedSize(itemIds.length);
@@ -317,41 +317,53 @@ import org.jspecify.annotations.Nullable;
   }
 
   private void updateItemDataFromQueueItem(MediaQueueItem queueItem) {
-    long defaultPositionUs = (long) (queueItem.getStartTime() * C.MICROS_PER_SECOND);
     @Nullable MediaInfo mediaInfo = queueItem.getMedia();
-    String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
-    ItemUid itemUid = getOrCreateItemUid(queueItem.getItemId(), queueItem.getMedia());
+    ItemUid itemUid = getOrCreateItemUid(queueItem.getItemId(), mediaInfo);
+    ItemData previousData = itemIdToData.getOrDefault(itemUid, ItemData.EMPTY);
     @Nullable MediaItem mediaItem = getMediaItem(itemUid, mediaInfo);
     if (mediaItem == null || mediaItem == MediaItem.EMPTY) {
       mediaItem = mediaItemConverter.toMediaItem(queueItem);
     }
-    updateItemData(
-        itemUid,
-        mediaItem != null ? mediaItem : MediaItem.EMPTY,
-        mediaInfo,
-        contentId,
-        defaultPositionUs,
-        /* isMediaInfoResolved= */ false);
-  }
-
-  private void updateItemData(
-      ItemUid uid,
-      MediaItem mediaItem,
-      @Nullable MediaInfo mediaInfo,
-      String contentId,
-      long defaultPositionUs,
-      boolean isMediaInfoResolved) {
-    ItemData previousData = itemIdToData.get(uid);
-    if (previousData == null) {
-      previousData = ItemData.EMPTY;
-    }
-    // The media item can be empty if it originates from another sender. We use previous data as
-    // itemIdToData is populated when all media items from the queue are updated.
     if (mediaItem == MediaItem.EMPTY) {
       mediaItem = previousData.mediaItem;
     }
+    boolean isLiveStream = isLiveStream(itemUid, mediaInfo, previousData, mediaItem);
+    long durationUs =
+        isLiveStream
+            ? C.TIME_UNSET
+            : getNonLiveDurationUs(itemUid, mediaInfo, previousData, mediaItem);
+    double startTimeSeconds = queueItem.getStartTime();
+    long defaultPositionUs =
+        Double.isNaN(startTimeSeconds) ? 0 : (long) (startTimeSeconds * C.MICROS_PER_SECOND);
+    String contentId = mediaInfo != null ? mediaInfo.getContentId() : UNKNOWN_CONTENT_ID;
+    itemIdToData.put(
+        itemUid,
+        previousData.copyWithNewValues(
+            durationUs,
+            defaultPositionUs,
+            /* isLive= */ isLiveStream,
+            /* isSeekable= */ !isLiveStream && durationUs != C.TIME_UNSET,
+            mediaItem,
+            contentId));
+  }
 
-    if (isMediaInfoResolved && mediaInfo != null) {
+  private void updateActiveItemData(int currentItemId, RemoteMediaClient remoteMediaClient) {
+    MediaStatus mediaStatus = checkNotNull(remoteMediaClient.getMediaStatus());
+    MediaInfo mediaInfo = checkNotNull(mediaStatus.getMediaInfo());
+    ItemUid uid = getOrCreateItemUid(currentItemId, mediaInfo);
+    ItemData previousData = itemIdToData.getOrDefault(uid, ItemData.EMPTY);
+    @Nullable MediaItem mediaItem = getMediaItem(uid, mediaInfo);
+    // The media item can be empty if it originates from another sender. We use previous data as
+    // itemIdToData is populated when all media items from the queue are updated.
+    if (mediaItem == null || mediaItem == MediaItem.EMPTY) {
+      mediaItem = previousData.mediaItem;
+    }
+
+    int playerState = remoteMediaClient.getPlayerState();
+    boolean isMediaInfoResolved =
+        playerState == MediaStatus.PLAYER_STATE_PLAYING
+            || playerState == MediaStatus.PLAYER_STATE_PAUSED;
+    if (isMediaInfoResolved) {
       if (mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE) {
         resolvedLiveByUid.put(uid, true);
         resolvedDurationUsByUid.remove(uid);
@@ -366,39 +378,79 @@ import org.jspecify.annotations.Nullable;
       }
     }
 
-    // Prefer resolvedLiveByUid (and resolvedDurationUsByUid in getNonLiveDurationUs) over
-    // mediaInfo: once an item has been resolved from active PLAYING/PAUSED playback, subsequent
-    // updates from MediaQueueItem.getMedia() (or during IDLE/BUFFERING) still carry the initial
-    // streamType and catalog streamDuration.
-    @Nullable Boolean resolvedLive = resolvedLiveByUid.get(uid);
-    boolean isLiveStream =
-        resolvedLive != null
-            ? resolvedLive
-            : (mediaInfo == null
-                    ? previousData.isLive
-                    : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE)
-                || !mediaItem.liveConfiguration.equals(MediaItem.LiveConfiguration.UNSET);
-
+    @Nullable MediaLiveSeekableRange liveSeekableRange = mediaStatus.getLiveSeekableRange();
+    boolean isLiveStream = isLiveStream(uid, mediaInfo, previousData, mediaItem);
     long durationUs;
+    long defaultPositionUs;
     boolean isLive;
     boolean isSeekable;
     if (isLiveStream) {
-      durationUs = C.TIME_UNSET;
-      isLive = true;
-      isSeekable = false;
+      lastActiveLiveItemUid = uid;
+      durationUs =
+          liveSeekableRange != null
+              ? getLiveWindowDurationUs(remoteMediaClient, liveSeekableRange)
+              : C.TIME_UNSET;
+      isLive =
+          liveSeekableRange == null
+              || liveSeekableRange.isMovingWindow()
+              || !liveSeekableRange.isLiveDone();
+      isSeekable =
+          mediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)
+              && liveSeekableRange != null;
+      defaultPositionUs = isLive && isSeekable ? durationUs : 0;
     } else {
+      lastActiveLiveItemUid = null;
       durationUs = getNonLiveDurationUs(uid, mediaInfo, previousData, mediaItem);
       isLive = false;
       isSeekable = durationUs != C.TIME_UNSET;
-    }
-
-    if (defaultPositionUs == C.TIME_UNSET) {
       defaultPositionUs = previousData.defaultPositionUs;
     }
+
     itemIdToData.put(
         uid,
         previousData.copyWithNewValues(
-            durationUs, defaultPositionUs, isLive, isSeekable, mediaItem, contentId));
+            durationUs,
+            defaultPositionUs,
+            isLive,
+            isSeekable,
+            mediaItem,
+            mediaInfo.getContentId()));
+  }
+
+  /** Resets active live stream state for {@code itemUid} when it is no longer the active item. */
+  private void clearLiveInfo(ItemUid itemUid) {
+    @Nullable ItemData previousLiveData = itemIdToData.get(itemUid);
+    if (previousLiveData != null) {
+      itemIdToData.put(
+          itemUid,
+          previousLiveData.copyWithNewValues(
+              /* durationUs= */ C.TIME_UNSET,
+              /* defaultPositionUs= */ 0,
+              /* isLive= */ true,
+              /* isSeekable= */ false,
+              previousLiveData.mediaItem,
+              previousLiveData.contentId));
+    }
+  }
+
+  /**
+   * Returns whether {@code uid} represents a live stream, preferring the stream type resolved from
+   * active playback over {@code mediaInfo}, cached {@code previousData}, and {@link
+   * MediaItem#liveConfiguration}.
+   */
+  private boolean isLiveStream(
+      ItemUid uid, @Nullable MediaInfo mediaInfo, ItemData previousData, MediaItem mediaItem) {
+    // Prefer resolvedLiveByUid over mediaInfo: once an item has been resolved from active
+    // PLAYING/PAUSED playback, subsequent updates from MediaQueueItem.getMedia() (or during
+    // IDLE/BUFFERING) still carry the initial streamType.
+    @Nullable Boolean resolvedLive = resolvedLiveByUid.get(uid);
+    if (resolvedLive != null) {
+      return resolvedLive;
+    }
+    return (mediaInfo == null
+            ? previousData.isLive
+            : mediaInfo.getStreamType() == MediaInfo.STREAM_TYPE_LIVE)
+        || !mediaItem.liveConfiguration.equals(MediaItem.LiveConfiguration.UNSET);
   }
 
   /**
@@ -424,9 +476,24 @@ import org.jspecify.annotations.Nullable;
     }
     @Nullable Long metadataDurationMs = mediaItem.mediaMetadata.durationMs;
     if (metadataDurationMs != null) {
-      return Util.msToUs(metadataDurationMs);
+      return msToUs(metadataDurationMs);
     }
     return C.TIME_UNSET;
+  }
+
+  private static long getLiveWindowDurationUs(
+      RemoteMediaClient remoteMediaClient, MediaLiveSeekableRange liveSeekableRange) {
+    // When the window is sliding (both start and end advance) or static (neither advances), its
+    // duration is constant between MediaStatus updates. Use liveSeekableRange.getEndTime() and
+    // getStartTime() instead of remoteMediaClient.getApproximateLiveSeekableRange*(), where a
+    // clock tick between the two calls can cause a 1ms difference. Only use
+    // getApproximateLiveSeekableRange*() when the window is expanding or shrinking.
+    long durationMs =
+        liveSeekableRange.isMovingWindow() != liveSeekableRange.isLiveDone()
+            ? liveSeekableRange.getEndTime() - liveSeekableRange.getStartTime()
+            : remoteMediaClient.getApproximateLiveSeekableRangeEnd()
+                - remoteMediaClient.getApproximateLiveSeekableRangeStart();
+    return msToUs(max(0, durationMs));
   }
 
   private void removeUnusedItemDataEntries(int[] itemIds) {
@@ -444,6 +511,9 @@ import org.jspecify.annotations.Nullable;
         mediaItemsBySyntheticId.remove(uid);
         resolvedLiveByUid.remove(uid);
         resolvedDurationUsByUid.remove(uid);
+        if (uid.equals(lastActiveLiveItemUid)) {
+          lastActiveLiveItemUid = null;
+        }
         ItemData data = itemIdToData.remove(uid);
         if (data != null) {
           mediaItemsByContentId.remove(data.contentId);
@@ -510,6 +580,9 @@ import org.jspecify.annotations.Nullable;
       itemIdToData.remove(uid);
       resolvedLiveByUid.remove(uid);
       resolvedDurationUsByUid.remove(uid);
+      if (uid.equals(lastActiveLiveItemUid)) {
+        lastActiveLiveItemUid = syntheticUid;
+      }
       uid = syntheticUid;
     } else {
       return uid;

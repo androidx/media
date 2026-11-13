@@ -748,9 +748,9 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (currentTimeline.isEmpty() || mediaItemIndex >= currentTimeline.getWindowCount()) {
       return;
     }
-    // We assume the default position is 0. There is no support for seeking to the default position
-    // in RemoteMediaClient.
-    positionMs = positionMs != C.TIME_UNSET ? positionMs : 0;
+    if (positionMs == C.TIME_UNSET) {
+      positionMs = currentTimeline.getWindow(mediaItemIndex, window).getDefaultPositionMs();
+    }
     if (isCastSessionActive()) {
       boolean isWindowChange = getCurrentMediaItemIndex() != mediaItemIndex;
       Object targetPeriodUid = currentTimeline.getUidOfPeriod(mediaItemIndex);
@@ -995,7 +995,8 @@ public final class RemoteCastPlayer extends BasePlayer {
       }
     }
     return isCastSessionActive()
-        ? remoteMediaClient.getApproximateStreamPosition()
+        ? CastUtils.toWindowPositionMs(
+            remoteMediaClient, remoteMediaClient.getApproximateStreamPosition())
         : lastReportedPositionMs;
   }
 
@@ -1994,7 +1995,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     @Override
     public void onProgressUpdated(long progressMs, long unusedDurationMs) {
       if (isCastSessionActive()) {
-        lastReportedPositionMs = progressMs;
+        lastReportedPositionMs = CastUtils.toWindowPositionMs(remoteMediaClient, progressMs);
       }
     }
 

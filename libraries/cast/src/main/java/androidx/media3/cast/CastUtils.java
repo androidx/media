@@ -15,6 +15,8 @@
  */
 package androidx.media3.cast;
 
+import static java.lang.Math.max;
+
 import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
@@ -59,6 +61,41 @@ import org.jspecify.annotations.Nullable;
     }
     long durationMs = mediaInfo.getStreamDuration();
     return durationMs != MediaInfo.UNKNOWN_DURATION ? Util.msToUs(durationMs) : C.TIME_UNSET;
+  }
+
+  /**
+   * Returns the approximate start time in milliseconds of the live seekable range for the active
+   * live stream in {@code remoteMediaClient}, or {@link C#TIME_UNSET} if no seekable live stream is
+   * active.
+   */
+  public static long getLiveSeekableRangeStartMs(RemoteMediaClient remoteMediaClient) {
+    @Nullable MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+    if (mediaStatus == null
+        || mediaStatus.getLoadingItemId() != MediaQueueItem.INVALID_ITEM_ID
+        || mediaStatus.getLiveSeekableRange() == null) {
+      return C.TIME_UNSET;
+    }
+    @Nullable MediaInfo mediaInfo = mediaStatus.getMediaInfo();
+    if (mediaInfo == null || mediaInfo.getStreamType() != MediaInfo.STREAM_TYPE_LIVE) {
+      return C.TIME_UNSET;
+    }
+    return remoteMediaClient.getApproximateLiveSeekableRangeStart();
+  }
+
+  /**
+   * Converts a Cast stream position in milliseconds to a Media3 window-relative position in
+   * milliseconds for the active item in {@code remoteMediaClient}.
+   */
+  public static long toWindowPositionMs(
+      RemoteMediaClient remoteMediaClient, long streamPositionMs) {
+    long liveSeekableRangeStartMs = getLiveSeekableRangeStartMs(remoteMediaClient);
+    if (liveSeekableRangeStartMs == C.TIME_UNSET) {
+      return streamPositionMs;
+    }
+    // When a sliding live stream is paused or buffering, the Cast SDK stops advancing the stream
+    // position while getApproximateLiveSeekableRangeStart() continues advancing with wall-clock
+    // time, which can cause the live window start to overtake the paused stream position.
+    return max(0, streamPositionMs - liveSeekableRangeStartMs);
   }
 
   /**

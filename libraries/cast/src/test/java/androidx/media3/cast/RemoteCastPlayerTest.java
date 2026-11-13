@@ -95,6 +95,7 @@ import androidx.media3.common.Tracks;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
 import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
@@ -5217,6 +5218,203 @@ public class RemoteCastPlayerTest {
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(legacyListener.onCastSessionAvailableCalled).isTrue();
+  }
+
+  @Test
+  public void getCurrentPosition_liveStreamWithSeekableRange_subtractsLiveSeekableRangeStart() {
+    int[] mediaQueueItemIds = new int[] {1};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(
+        mediaItems,
+        mediaQueueItemIds,
+        /* currentItemId= */ 1,
+        new int[] {MediaInfo.STREAM_TYPE_LIVE},
+        new long[] {C.TIME_UNSET},
+        /* positionMs= */ 125_000L,
+        /* notifyStatusUpdate= */ true);
+
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(25_000L);
+
+    // When stream position lags behind the sliding DVR window start, clamp to 0.
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(140_000L);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(0L);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Verifies deprecated RemoteMediaClient.seek(long) call.
+  public void seekTo_sameWindowOnLiveStream_seeksWithRangeStartOffsetAndMasksWindowPosition() {
+    int[] mediaQueueItemIds = new int[] {1};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(
+        mediaItems,
+        mediaQueueItemIds,
+        /* currentItemId= */ 1,
+        new int[] {MediaInfo.STREAM_TYPE_LIVE},
+        new long[] {C.TIME_UNSET},
+        /* positionMs= */ 140_000L,
+        /* notifyStatusUpdate= */ true);
+    clearInvocations(mockListener);
+
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 20_000L);
+
+    verify(mockRemoteMediaClient).seek(120_000L);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(20_000L);
+    Object uid = remoteCastPlayer.getCurrentTimeline().getWindow(0, new Timeline.Window()).uid;
+    Player.PositionInfo oldPosition =
+        new Player.PositionInfo(
+            /* windowUid= */ uid,
+            /* mediaItemIndex= */ 0,
+            mediaItems.get(0),
+            /* periodUid= */ uid,
+            /* periodIndex= */ 0,
+            /* positionMs= */ 40_000L,
+            /* contentPositionMs= */ 40_000L,
+            /* adGroupIndex= */ C.INDEX_UNSET,
+            /* adIndexInAdGroup= */ C.INDEX_UNSET);
+    Player.PositionInfo newPosition =
+        new Player.PositionInfo(
+            /* windowUid= */ uid,
+            /* mediaItemIndex= */ 0,
+            mediaItems.get(0),
+            /* periodUid= */ uid,
+            /* periodIndex= */ 0,
+            /* positionMs= */ 20_000L,
+            /* contentPositionMs= */ 20_000L,
+            /* adGroupIndex= */ C.INDEX_UNSET,
+            /* adIndexInAdGroup= */ C.INDEX_UNSET);
+    verify(mockListener)
+        .onPositionDiscontinuity(oldPosition, newPosition, Player.DISCONTINUITY_REASON_SEEK);
+
+    // Receiver confirms the seek at stream position 120_000L (window position 20_000L).
+    when(mockRemoteMediaClient.getApproximateStreamPosition()).thenReturn(120_000L);
+    for (ResultCallback<MediaChannelResult> callback :
+        ImmutableList.copyOf(pendingResultCallbacks)) {
+      pendingResultCallbacks.remove(callback);
+      callback.onResult(defaultSuccessResult);
+    }
+
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(20_000L);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Verifies deprecated RemoteMediaClient.seek(long) call.
+  public void seekToDefaultPosition_onSeekableLiveStream_seeksToLiveEdge() {
+    int[] mediaQueueItemIds = new int[] {1};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(
+        mediaItems,
+        mediaQueueItemIds,
+        /* currentItemId= */ 1,
+        new int[] {MediaInfo.STREAM_TYPE_LIVE},
+        new long[] {C.TIME_UNSET},
+        /* positionMs= */ 120_000L,
+        /* notifyStatusUpdate= */ true);
+
+    remoteCastPlayer.seekToDefaultPosition();
+
+    verify(mockRemoteMediaClient).seek(160_000L);
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(60_000L);
+  }
+
+  @Test
+  public void onSessionEnded_liveStreamAfterProgressUpdate_retainsWindowRelativePosition() {
+    int[] mediaQueueItemIds = new int[] {1};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(
+        mediaItems,
+        mediaQueueItemIds,
+        /* currentItemId= */ 1,
+        new int[] {MediaInfo.STREAM_TYPE_LIVE},
+        new long[] {C.TIME_UNSET},
+        /* positionMs= */ 135_000L,
+        /* notifyStatusUpdate= */ true);
+    progressListener.onProgressUpdated(/* progressMs= */ 135_000L, /* durationMs= */ 0L);
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    sessionManagerListener.onSessionEnded(
+        mockCastSession, RemoteCastPlayer.SESSION_END_REASON_STOPPED);
+
+    assertThat(remoteCastPlayer.getCurrentPosition()).isEqualTo(35_000L);
+  }
+
+  @Test
+  public void
+      getAvailableCommands_liveStreamWithSeekableRangeAndSeekCommand_updatesSeekAvailability() {
+    int[] mediaQueueItemIds = new int[] {1};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(true);
+    remoteCastPlayer.addMediaItems(mediaItems);
+    updateTimeLine(
+        mediaItems,
+        mediaQueueItemIds,
+        /* currentItemId= */ 1,
+        new int[] {MediaInfo.STREAM_TYPE_LIVE},
+        new long[] {C.TIME_UNSET},
+        /* positionMs= */ 135_000L,
+        /* notifyStatusUpdate= */ true);
+
+    assertThat(remoteCastPlayer.isCurrentMediaItemSeekable()).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM))
+        .isTrue();
+
+    when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)).thenReturn(false);
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(remoteCastPlayer.isCurrentMediaItemSeekable()).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM))
+        .isFalse();
   }
 
   private void simulateNaturalQueueEnd() {
