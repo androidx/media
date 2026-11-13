@@ -1959,6 +1959,36 @@ public class UtilTest {
                 /* positionUs= */ 0, /* targetPositionUs= */ 1_000, /* playbackSpeed= */ -1f));
   }
 
+  @Test
+  public void ceilDivide_int_returnsCeiledQuotientWithoutOverflow() {
+    assertThat(Util.ceilDivide(0, 3)).isEqualTo(0);
+    assertThat(Util.ceilDivide(6, 3)).isEqualTo(2);
+    assertThat(Util.ceilDivide(7, 3)).isEqualTo(3);
+    assertThat(Util.ceilDivide(Integer.MAX_VALUE, 1000)).isEqualTo(2_147_484);
+    assertThat(Util.ceilDivide(Integer.MAX_VALUE, Integer.MAX_VALUE)).isEqualTo(1);
+  }
+
+  @Test
+  public void ceilDivide_long_returnsCeiledQuotientWithoutOverflow() {
+    assertThat(Util.ceilDivide(0L, 3L)).isEqualTo(0L);
+    assertThat(Util.ceilDivide(6L, 3L)).isEqualTo(2L);
+    assertThat(Util.ceilDivide(7L, 3L)).isEqualTo(3L);
+    assertThat(Util.ceilDivide(Long.MAX_VALUE, 1000L)).isEqualTo(9_223_372_036_854_776L);
+    assertThat(Util.ceilDivide(Long.MAX_VALUE, Long.MAX_VALUE)).isEqualTo(1L);
+  }
+
+  @Test
+  public void msToUs_convertsAndPreservesSpecialValuesAndSaturatesOnOverflow() {
+    assertThat(Util.msToUs(0)).isEqualTo(0);
+    assertThat(Util.msToUs(123)).isEqualTo(123_000);
+    assertThat(Util.msToUs(-123)).isEqualTo(-123_000);
+    assertThat(Util.msToUs(C.TIME_UNSET)).isEqualTo(C.TIME_UNSET);
+    assertThat(Util.msToUs(C.TIME_END_OF_SOURCE)).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(Util.msToUs(Long.MAX_VALUE)).isEqualTo(Long.MAX_VALUE);
+    assertThat(Util.msToUs(Long.MAX_VALUE / 1000 + 1)).isEqualTo(Long.MAX_VALUE);
+    assertThat(Util.msToUs(Long.MIN_VALUE / 1000 - 1)).isEqualTo(Long.MIN_VALUE);
+  }
+
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {
     assertThat(escapeFileName(fileName)).isEqualTo(escapedFileName);
     assertThat(unescapeFileName(escapedFileName)).isEqualTo(fileName);

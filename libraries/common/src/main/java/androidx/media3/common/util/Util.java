@@ -112,6 +112,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
 import com.google.common.math.DoubleMath;
+import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.UnsignedBytes;
@@ -1277,7 +1278,7 @@ public final class Util {
    */
   @UnstableApi
   public static int ceilDivide(int numerator, int denominator) {
-    return (numerator + denominator - 1) / denominator;
+    return IntMath.divide(numerator, denominator, RoundingMode.CEILING);
   }
 
   /**
@@ -1289,7 +1290,7 @@ public final class Util {
    */
   @UnstableApi
   public static long ceilDivide(long numerator, long denominator) {
-    return (numerator + denominator - 1) / denominator;
+    return LongMath.divide(numerator, denominator, RoundingMode.CEILING);
   }
 
   /**
@@ -1785,14 +1786,17 @@ public final class Util {
 
   /**
    * Converts a time in milliseconds to the corresponding time in microseconds, preserving {@link
-   * C#TIME_UNSET} values and {@link C#TIME_END_OF_SOURCE} values.
+   * C#TIME_UNSET} values and {@link C#TIME_END_OF_SOURCE} values, and saturating at {@link
+   * Long#MIN_VALUE} or {@link Long#MAX_VALUE} if the conversion would overflow.
    *
    * @param timeMs The time in milliseconds.
    * @return The corresponding time in microseconds.
    */
   @UnstableApi
   public static long msToUs(long timeMs) {
-    return (timeMs == C.TIME_UNSET || timeMs == C.TIME_END_OF_SOURCE) ? timeMs : (timeMs * 1000);
+    return (timeMs == C.TIME_UNSET || timeMs == C.TIME_END_OF_SOURCE)
+        ? timeMs
+        : LongMath.saturatedMultiply(timeMs, 1000);
   }
 
   /**
