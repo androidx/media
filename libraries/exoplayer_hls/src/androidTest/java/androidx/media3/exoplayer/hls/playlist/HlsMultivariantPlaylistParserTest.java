@@ -86,6 +86,14 @@ public class HlsMultivariantPlaylistParserTest {
           + "RESOLUTION=1920x1080,SCORE=2.0\n"
           + "http://example.com/high.m3u8\n";
 
+  private static final String PLAYLIST_WITH_NON_POSITIVE_FRAME_RATE =
+      " #EXTM3U \n"
+          + "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=716800,RESOLUTION=960x540,"
+          + "FRAME-RATE=0.000\n"
+          + "http://example.com/zero.m3u8\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,FRAME-RATE=0\n"
+          + "http://example.com/zero_integer.m3u8\n";
+
   private static final String PLAYLIST_WITH_DOLBY_VISION =
       " #EXTM3U \n"
           + "\n"
@@ -505,6 +513,18 @@ public class HlsMultivariantPlaylistParserTest {
     List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
     assertThat(variants.get(0).format.selectionPriority).isEqualTo(1.5f);
     assertThat(variants.get(1).format.selectionPriority).isEqualTo(2.0f);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withNonPositiveFrameRate_setsFrameRateToNoValue()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_NON_POSITIVE_FRAME_RATE);
+
+    List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
+    assertThat(variants).hasSize(2);
+    assertThat(variants.get(0).format.frameRate).isEqualTo((float) Format.NO_VALUE);
+    assertThat(variants.get(1).format.frameRate).isEqualTo((float) Format.NO_VALUE);
   }
 
   @Test
