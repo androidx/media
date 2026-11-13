@@ -108,6 +108,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
             .setUuidAndExoMediaDrmProvider(
                 drmConfiguration.scheme, FrameworkMediaDrm.DEFAULT_PROVIDER)
             .setMultiSession(drmConfiguration.multiSession)
+            .setForceSoftwareCrypto(drmConfiguration.forceSoftwareCrypto)
             .setPlayClearSamplesWithoutKeys(drmConfiguration.playClearContentWithoutKey)
             .setUseDrmSessionsForClearContent(
                 Ints.toArray(drmConfiguration.forcedSessionTrackTypes));

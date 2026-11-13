@@ -178,6 +178,7 @@ public class MediaItemTest {
                     .setPlayClearContentWithoutKey(true)
                     .setForcedSessionTrackTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
                     .setKeySetId(keySetId)
+                    .setForceSoftwareCrypto(true)
                     .build())
             .build();
 
@@ -197,6 +198,7 @@ public class MediaItemTest {
     assertThat(mediaItem.localConfiguration.drmConfiguration.forcedSessionTrackTypes)
         .containsExactly(C.TRACK_TYPE_AUDIO);
     assertThat(mediaItem.localConfiguration.drmConfiguration.getKeySetId()).isEqualTo(keySetId);
+    assertThat(mediaItem.localConfiguration.drmConfiguration.forceSoftwareCrypto).isTrue();
   }
 
   @Test
@@ -288,6 +290,7 @@ public class MediaItemTest {
             .setPlayClearContentWithoutKey(true)
             .setForcedSessionTrackTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
             .setKeySetId(new byte[] {1, 2, 3})
+            .setForceSoftwareCrypto(true)
             .build();
 
     MediaItem.DrmConfiguration drmConfigurationFromBundle =
@@ -813,6 +816,7 @@ public class MediaItemTest {
                     .setPlayClearContentWithoutKey(true)
                     .setForcedSessionTrackTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
                     .setKeySetId(new byte[] {1, 2, 3})
+                    .setForceSoftwareCrypto(true)
                     .build())
             .setAdsConfiguration(
                 new MediaItem.AdsConfiguration.Builder(Uri.parse(URI_STRING)).build())
@@ -991,6 +995,7 @@ public class MediaItemTest {
                     .setPlayClearContentWithoutKey(true)
                     .setForcedSessionTrackTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
                     .setKeySetId(new byte[] {1, 2, 3})
+                    .setForceSoftwareCrypto(true)
                     .build())
             .setMediaId("mediaId")
             .setMediaMetadata(new MediaMetadata.Builder().setTitle("title").build())

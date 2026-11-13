@@ -382,7 +382,7 @@ public class SampleChooserActivity extends AppCompatActivity
       group.playlists.addAll(playlistHolders);
     }
 
-    @OptIn(markerClass = UnstableApi.class) // Setting image duration.
+    @OptIn(markerClass = UnstableApi.class) // Setting image duration and force software crypto.
     private PlaylistHolder readEntry(JsonReader reader, boolean insidePlaylist) throws IOException {
       Uri uri = null;
       String extension = null;
@@ -397,6 +397,7 @@ public class SampleChooserActivity extends AppCompatActivity
       ImmutableMap<String, String> drmLicenseRequestHeaders = ImmutableMap.of();
       boolean drmSessionForClearContent = false;
       boolean drmMultiSession = false;
+      boolean drmForceSoftwareCrypto = false;
       boolean drmForceDefaultLicenseUri = false;
       MediaItem.ClippingConfiguration.Builder clippingConfiguration =
           new ClippingConfiguration.Builder();
@@ -452,6 +453,9 @@ public class SampleChooserActivity extends AppCompatActivity
             break;
           case "drm_multi_session":
             drmMultiSession = reader.nextBoolean();
+            break;
+          case "drm_force_software_crypto":
+            drmForceSoftwareCrypto = reader.nextBoolean();
             break;
           case "drm_force_default_license_uri":
             drmForceDefaultLicenseUri = reader.nextBoolean();
@@ -509,20 +513,24 @@ public class SampleChooserActivity extends AppCompatActivity
                   .setLicenseRequestHeaders(drmLicenseRequestHeaders)
                   .setForceSessionsForAudioAndVideoTracks(drmSessionForClearContent)
                   .setMultiSession(drmMultiSession)
+                  .setForceSoftwareCrypto(drmForceSoftwareCrypto)
                   .setForceDefaultLicenseUri(drmForceDefaultLicenseUri)
                   .build());
         } else {
-          checkState(drmLicenseUri == null, "drm_uuid is required if drm_license_uri is set.");
+          checkState(drmLicenseUri == null, "drm_scheme is required if drm_license_uri is set.");
           checkState(
               drmLicenseRequestHeaders.isEmpty(),
-              "drm_uuid is required if drm_key_request_properties is set.");
+              "drm_scheme is required if drm_key_request_properties is set.");
           checkState(
               !drmSessionForClearContent,
-              "drm_uuid is required if drm_session_for_clear_content is set.");
-          checkState(!drmMultiSession, "drm_uuid is required if drm_multi_session is set.");
+              "drm_scheme is required if drm_session_for_clear_content is set.");
+          checkState(!drmMultiSession, "drm_scheme is required if drm_multi_session is set.");
+          checkState(
+              !drmForceSoftwareCrypto,
+              "drm_scheme is required if drm_force_software_crypto is set.");
           checkState(
               !drmForceDefaultLicenseUri,
-              "drm_uuid is required if drm_force_default_license_uri is set.");
+              "drm_scheme is required if drm_force_default_license_uri is set.");
         }
         if (subtitleUri != null) {
           MediaItem.SubtitleConfiguration subtitleConfiguration =

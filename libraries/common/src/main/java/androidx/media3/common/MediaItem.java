@@ -644,6 +644,7 @@ public final class MediaItem {
       private @Nullable Uri licenseUri;
       private ImmutableMap<String, String> licenseRequestHeaders;
       private boolean multiSession;
+      private boolean forceSoftwareCrypto;
       private boolean playClearContentWithoutKey;
       private boolean forceDefaultLicenseUri;
       private ImmutableList<@C.TrackType Integer> forcedSessionTrackTypes;
@@ -676,6 +677,7 @@ public final class MediaItem {
         this.licenseUri = drmConfiguration.licenseUri;
         this.licenseRequestHeaders = drmConfiguration.licenseRequestHeaders;
         this.multiSession = drmConfiguration.multiSession;
+        this.forceSoftwareCrypto = drmConfiguration.forceSoftwareCrypto;
         this.playClearContentWithoutKey = drmConfiguration.playClearContentWithoutKey;
         this.forceDefaultLicenseUri = drmConfiguration.forceDefaultLicenseUri;
         this.forcedSessionTrackTypes = drmConfiguration.forcedSessionTrackTypes;
@@ -729,6 +731,23 @@ public final class MediaItem {
       @CanIgnoreReturnValue
       public Builder setMultiSession(boolean multiSession) {
         this.multiSession = multiSession;
+        return this;
+      }
+
+      /**
+       * Sets whether the DRM implementation should be forced to use software crypto, if supported
+       * by the DRM scheme.
+       *
+       * <p>The default is {@code false} (use default DRM crypto level).
+       *
+       * @param forceSoftwareCrypto Whether the DRM implementation should be forced to use software
+       *     crypto, if supported by the DRM scheme.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      @UnstableApi
+      public Builder setForceSoftwareCrypto(boolean forceSoftwareCrypto) {
+        this.forceSoftwareCrypto = forceSoftwareCrypto;
         return this;
       }
 
@@ -852,6 +871,12 @@ public final class MediaItem {
     public final boolean multiSession;
 
     /**
+     * Whether the DRM implementation should be forced to use software crypto, if supported by the
+     * DRM scheme.
+     */
+    @UnstableApi public final boolean forceSoftwareCrypto;
+
+    /**
      * Whether clear samples within protected content should be played when keys for the encrypted
      * part of the content have yet to be loaded.
      */
@@ -884,6 +909,7 @@ public final class MediaItem {
       this.requestHeaders = builder.licenseRequestHeaders;
       this.licenseRequestHeaders = builder.licenseRequestHeaders;
       this.multiSession = builder.multiSession;
+      this.forceSoftwareCrypto = builder.forceSoftwareCrypto;
       this.forceDefaultLicenseUri = builder.forceDefaultLicenseUri;
       this.playClearContentWithoutKey = builder.playClearContentWithoutKey;
       this.sessionForClearTypes = builder.forcedSessionTrackTypes;
@@ -918,6 +944,7 @@ public final class MediaItem {
           && Objects.equals(licenseUri, other.licenseUri)
           && Objects.equals(licenseRequestHeaders, other.licenseRequestHeaders)
           && multiSession == other.multiSession
+          && forceSoftwareCrypto == other.forceSoftwareCrypto
           && forceDefaultLicenseUri == other.forceDefaultLicenseUri
           && playClearContentWithoutKey == other.playClearContentWithoutKey
           && forcedSessionTrackTypes.equals(other.forcedSessionTrackTypes)
@@ -930,6 +957,7 @@ public final class MediaItem {
       result = 31 * result + (licenseUri != null ? licenseUri.hashCode() : 0);
       result = 31 * result + licenseRequestHeaders.hashCode();
       result = 31 * result + (multiSession ? 1 : 0);
+      result = 31 * result + (forceSoftwareCrypto ? 1 : 0);
       result = 31 * result + (forceDefaultLicenseUri ? 1 : 0);
       result = 31 * result + (playClearContentWithoutKey ? 1 : 0);
       result = 31 * result + forcedSessionTrackTypes.hashCode();
@@ -948,6 +976,7 @@ public final class MediaItem {
     private static final String FIELD_FORCE_DEFAULT_LICENSE_URI = Util.intToStringMaxRadix(5);
     private static final String FIELD_FORCED_SESSION_TRACK_TYPES = Util.intToStringMaxRadix(6);
     private static final String FIELD_KEY_SET_ID = Util.intToStringMaxRadix(7);
+    private static final String FIELD_FORCE_SOFTWARE_CRYPTO = Util.intToStringMaxRadix(8);
 
     /** Restores a {@code DrmConfiguration} from a {@link Bundle}. */
     @UnstableApi
@@ -960,6 +989,7 @@ public final class MediaItem {
       ImmutableMap<String, String> licenseRequestHeaders =
           BundleCollectionUtil.bundleToStringImmutableMap(licenseMapAsBundle);
       boolean multiSession = bundle.getBoolean(FIELD_MULTI_SESSION, false);
+      boolean forceSoftwareCrypto = bundle.getBoolean(FIELD_FORCE_SOFTWARE_CRYPTO, false);
       boolean playClearContentWithoutKey =
           bundle.getBoolean(FIELD_PLAY_CLEAR_CONTENT_WITHOUT_KEY, false);
       boolean forceDefaultLicenseUri = bundle.getBoolean(FIELD_FORCE_DEFAULT_LICENSE_URI, false);
@@ -975,6 +1005,7 @@ public final class MediaItem {
           .setLicenseUri(licenseUri)
           .setLicenseRequestHeaders(licenseRequestHeaders)
           .setMultiSession(multiSession)
+          .setForceSoftwareCrypto(forceSoftwareCrypto)
           .setForceDefaultLicenseUri(forceDefaultLicenseUri)
           .setPlayClearContentWithoutKey(playClearContentWithoutKey)
           .setForcedSessionTrackTypes(forcedSessionTrackTypes)
@@ -996,6 +1027,9 @@ public final class MediaItem {
       }
       if (multiSession) {
         bundle.putBoolean(FIELD_MULTI_SESSION, multiSession);
+      }
+      if (forceSoftwareCrypto) {
+        bundle.putBoolean(FIELD_FORCE_SOFTWARE_CRYPTO, forceSoftwareCrypto);
       }
       if (playClearContentWithoutKey) {
         bundle.putBoolean(FIELD_PLAY_CLEAR_CONTENT_WITHOUT_KEY, playClearContentWithoutKey);

@@ -46,6 +46,11 @@
 *   Image:
 *   DataSource:
 *   DRM:
+    *   Add `MediaItem.DrmConfiguration.Builder.setForceSoftwareCrypto(boolean)`
+        and `DefaultDrmSessionManager.Builder.setForceSoftwareCrypto(boolean)`
+        to force the Widevine CDM to use the L3 software library on devices that
+        default to the L1 hardware library. Other DRM schemes ignore this
+        setting.
 *   Effect:
 *   Effect Lottie:
 *   Effect Play services:

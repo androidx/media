@@ -65,6 +65,7 @@ public class IntentUtil {
   public static final String DRM_KEY_REQUEST_PROPERTIES_EXTRA = "drm_key_request_properties";
   public static final String DRM_SESSION_FOR_CLEAR_CONTENT = "drm_session_for_clear_content";
   public static final String DRM_MULTI_SESSION_EXTRA = "drm_multi_session";
+  public static final String DRM_FORCE_SOFTWARE_CRYPTO_EXTRA = "drm_force_software_crypto";
   public static final String DRM_FORCE_DEFAULT_LICENSE_URI_EXTRA = "drm_force_default_license_uri";
 
   public static final String SUBTITLE_URI_EXTRA = "subtitle_uri";
@@ -181,6 +182,7 @@ public class IntentUtil {
         .build();
   }
 
+  @OptIn(markerClass = UnstableApi.class) // Accessing force software crypto.
   private static MediaItem.Builder populateDrmPropertiesFromIntent(
       MediaItem.Builder builder, Intent intent, String extrasKeySuffix) {
     String schemeKey = DRM_SCHEME_EXTRA + extrasKeySuffix;
@@ -203,6 +205,8 @@ public class IntentUtil {
               .setLicenseUri(intent.getStringExtra(DRM_LICENSE_URI_EXTRA + extrasKeySuffix))
               .setMultiSession(
                   intent.getBooleanExtra(DRM_MULTI_SESSION_EXTRA + extrasKeySuffix, false))
+              .setForceSoftwareCrypto(
+                  intent.getBooleanExtra(DRM_FORCE_SOFTWARE_CRYPTO_EXTRA + extrasKeySuffix, false))
               .setForceDefaultLicenseUri(
                   intent.getBooleanExtra(
                       DRM_FORCE_DEFAULT_LICENSE_URI_EXTRA + extrasKeySuffix, false))
@@ -240,6 +244,7 @@ public class IntentUtil {
     }
   }
 
+  @OptIn(markerClass = UnstableApi.class) // Accessing force software crypto.
   private static void addDrmConfigurationToIntent(
       MediaItem.DrmConfiguration drmConfiguration, Intent intent, String extrasKeySuffix) {
     intent.putExtra(DRM_SCHEME_EXTRA + extrasKeySuffix, drmConfiguration.scheme.toString());
@@ -247,6 +252,8 @@ public class IntentUtil {
         DRM_LICENSE_URI_EXTRA + extrasKeySuffix,
         drmConfiguration.licenseUri != null ? drmConfiguration.licenseUri.toString() : null);
     intent.putExtra(DRM_MULTI_SESSION_EXTRA + extrasKeySuffix, drmConfiguration.multiSession);
+    intent.putExtra(
+        DRM_FORCE_SOFTWARE_CRYPTO_EXTRA + extrasKeySuffix, drmConfiguration.forceSoftwareCrypto);
     intent.putExtra(
         DRM_FORCE_DEFAULT_LICENSE_URI_EXTRA + extrasKeySuffix,
         drmConfiguration.forceDefaultLicenseUri);

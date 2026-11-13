@@ -83,6 +83,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     private UUID uuid;
     private ExoMediaDrm.Provider exoMediaDrmProvider;
     private boolean multiSession;
+    private boolean forceSoftwareCrypto;
     private @C.TrackType int[] useDrmSessionsForClearContentTrackTypes;
     private boolean playClearSamplesWithoutKeys;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
@@ -97,6 +98,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
      *   <li>{@link #setUuidAndExoMediaDrmProvider ExoMediaDrm.Provider}: {@link
      *       FrameworkMediaDrm#DEFAULT_PROVIDER}.
      *   <li>{@link #setMultiSession multiSession}: {@code false}.
+     *   <li>{@link #setForceSoftwareCrypto forceSoftwareCrypto}: {@code false}.
      *   <li>{@link #setUseDrmSessionsForClearContent useDrmSessionsForClearContent}: No tracks.
      *   <li>{@link #setPlayClearSamplesWithoutKeys playClearSamplesWithoutKeys}: {@code true}.
      *   <li>{@link #setLoadErrorHandlingPolicy LoadErrorHandlingPolicy}: {@link
@@ -162,6 +164,35 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     @CanIgnoreReturnValue
     public Builder setMultiSession(boolean multiSession) {
       this.multiSession = multiSession;
+      return this;
+    }
+
+    /**
+     * Sets whether this session manager should force software crypto library mode, if supported by
+     * the DRM scheme.
+     *
+     * <p>Users should pass {@code true} if they wish to use the software crypto library on a device
+     * that supports hardware crypto.
+     *
+     * <p>This setting currently only applies to the {@link C#WIDEVINE_UUID} scheme: {@link
+     * DefaultDrmSessionManager#prepare()} sets the {@code securityLevel} property of the acquired
+     * {@link ExoMediaDrm} to {@code L3}, which makes Widevine use its software crypto library.
+     *
+     * <p>{@link android.media.MediaDrm#setPropertyString} will throw an {@link
+     * IllegalStateException} on the playback thread if a session has already been opened (e.g. by
+     * an {@link ExoMediaDrm.AppManagedProvider} that has shared sessions with either another player
+     * or with an {@link OfflineLicenseHelper}).
+     *
+     * <p>{@link FrameworkMediaDrm#DEFAULT_PROVIDER} always gets a new ExoMediaDrm instance, so it
+     * should be safe to use in that configuration.
+     *
+     * @param forceSoftwareCrypto Whether this session manager should force software crypto library
+     *     mode, if supported by the DRM scheme.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setForceSoftwareCrypto(boolean forceSoftwareCrypto) {
+      this.forceSoftwareCrypto = forceSoftwareCrypto;
       return this;
     }
 
@@ -246,6 +277,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
           mediaDrmCallback,
           keyRequestParameters,
           multiSession,
+          forceSoftwareCrypto,
           useDrmSessionsForClearContentTrackTypes,
           playClearSamplesWithoutKeys,
           loadErrorHandlingPolicy,
@@ -308,6 +340,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
   private final MediaDrmCallback callback;
   private final HashMap<String, String> keyRequestParameters;
   private final boolean multiSession;
+  private final boolean forceSoftwareCrypto;
   private final @C.TrackType int[] useDrmSessionsForClearContentTrackTypes;
   private final boolean playClearSamplesWithoutKeys;
   private final ProvisioningManagerImpl provisioningManagerImpl;
@@ -337,6 +370,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
       MediaDrmCallback callback,
       HashMap<String, String> keyRequestParameters,
       boolean multiSession,
+      boolean forceSoftwareCrypto,
       @C.TrackType int[] useDrmSessionsForClearContentTrackTypes,
       boolean playClearSamplesWithoutKeys,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
@@ -348,6 +382,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     this.callback = callback;
     this.keyRequestParameters = keyRequestParameters;
     this.multiSession = multiSession;
+    this.forceSoftwareCrypto = forceSoftwareCrypto;
     this.useDrmSessionsForClearContentTrackTypes = useDrmSessionsForClearContentTrackTypes;
     this.playClearSamplesWithoutKeys = playClearSamplesWithoutKeys;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
@@ -403,6 +438,10 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
     }
     if (exoMediaDrm == null) {
       exoMediaDrm = exoMediaDrmProvider.acquireExoMediaDrm(uuid);
+      // Forcing software crypto currently only works for the Widevine DRM scheme.
+      if (forceSoftwareCrypto && C.WIDEVINE_UUID.equals(uuid)) {
+        exoMediaDrm.setPropertyString("securityLevel", "L3");
+      }
       exoMediaDrm.setOnEventListener(new MediaDrmEventListener());
     } else if (sessionKeepaliveMs != C.TIME_UNSET) {
       // Re-acquire the keepalive references for any sessions that are still active.

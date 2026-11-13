@@ -72,6 +72,7 @@ public final class OfflineLicenseHelper {
     return newWidevineInstance(
         checkNotNull(drmConfiguration.licenseUri).toString(),
         drmConfiguration.forceDefaultLicenseUri,
+        drmConfiguration.forceSoftwareCrypto,
         drmConfiguration.licenseRequestHeaders,
         dataSourceFactory,
         /* optionalKeyRequestParameters= */ null,
@@ -148,6 +149,7 @@ public final class OfflineLicenseHelper {
     return newWidevineInstance(
         defaultLicenseUrl,
         forceDefaultLicenseUrl,
+        /* forceSoftwareCrypto= */ false,
         /* optionalKeyRequestHeaders= */ null,
         dataSourceFactory,
         optionalKeyRequestParameters,
@@ -157,6 +159,7 @@ public final class OfflineLicenseHelper {
   private static OfflineLicenseHelper newWidevineInstance(
       String defaultLicenseUrl,
       boolean forceDefaultLicenseUrl,
+      boolean forceSoftwareCrypto,
       @Nullable Map<String, String> optionalKeyRequestHeaders,
       DataSource.Factory dataSourceFactory,
       @Nullable Map<String, String> optionalKeyRequestParameters,
@@ -171,6 +174,7 @@ public final class OfflineLicenseHelper {
     return new OfflineLicenseHelper(
         new DefaultDrmSessionManager.Builder()
             .setKeyRequestParameters(optionalKeyRequestParameters)
+            .setForceSoftwareCrypto(forceSoftwareCrypto)
             .build(httpDrmCallback),
         eventDispatcher);
   }

@@ -492,6 +492,56 @@ public class DefaultDrmSessionManagerTest {
   }
 
   @Test(timeout = 10_000)
+  public void prepare_forceSoftwareCryptoTrueWithWidevine_setsSecurityLevelL3() {
+    FakeExoMediaDrm exoMediaDrm = new FakeExoMediaDrm.Builder().build();
+
+    DefaultDrmSessionManager drmSessionManager =
+        new DefaultDrmSessionManager.Builder()
+            .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID, uuid -> exoMediaDrm)
+            .setForceSoftwareCrypto(true)
+            .build(mock(MediaDrmCallback.class));
+    drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
+    drmSessionManager.prepare();
+
+    assertThat(exoMediaDrm.getPropertyString("securityLevel")).isEqualTo("L3");
+    drmSessionManager.release();
+  }
+
+  @Test(timeout = 10_000)
+  public void prepare_forceSoftwareCryptoTrueWithNonWidevine_doesNotSetSecurityLevel() {
+    FakeExoMediaDrm exoMediaDrm = new FakeExoMediaDrm.Builder().build();
+
+    DefaultDrmSessionManager drmSessionManager =
+        new DefaultDrmSessionManager.Builder()
+            .setUuidAndExoMediaDrmProvider(DRM_SCHEME_UUID, uuid -> exoMediaDrm)
+            .setForceSoftwareCrypto(true)
+            .build(mock(MediaDrmCallback.class));
+    drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
+    drmSessionManager.prepare();
+
+    assertThrows(
+        IllegalArgumentException.class, () -> exoMediaDrm.getPropertyString("securityLevel"));
+    drmSessionManager.release();
+  }
+
+  @Test(timeout = 10_000)
+  public void prepare_forceSoftwareCryptoDefaultWithWidevine_doesNotSetSecurityLevel() {
+    FakeExoMediaDrm exoMediaDrm = new FakeExoMediaDrm.Builder().build();
+
+    DefaultDrmSessionManager drmSessionManager =
+        new DefaultDrmSessionManager.Builder()
+            .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID, uuid -> exoMediaDrm)
+            // Default value for forceSoftwareCrypto is false.
+            .build(mock(MediaDrmCallback.class));
+    drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
+    drmSessionManager.prepare();
+
+    assertThrows(
+        IllegalArgumentException.class, () -> exoMediaDrm.getPropertyString("securityLevel"));
+    drmSessionManager.release();
+  }
+
+  @Test(timeout = 10_000)
   public void sessionReacquired_keepaliveTimeOutCancelled() throws Exception {
     FakeExoMediaDrm.LicenseServer licenseServer =
         FakeExoMediaDrm.LicenseServer.allowingSchemeDatas(DRM_SCHEME_DATAS);
