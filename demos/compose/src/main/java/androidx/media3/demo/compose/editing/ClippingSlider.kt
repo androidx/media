@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -163,7 +164,10 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  *   elements as frames load). If this list is empty, the component will render an empty [Box]
  *   instead.
  * @param modifier The [Modifier] to be applied to the slider.
- * @param initialClippingRangeMs The initial clipping range in milliseconds.
+ * @param initialClippingRangeMs The initial clipping range in milliseconds. The clipping range is
+ *   then kept with [rememberSaveable], so that it survives configuration changes, process death and
+ *   the [player] being replaced. To keep the clipping range while the slider leaves the
+ *   composition, store it from [onClippingRangeChange] and pass it back here.
  * @param onClippingRangeChange An optional callback that is invoked continuously with the updated
  *   clipping range in milliseconds (with [C.TIME_END_OF_SOURCE] as the end position when the clip
  *   is untrimmed at the end of the media) when the clipping range is adjusted (either by the user
@@ -207,11 +211,15 @@ fun ClippingSlider(
     defaultClippingThumbPainter,
 ) {
   var positionTickCount by remember { mutableIntStateOf(0) }
+  // The clipping range selected by the user. A new state is created when the player is replaced,
+  // for example when the app is stopped and started again, and it starts from this range.
+  var clippingStartMs by rememberSaveable { mutableLongStateOf(initialClippingRangeMs.first) }
+  var clippingEndMs by rememberSaveable { mutableLongStateOf(initialClippingRangeMs.last) }
   val state =
     rememberClippingSliderState(
       player = player,
       positionTickCount = positionTickCount,
-      initialClippingRangeMs = initialClippingRangeMs,
+      initialClippingRangeMs = clippingStartMs..clippingEndMs,
       minClippedDurationMs = minClippedDurationMs,
       scope = scope,
     )
@@ -223,7 +231,11 @@ fun ClippingSlider(
       modifier.onSizeChanged { size ->
         positionTickCount = (PROGRESS_SLIDER_MAX_LENGTH_RATIO * size.width).roundToInt()
       },
-    onClippingRangeChange = onClippingRangeChange,
+    onClippingRangeChange = { clippingRangeMs ->
+      clippingStartMs = clippingRangeMs.first
+      clippingEndMs = clippingRangeMs.last
+      onClippingRangeChange?.invoke(clippingRangeMs)
+    },
     onClippingRangeChangeFinished = onClippingRangeChangeFinished,
     onProgressChange = onProgressChange,
     onProgressChangeFinished = onProgressChangeFinished,

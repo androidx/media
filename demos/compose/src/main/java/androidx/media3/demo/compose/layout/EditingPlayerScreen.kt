@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
@@ -83,6 +85,9 @@ internal fun EditingPlayerScreen(
   // A list state that will hold the extracted preview frames of the video for the clipping track.
   val bitmaps by rememberExtractedFrames(context, mediaItem, durationMs)
   var showCropping by rememberSaveable { mutableStateOf(false) }
+  // Hoisted above the cropping screen, so that the clipping range is kept while cropping.
+  var clippingStartMs by rememberSaveable { mutableLongStateOf(0L) }
+  var clippingEndMs by rememberSaveable { mutableLongStateOf(C.TIME_END_OF_SOURCE) }
 
   BackHandler(enabled = showCropping) { showCropping = false }
 
@@ -94,6 +99,11 @@ internal fun EditingPlayerScreen(
         player = player,
         bitmaps = bitmaps,
         mediaItem = mediaItem,
+        clippingRangeMs = clippingStartMs..clippingEndMs,
+        onClippingRangeChange = { clippingRangeMs ->
+          clippingStartMs = clippingRangeMs.first
+          clippingEndMs = clippingRangeMs.last
+        },
         onCropClick = { showCropping = true },
         modifier = modifier.fillMaxSize(),
       )
@@ -108,6 +118,8 @@ internal fun EditingPlayerScreen(
   player: Player?,
   bitmaps: ImmutableList<Bitmap>,
   mediaItem: MediaItem,
+  clippingRangeMs: LongRange,
+  onClippingRangeChange: (LongRange) -> Unit,
   onCropClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -138,6 +150,8 @@ internal fun EditingPlayerScreen(
             ClippingSlider(
               player = player,
               bitmaps = bitmaps,
+              initialClippingRangeMs = clippingRangeMs,
+              onClippingRangeChange = onClippingRangeChange,
               onClippingRangeChangeFinished = {
                 Log.d("EditingPlayerScreen", "onClippingRangeChangeFinished")
               },
