@@ -168,13 +168,12 @@ public class OkHttpDataSourceTest {
     // exception that OkHttp throws when the network security policy doesn't permit it.
     OkHttpClient okHttpClient =
         new OkHttpClient.Builder()
-            .addInterceptor(
-                chain -> {
-                  throw new UnknownServiceException(
-                      "CLEARTEXT communication to "
-                          + chain.request().url().host()
-                          + " not permitted by network security policy");
-                })
+            .addInterceptor(chain -> {
+              throw new UnknownServiceException(
+                  "CLEARTEXT communication to "
+                      + chain.request().url().host()
+                      + " not permitted by network security policy");
+            })
             .build();
     HttpDataSource okHttpDataSource = new OkHttpDataSource.Factory(okHttpClient).createDataSource();
     DataSpec dataSpec =
