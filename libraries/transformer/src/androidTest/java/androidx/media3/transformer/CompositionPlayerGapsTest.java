@@ -57,20 +57,9 @@ import org.junit.runner.RunWith;
  */
 @RunWith(TestParameterInjector.class)
 public final class CompositionPlayerGapsTest {
-  private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
-  private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
-  private static final long GAP_DURATION_US = 1_000_000;
   private static final long EXPECTED_GAP_WIDTH = 16;
   private static final long EXPECTED_GAP_HEIGHT = 16;
   private static final int SKIP_FRAMES_COUNT = 2;
-  private static final EditedMediaItem AUDIO_VIDEO_MEDIA_ITEM =
-      new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
-          .setDurationUs(AUDIO_VIDEO_MEDIA_ITEM_DURATION_US)
-          .build();
-  private static final EditedMediaItem AUDIO_ONLY_MEDIA_ITEM =
-      new EditedMediaItem.Builder(new MediaItem.Builder().setUri(WAV_ASSET.uri).build())
-          .setDurationUs(AUDIO_ONLY_MEDIA_ITEM_DURATION_US)
-          .build();
 
   @Rule
   public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
@@ -104,28 +93,15 @@ public final class CompositionPlayerGapsTest {
   }
 
   @Test
-  public void
-      playback_withTwoMediaItemsAndGapAtStart_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
-          throws Exception {
+  public void playback_withVideoGap_producesGapSizedFrames(
+      @TestParameter(valuesProvider = TestCaseProvider.class) TestCase testCase) throws Exception {
     SettableFuture<Void> endedFuture = SettableFuture.create();
-    long gapStartCompositionUs = 0;
-    long gapEndCompositionUs = GAP_DURATION_US;
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                    .addGap(GAP_DURATION_US)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .build())
-            .build();
-    final AtomicBoolean incorrectFrameDimensionsInGap = new AtomicBoolean(false);
-    final AtomicBoolean oneByOneFramesInGapCount = new AtomicBoolean(false);
-    final AtomicInteger renderedGapFrames = new AtomicInteger(0);
+    final AtomicBoolean incorrectFrameDimensionsInGap = new AtomicBoolean();
+    final AtomicBoolean oneByOneFramesInGapCount = new AtomicBoolean();
+    final AtomicInteger renderedGapFrames = new AtomicInteger();
     VideoFrameMetadataListener videoFrameMetadataListener =
         (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          if (presentationTimeUs >= gapStartCompositionUs
-              && presentationTimeUs < gapEndCompositionUs) {
+          if (presentationTimeUs >= testCase.gapStartUs && presentationTimeUs < testCase.gapEndUs) {
             // Ignore the first SKIP_FRAMES_COUNT actually rendered frames to bypass the format
             // race condition (b/438435783), regardless of their timestamps.
             if (renderedGapFrames.incrementAndGet() > SKIP_FRAMES_COUNT) {
@@ -145,7 +121,7 @@ public final class CompositionPlayerGapsTest {
       // otherwise the player will skip/drop video frames.
       compositionPlayer.setVideoSurfaceView(surfaceView);
       endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-      compositionPlayer.setComposition(composition);
+      compositionPlayer.setComposition(testCase.composition);
       compositionPlayer.prepare();
       compositionPlayer.play();
     });
@@ -160,303 +136,6 @@ public final class CompositionPlayerGapsTest {
 
     assertThat(incorrectFrameDimensionsInGap.get()).isFalse();
     assertThat(oneByOneFramesInGapCount.get()).isTrue();
-  }
-
-  @Test
-  public void
-      playback_withTwoMediaItemsAndGapInMiddle_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
-          throws Exception {
-    SettableFuture<Void> endedFuture = SettableFuture.create();
-    long gapStartCompositionUs = AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
-    long gapEndCompositionUs = gapStartCompositionUs + GAP_DURATION_US;
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addGap(GAP_DURATION_US)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .build())
-            .build();
-    final AtomicBoolean incorrectFrameDimensionsInGap = new AtomicBoolean(false);
-    final AtomicBoolean oneByOneFramesInGapCount = new AtomicBoolean(false);
-    final AtomicInteger renderedGapFrames = new AtomicInteger(0);
-    VideoFrameMetadataListener videoFrameMetadataListener =
-        (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          if (presentationTimeUs >= gapStartCompositionUs
-              && presentationTimeUs < gapEndCompositionUs) {
-            // Ignore the first SKIP_FRAMES_COUNT actually rendered frames to bypass the format
-            // race condition (b/438435783), regardless of their timestamps.
-            if (renderedGapFrames.incrementAndGet() > SKIP_FRAMES_COUNT) {
-              if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
-                oneByOneFramesInGapCount.set(true);
-              } else {
-                // If we get a frame that is not a gap (has the expected size), that's an error.
-                incorrectFrameDimensionsInGap.set(true);
-              }
-            }
-          }
-        };
-
-    instrumentation.runOnMainSync(() -> {
-      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-      // Set a surface on the player even though there is no UI on this test. We need a surface
-      // otherwise the player will skip/drop video frames.
-      compositionPlayer.setVideoSurfaceView(surfaceView);
-      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-      compositionPlayer.setComposition(composition);
-      compositionPlayer.prepare();
-      compositionPlayer.play();
-    });
-
-    endedFuture.get();
-
-    // If the device dropped so many frames that we couldn't even evaluate the gap,
-    // skip the test rather than failing it.
-    assumeTrue(
-        "Device dropped too many frames to evaluate the gap",
-        renderedGapFrames.get() > SKIP_FRAMES_COUNT);
-
-    assertThat(incorrectFrameDimensionsInGap.get()).isFalse();
-    assertThat(oneByOneFramesInGapCount.get()).isTrue();
-  }
-
-  @Test
-  public void
-      playback_withTwoMediaItemsAndGapAtTheEnd_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
-          throws Exception {
-    SettableFuture<Void> endedFuture = SettableFuture.create();
-    long gapStartCompositionUs = 2 * AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
-    long gapEndCompositionUs = gapStartCompositionUs + GAP_DURATION_US;
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addGap(GAP_DURATION_US)
-                    .build())
-            .build();
-    final AtomicBoolean incorrectFrameDimensionsInGap = new AtomicBoolean(false);
-    final AtomicBoolean oneByOneFramesInGapCount = new AtomicBoolean(false);
-    final AtomicInteger renderedGapFrames = new AtomicInteger(0);
-    VideoFrameMetadataListener videoFrameMetadataListener =
-        (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          if (presentationTimeUs >= gapStartCompositionUs
-              && presentationTimeUs < gapEndCompositionUs) {
-            // Ignore the first SKIP_FRAMES_COUNT actually rendered frames to bypass the format
-            // race condition (b/438435783), regardless of their timestamps.
-            if (renderedGapFrames.incrementAndGet() > SKIP_FRAMES_COUNT) {
-              if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
-                oneByOneFramesInGapCount.set(true);
-              } else {
-                // If we get a frame that is not a gap (has the expected size), that's an error.
-                incorrectFrameDimensionsInGap.set(true);
-              }
-            }
-          }
-        };
-
-    instrumentation.runOnMainSync(() -> {
-      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-      // Set a surface on the player even though there is no UI on this test. We need a surface
-      // otherwise the player will skip/drop video frames.
-      compositionPlayer.setVideoSurfaceView(surfaceView);
-      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-      compositionPlayer.setComposition(composition);
-      compositionPlayer.prepare();
-      compositionPlayer.play();
-    });
-
-    endedFuture.get();
-
-    // If the device dropped so many frames that we couldn't even evaluate the gap,
-    // skip the test rather than failing it.
-    assumeTrue(
-        "Device dropped too many frames to evaluate the gap",
-        renderedGapFrames.get() > SKIP_FRAMES_COUNT);
-
-    assertThat(incorrectFrameDimensionsInGap.get()).isFalse();
-    assertThat(oneByOneFramesInGapCount.get()).isTrue();
-  }
-
-  @Test
-  public void
-      playback_withThreeMediaItemsAndFirstMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForFirstMediaItem()
-          throws Exception {
-    SettableFuture<Void> endedFuture = SettableFuture.create();
-    long audioOnlyItemStartCompositionUs = 0;
-    long audioOnlyItemEndCompositionUs = AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                    .addItem(AUDIO_ONLY_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .build())
-            .build();
-    final AtomicBoolean incorrectFrameDimensionsInAudioOnlyItem = new AtomicBoolean(false);
-    final AtomicBoolean oneByOneFramesInAudioOnlyItemCount = new AtomicBoolean(false);
-    final AtomicInteger renderedGapFrames = new AtomicInteger(0);
-    VideoFrameMetadataListener videoFrameMetadataListener =
-        (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          if (presentationTimeUs >= audioOnlyItemStartCompositionUs
-              && presentationTimeUs < audioOnlyItemEndCompositionUs) {
-            // Ignore the first SKIP_FRAMES_COUNT actually rendered frames to bypass the format
-            // race condition (b/438435783), regardless of their timestamps.
-            if (renderedGapFrames.incrementAndGet() > SKIP_FRAMES_COUNT) {
-              if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
-                oneByOneFramesInAudioOnlyItemCount.set(true);
-              } else {
-                // If we get a frame that is not a gap (has the expected size), that's an error.
-                incorrectFrameDimensionsInAudioOnlyItem.set(true);
-              }
-            }
-          }
-        };
-
-    instrumentation.runOnMainSync(() -> {
-      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-      // Set a surface on the player even though there is no UI on this test. We need a surface
-      // otherwise the player will skip/drop video frames.
-      compositionPlayer.setVideoSurfaceView(surfaceView);
-      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-      compositionPlayer.setComposition(composition);
-      compositionPlayer.prepare();
-      compositionPlayer.play();
-    });
-
-    endedFuture.get();
-
-    // If the device dropped so many frames that we couldn't even evaluate the gap,
-    // skip the test rather than failing it.
-    assumeTrue(
-        "Device dropped too many frames to evaluate the gap",
-        renderedGapFrames.get() > SKIP_FRAMES_COUNT);
-
-    assertThat(incorrectFrameDimensionsInAudioOnlyItem.get()).isFalse();
-    assertThat(oneByOneFramesInAudioOnlyItemCount.get()).isTrue();
-  }
-
-  @Test
-  public void
-      playback_withThreeMediaItemsAndSecondMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForSecondMediaItem()
-          throws Exception {
-    SettableFuture<Void> endedFuture = SettableFuture.create();
-    long audioOnlyItemStartCompositionUs = AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
-    long audioOnlyItemEndCompositionUs =
-        audioOnlyItemStartCompositionUs + AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_ONLY_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .build())
-            .build();
-    final AtomicBoolean incorrectFrameDimensionsInAudioOnlyItem = new AtomicBoolean(false);
-    final AtomicBoolean oneByOneFramesInAudioOnlyItemCount = new AtomicBoolean(false);
-    final AtomicInteger renderedGapFrames = new AtomicInteger(0);
-    VideoFrameMetadataListener videoFrameMetadataListener =
-        (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          if (presentationTimeUs >= audioOnlyItemStartCompositionUs
-              && presentationTimeUs < audioOnlyItemEndCompositionUs) {
-            // Ignore the first SKIP_FRAMES_COUNT actually rendered frames to bypass the format
-            // race condition (b/438435783), regardless of their timestamps.
-            if (renderedGapFrames.incrementAndGet() > SKIP_FRAMES_COUNT) {
-              if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
-                oneByOneFramesInAudioOnlyItemCount.set(true);
-              } else {
-                // If we get a frame that is not a gap (has the expected size), that's an error.
-                incorrectFrameDimensionsInAudioOnlyItem.set(true);
-              }
-            }
-          }
-        };
-
-    instrumentation.runOnMainSync(() -> {
-      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-      // Set a surface on the player even though there is no UI on this test. We need a surface
-      // otherwise the player will skip/drop video frames.
-      compositionPlayer.setVideoSurfaceView(surfaceView);
-      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-      compositionPlayer.setComposition(composition);
-      compositionPlayer.prepare();
-      compositionPlayer.play();
-    });
-
-    endedFuture.get();
-
-    // If the device dropped so many frames that we couldn't even evaluate the gap,
-    // skip the test rather than failing it.
-    assumeTrue(
-        "Device dropped too many frames to evaluate the gap",
-        renderedGapFrames.get() > SKIP_FRAMES_COUNT);
-
-    assertThat(incorrectFrameDimensionsInAudioOnlyItem.get()).isFalse();
-    assertThat(oneByOneFramesInAudioOnlyItemCount.get()).isTrue();
-  }
-
-  @Test
-  public void
-      playback_withThreeMediaItemsAndLastMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForLastMediaItem()
-          throws Exception {
-    SettableFuture<Void> endedFuture = SettableFuture.create();
-    long audioOnlyItemStartCompositionUs = 2 * AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
-    long audioOnlyItemEndCompositionUs =
-        audioOnlyItemStartCompositionUs + AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
-    Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_VIDEO_MEDIA_ITEM)
-                    .addItem(AUDIO_ONLY_MEDIA_ITEM)
-                    .build())
-            .build();
-    final AtomicBoolean incorrectFrameDimensionsInAudioOnlyItem = new AtomicBoolean(false);
-    final AtomicBoolean oneByOneFramesInAudioOnlyItemCount = new AtomicBoolean(false);
-    final AtomicInteger renderedGapFrames = new AtomicInteger(0);
-    VideoFrameMetadataListener videoFrameMetadataListener =
-        (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          if (presentationTimeUs >= audioOnlyItemStartCompositionUs
-              && presentationTimeUs < audioOnlyItemEndCompositionUs) {
-            // Ignore the first SKIP_FRAMES_COUNT actually rendered frames to bypass the format
-            // race condition (b/438435783), regardless of their timestamps.
-            if (renderedGapFrames.incrementAndGet() > SKIP_FRAMES_COUNT) {
-              if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
-                oneByOneFramesInAudioOnlyItemCount.set(true);
-              } else {
-                // If we get a frame that is not a gap (has the expected size), that's an error.
-                incorrectFrameDimensionsInAudioOnlyItem.set(true);
-              }
-            }
-          }
-        };
-
-    instrumentation.runOnMainSync(() -> {
-      compositionPlayer = createCompositionPlayer(videoFrameMetadataListener);
-      // Set a surface on the player even though there is no UI on this test. We need a surface
-      // otherwise the player will skip/drop video frames.
-      compositionPlayer.setVideoSurfaceView(surfaceView);
-      endedFuture.setFuture(futureWhen(compositionPlayer).entersPlaybackState(Player.STATE_ENDED));
-      compositionPlayer.setComposition(composition);
-      compositionPlayer.prepare();
-      compositionPlayer.play();
-    });
-
-    endedFuture.get();
-
-    // If the device dropped so many frames that we couldn't even evaluate the gap,
-    // skip the test rather than failing it.
-    assumeTrue(
-        "Device dropped too many frames to evaluate the gap",
-        renderedGapFrames.get() > SKIP_FRAMES_COUNT);
-
-    assertThat(incorrectFrameDimensionsInAudioOnlyItem.get()).isFalse();
-    assertThat(oneByOneFramesInAudioOnlyItemCount.get()).isTrue();
   }
 
   private CompositionPlayer createCompositionPlayer(
@@ -489,6 +168,98 @@ public final class CompositionPlayerGapsTest {
     return player;
   }
 
+  private static final class TestCaseProvider extends TestParameterValuesProvider {
+    private static final long GAP_DURATION_US = 1_000_000;
+    private static final EditedMediaItem AUDIO_VIDEO_MEDIA_ITEM =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    private static final EditedMediaItem AUDIO_ONLY_MEDIA_ITEM =
+        new EditedMediaItem.Builder(new MediaItem.Builder().setUri(WAV_ASSET.uri).build())
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+
+    @Override
+    protected ImmutableList<TestCase> provideValues(TestParameterValuesProvider.Context context) {
+      return ImmutableList.of(
+          new TestCase(
+              "gap+audio-video+audio-video",
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                          .addGap(GAP_DURATION_US)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .build())
+                  .build(),
+              /* gapStartUs= */ 0,
+              /* gapEndUs= */ GAP_DURATION_US),
+          new TestCase(
+              "audio-video+gap+audio-video",
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addGap(GAP_DURATION_US)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .build())
+                  .build(),
+              /* gapStartUs= */ AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs(),
+              /* gapEndUs= */ AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs() + GAP_DURATION_US),
+          new TestCase(
+              "audio-video+audio-video+gap",
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addGap(GAP_DURATION_US)
+                          .build())
+                  .build(),
+              /* gapStartUs= */ 2 * AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs(),
+              /* gapEndUs= */ 2 * AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs()
+                  + GAP_DURATION_US),
+          new TestCase(
+              "audio+audio-video+audio-video",
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                          .addItem(AUDIO_ONLY_MEDIA_ITEM)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .build())
+                  .build(),
+              /* gapStartUs= */ 0,
+              /* gapEndUs= */ AUDIO_ONLY_MEDIA_ITEM.getPresentationDurationUs()),
+          new TestCase(
+              "audio-video+audio+audio-video",
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addItem(AUDIO_ONLY_MEDIA_ITEM)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .build())
+                  .build(),
+              /* gapStartUs= */ AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs(),
+              /* gapEndUs= */ AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs()
+                  + AUDIO_ONLY_MEDIA_ITEM.getPresentationDurationUs()),
+          new TestCase(
+              "audio-video+audio-video+audio",
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addItem(AUDIO_VIDEO_MEDIA_ITEM)
+                          .addItem(AUDIO_ONLY_MEDIA_ITEM)
+                          .build())
+                  .build(),
+              /* gapStartUs= */ 2 * AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs(),
+              /* gapEndUs= */ 2 * AUDIO_VIDEO_MEDIA_ITEM.getPresentationDurationUs()
+                  + AUDIO_ONLY_MEDIA_ITEM.getPresentationDurationUs()));
+    }
+  }
+
   private static final class UseDefaultGlFrameProcessorProvider
       extends TestParameterValuesProvider {
     @Override
@@ -498,6 +269,29 @@ public final class CompositionPlayerGapsTest {
         return ImmutableList.of(false, true);
       }
       return ImmutableList.of(false);
+    }
+  }
+
+  /**
+   * A test case that contains a composition and the composition time range in which video frames
+   * must have gap size.
+   */
+  private static final class TestCase {
+    private final String name;
+    private final Composition composition;
+    private final long gapStartUs;
+    private final long gapEndUs;
+
+    private TestCase(String name, Composition composition, long gapStartUs, long gapEndUs) {
+      this.name = name;
+      this.composition = composition;
+      this.gapStartUs = gapStartUs;
+      this.gapEndUs = gapEndUs;
+    }
+
+    @Override
+    public String toString() {
+      return name;
     }
   }
 }
