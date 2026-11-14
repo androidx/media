@@ -50,6 +50,7 @@ import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
@@ -484,6 +485,12 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     // CompositionVideoFrameProcessor's input is VideoCompositor's output.
     checkState(contains(compositorOutputTextureReleases, textureId));
     compositorOutputTextureReleases.get(textureId).release();
+    // OnInputFrameProcessedListener requires the sync object to be deleted after use.
+    try {
+      GlUtil.deleteSyncObject(syncObject);
+    } catch (GlException e) {
+      handleVideoFrameProcessingException(e);
+    }
     compositorOutputTextureReleases.remove(textureId);
     queueCompositionOutputInternal();
   }
