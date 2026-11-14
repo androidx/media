@@ -88,6 +88,12 @@
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:
+    *   Fix the error code of failures in `OkHttpDataSource.open` before a
+        response arrives, which was always
+        `ERROR_CODE_IO_NETWORK_CONNECTION_FAILED`. For example, a timeout now
+        gets `ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`, and a cleartext request
+        that the network security policy blocks now throws
+        `CleartextNotPermittedException`.
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:

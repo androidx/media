@@ -445,6 +445,12 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       call.cancel();
       throw new InterruptedIOException();
     } catch (ExecutionException ee) {
+      // Rethrow the IOException passed to onFailure so that callers can classify it by its type,
+      // for example as a timeout.
+      @Nullable Throwable cause = ee.getCause();
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
+      }
       throw new IOException(ee);
     }
   }
