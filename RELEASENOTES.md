@@ -215,6 +215,10 @@ This release includes the following changes since
     *   Fix large upfront peek buffer allocations and `OutOfMemoryError` when
         sniffing corrupt or non-media files that start with `ID3`
         ([#3502](https://github.com/androidx/media/issues/3502)).
+    *   Matroska: Follow SeekHead elements that link to other SeekHead elements
+        to find the Cues element, so files edited with tools such as
+        `mkvpropedit` are seekable
+        ([#1143](https://github.com/androidx/media/issues/1143)).
 *   Inspector:
     *   Fix an issue where cancelling the future returned by
         `MetadataRetriever.retrieveDurationUs()` prevented `close()` from
