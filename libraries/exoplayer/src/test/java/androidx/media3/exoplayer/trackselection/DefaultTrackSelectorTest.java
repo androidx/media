@@ -41,12 +41,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.ContextWrapper;
+import android.hardware.display.DisplayManager;
 import android.media.Spatializer;
+import android.os.Looper;
+import android.view.Display;
+import android.view.Display.HdrCapabilities;
 import android.view.accessibility.CaptioningManager;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -85,12 +92,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -149,6 +158,11 @@ public final class DefaultTrackSelectorTest {
       new Format.Builder().setSampleMimeType(MimeTypes.IMAGE_PNG).build();
   private static final Format METADATA_FORMAT =
       new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
+
+  private static final ColorInfo PQ_COLOR_INFO =
+      new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+  private static final ColorInfo HLG_COLOR_INFO =
+      new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build();
 
   private static final TrackGroup VIDEO_TRACK_GROUP = new TrackGroup(VIDEO_FORMAT);
   private static final TrackGroup AUDIO_TRACK_GROUP = new TrackGroup(AUDIO_FORMAT);
@@ -2995,6 +3009,7 @@ public final class DefaultTrackSelectorTest {
         ImmutableMap.of("hevc_hdr", capabilitiesHevc, "dv", capabilitiesDv);
     RendererCapabilities rendererCapabilities =
         new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3050,6 +3065,7 @@ public final class DefaultTrackSelectorTest {
             .build();
     TrackGroupArray trackGroups =
         new TrackGroupArray(new TrackGroup(format720pHdr), new TrackGroup(format1080pSdr));
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3101,6 +3117,7 @@ public final class DefaultTrackSelectorTest {
         ImmutableMap.of("720p_dv_hdr", capabilitiesDv, "1080p_sdr", capabilitiesSdr);
     RendererCapabilities rendererCapabilities =
         new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3152,6 +3169,7 @@ public final class DefaultTrackSelectorTest {
         ImmutableMap.of("dv_hdr", capabilitiesDv, "sdr", capabilitiesSdr);
     RendererCapabilities rendererCapabilities =
         new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3220,6 +3238,7 @@ public final class DefaultTrackSelectorTest {
             .build();
     TrackGroupArray trackGroups =
         new TrackGroupArray(new TrackGroup(formatAvcHdr), new TrackGroup(formatHevcSdr));
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
 
     int capabilities =
         RendererCapabilities.create(
@@ -3236,6 +3255,466 @@ public final class DefaultTrackSelectorTest {
             new RendererCapabilities[] {videoCapabilitiesWithHw}, trackGroups, periodId, TIMELINE);
 
     assertFixedSelection(result.selections[0], trackGroups, formatAvcHdr);
+  }
+
+  @Test
+  public void selectTracks_withOnlyPqOnSdrDisplay_selectsPq() throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatPq);
+  }
+
+  @Test
+  public void selectTracks_withOnlyAdaptivePqOnSdrDisplay_selectsAdaptivePq() throws Exception {
+    Format formatPqHigh = buildHevcFormat("pq_high", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatPqLow = buildHevcFormat("pq_low", PQ_COLOR_INFO, /* bitrate= */ 4_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPqHigh, formatPqLow);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertAdaptiveSelection(result.selections[0], trackGroup, /* expectedTracks...= */ 0, 1);
+  }
+
+  @Test
+  public void selectTracks_withPqAndSdrOnSdrDisplay_selectsSdr() throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  public void selectTracks_withPqAndSdrOnHlgOnlyDisplay_selectsSdr() throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HLG);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  @SuppressLint("InlinedApi") // Inlined HdrCapabilities.HDR_TYPE_HDR10_PLUS.
+  public void selectTracks_withPqAndSdrOnHdr10PlusOnlyDisplay_selectsSdr() throws Exception {
+    // Format doesn't signal HDR10+ dynamic metadata, so PQ requires HDR10 display support.
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10_PLUS);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  public void selectTracks_withHlgAndSdrOnHlgDisplay_selectsHlg() throws Exception {
+    Format formatHlg = buildHevcFormat("hlg", HLG_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatHlg, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HLG);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatHlg);
+  }
+
+  @Test
+  public void selectTracks_withHlgAndSdrOnHdr10OnlyDisplay_selectsSdr() throws Exception {
+    Format formatHlg = buildHevcFormat("hlg", HLG_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatHlg, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  public void selectTracks_withDolbyVisionFallbackToHevcPqAndSdrOnSdrDisplay_selectsSdr()
+      throws Exception {
+    Format formatDvPq =
+        new Format.Builder()
+            .setId("dv_pq")
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(PQ_COLOR_INFO)
+            .build();
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatDvPq, formatSdr);
+    RendererCapabilities rendererCapabilities =
+        new FakeMappedRendererCapabilities(
+            C.TRACK_TYPE_VIDEO,
+            ImmutableMap.of(
+                "dv_pq",
+                RendererCapabilities.create(
+                    FORMAT_HANDLED,
+                    ADAPTIVE_NOT_SEAMLESS,
+                    TUNNELING_NOT_SUPPORTED,
+                    HARDWARE_ACCELERATION_SUPPORTED,
+                    DECODER_SUPPORT_FALLBACK_MIMETYPE),
+                "sdr",
+                RendererCapabilities.create(
+                    FORMAT_HANDLED,
+                    ADAPTIVE_NOT_SEAMLESS,
+                    TUNNELING_NOT_SUPPORTED,
+                    HARDWARE_ACCELERATION_SUPPORTED,
+                    DECODER_SUPPORT_PRIMARY)));
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {rendererCapabilities}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  public void selectTracks_withDolbyVisionAndSdrOnDolbyVisionDisplay_selectsDolbyVision()
+      throws Exception {
+    Format formatDv =
+        new Format.Builder()
+            .setId("dv")
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(PQ_COLOR_INFO)
+            .build();
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatDv, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_DOLBY_VISION);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatDv);
+  }
+
+  @Test
+  public void selectTracks_withDolbyVisionAndSdrOnHdr10OnlyDisplay_selectsSdr() throws Exception {
+    // Dolby Vision decoded as Dolby Vision on a display without Dolby Vision.
+    // MediaCodecVideoRenderer
+    // reports this on API 24 and 25 only; from API 26 it reports DECODER_SUPPORT_FALLBACK_MIMETYPE.
+    Format formatDv =
+        new Format.Builder()
+            .setId("dv")
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(PQ_COLOR_INFO)
+            .build();
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatDv, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  public void selectTracks_withPqAndAdaptiveSdrOnHdr10Display_prefersPqOverMoreFormats()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdrHigh =
+        buildHevcFormat("sdr_high", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    Format formatSdrLow =
+        buildHevcFormat("sdr_low", /* colorInfo= */ null, /* bitrate= */ 4_000_000);
+    TrackGroup pqGroup = new TrackGroup(formatPq);
+    TrackGroup sdrGroup = new TrackGroup(formatSdrHigh, formatSdrLow);
+    TrackGroupArray trackGroups = new TrackGroupArray(sdrGroup, pqGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], pqGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withAdaptivePqAndSdrOnSdrDisplay_prefersSdrOverMoreFormats()
+      throws Exception {
+    Format formatPqHigh = buildHevcFormat("pq_high", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatPqLow = buildHevcFormat("pq_low", PQ_COLOR_INFO, /* bitrate= */ 4_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup pqGroup = new TrackGroup(formatPqHigh, formatPqLow);
+    TrackGroup sdrGroup = new TrackGroup(formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(pqGroup, sdrGroup);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], sdrGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withPqAndSdrOnHdr10DisplayAndForceLowestBitrate_selectsLowestBitrate()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 4_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    trackSelector.setParameters(defaultParameters.buildUpon().setForceLowestBitrate(true));
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+  }
+
+  @Test
+  public void selectTracks_withPqAndSdrInOneGroupOnHdr10Display_selectsPqWithoutSdr()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withPqAndSdrInOneGroupOnSdrDisplay_selectsSdrWithoutPq()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 1);
+  }
+
+  @Test
+  public void selectTracks_withPqAndHlgInOneGroupOnHdr10AndHlgDisplay_doesNotAdaptBetweenThem()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatHlg = buildHevcFormat("hlg", HLG_COLOR_INFO, /* bitrate= */ 4_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPq, formatHlg);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10, HdrCapabilities.HDR_TYPE_HLG);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withAdaptivePqAndSdrInOneGroupOnHdr10Display_adaptsBetweenPqTracks()
+      throws Exception {
+    Format formatPqHigh = buildHevcFormat("pq_high", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatPqLow = buildHevcFormat("pq_low", PQ_COLOR_INFO, /* bitrate= */ 4_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatPqHigh, formatSdr, formatPqLow);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertAdaptiveSelection(result.selections[0], trackGroup, /* expectedTracks...= */ 0, 2);
+  }
+
+  @Test
+  public void
+      selectTracks_withDolbyVisionFallbackToHevcPqAndSdrInOneGroupOnHdr10Display_selectsDolbyVision()
+          throws Exception {
+    Format formatDvPq = buildDolbyVisionPqFormat("dv_pq", /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatDvPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {
+              buildAdaptiveDolbyVisionFallbackRendererCapabilities("dv_pq", "sdr")
+            },
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 0);
+  }
+
+  @Test
+  public void selectTracks_withDolbyVisionFallbackToHevcPqAndSdrInOneGroupOnSdrDisplay_selectsSdr()
+      throws Exception {
+    Format formatDvPq = buildDolbyVisionPqFormat("dv_pq", /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroup trackGroup = new TrackGroup(formatDvPq, formatSdr);
+    TrackGroupArray trackGroups = new TrackGroupArray(trackGroup);
+    setDefaultDisplayHdrTypes();
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {
+              buildAdaptiveDolbyVisionFallbackRendererCapabilities("dv_pq", "sdr")
+            },
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroup, /* expectedTrack= */ 1);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Testing the constructor without a Context.
+  public void selectTracks_withPqAndSdrWithoutContext_selectsPq() throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes();
+    DefaultTrackSelector trackSelectorWithoutContext =
+        new DefaultTrackSelector(Parameters.DEFAULT, new AdaptiveTrackSelection.Factory());
+    trackSelectorWithoutContext.init(invalidationListener, bandwidthMeter);
+
+    TrackSelectorResult result =
+        trackSelectorWithoutContext.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatPq);
+    trackSelectorWithoutContext.release();
+  }
+
+  @Test
+  public void selectTracks_afterDisplayHdrTypesChange_invalidatesAndSelectsPq() throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    RendererCapabilities[] rendererCapabilities = new RendererCapabilities[] {VIDEO_CAPABILITIES};
+    setDefaultDisplayHdrTypes();
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, formatSdr);
+
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(invalidationListener).onTrackSelectionsInvalidated(any());
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, formatPq);
+  }
+
+  @Test
+  public void selectTracks_afterDisplayChangeWithSameHdrTypes_doesNotInvalidate() throws Exception {
+    TrackGroupArray trackGroups =
+        wrapFormats(
+            buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000),
+            buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000));
+    setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+    trackSelector.selectTracks(
+        new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    // Change only the luminance, keeping the HDR types.
+    Display display = ShadowDisplay.getDefaultDisplay();
+    shadowOf(display)
+        .setDisplayHdrCapabilities(
+            display.getDisplayId(),
+            /* maxLuminance= */ 500f,
+            /* maxAverageLuminance= */ 250f,
+            /* minLuminance= */ 0.0005f,
+            HdrCapabilities.HDR_TYPE_HDR10);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(invalidationListener, never()).onTrackSelectionsInvalidated(any());
+  }
+
+  @Test
+  public void selectTracks_withHdrTypesChangeBeforeDisplayListenerRegistration_usesChangedHdrTypes()
+      throws Exception {
+    Format formatPq = buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000);
+    Format formatSdr = buildHevcFormat("sdr", /* colorInfo= */ null, /* bitrate= */ 8_000_000);
+    TrackGroupArray trackGroups = wrapFormats(formatPq, formatSdr);
+    setDefaultDisplayHdrTypes();
+    DisplayManager displayManager = spyDisplayManager();
+    // Change the HDR types while the selector registers its display listener, before the
+    // registration takes effect.
+    doAnswer(
+            invocation -> {
+              setDefaultDisplayHdrTypes(HdrCapabilities.HDR_TYPE_HDR10);
+              return invocation.callRealMethod();
+            })
+        .when(displayManager)
+        .registerDisplayListener(any(), any());
+    DefaultTrackSelector trackSelectorWithSpiedDisplayManager =
+        new DefaultTrackSelector(buildContextWithDisplayManager(displayManager));
+    trackSelectorWithSpiedDisplayManager.init(invalidationListener, bandwidthMeter);
+
+    TrackSelectorResult result =
+        trackSelectorWithSpiedDisplayManager.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    assertFixedSelection(result.selections[0], trackGroups, formatPq);
+    trackSelectorWithSpiedDisplayManager.release();
+  }
+
+  @Test
+  public void release_afterSelectTracks_unregistersDisplayListener() throws Exception {
+    DisplayManager displayManager = spyDisplayManager();
+    DefaultTrackSelector trackSelectorWithSpiedDisplayManager =
+        new DefaultTrackSelector(buildContextWithDisplayManager(displayManager));
+    trackSelectorWithSpiedDisplayManager.init(invalidationListener, bandwidthMeter);
+    trackSelectorWithSpiedDisplayManager.selectTracks(
+        new RendererCapabilities[] {VIDEO_CAPABILITIES},
+        wrapFormats(buildHevcFormat("pq", PQ_COLOR_INFO, /* bitrate= */ 8_000_000)),
+        periodId,
+        TIMELINE);
+    ArgumentCaptor<DisplayManager.DisplayListener> displayListener =
+        ArgumentCaptor.forClass(DisplayManager.DisplayListener.class);
+    verify(displayManager).registerDisplayListener(displayListener.capture(), any());
+
+    trackSelectorWithSpiedDisplayManager.release();
+
+    verify(displayManager).unregisterDisplayListener(displayListener.getValue());
   }
 
   @Test
@@ -4233,6 +4712,88 @@ public final class DefaultTrackSelectorTest {
       trackGroups[i] = new TrackGroup(formats[i]);
     }
     return new TrackGroupArray(trackGroups);
+  }
+
+  private static Format buildHevcFormat(String id, @Nullable ColorInfo colorInfo, int bitrate) {
+    return new Format.Builder()
+        .setId(id)
+        .setSampleMimeType(MimeTypes.VIDEO_H265)
+        .setWidth(1920)
+        .setHeight(1080)
+        .setAverageBitrate(bitrate)
+        .setColorInfo(colorInfo)
+        .build();
+  }
+
+  /** Returns a Dolby Vision profile 8 format with a PQ base layer. */
+  private static Format buildDolbyVisionPqFormat(String id, int bitrate) {
+    return new Format.Builder()
+        .setId(id)
+        .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+        .setCodecs("dvh1.08.06")
+        .setWidth(1920)
+        .setHeight(1080)
+        .setAverageBitrate(bitrate)
+        .setColorInfo(PQ_COLOR_INFO)
+        .build();
+  }
+
+  /**
+   * Returns video {@link RendererCapabilities} with seamless adaptation that decode the Dolby
+   * Vision format with ID {@code dolbyVisionId} with a decoder for a fallback MIME type, and the
+   * format with ID {@code primaryId} with the primary decoder.
+   */
+  private static RendererCapabilities buildAdaptiveDolbyVisionFallbackRendererCapabilities(
+      String dolbyVisionId, String primaryId) {
+    return new FakeMappedRendererCapabilities(
+        C.TRACK_TYPE_VIDEO,
+        ImmutableMap.of(
+            dolbyVisionId,
+            RendererCapabilities.create(
+                FORMAT_HANDLED,
+                ADAPTIVE_SEAMLESS,
+                TUNNELING_NOT_SUPPORTED,
+                HARDWARE_ACCELERATION_SUPPORTED,
+                DECODER_SUPPORT_FALLBACK_MIMETYPE),
+            primaryId,
+            RendererCapabilities.create(
+                FORMAT_HANDLED,
+                ADAPTIVE_SEAMLESS,
+                TUNNELING_NOT_SUPPORTED,
+                HARDWARE_ACCELERATION_SUPPORTED,
+                DECODER_SUPPORT_PRIMARY)));
+  }
+
+  private static DisplayManager spyDisplayManager() {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    return spy((DisplayManager) applicationContext.getSystemService(Context.DISPLAY_SERVICE));
+  }
+
+  /** Returns a {@link Context} whose {@link DisplayManager} is {@code displayManager}. */
+  private static Context buildContextWithDisplayManager(DisplayManager displayManager) {
+    return new ContextWrapper(ApplicationProvider.getApplicationContext()) {
+      @Override
+      public Context getApplicationContext() {
+        return this;
+      }
+
+      @Override
+      public Object getSystemService(String name) {
+        return Context.DISPLAY_SERVICE.equals(name) ? displayManager : super.getSystemService(name);
+      }
+    };
+  }
+
+  /** Sets the {@link HdrCapabilities} HDR types reported by the default display. */
+  private static void setDefaultDisplayHdrTypes(int... hdrTypes) {
+    Display display = ShadowDisplay.getDefaultDisplay();
+    shadowOf(display)
+        .setDisplayHdrCapabilities(
+            display.getDisplayId(),
+            /* maxLuminance= */ 1000f,
+            /* maxAverageLuminance= */ 500f,
+            /* minLuminance= */ 0.0005f,
+            hdrTypes);
   }
 
   private static Format buildAudioFormatWithConfiguration(
