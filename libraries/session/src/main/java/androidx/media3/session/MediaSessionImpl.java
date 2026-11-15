@@ -438,7 +438,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   /**
-   * Returns whether the given {@link ControllerInfo} belongs to the the System UI controller.
+   * Returns whether the given {@link ControllerInfo} belongs to the System UI controller.
    *
    * @param controllerInfo The controller info.
    * @return Whether the controller info belongs to the System UI controller.
