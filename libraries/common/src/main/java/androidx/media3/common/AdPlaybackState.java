@@ -215,7 +215,7 @@ public final class AdPlaybackState {
     }
 
     /**
-     * Returns whether this is a is a placeholder ad group.
+     * Returns whether this is a placeholder ad group.
      *
      * @param isServerSideInserted Whether the postroll placeholder must be server-side inserted.
      * @return true only if this ad group has a matching {@link #isServerSideInserted} flag.
