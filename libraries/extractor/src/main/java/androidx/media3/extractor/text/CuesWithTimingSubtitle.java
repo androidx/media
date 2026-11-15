@@ -34,7 +34,7 @@ import java.util.List;
   private static final String TAG = "CuesWithTimingSubtitle";
 
   // eventCues and eventTimesUs are parallel collections. eventTimesUs is sorted in ascending
-  // order, and eventCues.get(i) contains the the cues for the event at time eventTimesUs[i].
+  // order, and eventCues.get(i) contains the cues for the event at time eventTimesUs[i].
   // eventTimesUs may be longer than eventCues (with padding elements at the end).
   // eventCues.size() is the authoritative source for the number of events in this Subtitle.
   private final ImmutableList<ImmutableList<Cue>> eventCues;
