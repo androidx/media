@@ -211,7 +211,7 @@ public final class MediaBrowserCompat {
   /**
    * Gets the root id.
    *
-   * <p>Note that the root id may become invalid or change when when the browser is disconnected.
+   * <p>Note that the root id may become invalid or change when the browser is disconnected.
    *
    * @throws IllegalStateException if not connected.
    */
@@ -233,7 +233,7 @@ public final class MediaBrowserCompat {
   /**
    * Gets the media session token associated with the media browser.
    *
-   * <p>Note that the session token may become invalid or change when when the browser is
+   * <p>Note that the session token may become invalid or change when the browser is
    * disconnected.
    *
    * @return The session token for the browser, never null.
