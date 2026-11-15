@@ -294,7 +294,7 @@ public interface ShuffleOrder {
    *
    * @param insertionCount The number of elements.
    * @param startIndex The index of the new element in the unshuffled order that should be the first
-   *     in the shuffled order or {@link C#INDEX_UNSET} if the the first element in the shuffled
+   *     in the shuffled order or {@link C#INDEX_UNSET} if the first element in the shuffled
    *     order is not specified. It should be ignored if the new list is empty, or if it is larger
    *     than the last index (inclusive) of the new list.
    * @return A copy of this {@link ShuffleOrder} with the elements replaced.
