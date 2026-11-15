@@ -341,7 +341,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
    * Checks whether {@code inputSources} is able to composite, and if so, returns a list of {@link
    * FrameInfo}s that should be composited next.
    *
-   * <p>The first input frame info in the list is from the the primary source. An empty list is
+   * <p>The first input frame info in the list is from the primary source. An empty list is
    * returned if {@code inputSources} cannot composite now.
    */
   private synchronized ImmutableList<FrameInfo> getFramesToComposite() {
