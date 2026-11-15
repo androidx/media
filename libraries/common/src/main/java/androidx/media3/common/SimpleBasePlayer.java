@@ -3632,7 +3632,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /**
-   * Throws an {@link IllegalStateException} if the the thread calling this method does not match
+   * Throws an {@link IllegalStateException} if the thread calling this method does not match
    * the {@link Looper} thread that was specified upon construction of this instance.
    *
    * <p>Subclasses can use this method to verify that their own defined methods are also accessed by
