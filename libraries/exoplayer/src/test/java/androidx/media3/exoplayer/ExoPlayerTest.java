@@ -16880,6 +16880,113 @@ public final class ExoPlayerTest {
     verify(listener, never()).onPlaybackStateChanged(Player.STATE_BUFFERING);
   }
 
+  @Test
+  public void playbackReachesEnd_whileMediaPeriodStillLoading_reportsIsLoadingFalse()
+      throws Exception {
+    FakeMediaSource mediaSourceWithActiveLoad =
+        new FakeMediaSource() {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                mediaSourceEventDispatcher) {
+              @Override
+              public boolean isLoading() {
+                return true;
+              }
+            };
+          }
+        };
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(mediaSourceWithActiveLoad);
+
+    player.prepare();
+    advance(player).untilLoadingIs(true);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    boolean isLoadingAfterEnded = player.isLoading();
+    player.seekTo(0);
+    advance(player).untilLoadingIs(true);
+    boolean isLoadingAfterSeek = player.isLoading();
+    player.release();
+
+    assertThat(isLoadingAfterEnded).isFalse();
+    assertThat(isLoadingAfterSeek).isTrue();
+  }
+
+  @Test
+  public void continueLoadingRequested_whilePlaybackInStateEnded_keepsIsLoadingFalse()
+      throws Exception {
+    AtomicReference<MediaPeriod.Callback> callbackRef = new AtomicReference<>();
+    AtomicBoolean reportLoadingInEndedState = new AtomicBoolean();
+    AtomicBoolean continueLoadingCalledInEndedState = new AtomicBoolean();
+    FakeMediaSource mediaSource =
+        new FakeMediaSource() {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                mediaSourceEventDispatcher) {
+              @Override
+              public synchronized void prepare(Callback callback, long positionUs) {
+                callbackRef.set(callback);
+                super.prepare(callback, positionUs);
+              }
+
+              @Override
+              public boolean continueLoading(LoadingInfo loadingInfo) {
+                if (reportLoadingInEndedState.get()) {
+                  continueLoadingCalledInEndedState.set(true);
+                }
+                return super.continueLoading(loadingInfo);
+              }
+
+              @Override
+              public boolean isLoading() {
+                return reportLoadingInEndedState.get();
+              }
+
+              @Override
+              public long getNextLoadPositionUs() {
+                return reportLoadingInEndedState.get() ? 0 : C.TIME_END_OF_SOURCE;
+              }
+            };
+          }
+        };
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+
+    reportLoadingInEndedState.set(true);
+    callbackRef.get().onContinueLoadingRequested(mediaSource.getLastCreatedActiveMediaPeriod());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    boolean isLoadingAfterContinueLoadingRequested = player.isLoading();
+    player.release();
+
+    assertThat(isLoadingAfterContinueLoadingRequested).isFalse();
+    assertThat(continueLoadingCalledInEndedState.get()).isFalse();
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {

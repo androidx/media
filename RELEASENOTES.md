@@ -23,6 +23,10 @@
         scheduling work and CPU wake-cycles to when `CuesWithTiming` subtitle
         cues change or can be read. You can enable this using
         `Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS)`.
+    *   Fix issue where `ExoPlayer.isLoading()` remains `true` when playback
+        transitions to `STATE_ENDED` or `STATE_IDLE`, causing an
+        `IllegalArgumentException` in `ForwardingSimpleBasePlayer`
+        ([#3467](https://github.com/androidx/media/issues/3467)).
 *   CompositionPlayer:
 *   Transformer:
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`
