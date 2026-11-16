@@ -481,17 +481,18 @@ public final class MultipleInputVideoGraph implements VideoGraph {
   }
 
   // This method is called on the sharedExecutorService.
-  private void onCompositionVideoFrameProcessorInputFrameProcessed(int textureId, long syncObject) {
+  private void onCompositionVideoFrameProcessorInputFrameProcessed(int textureId, long syncObject)
+      throws VideoFrameProcessingException {
     // CompositionVideoFrameProcessor's input is VideoCompositor's output.
     checkState(contains(compositorOutputTextureReleases, textureId));
     compositorOutputTextureReleases.get(textureId).release();
+    compositorOutputTextureReleases.remove(textureId);
     // OnInputFrameProcessedListener requires the sync object to be deleted after use.
     try {
       GlUtil.deleteSyncObject(syncObject);
     } catch (GlException e) {
-      handleVideoFrameProcessingException(e);
+      throw VideoFrameProcessingException.from(e);
     }
-    compositorOutputTextureReleases.remove(textureId);
     queueCompositionOutputInternal();
   }
 

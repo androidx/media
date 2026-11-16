@@ -59,6 +59,10 @@
         default to the L1 hardware library. Other DRM schemes ignore this
         setting.
 *   Effect:
+    *   Fix a GL sync object leak in `MultipleInputVideoGraph` that could cause
+        long multi-sequence `Composition` exports to fail with "Too many open
+        files" ([#3519](https://github.com/androidx/media/issues/3519),
+        [#3523](https://github.com/androidx/media/pull/3523)).
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
