@@ -29,6 +29,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.checkerframework.dataflow.qual.Pure;
 
 /**
  * Central registry for Media3 experimental feature flags.
@@ -129,6 +130,7 @@ public final class Flags {
    *   <li>{@link #FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED}
    *   <li>{@link #FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS}
    *   <li>{@link #FLAG_IGNORE_SHORT_MP4_MDHD_DURATION}
+   *   <li>{@link #FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR}
    * </ul>
    */
   @Documented
@@ -155,6 +157,7 @@ public final class Flags {
         FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED,
         FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS,
         FLAG_IGNORE_SHORT_MP4_MDHD_DURATION,
+        FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR,
       })
   public @interface Flag {}
 
@@ -359,7 +362,19 @@ public final class Flags {
   @ExperimentalApi // TODO(b/582815028): Remove this flag (earliest cleanup: 2027-01-10).
   public static final int FLAG_IGNORE_SHORT_MP4_MDHD_DURATION = 18;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 19;
+  /**
+   * Flag to immediately wake up {@code MediaCodecRenderer} when the underlying {@link
+   * android.media.MediaCodec} reports an asynchronous error.
+   *
+   * <p>When enabled, asynchronous {@link android.media.MediaCodec.Callback#onError} and {@link
+   * android.media.MediaCodec.Callback#onCryptoError} callbacks and asynchronous input buffer
+   * queueing errors wake up the playback loop and surface pending codec errors on the next {@code
+   * render()} call even if an output buffer is already held while paused.
+   */
+  @ExperimentalApi // TODO(b/573657512): Remove this flag (earliest cleanup: 2027-04-07).
+  public static final int FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR = 19;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 20;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -403,6 +418,7 @@ public final class Flags {
   }
 
   /** Returns whether canary mode is currently enabled. */
+  @Pure
   public static boolean isCanaryModeEnabled() {
     return canaryModeEnabled;
   }
@@ -466,6 +482,7 @@ public final class Flags {
    * @param flag The {@linkplain Flag flag identifier}.
    * @return Whether the flag is enabled.
    */
+  @Pure
   public static boolean isEnabled(@Flag int flag) {
     checkArgument(flag > 0);
     SparseBooleanArray overrides = Flags.overrides;

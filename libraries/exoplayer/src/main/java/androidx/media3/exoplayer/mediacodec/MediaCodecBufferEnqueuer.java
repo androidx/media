@@ -69,4 +69,10 @@ import androidx.media3.decoder.CryptoInfo;
 
   /** Throw any exception that occurred during the enqueueing process. */
   void maybeThrowException();
+
+  /**
+   * Sets the {@link MediaCodecAdapter.OnBufferAvailableListener} that will be notified when an
+   * asynchronous queueing error occurs.
+   */
+  default void setOnBufferAvailableListener(MediaCodecAdapter.OnBufferAvailableListener listener) {}
 }

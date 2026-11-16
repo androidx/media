@@ -937,6 +937,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         while (bypassRender(positionUs, elapsedRealtimeUs)) {}
         TraceUtil.endSection();
       } else if (codec != null) {
+        if (Flags.isEnabled(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR)) {
+          codec.maybeThrowError();
+        }
         long renderStartTimeMs = getClock().elapsedRealtime();
         TraceUtil.beginSection("drainAndFeed");
         while (drainOutputBuffer(positionUs, elapsedRealtimeUs)
@@ -2970,6 +2973,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     @Override
     public void onOutputBufferAvailable() {
       if (wakeupListener != null) {
+        wakeupListener.onWakeup();
+      }
+    }
+
+    @Override
+    public void onCodecError() {
+      if (wakeupListener != null
+          && Flags.isEnabled(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR)) {
         wakeupListener.onWakeup();
       }
     }

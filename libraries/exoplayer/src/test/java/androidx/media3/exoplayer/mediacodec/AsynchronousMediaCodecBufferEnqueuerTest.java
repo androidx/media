@@ -19,6 +19,8 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.media.MediaCodec;
@@ -264,6 +266,58 @@ public class AsynchronousMediaCodecBufferEnqueuerTest {
 
     // Shutting down with a pending error set should not throw .
     enqueuer.shutdown();
+  }
+
+  @Test
+  public void queueInputBuffer_withAsyncErrorAndOnBufferAvailableListener_callsOnCodecError() {
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    enqueuer.setOnBufferAvailableListener(mockListener);
+    enqueuer.start();
+
+    enqueuer.queueInputBuffer(
+        /* index= */ -1,
+        /* offset= */ 0,
+        /* size= */ 0,
+        /* presentationTimeUs= */ 0,
+        /* flags= */ 0);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    verify(mockListener).onCodecError();
+    assertThrows(IllegalStateException.class, () -> enqueuer.maybeThrowException());
+  }
+
+  @Test
+  public void
+      queueInputBuffer_withConsecutiveAsyncErrors_callsOnCodecErrorOnceAndPreservesFirstError() {
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    enqueuer.setOnBufferAvailableListener(mockListener);
+    enqueuer.start();
+    shadowOf(handlerThread.getLooper()).pause();
+
+    try {
+      enqueuer.queueInputBuffer(
+          /* index= */ -1,
+          /* offset= */ 0,
+          /* size= */ 0,
+          /* presentationTimeUs= */ 0,
+          /* flags= */ 0);
+      enqueuer.queueInputBuffer(
+          /* index= */ -2,
+          /* offset= */ 0,
+          /* size= */ 0,
+          /* presentationTimeUs= */ 0,
+          /* flags= */ 0);
+    } finally {
+      shadowOf(handlerThread.getLooper()).unPause();
+    }
+    shadowOf(handlerThread.getLooper()).idle();
+
+    verify(mockListener).onCodecError();
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> enqueuer.maybeThrowException());
+    assertThat(exception).hasMessageThat().contains("-1");
   }
 
   private static CryptoInfo createCryptoInfo() {

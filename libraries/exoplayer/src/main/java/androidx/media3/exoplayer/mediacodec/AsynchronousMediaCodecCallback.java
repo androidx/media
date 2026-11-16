@@ -123,6 +123,16 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
+   * Throws any pending unhandled exception from the underlying {@link MediaCodec} or callback
+   * state.
+   */
+  public void maybeThrowError() {
+    synchronized (lock) {
+      maybeThrowException();
+    }
+  }
+
+  /**
    * Uses an acquired input or output buffer (e.g. to populate, drain, or write data to it).
    *
    * <p>This runs the provided {@link ThrowingRunnable} under the internal codec/callback monitor,
@@ -252,6 +262,9 @@ import org.jspecify.annotations.Nullable;
   public void onError(MediaCodec codec, MediaCodec.CodecException e) {
     synchronized (lock) {
       mediaCodecException = e;
+      if (onBufferAvailableListener != null) {
+        onBufferAvailableListener.onCodecError();
+      }
     }
   }
 
@@ -259,6 +272,9 @@ import org.jspecify.annotations.Nullable;
   public void onCryptoError(MediaCodec codec, MediaCodec.CryptoException e) {
     synchronized (lock) {
       mediaCodecCryptoException = e;
+      if (onBufferAvailableListener != null) {
+        onBufferAvailableListener.onCodecError();
+      }
     }
   }
 
@@ -272,10 +288,12 @@ import org.jspecify.annotations.Nullable;
 
   /**
    * Sets the {@link MediaCodecAdapter.OnBufferAvailableListener} that will be notified when {@link
-   * #onInputBufferAvailable} and {@link #onOutputBufferAvailable} are called.
+   * #onInputBufferAvailable}, {@link #onOutputBufferAvailable}, {@link #onError}, or {@link
+   * #onCryptoError} is called.
    *
    * @param onBufferAvailableListener The listener that will be notified when {@link
-   *     #onInputBufferAvailable} and {@link #onOutputBufferAvailable} are called.
+   *     #onInputBufferAvailable}, {@link #onOutputBufferAvailable}, {@link #onError}, or {@link
+   *     #onCryptoError} is called.
    */
   public void setOnBufferAvailableListener(
       MediaCodecAdapter.OnBufferAvailableListener onBufferAvailableListener) {
@@ -368,6 +386,9 @@ import org.jspecify.annotations.Nullable;
   private void setInternalException(IllegalStateException e) {
     synchronized (lock) {
       internalException = e;
+      if (onBufferAvailableListener != null) {
+        onBufferAvailableListener.onCodecError();
+      }
     }
   }
 }

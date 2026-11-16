@@ -18,6 +18,8 @@ package androidx.media3.exoplayer.mediacodec;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.media.MediaCodec;
@@ -159,6 +161,86 @@ public class AsynchronousMediaCodecAdapterTest {
     idleThreads(queueingThreadSupplier.createdThreads);
 
     assertThrows(IllegalStateException.class, () -> adapter.dequeueOutputBufferIndex(bufferInfo));
+  }
+
+  @Test
+  public void maybeThrowError_withMediaCodecError_throwsException() throws Exception {
+    adapter.onError(createCodecException());
+
+    assertThrows(IllegalStateException.class, () -> adapter.maybeThrowError());
+  }
+
+  @Test
+  public void maybeThrowError_withMediaCodecCryptoError_throwsException() {
+    MediaCodec.CryptoException cryptoException =
+        new MediaCodec.CryptoException(/* errorCode= */ 0, "crypto error");
+    adapter.onCryptoError(cryptoException);
+
+    MediaCodec.CryptoException thrown =
+        assertThrows(MediaCodec.CryptoException.class, () -> adapter.maybeThrowError());
+
+    assertThat(thrown).isSameInstanceAs(cryptoException);
+  }
+
+  @Test
+  public void maybeThrowError_withAsynchronousEnqueuerAndPendingQueueingError_throwsException()
+      throws Exception {
+    createAdapterWithSynchronousEnqueuerDisabled();
+
+    adapter.queueInputBuffer(
+        /* index= */ -1,
+        /* offset= */ 0,
+        /* size= */ 0,
+        /* presentationTimeUs= */ 0,
+        /* flags= */ 0);
+    idleThreads(queueingThreadSupplier.createdThreads);
+
+    assertThrows(IllegalStateException.class, () -> adapter.maybeThrowError());
+  }
+
+  @Test
+  public void onError_withOnBufferAvailableListener_callsOnCodecError() throws Exception {
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    boolean registered = adapter.registerOnBufferAvailableListener(mockListener);
+
+    adapter.onError(createCodecException());
+
+    assertThat(registered).isTrue();
+    verify(mockListener).onCodecError();
+  }
+
+  @Test
+  public void onCryptoError_withOnBufferAvailableListener_callsOnCodecError() {
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    boolean registered = adapter.registerOnBufferAvailableListener(mockListener);
+
+    adapter.onCryptoError(new MediaCodec.CryptoException(/* errorCode= */ 0, "crypto error"));
+
+    assertThat(registered).isTrue();
+    verify(mockListener).onCodecError();
+  }
+
+  @Test
+  public void
+      queueInputBuffer_withAsynchronousEnqueuerAndOnBufferAvailableListener_callsOnCodecError()
+          throws Exception {
+    createAdapterWithSynchronousEnqueuerDisabled();
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    boolean registered = adapter.registerOnBufferAvailableListener(mockListener);
+
+    adapter.queueInputBuffer(
+        /* index= */ -1,
+        /* offset= */ 0,
+        /* size= */ 0,
+        /* presentationTimeUs= */ 0,
+        /* flags= */ 0);
+    idleThreads(queueingThreadSupplier.createdThreads);
+
+    assertThat(registered).isTrue();
+    verify(mockListener).onCodecError();
   }
 
   @Test

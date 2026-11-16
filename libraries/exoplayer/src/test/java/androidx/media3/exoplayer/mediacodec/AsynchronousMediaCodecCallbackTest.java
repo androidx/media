@@ -20,6 +20,8 @@ import static androidx.media3.test.utils.TestUtil.assertBufferInfosEqual;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.media.MediaCodec;
@@ -564,6 +566,46 @@ public class AsynchronousMediaCodecCallbackTest {
     asynchronousMediaCodecCallback.onOutputBufferAvailable(codec, 0, new MediaCodec.BufferInfo());
 
     assertThat(onOutputBufferAvailableCounter.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void onError_withOnBufferAvailableListener_callsOnCodecError() throws Exception {
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    asynchronousMediaCodecCallback.setOnBufferAvailableListener(mockListener);
+
+    asynchronousMediaCodecCallback.onError(codec, createCodecException());
+
+    verify(mockListener).onCodecError();
+  }
+
+  @Test
+  public void onCryptoError_withOnBufferAvailableListener_callsOnCodecError() {
+    MediaCodecAdapter.OnBufferAvailableListener mockListener =
+        mock(MediaCodecAdapter.OnBufferAvailableListener.class);
+    asynchronousMediaCodecCallback.setOnBufferAvailableListener(mockListener);
+
+    asynchronousMediaCodecCallback.onCryptoError(
+        codec, new MediaCodec.CryptoException(/* errorCode= */ 0, "crypto error"));
+
+    verify(mockListener).onCodecError();
+  }
+
+  @Test
+  public void maybeThrowError_afterOnErrorCallback_throwsError() throws Exception {
+    asynchronousMediaCodecCallback.onError(codec, createCodecException());
+
+    assertThrows(
+        MediaCodec.CodecException.class, () -> asynchronousMediaCodecCallback.maybeThrowError());
+  }
+
+  @Test
+  public void maybeThrowError_afterOnCryptoErrorCallback_throwsError() {
+    asynchronousMediaCodecCallback.onCryptoError(
+        codec, new MediaCodec.CryptoException(/* errorCode= */ 0, "crypto error"));
+
+    assertThrows(
+        MediaCodec.CryptoException.class, () -> asynchronousMediaCodecCallback.maybeThrowError());
   }
 
   /** Reflectively create a {@link MediaCodec.CodecException}. */

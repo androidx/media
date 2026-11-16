@@ -49,6 +49,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.ThrowingRunnable;
@@ -1039,6 +1040,214 @@ public class MediaCodecRendererTest {
     assertThat(stringListCaptor.getValue()).containsExactly("key1", "key2");
   }
 
+  @Test
+  public void onCodecError_withWakeUpOnMediaCodecErrorFlagEnabled_wakesUpRenderer()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    Renderer.WakeupListener mockWakeupListener = mock(Renderer.WakeupListener.class);
+    TestRenderer renderer = new TestRenderer(configuration -> codecAdapter);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.handleMessage(Renderer.MSG_SET_WAKEUP_LISTENER, mockWakeupListener);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(AUDIO_AAC, /* sampleTimesUs...= */ 0, 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    codecAdapter.notifyCodecError(createMediaCodecIllegalStateException());
+
+    verify(mockWakeupListener).onWakeup();
+  }
+
+  @Test
+  public void onCodecError_withWakeUpOnMediaCodecErrorFlagDisabled_doesNotWakeUpRenderer()
+      throws Exception {
+    Flags.disableFlag(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    Renderer.WakeupListener mockWakeupListener = mock(Renderer.WakeupListener.class);
+    TestRenderer renderer = new TestRenderer(configuration -> codecAdapter);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.handleMessage(Renderer.MSG_SET_WAKEUP_LISTENER, mockWakeupListener);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(AUDIO_AAC, /* sampleTimesUs...= */ 0, 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+    codecAdapter.notifyCodecError(createMediaCodecIllegalStateException());
+
+    verify(mockWakeupListener, never()).onWakeup();
+  }
+
+  @Test
+  public void render_withHeldOutputBufferAndEndedInputAndAsyncCodecError_surfacesErrorImmediately()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    codecAdapter.makeInputBuffersAvailable(/* count= */ 2);
+    TestRenderer renderer = new TestRenderer(configuration -> codecAdapter);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(AUDIO_AAC, /* sampleTimesUs...= */ 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+    // First render initializes the codec and feeds the single sample + EOS so inputStreamEnded is
+    // true. Second render dequeues and holds the output buffer (not released at positionUs=0).
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    boolean hasReadStreamToEndBeforeError = renderer.hasReadStreamToEnd();
+    codecAdapter.enqueueOutputBuffer(/* presentationTimeUs= */ 100);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    codecAdapter.notifyCodecError(createMediaCodecIllegalStateException());
+
+    ExoPlaybackException exception =
+        assertThrows(
+            ExoPlaybackException.class,
+            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000));
+
+    assertThat(hasReadStreamToEndBeforeError).isTrue();
+    assertThat(exception.errorCode).isEqualTo(PlaybackException.ERROR_CODE_DECODING_FAILED);
+  }
+
+  @Test
+  public void render_withHeldOutputBufferAndEndedInputAndAsyncCryptoError_surfacesErrorImmediately()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    codecAdapter.makeInputBuffersAvailable(/* count= */ 2);
+    TestRenderer renderer = new TestRenderer(configuration -> codecAdapter);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(AUDIO_AAC, /* sampleTimesUs...= */ 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    boolean hasReadStreamToEndBeforeError = renderer.hasReadStreamToEnd();
+    codecAdapter.enqueueOutputBuffer(/* presentationTimeUs= */ 100);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    MediaCodec.CryptoException cryptoException =
+        new MediaCodec.CryptoException(MediaDrm.ErrorCodes.ERROR_KEY_EXPIRED, "Key expired");
+    codecAdapter.notifyCodecError(cryptoException);
+
+    ExoPlaybackException exception =
+        assertThrows(
+            ExoPlaybackException.class,
+            () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000));
+
+    assertThat(hasReadStreamToEndBeforeError).isTrue();
+    assertThat(exception.errorCode)
+        .isEqualTo(PlaybackException.ERROR_CODE_DRM_DISALLOWED_OPERATION);
+    assertThat(exception).hasCauseThat().isSameInstanceAs(cryptoException);
+  }
+
+  @Test
+  public void
+      render_withHeldOutputBufferAndEndedInputAndAsyncCodecErrorWithFlagDisabled_defersErrorUntilBufferReleased()
+          throws Exception {
+    Flags.disableFlag(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    codecAdapter.makeInputBuffersAvailable(/* count= */ 2);
+    TestRenderer renderer = new TestRenderer(configuration -> codecAdapter);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(AUDIO_AAC, /* sampleTimesUs...= */ 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    boolean hasReadStreamToEndBeforeError = renderer.hasReadStreamToEnd();
+    codecAdapter.enqueueOutputBuffer(/* presentationTimeUs= */ 100);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    codecAdapter.notifyCodecError(createMediaCodecIllegalStateException());
+
+    // At positionUs=0, the output buffer at 100us is still held and inputStreamEnded is true, so
+    // without FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR the pending error is not yet surfaced.
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    ExoPlaybackException exception =
+        assertThrows(
+            ExoPlaybackException.class,
+            () -> renderer.render(/* positionUs= */ 100, SystemClock.elapsedRealtime() * 1000));
+
+    assertThat(hasReadStreamToEndBeforeError).isTrue();
+    assertThat(exception.errorCode).isEqualTo(PlaybackException.ERROR_CODE_DECODING_FAILED);
+  }
+
+  @Test
+  public void render_afterOutputStreamEndedWithAsyncCodecError_doesNotThrow() throws Exception {
+    Flags.enableFlag(Flags.FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    codecAdapter.makeInputBuffersAvailable(/* count= */ 2);
+    TestRenderer renderer = new TestRenderer(configuration -> codecAdapter);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(AUDIO_AAC, /* sampleTimesUs...= */ 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    codecAdapter.enqueueOutputBuffer(/* presentationTimeUs= */ 100);
+    renderer.render(/* positionUs= */ 100, SystemClock.elapsedRealtime() * 1000);
+    codecAdapter.enqueueEndOfStreamOutputBuffer();
+    renderer.render(/* positionUs= */ 100, SystemClock.elapsedRealtime() * 1000);
+    boolean endedBeforeError = renderer.isEnded();
+    codecAdapter.notifyCodecError(createMediaCodecIllegalStateException());
+
+    renderer.render(/* positionUs= */ 100, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(endedBeforeError).isTrue();
+    assertThat(renderer.isEnded()).isTrue();
+  }
+
   private TestRenderer setUpAndEnableRenderer(Format format) throws Exception {
     MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
     MediaCodecAdapter.Factory mockCodecAdapterFactory = configuration -> mockCodecAdapter;
@@ -1103,6 +1312,19 @@ public class MediaCodecRendererTest {
             sampleListBuilder.build());
     sampleStream.writeData(/* startPositionUs= */ 0);
     return sampleStream;
+  }
+
+  private static IllegalStateException createMediaCodecIllegalStateException() {
+    IllegalStateException exception = new IllegalStateException("ISE from inside MediaCodec");
+    StackTraceElement[] stackTrace = exception.getStackTrace();
+    stackTrace[0] =
+        new StackTraceElement(
+            "android.media.MediaCodec",
+            "fakeMethod",
+            stackTrace[0].getFileName(),
+            stackTrace[0].getLineNumber());
+    exception.setStackTrace(stackTrace);
+    return exception;
   }
 
   private static class TestRenderer extends MediaCodecRenderer {
@@ -1330,6 +1552,183 @@ public class MediaCodecRendererTest {
     @Override
     public PersistableBundle getMetrics() {
       return new PersistableBundle();
+    }
+  }
+
+  private static final class ReclaimableMediaCodecAdapter implements MediaCodecAdapter {
+
+    private @Nullable RuntimeException pendingException;
+    private int availableInputBufferCount;
+    private boolean hasAvailableOutputBuffer;
+    private int availableOutputSize;
+    private long availableOutputPresentationTimeUs;
+    private int availableOutputFlags;
+    private @Nullable OnBufferAvailableListener onBufferAvailableListener;
+
+    @Override
+    public int dequeueInputBufferIndex() {
+      maybeThrow();
+      if (availableInputBufferCount > 0) {
+        availableInputBufferCount--;
+        return 0;
+      }
+      return MediaCodec.INFO_TRY_AGAIN_LATER;
+    }
+
+    @Override
+    public int dequeueOutputBufferIndex(MediaCodec.BufferInfo bufferInfo) {
+      maybeThrow();
+      if (hasAvailableOutputBuffer) {
+        hasAvailableOutputBuffer = false;
+        bufferInfo.set(
+            /* newOffset= */ 0,
+            availableOutputSize,
+            availableOutputPresentationTimeUs,
+            availableOutputFlags);
+        return 0;
+      }
+      return MediaCodec.INFO_TRY_AGAIN_LATER;
+    }
+
+    @Override
+    public MediaFormat getOutputFormat() {
+      maybeThrow();
+      return new MediaFormat();
+    }
+
+    @Override
+    public @Nullable ByteBuffer getInputBuffer(int index) {
+      maybeThrow();
+      return ByteBuffer.allocate(1024);
+    }
+
+    @Override
+    public <E extends Exception> void useBuffer(ThrowingRunnable<E> runnable) throws E {
+      maybeThrow();
+      runnable.run();
+    }
+
+    @Override
+    public void maybeThrowError() {
+      maybeThrow();
+    }
+
+    @Override
+    public @Nullable ByteBuffer getOutputBuffer(int index) {
+      maybeThrow();
+      return null;
+    }
+
+    @Override
+    public void queueInputBuffer(
+        int index, int offset, int size, long presentationTimeUs, int flags) {
+      maybeThrow();
+    }
+
+    @Override
+    public void queueSecureInputBuffer(
+        int index, int offset, CryptoInfo info, long presentationTimeUs, int flags) {
+      maybeThrow();
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, boolean render) {
+      maybeThrow();
+    }
+
+    @Override
+    public void releaseOutputBuffer(int index, long renderTimeStampNs) {
+      maybeThrow();
+    }
+
+    @Override
+    public void flush() {
+      maybeThrow();
+    }
+
+    @Override
+    public void release() {}
+
+    @Override
+    public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {}
+
+    @Override
+    public boolean registerOnBufferAvailableListener(OnBufferAvailableListener listener) {
+      this.onBufferAvailableListener = listener;
+      return true;
+    }
+
+    @Override
+    public void setOutputSurface(Surface surface) {
+      maybeThrow();
+    }
+
+    @Override
+    public void detachOutputSurface() {
+      maybeThrow();
+    }
+
+    @Override
+    public void setParameters(Bundle params) {
+      maybeThrow();
+    }
+
+    @Override
+    public void setVideoScalingMode(@C.VideoScalingMode int scalingMode) {
+      maybeThrow();
+    }
+
+    @Override
+    public void subscribeToVendorParameters(List<String> names) {
+      maybeThrow();
+    }
+
+    @Override
+    public void unsubscribeFromVendorParameters(List<String> names) {
+      maybeThrow();
+    }
+
+    @Override
+    public boolean needsReconfiguration() {
+      return false;
+    }
+
+    @Override
+    public PersistableBundle getMetrics() {
+      return new PersistableBundle();
+    }
+
+    /* package */ void makeInputBuffersAvailable(int count) {
+      availableInputBufferCount = count;
+    }
+
+    /* package */ void enqueueOutputBuffer(long presentationTimeUs) {
+      hasAvailableOutputBuffer = true;
+      availableOutputSize = 1;
+      availableOutputPresentationTimeUs = presentationTimeUs;
+      availableOutputFlags = 0;
+    }
+
+    /* package */ void enqueueEndOfStreamOutputBuffer() {
+      hasAvailableOutputBuffer = true;
+      availableOutputSize = 0;
+      availableOutputPresentationTimeUs = 0;
+      availableOutputFlags = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+    }
+
+    /* package */ void notifyCodecError(RuntimeException exception) {
+      pendingException = exception;
+      if (onBufferAvailableListener != null) {
+        onBufferAvailableListener.onCodecError();
+      }
+    }
+
+    private void maybeThrow() {
+      @Nullable RuntimeException exception = pendingException;
+      if (exception != null) {
+        pendingException = null;
+        throw exception;
+      }
     }
   }
 
