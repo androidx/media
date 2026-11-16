@@ -156,7 +156,10 @@ public interface MediaCodecAdapter {
     void onFrameRendered(MediaCodecAdapter codec, long presentationTimeUs, long nanoTime);
   }
 
-  /** Listener to be called when an input or output buffer becomes available. */
+  /**
+   * Listener to be called when an input or output buffer becomes available, or when an asynchronous
+   * codec error invalidates all previously available buffers.
+   */
   interface OnBufferAvailableListener {
     /**
      * Called when an input buffer becomes available.
@@ -171,6 +174,16 @@ public interface MediaCodecAdapter {
      * @see MediaCodec.Callback#onOutputBufferAvailable(MediaCodec, int, MediaCodec.BufferInfo)
      */
     default void onOutputBufferAvailable() {}
+
+    /**
+     * Called when an asynchronous error occurs on the underlying {@link MediaCodec} (such as from a
+     * {@link MediaCodec.Callback} error or an asynchronous buffer queueing operation), invalidating
+     * all previously available input and output buffers.
+     *
+     * @see MediaCodec.Callback#onError(MediaCodec, MediaCodec.CodecException)
+     * @see MediaCodec.Callback#onCryptoError(MediaCodec, MediaCodec.CryptoException)
+     */
+    default void onCodecError() {}
   }
 
   /**
@@ -220,6 +233,14 @@ public interface MediaCodecAdapter {
   default <E extends Exception> void useBuffer(ThrowingRunnable<E> runnable) throws E {
     runnable.run();
   }
+
+  /**
+   * Throws any pending unhandled exception from the underlying {@link MediaCodec}.
+   *
+   * @throws IllegalStateException If the underlying {@link MediaCodec} raised an error.
+   * @throws MediaCodec.CryptoException If the underlying {@link MediaCodec} raised a crypto error.
+   */
+  default void maybeThrowError() {}
 
   /**
    * Returns a read-only ByteBuffer for a dequeued output buffer index.
@@ -285,12 +306,15 @@ public interface MediaCodecAdapter {
   void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler);
 
   /**
-   * Registers a listener that will be called when an input or output buffer becomes available.
+   * Registers a listener that will be called when an input or output buffer becomes available, or
+   * when an asynchronous codec error invalidates all previously available buffers.
    *
    * <p>Returns false if listener was not successfully registered for callbacks.
    *
    * @see MediaCodec.Callback#onInputBufferAvailable
    * @see MediaCodec.Callback#onOutputBufferAvailable
+   * @see MediaCodec.Callback#onError
+   * @see MediaCodec.Callback#onCryptoError
    * @return Whether listener was successfully registered.
    */
   default boolean registerOnBufferAvailableListener(

@@ -70,6 +70,11 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
+  public void maybeThrowError() {
+    delegate.maybeThrowError();
+  }
+
+  @Override
   public @Nullable ByteBuffer getOutputBuffer(int index) {
     return delegate.getOutputBuffer(index);
   }

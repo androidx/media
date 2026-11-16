@@ -56,6 +56,7 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull Handler handler;
   private final AtomicReference<@Nullable RuntimeException> pendingRuntimeException;
   private final ConditionVariable conditionVariable;
+  private MediaCodecAdapter.@Nullable OnBufferAvailableListener onBufferAvailableListener;
   private boolean started;
 
   /**
@@ -156,6 +157,11 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
+  @Override
+  public void setOnBufferAvailableListener(MediaCodecAdapter.OnBufferAvailableListener listener) {
+    this.onBufferAvailableListener = listener;
+  }
+
   /**
    * Empties all tasks enqueued on the {@link #handlerThread} via the {@link #handler}. This method
    * blocks until the {@link #handlerThread} is idle.
@@ -203,8 +209,7 @@ import org.jspecify.annotations.Nullable;
         doSetParameters(parameters);
         break;
       default:
-        pendingRuntimeException.compareAndSet(
-            null, new IllegalStateException(String.valueOf(msg.what)));
+        recordPendingRuntimeException(new IllegalStateException(String.valueOf(msg.what)));
     }
     if (params != null) {
       recycleMessageParams(params);
@@ -216,7 +221,7 @@ import org.jspecify.annotations.Nullable;
     try {
       codec.queueInputBuffer(index, offset, size, presentationTimeUs, flag);
     } catch (RuntimeException e) {
-      pendingRuntimeException.compareAndSet(null, e);
+      recordPendingRuntimeException(e);
     }
   }
 
@@ -234,7 +239,7 @@ import org.jspecify.annotations.Nullable;
         }
       }
     } catch (RuntimeException e) {
-      pendingRuntimeException.compareAndSet(null, e);
+      recordPendingRuntimeException(e);
     }
   }
 
@@ -242,7 +247,14 @@ import org.jspecify.annotations.Nullable;
     try {
       codec.setParameters(parameters);
     } catch (RuntimeException e) {
-      pendingRuntimeException.compareAndSet(null, e);
+      recordPendingRuntimeException(e);
+    }
+  }
+
+  private void recordPendingRuntimeException(RuntimeException exception) {
+    if (pendingRuntimeException.compareAndSet(null, exception)
+        && onBufferAvailableListener != null) {
+      onBufferAvailableListener.onCodecError();
     }
   }
 

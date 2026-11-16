@@ -23,6 +23,9 @@
         transitions to `STATE_ENDED` or `STATE_IDLE`, causing an
         `IllegalArgumentException` in `ForwardingSimpleBasePlayer`
         ([#3467](https://github.com/androidx/media/issues/3467)).
+    *   Immediately wake up the playback loop to handle asynchronous
+        `MediaCodec` errors instead of waiting for the next scheduled rendering
+        iteration.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

@@ -260,6 +260,12 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
+  public void maybeThrowError() {
+    bufferEnqueuer.maybeThrowException();
+    asynchronousMediaCodecCallback.maybeThrowError();
+  }
+
+  @Override
   public @Nullable ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);
   }
@@ -324,6 +330,7 @@ import org.jspecify.annotations.Nullable;
   @Override
   public boolean registerOnBufferAvailableListener(OnBufferAvailableListener listener) {
     asynchronousMediaCodecCallback.setOnBufferAvailableListener(listener);
+    bufferEnqueuer.setOnBufferAvailableListener(listener);
     return true;
   }
 
@@ -369,6 +376,11 @@ import org.jspecify.annotations.Nullable;
   @VisibleForTesting
   /* package */ void onError(MediaCodec.CodecException error) {
     asynchronousMediaCodecCallback.onError(codec, error);
+  }
+
+  @VisibleForTesting
+  /* package */ void onCryptoError(MediaCodec.CryptoException error) {
+    asynchronousMediaCodecCallback.onCryptoError(codec, error);
   }
 
   @VisibleForTesting
