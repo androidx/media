@@ -19,6 +19,10 @@
         scheduling work and CPU wake-cycles to when metadata samples can be read
         or output. You can enable this using
         `Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS)`.
+    *   Fix issue where `ExoPlayer.isLoading()` remains `true` when playback
+        transitions to `STATE_ENDED` or `STATE_IDLE`, causing an
+        `IllegalArgumentException` in `ForwardingSimpleBasePlayer`
+        ([#3467](https://github.com/androidx/media/issues/3467)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
