@@ -62,6 +62,8 @@ import org.jspecify.annotations.Nullable;
   private final StateChangeListener onStateChangedListener;
   private final ArrayDeque<QueuedOperation> queuedOperations;
   private @Nullable QueuedOperation activeOperation;
+  private boolean isActiveOperationLoad;
+  private @Nullable Runnable postLoadAction;
   private boolean wasQueueEnded;
   private boolean isReloadingFromQueueEnd;
 
@@ -97,6 +99,26 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
+   * Returns whether a load request is in flight. A load replaces the receiver's media session, so
+   * requests that target the current media session (such as play or pause) should wait until it
+   * completes. See {@link #runAfterLoad}.
+   */
+  public boolean isLoadInFlight() {
+    return activeOperation != null && isActiveOperationLoad;
+  }
+
+  /**
+   * Runs {@code action} once the in-flight load completes, replacing any action previously passed
+   * to this method that hasn't run yet.
+   *
+   * <p>If the in-flight load is replaced by another load, {@code action} runs once the latest load
+   * completes. Must only be called while {@link #isLoadInFlight()} returns {@code true}.
+   */
+  public void runAfterLoad(Runnable action) {
+    postLoadAction = action;
+  }
+
+  /**
    * Clears all pending and active operations and resets the orchestrator state.
    *
    * @param clearSnapshots {@code true} to reset the current {@link QueueSnapshot} to {@link
@@ -108,6 +130,8 @@ import org.jspecify.annotations.Nullable;
   public void reset(boolean clearSnapshots) {
     queuedOperations.clear();
     activeOperation = null;
+    isActiveOperationLoad = false;
+    postLoadAction = null;
     wasQueueEnded = false;
     isReloadingFromQueueEnd = false;
     if (clearSnapshots) {
@@ -230,6 +254,7 @@ import org.jspecify.annotations.Nullable;
         }
         // Otherwise, reload the target timeline onto the receiver to start or resume playback.
         activeOperation = head;
+        isActiveOperationLoad = true;
         isReloadingFromQueueEnd = true;
         MediaQueueItem[] itemsToLoad = timelineTracker.toMediaQueueItems(targetSnapshot.timeline);
         long startPositionMs =
@@ -269,6 +294,7 @@ import org.jspecify.annotations.Nullable;
     }
     QueuedOperation head = queuedOperations.peekFirst();
     activeOperation = head;
+    isActiveOperationLoad = head.executesLoad(remoteMediaClient);
     head.execute(remoteMediaClient, timelineTracker, playerTransferStateSupplier.get())
         .setResultCallback(
             mediaChannelResult -> onOperationResult(head, mediaChannelResult, remoteMediaClient));
@@ -295,12 +321,21 @@ import org.jspecify.annotations.Nullable;
       maskedSnapshot = baseSnapshot;
       onStateChangedListener.onQueueSnapshotChanged(
           maskedSnapshot, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
-      return;
+    } else {
+      if (queuedOperations.peekFirst() == operation) {
+        queuedOperations.removeFirst();
+      }
+      onReceiverStateUpdated(remoteMediaClient);
     }
-    if (queuedOperations.peekFirst() == operation) {
-      queuedOperations.removeFirst();
+    runPostLoadActionIfNoLoadInFlight();
+  }
+
+  private void runPostLoadActionIfNoLoadInFlight() {
+    if (postLoadAction != null && !isLoadInFlight()) {
+      Runnable action = postLoadAction;
+      postLoadAction = null;
+      action.run();
     }
-    onReceiverStateUpdated(remoteMediaClient);
   }
 
   private void recomputeMaskedSnapshot() {
