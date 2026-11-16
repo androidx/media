@@ -2078,7 +2078,7 @@ class MotionPhotoStateTest {
           )
       }
       waitForIdle()
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(400_000L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(401_000L)
 
       // Populated tracks without the metadata make the photo frame unresolved again, so the photo
       // stays visible and playback pauses without mutating showPhoto.
@@ -2123,7 +2123,7 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionUs).isEqualTo(0L)
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(600_666L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(601_666L)
     }
 
   @Test
@@ -2148,7 +2148,7 @@ class MotionPhotoStateTest {
       waitForIdle()
       player.renderFirstFrame(true)
       waitForIdle()
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(400L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(401_000L)
       assertThat(state.visualState.isPhotoVisible).isFalse()
 
       player.setPlaybackState(Player.STATE_ENDED)
@@ -2217,6 +2217,72 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  fun rememberMotionPhotoState_withPhotoFrameEndAndNonZeroOffset_doesNotApplyPhotoFrameTolerance() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialConfig =
+              MotionPhotoConfig(
+                endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
+                endPositionOffsetMs = 500L,
+              ),
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(900_000L)
+
+      state.config = state.config.copy(endPositionOffsetMs = -1L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(399_000L)
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withPhotoFrameStartOffsetOneMsBeforeEnd_clipsRangeWithTolerance() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          tracks = createTracksWithMotionPhotoMetadata(photoPresentationTimestampUs = 400_000L),
+        )
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+            initialConfig =
+              MotionPhotoConfig(
+                startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
+                startPositionOffsetMs = -1L,
+                endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
+              ),
+          )
+      }
+      waitForIdle()
+
+      // The range [399ms, 400ms] is not empty, and the tolerance is applied to the end position.
+      assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionUs)
+        .isEqualTo(399_000L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(401_000L)
+      assertThat(state.showPhoto).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
   fun config_whenEndBoundaryUpdatedToPhotoFrameAtCurrentPosition_restartsFromStartOfRange() =
     runComposeUiTest {
       val player =
@@ -2248,7 +2314,7 @@ class MotionPhotoStateTest {
       state.config = state.config.copy(endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME)
       waitForIdle()
 
-      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(600_000L)
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(601_000L)
       assertThat(player.currentPosition).isEqualTo(0L)
     }
 

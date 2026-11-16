@@ -584,17 +584,30 @@ internal constructor(
     }
     val wasPlaybackRangeEmpty = isPlaybackRangeEmpty
     isPlaybackRangeEmpty = false
+    // The photo frame itself must be decoded at the end of a range ending at BOUNDARY_PHOTO_FRAME
+    // without an offset (see PHOTO_FRAME_TIMESTAMP_TOLERANCE_US), so that end position is moved
+    // later. The un-toleranced position is used for everything else, in particular for deciding
+    // whether the range is empty.
+    val clippingEndPositionUs =
+      if (
+        _config.endBoundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME &&
+          _config.endPositionOffsetMs == 0L
+      ) {
+        endPositionUs + PHOTO_FRAME_TIMESTAMP_TOLERANCE_US
+      } else {
+        endPositionUs
+      }
     // The state owns the clipping of mediaItem: a caller-supplied end position could otherwise end
     // up before a start position resolved relative to the end of the video.
     val clippingConfiguration =
       mediaItem.clippingConfiguration
         .buildUpon()
         .setStartPositionUs(startPositionUs)
-        .setEndPositionUs(endPositionUs)
+        .setEndPositionUs(clippingEndPositionUs)
         .build()
     val didUpdateMediaItem =
       clippingConfiguration != loadedMediaItem?.clippingConfiguration &&
-        syncMediaItem(currentPlayer, clippingConfiguration)
+        syncMediaItem(currentPlayer, clippingConfiguration, endPositionUs = endPositionUs)
     if (wasPlaybackRangeEmpty) {
       syncPlaybackState(currentPlayer, allowPrepareOnError = false)
     }
@@ -614,6 +627,7 @@ internal constructor(
   private fun syncMediaItem(
     currentPlayer: Player,
     clippingConfiguration: MediaItem.ClippingConfiguration,
+    endPositionUs: Long = clippingConfiguration.endPositionUs,
   ): Boolean {
     val clippedMediaItem =
       mediaItem.buildUpon().setClippingConfiguration(clippingConfiguration).build()
@@ -635,10 +649,9 @@ internal constructor(
     val isCurrentPositionPastEnd =
       if (
         previousClippingConfiguration.startPositionUs == clippingConfiguration.startPositionUs &&
-          clippingConfiguration.endPositionUs != C.TIME_END_OF_SOURCE
+          endPositionUs != C.TIME_END_OF_SOURCE
       ) {
-        val rangeDurationUs =
-          clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs
+        val rangeDurationUs = endPositionUs - clippingConfiguration.startPositionUs
         Util.msToUs(currentPlayer.currentPosition) >= rangeDurationUs
       } else {
         false
@@ -655,6 +668,14 @@ internal constructor(
   }
 
   companion object {
+    // Tolerance added to a clipping end position resolved from BOUNDARY_PHOTO_FRAME, so that the
+    // photo frame itself is decoded at the end of the range: ClippingSampleStream's end position is
+    // exclusive (buffer.timeUs >= endUs), and the XMP timestamp and the sample timestamps the
+    // extractor derives from the track timescale (rounded down) can disagree by up to one timescale
+    // tick. 1ms covers track timescales down to 1kHz while staying well below the shortest frame
+    // interval (about 8ms at 120fps), so no neighbouring frame is included.
+    private const val PHOTO_FRAME_TIMESTAMP_TOLERANCE_US = 1_000L
+
     init {
       MediaLibraryInfo.registerModule("media3.ui.compose.motionphoto")
     }
