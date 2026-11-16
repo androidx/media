@@ -256,6 +256,7 @@ public final class ImagePlanesToGlTextureConverterTest {
     assertThat(glTextureFrame.format.width).isEqualTo(DEFAULT_FRAME_WIDTH);
     assertThat(glTextureFrame.format.height).isEqualTo(DEFAULT_FRAME_HEIGHT);
     assertThat(glTextureFrame.format.rotationDegrees).isEqualTo(0);
+    assertThat(glTextureFrame.format.pixelFormat).isEqualTo(Format.NO_VALUE);
     assertThat(glTextureFrame.format.colorInfo).isEqualTo(BT709_SRGB);
   }
 

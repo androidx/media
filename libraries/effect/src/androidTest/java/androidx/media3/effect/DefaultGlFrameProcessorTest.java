@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_EFFECTS;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
@@ -26,19 +27,24 @@ import static androidx.media3.effect.FrameProcessorUtils.shutdownGlExecutorServi
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
+import static androidx.media3.test.utils.TestUtil.PSNR_THRESHOLD;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.lang.Math.round;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.ColorInt;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoCompositorSettings;
@@ -74,9 +80,6 @@ import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link DefaultGlFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-// TODO(b/531653682): Remove the SDK restriction once DefaultGlFrameProcessor.Factory supports API
-// 24+.
-@SdkSuppress(minSdkVersion = 26)
 public final class DefaultGlFrameProcessorTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000L : 10_000L;
@@ -144,16 +147,16 @@ public final class DefaultGlFrameProcessorTest {
                 .get(TEST_TIMEOUT_MS, MILLISECONDS),
         () -> shutdownGlExecutorService(glExecutorService),
         () -> {
-          for (HardwareBuffer hardwareBuffer : hardwareBuffersToClose) {
-            hardwareBuffer.close();
+          if (SDK_INT >= 26) {
+            closeHardwareBuffers();
           }
-          hardwareBuffersToClose.clear();
         });
   }
 
   @Test
-  public void queue_imagePlanesFrame_outputsExpectedFrame() throws Exception {
-    setUpProcessor(BitmapSavingFrameWriter.createForImagePlanes(TEST_TIMEOUT_MS));
+  public void queue_rgbaImagePlanesFrameWithRgbaFrameWriter_outputsExpectedFrame()
+      throws Exception {
+    setUpProcessor(BitmapSavingFrameWriter.createForRgbaImagePlanes(TEST_TIMEOUT_MS));
     Bitmap expectedBitmap =
         createArgb8888BitmapWithSolidColor(DEFAULT_WIDTH, DEFAULT_HEIGHT, Color.GREEN);
     ImagePlanesFrame inputFrame = createRgbaFrame(Color.GREEN);
@@ -168,6 +171,60 @@ public final class DefaultGlFrameProcessorTest {
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
                 expectedBitmap, outputBitmaps.get(0), testName.getMethodName()))
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+    assertThat(listener.processedFrames).containsExactly(inputFrame);
+  }
+
+  @Test
+  public void queue_rgbaImagePlanesFrameWithYv12FrameWriter_outputsExpectedFrame()
+      throws Exception {
+    setUpProcessor(BitmapSavingFrameWriter.createForYv12ImagePlanes(TEST_TIMEOUT_MS));
+    Bitmap expectedBitmap =
+        createArgb8888BitmapWithSolidColor(DEFAULT_WIDTH, DEFAULT_HEIGHT, Color.GREEN);
+    ImagePlanesFrame inputFrame = createRgbaFrame(Color.GREEN);
+
+    boolean queued = queueFrameAndAwait(inputFrame);
+
+    assertThat(queued).isTrue();
+    assertThat(listener.error.get()).isNull();
+    List<Bitmap> outputBitmaps = frameWriter.outputBitmaps;
+    assertThat(outputBitmaps).hasSize(1);
+    assertBitmapsAreSimilar(expectedBitmap, outputBitmaps.get(0), PSNR_THRESHOLD);
+    assertThat(listener.processedFrames).containsExactly(inputFrame);
+  }
+
+  @Test
+  public void queue_yuv420ImagePlanesFrameWithYv12FrameWriter_outputsExpectedFrame()
+      throws Exception {
+    setUpProcessor(BitmapSavingFrameWriter.createForYv12ImagePlanes(TEST_TIMEOUT_MS));
+    Bitmap expectedBitmap =
+        createArgb8888BitmapWithSolidColor(DEFAULT_WIDTH, DEFAULT_HEIGHT, Color.GREEN);
+    ImagePlanesFrame inputFrame = createPlanarYuv420Frame(Color.GREEN);
+
+    boolean queued = queueFrameAndAwait(inputFrame);
+
+    assertThat(queued).isTrue();
+    assertThat(listener.error.get()).isNull();
+    List<Bitmap> outputBitmaps = frameWriter.outputBitmaps;
+    assertThat(outputBitmaps).hasSize(1);
+    assertBitmapsAreSimilar(expectedBitmap, outputBitmaps.get(0), PSNR_THRESHOLD);
+    assertThat(listener.processedFrames).containsExactly(inputFrame);
+  }
+
+  @Test
+  public void queue_yuv420ImagePlanesFrameWithRgbaFrameWriter_outputsExpectedFrame()
+      throws Exception {
+    setUpProcessor(BitmapSavingFrameWriter.createForRgbaImagePlanes(TEST_TIMEOUT_MS));
+    Bitmap expectedBitmap =
+        createArgb8888BitmapWithSolidColor(DEFAULT_WIDTH, DEFAULT_HEIGHT, Color.GREEN);
+    ImagePlanesFrame inputFrame = createPlanarYuv420Frame(Color.GREEN);
+
+    boolean queued = queueFrameAndAwait(inputFrame);
+
+    assertThat(queued).isTrue();
+    assertThat(listener.error.get()).isNull();
+    List<Bitmap> outputBitmaps = frameWriter.outputBitmaps;
+    assertThat(outputBitmaps).hasSize(1);
+    assertBitmapsAreSimilar(expectedBitmap, outputBitmaps.get(0), PSNR_THRESHOLD);
     assertThat(listener.processedFrames).containsExactly(inputFrame);
   }
 
@@ -245,6 +302,15 @@ public final class DefaultGlFrameProcessorTest {
     return queued;
   }
 
+  @RequiresApi(26)
+  private void closeHardwareBuffers() {
+    for (HardwareBuffer hardwareBuffer : hardwareBuffersToClose) {
+      hardwareBuffer.close();
+    }
+    hardwareBuffersToClose.clear();
+  }
+
+  @RequiresApi(26)
   private HardwareBufferFrame createHardwareBufferFrame(Bitmap bitmap) {
     HardwareBuffer hardwareBuffer =
         HardwareBuffer.create(
@@ -287,5 +353,41 @@ public final class DefaultGlFrameProcessorTest {
     return new DefaultImagePlanesFrame.Builder(ImmutableList.of(plane), format)
         .setMetadata(DEFAULT_FRAME_METADATA)
         .build();
+  }
+
+  private static ImagePlanesFrame createPlanarYuv420Frame(@ColorInt int color) {
+    double r = Color.red(color) / 255.0;
+    double g = Color.green(color) / 255.0;
+    double b = Color.blue(color) / 255.0;
+    // ITU-R BT.709 limited-range (studio-swing) RGB-to-YUV conversion.
+    byte y = (byte) round(16.0 + 219.0 * (0.2126 * r + 0.7152 * g + 0.0722 * b));
+    byte u = (byte) round(128.0 + 224.0 * (-0.114572 * r - 0.385428 * g + 0.5 * b));
+    byte v = (byte) round(128.0 + 224.0 * (0.5 * r - 0.454153 * g - 0.045847 * b));
+    int chromaWidth = (DEFAULT_WIDTH + 1) / 2;
+    int chromaHeight = (DEFAULT_HEIGHT + 1) / 2;
+    ImmutableList<Plane> planes =
+        ImmutableList.of(
+            createSolidPlane(DEFAULT_WIDTH, DEFAULT_HEIGHT, y),
+            createSolidPlane(chromaWidth, chromaHeight, u),
+            createSolidPlane(chromaWidth, chromaHeight, v));
+    Format format =
+        new Format.Builder()
+            .setWidth(DEFAULT_WIDTH)
+            .setHeight(DEFAULT_HEIGHT)
+            .setPixelFormat(ImageFormat.YUV_420_888)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    return new DefaultImagePlanesFrame.Builder(planes, format)
+        .setMetadata(DEFAULT_FRAME_METADATA)
+        .build();
+  }
+
+  private static Plane createSolidPlane(int width, int height, byte value) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(width * height);
+    for (int i = 0; i < width * height; i++) {
+      buffer.put(value);
+    }
+    buffer.flip();
+    return new DefaultPlane(buffer, /* rowStride= */ width, /* pixelStride= */ 1);
   }
 }

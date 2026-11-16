@@ -84,11 +84,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
-import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link DefaultGlFrameProcessor} using pluggable non-OpenGL fakes. */
 @RunWith(RobolectricTestParameterInjector.class)
-@Config(minSdk = 29)
 public final class DefaultGlFrameProcessorTest {
 
   private static final int COMPOSITOR_CAPACITY = 1;

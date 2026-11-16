@@ -291,6 +291,8 @@ import org.jspecify.annotations.Nullable;
                 // Reset rotation to 0 because we rotated the frame physically with OpenGL. The
                 // pipeline should always receive frames in their intended orientation.
                 .setRotationDegrees(0)
+                // Reset pixelFormat because it is not applicable to an OpenGL texture.
+                .setPixelFormat(Format.NO_VALUE)
                 .build())
         .setMetadata(inputFrame.getMetadata())
         .build();

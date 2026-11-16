@@ -15,17 +15,25 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.EffectsTestUtil.createPlanarYuv420Planes;
 import static androidx.media3.effect.FrameProcessorUtils.RGBA_8888_BYTES_PER_PIXEL;
+import static androidx.media3.effect.FrameProcessorUtils.validatePlanarYuv420Planes;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888ImageBuffer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
@@ -116,34 +124,39 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * Creates an instance backed by {@link ImagePlanesFrame} instances.
-   *
-   * <p>Only {@link PixelFormat#RGBA_8888} (or {@link Format#NO_VALUE}, which defaults to {@link
-   * PixelFormat#RGBA_8888}) is supported.
+   * Creates an instance backed by {@link PixelFormat#RGBA_8888} {@link ImagePlanesFrame} instances.
    *
    * @param fenceTimeoutMs The timeout in milliseconds when awaiting write-complete fences.
    */
-  /* package */ static BitmapSavingFrameWriter createForImagePlanes(long fenceTimeoutMs) {
-    return createForImagePlanes(
+  /* package */ static BitmapSavingFrameWriter createForRgbaImagePlanes(long fenceTimeoutMs) {
+    return createForRgbaImagePlanes(
         fenceTimeoutMs, /* rgbaRowPaddingBytes= */ 0, /* rgbaBufferPositionOffset= */ 0);
   }
 
   /**
-   * Creates an instance backed by {@link ImagePlanesFrame} instances with custom buffer layout.
-   *
-   * <p>Only {@link PixelFormat#RGBA_8888} (or {@link Format#NO_VALUE}, which defaults to {@link
-   * PixelFormat#RGBA_8888}) is supported.
+   * Creates an instance backed by {@link PixelFormat#RGBA_8888} {@link ImagePlanesFrame} instances
+   * with custom buffer layout.
    *
    * @param fenceTimeoutMs The timeout in milliseconds when awaiting write-complete fences.
    * @param rgbaRowPaddingBytes Extra padding bytes added to each row's stride.
    * @param rgbaBufferPositionOffset Initial byte offset applied to the plane buffer's position.
    */
-  /* package */ static BitmapSavingFrameWriter createForImagePlanes(
+  /* package */ static BitmapSavingFrameWriter createForRgbaImagePlanes(
       long fenceTimeoutMs, int rgbaRowPaddingBytes, int rgbaBufferPositionOffset) {
     return new BitmapSavingFrameWriter(
         /* info= */ (format, usage) -> true,
         fenceTimeoutMs,
-        new ImagePlanesFrameBackend(rgbaRowPaddingBytes, rgbaBufferPositionOffset));
+        new RgbaImagePlanesFrameBackend(rgbaRowPaddingBytes, rgbaBufferPositionOffset));
+  }
+
+  /**
+   * Creates an instance backed by {@link ImageFormat#YV12} {@link ImagePlanesFrame} instances.
+   *
+   * @param fenceTimeoutMs The timeout in milliseconds when awaiting write-complete fences.
+   */
+  /* package */ static BitmapSavingFrameWriter createForYv12ImagePlanes(long fenceTimeoutMs) {
+    return new BitmapSavingFrameWriter(
+        /* info= */ (format, usage) -> true, fenceTimeoutMs, new Yv12ImagePlanesFrameBackend());
   }
 
   private BitmapSavingFrameWriter(
@@ -223,6 +236,17 @@ import org.jspecify.annotations.Nullable;
     frameBackend.close();
   }
 
+  /**
+   * Returns whether {@link Format#pixelFormat} equals {@code pixelFormat} or is unset.
+   *
+   * <p>Callers can leave {@link Format#pixelFormat} unset ({@link Format#NO_VALUE}) when they have
+   * no pixel-format constraint and do not need to know the {@link FrameWriter}'s default format,
+   * letting it use its native format.
+   */
+  private static boolean hasPixelFormatOrUnset(Format format, int pixelFormat) {
+    return format.pixelFormat == pixelFormat || format.pixelFormat == Format.NO_VALUE;
+  }
+
   private void verifyCallingThread() {
     Thread expectedThread =
         checkNotNull(
@@ -260,8 +284,7 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     public boolean isFormatSupported(Format format) {
-      return format.pixelFormat == HardwareBuffer.RGBA_8888
-          || format.pixelFormat == Format.NO_VALUE;
+      return hasPixelFormatOrUnset(format, HardwareBuffer.RGBA_8888);
     }
 
     @Override
@@ -308,20 +331,23 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  /** Implementation of {@link FrameBackend} backed by {@link ImagePlanesFrame} instances. */
-  private static final class ImagePlanesFrameBackend implements FrameBackend {
+  /**
+   * Implementation of {@link FrameBackend} backed by {@link PixelFormat#RGBA_8888} {@link
+   * ImagePlanesFrame} instances.
+   */
+  private static final class RgbaImagePlanesFrameBackend implements FrameBackend {
 
     private final int rgbaRowPaddingBytes;
     private final int rgbaBufferPositionOffset;
 
-    private ImagePlanesFrameBackend(int rgbaRowPaddingBytes, int rgbaBufferPositionOffset) {
+    private RgbaImagePlanesFrameBackend(int rgbaRowPaddingBytes, int rgbaBufferPositionOffset) {
       this.rgbaRowPaddingBytes = rgbaRowPaddingBytes;
       this.rgbaBufferPositionOffset = rgbaBufferPositionOffset;
     }
 
     @Override
     public boolean isFormatSupported(Format format) {
-      return format.pixelFormat == PixelFormat.RGBA_8888 || format.pixelFormat == Format.NO_VALUE;
+      return hasPixelFormatOrUnset(format, PixelFormat.RGBA_8888);
     }
 
     @Override
@@ -353,6 +379,80 @@ import org.jspecify.annotations.Nullable;
               format.height,
               plane.getRowStride(),
               plane.getPixelStride()));
+    }
+  }
+
+  /**
+   * Implementation of {@link FrameBackend} backed by {@link ImageFormat#YV12} {@link
+   * ImagePlanesFrame} instances.
+   */
+  private static final class Yv12ImagePlanesFrameBackend implements FrameBackend {
+
+    @Override
+    public boolean isFormatSupported(Format format) {
+      return !ColorInfo.isTransferHdr(format.colorInfo)
+          && !ColorInfo.isWideColorGamut(format.colorInfo)
+          && hasPixelFormatOrUnset(format, ImageFormat.YV12);
+    }
+
+    @Override
+    public Frame createFrame(Format configuredFormat) {
+      ImmutableList<Plane> planes =
+          createPlanarYuv420Planes(configuredFormat.width, configuredFormat.height);
+      Format frameFormat = configuredFormat.buildUpon().setPixelFormat(ImageFormat.YV12).build();
+      return new DefaultImagePlanesFrame.Builder(planes, frameFormat).build();
+    }
+
+    @Override
+    public Bitmap createBitmap(Frame frame) {
+      checkArgument(frame instanceof ImagePlanesFrame);
+      ImagePlanesFrame imagePlanesFrame = (ImagePlanesFrame) frame;
+      Format format = imagePlanesFrame.getFormat();
+      checkArgument(format.pixelFormat == ImageFormat.YV12);
+      validatePlanarYuv420Planes(imagePlanesFrame.getPlanes(), format.width, format.height);
+      return createArgb8888BitmapFromPlanarYuv420Planes(
+          imagePlanesFrame.getPlanes(), format.width, format.height);
+    }
+
+    private static Bitmap createArgb8888BitmapFromPlanarYuv420Planes(
+        List<Plane> planes, int width, int height) {
+      Plane lumaPlane = planes.get(0);
+      Plane uPlane = planes.get(1);
+      Plane vPlane = planes.get(2);
+      ByteBuffer lumaBuffer = lumaPlane.getBuffer();
+      ByteBuffer uBuffer = uPlane.getBuffer();
+      ByteBuffer vBuffer = vPlane.getBuffer();
+      int lumaRowStride = lumaPlane.getRowStride();
+      int uRowStride = uPlane.getRowStride();
+      int vRowStride = vPlane.getRowStride();
+      int lumaBaseOffset = lumaBuffer.position();
+      int uBaseOffset = uBuffer.position();
+      int vBaseOffset = vBuffer.position();
+
+      int[] colors = new int[width * height];
+      for (int y = 0; y < height; y++) {
+        int lumaRowOffset = lumaBaseOffset + y * lumaRowStride;
+        int uRowOffset = uBaseOffset + (y / 2) * uRowStride;
+        int vRowOffset = vBaseOffset + (y / 2) * vRowStride;
+        for (int x = 0; x < width; x++) {
+          int luma = lumaBuffer.get(lumaRowOffset + x) & 0xFF;
+          int u = uBuffer.get(uRowOffset + x / 2) & 0xFF;
+          int v = vBuffer.get(vRowOffset + x / 2) & 0xFF;
+
+          // ITU-R BT.709 limited-range YUV-to-RGB conversion, matching GlRgbaToYuvConverter's
+          // ColorInfo.SDR_BT709_LIMITED output (Y in [16, 235], U/V in [16, 240]).
+          double yNorm = (luma - 16.0) / 219.0;
+          double uNorm = (u - 128.0) / 224.0;
+          double vNorm = (v - 128.0) / 224.0;
+
+          int r = max(0, min(255, (int) round((yNorm + 1.5748 * vNorm) * 255.0)));
+          int g =
+              max(0, min(255, (int) round((yNorm - 0.187324 * uNorm - 0.468124 * vNorm) * 255.0)));
+          int b = max(0, min(255, (int) round((yNorm + 1.8556 * uNorm) * 255.0)));
+          colors[y * width + x] = Color.argb(255, r, g, b);
+        }
+      }
+      return Bitmap.createBitmap(colors, width, height, Bitmap.Config.ARGB_8888);
     }
   }
 }

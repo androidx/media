@@ -28,6 +28,8 @@ import static androidx.media3.effect.FrameProcessorUtils.useHighPrecisionColorCo
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.TestUtil.PSNR_THRESHOLD;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -633,10 +635,9 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_imagePlanesFrame_copiesPixelsCorrectly() throws Exception {
-    frameWriter = BitmapSavingFrameWriter.createForImagePlanes(TIMEOUT_MS);
+    frameWriter = BitmapSavingFrameWriter.createForRgbaImagePlanes(TIMEOUT_MS);
     frameWriterGlTextureFrameConsumer =
-        new FrameWriterGlTextureFrameConsumer(
-            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, HardwareBufferJni.INSTANCE);
     Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
@@ -652,11 +653,10 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   @Test
   public void queue_imagePlanesFrameWithBufferOffset_copiesPixelsCorrectly() throws Exception {
     frameWriter =
-        BitmapSavingFrameWriter.createForImagePlanes(
+        BitmapSavingFrameWriter.createForRgbaImagePlanes(
             TIMEOUT_MS, /* rgbaRowPaddingBytes= */ 0, /* rgbaBufferPositionOffset= */ 12);
     frameWriterGlTextureFrameConsumer =
-        new FrameWriterGlTextureFrameConsumer(
-            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, HardwareBufferJni.INSTANCE);
     Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
@@ -673,11 +673,10 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   public void queue_imagePlanesFrameWithRowPaddingAndBufferOffset_copiesPixelsCorrectly()
       throws Exception {
     frameWriter =
-        BitmapSavingFrameWriter.createForImagePlanes(
+        BitmapSavingFrameWriter.createForRgbaImagePlanes(
             TIMEOUT_MS, /* rgbaRowPaddingBytes= */ 16, /* rgbaBufferPositionOffset= */ 12);
     frameWriterGlTextureFrameConsumer =
-        new FrameWriterGlTextureFrameConsumer(
-            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, HardwareBufferJni.INSTANCE);
     Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
@@ -721,10 +720,9 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_imagePlanesFrameWithDisplayTime_forwardsDisplayTime() throws Exception {
-    frameWriter = BitmapSavingFrameWriter.createForImagePlanes(TIMEOUT_MS);
+    frameWriter = BitmapSavingFrameWriter.createForRgbaImagePlanes(TIMEOUT_MS);
     frameWriterGlTextureFrameConsumer =
-        new FrameWriterGlTextureFrameConsumer(
-            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, HardwareBufferJni.INSTANCE);
     Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(() ->
@@ -740,10 +738,9 @@ public final class FrameWriterGlTextureFrameConsumerTest {
 
   @Test
   public void queue_imagePlanesFrameWithoutDisplayTime_forwardsNoDisplayTime() throws Exception {
-    frameWriter = BitmapSavingFrameWriter.createForImagePlanes(TIMEOUT_MS);
+    frameWriter = BitmapSavingFrameWriter.createForRgbaImagePlanes(TIMEOUT_MS);
     frameWriterGlTextureFrameConsumer =
-        new FrameWriterGlTextureFrameConsumer(
-            context, frameWriter, /* hardwareBufferJniWrapper= */ null);
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, HardwareBufferJni.INSTANCE);
     Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
 
     queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
@@ -972,6 +969,20 @@ public final class FrameWriterGlTextureFrameConsumerTest {
         actualBitmaps.get(1),
         /* expectedComponent= */ DIFFUSE_WHITE_TONE_MAPPED_SRGB * 255,
         testName.getMethodName() + "_frame2");
+  }
+
+  @Test
+  public void queue_yv12ImagePlanesFrame_copiesPixelsCorrectly() throws Exception {
+    frameWriter = BitmapSavingFrameWriter.createForYv12ImagePlanes(TIMEOUT_MS);
+    frameWriterGlTextureFrameConsumer =
+        new FrameWriterGlTextureFrameConsumer(context, frameWriter, HardwareBufferJni.INSTANCE);
+    Bitmap inputBitmap = readBitmap(TEST_IMAGE_ASSET);
+
+    queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
+
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(actualBitmaps).hasSize(1);
+    assertBitmapsAreSimilar(inputBitmap, actualBitmaps.get(0), PSNR_THRESHOLD);
   }
 
   @RequiresApi(29)

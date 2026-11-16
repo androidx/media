@@ -25,12 +25,14 @@ import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_ITEM_EFFECTS;
 import static androidx.media3.effect.FrameProcessorUtils.createAndBindEglImage;
 import static androidx.media3.effect.FrameProcessorUtils.releaseEglImageTexture;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
+import static androidx.media3.effect.FrameProcessorUtils.validatePlanarYuv420Planes;
 import static androidx.media3.effect.FrameProcessorUtils.validateRgba8888Planes;
 import static androidx.media3.effect.FrameProcessorUtils.waitAndCloseFence;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.opengl.EGLDisplay;
@@ -71,8 +73,8 @@ import org.jspecify.annotations.Nullable;
  * from the input frame to the output frame. Other metadata is not forwarded to the {@link
  * FrameWriter}.
  *
- * <p>Supports {@link HardwareBufferFrame} and {@link PixelFormat#RGBA_8888}-based {@link
- * ImagePlanesFrame}.
+ * <p>Supports {@link HardwareBufferFrame} and {@link ImagePlanesFrame} (in {@link
+ * PixelFormat#RGBA_8888} or {@link ImageFormat#YV12}).
  */
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 /* package */ final class FrameWriterGlTextureFrameConsumer implements GlTextureFrameConsumer {
@@ -84,9 +86,10 @@ import org.jspecify.annotations.Nullable;
 
   private final Context context;
   private final FrameWriter frameWriter;
-  private final @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   private @Nullable ColorConversionShaderProgram colorConversionShaderProgram;
+  private @Nullable GlRgbaToYuvConverter rgbaToYuvConverter;
   private @Nullable GlTextureInfo intermediateTexture;
   private @MonotonicNonNull ByteBuffer rgbaReadbackBuffer;
   private @MonotonicNonNull EGLDisplay eglDisplay;
@@ -96,9 +99,7 @@ import org.jspecify.annotations.Nullable;
   private boolean isFrameWriterConfigured;
 
   FrameWriterGlTextureFrameConsumer(
-      Context context,
-      FrameWriter frameWriter,
-      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      Context context, FrameWriter frameWriter, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.context = context;
     this.frameWriter = frameWriter;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
@@ -145,10 +146,17 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void close() throws VideoFrameProcessingException {
+    @Nullable GlRgbaToYuvConverter rgbaToYuvConverter = this.rgbaToYuvConverter;
     @Nullable GlTextureInfo intermediateTexture = this.intermediateTexture;
+    this.rgbaToYuvConverter = null;
     this.intermediateTexture = null;
     runAllAndAccumulateExceptions(
         this::releaseGlResources,
+        () -> {
+          if (rgbaToYuvConverter != null) {
+            rgbaToYuvConverter.release();
+          }
+        },
         () -> {
           if (intermediateTexture != null) {
             intermediateTexture.release();
@@ -164,7 +172,6 @@ import org.jspecify.annotations.Nullable;
       HardwareBufferFrame outputHardwareBufferFrame, GlTextureFrame inputFrame)
       throws VideoFrameProcessingException {
     HardwareBuffer outputHardwareBuffer = outputHardwareBufferFrame.getHardwareBuffer();
-    HardwareBufferJniWrapper hardwareBufferJniWrapper = checkNotNull(this.hardwareBufferJniWrapper);
 
     @Nullable SyncFenceWrapper glWriteCompleteFence = null;
     @Nullable SyncFenceWrapper glReadCompleteFence = null;
@@ -217,14 +224,17 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * Renders to an offscreen framebuffer object and reads the pixels back into the CPU plane of the
-   * output {@link ImagePlanesFrame}.
+   * Renders {@code inputFrame} into the CPU planes of {@code outputImagePlanesFrame}.
+   *
+   * <p>Draws into an offscreen RGBA framebuffer object, then reads the pixels directly for {@link
+   * PixelFormat#RGBA_8888} output or converts them via {@link GlRgbaToYuvConverter} for {@link
+   * ImageFormat#YV12} output.
    */
   private boolean queueImagePlanesFrame(
       ImagePlanesFrame outputImagePlanesFrame, GlTextureFrame inputFrame)
       throws VideoFrameProcessingException {
     Format outputFormat = checkNotNull(this.outputFormat);
-    validateRgba8888ImagePlanesFrame(outputImagePlanesFrame);
+    validateImagePlanesFrame(outputImagePlanesFrame);
     try {
       if (intermediateTexture == null) {
         // outputFormat is established once on the first frame and never changes.
@@ -234,10 +244,21 @@ import org.jspecify.annotations.Nullable;
                 outputFormat.height,
                 /* useHighPrecisionColorComponents= */ false);
       }
+      GlTextureInfo intermediateTexture = this.intermediateTexture;
       GlUtil.focusFramebufferUsingCurrentContext(
           intermediateTexture.fboId, outputFormat.width, outputFormat.height);
       drawFrameToFocusedFramebuffer(inputFrame);
-      readFocusedFramebufferToRgba8888Frame(outputImagePlanesFrame);
+      if (outputImagePlanesFrame.getFormat().pixelFormat == PixelFormat.RGBA_8888) {
+        readFocusedFramebufferToRgba8888Frame(outputImagePlanesFrame);
+      } else {
+        if (rgbaToYuvConverter == null) {
+          rgbaToYuvConverter =
+              new GlRgbaToYuvConverter(
+                  context, hardwareBufferJniWrapper, outputFormat.width, outputFormat.height);
+        }
+        rgbaToYuvConverter.convertToYuv420(
+            intermediateTexture.texId, outputImagePlanesFrame.getPlanes());
+      }
     } catch (GlException e) {
       throw VideoFrameProcessingException.from(e);
     }
@@ -253,13 +274,9 @@ import org.jspecify.annotations.Nullable;
     return true;
   }
 
-  private void validateRgba8888ImagePlanesFrame(ImagePlanesFrame frame) {
+  private void validateImagePlanesFrame(ImagePlanesFrame frame) {
     Format outputFormat = checkNotNull(this.outputFormat);
     Format frameFormat = frame.getFormat();
-    checkArgument(
-        frameFormat.pixelFormat == PixelFormat.RGBA_8888,
-        "Unsupported pixel format: %s",
-        frameFormat.pixelFormat);
     checkArgument(
         frameFormat.width == outputFormat.width || frameFormat.width == Format.NO_VALUE,
         "Frame width (%s) must match outputFormat width (%s)",
@@ -270,7 +287,13 @@ import org.jspecify.annotations.Nullable;
         "Frame height (%s) must match outputFormat height (%s)",
         frameFormat.height,
         outputFormat.height);
-    validateRgba8888Planes(frame.getPlanes(), outputFormat.width, outputFormat.height);
+    if (frameFormat.pixelFormat == PixelFormat.RGBA_8888) {
+      validateRgba8888Planes(frame.getPlanes(), outputFormat.width, outputFormat.height);
+    } else if (frameFormat.pixelFormat == ImageFormat.YV12) {
+      validatePlanarYuv420Planes(frame.getPlanes(), outputFormat.width, outputFormat.height);
+    } else {
+      throw new IllegalArgumentException("Unsupported pixel format: " + frameFormat.pixelFormat);
+    }
   }
 
   private void readFocusedFramebufferToRgba8888Frame(ImagePlanesFrame frame) throws GlException {

@@ -34,7 +34,6 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -81,8 +80,6 @@ import org.jspecify.annotations.Nullable;
 public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   /** A {@link FrameProcessor.Factory} that creates {@link DefaultGlFrameProcessor} instances. */
-  // TODO: b/531653682 - Remove @RequiresApi(26) once the pipeline supports API 24+ end to end.
-  @RequiresApi(26)
   public static final class Factory implements FrameProcessor.Factory {
 
     /** A builder for {@link Factory} instances. */

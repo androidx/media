@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.EffectsTestUtil.createPlanarYuv420Planes;
 import static androidx.media3.effect.FrameProcessorUtils.runAllAndAccumulateExceptions;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromGlTexture;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.flipBitmapVertically;
@@ -34,13 +35,11 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.video.DefaultImagePlanesFrame;
-import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.test.utils.FakeFrameProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -203,23 +202,5 @@ public final class GlRgbaToYuvConverterTest {
     } finally {
       yuvToGlConverter.close();
     }
-  }
-
-  private static ImmutableList<Plane> createPlanarYuv420Planes(int width, int height) {
-    int chromaWidth = (width + 1) / 2;
-    int chromaHeight = (height + 1) / 2;
-    return ImmutableList.of(
-        new DefaultPlane(
-            ByteBuffer.allocateDirect(width * height),
-            /* rowStride= */ width,
-            /* pixelStride= */ 1),
-        new DefaultPlane(
-            ByteBuffer.allocateDirect(chromaWidth * chromaHeight),
-            /* rowStride= */ chromaWidth,
-            /* pixelStride= */ 1),
-        new DefaultPlane(
-            ByteBuffer.allocateDirect(chromaWidth * chromaHeight),
-            /* rowStride= */ chromaWidth,
-            /* pixelStride= */ 1));
   }
 }

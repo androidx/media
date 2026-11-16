@@ -33,10 +33,13 @@ import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
+import androidx.media3.common.video.ImagePlanesFrame.Plane;
 import androidx.media3.test.utils.TextureBitmapReader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -194,6 +197,28 @@ import org.jspecify.annotations.Nullable;
       }
     }
     return actualPresentationTimesUs.build();
+  }
+
+  /**
+   * Creates three tightly packed planar 8-bit YUV 4:2:0 {@link Plane} instances backed by direct
+   * {@link ByteBuffer}s for the given dimensions.
+   */
+  public static ImmutableList<Plane> createPlanarYuv420Planes(int width, int height) {
+    int chromaWidth = (width + 1) / 2;
+    int chromaHeight = (height + 1) / 2;
+    return ImmutableList.of(
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(width * height),
+            /* rowStride= */ width,
+            /* pixelStride= */ 1),
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(chromaWidth * chromaHeight),
+            /* rowStride= */ chromaWidth,
+            /* pixelStride= */ 1),
+        new DefaultPlane(
+            ByteBuffer.allocateDirect(chromaWidth * chromaHeight),
+            /* rowStride= */ chromaWidth,
+            /* pixelStride= */ 1));
   }
 
   private static void checkNoVideoFrameProcessingExceptionIsThrown(
