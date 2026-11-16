@@ -15,8 +15,10 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C.ContentType;
@@ -24,6 +26,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.source.ads.AdPlaybackTracker;
 import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import java.io.IOException;
@@ -37,20 +40,31 @@ public final class FakeAdsLoader implements AdsLoader {
 
   public final Map<Object, EventListener> eventListeners;
   private final Map<Object, AdPlaybackState> initialAdPlaybackStates;
+  private final @Nullable AdPlaybackTracker adPlaybackTracker;
 
   public @Nullable Player player;
   public int @ContentType [] supportedContentTypes;
 
   /** Creates an instance. */
   public FakeAdsLoader() {
+    this(/* adPlaybackTracker= */ null);
+  }
+
+  /**
+   * Creates an instance that delegates session management, player monitoring, and preparation
+   * callbacks to the provided {@link AdPlaybackTracker}.
+   */
+  @RestrictTo(LIBRARY_GROUP)
+  public FakeAdsLoader(@Nullable AdPlaybackTracker adPlaybackTracker) {
+    this.adPlaybackTracker = adPlaybackTracker;
     supportedContentTypes = new int[0];
     eventListeners = new HashMap<>();
     initialAdPlaybackStates = new HashMap<>();
   }
 
   /**
-   * Pre-registers the initial {@link AdPlaybackState} to publish when {@link #start} is called for
-   * {@code adsId}.
+   * Pre-registers the initial {@link AdPlaybackState} to publish (or pass to {@link
+   * AdPlaybackTracker#startSession}) when {@link #start} is called for {@code adsId}.
    *
    * @throws IllegalArgumentException If {@code initialAdPlaybackState.adsId} does not equal {@code
    *     adsId}.
@@ -72,6 +86,9 @@ public final class FakeAdsLoader implements AdsLoader {
   @Override
   public void setPlayer(@Nullable Player player) {
     this.player = player;
+    if (adPlaybackTracker != null) {
+      adPlaybackTracker.setPlayer(player);
+    }
   }
 
   @Override
@@ -82,9 +99,14 @@ public final class FakeAdsLoader implements AdsLoader {
       AdViewProvider adViewProvider,
       EventListener eventListener) {
     this.eventListeners.put(adsId, eventListener);
-    @Nullable AdPlaybackState initialState = initialAdPlaybackStates.get(adsId);
-    if (initialState != null) {
-      eventListener.onAdPlaybackState(initialState);
+    @Nullable AdPlaybackState registeredState = initialAdPlaybackStates.get(adsId);
+    if (adPlaybackTracker != null) {
+      AdPlaybackState initialState =
+          registeredState != null ? registeredState : new AdPlaybackState(adsId);
+      adPlaybackTracker.startSession(
+          adsMediaSource.getMediaItem(), adViewProvider, eventListener, initialState);
+    } else if (registeredState != null) {
+      eventListener.onAdPlaybackState(registeredState);
     }
   }
 
@@ -96,7 +118,10 @@ public final class FakeAdsLoader implements AdsLoader {
   @Override
   public void handlePrepareComplete(
       AdsMediaSource adsMediaSource, int adGroupIndex, int adIndexInAdGroup) {
-    // Do nothing.
+    if (adPlaybackTracker != null) {
+      adPlaybackTracker.handlePrepareComplete(
+          adsMediaSource.getAdsId(), adGroupIndex, adIndexInAdGroup);
+    }
   }
 
   @Override
@@ -105,18 +130,27 @@ public final class FakeAdsLoader implements AdsLoader {
       int adGroupIndex,
       int adIndexInAdGroup,
       IOException exception) {
-    // Do nothing.
+    if (adPlaybackTracker != null) {
+      adPlaybackTracker.handlePrepareError(
+          adsMediaSource.getAdsId(), adGroupIndex, adIndexInAdGroup, exception);
+    }
   }
 
   @Override
   public void stop(AdsMediaSource adsMediaSource, EventListener eventListener) {
     Object adsId = adsMediaSource.getAdsId();
     this.eventListeners.remove(adsId);
+    if (adPlaybackTracker != null) {
+      adPlaybackTracker.stopSession(adsId);
+    }
   }
 
   @Override
   public void release() {
     player = null;
     supportedContentTypes = new int[0];
+    if (adPlaybackTracker != null) {
+      adPlaybackTracker.release();
+    }
   }
 }

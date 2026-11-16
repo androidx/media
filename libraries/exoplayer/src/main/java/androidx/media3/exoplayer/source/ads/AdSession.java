@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.source.ads.AdPlaybackTracker.SdkBridge;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -62,9 +61,6 @@ import java.util.function.Consumer;
   /** The session identifier. */
   public final Object adsId;
 
-  /** The content {@link MediaItem} of the session. */
-  public final MediaItem contentMediaItem;
-
   private final AdsLoader.EventListener eventListener;
   private final Callback callback;
   private final Set<Long> endedAds;
@@ -81,7 +77,6 @@ import java.util.function.Consumer;
    * Creates a session. The initial state is not published until {@link #publishAdPlaybackState()}
    * is called.
    *
-   * @param contentMediaItem The content {@link MediaItem}.
    * @param eventListener The {@link AdsLoader.EventListener} of the {@link AdsMediaSource}.
    * @param initialAdPlaybackState The initial {@link AdPlaybackState}. Its {@link
    *     AdPlaybackState#adsId} must not be {@code null}. The session stores a {@linkplain
@@ -89,14 +84,12 @@ import java.util.function.Consumer;
    * @param callback The {@link Callback}.
    */
   public AdSession(
-      MediaItem contentMediaItem,
       AdsLoader.EventListener eventListener,
       AdPlaybackState initialAdPlaybackState,
       Callback callback) {
     checkArgument(
         initialAdPlaybackState.adsId != null, "initialAdPlaybackState.adsId must not be null.");
     this.adsId = initialAdPlaybackState.adsId;
-    this.contentMediaItem = contentMediaItem;
     this.eventListener = eventListener;
     this.adPlaybackState = initialAdPlaybackState.copy();
     this.callback = callback;
@@ -210,29 +203,76 @@ import java.util.function.Consumer;
   /**
    * Marks the specified ad as {@link AdPlaybackState#AD_STATE_SKIPPED} if it is currently {@link
    * AdPlaybackState#AD_STATE_UNAVAILABLE} or {@link AdPlaybackState#AD_STATE_AVAILABLE}.
+   *
+   * <p>If the session is stopped, if {@code adGroupIndex} or {@code adIndexInAdGroup} is negative
+   * or out of bounds (including removed ad groups and live postroll placeholders), or if the ad is
+   * already played, skipped, or in an error state, this method is a no-op and returns {@code
+   * false}.
+   *
+   * @param adGroupIndex The ad group index.
+   * @param adIndexInAdGroup The ad index in the ad group.
+   * @return {@code true} if the ad was marked as skipped and the {@link AdPlaybackState} was
+   *     updated, or {@code false} otherwise.
    */
-  public void skipAd(int adGroupIndex, int adIndexInAdGroup) {
-    if (!isUnplayedAd(adGroupIndex, adIndexInAdGroup)) {
-      return;
+  @CanIgnoreReturnValue
+  public boolean skipAd(int adGroupIndex, int adIndexInAdGroup) {
+    if (isStopped || !isUnplayedAd(adGroupIndex, adIndexInAdGroup)) {
+      return false;
     }
-    setAdPlaybackStateInternal(adPlaybackState.withSkippedAd(adGroupIndex, adIndexInAdGroup));
+    return setAdPlaybackStateInternal(
+        adPlaybackState.withSkippedAd(adGroupIndex, adIndexInAdGroup));
   }
 
   /**
    * Marks all unplayed ads in {@code adGroupIndex} as {@link AdPlaybackState#AD_STATE_SKIPPED},
    * preserving already played and errored ads.
+   *
+   * <p>If the session is stopped, if {@code adGroupIndex} is negative or out of bounds (including
+   * removed ad groups and live postroll placeholders), or if the ad group has no unplayed ads to
+   * skip, this method is a no-op and returns {@code false}.
+   *
+   * @param adGroupIndex The ad group index.
+   * @return {@code true} if the {@link AdPlaybackState} was updated, or {@code false} otherwise.
    */
-  public void skipAdGroup(int adGroupIndex) {
-    if (!isValidAdGroupIndex(adPlaybackState, adGroupIndex)) {
+  @CanIgnoreReturnValue
+  public boolean skipAdGroup(int adGroupIndex) {
+    if (isStopped || !isValidAdGroupIndex(adPlaybackState, adGroupIndex)) {
+      return false;
+    }
+    return setAdPlaybackStateInternal(adPlaybackState.withSkippedAdGroup(adGroupIndex));
+  }
+
+  /**
+   * Handles ad period preparation completion of the specified ad and notifies {@link
+   * SdkBridge#onAdPrepareCompleted}.
+   *
+   * <p>If {@code adGroupIndex} or {@code adIndexInAdGroup} is negative or out of bounds (including
+   * removed ad groups and live postroll placeholders), or if the session is stopped, this method is
+   * a no-op.
+   *
+   * @param adGroupIndex The ad group index.
+   * @param adIndexInAdGroup The ad index in the ad group.
+   */
+  public void handlePrepareComplete(int adGroupIndex, int adIndexInAdGroup) {
+    if (isStopped || !isValidAdIndex(adPlaybackState, adGroupIndex, adIndexInAdGroup)) {
       return;
     }
-    setAdPlaybackStateInternal(adPlaybackState.withSkippedAdGroup(adGroupIndex));
+    callback.notifyBridge(
+        bridge -> bridge.onAdPrepareCompleted(adsId, adGroupIndex, adIndexInAdGroup));
   }
 
   /**
    * Handles a preparation error of the specified ad: marks the ad as {@link
    * AdPlaybackState#AD_STATE_ERROR} if it is still unplayed, notifies {@link SdkBridge#onAdError}
    * and, if no ad group is active, checks whether all ads have completed.
+   *
+   * <p>If {@code adGroupIndex} or {@code adIndexInAdGroup} is negative or out of bounds (including
+   * removed ad groups and live postroll placeholders), or if the session is stopped, this method is
+   * a no-op.
+   *
+   * @param adGroupIndex The ad group index.
+   * @param adIndexInAdGroup The ad index in the ad group.
+   * @param error The preparation error.
    */
   public void handlePrepareError(int adGroupIndex, int adIndexInAdGroup, Exception error) {
     handleAdError(adGroupIndex, adIndexInAdGroup, error);
@@ -563,7 +603,7 @@ import java.util.function.Consumer;
   }
 
   private void publish(AdPlaybackState adPlaybackState) {
-    this.adPlaybackState = adPlaybackState;
+    this.adPlaybackState = adPlaybackState.copy();
     eventListener.onAdPlaybackState(adPlaybackState);
     callback.onAdPlaybackStateChanged(this, adPlaybackState);
   }

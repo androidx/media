@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer.source.ads;
 
+import static androidx.media3.exoplayer.source.ads.AdPlaybackTrackerTestUtil.ADS_ID;
+import static androidx.media3.exoplayer.source.ads.AdPlaybackTrackerTestUtil.AD_MEDIA_ITEM_0;
+import static androidx.media3.exoplayer.source.ads.AdPlaybackTrackerTestUtil.AD_MEDIA_ITEM_1;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,7 +31,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
@@ -47,14 +49,6 @@ import org.mockito.junit.MockitoRule;
 /** Unit tests for {@link AdSession}, independent of a {@link Player}. */
 @RunWith(AndroidJUnit4.class)
 public final class AdSessionTest {
-
-  private static final Object ADS_ID = "adsId";
-  private static final MediaItem CONTENT_MEDIA_ITEM =
-      MediaItem.fromUri("https://example.com/content.mp4");
-  private static final MediaItem AD_MEDIA_ITEM_0 =
-      MediaItem.fromUri("https://example.com/ad_0.mp4");
-  private static final MediaItem AD_MEDIA_ITEM_1 =
-      MediaItem.fromUri("https://example.com/ad_1.mp4");
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
@@ -416,8 +410,9 @@ public final class AdSessionTest {
     AdPlaybackState initialState = createTwoAdState();
     AdSession session = createSession(initialState);
 
-    session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    boolean skipped = session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
 
+    assertThat(skipped).isTrue();
     AdPlaybackState expectedState =
         initialState.withSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
     assertThat(session.getAdPlaybackState()).isEqualTo(expectedState);
@@ -431,8 +426,9 @@ public final class AdSessionTest {
         createSession(
             createTwoAdState().withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0));
 
-    session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    boolean skipped = session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
 
+    assertThat(skipped).isFalse();
     assertThat(eventListenerStates).isEmpty();
   }
 
@@ -441,8 +437,9 @@ public final class AdSessionTest {
     AdPlaybackState initialState = new AdPlaybackState(ADS_ID, /* adGroupTimesUs...= */ 0L);
     AdSession session = createSession(initialState);
 
-    session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2);
+    boolean skipped = session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2);
 
+    assertThat(skipped).isTrue();
     assertThat(session.getAdPlaybackState().getAdGroup(/* adGroupIndex= */ 0).states[2])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -451,8 +448,8 @@ public final class AdSessionTest {
   public void skipAd_indexBeyondAdCount_isIgnored() {
     AdSession session = createSession(createTwoAdState());
 
-    session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2);
-    session.skipAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
+    assertThat(session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2)).isFalse();
+    assertThat(session.skipAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0)).isFalse();
 
     assertThat(eventListenerStates).isEmpty();
   }
@@ -486,8 +483,11 @@ public final class AdSessionTest {
         createTwoAdState().withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
     AdSession session = createSession(initialState);
 
-    session.skipAdGroup(/* adGroupIndex= */ 0);
+    boolean skipped = session.skipAdGroup(/* adGroupIndex= */ 0);
+    boolean skippedAgain = session.skipAdGroup(/* adGroupIndex= */ 0);
 
+    assertThat(skipped).isTrue();
+    assertThat(skippedAgain).isFalse();
     AdPlaybackState.AdGroup adGroup = session.getAdPlaybackState().getAdGroup(0);
     assertThat(adGroup.states)
         .asList()
@@ -500,7 +500,8 @@ public final class AdSessionTest {
   public void skipAdGroup_invalidAdGroupIndex_isIgnored() {
     AdSession session = createSession(createTwoAdState());
 
-    session.skipAdGroup(/* adGroupIndex= */ 1);
+    assertThat(session.skipAdGroup(/* adGroupIndex= */ 1)).isFalse();
+    assertThat(session.skipAdGroup(/* adGroupIndex= */ -1)).isFalse();
 
     assertThat(eventListenerStates).isEmpty();
   }
@@ -511,8 +512,9 @@ public final class AdSessionTest {
         createTwoAdState().withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     AdSession session = createSession(initialState);
 
-    session.skipAdGroup(/* adGroupIndex= */ 1);
+    boolean skipped = session.skipAdGroup(/* adGroupIndex= */ 1);
 
+    assertThat(skipped).isFalse();
     assertThat(session.getAdPlaybackState()).isEqualTo(initialState);
     assertThat(eventListenerStates).isEmpty();
     verifyNoMoreInteractions(mockSdkBridge);
@@ -783,6 +785,34 @@ public final class AdSessionTest {
   }
 
   @Test
+  public void handlePrepareComplete_validAdIndex_notifiesAdPrepareCompleted() {
+    AdSession session = createSession(createTwoAdState());
+
+    session.handlePrepareComplete(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+
+    verify(mockSdkBridge)
+        .onAdPrepareCompleted(ADS_ID, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+  }
+
+  @Test
+  public void handlePrepareComplete_invalidIndices_isIgnored() {
+    AdPlaybackState initialState =
+        createTwoAdGroupState()
+            .withRemovedAdGroupCount(1)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
+    AdSession session = createSession(initialState);
+
+    session.handlePrepareComplete(C.INDEX_UNSET, /* adIndexInAdGroup= */ 0);
+    session.handlePrepareComplete(/* adGroupIndex= */ 1, C.INDEX_UNSET);
+    session.handlePrepareComplete(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    session.handlePrepareComplete(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 1);
+    session.handlePrepareComplete(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0);
+    session.handlePrepareComplete(/* adGroupIndex= */ 3, /* adIndexInAdGroup= */ 0);
+
+    verifyNoMoreInteractions(mockSdkBridge);
+  }
+
+  @Test
   public void handlePrepareError_unplayedAd_marksErrorThenNotifiesAdErrorThenAllAdsCompleted() {
     AdPlaybackState initialState =
         createTwoAdState().withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
@@ -978,10 +1008,14 @@ public final class AdSessionTest {
     session.startAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, /* playWhenReady= */ true);
     session.handlePlaybackError(
         /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, new IOException("playback error"));
+    session.handlePrepareComplete(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
     session.handlePrepareError(
         /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, new IOException("prepare error"));
     session.notifyContentCompleted();
 
+    assertThat(session.skipAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1)).isFalse();
+    assertThat(session.skipAdGroup(/* adGroupIndex= */ 0)).isFalse();
+    assertThat(eventListenerStates).isEmpty();
     assertThat(session.isInAdGroup()).isFalse();
     assertThat(session.isPlayingAd()).isFalse();
     InOrder inOrder = inOrder(mockSdkBridge);
@@ -1015,7 +1049,7 @@ public final class AdSessionTest {
             eventListenerStates.add(adPlaybackState);
           }
         };
-    return new AdSession(CONTENT_MEDIA_ITEM, eventListener, initialAdPlaybackState, callback);
+    return new AdSession(eventListener, initialAdPlaybackState, callback);
   }
 
   /** Returns a state with a single preroll ad group containing two available ads. */
