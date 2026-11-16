@@ -36,6 +36,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.statement.HttpResponse
+import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.job
@@ -415,9 +416,48 @@ class KtorDataSourceTest(
     // already been recorded by the time the body is read.
     runBlocking { withTimeout(5_000) { checkNotNull(response).coroutineContext.job.join() } }
 
-    assertThrows(HttpDataSource.HttpDataSourceException::class.java) {
-      DataSourceUtil.readToEnd(dataSource)
-    }
+    val exception =
+      assertThrows(HttpDataSource.HttpDataSourceException::class.java) {
+        DataSourceUtil.readToEnd(dataSource)
+      }
+
+    assertThat(exception.reason)
+      .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+  }
+
+  @Test
+  fun read_responseBodyTimeout_throwsNetworkConnectionTimeoutException() {
+    mockWebServer.enqueue(
+      MockResponse()
+        .setResponseCode(200)
+        .setHeader(HttpHeaders.CONTENT_LENGTH, 100)
+        .setBody("a".repeat(100))
+        .setBodyDelay(1_000, TimeUnit.MILLISECONDS)
+    )
+    httpClient =
+      HttpClient(httpClientEngineFactory) {
+        install(HttpTimeout) {
+          requestTimeoutMillis = 5_000
+          connectTimeoutMillis = 5_000
+          socketTimeoutMillis = 100
+        }
+      }
+    dataSource = KtorDataSource.Factory(httpClient).createDataSource()
+    assertThat(
+        dataSource.open(
+          DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+        )
+      )
+      .isEqualTo(100)
+
+    val exception =
+      assertThrows(HttpDataSource.HttpDataSourceException::class.java) {
+        DataSourceUtil.readToEnd(dataSource)
+      }
+
+    assertThat(exception.reason)
+      .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
+    assertThat(exception).hasCauseThat().isInstanceOf(SocketTimeoutException::class.java)
   }
 
   @Test

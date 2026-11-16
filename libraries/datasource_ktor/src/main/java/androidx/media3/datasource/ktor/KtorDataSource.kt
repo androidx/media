@@ -43,6 +43,7 @@ import io.ktor.client.statement.request
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.ClosedByteChannelException
 import io.ktor.utils.io.readAvailable
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -164,9 +165,13 @@ private constructor(
       this.response = httpResponse
       this.responseChannel = channel
     } catch (e: CancellationException) {
-      throw InterruptedIOException(e.message)
+      throw createHttpDataSourceException(
+        e,
+        dataSpec,
+        HttpDataSource.HttpDataSourceException.TYPE_OPEN,
+      )
     } catch (e: IOException) {
-      throw HttpDataSource.HttpDataSourceException.createForIOException(
+      throw createHttpDataSourceException(
         e,
         dataSpec,
         HttpDataSource.HttpDataSourceException.TYPE_OPEN,
@@ -256,7 +261,11 @@ private constructor(
       throw e
     } catch (e: CancellationException) {
       closeConnectionQuietly()
-      throw InterruptedIOException(e.message)
+      throw createHttpDataSourceException(
+        e,
+        dataSpec,
+        HttpDataSource.HttpDataSourceException.TYPE_OPEN,
+      )
     }
 
     return bytesToRead
@@ -266,25 +275,10 @@ private constructor(
   override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
     return try {
       runBlocking { readInternal(buffer, offset, length) }
-    } catch (_: CancellationException) {
-      throw HttpDataSource.HttpDataSourceException(
-        InterruptedIOException(),
-        dataSpec!!,
-        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
-        HttpDataSource.HttpDataSourceException.TYPE_READ,
-      )
-    } catch (e: IOException) {
-      throw HttpDataSource.HttpDataSourceException.createForIOException(
+    } catch (e: Exception) {
+      throw createHttpDataSourceException(
         e,
         dataSpec!!,
-        HttpDataSource.HttpDataSourceException.TYPE_READ,
-      )
-    } catch (e: Exception) {
-      throw HttpDataSource.HttpDataSourceException(
-        e.message ?: "Unknown error",
-        IOException(e),
-        dataSpec!!,
-        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
         HttpDataSource.HttpDataSourceException.TYPE_READ,
       )
     }
@@ -329,12 +323,47 @@ private constructor(
         bytesTransferred(read)
       }
     } catch (e: IOException) {
-      if (e is HttpDataSource.HttpDataSourceException) throw e
-      throw HttpDataSource.HttpDataSourceException.createForIOException(
+      throw createHttpDataSourceException(
         e,
         dataSpec,
         HttpDataSource.HttpDataSourceException.TYPE_OPEN,
       )
+    }
+  }
+
+  private fun createHttpDataSourceException(
+    e: Throwable,
+    dataSpec: DataSpec,
+    type: @HttpDataSource.HttpDataSourceException.Type Int,
+  ): HttpDataSource.HttpDataSourceException {
+    var cause: Throwable? = e
+    while (
+      cause is CancellationException ||
+        (cause is ClosedByteChannelException && cause.cause is IOException)
+    ) {
+      cause = cause.cause
+    }
+    return when (cause) {
+      is HttpDataSource.HttpDataSourceException -> cause
+      is IOException ->
+        HttpDataSource.HttpDataSourceException.createForIOException(cause, dataSpec, type)
+      else ->
+        if (e is CancellationException) {
+          HttpDataSource.HttpDataSourceException(
+            InterruptedIOException(e.message).apply { initCause(e) },
+            dataSpec,
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+            type,
+          )
+        } else {
+          HttpDataSource.HttpDataSourceException(
+            e.message ?: "Unknown error",
+            IOException(e),
+            dataSpec,
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+            type,
+          )
+        }
     }
   }
 
