@@ -15,6 +15,12 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-sdk/>
+  <!-- Ensure apps with an exported NotificationListenerService are visible on API 30+ for trusted controller checks. -->
+  <queries>
+    <intent>
+      <action android:name="android.service.notification.NotificationListenerService" />
+    </intent>
+  </queries>
   <application>
     <!-- TODO: b/510644544 - Remove this workaround once minSdk is 38 -->
     <activity
