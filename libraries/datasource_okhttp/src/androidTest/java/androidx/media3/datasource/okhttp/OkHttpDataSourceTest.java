@@ -17,15 +17,19 @@
 package androidx.media3.datasource.okhttp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import androidx.media3.common.PlaybackException;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.net.HttpHeaders;
 import java.net.CookieManager;
+import java.net.SocketTimeoutException;
+import java.net.UnknownServiceException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +39,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -136,6 +141,50 @@ public class OkHttpDataSourceTest {
 
     assertThat(exception.responseCode).isEqualTo(404);
     assertThat(exception.responseBody).isEqualTo("failure msg".getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  public void open_responseHeadersTimeout_throwsExceptionWithTimeoutErrorCode() {
+    mockWebServer.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+    HttpDataSource okHttpDataSource =
+        new OkHttpDataSource.Factory(
+                new OkHttpClient.Builder().readTimeout(100, MILLISECONDS).build())
+            .createDataSource();
+    DataSpec dataSpec =
+        new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();
+
+    HttpDataSource.HttpDataSourceException exception =
+        assertThrows(
+            HttpDataSource.HttpDataSourceException.class, () -> okHttpDataSource.open(dataSpec));
+
+    assertThat(exception.reason)
+        .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT);
+    assertThat(exception).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
+  }
+
+  @Test
+  public void open_cleartextNotPermitted_throwsCleartextNotPermittedException() {
+    // The test APK permits cleartext traffic so that the tests can reach MockWebServer. Throw the
+    // exception that OkHttp throws when the network security policy doesn't permit it.
+    OkHttpClient okHttpClient =
+        new OkHttpClient.Builder()
+            .addInterceptor(chain -> {
+              throw new UnknownServiceException(
+                  "CLEARTEXT communication to "
+                      + chain.request().url().host()
+                      + " not permitted by network security policy");
+            })
+            .build();
+    HttpDataSource okHttpDataSource = new OkHttpDataSource.Factory(okHttpClient).createDataSource();
+    DataSpec dataSpec =
+        new DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build();
+
+    HttpDataSource.CleartextNotPermittedException exception =
+        assertThrows(
+            HttpDataSource.CleartextNotPermittedException.class,
+            () -> okHttpDataSource.open(dataSpec));
+
+    assertThat(exception).hasCauseThat().isInstanceOf(UnknownServiceException.class);
   }
 
   @Test
