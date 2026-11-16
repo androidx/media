@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.MimeTypes.APPLICATION_ITUT_T35;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
@@ -23,7 +24,9 @@ import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_MUX_PARTIAL;
 import static androidx.media3.transformer.TestUtil.FAKE_AUDIO_TRACK_FORMAT;
 import static androidx.media3.transformer.TestUtil.FAKE_VIDEO_TRACK_FORMAT;
 import static androidx.media3.transformer.TestUtil.createFakeVideoSample;
+import static androidx.media3.transformer.TestUtil.extractAllSamplesFromMp4File;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -32,18 +35,24 @@ import android.os.ParcelFileDescriptor;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.DumpFileAsserts;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jspecify.annotations.Nullable;
@@ -902,6 +911,380 @@ public class MuxerWrapperTest {
   }
 
   @Test
+  public void writeSample_hagcFrameAtNonZeroPtsWithAudioTrack_writesIt35SampleAtShiftedVideoTime()
+      throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper =
+        new MuxerWrapper(
+            outputPath,
+            new DefaultMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(2);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
+    byte[] payload = {1, 2, 3};
+
+    writeSample(
+        muxerWrapper,
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 1000, /* isKeyFrame= */ true, payload);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.endTrack(C.TRACK_TYPE_AUDIO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    FakeTrackOutput it35TrackOutput = getOnlyIt35TrackOutput(outputPath);
+    assertThat(checkNotNull(it35TrackOutput.lastFormat).sampleMimeType)
+        .isEqualTo(APPLICATION_ITUT_T35);
+    assertThat(it35TrackOutput.getSampleCount()).isEqualTo(1);
+    assertThat(it35TrackOutput.getSampleData(0)).isEqualTo(payload);
+    // The first video sample moves to time 0 because there's an audio track, and its it35 sample
+    // moves with it, so players attach the metadata to the first frame.
+    assertThat(it35TrackOutput.getSampleTimeUs(0)).isEqualTo(0);
+  }
+
+  @Test
+  public void writeSample_hagcOnNegativePreRollFrames_keepsActivePayloadAtZero() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper = createMuxerWrapperWithVideoTrack(outputPath);
+    byte[] payload0 = {0};
+    byte[] payload1 = {1};
+    byte[] payload2 = {2};
+
+    // Frames before 0 are pre-roll, as with MP4 edit list trimming. Frame 0 repeats payload1.
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ -80_000, /* isKeyFrame= */ true, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ -40_000, /* isKeyFrame= */ false, payload1);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 0, /* isKeyFrame= */ false, payload1);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 40_000, /* isKeyFrame= */ false, payload2);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    // it35 is written at -80_000, -40_000 and 40_000. The edit list starts at 0, so the extractor
+    // keeps -40_000, the latest sample at or before 0, and drops -80_000.
+    FakeTrackOutput it35TrackOutput = getOnlyIt35TrackOutput(outputPath);
+    assertThat(it35TrackOutput.getSampleTimesUs()).containsExactly(-40_000L, 40_000L).inOrder();
+    assertThat(it35TrackOutput.getSampleData(0)).isEqualTo(payload1);
+    assertThat(it35TrackOutput.getSampleData(1)).isEqualTo(payload2);
+  }
+
+  @Test
+  public void writeSample_withHagcSupplementalDataAndUnsupportedMuxer_writesFileWithoutIt35Track()
+      throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    Muxer.Factory unsupportedMuxerFactory =
+        new Muxer.Factory() {
+          @Override
+          public Muxer create(String path) throws MuxerException {
+            return new InAppMp4Muxer.Factory().create(path);
+          }
+
+          @Override
+          public Muxer create(ParcelFileDescriptor parcelFileDescriptor) throws MuxerException {
+            return new InAppMp4Muxer.Factory().create(parcelFileDescriptor);
+          }
+
+          @Override
+          public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+            return trackType == C.TRACK_TYPE_METADATA
+                ? ImmutableList.of()
+                : new InAppMp4Muxer.Factory().getSupportedSampleMimeTypes(trackType);
+          }
+        };
+    muxerWrapper =
+        new MuxerWrapper(
+            outputPath,
+            unsupportedMuxerFactory,
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+
+    boolean sampleWritten =
+        writeVideoSampleWithHagcPayload(
+            muxerWrapper,
+            /* presentationTimeUs= */ 1000,
+            /* isKeyFrame= */ true,
+            /* payload= */ new byte[] {1, 2, 3});
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    assertThat(sampleWritten).isTrue();
+    assertThat(extractAllSamplesFromMp4File(outputPath).numberOfTracks).isEqualTo(1);
+  }
+
+  @Test
+  public void writeSample_withHagcSupplementalDataInMuxPartialMode_writesFileWithoutIt35Track()
+      throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper =
+        new MuxerWrapper(
+            outputPath,
+            new DefaultMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_MUX_PARTIAL,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+
+    boolean sampleWritten =
+        writeVideoSampleWithHagcPayload(
+            muxerWrapper,
+            /* presentationTimeUs= */ 0,
+            /* isKeyFrame= */ true,
+            /* payload= */ new byte[] {1, 2, 3});
+    // MUXER_MODE_MUX_PARTIAL keeps the muxer open on completion, so cancel to close the file.
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
+    muxerWrapper = null;
+
+    assertThat(sampleWritten).isTrue();
+    assertThat(extractAllSamplesFromMp4File(outputPath).numberOfTracks).isEqualTo(1);
+  }
+
+  @Test
+  public void addTrackFormat_videoWithMuxerSupportingIt35_addsIt35TrackBeforeAnySample()
+      throws Exception {
+    List<String> muxerCalls = new ArrayList<>();
+    muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            createRecordingMuxerFactory(muxerCalls),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    writeSample(
+        muxerWrapper,
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
+
+    assertThat(muxerCalls)
+        .containsExactly(
+            "addTrack " + VIDEO_H264,
+            "addTrack " + APPLICATION_ITUT_T35,
+            "writeSampleData " + VIDEO_H264)
+        .inOrder();
+  }
+
+  @Test
+  public void writeSample_hagcPayloadChanges_writesEachIt35SampleBeforeItsVideo() throws Exception {
+    List<String> muxerCalls = new ArrayList<>();
+    muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            createRecordingMuxerFactory(muxerCalls),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    byte[] payload0 = {0};
+    byte[] payload1 = {1};
+
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 0, /* isKeyFrame= */ true, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 40_000, /* isKeyFrame= */ false, payload1);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 80_000, /* isKeyFrame= */ false, payload1);
+
+    assertThat(muxerCalls)
+        .containsExactly(
+            "addTrack " + VIDEO_H264,
+            "addTrack " + APPLICATION_ITUT_T35,
+            "writeSampleData " + APPLICATION_ITUT_T35,
+            "writeSampleData " + VIDEO_H264,
+            "writeSampleData " + APPLICATION_ITUT_T35,
+            "writeSampleData " + VIDEO_H264,
+            "writeSampleData " + VIDEO_H264)
+        .inOrder();
+  }
+
+  @Test
+  public void writeSample_withoutSupplementalData_writesFileWithoutIt35Track() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper = createMuxerWrapperWithVideoTrack(outputPath);
+
+    writeSample(
+        muxerWrapper,
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    assertThat(extractAllSamplesFromMp4File(outputPath).numberOfTracks).isEqualTo(1);
+  }
+
+  @Test
+  public void writeSample_hagcOnBFramesInDecodeOrder_skipsBFramePayloads() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper = createMuxerWrapperWithVideoTrack(outputPath);
+    byte[] payload0 = {0};
+    byte[] payload1 = {1};
+
+    // Decode order: I(0) 0, P(120_000) 1, B(40_000) 0, B(80_000) 1.
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 0, /* isKeyFrame= */ true, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 120_000, /* isKeyFrame= */ false, payload1);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 40_000, /* isKeyFrame= */ false, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 80_000, /* isKeyFrame= */ false, payload1);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    FakeTrackOutput it35TrackOutput = getOnlyIt35TrackOutput(outputPath);
+    assertThat(it35TrackOutput.getSampleTimesUs()).containsExactly(0L, 120_000L).inOrder();
+    assertThat(it35TrackOutput.getSampleData(0)).isEqualTo(payload0);
+    assertThat(it35TrackOutput.getSampleData(1)).isEqualTo(payload1);
+  }
+
+  @Test
+  public void writeSample_hagcOnlyInLaterSamples_writesIt35OnlyForLaterPayloads() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper = createMuxerWrapperWithVideoTrack(outputPath);
+    byte[] payloadI80 = {0};
+    byte[] payloadP120 = {1};
+    byte[] payloadI160 = {2};
+
+    // The first item in the sequence has no HAGC metadata.
+    boolean sample0Written =
+        writeSample(
+            muxerWrapper,
+            C.TRACK_TYPE_VIDEO,
+            FAKE_SAMPLE.duplicate(),
+            /* isKeyFrame= */ true,
+            /* presentationTimeUs= */ 0);
+    boolean sample40Written =
+        writeSample(
+            muxerWrapper,
+            C.TRACK_TYPE_VIDEO,
+            FAKE_SAMPLE.duplicate(),
+            /* isKeyFrame= */ false,
+            /* presentationTimeUs= */ 40_000);
+    // The second item has HAGC metadata.
+    boolean sample80Written =
+        writeVideoSampleWithHagcPayload(
+            muxerWrapper, /* presentationTimeUs= */ 80_000, /* isKeyFrame= */ true, payloadI80);
+    boolean sample120Written =
+        writeVideoSampleWithHagcPayload(
+            muxerWrapper, /* presentationTimeUs= */ 120_000, /* isKeyFrame= */ false, payloadP120);
+    boolean sample160Written =
+        writeVideoSampleWithHagcPayload(
+            muxerWrapper, /* presentationTimeUs= */ 160_000, /* isKeyFrame= */ true, payloadI160);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    // The it35 track doesn't count towards the track count, so every video sample is written.
+    assertThat(sample0Written).isTrue();
+    assertThat(sample40Written).isTrue();
+    assertThat(sample80Written).isTrue();
+    assertThat(sample120Written).isTrue();
+    assertThat(sample160Written).isTrue();
+    FakeExtractorOutput extractorOutput = extractAllSamplesFromMp4File(outputPath);
+    assertThat(extractorOutput.numberOfTracks).isEqualTo(2);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    assertThat(videoTrackOutput.getSampleTimesUs())
+        .containsExactly(0L, 40_000L, 80_000L, 120_000L, 160_000L)
+        .inOrder();
+    FakeTrackOutput it35TrackOutput =
+        Iterables.getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+    assertThat(it35TrackOutput.getSampleTimesUs())
+        .containsExactly(80_000L, 120_000L, 160_000L)
+        .inOrder();
+    assertThat(it35TrackOutput.getSampleData(0)).isEqualTo(payloadI80);
+    assertThat(it35TrackOutput.getSampleData(1)).isEqualTo(payloadP120);
+    assertThat(it35TrackOutput.getSampleData(2)).isEqualTo(payloadI160);
+  }
+
+  @Test
+  public void writeSample_hagcRunsOfIdenticalPayloads_writesIt35OnlyWhenPayloadChanges()
+      throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper = createMuxerWrapperWithVideoTrack(outputPath);
+    byte[] payload0 = {0};
+    byte[] payload1 = {1};
+
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 0, /* isKeyFrame= */ true, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 40_000, /* isKeyFrame= */ false, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 80_000, /* isKeyFrame= */ false, payload1);
+    // The run of payload1 continues across this key frame.
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 120_000, /* isKeyFrame= */ true, payload1);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 160_000, /* isKeyFrame= */ false, payload1);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 200_000, /* isKeyFrame= */ false, payload0);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    FakeTrackOutput it35TrackOutput = getOnlyIt35TrackOutput(outputPath);
+    assertThat(it35TrackOutput.getSampleTimesUs()).containsExactly(0L, 80_000L, 200_000L).inOrder();
+    assertThat(it35TrackOutput.getSampleData(0)).isEqualTo(payload0);
+    assertThat(it35TrackOutput.getSampleData(1)).isEqualTo(payload1);
+    assertThat(it35TrackOutput.getSampleData(2)).isEqualTo(payload0);
+  }
+
+  @Test
+  public void writeSample_hagcChangeOnBFrame_ignoresBFrameChange() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    muxerWrapper = createMuxerWrapperWithVideoTrack(outputPath);
+    byte[] payload0 = {0};
+    byte[] payload2 = {2};
+
+    // Decode order: I(0) 0, P(120_000) 0, B(40_000) 0, B(80_000) 2, P(240_000) 0.
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 0, /* isKeyFrame= */ true, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 120_000, /* isKeyFrame= */ false, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 40_000, /* isKeyFrame= */ false, payload0);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 80_000, /* isKeyFrame= */ false, payload2);
+    writeVideoSampleWithHagcPayload(
+        muxerWrapper, /* presentationTimeUs= */ 240_000, /* isKeyFrame= */ false, payload0);
+    muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
+    muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
+    muxerWrapper = null;
+
+    FakeTrackOutput it35TrackOutput = getOnlyIt35TrackOutput(outputPath);
+    assertThat(it35TrackOutput.getSampleTimesUs()).containsExactly(0L);
+    assertThat(it35TrackOutput.getSampleData(0)).isEqualTo(payload0);
+  }
+
+  @Test
   public void
       finishWritingAndMaybeRelease_completedWithParcelFileDescriptor_reportsFileSizeAndClosesPfd()
           throws Exception {
@@ -950,6 +1333,83 @@ public class MuxerWrapperTest {
     }
     sample.timeUs = presentationTimeUs;
     return muxerWrapper.writeSample(trackType, sample);
+  }
+
+  private static MuxerWrapper createMuxerWrapperWithVideoTrack(String outputPath)
+      throws MuxerWrapper.AppendTrackFormatException, MuxerException {
+    MuxerWrapper muxerWrapper =
+        new MuxerWrapper(
+            outputPath,
+            new DefaultMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+    muxerWrapper.setTrackCount(1);
+    muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
+    return muxerWrapper;
+  }
+
+  @CanIgnoreReturnValue
+  private static boolean writeVideoSampleWithHagcPayload(
+      MuxerWrapper muxerWrapper, long presentationTimeUs, boolean isKeyFrame, byte[] payload)
+      throws MuxerException {
+    byte[] header = CodecSpecificDataUtil.getHagcT35Header();
+    DecoderInputBuffer sample =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+    sample.data = FAKE_SAMPLE.duplicate();
+    sample.timeUs = presentationTimeUs;
+    sample.setFlags(isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0);
+    sample.resetSupplementalData(header.length + payload.length);
+    checkNotNull(sample.supplementalData).put(header).put(payload).flip();
+    sample.addFlag(C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA);
+    return muxerWrapper.writeSample(C.TRACK_TYPE_VIDEO, sample);
+  }
+
+  private static FakeTrackOutput getOnlyIt35TrackOutput(String outputPath) throws IOException {
+    return Iterables.getOnlyElement(
+        extractAllSamplesFromMp4File(outputPath).getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+  }
+
+  /**
+   * Returns a {@link Muxer.Factory} for H.264 video and {@code it35} tracks, whose muxers record
+   * each {@code addTrack} and {@code writeSampleData} call, with the track's MIME type, in {@code
+   * muxerCalls}.
+   */
+  private static Muxer.Factory createRecordingMuxerFactory(List<String> muxerCalls) {
+    return new Muxer.Factory() {
+      @Override
+      public Muxer create(String path) {
+        return new Muxer() {
+          private final List<String> trackMimeTypes = new ArrayList<>();
+
+          @Override
+          public int addTrack(Format format) {
+            muxerCalls.add("addTrack " + format.sampleMimeType);
+            trackMimeTypes.add(format.sampleMimeType);
+            return trackMimeTypes.size() - 1;
+          }
+
+          @Override
+          public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo) {
+            muxerCalls.add("writeSampleData " + trackMimeTypes.get(trackId));
+          }
+
+          @Override
+          public void addMetadataEntry(Metadata.Entry metadataEntry) {}
+
+          @Override
+          public void close() {}
+        };
+      }
+
+      @Override
+      public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+        return trackType == C.TRACK_TYPE_METADATA
+            ? ImmutableList.of(APPLICATION_ITUT_T35)
+            : ImmutableList.of(VIDEO_H264);
+      }
+    };
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {

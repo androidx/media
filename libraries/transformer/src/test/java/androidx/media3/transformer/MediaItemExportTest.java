@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.MimeTypes.APPLICATION_ITUT_T35;
+import static androidx.media3.test.utils.AssetInfo.IT35_MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
@@ -45,13 +47,17 @@ import static androidx.media3.transformer.TestUtil.FILE_WITH_SEF_SLOW_MOTION;
 import static androidx.media3.transformer.TestUtil.FILE_WITH_SUBTITLES;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createPitchChangingAudioProcessor;
+import static androidx.media3.transformer.TestUtil.extractAllSamplesFromMp4File;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
+import static androidx.media3.transformer.TestUtil.getIt35SampleDataByTimeUs;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -83,6 +89,7 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -101,6 +108,8 @@ import androidx.media3.muxer.SeekableMuxerOutput;
 import androidx.media3.muxer.WavMuxer;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.TestSpeedProvider;
@@ -1612,6 +1621,42 @@ public final class MediaItemExportTest {
 
     assertThat(itemEffectBytesSeen.get()).isGreaterThan(0);
     assertThat(itemEffectBytesSeen.get()).isEqualTo(compositionEffectBytesSeen.get());
+  }
+
+  @Test
+  @Config(minSdk = 37) // HAGC tracks are only merged into the video samples from API 37.
+  public void start_withHagcVideo_exportsIt35Track() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(IT35_MP4_ASSET.uri);
+    String outputPath = outputDir.newFile().getPath();
+    // The input has a different HAGC payload for each frame, so the sparse output keeps them all.
+    ImmutableMap<Long, byte[]> inputIt35SampleDataByTimeUs =
+        getIt35SampleDataByTimeUs(IT35_MP4_ASSET.uri.replace("asset:///", ""));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    FakeExtractorOutput extractorOutput = extractAllSamplesFromMp4File(outputPath);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    FakeTrackOutput it35TrackOutput =
+        Iterables.getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+    Format it35Format = checkNotNull(it35TrackOutput.lastFormat);
+    assertThat(it35Format.sampleMimeType).isEqualTo(APPLICATION_ITUT_T35);
+    assertThat(it35Format.initializationData.get(0))
+        .isEqualTo(CodecSpecificDataUtil.getHagcT35Header());
+    // Each it35 sample has the time of its video frame. Both are rounded to the output timescale,
+    // so compare them with each other rather than with the input times.
+    assertThat(it35TrackOutput.getSampleTimesUs())
+        .containsExactlyElementsIn(videoTrackOutput.getSampleTimesUs())
+        .inOrder();
+    ImmutableList<byte[]> inputPayloads = inputIt35SampleDataByTimeUs.values().asList();
+    assertThat(it35TrackOutput.getSampleCount()).isEqualTo(inputPayloads.size());
+    for (int i = 0; i < inputPayloads.size(); i++) {
+      assertWithMessage("it35 payload %s", i)
+          .that(it35TrackOutput.getSampleData(i))
+          .isEqualTo(inputPayloads.get(i));
+    }
   }
 
   @Test

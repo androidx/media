@@ -40,6 +40,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
@@ -67,7 +68,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * A wrapper around a media muxer.
  *
- * <p>This wrapper can contain at most one video track and one audio track.
+ * <p>This wrapper can contain at most one video track and one audio track, plus an {@code it35}
+ * metadata track for HAGC (SMPTE ST 2094-50) metadata. The {@code it35} track is added with the
+ * video track if the muxer supports {@code it35} tracks and the {@link MuxerMode} is {@link
+ * #MUXER_MODE_DEFAULT}, and stays empty if no video sample carries HAGC metadata.
  */
 /* package */ final class MuxerWrapper {
   private static final String TAG = "MuxerWrapper";
@@ -154,6 +158,7 @@ import org.jspecify.annotations.Nullable;
   private final Muxer.Factory muxerFactory;
   private final Listener listener;
   private final boolean dropSamplesBeforeFirstVideoSample;
+  private final boolean muxerSupportsIt35Metadata;
   private final SparseArray<TrackInfo> trackTypeToInfo;
   private final @Nullable Format appendVideoFormat;
 
@@ -170,6 +175,10 @@ import org.jspecify.annotations.Nullable;
   private boolean muxedPartialAudio;
   private long firstVideoPresentationTimeUs;
   private long encoderDelayTimestampOffsetUs;
+  private int it35TrackId;
+  private long maxVideoPresentationTimeUs;
+  private byte @Nullable [] lastWrittenHagcPayload;
+  private boolean hasLoggedHagcMetadataWarning;
 
   private volatile int additionalRotationDegrees;
   private volatile int trackCount;
@@ -267,6 +276,12 @@ import org.jspecify.annotations.Nullable;
     previousTrackType = C.TRACK_TYPE_NONE;
     firstVideoPresentationTimeUs = C.TIME_UNSET;
     minEndedTrackTimeUs = Long.MAX_VALUE;
+    it35TrackId = C.INDEX_UNSET;
+    maxVideoPresentationTimeUs = Long.MIN_VALUE;
+    muxerSupportsIt35Metadata =
+        muxerFactory
+            .getSupportedSampleMimeTypes(C.TRACK_TYPE_METADATA)
+            .contains(MimeTypes.APPLICATION_ITUT_T35);
   }
 
   /**
@@ -535,6 +550,16 @@ import org.jspecify.annotations.Nullable;
 
     ensureMuxerInitialized();
     TrackInfo trackInfo = new TrackInfo(format, muxer.addTrack(format));
+    if (trackType == C.TRACK_TYPE_VIDEO
+        && muxerMode == MUXER_MODE_DEFAULT
+        && muxerSupportsIt35Metadata) {
+      // TODO: b/586464382 - Move it35 writing into Mp4Muxer once there's a general sample metadata
+      //  API.
+      // Add the it35 track up front, so that all tracks exist before samples are written. It stays
+      // empty if no frame carries HAGC, and Mp4Muxer drops empty tracks, so those files don't
+      // change.
+      it35TrackId = muxer.addTrack(CodecSpecificDataUtil.buildHagcMetadataFormat());
+    }
     if (trackType == C.TRACK_TYPE_AUDIO) {
       maybeCalculateEncoderDelayTimestampOffset(format);
     }
@@ -576,6 +601,13 @@ import org.jspecify.annotations.Nullable;
 
   /**
    * Attempts to write a sample to the muxer.
+   *
+   * <p>If the supplemental data of a video sample is HAGC (SMPTE ST 2094-50) metadata, the metadata
+   * is written to an {@code it35} track when it differs from the previously written metadata. The
+   * metadata of a video sample shown before an already written video sample, such as a B-frame, is
+   * dropped, so that sample shows the metadata active at its presentation time. The metadata is
+   * dropped if the muxer doesn't support {@code it35} tracks or the {@link MuxerMode} isn't {@link
+   * #MUXER_MODE_DEFAULT}.
    *
    * @param trackType The {@link C.TrackType} of the sample.
    * @param buffer The sample to write. Its {@link DecoderInputBuffer#data} must not be null.
@@ -644,6 +676,10 @@ import org.jspecify.annotations.Nullable;
     trackInfo.endTimeUs = max(trackInfo.endTimeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
     checkNotNull(muxer);
+    if (trackType == C.TRACK_TYPE_VIDEO) {
+      maybeWriteHagcMetadata(buffer, presentationTimeUs);
+      maxVideoPresentationTimeUs = max(maxVideoPresentationTimeUs, presentationTimeUs);
+    }
     BufferInfo bufferInfo =
         new BufferInfo(
             presentationTimeUs,
@@ -776,6 +812,47 @@ import org.jspecify.annotations.Nullable;
               audioFormat.sampleRate,
               RoundingMode.FLOOR);
     }
+  }
+
+  /**
+   * Writes the HAGC (SMPTE ST 2094-50) payload of a video sample, if any, to the {@code it35}
+   * track.
+   *
+   * <p>The track is sparse: a payload equal to the previously written one isn't written, so the
+   * previous sample lasts until the payload changes. The last sample lasts until the video ends,
+   * because {@code Mp4Muxer} ends an {@code rndr} track where its referenced track ends.
+   */
+  private void maybeWriteHagcMetadata(DecoderInputBuffer buffer, long presentationTimeUs)
+      throws MuxerException {
+    boolean canWriteIt35 = muxerMode == MUXER_MODE_DEFAULT && muxerSupportsIt35Metadata;
+    if (!canWriteIt35 && hasLoggedHagcMetadataWarning) {
+      return;
+    }
+    byte @Nullable [] payload = TransformerUtil.getHagcPayload(buffer);
+    if (payload == null) {
+      // TODO: b/575451965 - Write an empty it35 sample when HAGC stops, so that video frames
+      //  without HAGC don't keep the previous HAGC.
+      return;
+    }
+    if (!canWriteIt35) {
+      Log.w(TAG, "Dropping HAGC metadata: the muxer or muxer mode doesn't support it35 tracks.");
+      hasLoggedHagcMetadataWarning = true;
+      return;
+    }
+    // Drop the metadata of frames shown before an already written video frame, such as B-frames,
+    // so they show the metadata active at their presentation time. This keeps it35 samples in
+    // presentation order, each written before its video, so the extractor, which reads it35
+    // samples first, never seeks back.
+    if (presentationTimeUs <= maxVideoPresentationTimeUs
+        || Arrays.equals(payload, lastWrittenHagcPayload)) {
+      return;
+    }
+    checkNotNull(muxer)
+        .writeSampleData(
+            it35TrackId,
+            ByteBuffer.wrap(payload),
+            new BufferInfo(presentationTimeUs, payload.length, C.BUFFER_FLAG_KEY_FRAME));
+    lastWrittenHagcPayload = payload;
   }
 
   private boolean canWriteSample(@C.TrackType int trackType, long presentationTimeUs) {

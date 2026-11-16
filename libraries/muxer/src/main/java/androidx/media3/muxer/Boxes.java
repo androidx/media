@@ -171,7 +171,7 @@ import org.jspecify.annotations.Nullable;
               track.writtenSamples,
               track.videoUnitTimebase(),
               lastSampleDurationBehavior,
-              track.endOfStreamTimestampUs);
+              getEndOfStreamTimestampUs(track, tracks, lastSampleDurationBehavior));
 
       long trackDurationInTrackUnitsVu = 0;
       for (int j = 0; j < sampleDurationsVu.size(); j++) {
@@ -2259,6 +2259,70 @@ import org.jspecify.annotations.Nullable;
       }
     }
     return minInputPtsUs != Long.MAX_VALUE ? minInputPtsUs : C.TIME_UNSET;
+  }
+
+  /**
+   * Returns the end of stream timestamp (in microseconds) of the {@code track}, or {@link
+   * C#TIME_UNSET} if there is none.
+   *
+   * <p>With {@link
+   * Mp4Muxer#LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS}
+   * only, a track without an end of stream sample that has a {@link
+   * Mp4Muxer#TRACK_REFERENCE_TYPE_RNDR} reference ends where the referenced tracks end, if that is
+   * after its last sample and the last sample duration fits in 32 bits.
+   */
+  private static long getEndOfStreamTimestampUs(
+      Track track,
+      List<Track> tracks,
+      @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior) {
+    @Nullable List<Integer> referencedTrackIds =
+        track.trackReferences.get(Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR);
+    if (track.endOfStreamTimestampUs != C.TIME_UNSET
+        || referencedTrackIds == null
+        || track.writtenSamples.isEmpty()
+        || lastSampleDurationBehavior == Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO) {
+      return track.endOfStreamTimestampUs;
+    }
+    long referencedTracksEndTimestampUs = C.TIME_UNSET;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track referencedTrack = tracks.get(i);
+      if (!referencedTrackIds.contains(referencedTrack.id)
+          || referencedTrack.writtenSamples.isEmpty()) {
+        continue;
+      }
+      int videoUnitTimebase = referencedTrack.videoUnitTimebase();
+      List<Integer> sampleDurationsVu =
+          convertPresentationTimestampsToDurationsVu(
+              referencedTrack.writtenSamples,
+              videoUnitTimebase,
+              lastSampleDurationBehavior,
+              referencedTrack.endOfStreamTimestampUs);
+      long endTimestampVu =
+          vuFromUs(getLastPresentationTimestampUs(referencedTrack), videoUnitTimebase)
+              + Iterables.getLast(sampleDurationsVu);
+      referencedTracksEndTimestampUs =
+          max(referencedTracksEndTimestampUs, usFromVu(endTimestampVu, videoUnitTimebase));
+    }
+    long lastPresentationTimestampUs = getLastPresentationTimestampUs(track);
+    if (referencedTracksEndTimestampUs <= lastPresentationTimestampUs) {
+      return C.TIME_UNSET;
+    }
+    long lastSampleDurationVu =
+        vuFromUs(referencedTracksEndTimestampUs, track.videoUnitTimebase())
+            - vuFromUs(lastPresentationTimestampUs, track.videoUnitTimebase());
+    return lastSampleDurationVu <= Integer.MAX_VALUE
+        ? referencedTracksEndTimestampUs
+        : C.TIME_UNSET;
+  }
+
+  /** Returns the largest presentation timestamp (in microseconds) of the written samples. */
+  private static long getLastPresentationTimestampUs(Track track) {
+    long lastPresentationTimestampUs = C.TIME_UNSET;
+    for (int i = 0; i < track.writtenSamples.size(); i++) {
+      lastPresentationTimestampUs =
+          max(lastPresentationTimestampUs, track.writtenSamples.get(i).presentationTimeUs);
+    }
+    return lastPresentationTimestampUs;
   }
 
   /** Returns whether the Dolby Vision profile of the given {@link Format} is supported. */

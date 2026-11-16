@@ -84,6 +84,12 @@ import org.robolectric.RobolectricTestParameterInjector;
 public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  private static final Format FAKE_T35_FORMAT =
+      new Format.Builder()
+          .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+          .setInitializationData(ImmutableList.of(new byte[] {0x00, 0x01, 0x02, 0x03, 0x04}))
+          .build();
+
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
@@ -1553,6 +1559,166 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  public void createMp4File_withRndrTrackEndingEarly_endsRndrTrackWithReferencedTrack()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      // The rndr track is added first, so it references a track that is added after it.
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.addTrackReference(
+          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
+      writeFakeSamplesAtTimestamps(muxer, t35TrackId, 0L, 40_000L, 120_000L);
+      writeFakeSamplesAtTimestamps(
+          muxer, videoTrackId, 0L, 40_000L, 80_000L, 120_000L, 160_000L, 200_000L);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    // The last video sample duplicates the previous sample duration.
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).isEqualTo(240_000L);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_METADATA))
+        .isEqualTo(240_000L);
+  }
+
+  @Test
+  public void createMp4File_withRndrTrackAndReferencedTrackEndOfStream_endsRndrTrackAtEndOfStream()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
+      muxer.addTrackReference(
+          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
+      writeFakeSamplesAtTimestamps(muxer, videoTrackId, 0L, 40_000L, 80_000L, 120_000L);
+      muxer.writeSampleData(
+          videoTrackId,
+          ByteBuffer.allocate(0),
+          new BufferInfo(
+              /* presentationTimeUs= */ 300_000L, /* size= */ 0, C.BUFFER_FLAG_END_OF_STREAM));
+      writeFakeSamplesAtTimestamps(muxer, t35TrackId, 0L, 40_000L);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).isEqualTo(300_000L);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_METADATA))
+        .isEqualTo(300_000L);
+  }
+
+  @Test
+  public void createMp4File_withRndrTrackGapTooLongForSampleDuration_keepsPreviousSampleDuration()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    long fourHoursUs = 4L * 60 * 60 * C.MICROS_PER_SECOND;
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
+      muxer.addTrackReference(
+          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
+      writeFakeSamplesAtTimestamps(muxer, videoTrackId, 0L, fourHoursUs, 2 * fourHoursUs);
+      writeFakeSamplesAtTimestamps(muxer, t35TrackId, 0L, 1_000_000L, 2_000_000L);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    // The video ends at 12 hours, which is too far after the last T35 sample for a 32-bit sample
+    // duration at 90 kHz.
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_VIDEO))
+        .isEqualTo(3 * fourHoursUs);
+    // So the last T35 sample keeps the previous 1 s duration, and the T35 track ends at 3 s.
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_METADATA))
+        .isEqualTo(3_000_000L);
+  }
+
+  @Test
+  public void createMp4File_withRndrTrackEndOfStream_endsRndrTrackAtOwnEndOfStream()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
+      muxer.addTrackReference(
+          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
+      writeFakeSamplesAtTimestamps(muxer, videoTrackId, 0L, 40_000L, 80_000L, 120_000L);
+      writeFakeSamplesAtTimestamps(muxer, t35TrackId, 0L, 40_000L);
+      muxer.writeSampleData(
+          t35TrackId,
+          ByteBuffer.allocate(0),
+          new BufferInfo(
+              /* presentationTimeUs= */ 60_000L, /* size= */ 0, C.BUFFER_FLAG_END_OF_STREAM));
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    // The last video sample repeats the previous 40 ms duration, and the T35 track ends at its own
+    // end of stream sample.
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).isEqualTo(160_000L);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_METADATA))
+        .isEqualTo(60_000L);
+  }
+
+  @Test
+  public void
+      createMp4File_withRndrTrackAndLastSampleDurationSetToZero_setsLastSampleDurationToZero()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer =
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
+            .setLastSampleDurationBehavior(Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO)
+            .build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
+      muxer.addTrackReference(
+          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
+      writeFakeSamplesAtTimestamps(
+          muxer, videoTrackId, 0L, 40_000L, 80_000L, 120_000L, 160_000L, 200_000L);
+      writeFakeSamplesAtTimestamps(muxer, t35TrackId, 0L, 40_000L, 120_000L);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).isEqualTo(200_000L);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_METADATA))
+        .isEqualTo(120_000L);
+  }
+
+  @Test
+  public void
+      createMp4File_withRndrTrackAndReferencedTrackBFrames_endsRndrTrackWithReferencedTrack()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      int videoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
+      muxer.addTrackReference(
+          t35TrackId, Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR, ImmutableList.of(videoTrackId));
+      // Video samples in decode order. The largest presentation timestamp is not the last one.
+      writeFakeSamplesAtTimestamps(
+          muxer, videoTrackId, 0L, 120_000L, 40_000L, 80_000L, 240_000L, 160_000L, 200_000L);
+      writeFakeSamplesAtTimestamps(muxer, t35TrackId, 0L, 40_000L);
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), outputFilePath);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).isEqualTo(280_000L);
+    assertThat(getOnlyTrackDurationUs(fakeExtractorOutput, C.TRACK_TYPE_METADATA))
+        .isEqualTo(280_000L);
+  }
+
+  @Test
   @SuppressLint("WrongConstant") // Intentionally assigned wrong constant.
   public void addTrackReference_withUnsupportedTrackReferenceType_throws() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
@@ -1571,14 +1737,6 @@ public class Mp4MuxerEndToEndTest {
   private static void writeMp4FileWithT35MetadataTrackReference(
       String outputFilePath, @Mp4Muxer.TrackReferenceType int referenceType)
       throws FileNotFoundException, MuxerException {
-    // ITU-T T.35 prefix: country code, provider code, etc.
-    byte[] t35Prefix = new byte[] {0x00, 0x01, 0x02, 0x03, 0x04};
-    Format t35Format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
-            .setInitializationData(ImmutableList.of(t35Prefix))
-            .build();
-
     try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
       muxer.addMetadataEntry(
           new Mp4TimestampData(
@@ -1588,7 +1746,7 @@ public class Mp4MuxerEndToEndTest {
       writeFakeSamples(muxer, videoTrackId, /* sampleCount= */ 5);
       int audioTrackId = muxer.addTrack(FAKE_AUDIO_FORMAT);
       writeFakeSamples(muxer, audioTrackId, /* sampleCount= */ 5);
-      int t35TrackId = muxer.addTrack(t35Format);
+      int t35TrackId = muxer.addTrack(FAKE_T35_FORMAT);
       writeFakeSamples(muxer, t35TrackId, /* sampleCount= */ 5);
       muxer.addTrackReference(t35TrackId, referenceType, ImmutableList.of(videoTrackId));
     }
@@ -1599,6 +1757,21 @@ public class Mp4MuxerEndToEndTest {
     for (int i = 0; i < sampleCount; i++) {
       Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i, /* isVideo= */ true);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+  }
+
+  private static long getOnlyTrackDurationUs(
+      FakeExtractorOutput fakeExtractorOutput, @C.TrackType int trackType) {
+    return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(trackType))
+        .getDurationUs();
+  }
+
+  private static void writeFakeSamplesAtTimestamps(
+      Mp4Muxer muxer, int trackId, long... presentationTimesUs) throws MuxerException {
+    for (long presentationTimeUs : presentationTimesUs) {
+      Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+          getFakeSampleAndSampleInfo(presentationTimeUs, /* isVideo= */ true);
       muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
   }

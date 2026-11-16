@@ -63,7 +63,9 @@
 *   Effect Play services:
 *   Muxers:
     *   Add `Mp4Muxer.TRACK_REFERENCE_TYPE_RNDR` to link a metadata track to the
-        track whose rendering it modifies.
+        track whose rendering it modifies. With the default last sample duration
+        behavior, a track with this reference and no end of stream sample lasts
+        until the referenced track ends.
     *   Add `FragmentedMp4Muxer.Builder.setFragmentsMustStartWithKeyFrame` to
         control whether fragments must start at video key frames
         ([#3450](https://github.com/androidx/media/pull/3450)).

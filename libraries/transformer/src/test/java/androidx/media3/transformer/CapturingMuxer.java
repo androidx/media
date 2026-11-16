@@ -184,6 +184,12 @@ public final class CapturingMuxer implements Muxer, Dumpable {
   @Override
   public void dump(Dumper dumper) {
     for (int i = 0; i < dumpableFormatByTrackType.size(); i++) {
+      // MuxerWrapper adds the it35 metadata track up front and Mp4Muxer drops it if it stays empty,
+      // so leave an empty metadata track out of the dump too.
+      @C.TrackType int trackType = dumpableFormatByTrackType.keyAt(i);
+      if (trackType == C.TRACK_TYPE_METADATA && getTotalBytesForTrack(trackType) == 0) {
+        continue;
+      }
       dumpableFormatByTrackType.valueAt(i).dump(dumper);
     }
 

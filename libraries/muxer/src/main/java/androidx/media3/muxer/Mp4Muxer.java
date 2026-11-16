@@ -195,6 +195,10 @@ public final class Mp4Muxer implements Muxer {
   /**
    * Links a metadata track, for example an HAGC (SMPTE ST 2094-50) metadata track, to the track
    * whose rendering it modifies.
+   *
+   * <p>If the referencing track has no {@link C#BUFFER_FLAG_END_OF_STREAM end of stream sample},
+   * its last sample lasts until the referenced track ends. This applies only with {@link
+   * #LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS}.
    */
   public static final int TRACK_REFERENCE_TYPE_RNDR = 0x726e6472;
 
