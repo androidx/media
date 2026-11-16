@@ -36,6 +36,7 @@ import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.listenTo
+import androidx.media3.common.util.Log
 import androidx.media3.common.util.Util
 import androidx.media3.extractor.metadata.MotionPhotoMetadata
 import com.google.errorprone.annotations.CanIgnoreReturnValue
@@ -60,7 +61,8 @@ import kotlinx.coroutines.launch
  * the `MediaSource` chain, even when no clipping is requested. If using
  * `DefaultMediaSourceFactory`, this can be done using
  * `DefaultMediaSourceFactory.setEnableClippingInMediaPeriod` and
- * `DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource`.
+ * `DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource`. The provided [player] must be a
+ * direct in-process instance such as `ExoPlayer`; `MediaController` is not supported.
  *
  * This state holder also owns [Player.repeatMode] while bound: it is set to
  * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
@@ -184,6 +186,8 @@ internal constructor(
         hasRenderedFirstFrame = false
         videoDurationUs = C.TIME_UNSET
         photoPresentationTimestampUs = C.TIME_UNSET
+        hasKnownTracks = false
+        hasWarnedAboutPhotoFrameFallback = false
       }
     }
 
@@ -192,6 +196,8 @@ internal constructor(
   private var hasRenderedFirstFrame by mutableStateOf(false)
   private var videoDurationUs: Long = C.TIME_UNSET
   private var photoPresentationTimestampUs: Long = C.TIME_UNSET
+  private var hasKnownTracks = false
+  private var hasWarnedAboutPhotoFrameFallback = false
 
   private var _showPhoto by mutableStateOf(initialShowPhoto)
 
@@ -272,6 +278,13 @@ internal constructor(
     val didUpdateMediaItem = syncMediaItem(currentPlayer)
     // If no new item or clipping update was applied, an existing error is not stale.
     syncPlaybackState(currentPlayer, allowPrepareOnError = didUpdateMediaItem, isInitialBind = true)
+    // Re-check in case setMediaItem or prepare synchronously updated state, tracks, or timeline
+    // before observe() registered its listener.
+    val didMetadataChange = updateMotionPhotoMetadata(currentPlayer)
+    val didDurationChange = updateVideoDuration(currentPlayer)
+    if (didMetadataChange || didDurationChange) {
+      syncMediaItem(currentPlayer)
+    }
     updateMotionAvailability(currentPlayer)
   }
 
@@ -308,8 +321,12 @@ internal constructor(
         syncRepeatMode(this)
       }
       val didMetadataChange =
-        events.containsAny(Player.EVENT_TRACKS_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) &&
-          updateMotionPhotoMetadata(this)
+        events.containsAny(
+          Player.EVENT_TRACKS_CHANGED,
+          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+          Player.EVENT_PLAYBACK_STATE_CHANGED,
+        ) &&
+          updateMotionPhotoMetadata(this, isTracksChanged = Player.EVENT_TRACKS_CHANGED in events)
       val didDurationChange =
         events.containsAny(
           Player.EVENT_TIMELINE_CHANGED,
@@ -361,28 +378,49 @@ internal constructor(
   }
 
   @CanIgnoreReturnValue
-  private fun updateMotionPhotoMetadata(currentPlayer: Player): Boolean {
+  private fun updateMotionPhotoMetadata(
+    currentPlayer: Player,
+    isTracksChanged: Boolean = false,
+  ): Boolean {
     val previousPhotoPresentationTimestampUs = photoPresentationTimestampUs
-    photoPresentationTimestampUs = C.TIME_UNSET
-    if (
-      getMatchingMediaItemFromPlayer(currentPlayer) == null ||
-        !currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS)
-    ) {
-      return photoPresentationTimestampUs != previousPhotoPresentationTimestampUs
+    val hadKnownTracks = hasKnownTracks
+    if (getMatchingMediaItemFromPlayer(currentPlayer) == null) {
+      photoPresentationTimestampUs = C.TIME_UNSET
+      hasKnownTracks = false
+      return photoPresentationTimestampUs != previousPhotoPresentationTimestampUs ||
+        hasKnownTracks != hadKnownTracks
     }
+    val canGetTracks = currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS)
+    val hasTracks = canGetTracks && !currentPlayer.currentTracks.isEmpty
+    if ((currentPlayer.playbackState == Player.STATE_IDLE || isTracksChanged) && !hasTracks) {
+      hasKnownTracks = false
+    }
+    // A player that is ready or ended without reporting tracks is also treated as having known
+    // tracks, so a pending BOUNDARY_PHOTO_FRAME falls back rather than staying unresolved.
+    hasKnownTracks =
+      hasKnownTracks ||
+        currentPlayer.playbackState == Player.STATE_READY ||
+        currentPlayer.playbackState == Player.STATE_ENDED ||
+        hasTracks
+    photoPresentationTimestampUs =
+      if (canGetTracks) findPhotoPresentationTimestampUs(currentPlayer) else C.TIME_UNSET
+    return photoPresentationTimestampUs != previousPhotoPresentationTimestampUs ||
+      hasKnownTracks != hadKnownTracks
+  }
+
+  private fun findPhotoPresentationTimestampUs(currentPlayer: Player): Long {
     for (group in currentPlayer.currentTracks.groups) {
       for (i in 0 until group.length) {
         val metadata = group.getTrackFormat(i).metadata ?: continue
         for (j in 0 until metadata.length()) {
           val entry = metadata.get(j)
           if (entry is MotionPhotoMetadata && entry.photoPresentationTimestampUs >= 0L) {
-            photoPresentationTimestampUs = entry.photoPresentationTimestampUs
-            return photoPresentationTimestampUs != previousPhotoPresentationTimestampUs
+            return entry.photoPresentationTimestampUs
           }
         }
       }
     }
-    return photoPresentationTimestampUs != previousPhotoPresentationTimestampUs
+    return C.TIME_UNSET
   }
 
   private fun syncRepeatMode(currentPlayer: Player) {
@@ -512,11 +550,40 @@ internal constructor(
     return videoDurationUs != previousVideoDurationUs
   }
 
-  private fun resolveStartPositionUs(): Long {
+  /**
+   * Returns the boundary to resolve [boundary] as: [MotionPhotoConfig.BOUNDARY_PHOTO_FRAME] falls
+   * back to [MotionPhotoConfig.BOUNDARY_END_OF_VIDEO], treating the still photo as the last frame
+   * of the video, once the tracks of the item are known to carry no usable [MotionPhotoMetadata]
+   * (or when [currentPlayer] cannot report tracks), and stays unresolved while the tracks are not
+   * known yet.
+   */
+  private fun resolveBoundary(
+    currentPlayer: Player,
+    boundary: @MotionPhotoConfig.PlaybackBoundary Int,
+  ): @MotionPhotoConfig.PlaybackBoundary Int {
+    val areTracksKnownOrUnavailable =
+      hasKnownTracks || !currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS)
     if (
-      _config.startBoundary == MotionPhotoConfig.BOUNDARY_START_OF_VIDEO &&
-        _config.startPositionOffsetMs == 0L
+      boundary != MotionPhotoConfig.BOUNDARY_PHOTO_FRAME ||
+        photoPresentationTimestampUs != C.TIME_UNSET ||
+        !areTracksKnownOrUnavailable
     ) {
+      return boundary
+    }
+    if (!hasWarnedAboutPhotoFrameFallback) {
+      hasWarnedAboutPhotoFrameFallback = true
+      Log.w(
+        TAG,
+        "BOUNDARY_PHOTO_FRAME requested but no usable MotionPhotoMetadata is available; treating" +
+          " the still photo as the last frame of the video.",
+      )
+    }
+    return MotionPhotoConfig.BOUNDARY_END_OF_VIDEO
+  }
+
+  private fun resolveStartPositionUs(startBoundary: @MotionPhotoConfig.PlaybackBoundary Int): Long {
+    val offsetUs = Util.msToUs(_config.startPositionOffsetMs)
+    if (startBoundary == MotionPhotoConfig.BOUNDARY_START_OF_VIDEO && offsetUs == 0L) {
       return 0L
     }
     // Any other start may lie at or beyond the end of the video, which leaves nothing to play and
@@ -528,24 +595,23 @@ internal constructor(
       return C.TIME_UNSET
     }
     val baseUs =
-      when (_config.startBoundary) {
+      when (startBoundary) {
         MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L
         MotionPhotoConfig.BOUNDARY_PHOTO_FRAME -> photoPresentationTimestampUs
         else -> videoDurationUs
       }
-    return if (baseUs != C.TIME_UNSET) baseUs + Util.msToUs(_config.startPositionOffsetMs)
-    else C.TIME_UNSET
+    return if (baseUs != C.TIME_UNSET) baseUs + offsetUs else C.TIME_UNSET
   }
 
-  private fun resolveEndPositionUs(): Long {
-    if (
-      _config.endBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO &&
-        _config.endPositionOffsetMs == 0L
-    ) {
+  private fun resolveEndPositionUs(endBoundary: @MotionPhotoConfig.PlaybackBoundary Int): Long {
+    val offsetUs = Util.msToUs(_config.endPositionOffsetMs)
+    if (endBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO && offsetUs >= 0L) {
+      // The offset of a BOUNDARY_PHOTO_FRAME end that fell back may be positive, so an end beyond
+      // the end of the video is clamped to it.
       return C.TIME_END_OF_SOURCE
     }
     val baseUs =
-      when (_config.endBoundary) {
+      when (endBoundary) {
         MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L
         MotionPhotoConfig.BOUNDARY_PHOTO_FRAME -> photoPresentationTimestampUs
         else -> videoDurationUs
@@ -553,17 +619,19 @@ internal constructor(
     if (baseUs == C.TIME_UNSET) {
       return C.TIME_UNSET
     }
-    return baseUs + Util.msToUs(_config.endPositionOffsetMs)
+    return baseUs + offsetUs
   }
 
   @CanIgnoreReturnValue
   private fun syncMediaItem(currentPlayer: Player): Boolean {
-    val resolvedStartPositionUs = resolveStartPositionUs()
+    val startBoundary = resolveBoundary(currentPlayer, _config.startBoundary)
+    val resolvedStartPositionUs = resolveStartPositionUs(startBoundary)
     // A start before the start of the video is clamped to it, as the player would do.
     val startPositionUs =
       if (resolvedStartPositionUs == C.TIME_UNSET) C.TIME_UNSET
       else maxOf(0L, resolvedStartPositionUs)
-    val endPositionUs = resolveEndPositionUs()
+    val endBoundary = resolveBoundary(currentPlayer, _config.endBoundary)
+    val endPositionUs = resolveEndPositionUs(endBoundary)
     val isStartOutOfBounds =
       startPositionUs == C.TIME_UNSET ||
         (videoDurationUs != C.TIME_UNSET && startPositionUs >= videoDurationUs)
@@ -590,8 +658,7 @@ internal constructor(
     // whether the range is empty.
     val clippingEndPositionUs =
       if (
-        _config.endBoundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME &&
-          _config.endPositionOffsetMs == 0L
+        endBoundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME && _config.endPositionOffsetMs == 0L
       ) {
         endPositionUs + PHOTO_FRAME_TIMESTAMP_TOLERANCE_US
       } else {
@@ -668,6 +735,8 @@ internal constructor(
   }
 
   companion object {
+    private const val TAG = "MotionPhotoState"
+
     // Tolerance added to a clipping end position resolved from BOUNDARY_PHOTO_FRAME, so that the
     // photo frame itself is decoded at the end of the range: ClippingSampleStream's end position is
     // exclusive (buffer.timeUs >= endUs), and the XMP timestamp and the sample timestamps the
@@ -824,9 +893,17 @@ class MotionPhotoConfig(
      * ([MotionPhotoMetadata.photoPresentationTimestampUs]). A photo frame at or before the start
      * position leaves nothing to play when used as the end, and a photo frame at or beyond the end
      * of the video leaves nothing to play when used as the start, whereas a photo frame end beyond
-     * the end of the video is clamped to it by the player. If the tracks do not contain
-     * [MotionPhotoMetadata] (or while tracks are not yet known), the boundary remains unresolved,
-     * keeping the still photo visible and playback paused.
+     * the end of the video is clamped to it by the player.
+     *
+     * Once the tracks of the item are known to carry no usable metadata, or if the player cannot
+     * report tracks, the still photo is treated as the last frame of the video: the boundary falls
+     * back to [BOUNDARY_END_OF_VIDEO], keeping its offset. For example, [PLAY_TO_PHOTO] degrades to
+     * the whole video, a start of `BOUNDARY_PHOTO_FRAME - 300ms` with an end of
+     * `BOUNDARY_PHOTO_FRAME + 300ms` to the last 300ms of the video, and a start at the photo frame
+     * itself leaves nothing to play. The timestamp is read from the track metadata the extractor
+     * exposes via `Format.metadata` on a direct in-process [Player] such as `ExoPlayer`
+     * (`MediaController` is not supported); a [Player] implementation or source that does not
+     * expose `Format` metadata triggers the fallback.
      */
     const val BOUNDARY_PHOTO_FRAME = 2
 
@@ -841,9 +918,10 @@ class MotionPhotoConfig(
 
     /**
      * Configuration preset that plays motion from the start of the video up to the key photo frame
-     * and returns to the still photo. A photo frame at the start of the video
-     * (`photoPresentationTimestampUs == 0`) leaves nothing to play, so the still photo stays
-     * visible.
+     * ([BOUNDARY_PHOTO_FRAME]) and returns to the still photo. A photo frame at the start of the
+     * video (`photoPresentationTimestampUs == 0`) leaves nothing to play, so the still photo stays
+     * visible. If no usable `MotionPhotoMetadata` is available, [BOUNDARY_PHOTO_FRAME] falls back
+     * to [BOUNDARY_END_OF_VIDEO] so the full video plays instead.
      */
     @JvmField
     val PLAY_TO_PHOTO =
