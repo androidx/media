@@ -24,6 +24,8 @@ import android.graphics.SurfaceTexture;
 import android.os.SystemClock;
 import android.view.Surface;
 import androidx.media3.common.C;
+import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
@@ -36,6 +38,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -317,15 +321,124 @@ public final class Dav1dDecoderTest {
     assertThat(outputFrameCount).isAtMost(sampleCount);
   }
 
+  @Test(timeout = 15_000)
+  public void dequeueInputBuffer_whileFlushPending_recoversInputBuffer() throws Exception {
+    // Use 1 input buffer so overwriting dequeuedInputBuffer during flush() leaves 0 buffers.
+    Dav1dDecoder decoder = createDecoder(/* numInputBuffers= */ 1, NUM_OUTPUT_BUFFERS);
+    this.decoder = decoder;
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    ConditionVariable flushed = new ConditionVariable();
+    List<@Nullable DecoderInputBuffer> buffersDequeuedWhileFlushPending = new ArrayList<>();
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {}
+
+          @Override
+          public void onOutputBufferAvailable() {
+            // Run on the decode thread so flushInternal() cannot execute between flush() and
+            // dequeueInputBuffer().
+            try {
+              DecoderInputBuffer unqueued = decoder.dequeueInputBuffer();
+              if (unqueued != null) {
+                decoder.flush();
+                buffersDequeuedWhileFlushPending.add(decoder.dequeueInputBuffer());
+              }
+              flushed.open();
+            } catch (Dav1dDecoderException e) {
+              throw new IllegalStateException(e);
+            }
+          }
+        },
+        Runnable::run);
+
+    DecoderInputBuffer eos = pollInputBuffer(decoder, DECODE_TIMEOUT_MS);
+    assertThat(eos).isNotNull();
+    eos.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+    decoder.queueInputBuffer(eos);
+    assertThat(flushed.block(DECODE_TIMEOUT_MS)).isTrue();
+
+    assertThat(buffersDequeuedWhileFlushPending).containsExactly((Object) null);
+    assertThat(pollInputBuffer(decoder, DECODE_TIMEOUT_MS)).isNotNull();
+  }
+
+  @Test(timeout = 15_000)
+  public void flush_withFrameDelayedInput_recoversAllInputBuffersAndDecodesStream()
+      throws Exception {
+    decoder = createDecoder(NUM_INPUT_BUFFERS, /* numOutputBuffers= */ 1);
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    VideoDecoderOutputBuffer heldOutputBuffer =
+        feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
+
+    decoder.flush();
+    try {
+      dequeueAndQueueBurstAfterFlush(decoder, sdr8BitVideoTrack);
+    } finally {
+      heldOutputBuffer.release();
+    }
+
+    int outputFrameCount =
+        feedAndDrainStream(decoder, sdr8BitVideoTrack, NUM_INPUT_BUFFERS, /* surface= */ null);
+
+    assertThat(outputFrameCount)
+        .isAtLeast(sdr8BitVideoTrack.getSampleCount() - EOS_UNDRAINED_FRAME_SLACK);
+  }
+
   private static Dav1dDecoder createDecoder() throws Dav1dDecoderException {
+    return createDecoder(NUM_INPUT_BUFFERS, NUM_OUTPUT_BUFFERS);
+  }
+
+  private static Dav1dDecoder createDecoder(int numInputBuffers, int numOutputBuffers)
+      throws Dav1dDecoderException {
     return new Dav1dDecoder(
-        NUM_INPUT_BUFFERS,
-        NUM_OUTPUT_BUFFERS,
+        numInputBuffers,
+        numOutputBuffers,
         INITIAL_INPUT_BUFFER_SIZE,
         THREADS,
         MAX_FRAME_DELAY,
         /* useCustomAllocator= */ false,
         C.THREAD_PRIORITY_NO_OP);
+  }
+
+  private static @Nullable DecoderInputBuffer pollInputBuffer(Dav1dDecoder decoder, long timeoutMs)
+      throws Dav1dDecoderException, InterruptedException {
+    long deadlineMs = SystemClock.elapsedRealtime() + timeoutMs;
+    while (true) {
+      DecoderInputBuffer inputBuffer = decoder.dequeueInputBuffer();
+      if (inputBuffer != null || SystemClock.elapsedRealtime() >= deadlineMs) {
+        return inputBuffer;
+      }
+      Thread.sleep(1);
+    }
+  }
+
+  /**
+   * Waits for a pending {@link Dav1dDecoder#flush()} to settle and immediately dequeues and queues
+   * the first {@link #NUM_INPUT_BUFFERS} samples of {@code videoTrack} without waiting between
+   * buffers.
+   *
+   * <p>{@link Dav1dDecoder#dequeueInputBuffer()} enforces at most one unqueued input buffer at a
+   * time, so each buffer is queued immediately before dequeueing the next to verify that the full
+   * input buffer pool is available as soon as the flush completes.
+   */
+  private static void dequeueAndQueueBurstAfterFlush(
+      Dav1dDecoder decoder, FakeTrackOutput videoTrack)
+      throws Dav1dDecoderException, InterruptedException {
+    DecoderInputBuffer firstBuffer = pollInputBuffer(decoder, DECODE_TIMEOUT_MS);
+    assertWithMessage("Timed out waiting for first input buffer after flush")
+        .that(firstBuffer)
+        .isNotNull();
+    queueSampleOrEndOfStream(decoder, firstBuffer, videoTrack, /* sampleIndex= */ 0);
+
+    for (int i = 1; i < NUM_INPUT_BUFFERS; i++) {
+      DecoderInputBuffer nextBuffer = decoder.dequeueInputBuffer();
+      assertWithMessage(
+              "Expected all %s input buffers immediately after flush (null at index %s)",
+              NUM_INPUT_BUFFERS, i)
+          .that(nextBuffer)
+          .isNotNull();
+      queueSampleOrEndOfStream(decoder, nextBuffer, videoTrack, i);
+    }
   }
 
   /**
@@ -341,7 +454,16 @@ public final class Dav1dDecoderTest {
   private static int feedAndDrainEntireStream(
       Dav1dDecoder decoder, FakeTrackOutput videoTrack, @Nullable Surface surface)
       throws Dav1dDecoderException, InterruptedException {
-    int nextSampleIndex = 0;
+    return feedAndDrainStream(decoder, videoTrack, /* startSampleIndex= */ 0, surface);
+  }
+
+  private static int feedAndDrainStream(
+      Dav1dDecoder decoder,
+      FakeTrackOutput videoTrack,
+      int startSampleIndex,
+      @Nullable Surface surface)
+      throws Dav1dDecoderException, InterruptedException {
+    int nextSampleIndex = startSampleIndex;
     int outputFrameCount = 0;
     boolean endOfStreamQueued = false;
     long deadlineMs = SystemClock.elapsedRealtime() + STREAM_DECODE_TIMEOUT_MS;

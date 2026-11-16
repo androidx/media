@@ -214,8 +214,14 @@ public final class Dav1dDecoder
     synchronized (lock) {
       maybeThrowException();
       checkState(dequeuedInputBuffer == null || flushed);
+      if (flushed) {
+        // A flush is pending on the decode thread. Leave any previously dequeued buffer in place
+        // so flushInternal() returns it to availableInputBuffers; overwriting it here would leak
+        // it.
+        return null;
+      }
       dequeuedInputBuffer =
-          availableInputBufferCount == 0 || flushed
+          availableInputBufferCount == 0
               ? null
               : availableInputBuffers[--availableInputBufferCount];
       return dequeuedInputBuffer;
@@ -570,13 +576,20 @@ public final class Dav1dDecoder
       releaseInputBufferInternal(dequeuedInputBuffer);
       dequeuedInputBuffer = null;
     }
-    while (!queuedInputBuffers.isEmpty()) {
-      releaseInputBufferInternal(queuedInputBuffers.removeFirst());
-    }
     while (!queuedOutputBuffers.isEmpty()) {
       queuedOutputBuffers.removeFirst().release();
     }
     dav1dFlush(dav1dDecoderContext);
+    // dav1d_flush frees the data of packets it was still holding (e.g. frame-delayed input), which
+    // queues their input buffers as unused cookies. Return them now: decode() may have exited early
+    // on this flush without reaching its own releaseUnusedInputBuffers call, and the next decode()
+    // waits for queued input that can't arrive if every input buffer is stranded. This must run
+    // before queuedInputBuffers is drained: a buffer re-queued on DAV1D_EAGAIN also has a stale
+    // unused cookie, and releaseInputBuffer(int) skips it only while it is still queued.
+    releaseUnusedInputBuffers(dav1dDecoderContext, this);
+    while (!queuedInputBuffers.isEmpty()) {
+      releaseInputBufferInternal(queuedInputBuffers.removeFirst());
+    }
     flushed = false;
   }
 
