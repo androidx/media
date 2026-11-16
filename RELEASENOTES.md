@@ -127,6 +127,11 @@
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
         instead.
+    *   Remove
+        `MediaSourceEventListener.EventDispatcher.loadStarted(LoadEventInfo,
+        MediaLoadData)`. Use
+        `MediaSourceEventListener.EventDispatcher.loadStarted(LoadEventInfo,
+        MediaLoadData, int)` instead.
     *   Remove `RawResourceDataSource.RawResourceDataSourceException(String)`.
         Use `RawResourceDataSource.RawResourceDataSourceException(String,
         Throwable, int)` instead.

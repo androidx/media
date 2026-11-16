@@ -269,7 +269,8 @@ public interface MediaSourceEventListener {
               trackSelectionReason,
               trackSelectionData,
               usToMs(mediaStartTimeUs),
-              usToMs(mediaEndTimeUs)));
+              usToMs(mediaEndTimeUs)),
+          /* retryCount= */ 0);
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
@@ -294,15 +295,6 @@ public interface MediaSourceEventListener {
               usToMs(mediaStartTimeUs),
               usToMs(mediaEndTimeUs)),
           retryCount);
-    }
-
-    /**
-     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, MediaLoadData, int)} instead to pass
-     *     {@code retryCount}.
-     */
-    @Deprecated
-    public void loadStarted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      loadStarted(loadEventInfo, mediaLoadData, /* retryCount= */ 0);
     }
 
     /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
