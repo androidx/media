@@ -126,7 +126,8 @@ fun rememberMotionPhotoState(
  *   [MediaItem.LocalConfiguration.uri].
  * @param initialShowPhoto Whether the still photo is initially shown instead of playing motion.
  * @param initialConfig The initial [MotionPhotoConfig] governing motion playback behavior.
- * @param coroutineScope Scope used to launch deferred rewind coroutines during photo transitions.
+ * @param coroutineScope Scope used to launch deferred playback and rewind coroutines during photo
+ *   transitions.
  */
 @Stable
 @RestrictTo(LIBRARY_GROUP)
@@ -173,6 +174,8 @@ internal constructor(
 
   private var _player by mutableStateOf<Player?>(null)
   private var deferredRewindJob: Job? = null
+  private var deferredPlayJob: Job? = null
+  private var isPlayPendingFirstFrame = false
 
   /** The [Player] driving media playback. */
   internal var player: Player?
@@ -180,6 +183,7 @@ internal constructor(
     set(value) {
       if (_player != value) {
         cancelDeferredRewind()
+        cancelDeferredPlay()
         _player = value
         isMotionUnavailable = false
         isPlaybackRangeEmpty = false
@@ -296,6 +300,7 @@ internal constructor(
       // The effect running observe() shares this state's lifetime. A rewind that is still pending
       // when it ends must not reach a player that a newer state may have re-bound in the meantime.
       cancelDeferredRewind()
+      cancelDeferredPlay()
     }
   }
 
@@ -344,9 +349,31 @@ internal constructor(
           (!isCommandAvailable(Player.COMMAND_GET_TRACKS) || currentTracks.isEmpty)
       ) {
         hasRenderedFirstFrame = false
+        // The still photo covers the item being prepared again, so motion must wait for the first
+        // frame underneath it once more.
+        syncPlayWhenReady(this)
       }
       if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
         hasRenderedFirstFrame = true
+        if (isPlayPendingFirstFrame) {
+          syncPlayWhenReady(this)
+        }
+      }
+      if (
+        events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
+          playbackState == Player.STATE_READY &&
+          isPlayPendingFirstFrame
+      ) {
+        // Ready without having rendered a frame, so the frame only comes once the player plays.
+        syncPlayWhenReady(this)
+      }
+      if (
+        events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_IDLE
+      ) {
+        hasRenderedFirstFrame = false
+        // A stopped player resets to its unrendered initial state, so motion waits for a new
+        // first frame on subsequent preparation.
+        syncPlayWhenReady(this)
       }
       if (
         events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_ENDED
@@ -371,9 +398,15 @@ internal constructor(
       currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
         !currentPlayer.currentTracks.isEmpty &&
         !currentPlayer.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
+    val wasMotionUnavailable = isMotionUnavailable
     isMotionUnavailable = currentPlayer.playerError != null || hasNoVideoTrack
     if (isMotionUnavailable) {
       hasRenderedFirstFrame = false
+    }
+    if (isMotionUnavailable != wasMotionUnavailable) {
+      // Motion that becomes unavailable has no frame to fade in, and motion that becomes available
+      // again starts underneath the still photo once its first frame has rendered.
+      syncPlayWhenReady(currentPlayer)
     }
   }
 
@@ -457,13 +490,7 @@ internal constructor(
         }
       }
       shouldDeferRewind() -> {
-        // Captured on purpose: the crossfade that starts now keeps this duration even if the config
-        // changes while it is running, so the rewind must wait for the same amount of time.
-        val transitionDurationMs = _config.transitionDurationMs
-        deferredRewindJob = coroutineScope.launch {
-          delay(transitionDurationMs)
-          seekToStartPosition(currentPlayer)
-        }
+        deferredRewindJob = launchAfterTransition { seekToStartPosition(currentPlayer) }
       }
       // When resuming motion (_showPhoto == false), the player was already rewound when returning
       // to the photo unless a deferred rewind was still in flight, the player is being initialized
@@ -476,9 +503,66 @@ internal constructor(
         seekToStartPosition(currentPlayer)
       }
     }
-    if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
-      currentPlayer.playWhenReady = !_showPhoto && !isPlaybackRangeEmpty
+    syncPlayWhenReady(currentPlayer)
+  }
+
+  /**
+   * Syncs [Player.getPlayWhenReady] with the target state.
+   *
+   * Motion starts underneath the still photo: while the player is still preparing the range,
+   * playback is held back until its first frame has rendered (which is what starts the crossfade
+   * from the still photo), and in any case until that crossfade has completed, so that the still
+   * photo fades out over a stationary frame.
+   */
+  private fun syncPlayWhenReady(currentPlayer: Player) {
+    cancelDeferredPlay()
+    if (!currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+      return
     }
+    if (_showPhoto || isPlaybackRangeEmpty) {
+      currentPlayer.playWhenReady = false
+      return
+    }
+    if (isMotionUnavailable) {
+      // There is no frame to fade in, so there is nothing to wait for.
+      currentPlayer.playWhenReady = true
+      return
+    }
+    if (!hasRenderedFirstFrame) {
+      if (
+        currentPlayer.playbackState == Player.STATE_BUFFERING ||
+          currentPlayer.playbackState == Player.STATE_IDLE
+      ) {
+        // The first frame is rendered as part of preparing the range, regardless of playWhenReady.
+        // Resumed from observePlayerEvents once it has rendered, or once the player becomes ready
+        // without having rendered it.
+        currentPlayer.playWhenReady = false
+        isPlayPendingFirstFrame = true
+      } else {
+        // A player that is ready or ended without this state having observed a rendered frame (for
+        // example a player handed over across a configuration change, whose surface may have been
+        // replaced while paused) only renders once it plays, so the still photo lifts on the first
+        // frame.
+        currentPlayer.playWhenReady = true
+      }
+      return
+    }
+    if (_config.transitionDurationMs > 0L) {
+      currentPlayer.playWhenReady = false
+      deferredPlayJob = launchAfterTransition {
+        if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+          currentPlayer.playWhenReady = true
+        }
+      }
+    } else {
+      currentPlayer.playWhenReady = true
+    }
+  }
+
+  private fun cancelDeferredPlay() {
+    deferredPlayJob?.cancel()
+    deferredPlayJob = null
+    isPlayPendingFirstFrame = false
   }
 
   private fun shouldDeferRewind(): Boolean =
@@ -491,6 +575,20 @@ internal constructor(
   private fun cancelDeferredRewind() {
     deferredRewindJob?.cancel()
     deferredRewindJob = null
+  }
+
+  /**
+   * Launches [action] to run once the crossfade that starts now has completed.
+   *
+   * The duration is captured on purpose: the crossfade keeps it even if the config changes while it
+   * is running, so [action] must wait for the same amount of time.
+   */
+  private fun launchAfterTransition(action: () -> Unit): Job {
+    val transitionDurationMs = _config.transitionDurationMs
+    return coroutineScope.launch {
+      delay(transitionDurationMs)
+      action()
+    }
   }
 
   private fun seekToStartPosition(currentPlayer: Player) {
@@ -645,9 +743,7 @@ internal constructor(
         // player prepares the item and reports its timeline.
         loadedMediaItem == null && syncMediaItem(currentPlayer, mediaItem.clippingConfiguration)
       isPlaybackRangeEmpty = true
-      if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
-        currentPlayer.playWhenReady = false
-      }
+      syncPlayWhenReady(currentPlayer)
       return didUpdateMediaItem
     }
     val wasPlaybackRangeEmpty = isPlaybackRangeEmpty
@@ -675,6 +771,11 @@ internal constructor(
     val didUpdateMediaItem =
       clippingConfiguration != loadedMediaItem?.clippingConfiguration &&
         syncMediaItem(currentPlayer, clippingConfiguration, endPositionUs = endPositionUs)
+    if (didUpdateMediaItem && loadedMediaItem == null && !wasPlaybackRangeEmpty) {
+      // The first frame of the newly set item renders underneath the still photo before motion
+      // resumes.
+      syncPlayWhenReady(currentPlayer)
+    }
     if (wasPlaybackRangeEmpty) {
       syncPlaybackState(currentPlayer, allowPrepareOnError = false)
     }
@@ -767,7 +868,9 @@ internal constructor(
  *   photo. When `false`, the rewind is deferred until the crossfade to the still photo has
  *   completed, so that it happens underneath the opaque photo.
  * @property transitionDurationMs The duration of the alpha crossfade transition between the still
- *   photo and video in milliseconds. Must be non-negative.
+ *   photo and video in milliseconds. Must be non-negative. Motion playback starts once the first
+ *   frame has rendered underneath the still photo and the crossfade has completed, so that the
+ *   still photo fades out over a stationary frame.
  * @property startBoundary The [PlaybackBoundary] anchor from which motion playback starts.
  * @property startPositionOffsetMs The offset in milliseconds added to [startBoundary] to compute
  *   the start position. Must be non-negative when [startBoundary] is [BOUNDARY_START_OF_VIDEO] and

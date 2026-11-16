@@ -20,6 +20,7 @@ import android.annotation.SuppressLint
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
@@ -248,6 +249,9 @@ class MotionPhotoStateTest {
     state.showPhoto = false
     waitForIdle()
     assertThat(state.visualState.isPhotoVisible).isFalse()
+    assertThat(player.playWhenReady).isFalse()
+    mainClock.advanceTimeBy(200L)
+    waitForIdle()
     assertThat(player.playWhenReady).isTrue()
 
     player.setPlaybackState(Player.STATE_ENDED)
@@ -866,7 +870,7 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       assertThat(player.currentPosition).isEqualTo(0L)
-      assertThat(player.playWhenReady).isTrue()
+      assertThat(player.playWhenReady).isFalse()
       assertThat(state.visualState.isPhotoVisible).isFalse()
 
       // Advancing past the remaining transition duration verifies the cancelled deferred rewind
@@ -874,6 +878,7 @@ class MotionPhotoStateTest {
       player.setPosition(120L)
       mainClock.advanceTimeBy(200L)
       waitForIdle()
+      assertThat(player.playWhenReady).isTrue()
       assertThat(player.currentPosition).isAtLeast(120L)
     }
 
@@ -978,6 +983,9 @@ class MotionPhotoStateTest {
 
       state.showPhoto = false
       waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
 
       assertThat(player.currentPosition).isAtLeast(300L)
       assertThat(player.playWhenReady).isTrue()
@@ -1054,6 +1062,518 @@ class MotionPhotoStateTest {
     }
 
   @Test
+  fun showPhoto_whenSetToFalseWithZeroTransitionDuration_unpausesImmediatelyEvenAfterFirstFrameRendered() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+            initialConfig = MotionPhotoConfig(transitionDurationMs = 0L),
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+
+      state.showPhoto = false
+
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun showPhoto_whenReToggledToTrueBeforeDeferredPlayElapses_cancelsPendingPlay() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+
+      state.showPhoto = false
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      state.showPhoto = true
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun config_whenBoundaryUpdatedDuringDeferredPlay_updatesClippingInPlaceWithoutRestartingDelay() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+
+      state.showPhoto = false
+      mainClock.advanceTimeBy(100L)
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      // Updating the clipping in place keeps the rendered frame and the ongoing crossfade, so the
+      // original 200ms delay completes after the remaining 100ms instead of restarting.
+      state.config =
+        state.config.copy(
+          endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
+          endPositionOffsetMs = 600L,
+        )
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(600L)
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isFalse()
+
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withInitialShowPhotoFalseWhilePreparing_unpausesAfterFirstFrameAndCrossfade() =
+    runComposeUiTest {
+      // The player buffers for a while when prepared, as ExoPlayer does.
+      val player = createSeekableFakePlayer(durationMs = 1_000L, bufferingDelayMs = 100L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      mainClock.autoAdvance = false
+
+      // Playback is held back while the first frame of the range is still being prepared.
+      assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      // The first frame starts the crossfade, and playback starts once it has completed.
+      player.renderFirstFrame(true)
+      waitForIdle()
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isFalse()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerBecomesReadyWithoutRenderingFirstFrame_unpausesImmediately() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L, bufferingDelayMs = 100L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      // A player that becomes ready without having rendered a frame (for example because its
+      // surface was replaced while paused) only renders once it plays.
+      ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS)
+      waitForIdle()
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_READY)
+      assertThat(player.playWhenReady).isTrue()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      // Once playback produces that first frame, the photo crossfades out without re-pausing.
+      mainClock.autoAdvance = false
+      player.renderFirstFrame(true)
+      waitForIdle()
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun showPhoto_whenSetToTrueWhilePlaybackIsPendingFirstFrame_staysPausedAfterFirstFrame() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L, bufferingDelayMs = 100L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      state.showPhoto = true
+      waitForIdle()
+      renderFirstFrameAndCompleteTransition(player)
+
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun config_whenBoundaryBecomesEmptyDuringDeferredPlay_cancelsPendingPlay() = runComposeUiTest {
+    val player = createSeekableFakePlayer(durationMs = 1_000L)
+    lateinit var state: MotionPhotoState
+    setContent {
+      state =
+        rememberMotionPhotoState(
+          player = player,
+          mediaItem = testMediaItem,
+          initialShowPhoto = true,
+        )
+    }
+    waitForIdle()
+    player.renderFirstFrame(true)
+    waitForIdle()
+    mainClock.autoAdvance = false
+
+    state.showPhoto = false
+    mainClock.advanceTimeBy(50L)
+    waitForIdle()
+    assertThat(player.playWhenReady).isFalse()
+
+    state.config =
+      state.config.copy(
+        startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+        startPositionOffsetMs = 0L,
+      )
+    mainClock.advanceTimeBy(200L)
+    waitForIdle()
+
+    assertThat(player.playWhenReady).isFalse()
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+  }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerReplacedDuringDeferredPlay_doesNotUnpausePreviousPlayer() =
+    runComposeUiTest {
+      val firstPlayer = FakePlayer(bufferingDelayMs = 0)
+      val secondPlayer = FakePlayer(bufferingDelayMs = 0)
+      var currentPlayer by mutableStateOf<Player>(firstPlayer)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = currentPlayer,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      firstPlayer.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+      state.showPhoto = false
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(firstPlayer.playWhenReady).isFalse()
+
+      currentPlayer = secondPlayer
+      waitForIdle()
+      mainClock.advanceTimeUntil { state.player === secondPlayer }
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(firstPlayer.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenMediaItemChangesDuringDeferredPlay_doesNotUnpauseNewMediaItem() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      val secondMediaItem = MediaItem.fromUri("file:///second_motion_photo.jpg")
+      var currentItem by mutableStateOf(testMediaItem)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = currentItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+      state.showPhoto = false
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      // A new state binds the same player with initialShowPhoto = true mid-delay.
+      currentItem = secondMediaItem
+      waitForIdle()
+      mainClock.advanceTimeUntil { player.currentMediaItem == secondMediaItem }
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun showPhoto_whenPlayPauseCommandRemovedDuringDeferredPlay_keepsPlayWhenReadyFalseWithoutThrowing() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0, throwWhenCommandUnavailable = true)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+      state.showPhoto = false
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isFalse()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_withInitialShowPhotoFalseOnIdleBufferingPlayer_neverSetsPlayWhenReadyBeforeFirstFrame() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 100L)
+      val playWhenReadyHistory = mutableListOf<Boolean>()
+      player.addListener(
+        object : Player.Listener {
+          override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            playWhenReadyHistory.add(playWhenReady)
+          }
+        }
+      )
+
+      lateinit var state: MotionPhotoState
+
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(playWhenReadyHistory).doesNotContain(true)
+
+      renderFirstFrameAndCompleteTransition(player)
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenPlayerStopsDuringDeferredPlay_cancelsPendingPlayAndHoldsUntilRePreparedFirstFrame() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L, bufferingDelayMs = 1_000L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+      state.showPhoto = false
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      player.stop()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_IDLE)
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      player.prepare()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+      assertThat(player.playWhenReady).isFalse()
+
+      player.renderFirstFrame(true)
+      waitForIdle()
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isFalse()
+
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenTracksBecomeEmptyDuringDeferredPlay_cancelsPendingPlayAndHoldsUntilNextFirstFrame() =
+    runComposeUiTest {
+      val player =
+        createSeekableFakePlayer(
+          durationMs = 1_000L,
+          bufferingDelayMs = 1_000L,
+          tracks = createTestTracks(selectedVideoTrackIndex = 0),
+        )
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = true,
+          )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+      state.showPhoto = false
+      mainClock.advanceTimeBy(50L)
+      waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+
+      player.setTracks(Tracks.EMPTY)
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      renderFirstFrameAndCompleteTransition(player)
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenMotionAvailabilityTogglesDuringPendingFirstFrame_updatesPlayWhenReadyAndRestoresHold() =
+    runComposeUiTest {
+      val player = createSeekableFakePlayer(durationMs = 1_000L, bufferingDelayMs = 1_000L)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+      assertThat(player.playWhenReady).isFalse()
+
+      player.setTracks(createTestTracks(selectedVideoTrackIndex = null))
+      waitForIdle()
+
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isTrue()
+
+      player.setTracks(createTestTracks(selectedVideoTrackIndex = 0))
+      waitForIdle()
+
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(player.playWhenReady).isFalse()
+
+      renderFirstFrameAndCompleteTransition(player)
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
+  fun rememberMotionPhotoState_whenSetMediaItemCommandBecomesAvailableWithInitialShowPhotoFalse_holdsUntilNextFirstFrame() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 1_000L)
+      player.setMediaItem(MediaItem.fromUri("file:///other_motion_photo.jpg"))
+      player.prepare()
+      player.removeCommands(Player.COMMAND_SET_MEDIA_ITEM)
+      lateinit var state: MotionPhotoState
+      setContent {
+        state =
+          rememberMotionPhotoState(
+            player = player,
+            mediaItem = testMediaItem,
+            initialShowPhoto = false,
+          )
+      }
+      waitForIdle()
+      renderFirstFrameAndCompleteTransition(player)
+      assertThat(player.playWhenReady).isTrue()
+      mainClock.autoAdvance = false
+
+      player.addCommands(Player.COMMAND_SET_MEDIA_ITEM)
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
+      assertThat(player.currentMediaItem).isEqualTo(testMediaItem)
+      assertThat(player.playWhenReady).isFalse()
+      assertThat(state.visualState.isPhotoVisible).isTrue()
+
+      renderFirstFrameAndCompleteTransition(player)
+
+      assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isTrue()
+    }
+
+  @Test
   fun showPhoto_withResumeVideoFromPreviousPosition_pausesAndResumesWithoutRewindingAndRestartsAfterEnded() =
     runComposeUiTest {
       val player = FakePlayer(bufferingDelayMs = 0)
@@ -1089,6 +1609,9 @@ class MotionPhotoStateTest {
 
       state.showPhoto = false
       waitForIdle()
+      assertThat(player.playWhenReady).isFalse()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
 
       assertThat(player.playWhenReady).isTrue()
       assertThat(player.currentPosition).isAtLeast(400L)
@@ -1100,8 +1623,11 @@ class MotionPhotoStateTest {
 
       state.showPhoto = false
       waitForIdle()
-
       assertThat(player.currentPosition).isEqualTo(0L)
+      assertThat(player.playWhenReady).isFalse()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
+
       assertThat(player.playWhenReady).isTrue()
     }
 
@@ -1264,12 +1790,16 @@ class MotionPhotoStateTest {
       assertThat(state.visualState.isPhotoVisible).isTrue()
       assertThat(player.playWhenReady).isFalse()
 
-      // Restoring a valid offset resumes playback in place without resetting the first-frame gate.
+      // Restoring a valid offset resumes playback in place after the crossfade from the still photo
+      // completes, without resetting the first-frame gate.
       state.config = state.config.copy(startPositionOffsetMs = -300L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(700L)
       assertThat(state.visualState.isPhotoVisible).isFalse()
+      assertThat(player.playWhenReady).isFalse()
+      mainClock.advanceTimeBy(200L)
+      waitForIdle()
       assertThat(player.playWhenReady).isTrue()
     }
 
@@ -2324,6 +2854,10 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(700L)
+      assertThat(player.playWhenReady).isFalse()
+
+      renderFirstFrameAndCompleteTransition(player)
+
       assertThat(player.playWhenReady).isTrue()
     }
 
@@ -2418,9 +2952,12 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       // Tracks without MotionPhotoMetadata fall back to the end of the video, so the unclipped item
-      // plays as it is without being set again.
+      // plays as it is without being set again, once its first frame has rendered underneath the
+      // photo and the crossfade has completed.
       assertThat(player.currentMediaItem).isEqualTo(testMediaItem)
       assertThat(setClippingEndPositionsUs).isEmpty()
+      assertThat(player.playWhenReady).isFalse()
+      renderFirstFrameAndCompleteTransition(player)
       assertThat(player.playWhenReady).isTrue()
 
       // The tracks reported again do not set the item either.
@@ -2428,6 +2965,7 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       assertThat(setClippingEndPositionsUs).isEmpty()
+      assertThat(player.playWhenReady).isTrue()
     }
 
   @Test
@@ -2673,6 +3211,10 @@ class MotionPhotoStateTest {
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(300_000L)
+      assertThat(player.playWhenReady).isFalse()
+
+      renderFirstFrameAndCompleteTransition(player)
+
       assertThat(player.playWhenReady).isTrue()
     }
 
@@ -2719,6 +3261,10 @@ class MotionPhotoStateTest {
 
       assertThat(secondPlayer.currentMediaItem?.clippingConfiguration?.endPositionUs)
         .isEqualTo(300_000L)
+      assertThat(secondPlayer.playWhenReady).isFalse()
+
+      renderFirstFrameAndCompleteTransition(secondPlayer)
+
       assertThat(secondPlayer.playWhenReady).isTrue()
     }
 
@@ -3007,6 +3553,20 @@ class MotionPhotoStateTest {
           setOriginalDuration("motion_photo", durationMs)
         }
       }
+
+  /**
+   * Renders the first frame on [player] and lets the crossfade from the still photo complete, after
+   * which motion playback starts.
+   */
+  private fun ComposeUiTest.renderFirstFrameAndCompleteTransition(
+    player: FakePlayer,
+    transitionDurationMs: Long = MotionPhotoConfig.DEFAULT_TRANSITION_DURATION_MS,
+  ) {
+    player.renderFirstFrame(true)
+    waitForIdle()
+    mainClock.advanceTimeBy(transitionDurationMs)
+    waitForIdle()
+  }
 
   /**
    * Creates tracks shaped like the ones ExoPlayer reports for the output of the JPEG motion photo
