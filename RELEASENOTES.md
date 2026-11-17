@@ -39,6 +39,9 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Fix `IndexOutOfBoundsException` when parsing a WebVTT cue with multiple
+        `<ruby>` tags nested inside another tag
+        ([#3549](https://github.com/androidx/media/issues/3549)).
 *   Metadata:
 *   Image:
 *   DataSource:

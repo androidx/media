@@ -23,3 +23,8 @@ NOTE Many individual rubies in a single <ruby> tag
 
 00:00:07.000 --> 00:00:08.000
 Some <ruby>text with no ruby text</ruby>.
+
+NOTE Multiple <ruby> tags inside another tag (https://github.com/androidx/media/issues/3549)
+
+00:00:09.000 --> 00:00:10.000
+<b>Some <ruby.under>base1<rt.over>over1</rt>base2<rt>under2</rt></ruby> and <ruby>over-ruby (default)<rt>over3</rt></ruby>.</b>

@@ -580,14 +580,17 @@ public final class WebvttCueParser {
       List<WebvttCssStyle> styles) {
     @TextAnnotation.Position int rubyTagPosition = getRubyPosition(styles, cueId, startTag);
     List<Element> sortedNestedElements = new ArrayList<>(nestedElements.size());
-    sortedNestedElements.addAll(nestedElements);
+    for (int i = 0; i < nestedElements.size(); i++) {
+      Element nestedElement = nestedElements.get(i);
+      if (TAG_RUBY_TEXT.equals(nestedElement.startTag.name)
+          && nestedElement.startTag.position >= startTag.position) {
+        sortedNestedElements.add(nestedElement);
+      }
+    }
     sortedNestedElements.sort(Element.BY_START_POSITION_ASC);
     int deletedCharCount = 0;
     int lastRubyTextEnd = startTag.position;
     for (int i = 0; i < sortedNestedElements.size(); i++) {
-      if (!TAG_RUBY_TEXT.equals(sortedNestedElements.get(i).startTag.name)) {
-        continue;
-      }
       Element rubyTextElement = sortedNestedElements.get(i);
       // Use the <rt> element's ruby-position if set, otherwise the <ruby> element's and otherwise
       // default to OVER.
@@ -611,6 +614,7 @@ public final class WebvttCueParser {
       // The ruby text has been deleted, so new-start == old-end.
       lastRubyTextEnd = adjustedRubyTextStart;
     }
+    nestedElements.removeAll(sortedNestedElements);
   }
 
   private static @TextAnnotation.Position int getRubyPosition(

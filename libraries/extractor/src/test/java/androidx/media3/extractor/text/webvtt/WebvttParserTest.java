@@ -458,7 +458,7 @@ public class WebvttParserTest {
   public void parseWithRubies() throws Exception {
     List<CuesWithTiming> allCues = getCuesForTestAsset(WITH_RUBIES_FILE);
 
-    assertThat(allCues).hasSize(4);
+    assertThat(allCues).hasSize(5);
 
     // Check that an explicit `over` position is read from CSS.
     Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
@@ -497,6 +497,23 @@ public class WebvttParserTest {
     Cue fourthCue = Iterables.getOnlyElement(allCues.get(3).cues);
     assertThat(fourthCue.text.toString()).isEqualTo("Some text with no ruby text.");
     assertThat((Spanned) fourthCue.text).hasNoSpans();
+
+    // Check multiple <ruby> tags nested inside another tag
+    // (https://github.com/androidx/media/issues/3549).
+    Cue fifthCue = Iterables.getOnlyElement(allCues.get(4).cues);
+    assertThat(fifthCue.text.toString()).isEqualTo("Some base1base2 and over-ruby (default).");
+    assertThat((Spanned) fifthCue.text)
+        .hasBoldSpanBetween(/* start= */ 0, "Some base1base2 and over-ruby (default).".length());
+    assertThat((Spanned) fifthCue.text)
+        .hasRubySpanBetween("Some ".length(), "Some base1".length())
+        .withTextAndPosition("over1", TextAnnotation.POSITION_BEFORE);
+    assertThat((Spanned) fifthCue.text)
+        .hasRubySpanBetween("Some base1".length(), "Some base1base2".length())
+        .withTextAndPosition("under2", TextAnnotation.POSITION_AFTER);
+    assertThat((Spanned) fifthCue.text)
+        .hasRubySpanBetween(
+            "Some base1base2 and ".length(), "Some base1base2 and over-ruby (default)".length())
+        .withTextAndPosition("over3", TextAnnotation.POSITION_BEFORE);
   }
 
   // https://github.com/androidx/media/issues/2167
