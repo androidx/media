@@ -29,7 +29,6 @@ import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
@@ -39,19 +38,23 @@ import org.robolectric.annotation.Config;
 public class MediaSessionManagerTest {
 
   private static final String NOTIFICATION_LISTENER_PACKAGE = "com.example.notificationlistener";
-  private static final int NOTIFICATION_LISTENER_UID = 10101;
   private static final String MEDIA_CONTROL_PACKAGE = "com.example.mediacontrol";
-  private static final int MEDIA_CONTROL_UID = 10102;
-  private static final int OTHER_APP_UID = 10202;
-  private static final int UNTRUSTED_UID = 10303;
 
   private Application context;
   private MediaSessionManager sessionManager;
+  private int notificationListenerUid;
+  private int mediaControlUid;
+  private int otherAppUid;
+  private int untrustedUid;
 
   @Before
   public void setUp() {
     context = getApplicationContext();
     sessionManager = MediaSessionManager.getSessionManager(context);
+    notificationListenerUid = getOtherApplicationUid(/* offset= */ 1);
+    mediaControlUid = getOtherApplicationUid(/* offset= */ 2);
+    otherAppUid = getOtherApplicationUid(/* offset= */ 3);
+    untrustedUid = getOtherApplicationUid(/* offset= */ 4);
   }
 
   @Test
@@ -68,7 +71,7 @@ public class MediaSessionManagerTest {
   @Test
   public void isTrustedForMediaControl_currentAppPackageWithMismatchedUid_returnsFalse() {
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, OTHER_APP_UID);
+        new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, otherAppUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -78,7 +81,7 @@ public class MediaSessionManagerTest {
 
   @Test
   public void isTrustedForMediaControl_currentAppUidWithDifferentPackage_returnsTrue() {
-    installPackage(/* packageName= */ "com.example.other", OTHER_APP_UID);
+    installPackage(/* packageName= */ "com.example.other", otherAppUid);
     RemoteUserInfo userInfo =
         new RemoteUserInfo(
             /* packageName= */ "com.example.other", Process.myPid(), Process.myUid());
@@ -140,9 +143,9 @@ public class MediaSessionManagerTest {
       isTrustedForMediaControl_mediaContentControlGrantedForPidAndUidWithDifferentPackage_returnsTrue() {
     shadowOf(context)
         .grantPermissions(
-            /* pid= */ 1234, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
+            /* pid= */ 1234, mediaControlUid, "android.permission.MEDIA_CONTENT_CONTROL");
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, MEDIA_CONTROL_UID);
+        new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, mediaControlUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -155,9 +158,9 @@ public class MediaSessionManagerTest {
       isTrustedForMediaControl_mediaContentControlGrantedForPidAndUidWithUnresolvablePackage_returnsTrue() {
     shadowOf(context)
         .grantPermissions(
-            /* pid= */ 1234, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
+            /* pid= */ 1234, mediaControlUid, "android.permission.MEDIA_CONTENT_CONTROL");
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, MEDIA_CONTROL_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, mediaControlUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -169,9 +172,9 @@ public class MediaSessionManagerTest {
   public void
       isTrustedForMediaControl_mediaContentControlGrantedWithUnknownPidAndMatchingUid_returnsTrue() {
     installPackage(
-        MEDIA_CONTROL_PACKAGE, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
+        MEDIA_CONTROL_PACKAGE, mediaControlUid, "android.permission.MEDIA_CONTENT_CONTROL");
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, MEDIA_CONTROL_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, mediaControlUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -183,9 +186,9 @@ public class MediaSessionManagerTest {
   public void
       isTrustedForMediaControl_mediaContentControlGrantedWithUnknownPidAndMismatchedUid_returnsFalse() {
     installPackage(
-        MEDIA_CONTROL_PACKAGE, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
+        MEDIA_CONTROL_PACKAGE, mediaControlUid, "android.permission.MEDIA_CONTENT_CONTROL");
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, OTHER_APP_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, otherAppUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -198,9 +201,9 @@ public class MediaSessionManagerTest {
   public void isTrustedForMediaControl_executeAppFunctionsGrantedForPidAndUid_returnsTrue() {
     shadowOf(context)
         .grantPermissions(
-            /* pid= */ 1234, MEDIA_CONTROL_UID, android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+            /* pid= */ 1234, mediaControlUid, android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, MEDIA_CONTROL_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, mediaControlUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -208,15 +211,14 @@ public class MediaSessionManagerTest {
     assertThat(isTrusted).isTrue();
   }
 
-  @Ignore("Flaky: b/578522710")
   @Test
   @Config(maxSdk = 35)
   public void isTrustedForMediaControl_executeAppFunctionsGrantedBelowApi36_returnsFalse() {
     shadowOf(context)
         .grantPermissions(
-            /* pid= */ 1234, MEDIA_CONTROL_UID, android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+            /* pid= */ 1234, mediaControlUid, android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, MEDIA_CONTROL_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, mediaControlUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -229,11 +231,9 @@ public class MediaSessionManagerTest {
   public void
       isTrustedForMediaControl_executeAppFunctionsGrantedWithUnknownPidAndMatchingUid_returnsTrue() {
     installPackage(
-        MEDIA_CONTROL_PACKAGE,
-        MEDIA_CONTROL_UID,
-        android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+        MEDIA_CONTROL_PACKAGE, mediaControlUid, android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, MEDIA_CONTROL_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, mediaControlUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -246,11 +246,9 @@ public class MediaSessionManagerTest {
   public void
       isTrustedForMediaControl_executeAppFunctionsGrantedWithUnknownPidAndMismatchedUid_returnsFalse() {
     installPackage(
-        MEDIA_CONTROL_PACKAGE,
-        MEDIA_CONTROL_UID,
-        android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
+        MEDIA_CONTROL_PACKAGE, mediaControlUid, android.Manifest.permission.EXECUTE_APP_FUNCTIONS);
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, OTHER_APP_UID);
+        new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, otherAppUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -260,14 +258,13 @@ public class MediaSessionManagerTest {
 
   @Test
   public void isTrustedForMediaControl_enabledNotificationListenerWithMatchingUid_returnsTrue() {
-    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, notificationListenerUid);
     Settings.Secure.putString(
         context.getContentResolver(),
         "enabled_notification_listeners",
         new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(
-            NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, NOTIFICATION_LISTENER_UID);
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, notificationListenerUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -277,13 +274,13 @@ public class MediaSessionManagerTest {
 
   @Test
   public void isTrustedForMediaControl_enabledNotificationListenerWithMismatchedUid_returnsFalse() {
-    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, notificationListenerUid);
     Settings.Secure.putString(
         context.getContentResolver(),
         "enabled_notification_listeners",
         new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, OTHER_APP_UID);
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, otherAppUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -293,7 +290,7 @@ public class MediaSessionManagerTest {
 
   @Test
   public void isTrustedForMediaControl_multiplePackagesSharingUid_returnsTrue() {
-    int sharedUid = 10105;
+    int sharedUid = getOtherApplicationUid(/* offset= */ 5);
     installPackage(/* packageName= */ "com.example.shared1", sharedUid);
     installPackage(NOTIFICATION_LISTENER_PACKAGE, sharedUid);
     Settings.Secure.putString(
@@ -326,10 +323,10 @@ public class MediaSessionManagerTest {
   @Config(sdk = 27)
   public void
       isTrustedForMediaControl_apiBelow28WithUnknownUidAndMediaContentControlGrantedForPid_returnsTrue() {
-    installPackage(MEDIA_CONTROL_PACKAGE, MEDIA_CONTROL_UID);
+    installPackage(MEDIA_CONTROL_PACKAGE, mediaControlUid);
     shadowOf(context)
         .grantPermissions(
-            /* pid= */ 1234, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
+            /* pid= */ 1234, mediaControlUid, "android.permission.MEDIA_CONTENT_CONTROL");
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, /* pid= */ 1234, RemoteUserInfo.UNKNOWN_UID);
 
@@ -343,7 +340,7 @@ public class MediaSessionManagerTest {
   @Config(sdk = 27)
   public void
       isTrustedForMediaControl_apiBelow28WithUnknownUidAndEnabledNotificationListener_returnsTrue() {
-    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, notificationListenerUid);
     Settings.Secure.putString(
         context.getContentResolver(),
         "enabled_notification_listeners",
@@ -362,7 +359,7 @@ public class MediaSessionManagerTest {
   @Config(sdk = 27)
   public void isTrustedForMediaControl_apiBelow28WithKnownMismatchedUid_returnsFalse() {
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, OTHER_APP_UID);
+        new RemoteUserInfo(context.getPackageName(), /* pid= */ 1234, otherAppUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -391,8 +388,7 @@ public class MediaSessionManagerTest {
         "enabled_notification_listeners",
         new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(
-            NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, NOTIFICATION_LISTENER_UID);
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, notificationListenerUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
@@ -408,8 +404,7 @@ public class MediaSessionManagerTest {
         "enabled_notification_listeners",
         new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(
-            NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, NOTIFICATION_LISTENER_UID);
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, notificationListenerUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
@@ -424,7 +419,7 @@ public class MediaSessionManagerTest {
         context.getContentResolver(),
         "enabled_notification_listeners",
         new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
-    int otherUserUid = 10 * 100_000 + NOTIFICATION_LISTENER_UID;
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
     RemoteUserInfo userInfo =
         new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, /* pid= */ 1234, otherUserUid);
 
@@ -439,7 +434,7 @@ public class MediaSessionManagerTest {
       isTrustedForMediaControl_unresolvableNonNotificationListenerWithVerifiedPackage_returnsFalse() {
     RemoteUserInfo userInfo =
         new RemoteUserInfo(
-            /* packageName= */ "com.example.untrusted", /* pid= */ 1234, UNTRUSTED_UID);
+            /* packageName= */ "com.example.untrusted", /* pid= */ 1234, untrustedUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ true);
@@ -451,8 +446,8 @@ public class MediaSessionManagerTest {
   public void
       isTrustedForMediaControl_mediaContentControlGrantedWithUnknownPidInDifferentUserAndVerifiedPackage_returnsFalse() {
     installPackage(
-        MEDIA_CONTROL_PACKAGE, MEDIA_CONTROL_UID, "android.permission.MEDIA_CONTENT_CONTROL");
-    int otherUserUid = 10 * 100_000 + MEDIA_CONTROL_UID;
+        MEDIA_CONTROL_PACKAGE, mediaControlUid, "android.permission.MEDIA_CONTENT_CONTROL");
+    int otherUserUid = 10 * 100_000 + mediaControlUid;
     RemoteUserInfo userInfo =
         new RemoteUserInfo(MEDIA_CONTROL_PACKAGE, RemoteUserInfo.UNKNOWN_PID, otherUserUid);
 
@@ -464,7 +459,7 @@ public class MediaSessionManagerTest {
 
   @Test
   public void isTrustedForMediaControl_unknownUidWithVerifiedPackage_returnsFalse() {
-    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, notificationListenerUid);
     Settings.Secure.putString(
         context.getContentResolver(),
         "enabled_notification_listeners",
@@ -481,7 +476,7 @@ public class MediaSessionManagerTest {
 
   @Test
   public void isTrustedForMediaControl_negativeUidWithVerifiedPackage_returnsFalse() {
-    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, notificationListenerUid);
     Settings.Secure.putString(
         context.getContentResolver(),
         "enabled_notification_listeners",
@@ -498,7 +493,7 @@ public class MediaSessionManagerTest {
   @Test
   @Config(sdk = 27)
   public void isTrustedForMediaControl_apiBelow28WithNegativeNonUnknownUid_returnsFalse() {
-    installPackage(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_UID);
+    installPackage(NOTIFICATION_LISTENER_PACKAGE, notificationListenerUid);
     Settings.Secure.putString(
         context.getContentResolver(),
         "enabled_notification_listeners",
@@ -515,12 +510,19 @@ public class MediaSessionManagerTest {
   @Test
   public void isTrustedForMediaControl_nonExistentPackage_returnsFalse() {
     RemoteUserInfo userInfo =
-        new RemoteUserInfo(/* packageName= */ "com.example.nonexistent", /* pid= */ 1234, 10303);
+        new RemoteUserInfo(
+            /* packageName= */ "com.example.nonexistent", /* pid= */ 1234, untrustedUid);
 
     boolean isTrusted =
         sessionManager.isTrustedForMediaControl(userInfo, /* isPackageNameVerified= */ false);
 
     assertThat(isTrusted).isFalse();
+  }
+
+  private static int getOtherApplicationUid(int offset) {
+    int appUidCount = Process.LAST_APPLICATION_UID - Process.FIRST_APPLICATION_UID + 1;
+    return Process.FIRST_APPLICATION_UID
+        + (Process.myUid() - Process.FIRST_APPLICATION_UID + offset) % appUidCount;
   }
 
   private void installPackage(String packageName, int uid, String... grantedPermissions) {
