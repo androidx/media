@@ -719,4 +719,43 @@ public class MetadataRetrieverTest {
     assertThat(trackGroups.get(0).getFormat(0).sampleMimeType).isEqualTo(MimeTypes.AUDIO_MPEG);
     assertThat(durationUs).isEqualTo(2_808_000);
   }
+
+  @Test
+  public void retrieveMetadata_mp4WithMpegAudio_outputsContainerLevelAudioFormat()
+      throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri("asset://android_asset/media/mp4/sample_mp2_audio.mp4");
+
+    TrackGroupArray trackGroups;
+    long durationUs;
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
+      ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+      ListenableFuture<Long> durationFuture = retriever.retrieveDurationUs();
+      trackGroups = trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      durationUs = durationFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    assertThat(trackGroups.length).isEqualTo(1);
+    assertThat(trackGroups.get(0).getFormat(0).sampleMimeType).isEqualTo(MimeTypes.AUDIO_MPEG);
+    assertThat(durationUs).isEqualTo(105_000);
+  }
+
+  @Test
+  public void retrieveMetadata_mp4WithDtsAudio_outputsContainerLevelAudioFormat() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri("asset://android_asset/media/mp4/sample_dts_hd_ma.mp4");
+
+    TrackGroupArray trackGroups;
+    long durationUs;
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
+      ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
+      ListenableFuture<Long> durationFuture = retriever.retrieveDurationUs();
+      trackGroups = trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      durationUs = durationFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    assertThat(trackGroups.length).isEqualTo(1);
+    assertThat(trackGroups.get(0).getFormat(0).sampleMimeType).isEqualTo(MimeTypes.AUDIO_DTS);
+    assertThat(durationUs).isEqualTo(1_003_000);
+  }
 }

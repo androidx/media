@@ -259,6 +259,50 @@ public final class Mp4ExtractorNonParameterizedTest {
   }
 
   @Test
+  public void extract_withOmitTrackSampleTableFlagAndMpegAudio_emitsContainerLevelFormat()
+      throws Exception {
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_mp2_audio.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    FakeTrackOutput audioTrack = output.trackOutputs.get(0);
+    assertThat(audioTrack.lastFormat).isNotNull();
+    assertThat(audioTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_MPEG);
+    assertThat(audioTrack.lastFormat.channelCount).isEqualTo(1);
+    assertThat(audioTrack.lastFormat.sampleRate).isEqualTo(44_100);
+    assertThat(audioTrack.getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void extract_withOmitTrackSampleTableFlagAndDtsAudio_emitsContainerLevelFormat()
+      throws Exception {
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            SubtitleParser.Factory.UNSUPPORTED, Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            mp4Extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_dts_express.mp4");
+
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    FakeTrackOutput audioTrack = output.trackOutputs.get(0);
+    assertThat(audioTrack.lastFormat).isNotNull();
+    assertThat(audioTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_DTS);
+    assertThat(audioTrack.lastFormat.channelCount).isEqualTo(6);
+    assertThat(audioTrack.lastFormat.sampleRate).isEqualTo(48_000);
+    assertThat(audioTrack.getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
   public void extract_withPoorlyMuxedIt35Track_extractsMetadataBeforeVideo() throws Exception {
     Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
     FakeExtractorInput input = createInputForSample("sample_with_it35_track.mp4");

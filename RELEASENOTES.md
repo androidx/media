@@ -38,6 +38,8 @@
         into the caller's `MediaCodec.CryptoInfo`, matching the platform
         `MediaExtractor` and preventing subsequent calls or reads from
         overwriting previously returned arrays.
+    *   Fix `ParserException` in `MetadataRetriever` when retrieving metadata
+        from MP4 and MOV files with MPEG (MP1, MP2, MP3) or DTS audio tracks.
 *   Inspector Frame:
 *   Audio:
 *   Video:
