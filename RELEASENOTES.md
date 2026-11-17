@@ -30,6 +30,9 @@
     *   Immediately wake up the playback loop to handle asynchronous
         `MediaCodec` errors instead of waiting for the next scheduled rendering
         iteration.
+    *   Fix an issue where `Player.getCurrentPosition()` could freeze during
+        audio offload playback
+        ([#3546](https://github.com/androidx/media/issues/3546)).
 *   CompositionPlayer:
 *   Transformer:
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`

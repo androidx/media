@@ -11101,9 +11101,115 @@ public final class ExoPlayerTest {
     long currentPosition = player.getCurrentPosition();
     fakeClock.advanceTime(/* timeDiffMs= */ 800);
     long newPosition = player.getCurrentPosition();
+    fakeClock.advanceTime(/* timeDiffMs= */ 4_200);
+    long newPositionUncapped = player.getCurrentPosition();
 
     assertThat(newPosition - currentPosition).isNotEqualTo(0);
     assertThat(newPosition).isEqualTo(800);
+    // Verify position is not capped by PlaybackInfo.MAX_ELAPSED_TIME_MS (1500ms) during sleep.
+    assertThat(newPositionUncapped).isEqualTo(currentPosition + 5_000);
+
+    player.release();
+  }
+
+  @Test
+  public void
+      pause_whileSleepingForOffloadPastMaxSchedulingInterval_masksUncappedEstimatedPosition()
+          throws Exception {
+    FakeClock fakeClock =
+        new FakeClock(/* initialTimeMs= */ 987_654_321L, /* isAutoAdvancing= */ true);
+    FakeSleepRenderer sleepRenderer = new FakeSleepRenderer(C.TRACK_TYPE_AUDIO);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context).setClock(fakeClock).setRenderers(sleepRenderer))
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .build())
+            .build());
+    player.prepare();
+    player.play();
+    sleepRenderer.sleepOnNextRender();
+    advance(player).untilSleepingForOffloadBecomes(true);
+    long initialPositionMs = player.getCurrentPosition();
+    fakeClock.advanceTime(/* timeDiffMs= */ 5_000);
+
+    player.pause();
+    long maskedPositionMs = player.getCurrentPosition();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    long syncedPositionMs = player.getCurrentPosition();
+
+    assertThat(maskedPositionMs).isEqualTo(initialPositionMs + 5_000);
+    assertThat(syncedPositionMs).isEqualTo(initialPositionMs + 5_000);
+
+    player.release();
+  }
+
+  @Test
+  public void
+      play_whileSleepingForOffloadLongerThanTwiceStuckPlayingDetectionTimeout_doesNotTriggerStuckPlayerException()
+          throws Exception {
+    FakeClock fakeClock =
+        new FakeClock(/* initialTimeMs= */ 987_654_321L, /* isAutoAdvancing= */ true);
+    FakeSleepRenderer sleepRenderer = new FakeSleepRenderer(C.TRACK_TYPE_AUDIO);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(context)
+                    .setClock(fakeClock)
+                    .setRenderers(sleepRenderer)
+                    .setStuckPlayingDetectionTimeoutMs(10_000))
+            .build();
+    AtomicReference<@Nullable PlaybackException> playerError = new AtomicReference<>();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            playerError.set(error);
+          }
+        });
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder().setDurationUs(60 * C.MICROS_PER_SECOND).build());
+    player.setMediaSource(new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.setTrackSelectionParameters(
+        player
+            .getTrackSelectionParameters()
+            .buildUpon()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED)
+                    .build())
+            .build());
+    player.prepare();
+    player.play();
+    sleepRenderer.sleepOnNextRender();
+    advance(player).untilSleepingForOffloadBecomes(true);
+    long initialPositionMs = player.getCurrentPosition();
+
+    // Advance past 2 * stuckPlayingDetectionTimeoutMs in timeout-sized steps so
+    // StuckPlayingDetector checks progress multiple times while sleeping for offload.
+    for (int i = 0; i < 3; i++) {
+      fakeClock.advanceTime(/* timeDiffMs= */ 10_000);
+      advance(player).untilPendingCommandsAreFullyHandled();
+    }
+    boolean isPlayingWhileSleeping = player.isPlaying();
+    boolean isSleepingForOffload = player.isSleepingForOffload();
+    long positionWhileSleepingMs = player.getCurrentPosition();
+    sleepRenderer.wakeup();
+    advance(player).untilSleepingForOffloadBecomes(false);
+    advance(player).untilState(Player.STATE_ENDED);
+
+    assertThat(playerError.get()).isNull();
+    assertThat(isPlayingWhileSleeping).isTrue();
+    assertThat(isSleepingForOffload).isTrue();
+    assertThat(positionWhileSleepingMs).isEqualTo(initialPositionMs + 30_000);
 
     player.release();
   }

@@ -48,8 +48,9 @@ import org.jspecify.annotations.Nullable;
    * Elapsed time limit for position extrapolation when accounting for thread scheduling delays.
    *
    * <p>The extrapolation must be capped to prevent unbounded ghost playback during thread
-   * deadlocks. The playback thread wakes up at most every READY_MAXIMUM_INTERVAL_MS (1000ms). A
-   * 1.5*READY_MAXIMUM_INTERVAL_MS cap provides a safe tolerance for normal thread scheduling.
+   * deadlocks. When not {@link #sleepingForOffload}, the playback thread wakes up at most every
+   * {@link ExoPlayerImplInternal#READY_MAXIMUM_INTERVAL_MS} (1000ms). A {@code 1.5 *
+   * READY_MAXIMUM_INTERVAL_MS} cap provides a safe tolerance for normal thread scheduling.
    */
   private static final long MAX_ELAPSED_TIME_MS = (long) (READY_MAXIMUM_INTERVAL_MS * 1.5);
 
@@ -680,8 +681,10 @@ import org.jspecify.annotations.Nullable;
     } while (positionUpdateSeq % 2 != 0 || positionUpdateSeq != this.positionUpdateSeq);
 
     long elapsedTimeMs = currentElapsedTimeMs - positionUpdateTimeMs;
-    // Cap the extrapolation to prevent unbounded ghost playback during thread deadlocks.
-    elapsedTimeMs = min(elapsedTimeMs, MAX_ELAPSED_TIME_MS);
+    if (!sleepingForOffload) {
+      // Cap the extrapolation to prevent unbounded ghost playback during thread deadlocks.
+      elapsedTimeMs = min(elapsedTimeMs, MAX_ELAPSED_TIME_MS);
+    }
 
     long estimatedPositionMs =
         Util.usToMs(positionUs) + (long) (elapsedTimeMs * playbackParameters.speed);
