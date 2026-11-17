@@ -49,7 +49,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -57,7 +57,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.indicators.ProgressIndicator
+import androidx.media3.ui.compose.material3.util.clearFractionalSeekToleranceIfEquals
 import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
+import androidx.media3.ui.compose.material3.util.setFractionalSeekTolerance
 import androidx.media3.ui.compose.state.ProgressStateWithTickCount
 import kotlinx.coroutines.CoroutineScope
 
@@ -118,11 +120,32 @@ fun LabeledProgressSlider(
     },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
+  val tolerancePx = with(LocalDensity.current) { SCRUBBING_TOLERANCE.toPx() }
   val exoPlayer = remember(player) { player as? ExoPlayer }
   ProgressIndicator(player, totalTickCount = sliderWidthPx, scope) {
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
 
+    val tolerance =
+      if (sliderWidthPx > 0) {
+        (tolerancePx.toDouble() / sliderWidthPx).coerceIn(0.0, 1.0)
+      } else {
+        null
+      }
+    if (tolerance != null) {
+      DisposableEffect(exoPlayer, tolerance) {
+        exoPlayer?.setFractionalSeekTolerance(
+          toleranceBefore = tolerance,
+          toleranceAfter = tolerance,
+        )
+        onDispose {
+          exoPlayer?.clearFractionalSeekToleranceIfEquals(
+            toleranceBefore = tolerance,
+            toleranceAfter = tolerance,
+          )
+        }
+      }
+    }
     // Fallback for navigating away before the trailing invoke in onValueChangeFinished is called
     DisposableEffect(exoPlayer) {
       onDispose {
@@ -141,6 +164,12 @@ fun LabeledProgressSlider(
       state = sliderState,
       onValueChange = {
         if (!isDragging) {
+          if (tolerance != null) {
+            exoPlayer?.setFractionalSeekTolerance(
+              toleranceBefore = tolerance,
+              toleranceAfter = tolerance,
+            )
+          }
           exoPlayer?.setScrubbingModeEnabled(true)
           scrubbingEnabledForThisPlayer = exoPlayer.isScrubbingModeEnabled()
         }
@@ -181,13 +210,15 @@ fun LabeledProgressSlider(
           track(this, sliderState, changingProgressEnabled)
         }
       },
-      // Beware the order: This measurement will happen first and it is unaware of any final size
-      // changes made by the subsequent modifier of Material3 Slider. This means that the correct
-      // number of pixels will be fed into ProgressStateWithTickCount class because those pixels
-      // will actually represent the visible and draggable Track. The final size of ProgressSlider
-      // might end up larger due to application of padding (minimumInteractiveComponentSize), but
-      // that should not affect the position update interval.
-      modifier = modifier.onSizeChanged { (w, _) -> sliderWidthPx = w },
+      // Measure after the caller's modifier (excluding any caller padding) and clamp to
+      // constraints.maxWidth because Material3 Slider's internal minimumInteractiveComponentSize
+      // enforces a 48.dp minimum even when constrained to a smaller width.
+      modifier =
+        modifier.layout { measurable, constraints ->
+          val placeable = measurable.measure(constraints)
+          sliderWidthPx = minOf(placeable.width, constraints.maxWidth)
+          layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+        },
       enabled = changingProgressEnabled,
       colors = colors,
       interactionSource = interactionSource,
@@ -382,3 +413,4 @@ private val PressedThumbWidth =
   2.dp // = androidx.compose.material3.tokens.SliderTokens.PressedHandleWidth
 private val ThumbHeight = 44.0.dp // = androidx.compose.material3.tokens.SliderTokens.HandleHeight
 private val ThumbSize = DpSize(ThumbWidth, ThumbHeight)
+private val SCRUBBING_TOLERANCE = 2.dp

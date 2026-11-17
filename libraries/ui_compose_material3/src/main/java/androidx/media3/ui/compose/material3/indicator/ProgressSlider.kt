@@ -110,8 +110,13 @@ fun ProgressSlider(
     var isDragging by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableFloatStateOf(0f) }
 
-    if (scrubbingEnabled && sliderWidthPx > 0) {
-      val tolerance = (tolerancePx.toDouble() / sliderWidthPx).coerceIn(0.0, 1.0)
+    val tolerance =
+      if (scrubbingEnabled && sliderWidthPx > 0) {
+        (tolerancePx.toDouble() / sliderWidthPx).coerceIn(0.0, 1.0)
+      } else {
+        null
+      }
+    if (tolerance != null) {
       DisposableEffect(player, tolerance) {
         player.setFractionalSeekTolerance(toleranceBefore = tolerance, toleranceAfter = tolerance)
         onDispose {
@@ -137,8 +142,7 @@ fun ProgressSlider(
       value = if (isDragging) seekPosition else currentPositionProgress,
       onValueChange = {
         if (!isDragging && scrubbingEnabled) {
-          if (sliderWidthPx > 0) {
-            val tolerance = (tolerancePx.toDouble() / sliderWidthPx).coerceIn(0.0, 1.0)
+          if (tolerance != null) {
             player.setFractionalSeekTolerance(
               toleranceBefore = tolerance,
               toleranceAfter = tolerance,
@@ -159,12 +163,9 @@ fun ProgressSlider(
         isDragging = false
         onValueChangeFinished?.invoke()
       },
-      // Beware the order: This measurement will happen first and it is unaware of any final size
-      // changes made by the subsequent modifier of Material3 Slider. This means that the correct
-      // number of pixels will be fed into ProgressStateWithTickCount class because those pixels
-      // will actually represent the visible and draggable Track. The final size of ProgressSlider
-      // might end up larger due to application of padding (minimumInteractiveComponentSize), but
-      // that should not affect the position update interval.
+      // Measure after the caller's modifier (excluding any caller padding) and clamp to
+      // constraints.maxWidth because Material3 Slider's internal minimumInteractiveComponentSize
+      // enforces a 48.dp minimum even when constrained to a smaller width.
       modifier =
         modifier.layout { measurable, constraints ->
           val placeable = measurable.measure(constraints)
