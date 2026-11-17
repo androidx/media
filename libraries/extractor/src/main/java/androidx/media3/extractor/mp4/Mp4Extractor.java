@@ -155,6 +155,10 @@ public final class Mp4Extractor implements Extractor {
    * Flag to omit allocating and populating the large per-sample arrays (offsets, sizes, timestamps,
    * flags) within {@link TrackSampleTable}. This is used to reduce memory consumption in metadata
    * retrieval scenarios where individual sample data is not required.
+   *
+   * <p>When set, no samples are read and track {@link Format} instances are populated solely from
+   * container headers (for example, MPEG audio tracks report {@link MimeTypes#AUDIO_MPEG} rather
+   * than layer-specific MIME types, and DTS tracks report the container's base DTS MIME type).
    */
   public static final int FLAG_OMIT_TRACK_SAMPLE_TABLE = 1 << 8;
 
@@ -807,7 +811,7 @@ public final class Mp4Extractor implements Extractor {
           Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)
               || DtsUtil.isDtsBaseAudioMimeType(track.format.sampleMimeType);
       boolean needsChapterMetadata = false;
-      if (!omitTrackSampleTable && track.chapterTrackId != C.INDEX_UNSET) {
+      if (track.chapterTrackId != C.INDEX_UNSET) {
         for (TrackSampleTable chapterSampleTable : chapterSampleTables) {
           if (chapterSampleTable.track.id == track.chapterTrackId) {
             needsChapterMetadata = true;
@@ -815,7 +819,7 @@ public final class Mp4Extractor implements Extractor {
           }
         }
       }
-      if (needsSamplesForMimeType || needsChapterMetadata) {
+      if (!omitTrackSampleTable && (needsSamplesForMimeType || needsChapterMetadata)) {
         mp4Track.pendingFormat = format;
       } else {
         mp4Track.trackOutput.format(format);
