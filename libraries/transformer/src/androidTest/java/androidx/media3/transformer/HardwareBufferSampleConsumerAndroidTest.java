@@ -17,7 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
-import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
+import static androidx.media3.transformer.SequenceFrameReader.CAPACITY;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

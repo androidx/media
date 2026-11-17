@@ -229,7 +229,7 @@ import org.jspecify.annotations.Nullable;
       if (!sequenceContainsVideo) {
         // Audio only sequences never produce video frames.
         aggregationStrategy = STRATEGY_EXPECT_NO_FRAMES;
-      } else if (HardwareBufferFrameReader.CAPACITY >= 3) {
+      } else if (SequenceFrameReader.CAPACITY >= 3) {
         // Retaining the previous frame in FrameAggregator requires reader capacity >= 3 since
         // InFlightFrameManager also holds a frame in flight downstream.
         aggregationStrategy = STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;

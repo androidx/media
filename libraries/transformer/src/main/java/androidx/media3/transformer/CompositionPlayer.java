@@ -1163,7 +1163,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.seekTo(positionMs);
-      // Flush the HardwareBufferFrameReader and FrameAggregator after the player seeks to ensure
+      // Flush the SequenceFrameReader and FrameAggregator after the player seeks to ensure
       // frames from before the seek do not race with the flush calls.
       if (frameProcessor != null) {
         // TODO: b/449956936 - move packetConsumer playback thread seek handling to
@@ -1173,12 +1173,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .get(i)
             .player
             .createMessage((unused, message) -> {
-              HardwareBufferFrameReader frameReader =
-                  (HardwareBufferFrameReader) checkNotNull(message);
+              SequenceFrameReader frameReader = (SequenceFrameReader) checkNotNull(message);
               frameReader.flush();
               checkNotNull(frameAggregator).flush(sequenceIndex);
             })
-            .setPayload(playerHolders.get(i).hardwareBufferFrameReaderSupplier.get())
+            .setPayload(playerHolders.get(i).sequenceFrameReaderSupplier.get())
             .send();
       }
     }
@@ -1620,19 +1619,19 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     boolean sequenceContainsVideo =
         composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
     SequenceRenderersFactory renderersFactory;
-    Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier = () -> null;
+    Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier = () -> null;
     if (frameProcessor != null) {
       // MediaCodec tone mapping is not supported with FrameProcessor.
       checkState(
           !requestMediaCodecToneMapping,
           "HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC is not supported with"
               + " FrameProcessor.Factory.");
-      // TODO: b/449957106 - support component reuse, and decouple the Composition from the
-      // HardwareBufferFrameReader.
+      // TODO(b/449957106): Support component reuse, and decouple the Composition from the
+      // SequenceFrameReader.
       final FrameAggregator currentFrameAggregator = frameAggregator;
-      hardwareBufferFrameReaderSupplier =
+      sequenceFrameReaderSupplier =
           Suppliers.memoize(() ->
-              new HardwareBufferFrameReader(
+              new SequenceFrameReader(
                   composition,
                   sequenceIndex,
                   /* frameConsumer= */ asyncFrame -> {
@@ -1644,16 +1643,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                   },
                   checkNotNull(playbackThread).getLooper(),
                   // TODO(b/531653682): Move surface pixel format selection into
-                  // HardwareBufferFrameReader.
+                  // SequenceFrameReader.
                   /* defaultSurfacePixelFormat= */ SDK_INT >= 28
                       ? ImageFormat.PRIVATE
                       : ImageFormat.YUV_420_888,
                   imageReaderAdapterFactory,
                   e ->
                       maybeUpdatePlaybackError(
-                          "HardwareBufferFrameReader error",
-                          e,
-                          PlaybackException.ERROR_CODE_UNSPECIFIED),
+                          "SequenceFrameReader error", e, PlaybackException.ERROR_CODE_UNSPECIFIED),
                   compositionInternalListenerHandler,
                   checkNotNull(hardwareBufferJniWrapper)));
       renderersFactory =
@@ -1664,13 +1661,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* inputIndex= */ sequenceIndex,
               videoPrewarmingEnabled,
               checkNotNull(videoPacketReleaseControl),
-              hardwareBufferFrameReaderSupplier,
+              sequenceFrameReaderSupplier,
               lateThresholdToDropInputUs);
       @AggregationStrategy int aggregationStrategy;
       if (!sequenceContainsVideo) {
         // Audio only sequences never produce video frames.
         aggregationStrategy = STRATEGY_EXPECT_NO_FRAMES;
-      } else if (HardwareBufferFrameReader.CAPACITY >= 3) {
+      } else if (SequenceFrameReader.CAPACITY >= 3) {
         // Retaining the previous frame in FrameAggregator requires reader capacity >= 3 since
         // CompositionVideoPacketReleaseControl also retains a frame downstream.
         aggregationStrategy = STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
@@ -1698,8 +1695,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             clock,
             renderersFactory,
             /* inputIndex= */ sequenceIndex,
-            hardwareBufferFrameReaderSupplier,
-            /* shouldReleaseHardwareBufferFrameReader= */ sequenceContainsVideo);
+            sequenceFrameReaderSupplier,
+            /* shouldReleaseSequenceFrameReader= */ sequenceContainsVideo);
     playerHolder.player.addListener(new PlayerListener(sequenceIndex));
     playerHolder.player.addAnalyticsListener(new PlayerAnalyticsListener());
     playerHolder.player.addAnalyticsListener(new EventLogger(TAG + "-" + sequenceIndex));
@@ -2325,8 +2322,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public final ExoPlayer player;
     public final SequenceRenderersFactory renderersFactory;
     public final CompositionTrackSelector trackSelector;
-    final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
-    final boolean shouldReleaseHardwareBufferFrameReader;
+    final Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier;
+    final boolean shouldReleaseSequenceFrameReader;
 
     private SequencePlayerHolder(
         Context context,
@@ -2335,8 +2332,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Clock clock,
         SequenceRenderersFactory renderersFactory,
         int inputIndex,
-        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
-        boolean shouldReleaseHardwareBufferFrameReader) {
+        Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier,
+        boolean shouldReleaseSequenceFrameReader) {
       trackSelector =
           new CompositionTrackSelector(
               context,
@@ -2360,15 +2357,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
-      this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
-      this.shouldReleaseHardwareBufferFrameReader = shouldReleaseHardwareBufferFrameReader;
+      this.sequenceFrameReaderSupplier = sequenceFrameReaderSupplier;
+      this.shouldReleaseSequenceFrameReader = shouldReleaseSequenceFrameReader;
     }
 
     private void release() {
       player.release();
-      HardwareBufferFrameReader reader = hardwareBufferFrameReaderSupplier.get();
-      // TODO: b/518679527 - Move hardwareBufferFrameReader release to video renderers.
-      if (shouldReleaseHardwareBufferFrameReader && reader != null) {
+      SequenceFrameReader reader = sequenceFrameReaderSupplier.get();
+      // TODO(b/518679527): Move sequenceFrameReader release to video renderers.
+      if (shouldReleaseSequenceFrameReader && reader != null) {
         reader.release();
       }
     }

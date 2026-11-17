@@ -18,7 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
-import static androidx.media3.transformer.HardwareBufferFrameReader.CAPACITY;
+import static androidx.media3.transformer.SequenceFrameReader.CAPACITY;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static androidx.media3.transformer.TransformerUtil.releaseIfNeeded;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -117,7 +117,7 @@ public class HardwareBufferSampleConsumerTest {
       assertThat(getDisplayTimeNs(frame)).isEqualTo(expectedPresentationTimeUs * 1000);
       assertThat(getItemIndex(frame)).isEqualTo(0);
       assertThat(getCompositionFrameMetadata(frame).itemIndex).isEqualTo(0);
-      // For bitmaps, the format is currently hardcoded in HardwareBufferFrameReader.
+      // For bitmaps, the format is currently hardcoded in SequenceFrameReader.
       assertThat(frame.frame.getFormat()).isNotNull();
       assertThat(frame.frame.getFormat().sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
     }

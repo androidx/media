@@ -68,8 +68,8 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
-import androidx.media3.transformer.HardwareBufferFrameReader.InputSurface;
-import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
+import androidx.media3.transformer.SequenceFrameReader.InputSurface;
+import androidx.media3.transformer.SequenceFrameReader.RendererWakeupListener;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -123,7 +123,7 @@ import org.jspecify.annotations.Nullable;
   private final int inputIndex;
   private final boolean videoPrewarmingEnabled;
   private final @Nullable CompositionRendererListener compositionRendererListener;
-  private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+  private final Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
   private final RendererTracker rendererTracker;
 
@@ -149,11 +149,11 @@ import org.jspecify.annotations.Nullable;
         inputIndex,
         videoPrewarmingEnabled,
         /* compositionRendererListener= */ null,
-        /* hardwareBufferFrameReaderSupplier= */ () -> null,
+        /* sequenceFrameReaderSupplier= */ () -> null,
         lateThresholdToDropInputUs);
   }
 
-  /** Creates an instance for rendering to a {@link HardwareBufferFrameReader}. */
+  /** Creates an instance for rendering to a {@link SequenceFrameReader}. */
   public static SequenceRenderersFactory createForHardwareBuffer(
       Context context,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
@@ -161,7 +161,7 @@ import org.jspecify.annotations.Nullable;
       int inputIndex,
       boolean videoPrewarmingEnabled,
       CompositionRendererListener compositionRendererListener,
-      Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+      Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier,
       long lateThresholdToDropInputUs) {
     return new SequenceRenderersFactory(
         context,
@@ -171,7 +171,7 @@ import org.jspecify.annotations.Nullable;
         inputIndex,
         videoPrewarmingEnabled,
         compositionRendererListener,
-        hardwareBufferFrameReaderSupplier,
+        sequenceFrameReaderSupplier,
         lateThresholdToDropInputUs);
   }
 
@@ -183,7 +183,7 @@ import org.jspecify.annotations.Nullable;
       int inputIndex,
       boolean videoPrewarmingEnabled,
       @Nullable CompositionRendererListener compositionRendererListener,
-      Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+      Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier,
       long lateThresholdToDropInputUs) {
     this.context = context;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
@@ -192,7 +192,7 @@ import org.jspecify.annotations.Nullable;
     this.inputIndex = inputIndex;
     this.videoPrewarmingEnabled = videoPrewarmingEnabled;
     this.compositionRendererListener = compositionRendererListener;
-    this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
+    this.sequenceFrameReaderSupplier = sequenceFrameReaderSupplier;
     this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
     rendererTracker = new RendererTracker();
   }
@@ -243,14 +243,14 @@ import org.jspecify.annotations.Nullable;
               eventHandler,
               videoRendererEventListener,
               checkNotNull(compositionRendererListener),
-              hardwareBufferFrameReaderSupplier,
+              sequenceFrameReaderSupplier,
               lateThresholdToDropInputUs,
               rendererTracker));
       renderers.add(
           new HardwareBufferImageRenderer(
               checkNotNull(imageDecoderFactory),
               checkNotNull(compositionRendererListener),
-              hardwareBufferFrameReaderSupplier,
+              sequenceFrameReaderSupplier,
               rendererTracker));
     }
     return renderers.toArray(new Renderer[0]);
@@ -281,7 +281,7 @@ import org.jspecify.annotations.Nullable;
           eventHandler,
           videoRendererEventListener,
           checkNotNull(compositionRendererListener),
-          hardwareBufferFrameReaderSupplier,
+          sequenceFrameReaderSupplier,
           lateThresholdToDropInputUs,
           rendererTracker);
     }
@@ -289,7 +289,7 @@ import org.jspecify.annotations.Nullable;
       return new HardwareBufferImageRenderer(
           checkNotNull(imageDecoderFactory),
           checkNotNull(compositionRendererListener),
-          hardwareBufferFrameReaderSupplier,
+          sequenceFrameReaderSupplier,
           rendererTracker);
     }
     return null;
@@ -793,21 +793,20 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * A {@link MediaCodecVideoRenderer} that outputs decoded frames to a {@link
-   * HardwareBufferFrameReader}.
+   * A {@link MediaCodecVideoRenderer} that outputs decoded frames to a {@link SequenceFrameReader}.
    */
   private static final class HardwareBufferVideoRenderer extends MediaCodecVideoRenderer
       implements RendererWakeupListener, RendererTracker.TrackedRenderer {
     private final CompositionRendererListener compositionRendererListener;
     private final RendererTracker rendererTracker;
-    private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
+    private @MonotonicNonNull SequenceFrameReader sequenceFrameReader;
     private final long lateThresholdToDropInputUs;
     private final TargetFrameRateHelper targetFrameRateHelper;
 
     /** The metadata of the frames queued to the decoder, keyed by composition time. */
     private final FrameMetadataQueue pendingFrameMetadata;
 
-    private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+    private final Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier;
 
     private @Nullable InputSurface inputSurface;
     private @MonotonicNonNull Format nextFormat;
@@ -823,7 +822,7 @@ import org.jspecify.annotations.Nullable;
         Handler eventHandler,
         VideoRendererEventListener videoRendererEventListener,
         CompositionRendererListener compositionRendererListener,
-        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier,
         long lateThresholdToDropInputUs,
         RendererTracker rendererTracker) {
       super(
@@ -839,7 +838,7 @@ import org.jspecify.annotations.Nullable;
               .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropInputUs)
               .setSkipBuffersWithIdenticalReleaseTime(false));
       this.compositionRendererListener = compositionRendererListener;
-      this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
+      this.sequenceFrameReaderSupplier = sequenceFrameReaderSupplier;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
       this.targetFrameRateHelper = new TargetFrameRateHelper();
       this.pendingFrameMetadata = new FrameMetadataQueue();
@@ -884,11 +883,11 @@ import org.jspecify.annotations.Nullable;
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
-      if (hardwareBufferFrameReader == null) {
-        // Initialize hardwareBufferFrameReader on the first onEnabled() call.
-        hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
+      if (sequenceFrameReader == null) {
+        // Initialize sequenceFrameReader on the first onEnabled() call.
+        sequenceFrameReader = checkNotNull(sequenceFrameReaderSupplier.get());
       }
-      hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
+      sequenceFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
       super.onEnabled(joining, mayRenderStartOfStream);
       rendererTracker.addRenderer(this);
     }
@@ -896,7 +895,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     protected void onDisabled() {
       super.onDisabled();
-      checkNotNull(hardwareBufferFrameReader)
+      checkNotNull(sequenceFrameReader)
           .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
       rendererTracker.removeRenderer(this);
     }
@@ -909,7 +908,7 @@ import org.jspecify.annotations.Nullable;
           elapsedRealtimeUs,
           /* compositionTimeOutputStreamStartPositionUs= */ streamStartPositionUs
               + offsetToCompositionTimeUs);
-      checkNotNull(hardwareBufferFrameReader).pollImage();
+      checkNotNull(sequenceFrameReader).pollImage();
     }
 
     @Override
@@ -1046,7 +1045,7 @@ import org.jspecify.annotations.Nullable;
       if (inputSurface != null) {
         inputSurface.release();
       }
-      inputSurface = checkNotNull(hardwareBufferFrameReader).createInputSurface();
+      inputSurface = checkNotNull(sequenceFrameReader).createInputSurface();
       return MediaCodecAdapter.Configuration.createForVideoDecoding(
           codecInfo, configuration.mediaFormat, format, inputSurface.getSurface(), crypto);
     }
@@ -1097,7 +1096,7 @@ import org.jspecify.annotations.Nullable;
     protected void renderToEndOfStream() {
       super.renderToEndOfStream();
       if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
-        checkNotNull(hardwareBufferFrameReader).queueEndOfStream();
+        checkNotNull(sequenceFrameReader).queueEndOfStream();
       }
     }
 
@@ -1143,16 +1142,14 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  /**
-   * An {@link ImageRenderer} that outputs decoded images to a {@link HardwareBufferFrameReader}.
-   */
+  /** An {@link ImageRenderer} that outputs decoded images to a {@link SequenceFrameReader}. */
   private static final class HardwareBufferImageRenderer extends ImageRenderer
       implements RendererWakeupListener, RendererTracker.TrackedRenderer {
 
     private final CompositionRendererListener compositionRendererListener;
-    private final Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+    private final Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier;
     private final RendererTracker rendererTracker;
-    private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
+    private @MonotonicNonNull SequenceFrameReader sequenceFrameReader;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
     private @MonotonicNonNull Format outputFormat;
     private @MonotonicNonNull MediaPeriodId mediaPeriodId;
@@ -1167,11 +1164,11 @@ import org.jspecify.annotations.Nullable;
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
         CompositionRendererListener compositionRendererListener,
-        Supplier<@Nullable HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        Supplier<@Nullable SequenceFrameReader> sequenceFrameReaderSupplier,
         RendererTracker rendererTracker) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
       this.compositionRendererListener = compositionRendererListener;
-      this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
+      this.sequenceFrameReaderSupplier = sequenceFrameReaderSupplier;
       this.rendererTracker = rendererTracker;
       streamStartPositionUs = C.TIME_UNSET;
     }
@@ -1210,18 +1207,18 @@ import org.jspecify.annotations.Nullable;
       // when the renderer is enabled. If this is not set processOutputBuffer is only called once it
       // is started and results in dropped frames at renderer transition.
       super.onEnabled(joining, /* mayRenderStartOfStream= */ true);
-      if (hardwareBufferFrameReader == null) {
-        // Initialize hardwareBufferFrameReader on the first onEnabled() call.
-        this.hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
+      if (sequenceFrameReader == null) {
+        // Initialize sequenceFrameReader on the first onEnabled() call.
+        this.sequenceFrameReader = checkNotNull(sequenceFrameReaderSupplier.get());
       }
-      hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
+      sequenceFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
       rendererTracker.addRenderer(this);
     }
 
     @Override
     protected void onDisabled() {
       super.onDisabled();
-      checkNotNull(hardwareBufferFrameReader)
+      checkNotNull(sequenceFrameReader)
           .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
       rendererTracker.removeRenderer(this);
     }
@@ -1284,10 +1281,10 @@ import org.jspecify.annotations.Nullable;
       checkNotNull(timestampIterator);
       int indexOfItem = getEditedMediaItemIndex(getTimeline(), checkNotNull(getMediaPeriodId()));
       long sequenceOffsetUs = getStreamOffsetUs() + offsetToCompositionTimeUs;
-      checkNotNull(hardwareBufferFrameReader)
+      checkNotNull(sequenceFrameReader)
           .outputBitmap(outputImage, timestampIterator, sequenceOffsetUs, indexOfItem);
       if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
-        hardwareBufferFrameReader.queueEndOfStream();
+        sequenceFrameReader.queueEndOfStream();
       }
       if (imageMetadataListener != null) {
         if (outputFormat == null

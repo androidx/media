@@ -7,7 +7,7 @@
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law-or-agreed to in writing, software
+ * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
@@ -46,7 +46,6 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.ReleaseCallback;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
@@ -63,7 +62,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
 /** An adaptor between a sequence player and a {@link Consumer} of {@link AsyncFrame} instances. */
-/* package */ final class HardwareBufferFrameReader {
+/* package */ final class SequenceFrameReader {
 
   /** A listener for events. */
   public interface Listener {
@@ -96,7 +95,7 @@ import org.jspecify.annotations.Nullable;
   /* package */ static final int CAPACITY = SDK_INT >= 29 ? 3 : 2;
 
   private static final int DEFAULT_FRAME_RATE = 30;
-  private static final String TAG = "HBFrameReader";
+  private static final String TAG = "SequenceFrameReader";
   private static final long RELEASE_TIMEOUT_MS = 2000;
 
   private final Composition composition;
@@ -108,6 +107,7 @@ import org.jspecify.annotations.Nullable;
   private final HandlerWrapper listenerHandler;
   private final Handler playbackHandler;
   private final Executor playbackExecutor;
+  private final FrameReaderImpl frameReaderImpl;
 
   // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /**
@@ -128,8 +128,6 @@ import org.jspecify.annotations.Nullable;
 
   private @Nullable Format lastFormat;
   private @MonotonicNonNull Format lastAdjustedFormat;
-
-  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @GuardedBy("this")
   private @Nullable BitmapToFrameConverter<?> bitmapToFrameConverter;
@@ -155,7 +153,7 @@ import org.jspecify.annotations.Nullable;
    * @param hardwareBufferJniWrapper A {@link HardwareBufferJniWrapper} used to convert software
    *     bitmaps to hardware buffers.
    */
-  /* package */ HardwareBufferFrameReader(
+  /* package */ SequenceFrameReader(
       Composition composition,
       int sequenceIndex,
       Consumer<AsyncFrame> frameConsumer,
@@ -172,13 +170,16 @@ import org.jspecify.annotations.Nullable;
     this.imageReaderAdapterFactory = imageReaderAdapterFactory;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
-    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     playbackHandler = new Handler(playbackLooper);
     playbackExecutor =
         new HandlerExecutor(playbackHandler, e -> listenerHandler.post(() -> listener.onError(e)));
     rendererWakeupListenerList = new ArrayList<>();
     pendingFrameInfo = new ArrayDeque<>();
     inputSurfaces = new ArrayList<>();
+    frameReaderImpl =
+        SDK_INT >= 28
+            ? new HardwareBufferFrameReaderImpl(hardwareBufferJniWrapper)
+            : new ImagePlanesFrameReaderImpl();
   }
 
   /**
@@ -211,26 +212,20 @@ import org.jspecify.annotations.Nullable;
   // into account.
   void outputBitmap(
       Bitmap bitmap, TimestampIterator timestampIterator, long sequenceOffsetUs, int indexOfItem) {
-    if (SDK_INT < 28) {
-      // TODO(b/582230137): Investigate whether non-ARGB_8888 Bitmap configs need to be supported.
-      checkArgument(bitmap.getConfig() == Bitmap.Config.ARGB_8888);
-    }
-    String sampleMimeType =
-        SDK_INT >= 34 && Api34.hasGainmap(bitmap) ? MimeTypes.IMAGE_JPEG_R : MimeTypes.IMAGE_RAW;
-    Format.Builder formatBuilder =
-        new Format.Builder()
-            .setSampleMimeType(sampleMimeType)
-            .setWidth(bitmap.getWidth())
-            .setHeight(bitmap.getHeight())
-            .setColorInfo(resolveColorInfoFromBitmap(bitmap))
-            .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE);
-    if (SDK_INT < 28) {
-      formatBuilder.setPixelFormat(PixelFormat.RGBA_8888);
-    }
+    Format format =
+        frameReaderImpl.decorateBitmapFrameFormat(
+            bitmap,
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.IMAGE_RAW)
+                .setWidth(bitmap.getWidth())
+                .setHeight(bitmap.getHeight())
+                .setColorInfo(resolveColorInfoFromBitmap(bitmap))
+                .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
+                .build());
     synchronized (this) {
       pendingFrameInfo.add(
           FrameInfo.createForBitmap(
-              bitmap, timestampIterator, sequenceOffsetUs, indexOfItem, formatBuilder.build()));
+              bitmap, timestampIterator, sequenceOffsetUs, indexOfItem, format));
     }
     maybeOutputPendingBitmaps();
   }
@@ -259,8 +254,8 @@ import org.jspecify.annotations.Nullable;
         // CAPACITY images are queued.
         framesInUse++;
         @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
-        // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but
-        // before onImageAvailable, then when onImageAvailable is called there will be no matching
+        // If the SequenceFrameReader is flushed after queueFrameViaSurface is called, but before
+        // onImageAvailable, then when onImageAvailable is called there will be no matching
         // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
         // this scenario.
         if (frameInfo == null) {
@@ -278,7 +273,7 @@ import org.jspecify.annotations.Nullable;
             itemPresentationTimeUs * 1000);
 
         frameConsumer.accept(
-            createAsyncFrameFromImage(
+            frameReaderImpl.createAsyncFrameFromImage(
                 image,
                 itemPresentationTimeUs,
                 sequenceOffsetUs,
@@ -351,25 +346,23 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
-   * Sets a default {@link ColorInfo} (and {@link Format#pixelFormat} below API 28) on the given
-   * {@link Format}.
+   * Returns the provided {@link Format} decorated with {@link ColorInfo} and
+   * implementation-specific fields.
    */
   private Format getAdjustedFormat(Format format) {
     if (format.equals(lastFormat)) {
       return checkNotNull(lastAdjustedFormat);
     }
     lastFormat = format;
-    Format.Builder formatBuilder =
+    Format adjustedFormat =
         format
             .buildUpon()
             .setColorInfo(
                 format.colorInfo == null || !format.colorInfo.isDataSpaceValid()
                     ? ColorInfo.SDR_BT709_LIMITED
-                    : format.colorInfo);
-    if (SDK_INT < 28) {
-      formatBuilder.setPixelFormat(ImageFormat.YUV_420_888);
-    }
-    lastAdjustedFormat = formatBuilder.build();
+                    : format.colorInfo)
+            .build();
+    lastAdjustedFormat = frameReaderImpl.decorateSurfaceFrameFormat(adjustedFormat);
     return lastAdjustedFormat;
   }
 
@@ -410,55 +403,10 @@ import org.jspecify.annotations.Nullable;
     }
   }
 
-  private AsyncFrame createAsyncFrameFromImage(
-      ImageAdapter image,
-      long presentationTimeUs,
-      long sequenceOffsetUs,
-      int indexOfItem,
-      Format format,
-      ImmutableMap<String, Object> additionalMetadata) {
-    if (SDK_INT < 28) {
-      DefaultImagePlanesFrame frame =
-          new DefaultImagePlanesFrame.Builder(
-                  image.getPlanes(),
-                  resolveFrameFormat(format),
-                  playbackExecutor,
-                  /* releaseCallback= */ releaseFence ->
-                      releaseFrame(image, /* hardwareBuffer= */ null, releaseFence))
-              .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
-              .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
-              .setInternalImage(image.getInternalImage())
-              .build();
-      return new AsyncFrame(frame, /* acquireFence= */ null);
-    }
-    // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
-    // AImage_getHardwareBuffer.
-    HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
-    checkState(!hardwareBuffer.isClosed());
-    return createAsyncFrame(
-        hardwareBuffer,
-        image.getInternalImage(),
-        playbackExecutor,
-        /* releaseCallback= */ releaseFence -> releaseFrame(image, hardwareBuffer, releaseFence),
-        presentationTimeUs,
-        sequenceOffsetUs,
-        indexOfItem,
-        format,
-        additionalMetadata);
-  }
-
   @GuardedBy("this")
   private BitmapToFrameConverter<?> getOrCreateBitmapToFrameConverter() {
     if (bitmapToFrameConverter == null) {
-      bitmapToFrameConverter =
-          SDK_INT >= 28
-              ? new BitmapToHardwareBufferConverter(
-                  hardwareBufferJniWrapper,
-                  /* internalExecutor= */ Util.newSingleThreadExecutor(
-                      "BitmapToHardwareBufferConverter::Thread"),
-                  /* errorExecutor= */ playbackExecutor,
-                  /* errorCallback= */ listener::onError)
-              : new BitmapToImagePlanesConverter();
+      bitmapToFrameConverter = frameReaderImpl.createBitmapToFrameConverter();
     }
     return bitmapToFrameConverter;
   }
@@ -505,27 +453,6 @@ import org.jspecify.annotations.Nullable;
         .putAll(asFrameMetadata(compositionFrameMetadata))
         .putAll(additionalMetadata)
         .buildOrThrow();
-  }
-
-  @RequiresApi(26)
-  private AsyncFrame createAsyncFrame(
-      HardwareBuffer hardwareBuffer,
-      @Nullable Object internalImage,
-      Executor releaseExecutor,
-      ReleaseCallback releaseCallback,
-      long presentationTimeUs,
-      long sequenceOffsetUs,
-      int itemIndex,
-      Format format,
-      ImmutableMap<String, Object> additionalMetadata) {
-    DefaultHardwareBufferFrame frame =
-        new DefaultHardwareBufferFrame.Builder(hardwareBuffer, releaseExecutor, releaseCallback)
-            .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
-            .setMetadata(createFrameMetadata(presentationTimeUs, itemIndex, additionalMetadata))
-            .setFormat(resolveFrameFormat(format))
-            .setInternalImage(internalImage)
-            .build();
-    return new AsyncFrame(frame, /* acquireFence= */ null);
   }
 
   private void releaseFrame(
@@ -579,7 +506,7 @@ import org.jspecify.annotations.Nullable;
               /* height= */ 360,
               defaultSurfacePixelFormat,
               /* maxImages= */ CAPACITY,
-              /* usage= */ SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0);
+              frameReaderImpl.getSurfaceUsageFlags());
       imageReader.setOnImageAvailableListener(
           reader -> {
             try {
@@ -606,7 +533,7 @@ import org.jspecify.annotations.Nullable;
       // https://developer.android.com/reference/android/media/MediaCodec#using-an-output-surface
       // Even after API 29, some devices still drop frames on the Surface. See
       // https://github.com/androidx/media/blob/7cc1056f840ce226598d3b990d4a6f7cd17e2831/libraries/common/src/main/java/androidx/media3/common/util/Util.java#L3651
-      synchronized (HardwareBufferFrameReader.this) {
+      synchronized (SequenceFrameReader.this) {
         if (!pendingFrameInfo.isEmpty()) {
           return false;
         }
@@ -637,7 +564,7 @@ import org.jspecify.annotations.Nullable;
         int indexOfItem,
         Format format,
         ImmutableMap<String, Object> additionalMetadata) {
-      synchronized (HardwareBufferFrameReader.this) {
+      synchronized (SequenceFrameReader.this) {
         pendingFrameInfo.add(
             FrameInfo.createForSurface(
                 presentationTimeUs,
@@ -651,13 +578,144 @@ import org.jspecify.annotations.Nullable;
 
     /** Releases this input surface. */
     void release() {
-      synchronized (HardwareBufferFrameReader.this) {
+      synchronized (SequenceFrameReader.this) {
         inputSurfaces.remove(this);
       }
       if (surface != null) {
         surface.release();
       }
       imageReader.close();
+    }
+  }
+
+  /** Frame-type-specific implementation of {@link SequenceFrameReader} operations. */
+  private interface FrameReaderImpl {
+    /** Returns the {@link HardwareBuffer} usage flags for {@link ImageReaderAdapter} creation. */
+    default long getSurfaceUsageFlags() {
+      return 0;
+    }
+
+    /** Decorates the output frame {@link Format} for frames queued via an {@link InputSurface}. */
+    default Format decorateSurfaceFrameFormat(Format format) {
+      return format;
+    }
+
+    /** Decorates the output frame {@link Format} for {@code bitmap}. */
+    Format decorateBitmapFrameFormat(Bitmap bitmap, Format format);
+
+    /** Creates an {@link AsyncFrame} from an acquired {@link ImageAdapter}. */
+    AsyncFrame createAsyncFrameFromImage(
+        ImageAdapter image,
+        long presentationTimeUs,
+        long sequenceOffsetUs,
+        int indexOfItem,
+        Format format,
+        ImmutableMap<String, Object> additionalMetadata);
+
+    /** Creates a {@link BitmapToFrameConverter} for converting {@link Bitmap}s into frames. */
+    BitmapToFrameConverter<?> createBitmapToFrameConverter();
+  }
+
+  /** Implementation of {@link FrameReaderImpl} backed by {@link HardwareBuffer}. */
+  @RequiresApi(28)
+  private final class HardwareBufferFrameReaderImpl implements FrameReaderImpl {
+
+    private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+
+    private HardwareBufferFrameReaderImpl(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+    }
+
+    @Override
+    public long getSurfaceUsageFlags() {
+      return SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0;
+    }
+
+    @Override
+    public Format decorateBitmapFrameFormat(Bitmap bitmap, Format format) {
+      if (SDK_INT >= 34 && Api34.hasGainmap(bitmap)) {
+        return format.buildUpon().setSampleMimeType(MimeTypes.IMAGE_JPEG_R).build();
+      }
+      return format;
+    }
+
+    @Override
+    public AsyncFrame createAsyncFrameFromImage(
+        ImageAdapter image,
+        long presentationTimeUs,
+        long sequenceOffsetUs,
+        int indexOfItem,
+        Format format,
+        ImmutableMap<String, Object> additionalMetadata) {
+      // TODO(b/449956936): Add support for HardwareBuffer on API 26 using Media NDK methods such
+      // as AImage_getHardwareBuffer.
+      HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
+      checkState(!hardwareBuffer.isClosed());
+      DefaultHardwareBufferFrame frame =
+          new DefaultHardwareBufferFrame.Builder(
+                  hardwareBuffer,
+                  playbackExecutor,
+                  /* releaseCallback= */ releaseFence ->
+                      releaseFrame(image, hardwareBuffer, releaseFence))
+              .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
+              .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
+              .setFormat(resolveFrameFormat(format))
+              .setInternalImage(image.getInternalImage())
+              .build();
+      return new AsyncFrame(frame, /* acquireFence= */ null);
+    }
+
+    @Override
+    public BitmapToFrameConverter<?> createBitmapToFrameConverter() {
+      return new BitmapToHardwareBufferConverter(
+          hardwareBufferJniWrapper,
+          /* internalExecutor= */ Util.newSingleThreadExecutor(
+              "BitmapToHardwareBufferConverter::Thread"),
+          /* errorExecutor= */ playbackExecutor,
+          /* errorCallback= */ listener::onError);
+    }
+  }
+
+  /** Implementation of {@link FrameReaderImpl} backed by {@link DefaultImagePlanesFrame}. */
+  private final class ImagePlanesFrameReaderImpl implements FrameReaderImpl {
+
+    @Override
+    public Format decorateSurfaceFrameFormat(Format format) {
+      return format.buildUpon().setPixelFormat(ImageFormat.YUV_420_888).build();
+    }
+
+    @Override
+    public Format decorateBitmapFrameFormat(Bitmap bitmap, Format format) {
+      // TODO(b/582230137): Investigate whether non-ARGB_8888 Bitmap configs need to be supported.
+      checkArgument(bitmap.getConfig() == Bitmap.Config.ARGB_8888);
+      return format.buildUpon().setPixelFormat(PixelFormat.RGBA_8888).build();
+    }
+
+    @Override
+    public AsyncFrame createAsyncFrameFromImage(
+        ImageAdapter image,
+        long presentationTimeUs,
+        long sequenceOffsetUs,
+        int indexOfItem,
+        Format format,
+        ImmutableMap<String, Object> additionalMetadata) {
+      DefaultImagePlanesFrame frame =
+          new DefaultImagePlanesFrame.Builder(
+                  image.getPlanes(),
+                  resolveFrameFormat(format),
+                  playbackExecutor,
+                  /* releaseCallback= */ releaseFence ->
+                      releaseFrame(image, /* hardwareBuffer= */ null, releaseFence))
+              .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
+              .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
+              .setInternalImage(image.getInternalImage())
+              .build();
+      return new AsyncFrame(frame, /* acquireFence= */ null);
+    }
+
+    @Override
+    public BitmapToFrameConverter<?> createBitmapToFrameConverter() {
+      return new BitmapToImagePlanesConverter();
     }
   }
 

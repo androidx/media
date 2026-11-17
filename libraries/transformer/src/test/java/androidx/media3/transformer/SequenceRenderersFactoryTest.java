@@ -107,14 +107,14 @@ public final class SequenceRenderersFactoryTest {
   public void hardwareBufferImageRenderer_implementsRendererWakeupListener_andForwardsWakeup()
       throws Exception {
     SequenceRenderersFactory factory =
-        createFactoryForHardwareBuffer(/* hardwareBufferFrameReaderSupplier= */ () -> null);
+        createFactoryForHardwareBuffer(/* sequenceFrameReaderSupplier= */ () -> null);
     Renderer imageRenderer = createRenderer(factory, C.TRACK_TYPE_IMAGE);
 
-    assertThat(imageRenderer).isInstanceOf(HardwareBufferFrameReader.RendererWakeupListener.class);
+    assertThat(imageRenderer).isInstanceOf(SequenceFrameReader.RendererWakeupListener.class);
     FakeWakeupListener fakeWakeupListener = new FakeWakeupListener();
 
     imageRenderer.handleMessage(Renderer.MSG_SET_WAKEUP_LISTENER, fakeWakeupListener);
-    ((HardwareBufferFrameReader.RendererWakeupListener) imageRenderer).onWakeup();
+    ((SequenceFrameReader.RendererWakeupListener) imageRenderer).onWakeup();
 
     assertThat(fakeWakeupListener.onWakeupCalled).isTrue();
   }
@@ -124,10 +124,9 @@ public final class SequenceRenderersFactoryTest {
       throws Exception {
     List<AsyncFrame> receivedFrames = new ArrayList<>();
     EditedMediaItemSequence sequence = createSequence();
-    HardwareBufferFrameReader hardwareBufferFrameReader =
-        createHardwareBufferFrameReader(sequence, receivedFrames, handlerThread.getLooper());
-    SequenceRenderersFactory factory =
-        createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader);
+    SequenceFrameReader sequenceFrameReader =
+        createSequenceFrameReader(sequence, receivedFrames, handlerThread.getLooper());
+    SequenceRenderersFactory factory = createFactoryForHardwareBuffer(() -> sequenceFrameReader);
     Renderer imageRenderer = createRenderer(factory, C.TRACK_TYPE_IMAGE);
     Timeline timeline =
         new CompositionPlayer.CompositionForwardingTimeline(new FakeTimeline(), sequence);
@@ -135,7 +134,7 @@ public final class SequenceRenderersFactoryTest {
     FakeWakeupListener fakeWakeupListener = new FakeWakeupListener();
     imageRenderer.handleMessage(Renderer.MSG_SET_WAKEUP_LISTENER, fakeWakeupListener);
 
-    hardwareBufferFrameReader.outputBitmap(
+    sequenceFrameReader.outputBitmap(
         Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888),
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 2f),
         /* sequenceOffsetUs= */ 0,
@@ -158,14 +157,14 @@ public final class SequenceRenderersFactoryTest {
   public void hardwareBufferVideoRenderer_implementsRendererWakeupListener_andForwardsWakeup()
       throws Exception {
     SequenceRenderersFactory factory =
-        createFactoryForHardwareBuffer(/* hardwareBufferFrameReaderSupplier= */ () -> null);
+        createFactoryForHardwareBuffer(/* sequenceFrameReaderSupplier= */ () -> null);
     Renderer videoRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
 
-    assertThat(videoRenderer).isInstanceOf(HardwareBufferFrameReader.RendererWakeupListener.class);
+    assertThat(videoRenderer).isInstanceOf(SequenceFrameReader.RendererWakeupListener.class);
     FakeWakeupListener fakeWakeupListener = new FakeWakeupListener();
 
     videoRenderer.handleMessage(Renderer.MSG_SET_WAKEUP_LISTENER, fakeWakeupListener);
-    ((HardwareBufferFrameReader.RendererWakeupListener) videoRenderer).onWakeup();
+    ((SequenceFrameReader.RendererWakeupListener) videoRenderer).onWakeup();
 
     assertThat(fakeWakeupListener.onWakeupCalled).isTrue();
   }
@@ -175,11 +174,10 @@ public final class SequenceRenderersFactoryTest {
       throws Exception {
     List<AsyncFrame> receivedFrames = new ArrayList<>();
     EditedMediaItemSequence sequence = createSequence();
-    HardwareBufferFrameReader hardwareBufferFrameReader =
-        createHardwareBufferFrameReader(sequence, receivedFrames, handlerThread.getLooper());
+    SequenceFrameReader sequenceFrameReader =
+        createSequenceFrameReader(sequence, receivedFrames, handlerThread.getLooper());
 
-    SequenceRenderersFactory factory =
-        createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader);
+    SequenceRenderersFactory factory = createFactoryForHardwareBuffer(() -> sequenceFrameReader);
     Renderer videoRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
 
     Timeline timeline =
@@ -188,7 +186,7 @@ public final class SequenceRenderersFactoryTest {
     FakeWakeupListener fakeWakeupListener = new FakeWakeupListener();
     videoRenderer.handleMessage(Renderer.MSG_SET_WAKEUP_LISTENER, fakeWakeupListener);
 
-    hardwareBufferFrameReader.outputBitmap(
+    sequenceFrameReader.outputBitmap(
         Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888),
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 2f),
         /* sequenceOffsetUs= */ 0,
@@ -214,8 +212,8 @@ public final class SequenceRenderersFactoryTest {
     List<AsyncFrame> receivedFrames = new ArrayList<>();
     List<FakeImageReaderAdapter> imageReaders = new ArrayList<>();
     EditedMediaItemSequence sequence = createSequence();
-    HardwareBufferFrameReader hardwareBufferFrameReader =
-        createHardwareBufferFrameReader(
+    SequenceFrameReader sequenceFrameReader =
+        createSequenceFrameReader(
             sequence,
             receivedFrames,
             handlerThread.getLooper(),
@@ -224,8 +222,7 @@ public final class SequenceRenderersFactoryTest {
               imageReaders.add(imageReader);
               return imageReader;
             });
-    SequenceRenderersFactory factory =
-        createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader);
+    SequenceRenderersFactory factory = createFactoryForHardwareBuffer(() -> sequenceFrameReader);
     Renderer videoRenderer = createRenderer(factory, C.TRACK_TYPE_VIDEO);
     Timeline timeline =
         new CompositionPlayer.CompositionForwardingTimeline(new FakeTimeline(), sequence);
@@ -259,15 +256,15 @@ public final class SequenceRenderersFactoryTest {
       throws Exception {
     List<AsyncFrame> receivedFrames = new ArrayList<>();
     EditedMediaItemSequence sequence = createVideoSequence();
-    HardwareBufferFrameReader hardwareBufferFrameReader =
-        createHardwareBufferFrameReader(
+    SequenceFrameReader sequenceFrameReader =
+        createSequenceFrameReader(
             sequence,
             receivedFrames,
             handlerThread.getLooper(),
             new FakeImageReaderAdapterFactory());
     Renderer videoRenderer =
         createRenderer(
-            createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader), C.TRACK_TYPE_VIDEO);
+            createFactoryForHardwareBuffer(() -> sequenceFrameReader), C.TRACK_TYPE_VIDEO);
     Timeline timeline =
         new CompositionPlayer.CompositionForwardingTimeline(new FakeTimeline(), sequence);
     Format videoFormat =
@@ -312,11 +309,11 @@ public final class SequenceRenderersFactoryTest {
             .addItems(createSequence().editedMediaItems)
             .setIsLooping(true)
             .build();
-    HardwareBufferFrameReader hardwareBufferFrameReader =
-        createHardwareBufferFrameReader(loopingSequence, receivedFrames, handlerThread.getLooper());
+    SequenceFrameReader sequenceFrameReader =
+        createSequenceFrameReader(loopingSequence, receivedFrames, handlerThread.getLooper());
     Renderer imageRenderer =
         createRenderer(
-            createFactoryForHardwareBuffer(() -> hardwareBufferFrameReader), C.TRACK_TYPE_IMAGE);
+            createFactoryForHardwareBuffer(() -> sequenceFrameReader), C.TRACK_TYPE_IMAGE);
     Timeline timeline =
         new CompositionPlayer.CompositionForwardingTimeline(
             new FakeTimeline(
@@ -341,7 +338,7 @@ public final class SequenceRenderersFactoryTest {
   }
 
   private static SequenceRenderersFactory createFactoryForHardwareBuffer(
-      Supplier<HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier) {
+      Supplier<SequenceFrameReader> sequenceFrameReaderSupplier) {
     return SequenceRenderersFactory.createForHardwareBuffer(
         getApplicationContext(),
         new PlaybackAudioGraphWrapper(
@@ -354,7 +351,7 @@ public final class SequenceRenderersFactoryTest {
         /* videoPrewarmingEnabled= */ false,
         /* compositionRendererListener= */ mock(
             SequenceRenderersFactory.CompositionRendererListener.class),
-        hardwareBufferFrameReaderSupplier,
+        sequenceFrameReaderSupplier,
         /* lateThresholdToDropInputUs= */ 0);
   }
 
@@ -391,13 +388,13 @@ public final class SequenceRenderersFactoryTest {
     return withVideoFrom(ImmutableList.of(editedMediaItem));
   }
 
-  private static HardwareBufferFrameReader createHardwareBufferFrameReader(
+  private static SequenceFrameReader createSequenceFrameReader(
       EditedMediaItemSequence sequence, List<AsyncFrame> receivedFrames, Looper looper) {
-    return createHardwareBufferFrameReader(
+    return createSequenceFrameReader(
         sequence, receivedFrames, looper, new DefaultImageReaderAdapter.Factory());
   }
 
-  private static HardwareBufferFrameReader createHardwareBufferFrameReader(
+  private static SequenceFrameReader createSequenceFrameReader(
       EditedMediaItemSequence sequence,
       List<AsyncFrame> receivedFrames,
       Looper looper,
@@ -405,7 +402,7 @@ public final class SequenceRenderersFactoryTest {
     Composition composition = new Composition.Builder(sequence, createSequence()).build();
     HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
     when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
-    return new HardwareBufferFrameReader(
+    return new SequenceFrameReader(
         composition,
         /* sequenceIndex= */ 0,
         /* frameConsumer= */ receivedFrames::add,

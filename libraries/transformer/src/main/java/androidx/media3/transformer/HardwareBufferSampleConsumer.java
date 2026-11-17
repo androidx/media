@@ -34,7 +34,7 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
+import androidx.media3.transformer.SequenceFrameReader.Listener;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,15 +42,15 @@ import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A {@link GraphInput} that wraps {@link HardwareBufferFrameReader}.
+ * A {@link GraphInput} that wraps {@link SequenceFrameReader}.
  *
  * <p>Offsets {@link Frame#KEY_DISPLAY_TIME_NS} based on preceding media item durations to ensure a
  * continuous timeline within the sequence.
  */
 /* package */ final class HardwareBufferSampleConsumer implements GraphInput {
 
-  private final HardwareBufferFrameReader hardwareBufferFrameReader;
-  private final HardwareBufferFrameReader.InputSurface inputSurface;
+  private final SequenceFrameReader sequenceFrameReader;
+  private final SequenceFrameReader.InputSurface inputSurface;
   private final Composition composition;
   private final int sequenceIndex;
 
@@ -108,13 +108,13 @@ import org.jspecify.annotations.Nullable;
       ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
-    // Modify the release times of frames exiting the hardwareBufferFrameReader to account for
-    // item duration.
+    // Modify the release times of frames exiting the sequenceFrameReader to account for item
+    // duration.
     Consumer<AsyncFrame> intermediateConsumer =
         asyncFrame -> {
           if (asyncFrame != END_OF_STREAM_ASYNC_FRAME) {
             // The frame's sequencePresentationTimeUs is already adjusted by the
-            // HardwareBufferFrameReader to be monotonic across the entire sequence.
+            // SequenceFrameReader to be monotonic across the entire sequence.
             // Adjust the release times so they are valid for the encoder.
             long releaseTimeNs = asyncFrame.frame.getContentTimeUs() * 1000;
             Map<String, Object> updatedMetadata = new HashMap<>(asyncFrame.frame.getMetadata());
@@ -133,14 +133,13 @@ import org.jspecify.annotations.Nullable;
           }
           frameConsumer.accept(asyncFrame);
         };
-    this.hardwareBufferFrameReader =
-        new HardwareBufferFrameReader(
+    this.sequenceFrameReader =
+        new SequenceFrameReader(
             checkNotNull(composition),
             sequenceIndex,
             intermediateConsumer,
             playbackLooper,
-            // TODO(b/531653682): Move surface pixel format selection into
-            // HardwareBufferFrameReader.
+            // TODO(b/531653682): Move surface pixel format selection into SequenceFrameReader.
             /* defaultSurfacePixelFormat= */ SDK_INT >= 28
                 ? ImageFormat.PRIVATE
                 : ImageFormat.YUV_420_888,
@@ -148,7 +147,7 @@ import org.jspecify.annotations.Nullable;
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
             listenerHandler,
             hardwareBufferJniWrapper);
-    inputSurface = hardwareBufferFrameReader.createInputSurface();
+    inputSurface = sequenceFrameReader.createInputSurface();
   }
 
   @Override
@@ -172,7 +171,7 @@ import org.jspecify.annotations.Nullable;
   @Override
   public @InputResult int queueInputBitmap(
       Bitmap inputBitmap, TimestampIterator timestampIterator) {
-    hardwareBufferFrameReader.outputBitmap(
+    sequenceFrameReader.outputBitmap(
         inputBitmap, timestampIterator, currentTimeOffsetUs, currentMediaItemIndex);
     return INPUT_RESULT_SUCCESS;
   }
@@ -207,20 +206,20 @@ import org.jspecify.annotations.Nullable;
   public void signalEndOfVideoInput() {
     EditedMediaItemSequence sequence = composition.sequences.get(sequenceIndex);
     if (sequence.isLooping || currentMediaItemIndex == sequence.editedMediaItems.size() - 1) {
-      hardwareBufferFrameReader.queueEndOfStream();
+      sequenceFrameReader.queueEndOfStream();
     }
   }
 
   @Override
   public int getPendingVideoFrameCount() {
     // registerVideoFrame is always called before a sample is queued, that is the source of truth
-    // for whether the underlying HardwareBufferFrameReader can accept a frame, so it is fine to
+    // for whether the underlying SequenceFrameReader can accept a frame, so it is fine to
     // always return 0 here.
     return 0;
   }
 
-  /** Releases resources associated the underlying {@link HardwareBufferFrameReader}. */
+  /** Releases resources associated with the underlying {@link SequenceFrameReader}. */
   public void release() {
-    hardwareBufferFrameReader.release();
+    sequenceFrameReader.release();
   }
 }
