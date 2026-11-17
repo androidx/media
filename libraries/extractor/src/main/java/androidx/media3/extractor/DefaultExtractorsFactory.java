@@ -17,6 +17,7 @@ package androidx.media3.extractor;
 
 import static androidx.media3.common.FileTypes.inferFileTypeFromResponseHeaders;
 import static androidx.media3.common.FileTypes.inferFileTypeFromUri;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
@@ -160,10 +161,24 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private @HeifExtractor.Flags int heifFlags;
   private boolean parseHagcMetadata;
 
+  /** Creates a new instance. */
   public DefaultExtractorsFactory() {
+    this(new DefaultSubtitleParserFactory());
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * <p>Note that this constructor is only useful to try and ensure that {@link
+   * DefaultSubtitleParserFactory} can be removed by ProGuard or R8.
+   *
+   * @param subtitleParserFactory A {@link SubtitleParser.Factory} to create {@link SubtitleParser}
+   *     instances used to parse subtitles.
+   */
+  public DefaultExtractorsFactory(SubtitleParser.Factory subtitleParserFactory) {
     tsMode = TsExtractor.MODE_SINGLE_PMT;
     tsTimestampSearchBytes = TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
-    subtitleParserFactory = new DefaultSubtitleParserFactory();
+    this.subtitleParserFactory = checkNotNull(subtitleParserFactory);
     textTrackTranscodingEnabled = true;
     parseHagcMetadata = true;
   }
