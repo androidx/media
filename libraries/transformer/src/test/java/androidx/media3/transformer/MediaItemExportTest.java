@@ -23,6 +23,7 @@ import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcess
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AMR_NB;
+import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AV1;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_DECODED;
 import static androidx.media3.transformer.AssetLoader.SUPPORTED_OUTPUT_TYPE_ENCODED;
@@ -56,6 +57,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -90,6 +92,9 @@ import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.video.Frame;
+import androidx.media3.container.Mp4Box;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -115,6 +120,8 @@ import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
+import androidx.media3.transformer.AssetLoader.CompositionSettings;
+import androidx.media3.transformer.TestUtil.MetadataRecordingAssetLoaderListener;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -124,6 +131,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -143,6 +151,7 @@ import org.mockito.ArgumentCaptor;
 import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowMediaCodec;
+import org.robolectric.shadows.ShadowSystemClock;
 
 /**
  * End-to-end test for exporting a single {@link MediaItem} or {@link EditedMediaItem} with {@link
@@ -1638,9 +1647,9 @@ public final class MediaItemExportTest {
 
     FakeExtractorOutput extractorOutput = extractAllSamplesFromMp4File(outputPath);
     FakeTrackOutput videoTrackOutput =
-        Iterables.getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     FakeTrackOutput it35TrackOutput =
-        Iterables.getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
     Format it35Format = checkNotNull(it35TrackOutput.lastFormat);
     assertThat(it35Format.sampleMimeType).isEqualTo(APPLICATION_ITUT_T35);
     assertThat(it35Format.initializationData.get(0))
@@ -1655,6 +1664,74 @@ public final class MediaItemExportTest {
     for (int i = 0; i < inputPayloads.size(); i++) {
       assertWithMessage("it35 payload %s", i)
           .that(it35TrackOutput.getSampleData(i))
+          .isEqualTo(inputPayloads.get(i));
+    }
+  }
+
+  @Test
+  @Config(minSdk = 37) // HAGC tracks are only merged into the video samples from API 37.
+  public void start_withHagcVideo_exportsHagcThatAssetLoaderReadsBackPerFrame() throws Exception {
+    shadowMediaCodecConfig.addDecoders(CODEC_INFO_AV1);
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    String outputPath = outputDir.newFile().getPath();
+    ImmutableList<byte[]> inputPayloads =
+        getIt35SampleDataByTimeUs(IT35_MP4_ASSET.uri.replace("asset:///", "")).values().asList();
+    MetadataRecordingAssetLoaderListener listener = new MetadataRecordingAssetLoaderListener();
+
+    transformer.start(MediaItem.fromUri(IT35_MP4_ASSET.uri), outputPath);
+    TransformerTestRunner.runLooper(transformer);
+    AssetLoader assetLoader =
+        new ExoPlayerAssetLoader.Factory(
+                context,
+                new DefaultDecoderFactory.Builder(context).build(),
+                Clock.DEFAULT,
+                /* mediaSourceFactory= */ null,
+                /* trackSelectorFactory= */ null,
+                /* logSessionId= */ null,
+                /* loadControl= */ null)
+            .createAssetLoader(
+                new EditedMediaItem.Builder(MediaItem.fromUri(outputPath)).build(),
+                Looper.myLooper(),
+                listener,
+                new CompositionSettings(
+                    Composition.HDR_MODE_KEEP_HDR, /* retainHdrFromUltraHdrImage= */ false));
+    assetLoader.start();
+    try {
+      runLooperUntil(
+          Looper.myLooper(),
+          () -> {
+            ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+            return listener.videoInputEnded.get() || listener.exception.get() != null;
+          });
+    } finally {
+      assetLoader.release();
+    }
+
+    assertThat(listener.exception.get()).isNull();
+    FakeExtractorOutput extractorOutput = extractAllSamplesFromMp4File(outputPath);
+    FakeTrackOutput videoTrackOutput =
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    FakeTrackOutput it35TrackOutput =
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+    int videoTrackId = Integer.parseInt(checkNotNull(checkNotNull(videoTrackOutput.lastFormat).id));
+    Format it35Format = checkNotNull(it35TrackOutput.lastFormat);
+    assertThat(checkNotNull(it35Format.metadata).getEntriesOfType(Mp4TrackReferenceData.class))
+        .containsExactly(
+            new Mp4TrackReferenceData(Mp4Box.TYPE_rndr, ImmutableList.of(videoTrackId)));
+    assertThat(it35TrackOutput.getDurationUs()).isEqualTo(videoTrackOutput.getDurationUs());
+    // The output times are rounded to the output timescale, so match the read-back frames with the
+    // input payloads by frame index.
+    ImmutableList<Long> frameTimesUs =
+        ImmutableList.sortedCopyOf(listener.metadataByFrameTimeUs.keySet());
+    assertThat(frameTimesUs)
+        .containsExactlyElementsIn(videoTrackOutput.getSampleTimesUs())
+        .inOrder();
+    assertThat(frameTimesUs).hasSize(inputPayloads.size());
+    for (int i = 0; i < frameTimesUs.size(); i++) {
+      ImmutableMap<String, Object> frameMetadata =
+          checkNotNull(listener.metadataByFrameTimeUs.get(frameTimesUs.get(i)));
+      assertWithMessage("HAGC payload of frame %s", i)
+          .that(frameMetadata.get(Frame.KEY_HDR_ST2094_50_INFO))
           .isEqualTo(inputPayloads.get(i));
     }
   }

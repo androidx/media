@@ -1343,7 +1343,23 @@ public final class AssetInfo {
       new AssetInfo.Builder("asset:///media/mp4/sample_with_apvc.mp4").build();
 
   public static final AssetInfo IT35_MP4_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/sample_with_it35_track.mp4").build();
+      new AssetInfo.Builder("asset:///media/mp4/sample_with_it35_track.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_AV1)
+                  .setWidth(480)
+                  .setHeight(270)
+                  .setFrameRate(29.92f)
+                  .setColorInfo(
+                      new ColorInfo.Builder()
+                          .setColorSpace(C.COLOR_SPACE_BT2020)
+                          .setColorRange(C.COLOR_RANGE_LIMITED)
+                          .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                          .build())
+                  .setCodecs("av01.0.00M.10")
+                  .build())
+          .setVideoFrameCount(30)
+          .build();
 
   public static final AssetInfo MPEG4_MP4_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/bbb_176x144_192kbps_15fps_mpeg4.mp4")

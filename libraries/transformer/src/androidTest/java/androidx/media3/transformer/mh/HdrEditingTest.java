@@ -15,7 +15,9 @@
  */
 package androidx.media3.transformer.mh;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.BT709_SRGB;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
+import static androidx.media3.test.utils.AssetInfo.IT35_MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_2_SECOND_HDR10;
@@ -24,37 +26,54 @@ import static androidx.media3.test.utils.DecodeOneFrameUtil.decodeOneMediaItemFr
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
 import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
+import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFile;
+import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.Collections.max;
 
 import android.content.Context;
 import android.media.MediaFormat;
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.container.Mp4Box;
+import androidx.media3.container.Mp4TrackReferenceData;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.video.PlaceholderSurfaceInterface;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DecodeOneFrameUtil;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EncoderUtil;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.ExportTestResult;
+import androidx.media3.transformer.GlFrameProcessorTestRule;
 import androidx.media3.transformer.TransformationRequest;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
+import androidx.media3.transformer.VideoEncoderSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,6 +99,11 @@ import org.junit.runner.RunWith;
 public final class HdrEditingTest {
 
   @Rule public final TestName testName = new TestName();
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
+
+  private final Context context = ApplicationProvider.getApplicationContext();
 
   private String testId;
   private @Nullable PlaceholderSurfaceInterface placeholderSurface;
@@ -535,6 +559,118 @@ public final class HdrEditingTest {
       }
       throw exception;
     }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37) // HAGC is merged into the video samples from API 37.
+  public void exportAndTranscode_hagcFileWithGlFrameProcessor_keepsHagcOfEachFrame()
+      throws Exception {
+    Format inputFormat = IT35_MP4_ASSET.videoFormat;
+    Format outputFormat =
+        inputFormat
+            .buildUpon()
+            // The input is AV1. Output H.265 for better device coverage.
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs(null)
+            // The input is PQ, while DefaultGlFrameProcessor only outputs HDR as HLG.
+            .setColorInfo(
+                checkNotNull(inputFormat.colorInfo)
+                    .buildUpon()
+                    .setColorTransfer(C.COLOR_TRANSFER_HLG)
+                    .build())
+            .build();
+    assumeDeviceSupportsHdrEditing(testId, outputFormat);
+    assumeFormatsSupported(context, testId, inputFormat, outputFormat);
+    FakeTrackOutput expectedIt35TrackOutput =
+        getOnlyElement(
+            extractAllSamplesFromFile(
+                    new Mp4Extractor(new DefaultSubtitleParserFactory()),
+                    context,
+                    IT35_MP4_ASSET.uri.replace("asset:///", ""))
+                .getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+    Transformer transformer =
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context)
+            .setVideoMimeType(MimeTypes.VIDEO_H265)
+            // MuxerWrapper skips the HAGC of B-frames, so disable them to get one it35 sample per
+            // frame. CTS checks that encoders don't exceed the maximum.
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context)
+                    .setRequestedVideoEncoderSettings(
+                        new VideoEncoderSettings.Builder().setMaxBFrames(0).build())
+                    .build())
+            .build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, MediaItem.fromUri(Uri.parse(IT35_MP4_ASSET.uri)));
+
+    FakeExtractorOutput extractorOutput =
+        extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), exportTestResult.filePath);
+    FakeTrackOutput videoTrackOutput =
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    FakeTrackOutput it35TrackOutput =
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA));
+    Format videoFormat = checkNotNull(videoTrackOutput.lastFormat);
+    assertThat(checkNotNull(videoFormat.colorInfo).colorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+    int videoTrackId = Integer.parseInt(checkNotNull(videoFormat.id));
+    // The rndr reference points to the output video track.
+    assertThat(
+            checkNotNull(checkNotNull(it35TrackOutput.lastFormat).metadata)
+                .getEntriesOfType(Mp4TrackReferenceData.class))
+        .containsExactly(
+            new Mp4TrackReferenceData(Mp4Box.TYPE_rndr, ImmutableList.of(videoTrackId)));
+    // There are no B-frames, and the input has a different HAGC payload on each frame, so every
+    // output frame has its own it35 sample at the same time.
+    assertThat(it35TrackOutput.getSampleCount()).isEqualTo(IT35_MP4_ASSET.videoFrameCount);
+    assertThat(it35TrackOutput.getSampleTimesUs())
+        .containsExactlyElementsIn(videoTrackOutput.getSampleTimesUs())
+        .inOrder();
+    for (int i = 0; i < it35TrackOutput.getSampleCount(); i++) {
+      assertWithMessage("it35 payload %s", i)
+          .that(it35TrackOutput.getSampleData(i))
+          .isEqualTo(expectedIt35TrackOutput.getSampleData(i));
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37) // HAGC is merged into the video samples from API 37.
+  public void exportAndTranscode_hagcFileWithGlFrameProcessorAndToneMapping_dropsHagc()
+      throws Exception {
+    assumeDeviceSupportsOpenGlToneMapping(testId, IT35_MP4_ASSET.videoFormat);
+    Format outputFormat =
+        IT35_MP4_ASSET
+            .videoFormat
+            .buildUpon()
+            // The input is AV1. Output H.265 for better device coverage.
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs(null)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    assumeFormatsSupported(context, testId, IT35_MP4_ASSET.videoFormat, outputFormat);
+    // The BT.709 working color space tone-maps the HDR input to SDR.
+    Transformer transformer =
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context, BT709_SRGB)
+            .setVideoMimeType(MimeTypes.VIDEO_H265)
+            .build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, MediaItem.fromUri(Uri.parse(IT35_MP4_ASSET.uri)));
+
+    FakeExtractorOutput extractorOutput =
+        extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), exportTestResult.filePath);
+    FakeTrackOutput videoTrackOutput =
+        getOnlyElement(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    assertThat(checkNotNull(checkNotNull(videoTrackOutput.lastFormat).colorInfo).colorTransfer)
+        .isEqualTo(C.COLOR_TRANSFER_SDR);
+    // HAGC is dropped for SDR output, and Mp4Muxer leaves the empty it35 track out of the file.
+    assertThat(extractorOutput.getTrackOutputsForType(C.TRACK_TYPE_METADATA)).isEmpty();
   }
 
   private static List<Byte> byteList(ByteBuffer buffer) {
