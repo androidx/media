@@ -45,11 +45,6 @@ public final class NalUnitUtil {
   /** H.264 coded slice of a non-IDR picture. */
   public static final int H264_NAL_UNIT_TYPE_NON_IDR = 1;
 
-  /**
-   * @deprecated Use {@link #H264_NAL_UNIT_TYPE_NON_IDR}
-   */
-  @Deprecated public static final int NAL_UNIT_TYPE_NON_IDR = H264_NAL_UNIT_TYPE_NON_IDR;
-
   /** H.264 coded slice data partition A. */
   public static final int H264_NAL_UNIT_TYPE_PARTITION_A = 2;
 

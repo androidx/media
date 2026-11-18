@@ -161,6 +161,8 @@
         MediaLoadData)`. Use
         `MediaSourceEventListener.EventDispatcher.loadStarted(LoadEventInfo,
         MediaLoadData, int)` instead.
+    *   Remove `NalUnitUtil.NAL_UNIT_TYPE_NON_IDR`. Use
+        `NalUnitUtil.H264_NAL_UNIT_TYPE_NON_IDR` instead.
     *   Remove `RawResourceDataSource.RawResourceDataSourceException(String)`.
         Use `RawResourceDataSource.RawResourceDataSourceException(String,
         Throwable, int)` instead.
