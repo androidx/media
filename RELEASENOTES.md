@@ -105,6 +105,10 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Fix an issue where `RemoteCastPlayer` cleared its timeline before
+        transferring playback state back to the local player in `CastPlayer`
+        when the receiver app stopped externally
+        ([#2182](https://github.com/androidx/media/issues/2182)).
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:

@@ -346,6 +346,42 @@ public final class CastPlayerTest {
   }
 
   @Test
+  public void
+      playerTransfer_whenReceiverApplicationStopsAndClearsMediaQueueBeforeSessionEnded_transfersPlaylistToLocalPlayer() {
+    MediaInfo mediaInfo1 =
+        new MediaInfo.Builder("https://example.com/media1.mp4")
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .build();
+    MediaInfo mediaInfo2 =
+        new MediaInfo.Builder("https://example.com/media2.mp4")
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType(MimeTypes.VIDEO_MP4)
+            .build();
+    MediaQueueItem queueItem1 = new MediaQueueItem.Builder(mediaInfo1).setItemId(1).build();
+    MediaQueueItem queueItem2 = new MediaQueueItem.Builder(mediaInfo2).setItemId(2).build();
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem1, queueItem2));
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(1);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo1);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1, 2});
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    ArgumentCaptor<MediaQueue.Callback> mediaQueueCallbackCaptor =
+        ArgumentCaptor.forClass(MediaQueue.Callback.class);
+    verify(mockMediaQueue).registerCallback(mediaQueueCallbackCaptor.capture());
+    castPlayer = castPlayerBuilder.build();
+
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    mediaQueueCallbackCaptor.getValue().mediaQueueChanged();
+    castSessionListener.onSessionEnded(mockCastSession, RemoteCastPlayer.APPLICATION_STOPPED);
+
+    assertThat(localPlayer.getMediaItemCount()).isEqualTo(2);
+    assertThat(castPlayer.getMediaItemCount()).isEqualTo(2);
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
   public void playerTransfer_whenRouteChanged_doesNotPauseLocalPlayer() {
     castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
     castPlayer = castPlayerBuilder.build();

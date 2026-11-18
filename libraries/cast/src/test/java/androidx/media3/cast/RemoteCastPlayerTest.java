@@ -3082,6 +3082,62 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void mediaQueueChanged_whenMediaStatusIsNull_doesNotClearTheTimeline() {
+    List<MediaItem> firstPlaylist = new ArrayList<>();
+    String uri1 = "http://www.google.com/video1";
+    String uri2 = "http://www.google.com/video2";
+    int firstItemId = 33;
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build());
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    updateTimeLine(
+        firstPlaylist, /* mediaQueueItemIds= */ new int[] {firstItemId, 2}, /* currentItemId= */ 2);
+    clearInvocations(mockListener);
+    Timeline initialTimeline = remoteCastPlayer.getCurrentTimeline();
+
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    mediaQueueCallback.mediaQueueChanged();
+    sessionManagerListener.onSessionEnded(mockCastSession, RemoteCastPlayer.APPLICATION_STOPPED);
+
+    verify(mockListener, never()).onTimelineChanged(any(), anyInt());
+    assertThat(remoteCastPlayer.getCurrentTimeline()).isEqualTo(initialTimeline);
+  }
+
+  @Test
+  public void onStatusUpdated_whenMediaStatusBecomesNullDuringActiveSession_clearsTheTimeline() {
+    List<MediaItem> firstPlaylist = new ArrayList<>();
+    String uri1 = "http://www.google.com/video1";
+    String uri2 = "http://www.google.com/video2";
+    int firstItemId = 33;
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build());
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    updateTimeLine(
+        firstPlaylist, /* mediaQueueItemIds= */ new int[] {firstItemId, 2}, /* currentItemId= */ 2);
+    clearInvocations(mockListener);
+
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_IDLE);
+    when(mockRemoteMediaClient.getIdleReason()).thenReturn(MediaStatus.IDLE_REASON_NONE);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    mediaQueueCallback.mediaQueueChanged();
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
+    verify(mockListener)
+        .onTimelineChanged(Timeline.EMPTY, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
+  }
+
+  @Test
   public void onSessionEnded_withReasonStopped_notifiesUnavailableWithStoppedReason() {
     remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
 
