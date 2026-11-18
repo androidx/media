@@ -2248,6 +2248,13 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     @Override
     public void mediaQueueChanged() {
+      if (getMediaStatus() == null) {
+        // When a session disconnects without calling onSessionEnding (for example, when the
+        // receiver app stops), the Cast SDK clears MediaStatus and MediaQueue before firing
+        // onSessionEnded. Ignore this update so the timeline is preserved for transfer to the local
+        // player.
+        return;
+      }
       updateTimelineAndNotifyIfChanged();
       listeners.flushEvents();
     }
