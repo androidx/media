@@ -91,6 +91,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.Rule;
@@ -758,40 +759,20 @@ public final class ExoPlayerScrubbingTest {
   @Config(minSdk = 29) // TODO: b/511134574 - Get this test passing on all API levels.
   public void operatingRateOverride_propagatedToMediaCodec() throws Exception {
     AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
-    DefaultRenderersFactory renderersFactory =
-        new DefaultRenderersFactory(ApplicationProvider.getApplicationContext()) {
-          @Override
-          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
-            MediaCodecAdapter.Factory codecAdapterFactory = super.getCodecAdapterFactory();
-            return configuration -> {
-              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
-              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
-                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
-                checkState(
-                    spyVideoMediaCodecAdapter.compareAndSet(
-                        /* expectedValue= */ null, /* newValue= */ codecAdapter));
-              }
-              return codecAdapter;
-            };
-          }
-        };
-    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
-    // FakeVideoRenderer).
-    ExoPlayer player =
-        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
-            .build();
+    ExoPlayer player = createPlayerWithSpyVideoCodecAdapter(spyVideoMediaCodecAdapter);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
+    AtomicLong lastRenderedFrameTimeUs = new AtomicLong(C.TIME_UNSET);
+    player.addVideoFrameMetadataListener((presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+        lastRenderedFrameTimeUs.set(presentationTimeUs));
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
     player.prepare();
-    player.play();
-    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 300);
+    advance(player).untilState(Player.STATE_READY);
+
     player.setScrubbingModeEnabled(true);
     advance(player).untilPendingCommandsAreFullyHandled();
     player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 800);
-    advance(player).untilPosition(0, 800);
+    advance(player).untilBackgroundThreadCondition(() -> lastRenderedFrameTimeUs.get() >= 800_000L);
     player.setScrubbingModeEnabled(false);
     advance(player).untilPendingCommandsAreFullyHandled();
     player.release();
@@ -812,32 +793,12 @@ public final class ExoPlayerScrubbingTest {
   @Test
   public void operatingRateIncreaseDisabled() throws Exception {
     AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
-    DefaultRenderersFactory renderersFactory =
-        new DefaultRenderersFactory(ApplicationProvider.getApplicationContext()) {
-          @Override
-          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
-            MediaCodecAdapter.Factory codecAdapterFactory = super.getCodecAdapterFactory();
-            return configuration -> {
-              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
-              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
-                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
-                checkState(
-                    spyVideoMediaCodecAdapter.compareAndSet(
-                        /* expectedValue= */ null, /* newValue= */ codecAdapter));
-              }
-              return codecAdapter;
-            };
-          }
-        };
-    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
-    // FakeVideoRenderer).
-    ExoPlayer player =
-        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
-            .build();
+    ExoPlayer player = createPlayerWithSpyVideoCodecAdapter(spyVideoMediaCodecAdapter);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
+    AtomicLong lastRenderedFrameTimeUs = new AtomicLong(C.TIME_UNSET);
+    player.addVideoFrameMetadataListener((presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+        lastRenderedFrameTimeUs.set(presentationTimeUs));
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
     player.setScrubbingModeParameters(
         player
@@ -846,12 +807,12 @@ public final class ExoPlayerScrubbingTest {
             .setShouldIncreaseCodecOperatingRate(false)
             .build());
     player.prepare();
-    player.play();
-    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 300);
+    advance(player).untilState(Player.STATE_READY);
+
     player.setScrubbingModeEnabled(true);
     advance(player).untilPendingCommandsAreFullyHandled();
     player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 800);
-    advance(player).untilPosition(0, 800);
+    advance(player).untilBackgroundThreadCondition(() -> lastRenderedFrameTimeUs.get() >= 800_000L);
     player.setScrubbingModeEnabled(false);
     advance(player).untilPendingCommandsAreFullyHandled();
     player.release();
@@ -994,12 +955,20 @@ public final class ExoPlayerScrubbingTest {
   @Test
   @Config(sdk = 34)
   public void decodeOnlyInScrubbingMode_seekToEnd_lastFrameRendered() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(context, clock);
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            return codecAdapterFactory;
+          }
+        };
     // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
     // FakeVideoRenderer).
-    ExoPlayer player =
-        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
@@ -1015,6 +984,7 @@ public final class ExoPlayerScrubbingTest {
     player.play();
     advance(player).untilState(Player.STATE_READY);
     advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+
     player.setScrubbingModeEnabled(true);
     advance(player).untilPendingCommandsAreFullyHandled();
     firstFrameRendered.set(false);
@@ -1136,6 +1106,38 @@ public final class ExoPlayerScrubbingTest {
 
     player.release();
     surface.release();
+  }
+
+  private static ExoPlayer createPlayerWithSpyVideoCodecAdapter(
+      AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter) {
+    Context context = ApplicationProvider.getApplicationContext();
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(context, clock);
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            return configuration -> {
+              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
+              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
+                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
+                checkState(
+                    spyVideoMediaCodecAdapter.compareAndSet(
+                        /* expectedValue= */ null, /* newValue= */ codecAdapter));
+              }
+              return codecAdapter;
+            };
+          }
+        };
+    // These tests need to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer). Disable stuck buffering detection because loading asset media uses a
+    // background Loader thread while FakeClock auto-advances.
+    return new ExoPlayer.Builder(context, renderersFactory)
+        .setClock(clock)
+        .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
+        .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+        .build();
   }
 
   private static FakeMediaSource createFakeMediaSource(Format format, long durationUs) {
