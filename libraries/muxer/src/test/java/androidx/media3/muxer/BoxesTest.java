@@ -26,6 +26,7 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
@@ -39,6 +40,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.XmpData;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
@@ -55,6 +57,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -252,6 +255,41 @@ public class BoxesTest {
     String boxContentsString =
         new String(udtaBox.array(), udtaBox.arrayOffset(), udtaBox.remaining(), UTF_8);
     assertThat(boxContentsString).contains("+33.0000-120.0000+150.5000/");
+  }
+
+  @Test
+  public void createUdtaBox_withCoverArt_writesCovrUnderMetaWithMdirHandler() {
+    byte[] image = new byte[] {(byte) 0xFF, (byte) 0xD8, 1, 2, 3, (byte) 0xFF, (byte) 0xD9};
+
+    ByteBuffer udtaBox =
+        Boxes.udta(/* location= */ null, new Mp4CoverArtData(image, Mp4CoverArtData.TYPE_JPEG));
+
+    byte[] bytes = new byte[udtaBox.remaining()];
+    udtaBox.duplicate().get(bytes);
+    String boxes = new String(bytes, ISO_8859_1);
+    int udta = boxes.indexOf("udta");
+    int meta = boxes.indexOf("meta");
+    int hdlr = boxes.indexOf("hdlr");
+    int mdir = boxes.indexOf("mdir");
+    int ilst = boxes.indexOf("ilst");
+    int covr = boxes.indexOf("covr");
+    int data = boxes.indexOf("data");
+    assertThat(udta).isEqualTo(4);
+    assertThat(meta).isEqualTo(12);
+    assertThat(hdlr).isGreaterThan(meta);
+    assertThat(mdir).isGreaterThan(hdlr);
+    assertThat(ilst).isGreaterThan(mdir);
+    assertThat(covr).isGreaterThan(ilst);
+    assertThat(data).isGreaterThan(covr);
+    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    // The meta box is a full box: four bytes of version and flags follow its type.
+    assertThat(buffer.getInt(meta + 4)).isEqualTo(0);
+    // The data box starts with the type indicator, then the locale, then the image.
+    assertThat(buffer.getInt(data + 4)).isEqualTo(Mp4CoverArtData.TYPE_JPEG);
+    assertThat(buffer.getInt(data + 8)).isEqualTo(0);
+    assertThat(Arrays.copyOfRange(bytes, data + 12, bytes.length)).isEqualTo(image);
+    // Every box size is consistent with the total.
+    assertThat(buffer.getInt(0)).isEqualTo(bytes.length);
   }
 
   @Test
