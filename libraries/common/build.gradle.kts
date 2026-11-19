@@ -14,10 +14,7 @@
 
 import androidx.media3.buildlogic.Media3Modules
 
-plugins {
-  id("media3.android-library")
-  id("media3.publish")
-}
+plugins { id("media3.android-library") }
 
 android { namespace = "androidx.media3.common" }
 
@@ -26,10 +23,8 @@ dependencies {
     // List all released targets as constraints. This ensures they are all
     // resolved to the same version.
     Media3Modules.EXTERNAL_MODULES.forEach { (gradleName, moduleInfo) ->
-      if (moduleInfo.artifactId?.startsWith("media3-") == true) {
-        if (project.findProject(":$gradleName") != null) {
-          implementation(project(":$gradleName"))
-        }
+      if (moduleInfo.publishedToGmaven && project.findProject(":$gradleName") != null) {
+        implementation(project(":$gradleName"))
       }
     }
   }

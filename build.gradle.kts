@@ -66,16 +66,10 @@ allprojects {
 }
 
 tasks.register("printReleaseArtifactIds") {
-  description = "Prints the releaseArtifactId of modules configured for publishing."
+  description = "Prints the artifactId of modules configured for publishing to GMaven."
   doLast {
-    subprojects {
-      // Check if the project is intended to be published by looking for a task
-      // added by the maven-publish plugin.
-      if (!tasks.names.contains("generatePomFileForReleasePublication")) {
-        return@subprojects
-      }
-      Media3Modules.EXTERNAL_MODULES[project.name]?.artifactId?.let { println(it) }
-        ?: logger.warn("WARN: Project $path has publish task but no releaseArtifactId.")
-    }
+    Media3Modules.EXTERNAL_MODULES.values
+      .filter { it.publishedToGmaven }
+      .forEach { println(it.artifactId!!) }
   }
 }

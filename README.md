@@ -177,10 +177,15 @@ By default, the [MIDI module](libraries/decoder_midi) is disabled as a local
 dependency, because it requires additional Maven repository config. If you want
 to use it as a local dependency, please configure the JitPack repository as
 [described in the module README](libraries/decoder_midi/README.md#getting-the-module),
-and then enable building the module in by modifying `modules.kt` file:
+and then enable building the module by modifying `Media3Modules.kt`:
 
 ```kotlin
-Media3Module("libraries/decoder_midi", "media3-exoplayer-midi", includeInCompositeBuild = true)
+Media3Module(
+  "libraries/decoder_midi",
+  "media3-exoplayer-midi",
+  "Media3 MIDI decoder module",
+  includeInCompositeBuild = true,
+)
 ```
 
 ## Developing AndroidX Media

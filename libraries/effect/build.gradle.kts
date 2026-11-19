@@ -14,10 +14,7 @@
 
 import androidx.media3.buildlogic.StripGlslCommentsTask
 
-plugins {
-  id("media3.android-library")
-  id("media3.publish")
-}
+plugins { id("media3.android-library") }
 
 android {
   namespace = "androidx.media3.effect"

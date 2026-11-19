@@ -11,7 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import androidx.media3.buildlogic.Media3Modules
 import androidx.media3.buildlogic.configureCommonConfig
+import androidx.media3.buildlogic.configurePublishing
 
 plugins { id("com.android.library") }
 
@@ -37,6 +39,12 @@ android {
   }
 
   testOptions.targetSdk = libs.findVersion("libTestTargetSdkVersion").get().requiredVersion.toInt()
+}
+
+val moduleInfo = Media3Modules.EXTERNAL_MODULES[project.name]
+
+if (moduleInfo?.publishedToGmaven == true) {
+  configurePublishing(android, libs, moduleInfo)
 }
 
 dependencies { "androidTestUtil"(libs.findLibrary("androidx-test-orchestrator").get()) }

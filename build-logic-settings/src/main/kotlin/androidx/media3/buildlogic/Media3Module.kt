@@ -20,6 +20,13 @@ data class Media3Module(
   val directory: String,
   val artifactId: String? = null,
   val name: String? = null,
+  val publishedToGmaven: Boolean = artifactId != null,
   val includeInCompositeBuild: Boolean = true,
   val allowKt: Boolean = true,
-)
+) {
+  init {
+    require(!publishedToGmaven || (artifactId != null && name != null)) {
+      "Modules published to GMaven ($directory) must specify both artifactId and name."
+    }
+  }
+}

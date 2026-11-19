@@ -78,17 +78,33 @@ object Media3Modules {
           allowKt = false,
         ),
       "lib-decoder-av1" to
-        Media3Module("libraries/decoder_av1", "media3-decoder-av1", "Media3 AV1 decoder module"),
+        Media3Module(
+          "libraries/decoder_av1",
+          "media3-decoder-av1",
+          "Media3 AV1 decoder module",
+          publishedToGmaven = false,
+        ),
       "lib-decoder-ffmpeg" to
         Media3Module(
           "libraries/decoder_ffmpeg",
           "media3-decoder-ffmpeg",
           "Media3 FFmpeg decoder module",
+          publishedToGmaven = false,
         ),
       "lib-decoder-flac" to
-        Media3Module("libraries/decoder_flac", "media3-decoder-flac", "Media3 FLAC decoder module"),
+        Media3Module(
+          "libraries/decoder_flac",
+          "media3-decoder-flac",
+          "Media3 FLAC decoder module",
+          publishedToGmaven = false,
+        ),
       "lib-decoder-iamf" to
-        Media3Module("libraries/decoder_iamf", "media3-decoder-iamf", "Media3 IAMF decoder module"),
+        Media3Module(
+          "libraries/decoder_iamf",
+          "media3-decoder-iamf",
+          "Media3 IAMF decoder module",
+          publishedToGmaven = false,
+        ),
       "lib-decoder-midi" to
         Media3Module(
           "libraries/decoder_midi",
@@ -101,11 +117,22 @@ object Media3Modules {
           "libraries/decoder_mpegh",
           "media3-decoder-mpegh",
           "Media3 MPEG-H decoder module",
+          publishedToGmaven = false,
         ),
       "lib-decoder-opus" to
-        Media3Module("libraries/decoder_opus", "media3-decoder-opus", "Media3 Opus decoder module"),
+        Media3Module(
+          "libraries/decoder_opus",
+          "media3-decoder-opus",
+          "Media3 Opus decoder module",
+          publishedToGmaven = false,
+        ),
       "lib-decoder-vp9" to
-        Media3Module("libraries/decoder_vp9", "media3-decoder-vp9", "Media3 VP9 decoder module"),
+        Media3Module(
+          "libraries/decoder_vp9",
+          "media3-decoder-vp9",
+          "Media3 VP9 decoder module",
+          publishedToGmaven = false,
+        ),
       "lib-effect" to Media3Module("libraries/effect", "media3-effect", "Media3 Effect module"),
       "lib-effect-lottie" to
         Media3Module(
@@ -114,7 +141,12 @@ object Media3Modules {
           "Media3 Effect Lottie module",
         ),
       "lib-effect-ndk" to
-        Media3Module("libraries/effect_ndk", "media3-effect-ndk", "Media3 Effect NDK module"),
+        Media3Module(
+          "libraries/effect_ndk",
+          "media3-effect-ndk",
+          "Media3 Effect NDK module",
+          publishedToGmaven = false,
+        ),
       "lib-effect-play-services" to
         Media3Module(
           "libraries/effect_play_services",

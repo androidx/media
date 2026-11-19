@@ -14,7 +14,6 @@
 
 plugins {
   id("media3.android-library")
-  id("media3.publish")
   alias(libs.plugins.kotlin.compose.compiler)
 }
 
