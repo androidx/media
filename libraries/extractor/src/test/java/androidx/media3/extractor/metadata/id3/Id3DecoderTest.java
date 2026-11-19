@@ -19,13 +19,15 @@ import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createMetadataInputBuffer;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.nio.charset.StandardCharsets;
+import com.google.common.primitives.Bytes;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +36,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class Id3DecoderTest {
 
-  private static final byte[] TAG_HEADER = new byte[] {'I', 'D', '3', 4, 0, 0, 0, 0, 0, 0};
   private static final int FRAME_HEADER_LENGTH = 10;
   private static final int ID3_TEXT_ENCODING_UTF_8 = 3;
 
@@ -464,6 +465,483 @@ public final class Id3DecoderTest {
   }
 
   @Test
+  public void decodeGeobFrame_withObjectData_decodesFrame() {
+    byte[] rawId3 =
+        buildSingleFrameTag(
+            "GEOB",
+            Bytes.concat(
+                new byte[] {ID3_TEXT_ENCODING_UTF_8},
+                "application/octet-stream\0file.bin\0desc\0".getBytes(ISO_8859_1),
+                new byte[] {10, 20, 30}));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    GeobFrame geobFrame = (GeobFrame) metadata.get(0);
+    assertThat(geobFrame.mimeType).isEqualTo("application/octet-stream");
+    assertThat(geobFrame.filename).isEqualTo("file.bin");
+    assertThat(geobFrame.description).isEqualTo("desc");
+    assertThat(geobFrame.data).isEqualTo(new byte[] {10, 20, 30});
+  }
+
+  @Test
+  public void decodeGeobFrame_empty_skipsMalformedFrame() {
+    byte[] rawId3 = buildSingleFrameTag("GEOB", new byte[0]);
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(0);
+  }
+
+  @Test
+  public void decodeApicFrame_truncatedBeforePictureType_skipsMalformedFrameAndDecodesNextFrame() {
+    byte[] rawId3 =
+        buildMultiFramesTag(
+            new FrameSpec("APIC", new byte[0]),
+            new FrameSpec(
+                "APIC", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'i', 'm', 'a', 'g', 'e', '/', 'p'}),
+            new FrameSpec(
+                "APIC", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'i', 'm', 'a', 'g', 'e', '/', 'p', 0}),
+            new FrameSpec("TIT2", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'O', 'K', 0}));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    TextInformationFrame titleFrame = (TextInformationFrame) metadata.get(0);
+    assertThat(titleFrame.id).isEqualTo("TIT2");
+    assertThat(titleFrame.values).containsExactly("OK");
+  }
+
+  @Test
+  public void decodeApicFrame_v2JpgWithPictureData_decodesFrame() {
+    byte[] v2Frames =
+        Bytes.concat(
+            "PIC".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 13, ID3_TEXT_ENCODING_UTF_8},
+            "JPG".getBytes(ISO_8859_1),
+            new byte[] {3},
+            "cover\0".getBytes(ISO_8859_1),
+            new byte[] {1, 2});
+    byte[] rawId3 = buildTag(/* majorVersion= */ 2, /* flags= */ 0, v2Frames);
+    byte[] oversizedBuffer = Arrays.copyOf(rawId3, rawId3.length + 16);
+    Arrays.fill(oversizedBuffer, rawId3.length, oversizedBuffer.length, (byte) 'Z');
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(oversizedBuffer, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    ApicFrame apicFrame = (ApicFrame) metadata.get(0);
+    assertThat(apicFrame.mimeType).isEqualTo("image/jpeg");
+    assertThat(apicFrame.pictureType).isEqualTo(3);
+    assertThat(apicFrame.description).isEqualTo("cover");
+    assertThat(apicFrame.pictureData).isEqualTo(new byte[] {1, 2});
+  }
+
+  @Test
+  public void
+      decodeApicFrame_v2TruncatedBeforePictureType_skipsMalformedFrameAndDecodesNextFrame() {
+    byte[] v2Frames =
+        Bytes.concat(
+            // Frame 1: PIC with frameSize=3 (1 encoding byte + 2 format bytes, missing 3rd format
+            // byte and pictureType).
+            "PIC".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 3, ID3_TEXT_ENCODING_UTF_8},
+            "JP".getBytes(ISO_8859_1),
+            // Frame 2: PIC with frameSize=4 (1 encoding byte + 3 format bytes, missing
+            // pictureType).
+            "PIC".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 4, ID3_TEXT_ENCODING_UTF_8},
+            "JPG".getBytes(ISO_8859_1),
+            // Frame 3: TT2 ("OK").
+            "TT2".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 4, ID3_TEXT_ENCODING_UTF_8},
+            "OK\0".getBytes(ISO_8859_1));
+    byte[] rawId3 = buildTag(/* majorVersion= */ 2, /* flags= */ 0, v2Frames);
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    TextInformationFrame titleFrame = (TextInformationFrame) metadata.get(0);
+    assertThat(titleFrame.id).isEqualTo("TT2");
+    assertThat(titleFrame.values).containsExactly("OK");
+  }
+
+  @Test
+  public void decodeBinaryFrame_followedBySecondFrame_copiesOnlyFrameSlice() {
+    byte[] rawId3 =
+        buildMultiFramesTag(
+            new FrameSpec("XXXX", new byte[] {4, 5, 6}),
+            new FrameSpec("WCOM", new byte[] {'h', 't', 't', 'p', ':', '/', '/', 'a'}),
+            new FrameSpec("PRIV", new byte[] {'o', 'w', 'n', 'e', 'r', 0, 7, 8}));
+    byte[] oversizedBuffer = Arrays.copyOf(rawId3, rawId3.length + 64);
+    Arrays.fill(oversizedBuffer, rawId3.length, oversizedBuffer.length, (byte) 'Z');
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(oversizedBuffer, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(3);
+    BinaryFrame binaryFrame = (BinaryFrame) metadata.get(0);
+    UrlLinkFrame urlLinkFrame = (UrlLinkFrame) metadata.get(1);
+    PrivFrame privFrame = (PrivFrame) metadata.get(2);
+    assertThat(binaryFrame.id).isEqualTo("XXXX");
+    assertThat(binaryFrame.data).isEqualTo(new byte[] {4, 5, 6});
+    assertThat(urlLinkFrame.url).isEqualTo("http://a");
+    assertThat(privFrame.owner).isEqualTo("owner");
+    assertThat(privFrame.privateData).isEqualTo(new byte[] {7, 8});
+  }
+
+  @Test
+  public void decode_multiFramesWithUnterminatedStringsAndBinaryPayloads_staysWithinFrameBounds() {
+    byte[] rawId3 =
+        buildMultiFramesTag(
+            new FrameSpec("TXXX", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'k', 'e', 'y'}),
+            new FrameSpec("TIT2", new byte[] {/* ID3_TEXT_ENCODING_UTF_16BE= */ 2, 0, 'H', 0, 'i'}),
+            new FrameSpec(
+                "WXXX",
+                new byte[] {
+                  ID3_TEXT_ENCODING_UTF_8, 'd', 0, 'h', 't', 't', 'p', ':', '/', '/', 'x'
+                }),
+            new FrameSpec(
+                "COMM",
+                new byte[] {
+                  /* ID3_TEXT_ENCODING_UTF_16BE= */ 2, 'e', 'n', 'g', 0, 'd', 0, 0, 0, 'n', 0, 'o'
+                }),
+            new FrameSpec(
+                "GEOB",
+                new byte[] {ID3_TEXT_ENCODING_UTF_8, 't', '/', 'p', 0, 'f', 0, 'd', 0, 1, 2}),
+            new FrameSpec(
+                "APIC",
+                Bytes.concat(
+                    new byte[] {ID3_TEXT_ENCODING_UTF_8},
+                    "image/png\0".getBytes(ISO_8859_1),
+                    new byte[] {3},
+                    "d\0".getBytes(ISO_8859_1),
+                    new byte[] {4, 5})),
+            new FrameSpec(
+                "CTOC",
+                Bytes.concat(
+                    "toc\0".getBytes(ISO_8859_1),
+                    new byte[] {/* flags= */ 0x03, /* childCount= */ 2},
+                    "ch1".getBytes(ISO_8859_1))),
+            new FrameSpec("TPE1", new byte[] {/* ID3_TEXT_ENCODING_UTF_16BE= */ 2, 0, 'A', 0}));
+    byte[] oversizedBuffer = Arrays.copyOf(rawId3, rawId3.length + 16);
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(oversizedBuffer, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(8);
+    TextInformationFrame txxxFrame = (TextInformationFrame) metadata.get(0);
+    TextInformationFrame tit2Frame = (TextInformationFrame) metadata.get(1);
+    UrlLinkFrame wxxxFrame = (UrlLinkFrame) metadata.get(2);
+    CommentFrame commentFrame = (CommentFrame) metadata.get(3);
+    GeobFrame geobFrame = (GeobFrame) metadata.get(4);
+    ApicFrame apicFrame = (ApicFrame) metadata.get(5);
+    ChapterTocFrame ctocFrame = (ChapterTocFrame) metadata.get(6);
+    TextInformationFrame tpe1Frame = (TextInformationFrame) metadata.get(7);
+    assertThat(txxxFrame.description).isEqualTo("key");
+    assertThat(txxxFrame.values).containsExactly("");
+    assertThat(tit2Frame.values).containsExactly("Hi");
+    assertThat(wxxxFrame.description).isEqualTo("d");
+    assertThat(wxxxFrame.url).isEqualTo("http://x");
+    assertThat(commentFrame.language).isEqualTo("eng");
+    assertThat(commentFrame.description).isEqualTo("d");
+    assertThat(commentFrame.text).isEqualTo("no");
+    assertThat(geobFrame.data).isEqualTo(new byte[] {1, 2});
+    assertThat(apicFrame.pictureData).isEqualTo(new byte[] {4, 5});
+    assertThat(ctocFrame.elementId).isEqualTo("toc");
+    assertThat(ctocFrame.children).asList().containsExactly("ch1", "").inOrder();
+    // Trailing single zero byte inside TPE1 is an incomplete UTF-16 code unit (decoded as U+FFFD);
+    // overrunning into the zero-filled buffer past rawId3.length would pair it into a 0x0000
+    // terminator and yield "A" instead.
+    assertThat(tpe1Frame.values).containsExactly("A\uFFFD");
+  }
+
+  @Test
+  public void
+      decode_chapterSubframesSmallerThanFlagBytes_skipsMalformedSubframesAndDecodesValidSubframe() {
+    // Subframes inside CHAP bypass top-level validateFrames, so frame flags (such as
+    // FRAME_FLAG_V4_HAS_GROUP_IDENTIFIER = 0x0040, FRAME_FLAG_V4_IS_UNSYNCHRONIZED = 0x0002, and
+    // FRAME_FLAG_V4_HAS_DATA_LENGTH = 0x0001) with payloads smaller than the flag bytes reach
+    // decodeFrame directly, including at the exact end of the tag.
+    byte[] subFramesBytes =
+        buildFrames(
+            new FrameSpec("XXXX", new byte[0], /* flags= */ 0x0040),
+            new FrameSpec("XXXX", new byte[] {1, 2}, /* flags= */ 0x0003),
+            new FrameSpec("WCOM", new byte[] {1, 2}, /* flags= */ 0x0001),
+            new FrameSpec("PRIV", new byte[] {1, 2, 3, 4}, /* flags= */ 0x0041),
+            new FrameSpec("CTOC", new byte[] {1, 2}, /* flags= */ 0x0001),
+            new FrameSpec("TIT2", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'O', 'K', 0}),
+            new FrameSpec("XXXX", new byte[] {1, 2}, /* flags= */ 0x0001));
+    byte[] chapHeaderPayload =
+        Bytes.concat(
+            "chapter-id-01\0".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, 0}, // startTimeMs = 0
+            new byte[] {0, 0, 3, (byte) 0xE8}, // endTimeMs = 1000
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF}, // startOffset = UNSET
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF}); // endOffset = UNSET
+    byte[] rawId3 = buildSingleFrameTag("CHAP", Bytes.concat(chapHeaderPayload, subFramesBytes));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    ChapterFrame chapterFrame = (ChapterFrame) metadata.get(0);
+    assertThat(chapterFrame.chapterId).isEqualTo("chapter-id-01");
+    assertThat(chapterFrame.getSubFrameCount()).isEqualTo(1);
+    TextInformationFrame titleFrame = (TextInformationFrame) chapterFrame.getSubFrame(0);
+    assertThat(titleFrame.id).isEqualTo("TIT2");
+    assertThat(titleFrame.values).containsExactly("OK");
+  }
+
+  @Test
+  public void decodeChapterTocFrame_unterminatedChildIdAtEndOfTag_decodesFrame() {
+    byte[] rawId3 =
+        buildSingleFrameTag(
+            "CTOC",
+            Bytes.concat(
+                "toc\0".getBytes(ISO_8859_1),
+                new byte[] {/* flags= */ 0x03, /* childCount= */ 2},
+                "ch1".getBytes(ISO_8859_1)));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    ChapterTocFrame ctocFrame = (ChapterTocFrame) metadata.get(0);
+    assertThat(ctocFrame.elementId).isEqualTo("toc");
+    assertThat(ctocFrame.isRoot).isTrue();
+    assertThat(ctocFrame.isOrdered).isTrue();
+    assertThat(ctocFrame.children).asList().containsExactly("ch1", "").inOrder();
+  }
+
+  @Test
+  public void
+      decodeChapterTocFrame_malformedSubframeAndTrailingBytesFollowedByFrame_decodesValidSubframeWithinBounds() {
+    byte[] ctocHeaderPayload =
+        Bytes.concat(
+            "toc-id\0".getBytes(ISO_8859_1),
+            new byte[] {/* flags= */ 0x03, /* childCount= */ 2},
+            "ch1\0ch2\0".getBytes(ISO_8859_1));
+    byte[] ctocSubFramesAndTrailingBytes =
+        Bytes.concat(
+            buildFrames(
+                new FrameSpec("XXXX", new byte[] {1, 2}, /* flags= */ 0x0001),
+                new FrameSpec("TIT2", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'T', 'O', 'C', 0})),
+            new byte[] {0, 0});
+    byte[] rawId3 =
+        buildMultiFramesTag(
+            new FrameSpec("CTOC", Bytes.concat(ctocHeaderPayload, ctocSubFramesAndTrailingBytes)),
+            new FrameSpec(
+                "TPE1", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'A', 'r', 't', 'i', 's', 't', 0}));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(2);
+    ChapterTocFrame ctocFrame = (ChapterTocFrame) metadata.get(0);
+    TextInformationFrame artistFrame = (TextInformationFrame) metadata.get(1);
+    assertThat(ctocFrame.elementId).isEqualTo("toc-id");
+    assertThat(ctocFrame.children).asList().containsExactly("ch1", "ch2").inOrder();
+    assertThat(ctocFrame.getSubFrameCount()).isEqualTo(1);
+    TextInformationFrame tocTitle = (TextInformationFrame) ctocFrame.getSubFrame(0);
+    assertThat(tocTitle.values).containsExactly("TOC");
+    assertThat(artistFrame.values).containsExactly("Artist");
+  }
+
+  @Test
+  public void
+      decodeChapterFrames_truncatedHeadersOrOversizedSubframeFollowedByFrame_staysWithinFrameBounds() {
+    byte[] validChapHeader =
+        Bytes.concat(
+            "ch\0".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, 0},
+            new byte[] {0, 0, 3, (byte) 0xE8},
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF},
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
+    byte[] validCtocHeader =
+        Bytes.concat(
+            "toc\0".getBytes(ISO_8859_1),
+            new byte[] {/* flags= */ 0x03, /* childCount= */ 1},
+            "ch\0".getBytes(ISO_8859_1));
+    byte[] oversizedSubFrame =
+        Bytes.concat(
+            "TIT2".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, 50, 0, 0, ID3_TEXT_ENCODING_UTF_8, 'X'});
+    byte[] msbSetSubFrame =
+        Bytes.concat(
+            "TIT2".getBytes(ISO_8859_1),
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0});
+    byte[] rawId3 =
+        buildMultiFramesTag(
+            new FrameSpec("CHAP", new byte[0]),
+            new FrameSpec("CHAP", "unterminated".getBytes(ISO_8859_1)),
+            new FrameSpec("CHAP", Bytes.concat("ch\0".getBytes(ISO_8859_1), new byte[15])),
+            new FrameSpec("CTOC", new byte[0]),
+            new FrameSpec("CTOC", "unterminated".getBytes(ISO_8859_1)),
+            new FrameSpec("CTOC", Bytes.concat("toc\0".getBytes(ISO_8859_1), new byte[] {0x03})),
+            new FrameSpec("CHAP", Bytes.concat(validChapHeader, oversizedSubFrame)),
+            new FrameSpec("CHAP", Bytes.concat(validChapHeader, new byte[] {0, 0})),
+            new FrameSpec("CTOC", Bytes.concat(validCtocHeader, msbSetSubFrame)),
+            new FrameSpec("TIT2", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'O', 'K', 0}));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(4);
+    ChapterFrame chapWithOversizedSubFrame = (ChapterFrame) metadata.get(0);
+    ChapterFrame chapWithTrailingBytes = (ChapterFrame) metadata.get(1);
+    ChapterTocFrame ctocWithMsbSetSubFrame = (ChapterTocFrame) metadata.get(2);
+    TextInformationFrame titleFrame = (TextInformationFrame) metadata.get(3);
+    assertThat(chapWithOversizedSubFrame.getSubFrameCount()).isEqualTo(0);
+    assertThat(chapWithTrailingBytes.getSubFrameCount()).isEqualTo(0);
+    assertThat(ctocWithMsbSetSubFrame.getSubFrameCount()).isEqualTo(0);
+    assertThat(titleFrame.values).containsExactly("OK");
+  }
+
+  @Test
+  public void
+      decodeChapterFrame_v3SubframesWithLargeUnsignedSizes_skipsMalformedSubframesWithoutDroppingChapters() {
+    byte[] validSubFrame =
+        Bytes.concat(
+            "TIT2".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, 4, 0, 0, ID3_TEXT_ENCODING_UTF_8, 'O', 'K', 0});
+    byte[] chap1Payload =
+        Bytes.concat(
+            "ch1\0".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, 0},
+            new byte[] {0, 0, 3, (byte) 0xE8},
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF},
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF},
+            validSubFrame,
+            "TIT2".getBytes(ISO_8859_1),
+            new byte[] {0x7F, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0});
+    byte[] chap2Payload =
+        Bytes.concat(
+            "ch2\0".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 3, (byte) 0xE8},
+            new byte[] {0, 0, 7, (byte) 0xD0},
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF},
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF},
+            validSubFrame,
+            "TIT2".getBytes(ISO_8859_1),
+            new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0});
+    byte[] v3Frames =
+        Bytes.concat(
+            "CHAP".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, (byte) chap1Payload.length, 0, 0},
+            chap1Payload,
+            "CHAP".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, (byte) chap2Payload.length, 0, 0},
+            chap2Payload);
+    byte[] rawId3 = buildTag(/* majorVersion= */ 3, /* flags= */ 0, v3Frames);
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(2);
+    ChapterFrame chapter1 = (ChapterFrame) metadata.get(0);
+    ChapterFrame chapter2 = (ChapterFrame) metadata.get(1);
+    assertThat(chapter1.chapterId).isEqualTo("ch1");
+    assertThat(chapter1.getSubFrameCount()).isEqualTo(1);
+    assertThat(((TextInformationFrame) chapter1.getSubFrame(0)).values).containsExactly("OK");
+    assertThat(chapter2.chapterId).isEqualTo("ch2");
+    assertThat(chapter2.getSubFrameCount()).isEqualTo(1);
+    assertThat(((TextInformationFrame) chapter2.getSubFrame(0)).values).containsExactly("OK");
+  }
+
+  @Test
+  public void decode_unsynchronizedV3Tag_removesUnsynchronizationSequences() {
+    byte[] unsynchronizedPayload =
+        Bytes.concat(
+            "PRIV".getBytes(ISO_8859_1),
+            new byte[] {0, 0, 0, 11, 0, 0},
+            "id\0".getBytes(ISO_8859_1),
+            new byte[] {
+              (byte) 0xFF,
+              0x00,
+              (byte) 0xE0,
+              (byte) 0xFF,
+              0x00,
+              0x00,
+              (byte) 0xFF,
+              0x00,
+              (byte) 0xFF,
+              0x00,
+              0x00,
+              (byte) 0xFF
+            });
+    byte[] rawId3 = buildTag(/* majorVersion= */ 3, /* flags= */ 0x80, unsynchronizedPayload);
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(1);
+    PrivFrame privFrame = (PrivFrame) metadata.get(0);
+    assertThat(privFrame.owner).isEqualTo("id");
+    assertThat(privFrame.privateData)
+        .isEqualTo(
+            new byte[] {
+              (byte) 0xFF,
+              (byte) 0xE0,
+              (byte) 0xFF,
+              0x00,
+              (byte) 0xFF,
+              (byte) 0xFF,
+              0x00,
+              (byte) 0xFF
+            });
+  }
+
+  @Test
+  public void
+      decode_unsynchronizedV3TagWithExtendedHeaderLargerThanTagSize_throwsIllegalArgumentException() {
+    // Declared tag framesSize is 4 bytes, while the v3 extended header claims 6 payload bytes
+    // (10 bytes including its 4-byte size field), yielding a negative remaining framesSize (-6)
+    // passed to removeUnsynchronization.
+    byte[] tagHeaderWithDeclaredSize4 =
+        Arrays.copyOf(
+            buildTag(/* majorVersion= */ 3, /* flags= */ 0xC0, new byte[4]),
+            Id3Decoder.ID3_HEADER_LENGTH);
+    byte[] extendedHeaderAndTrailingData =
+        Bytes.concat(
+            new byte[] {0, 0, 0, 6},
+            new byte[6],
+            buildFrames(
+                new FrameSpec(
+                    "TIT2",
+                    Bytes.concat(new byte[] {ID3_TEXT_ENCODING_UTF_8}, "OK\0".getBytes(UTF_8)))));
+    byte[] rawId3 = Bytes.concat(tagHeaderWithDeclaredSize4, extendedHeaderAndTrailingData);
+    Id3Decoder decoder = new Id3Decoder();
+
+    assertThrows(IllegalArgumentException.class, () -> decoder.decode(rawId3, rawId3.length));
+  }
+
+  @Test
+  public void decode_unsynchronizedV4FrameFollowedByFrame_staysWithinFrameBounds() {
+    byte[] rawId3 =
+        buildMultiFramesTag(
+            new FrameSpec(
+                "XXXX",
+                new byte[] {(byte) 0xFF, 0x00, (byte) 0xAB, (byte) 0xFF, 0x00, 0x00, (byte) 0xFF},
+                /* flags= */ 0x0002),
+            new FrameSpec("TIT2", new byte[] {0x00, 'A', 'B', 'C'}));
+    Id3Decoder decoder = new Id3Decoder();
+
+    Metadata metadata = decoder.decode(rawId3, rawId3.length);
+
+    assertThat(metadata.length()).isEqualTo(2);
+    BinaryFrame binaryFrame = (BinaryFrame) metadata.get(0);
+    TextInformationFrame textFrame = (TextInformationFrame) metadata.get(1);
+    assertThat(binaryFrame.data)
+        .isEqualTo(new byte[] {(byte) 0xFF, (byte) 0xAB, (byte) 0xFF, 0x00, (byte) 0xFF});
+    assertThat(textFrame.values).containsExactly("ABC");
+  }
+
+  @Test
   public void decodeFailsIfPositionNonZero() {
     Id3Decoder decoder = new Id3Decoder();
     MetadataInputBuffer buffer = createMetadataInputBuffer(createByteArray(1, 2, 3));
@@ -496,52 +974,70 @@ public final class Id3DecoderTest {
   }
 
   public static byte[] buildMultiFramesTag(FrameSpec... frames) {
-    int totalLength = TAG_HEADER.length;
-    for (FrameSpec frame : frames) {
-      byte[] frameData = frame.frameData;
-      totalLength += FRAME_HEADER_LENGTH + frameData.length;
-    }
-    byte[] tagData = Arrays.copyOf(TAG_HEADER, totalLength);
-    // Fill in the size part of the tag header.
-    int offset = TAG_HEADER.length - 4;
-    int tagSize = totalLength - TAG_HEADER.length;
-    tagData[offset++] = (byte) ((tagSize >> 21) & 0x7F);
-    tagData[offset++] = (byte) ((tagSize >> 14) & 0x7F);
-    tagData[offset++] = (byte) ((tagSize >> 7) & 0x7F);
-    tagData[offset++] = (byte) (tagSize & 0x7F);
+    return buildTag(/* majorVersion= */ 4, /* flags= */ 0, buildFrames(frames));
+  }
 
+  private static byte[] buildTag(int majorVersion, int flags, byte[] framesData) {
+    int framesSize = framesData.length;
+    byte[] tagData = new byte[Id3Decoder.ID3_HEADER_LENGTH + framesSize];
+    tagData[0] = 'I';
+    tagData[1] = 'D';
+    tagData[2] = '3';
+    tagData[3] = (byte) majorVersion;
+    tagData[4] = 0;
+    tagData[5] = (byte) flags;
+    tagData[6] = (byte) ((framesSize >> 21) & 0x7F);
+    tagData[7] = (byte) ((framesSize >> 14) & 0x7F);
+    tagData[8] = (byte) ((framesSize >> 7) & 0x7F);
+    tagData[9] = (byte) (framesSize & 0x7F);
+    System.arraycopy(framesData, 0, tagData, Id3Decoder.ID3_HEADER_LENGTH, framesSize);
+    return tagData;
+  }
+
+  private static byte[] buildFrames(FrameSpec... frames) {
+    int totalLength = 0;
+    for (FrameSpec frame : frames) {
+      totalLength += FRAME_HEADER_LENGTH + frame.frameData.length;
+    }
+    byte[] framesData = new byte[totalLength];
+    int offset = 0;
     for (FrameSpec frame : frames) {
       byte[] frameData = frame.frameData;
-      String frameId = frame.frameId;
-      byte[] frameIdBytes = frameId.getBytes(StandardCharsets.UTF_8);
+      checkState(frameData.length < (1 << 28));
+      byte[] frameIdBytes = frame.frameId.getBytes(UTF_8);
       checkState(frameIdBytes.length == 4);
 
-      // Fill in the frame header.
-      tagData[offset++] = frameIdBytes[0];
-      tagData[offset++] = frameIdBytes[1];
-      tagData[offset++] = frameIdBytes[2];
-      tagData[offset++] = frameIdBytes[3];
-      tagData[offset++] = (byte) ((frameData.length >> 24) & 0xFF);
-      tagData[offset++] = (byte) ((frameData.length >> 16) & 0xFF);
-      tagData[offset++] = (byte) ((frameData.length >> 8) & 0xFF);
-      tagData[offset++] = (byte) (frameData.length & 0xFF);
-      offset += 2; // Frame flags set to 0
+      framesData[offset++] = frameIdBytes[0];
+      framesData[offset++] = frameIdBytes[1];
+      framesData[offset++] = frameIdBytes[2];
+      framesData[offset++] = frameIdBytes[3];
+      framesData[offset++] = (byte) ((frameData.length >> 21) & 0x7F);
+      framesData[offset++] = (byte) ((frameData.length >> 14) & 0x7F);
+      framesData[offset++] = (byte) ((frameData.length >> 7) & 0x7F);
+      framesData[offset++] = (byte) (frameData.length & 0x7F);
+      framesData[offset++] = (byte) (frame.flags >> 8);
+      framesData[offset++] = (byte) frame.flags;
 
-      // Fill in the frame data.
-      System.arraycopy(frameData, 0, tagData, offset, frameData.length);
+      System.arraycopy(frameData, 0, framesData, offset, frameData.length);
       offset += frameData.length;
     }
-    return tagData;
+    return framesData;
   }
 
   /** Specify an ID3 frame. */
   public static final class FrameSpec {
     public final String frameId;
     public final byte[] frameData;
+    public final int flags;
 
     public FrameSpec(String frameId, byte[] frameData) {
+      this(frameId, frameData, /* flags= */ 0);
+    }
+
+    public FrameSpec(String frameId, byte[] frameData, int flags) {
       this.frameId = frameId;
       this.frameData = frameData;
+      this.flags = flags;
     }
   }
 }

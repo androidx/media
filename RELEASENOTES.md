@@ -72,6 +72,9 @@
         `<ruby>` tags nested inside another tag
         ([#3549](https://github.com/androidx/media/issues/3549)).
 *   Metadata:
+    *   Fix issue in `Id3Decoder` where a malformed sub-frame with an invalid
+        declared size could cause the enclosing `CHAP` or `CTOC` frame to be
+        skipped.
 *   Image:
 *   DataSource:
 *   DRM:

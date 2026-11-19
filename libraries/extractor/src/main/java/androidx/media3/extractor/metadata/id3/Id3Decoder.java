@@ -308,20 +308,20 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     int frameId2 = id3Data.readUnsignedByte();
     int frameId3 = majorVersion >= 3 ? id3Data.readUnsignedByte() : 0;
 
-    int frameSize;
+    long frameSizeLong;
     if (majorVersion == 4) {
-      frameSize = id3Data.readUnsignedIntToInt();
+      frameSizeLong = id3Data.readUnsignedInt();
       if (!unsignedIntFrameSizeHack) {
-        frameSize =
-            (frameSize & 0xFF)
-                | (((frameSize >> 8) & 0xFF) << 7)
-                | (((frameSize >> 16) & 0xFF) << 14)
-                | (((frameSize >> 24) & 0xFF) << 21);
+        frameSizeLong =
+            (frameSizeLong & 0xFF)
+                | (((frameSizeLong >> 8) & 0xFF) << 7)
+                | (((frameSizeLong >> 16) & 0xFF) << 14)
+                | (((frameSizeLong >> 24) & 0xFF) << 21);
       }
     } else if (majorVersion == 3) {
-      frameSize = id3Data.readUnsignedIntToInt();
+      frameSizeLong = id3Data.readUnsignedInt();
     } else /* id3Header.majorVersion == 2 */ {
-      frameSize = id3Data.readUnsignedInt24();
+      frameSizeLong = id3Data.readUnsignedInt24();
     }
 
     int flags = majorVersion >= 3 ? id3Data.readUnsignedShort() : 0;
@@ -329,19 +329,20 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
         && frameId1 == 0
         && frameId2 == 0
         && frameId3 == 0
-        && frameSize == 0
+        && frameSizeLong == 0
         && flags == 0) {
       // We must be reading zero padding at the end of the tag.
       id3Data.setPosition(id3Data.limit());
       return null;
     }
 
-    int nextFramePosition = id3Data.getPosition() + frameSize;
-    if (nextFramePosition > id3Data.limit()) {
+    if (frameSizeLong > id3Data.bytesLeft()) {
       Log.w(TAG, "Frame size exceeds remaining tag data");
       id3Data.setPosition(id3Data.limit());
       return null;
     }
+    int frameSize = (int) frameSizeLong;
+    int nextFramePosition = id3Data.getPosition() + frameSize;
 
     if (framePredicate != null
         && !framePredicate.evaluate(majorVersion, frameId0, frameId1, frameId2, frameId3)) {
@@ -376,6 +377,12 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       return null;
     }
 
+    int minimumFrameSize = (hasGroupIdentifier ? 1 : 0) + (hasDataLength ? 4 : 0);
+    if (frameSize < minimumFrameSize) {
+      Log.w(TAG, "Frame size is too small for frame flags");
+      id3Data.setPosition(nextFramePosition);
+      return null;
+    }
     if (hasGroupIdentifier) {
       frameSize--;
       id3Data.skipBytes(1);
@@ -388,9 +395,11 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       frameSize = removeUnsynchronization(id3Data, frameSize);
     }
 
+    int previousLimit = id3Data.limit();
     @Nullable Id3Frame frame = null;
     Throwable error = null;
     try {
+      id3Data.setLimit(id3Data.getPosition() + frameSize);
       if (frameId0 == 'T'
           && frameId1 == 'X'
           && frameId2 == 'X'
@@ -450,6 +459,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     } catch (OutOfMemoryError | Exception e) {
       error = e;
     } finally {
+      id3Data.setLimit(previousLimit);
       id3Data.setPosition(nextFramePosition);
     }
     if (frame == null) {
@@ -472,16 +482,18 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     int encoding = id3Data.readUnsignedByte();
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize - 1;
 
-    byte[] data = new byte[frameSize - 1];
-    id3Data.readBytes(data, 0, frameSize - 1);
-
-    int descriptionEndIndex = indexOfTerminator(data, 0, encoding);
-    String description = new String(data, 0, descriptionEndIndex, getCharset(encoding));
+    int descriptionEndIndex = indexOfTerminator(data, frameStartIndex, frameEndIndex, encoding);
+    String description =
+        new String(
+            data, frameStartIndex, descriptionEndIndex - frameStartIndex, getCharset(encoding));
 
     ImmutableList<String> values =
         decodeTextInformationFrameValues(
-            data, encoding, descriptionEndIndex + delimiterLength(encoding));
+            data, encoding, descriptionEndIndex + delimiterLength(encoding), frameEndIndex);
     return new TextInformationFrame("TXXX", description, values);
   }
 
@@ -493,30 +505,31 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     int encoding = id3Data.readUnsignedByte();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize - 1;
 
-    byte[] data = new byte[frameSize - 1];
-    id3Data.readBytes(data, 0, frameSize - 1);
-
-    ImmutableList<String> values = decodeTextInformationFrameValues(data, encoding, 0);
+    ImmutableList<String> values =
+        decodeTextInformationFrameValues(
+            id3Data.getData(), encoding, frameStartIndex, frameEndIndex);
     return new TextInformationFrame(id, null, values);
   }
 
   private static ImmutableList<String> decodeTextInformationFrameValues(
-      byte[] data, final int encoding, final int index) {
-    if (index >= data.length) {
+      byte[] data, int encoding, int index, int endIndex) {
+    if (index >= endIndex) {
       return ImmutableList.of("");
     }
 
     ImmutableList.Builder<String> values = ImmutableList.builder();
     int valueStartIndex = index;
-    int valueEndIndex = indexOfTerminator(data, valueStartIndex, encoding);
+    int valueEndIndex = indexOfTerminator(data, valueStartIndex, endIndex, encoding);
     while (valueStartIndex < valueEndIndex) {
       String value =
           new String(data, valueStartIndex, valueEndIndex - valueStartIndex, getCharset(encoding));
       values.add(value);
 
       valueStartIndex = valueEndIndex + delimiterLength(encoding);
-      valueEndIndex = indexOfTerminator(data, valueStartIndex, encoding);
+      valueEndIndex = indexOfTerminator(data, valueStartIndex, endIndex, encoding);
     }
 
     ImmutableList<String> result = values.build();
@@ -530,15 +543,17 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     int encoding = id3Data.readUnsignedByte();
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize - 1;
 
-    byte[] data = new byte[frameSize - 1];
-    id3Data.readBytes(data, 0, frameSize - 1);
-
-    int descriptionEndIndex = indexOfTerminator(data, 0, encoding);
-    String description = new String(data, 0, descriptionEndIndex, getCharset(encoding));
+    int descriptionEndIndex = indexOfTerminator(data, frameStartIndex, frameEndIndex, encoding);
+    String description =
+        new String(
+            data, frameStartIndex, descriptionEndIndex - frameStartIndex, getCharset(encoding));
 
     int urlStartIndex = descriptionEndIndex + delimiterLength(encoding);
-    int urlEndIndex = indexOfZeroByte(data, urlStartIndex);
+    int urlEndIndex = indexOfZeroByte(data, urlStartIndex, frameEndIndex);
     String url = decodeStringIfValid(data, urlStartIndex, urlEndIndex, StandardCharsets.ISO_8859_1);
 
     return new UrlLinkFrame("WXXX", description, url);
@@ -546,75 +561,112 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
   private static UrlLinkFrame decodeUrlLinkFrame(
       ParsableByteArray id3Data, int frameSize, String id) {
-    byte[] data = new byte[frameSize];
-    id3Data.readBytes(data, 0, frameSize);
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize;
 
-    int urlEndIndex = indexOfZeroByte(data, 0);
-    String url = new String(data, 0, urlEndIndex, StandardCharsets.ISO_8859_1);
+    int urlEndIndex = indexOfZeroByte(data, frameStartIndex, frameEndIndex);
+    String url =
+        new String(
+            data, frameStartIndex, urlEndIndex - frameStartIndex, StandardCharsets.ISO_8859_1);
 
     return new UrlLinkFrame(id, null, url);
   }
 
   private static PrivFrame decodePrivFrame(ParsableByteArray id3Data, int frameSize) {
-    byte[] data = new byte[frameSize];
-    id3Data.readBytes(data, 0, frameSize);
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize;
 
-    int ownerEndIndex = indexOfZeroByte(data, 0);
-    String owner = new String(data, 0, ownerEndIndex, StandardCharsets.ISO_8859_1);
+    int ownerEndIndex = indexOfZeroByte(data, frameStartIndex, frameEndIndex);
+    String owner =
+        new String(
+            data, frameStartIndex, ownerEndIndex - frameStartIndex, StandardCharsets.ISO_8859_1);
 
     int privateDataStartIndex = ownerEndIndex + 1;
-    byte[] privateData = copyOfRangeIfValid(data, privateDataStartIndex, data.length);
+    byte[] privateData = copyOfRangeIfValid(data, privateDataStartIndex, frameEndIndex);
 
     return new PrivFrame(owner, privateData);
   }
 
-  private static GeobFrame decodeGeobFrame(ParsableByteArray id3Data, int frameSize) {
+  private static @Nullable GeobFrame decodeGeobFrame(ParsableByteArray id3Data, int frameSize) {
+    if (frameSize < 1) {
+      // Frame is malformed.
+      return null;
+    }
+
     int encoding = id3Data.readUnsignedByte();
     Charset charset = getCharset(encoding);
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize - 1;
 
-    byte[] data = new byte[frameSize - 1];
-    id3Data.readBytes(data, 0, frameSize - 1);
-
-    int mimeTypeEndIndex = indexOfZeroByte(data, 0);
+    int mimeTypeEndIndex = indexOfZeroByte(data, frameStartIndex, frameEndIndex);
     String mimeType =
         MimeTypes.normalizeMimeType(
-            new String(data, 0, mimeTypeEndIndex, StandardCharsets.ISO_8859_1));
+            new String(
+                data,
+                frameStartIndex,
+                mimeTypeEndIndex - frameStartIndex,
+                StandardCharsets.ISO_8859_1));
 
     int filenameStartIndex = mimeTypeEndIndex + 1;
-    int filenameEndIndex = indexOfTerminator(data, filenameStartIndex, encoding);
+    int filenameEndIndex = indexOfTerminator(data, filenameStartIndex, frameEndIndex, encoding);
     String filename = decodeStringIfValid(data, filenameStartIndex, filenameEndIndex, charset);
 
     int descriptionStartIndex = filenameEndIndex + delimiterLength(encoding);
-    int descriptionEndIndex = indexOfTerminator(data, descriptionStartIndex, encoding);
+    int descriptionEndIndex =
+        indexOfTerminator(data, descriptionStartIndex, frameEndIndex, encoding);
     String description =
         decodeStringIfValid(data, descriptionStartIndex, descriptionEndIndex, charset);
 
     int objectDataStartIndex = descriptionEndIndex + delimiterLength(encoding);
-    byte[] objectData = copyOfRangeIfValid(data, objectDataStartIndex, data.length);
+    byte[] objectData = copyOfRangeIfValid(data, objectDataStartIndex, frameEndIndex);
 
     return new GeobFrame(mimeType, filename, description, objectData);
   }
 
-  private static ApicFrame decodeApicFrame(
+  private static @Nullable ApicFrame decodeApicFrame(
       ParsableByteArray id3Data, int frameSize, int majorVersion) {
+    if (frameSize < 1) {
+      // Frame is malformed.
+      return null;
+    }
+
     int encoding = id3Data.readUnsignedByte();
     Charset charset = getCharset(encoding);
-
-    byte[] data = new byte[frameSize - 1];
-    id3Data.readBytes(data, 0, frameSize - 1);
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize - 1;
 
     String mimeType;
     int mimeTypeEndIndex;
     if (majorVersion == 2) {
-      mimeTypeEndIndex = 2;
-      mimeType = "image/" + Ascii.toLowerCase(new String(data, 0, 3, StandardCharsets.ISO_8859_1));
+      mimeTypeEndIndex = frameStartIndex + 2;
+      if (mimeTypeEndIndex + 1 >= frameEndIndex) {
+        // Frame is malformed (missing image format or picture type byte).
+        return null;
+      }
+      mimeType =
+          "image/"
+              + Ascii.toLowerCase(
+                  new String(data, frameStartIndex, 3, StandardCharsets.ISO_8859_1));
       if ("image/jpg".equals(mimeType)) {
         mimeType = "image/jpeg";
       }
     } else {
-      mimeTypeEndIndex = indexOfZeroByte(data, 0);
+      mimeTypeEndIndex = indexOfZeroByte(data, frameStartIndex, frameEndIndex);
+      if (mimeTypeEndIndex + 1 >= frameEndIndex) {
+        // Frame is malformed (missing picture type byte).
+        return null;
+      }
       mimeType =
-          Ascii.toLowerCase(new String(data, 0, mimeTypeEndIndex, StandardCharsets.ISO_8859_1));
+          Ascii.toLowerCase(
+              new String(
+                  data,
+                  frameStartIndex,
+                  mimeTypeEndIndex - frameStartIndex,
+                  StandardCharsets.ISO_8859_1));
       if (mimeType.indexOf('/') == -1) {
         mimeType = "image/" + mimeType;
       }
@@ -623,13 +675,14 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     int pictureType = data[mimeTypeEndIndex + 1] & 0xFF;
 
     int descriptionStartIndex = mimeTypeEndIndex + 2;
-    int descriptionEndIndex = indexOfTerminator(data, descriptionStartIndex, encoding);
+    int descriptionEndIndex =
+        indexOfTerminator(data, descriptionStartIndex, frameEndIndex, encoding);
     String description =
         new String(
             data, descriptionStartIndex, descriptionEndIndex - descriptionStartIndex, charset);
 
     int pictureDataStartIndex = descriptionEndIndex + delimiterLength(encoding);
-    byte[] pictureData = copyOfRangeIfValid(data, pictureDataStartIndex, data.length);
+    byte[] pictureData = copyOfRangeIfValid(data, pictureDataStartIndex, frameEndIndex);
 
     return new ApicFrame(mimeType, description, pictureType, pictureData);
   }
@@ -643,19 +696,17 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
     int encoding = id3Data.readUnsignedByte();
     Charset charset = getCharset(encoding);
+    String language = id3Data.readString(3, StandardCharsets.ISO_8859_1);
+    byte[] data = id3Data.getData();
+    int frameStartIndex = id3Data.getPosition();
+    int frameEndIndex = frameStartIndex + frameSize - 4;
 
-    byte[] data = new byte[3];
-    id3Data.readBytes(data, 0, 3);
-    String language = new String(data, 0, 3);
-
-    data = new byte[frameSize - 4];
-    id3Data.readBytes(data, 0, frameSize - 4);
-
-    int descriptionEndIndex = indexOfTerminator(data, 0, encoding);
-    String description = new String(data, 0, descriptionEndIndex, charset);
+    int descriptionEndIndex = indexOfTerminator(data, frameStartIndex, frameEndIndex, encoding);
+    String description =
+        new String(data, frameStartIndex, descriptionEndIndex - frameStartIndex, charset);
 
     int textStartIndex = descriptionEndIndex + delimiterLength(encoding);
-    int textEndIndex = indexOfTerminator(data, textStartIndex, encoding);
+    int textEndIndex = indexOfTerminator(data, textStartIndex, frameEndIndex, encoding);
     String text = decodeStringIfValid(data, textStartIndex, textEndIndex, charset);
 
     return new CommentFrame(language, description, text);
@@ -669,7 +720,12 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       int frameHeaderSize,
       @Nullable FramePredicate framePredicate) {
     int framePosition = id3Data.getPosition();
-    int chapterIdEndIndex = indexOfZeroByte(id3Data.getData(), framePosition);
+    int frameEndIndex = framePosition + frameSize;
+    int chapterIdEndIndex = indexOfZeroByte(id3Data.getData(), framePosition, frameEndIndex);
+    if (frameEndIndex - chapterIdEndIndex < 17) {
+      // Frame is malformed (missing chapter ID terminator or 16-byte time/offset fields).
+      return null;
+    }
     String chapterId =
         new String(
             id3Data.getData(),
@@ -693,9 +749,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     ArrayList<Id3Frame> subFrames = new ArrayList<>();
-    int limit = framePosition + frameSize;
-    while (id3Data.getPosition() < limit) {
-      Id3Frame frame =
+    while (id3Data.bytesLeft() >= frameHeaderSize) {
+      @Nullable Id3Frame frame =
           decodeFrame(
               majorVersion, id3Data, unsignedIntFrameSizeHack, frameHeaderSize, framePredicate);
       if (frame != null) {
@@ -707,7 +762,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return new ChapterFrame(chapterId, startTime, endTime, startOffset, endOffset, subFrameArray);
   }
 
-  private static ChapterTocFrame decodeChapterTOCFrame(
+  private static @Nullable ChapterTocFrame decodeChapterTOCFrame(
       ParsableByteArray id3Data,
       int frameSize,
       int majorVersion,
@@ -715,7 +770,12 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       int frameHeaderSize,
       @Nullable FramePredicate framePredicate) {
     int framePosition = id3Data.getPosition();
-    int elementIdEndIndex = indexOfZeroByte(id3Data.getData(), framePosition);
+    int frameEndIndex = framePosition + frameSize;
+    int elementIdEndIndex = indexOfZeroByte(id3Data.getData(), framePosition, frameEndIndex);
+    if (frameEndIndex - elementIdEndIndex < 3) {
+      // Frame is malformed (missing element ID terminator, flags, or child count).
+      return null;
+    }
     String elementId =
         new String(
             id3Data.getData(),
@@ -732,16 +792,15 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     String[] children = new String[childCount];
     for (int i = 0; i < childCount; i++) {
       int startIndex = id3Data.getPosition();
-      int endIndex = indexOfZeroByte(id3Data.getData(), startIndex);
+      int endIndex = indexOfZeroByte(id3Data.getData(), startIndex, frameEndIndex);
       children[i] =
           new String(
               id3Data.getData(), startIndex, endIndex - startIndex, StandardCharsets.ISO_8859_1);
-      id3Data.setPosition(endIndex + 1);
+      id3Data.setPosition(Math.min(endIndex + 1, frameEndIndex));
     }
 
     ArrayList<Id3Frame> subFrames = new ArrayList<>();
-    int limit = framePosition + frameSize;
-    while (id3Data.getPosition() < limit) {
+    while (id3Data.bytesLeft() >= frameHeaderSize) {
       @Nullable Id3Frame frame =
           decodeFrame(
               majorVersion, id3Data, unsignedIntFrameSizeHack, frameHeaderSize, framePredicate);
@@ -786,9 +845,9 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
   private static BinaryFrame decodeBinaryFrame(
       ParsableByteArray id3Data, int frameSize, String id) {
-    byte[] frame = new byte[frameSize];
-    id3Data.readBytes(frame, 0, frameSize);
-
+    int frameStartIndex = id3Data.getPosition();
+    byte[] frame =
+        copyOfRangeIfValid(id3Data.getData(), frameStartIndex, frameStartIndex + frameSize);
     return new BinaryFrame(id, frame);
   }
 
@@ -801,16 +860,25 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
    * @return The length of the data after processing.
    */
   private static int removeUnsynchronization(ParsableByteArray data, int length) {
+    if (length <= 1) {
+      // Nothing to remove. Also preserves negative lengths (e.g. from malformed extended headers)
+      // to keep the existing behavior.
+      return length;
+    }
     byte[] bytes = data.getData();
     int startPosition = data.getPosition();
-    for (int i = startPosition; i + 1 < startPosition + length; i++) {
-      if ((bytes[i] & 0xFF) == 0xFF && bytes[i + 1] == 0x00) {
-        int relativePosition = i - startPosition;
-        System.arraycopy(bytes, i + 2, bytes, i + 1, length - relativePosition - 2);
-        length--;
+    int endPosition = startPosition + length;
+    int writeIndex = startPosition;
+    for (int readIndex = startPosition; readIndex < endPosition; readIndex++) {
+      byte currentByte = bytes[readIndex];
+      bytes[writeIndex++] = currentByte;
+      if ((currentByte & 0xFF) == 0xFF
+          && readIndex + 1 < endPosition
+          && bytes[readIndex + 1] == 0x00) {
+        readIndex++;
       }
     }
-    return length;
+    return writeIndex - startPosition;
   }
 
   /** Maps encoding byte from ID3v2 frame to a {@link Charset}. */
@@ -835,8 +903,8 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
         : String.format(Locale.US, "%c%c%c%c", frameId0, frameId1, frameId2, frameId3);
   }
 
-  private static int indexOfTerminator(byte[] data, int fromIndex, int encoding) {
-    int terminationPos = indexOfZeroByte(data, fromIndex);
+  private static int indexOfTerminator(byte[] data, int fromIndex, int toIndex, int encoding) {
+    int terminationPos = indexOfZeroByte(data, fromIndex, toIndex);
 
     // For single byte encoding charsets, we're done.
     if (encoding == ID3_TEXT_ENCODING_ISO_8859_1 || encoding == ID3_TEXT_ENCODING_UTF_8) {
@@ -844,23 +912,23 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     }
 
     // Otherwise ensure an even offset from the start, and look for a second zero byte.
-    while (terminationPos < data.length - 1) {
+    while (terminationPos < toIndex - 1) {
       if ((terminationPos - fromIndex) % 2 == 0 && data[terminationPos + 1] == (byte) 0) {
         return terminationPos;
       }
-      terminationPos = indexOfZeroByte(data, terminationPos + 1);
+      terminationPos = indexOfZeroByte(data, terminationPos + 1, toIndex);
     }
 
-    return data.length;
+    return toIndex;
   }
 
-  private static int indexOfZeroByte(byte[] data, int fromIndex) {
-    for (int i = fromIndex; i < data.length; i++) {
+  private static int indexOfZeroByte(byte[] data, int fromIndex, int toIndex) {
+    for (int i = fromIndex; i < toIndex; i++) {
       if (data[i] == (byte) 0) {
         return i;
       }
     }
-    return data.length;
+    return toIndex;
   }
 
   private static int delimiterLength(int encodingByte) {
@@ -887,16 +955,16 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
   /**
    * Returns a string obtained by decoding the specified range of {@code data} using the specified
-   * {@code charset}. An empty string is returned if the range is invalid.
+   * {@code charset}. An empty string is returned if {@code to <= from}.
    *
    * @param data The array from which to decode the string.
-   * @param from The start of the range.
-   * @param to The end of the range (exclusive).
+   * @param from The start of the range (inclusive).
+   * @param to The end of the range (exclusive), which must not exceed {@code data.length}.
    * @param charset The {@link Charset} to use.
-   * @return The decoded string, or an empty string if the range is invalid.
+   * @return The decoded string, or an empty string if {@code to <= from}.
    */
   private static String decodeStringIfValid(byte[] data, int from, int to, Charset charset) {
-    if (to <= from || to > data.length) {
+    if (to <= from) {
       return "";
     }
     return new String(data, from, to - from, charset);
