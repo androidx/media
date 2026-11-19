@@ -181,6 +181,198 @@ public class MediaSessionManagerTest {
   }
 
   @Test
+  @SdkSuppress(maxSdkVersion = 36)
+  public void
+      getActiveSessions_withForeignNotificationListenerForCurrentPackageBelowApi37_returnsEmptyList()
+          throws Exception {
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+
+    ListenableFuture<List<SessionToken>> future =
+        MediaSessionManager.getActiveSessions(context, context.getPackageName(), foreignListener);
+    List<SessionToken> tokens = future.get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(tokens).isEmpty();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37)
+  public void
+      getActiveSessions_withForeignNotificationListenerForCurrentPackageAtLeastApi37_returnsTokens()
+          throws Exception {
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+
+    List<SessionToken> tokens = waitAndGetActiveSessions(context.getPackageName(), foreignListener);
+
+    assertThat(tokens).isNotEmpty();
+    assertThat(tokens.get(0).getPackageName()).isEqualTo(context.getPackageName());
+  }
+
+  @Test
+  public void
+      getActiveSessions_withForeignNotificationListenerForOtherPackage_throwsSecurityException() {
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+
+    SecurityException exception =
+        assertThrows(
+            SecurityException.class,
+            () ->
+                MediaSessionManager.getActiveSessions(
+                    context, /* packageName= */ "other.package", foreignListener));
+
+    assertThat(exception).hasMessageThat().contains("MEDIA_CONTENT_CONTROL");
+  }
+
+  @Test
+  public void
+      addOnActiveSessionsChangedListener_withForeignNotificationListenerForOtherPackage_throwsSecurityException() {
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+    MediaSessionManager.OnActiveSessionsChangedListener listener = activeSessions -> {};
+
+    SecurityException exception =
+        assertThrows(
+            SecurityException.class,
+            () ->
+                handler.postAndSync(() ->
+                    MediaSessionManager.addOnActiveSessionsChangedListener(
+                        context,
+                        /* packageName= */ "other.package",
+                        listener,
+                        ContextCompat.getMainExecutor(context),
+                        foreignListener)));
+
+    assertThat(exception).hasMessageThat().contains("MEDIA_CONTENT_CONTROL");
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 37)
+  public void
+      addOnActiveSessionsChangedListener_withForeignNotificationListenerForCurrentPackageAtLeastApi37_notifiesListener()
+          throws Exception {
+    session.release();
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaSessionManager.OnActiveSessionsChangedListener listener =
+        activeSessions -> {
+          if (!activeSessions.isEmpty()) {
+            latch.countDown();
+          }
+        };
+
+    try {
+      handler.postAndSync(() ->
+          MediaSessionManager.addOnActiveSessionsChangedListener(
+              context,
+              context.getPackageName(),
+              listener,
+              ContextCompat.getMainExecutor(context),
+              foreignListener));
+      session = new MediaSession.Builder(context, player).setId(TAG + "_2").build();
+
+      assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    } finally {
+      handler.postAndSync(
+          () -> MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener));
+    }
+  }
+
+  // Shell manifest didn't include MEDIA_CONTENT_CONTROL before API 31
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void getActiveSessions_withPermissionAndForeignNotificationListener_returnsTokens()
+      throws Exception {
+    adoptMediaContentControlPermission();
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+
+    List<SessionToken> tokens = waitAndGetActiveSessions(/* packageName= */ null, foreignListener);
+
+    Optional<SessionToken> testSessionToken =
+        Iterables.tryFind(
+            tokens,
+            token ->
+                token.getPackageName().equals(context.getPackageName())
+                    && token.getType() == SessionToken.TYPE_SESSION);
+    assertWithMessage("Test session token missing. tokens=%s", tokens)
+        .that(testSessionToken)
+        .isPresent();
+  }
+
+  // Shell manifest didn't include MEDIA_CONTENT_CONTROL before API 31
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void
+      getActiveSessions_withPermissionAndForeignNotificationListenerForOtherPackage_returnsEmptyList()
+          throws Exception {
+    adoptMediaContentControlPermission();
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+
+    ListenableFuture<List<SessionToken>> future =
+        MediaSessionManager.getActiveSessions(
+            context, /* packageName= */ "other.package", foreignListener);
+    List<SessionToken> tokens = future.get(TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(tokens).isEmpty();
+  }
+
+  // Shell manifest didn't include MEDIA_CONTENT_CONTROL before API 31
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void
+      addOnActiveSessionsChangedListener_withPermissionAndForeignNotificationListener_notifiesListener()
+          throws Exception {
+    adoptMediaContentControlPermission();
+    session.release();
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaSessionManager.OnActiveSessionsChangedListener listener =
+        activeSessions -> {
+          if (Iterables.any(
+              activeSessions, token -> token.getPackageName().equals(context.getPackageName()))) {
+            latch.countDown();
+          }
+        };
+
+    try {
+      handler.postAndSync(() ->
+          MediaSessionManager.addOnActiveSessionsChangedListener(
+              context,
+              /* packageName= */ null,
+              listener,
+              ContextCompat.getMainExecutor(context),
+              foreignListener));
+      session = new MediaSession.Builder(context, player).setId(TAG + "_2").build();
+
+      assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    } finally {
+      handler.postAndSync(
+          () -> MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener));
+    }
+  }
+
+  // Shell manifest didn't include MEDIA_CONTENT_CONTROL before API 31
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void
+      addOnActiveSessionsChangedListener_withPermissionAndForeignNotificationListenerForOtherPackage_doesNotThrow()
+          throws Exception {
+    adoptMediaContentControlPermission();
+    ComponentName foreignListener = new ComponentName("other.package", "other.package.Listener");
+    MediaSessionManager.OnActiveSessionsChangedListener listener = activeSessions -> {};
+
+    try {
+      handler.postAndSync(() ->
+          MediaSessionManager.addOnActiveSessionsChangedListener(
+              context,
+              /* packageName= */ "other.package",
+              listener,
+              ContextCompat.getMainExecutor(context),
+              foreignListener));
+    } finally {
+      handler.postAndSync(
+          () -> MediaSessionManager.removeOnActiveSessionsChangedListener(context, listener));
+    }
+  }
+
+  @Test
   @SdkSuppress(minSdkVersion = 37)
   public void
       addOnActiveSessionsChangedListener_withoutPermissionForCurrentPackageAndApi37_notifiesListener()
