@@ -164,73 +164,71 @@ class MotionPhotoTest {
   }
 
   @Test
-  fun motionPhoto_whenShowPhotoToggled_keepsPhotoInCompositionAndUpdatesPlayer() =
-    runComposeUiTest {
-      val player = FakePlayer(bufferingDelayMs = 0)
-      var rememberInvocations = 0
-      lateinit var state: MotionPhotoState
-      lateinit var composeView: View
-      setContent {
-        composeView = LocalView.current
-        state = rememberMotionPhotoState(player = player, mediaItem = unresolvableMediaItem)
-        MotionPhoto(
-          state = state,
-          modifier = Modifier.size(100.dp),
-          contentScale = ContentScale.Crop,
-          photo = {
-            val unused = remember { rememberInvocations++ }
-            Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG))
-          },
-        )
-      }
-      waitForIdle()
-      val photoSemanticsId = onNodeWithTag(PHOTO_SLOT_TAG).fetchSemanticsNode().id
-      assertThat(state.visualState.isPhotoVisible).isTrue()
-      assertThat(rememberInvocations).isEqualTo(1)
-      onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
-      assertThat(
-          composeView.accessibilityNodeProvider
-            .createAccessibilityNodeInfo(photoSemanticsId)!!
-            .isVisibleToUser
-        )
-        .isTrue()
-
-      state.showPhoto = false
-      assertThat(state.showPhoto).isFalse()
-      waitForIdle()
-      assertThat(state.visualState.isPhotoVisible).isTrue()
-
-      player.renderFirstFrame(true)
-      waitForIdle()
-
-      assertThat(state.visualState.isPhotoVisible).isFalse()
-      onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
-      assertThat(
-          composeView.accessibilityNodeProvider
-            .createAccessibilityNodeInfo(photoSemanticsId)!!
-            .isVisibleToUser
-        )
-        .isFalse()
-      assertThat(rememberInvocations).isEqualTo(1)
-      assertThat(player.playWhenReady).isTrue()
-
-      player.setPosition(300L)
-      state.showPhoto = true
-      assertThat(state.showPhoto).isTrue()
-      waitForIdle()
-
-      assertThat(state.visualState.isPhotoVisible).isTrue()
-      onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
-      assertThat(
-          composeView.accessibilityNodeProvider
-            .createAccessibilityNodeInfo(photoSemanticsId)!!
-            .isVisibleToUser
-        )
-        .isTrue()
-      assertThat(rememberInvocations).isEqualTo(1)
-      assertThat(player.playWhenReady).isFalse()
-      assertThat(player.currentPosition).isEqualTo(0L)
+  fun motionPhoto_whenToggleCalled_keepsPhotoInCompositionAndUpdatesPlayer() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    var rememberInvocations = 0
+    lateinit var state: MotionPhotoState
+    lateinit var composeView: View
+    setContent {
+      composeView = LocalView.current
+      state = rememberMotionPhotoState(player = player, mediaItem = unresolvableMediaItem)
+      MotionPhoto(
+        state = state,
+        modifier = Modifier.size(100.dp),
+        contentScale = ContentScale.Crop,
+        photo = {
+          val unused = remember { rememberInvocations++ }
+          Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG))
+        },
+      )
     }
+    waitForIdle()
+    val photoSemanticsId = onNodeWithTag(PHOTO_SLOT_TAG).fetchSemanticsNode().id
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+    assertThat(rememberInvocations).isEqualTo(1)
+    onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
+    assertThat(
+        composeView.accessibilityNodeProvider
+          .createAccessibilityNodeInfo(photoSemanticsId)!!
+          .isVisibleToUser
+      )
+      .isTrue()
+
+    state.toggle()
+    waitForIdle()
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+    assertThat(player.playWhenReady).isTrue()
+
+    player.renderFirstFrame(true)
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isFalse()
+    onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
+    assertThat(
+        composeView.accessibilityNodeProvider
+          .createAccessibilityNodeInfo(photoSemanticsId)!!
+          .isVisibleToUser
+      )
+      .isFalse()
+    assertThat(rememberInvocations).isEqualTo(1)
+    assertThat(player.playWhenReady).isTrue()
+
+    player.setPosition(300L)
+    state.toggle()
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+    onNodeWithTag(PHOTO_SLOT_TAG).assertExists()
+    assertThat(
+        composeView.accessibilityNodeProvider
+          .createAccessibilityNodeInfo(photoSemanticsId)!!
+          .isVisibleToUser
+      )
+      .isTrue()
+    assertThat(rememberInvocations).isEqualTo(1)
+    assertThat(player.playWhenReady).isFalse()
+    assertThat(player.currentPosition).isEqualTo(0L)
+  }
 
   @Test
   fun motionPhoto_whenPlayerAttachedFromNull_keepsPhotoOverlayUntilFirstFrameRendered() =
@@ -243,7 +241,7 @@ class MotionPhotoTest {
           rememberMotionPhotoState(
             player = currentPlayer,
             mediaItem = unresolvableMediaItem,
-            initialShowPhoto = false,
+            initialShowMotion = true,
           )
         if (currentPlayer != null) {
           observedIsPhotoVisibleWhenPlayerAttached.add(state.visualState.isPhotoVisible)
@@ -264,6 +262,7 @@ class MotionPhotoTest {
       // Before first frame renders, still photo overlay remains visible over new player.
       assertThat(observedIsPhotoVisibleWhenPlayerAttached).containsExactly(true)
       assertThat(state.visualState.isPhotoVisible).isTrue()
+      assertThat(newPlayer.playWhenReady).isTrue()
       onNodeWithTag(PHOTO_SLOT_TAG).assertIsDisplayed()
 
       // Once first frame renders, photo overlay transitions away.
@@ -289,7 +288,7 @@ class MotionPhotoTest {
           rememberMotionPhotoState(
             player = currentPlayer,
             mediaItem = unresolvableMediaItem,
-            initialShowPhoto = false,
+            initialShowMotion = true,
           )
         MotionPhoto(
           state = state,
@@ -329,7 +328,7 @@ class MotionPhotoTest {
     }
 
   @Test
-  fun motionPhoto_whenShowPhotoSetToFalseAfterFirstFrameRendered_crossfadesOutOverTransitionDuration() =
+  fun motionPhoto_whenPlayMotionCalledAfterFirstFrameRendered_crossfadesOutOverTransitionDuration() =
     runComposeUiTest {
       val player = FakePlayer(bufferingDelayMs = 0)
       lateinit var state: MotionPhotoState
@@ -340,7 +339,7 @@ class MotionPhotoTest {
           rememberMotionPhotoState(
             player = player,
             mediaItem = unresolvableMediaItem,
-            initialShowPhoto = true,
+            initialShowMotion = false,
             initialConfig = MotionPhotoConfig(transitionDurationMs = 800L),
           )
         MotionPhoto(
@@ -355,7 +354,7 @@ class MotionPhotoTest {
       val photoSemanticsId = onNodeWithTag(PHOTO_SLOT_TAG).fetchSemanticsNode().id
       mainClock.autoAdvance = false
 
-      state.showPhoto = false
+      state.playMotion()
       mainClock.advanceTimeByFrame()
       waitForIdle()
       mainClock.advanceTimeBy(600L)
@@ -382,7 +381,7 @@ class MotionPhotoTest {
     }
 
   @Test
-  fun motionPhoto_withZeroTransitionDurationAndShowPhotoSetToFalse_hidesPhotoImmediately() =
+  fun motionPhoto_withZeroTransitionDurationAndPlayMotionCalled_hidesPhotoImmediately() =
     runComposeUiTest {
       val player = FakePlayer(bufferingDelayMs = 0)
       lateinit var state: MotionPhotoState
@@ -393,7 +392,7 @@ class MotionPhotoTest {
           rememberMotionPhotoState(
             player = player,
             mediaItem = unresolvableMediaItem,
-            initialShowPhoto = true,
+            initialShowMotion = false,
             initialConfig = MotionPhotoConfig(transitionDurationMs = 0L),
           )
         MotionPhoto(
@@ -408,7 +407,7 @@ class MotionPhotoTest {
       val photoSemanticsId = onNodeWithTag(PHOTO_SLOT_TAG).fetchSemanticsNode().id
       mainClock.autoAdvance = false
 
-      state.showPhoto = false
+      state.playMotion()
       mainClock.advanceTimeByFrame()
       waitForIdle()
       mainClock.advanceTimeByFrame()

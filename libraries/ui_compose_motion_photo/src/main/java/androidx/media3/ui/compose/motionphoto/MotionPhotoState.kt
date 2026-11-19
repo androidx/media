@@ -52,8 +52,8 @@ import kotlinx.coroutines.launch
  * [mediaItem] (via [Player.setMediaItem], updating its [MediaItem.ClippingConfiguration] in place
  * via [Player.replaceMediaItem] as playback boundaries change) and prepares playback. Callers
  * should not modify the [player]'s playlist while it is bound to this state. Changing [mediaItem]
- * creates and remembers a new [MotionPhotoState], resetting [MotionPhotoState.showPhoto] to
- * [initialShowPhoto] and [MotionPhotoState.config] to [initialConfig].
+ * creates and remembers a new [MotionPhotoState], resetting motion playback to [initialShowMotion]
+ * and [MotionPhotoState.config] to [initialConfig].
  *
  * The provided [player] must support updating an item's [MediaItem.ClippingConfiguration] in-place
  * using [Player.replaceMediaItem]. For `ExoPlayer`, this means a `ClippingMediaSource` (with
@@ -64,7 +64,10 @@ import kotlinx.coroutines.launch
  * `DefaultMediaSourceFactory.setAlwaysWrapInClippingMediaSource`. The provided [player] must be a
  * direct in-process instance such as `ExoPlayer`; `MediaController` is not supported.
  *
- * This state holder also owns [Player.repeatMode] while bound: it is set to
+ * This state holder also owns [Player.playWhenReady] and [Player.repeatMode] while bound:
+ * [Player.playWhenReady] is driven by the motion/still-photo state (callers should pause via
+ * [MotionPhotoState.showStillPhoto] or detach by passing `player = null` rather than calling
+ * [Player.pause] or [Player.stop] directly), and [Player.repeatMode] is set to
  * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
  * and is not restored when [player] is detached.
  *
@@ -76,7 +79,9 @@ import kotlinx.coroutines.launch
  * @param player The [Player] to coordinate with, or `null` to just show the still photo.
  * @param mediaItem The [MediaItem] representing the Motion Photo. Must have a non-null
  *   [MediaItem.LocalConfiguration.uri].
- * @param initialShowPhoto Whether the still photo is initially shown instead of playing motion.
+ * @param initialShowMotion Whether motion playback is initially requested instead of showing the
+ *   still photo; subsequently changed via [MotionPhotoState.playMotion],
+ *   [MotionPhotoState.showStillPhoto], or [MotionPhotoState.toggle].
  * @param initialConfig The initial [MotionPhotoConfig] governing motion playback behavior,
  *   subsequently changed via [MotionPhotoState.config].
  * @return A remembered [MotionPhotoState] instance bound to the lifecycle of this composition.
@@ -86,13 +91,13 @@ import kotlinx.coroutines.launch
 fun rememberMotionPhotoState(
   player: Player?,
   mediaItem: MediaItem,
-  initialShowPhoto: Boolean = true,
+  initialShowMotion: Boolean = false,
   initialConfig: MotionPhotoConfig = MotionPhotoConfig.DEFAULT,
 ): MotionPhotoState {
   val coroutineScope = rememberCoroutineScope()
   val state =
     remember(mediaItem) {
-      MotionPhotoState(mediaItem, initialShowPhoto, initialConfig, coroutineScope)
+      MotionPhotoState(mediaItem, initialShowMotion, initialConfig, coroutineScope)
     }
   state.player = player
   LaunchedEffect(state, player) {
@@ -118,13 +123,17 @@ fun rememberMotionPhotoState(
  * The supplied [Player] must support updating an item's [MediaItem.ClippingConfiguration] in-place
  * using [Player.replaceMediaItem]; see [rememberMotionPhotoState] for how to configure `ExoPlayer`.
  *
- * This state holder also owns [Player.repeatMode] while bound: it is set to
- * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
- * and is not restored when the [Player] is detached.
+ * This state holder also owns [Player.playWhenReady] and [Player.repeatMode] while bound:
+ * [Player.playWhenReady] is driven by the motion/still-photo state (callers should pause via
+ * [showStillPhoto] or detach by passing `player = null` rather than calling [Player.pause] or
+ * [Player.stop] directly), and [Player.repeatMode] is set to [Player.REPEAT_MODE_ONE] or
+ * [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping] and is not restored when the
+ * [Player] is detached.
  *
  * @property mediaItem The [MediaItem] representing the motion photo, guaranteed to have a non-null
  *   [MediaItem.LocalConfiguration.uri].
- * @param initialShowPhoto Whether the still photo is initially shown instead of playing motion.
+ * @param initialShowMotion Whether motion playback is initially requested instead of showing the
+ *   still photo; see [playMotion], [showStillPhoto], and [toggle].
  * @param initialConfig The initial [MotionPhotoConfig] governing motion playback behavior.
  * @param coroutineScope Scope used to launch deferred playback and rewind coroutines during photo
  *   transitions.
@@ -134,7 +143,7 @@ fun rememberMotionPhotoState(
 class MotionPhotoState
 internal constructor(
   val mediaItem: MediaItem,
-  initialShowPhoto: Boolean = true,
+  initialShowMotion: Boolean = false,
   initialConfig: MotionPhotoConfig = MotionPhotoConfig.DEFAULT,
   private val coroutineScope: CoroutineScope,
 ) {
@@ -198,30 +207,71 @@ internal constructor(
   private var isMotionUnavailable by mutableStateOf(false)
   private var isPlaybackRangeEmpty by mutableStateOf(false)
   private var hasRenderedFirstFrame by mutableStateOf(false)
+  private var isPhotoForced by mutableStateOf(!initialShowMotion)
+  private var hasMotionEnded by mutableStateOf(false)
   private var videoDurationUs: Long = C.TIME_UNSET
   private var photoPresentationTimestampUs: Long = C.TIME_UNSET
   private var hasKnownTracks = false
   private var hasWarnedAboutPhotoFrameFallback = false
 
-  private var _showPhoto by mutableStateOf(initialShowPhoto)
+  private val isPhotoTarget: Boolean
+    get() = isPhotoForced || hasMotionEnded
+
+  private val showMotion: Boolean
+    get() = !isPhotoTarget && player?.playbackState != Player.STATE_IDLE
 
   /**
-   * Whether the still photo is the target state to be shown instead of playing motion.
+   * Requests playing motion according to [config].
    *
-   * This value is initialized from `initialShowPhoto` and is subsequently flipped either by the
-   * application (for example, in response to a user trigger) or automatically back to `true` when
-   * non-looping video playback finishes. Setting this property commands the attached [Player]
-   * accordingly.
+   * If motion playback had previously finished, or if the attached [Player] is in
+   * [Player.STATE_IDLE] after a playback error, this restarts or re-prepares playback. Calling this
+   * while motion playback is already active is a no-op.
    */
-  var showPhoto: Boolean
-    get() = _showPhoto
-    set(value) {
-      if (_showPhoto == value && (value || player?.playbackState != Player.STATE_IDLE)) {
-        return
-      }
-      _showPhoto = value
-      player?.let { syncPlaybackState(it, allowPrepareOnError = !value) }
+  fun playMotion() {
+    if (showMotion) {
+      return
     }
+    isPhotoForced = false
+    hasMotionEnded = false
+    player?.let { transitionToMotion(it, allowPrepareOnError = true) }
+  }
+
+  /**
+   * Requests showing the still photo instead of playing motion.
+   *
+   * Pauses motion while keeping [config] in place. Calling this while the still photo is already
+   * requested is a no-op.
+   */
+  fun showStillPhoto() {
+    val wasPhotoTarget = isPhotoTarget
+    isPhotoForced = true
+    hasMotionEnded = false
+    if (!wasPhotoTarget) {
+      player?.let { transitionToStillPhoto(it) }
+    }
+  }
+
+  /**
+   * Toggles between playing motion and showing the still photo.
+   *
+   * Calls [showStillPhoto] when motion playback is active as the target state, and [playMotion]
+   * otherwise (including to replay after non-looping motion finishes or to retry after an error).
+   */
+  fun toggle() {
+    if (showMotion) {
+      showStillPhoto()
+    } else {
+      playMotion()
+    }
+  }
+
+  private fun markMotionEnded() {
+    if (isPhotoTarget) {
+      return
+    }
+    hasMotionEnded = true
+    player?.let { transitionToStillPhoto(it) }
+  }
 
   private var _config by mutableStateOf(initialConfig)
 
@@ -242,23 +292,40 @@ internal constructor(
       if (_config.resumeVideoFromPreviousPosition) {
         cancelDeferredRewind()
       }
-      player?.let { currentPlayer ->
-        syncRepeatMode(currentPlayer)
+      // Play-once finishes on the still photo, so changing non-looping options (e.g., boundaries
+      // or transition duration) should not auto-play motion until playMotion() or looping is set.
+      val restartedEndedMotion = !previousConfig.isLooping && _config.isLooping && hasMotionEnded
+      val currentPlayer = player
+      if (currentPlayer == null) {
+        if (restartedEndedMotion) {
+          hasMotionEnded = false
+        }
+        return
+      }
+      if (
+        previousConfig.startBoundary != _config.startBoundary ||
+          previousConfig.startBoundaryOffsetMs != _config.startBoundaryOffsetMs ||
+          previousConfig.endBoundary != _config.endBoundary ||
+          previousConfig.endBoundaryOffsetMs != _config.endBoundaryOffsetMs
+      ) {
+        syncMediaItem(currentPlayer)
+      }
+      if (restartedEndedMotion) {
+        hasMotionEnded = false
+        transitionToMotion(currentPlayer, allowPrepareOnError = false)
+      } else if (
+        currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping && !isPhotoTarget
+      ) {
+        markMotionEnded()
+      } else {
         if (
-          previousConfig.startBoundary != _config.startBoundary ||
-            previousConfig.startBoundaryOffsetMs != _config.startBoundaryOffsetMs ||
-            previousConfig.endBoundary != _config.endBoundary ||
-            previousConfig.endBoundaryOffsetMs != _config.endBoundaryOffsetMs
-        ) {
-          syncMediaItem(currentPlayer)
-        }
-        when {
-          currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping && !_showPhoto ->
-            showPhoto = true
-          _showPhoto &&
+          isPhotoTarget &&
             previousConfig.resumeVideoFromPreviousPosition &&
-            !_config.resumeVideoFromPreviousPosition -> seekToStartPosition(currentPlayer)
+            !_config.resumeVideoFromPreviousPosition
+        ) {
+          seekToStartPosition(currentPlayer)
         }
+        syncPlaybackState(currentPlayer)
       }
     }
 
@@ -266,7 +333,7 @@ internal constructor(
   val visualState: VisualState by derivedStateOf {
     VisualState(
       isPhotoVisible =
-        _showPhoto ||
+        isPhotoTarget ||
           player == null ||
           isMotionUnavailable ||
           isPlaybackRangeEmpty ||
@@ -280,8 +347,17 @@ internal constructor(
     updateMotionPhotoMetadata(currentPlayer)
     updateVideoDuration(currentPlayer)
     val didUpdateMediaItem = syncMediaItem(currentPlayer)
+    updateMotionAvailability(currentPlayer)
     // If no new item or clipping update was applied, an existing error is not stale.
-    syncPlaybackState(currentPlayer, allowPrepareOnError = didUpdateMediaItem, isInitialBind = true)
+    if (isPhotoTarget) {
+      transitionToStillPhoto(currentPlayer, allowPrepareOnError = didUpdateMediaItem)
+    } else {
+      transitionToMotion(
+        currentPlayer,
+        allowPrepareOnError = didUpdateMediaItem,
+        isInitialBind = true,
+      )
+    }
     // Re-check in case setMediaItem or prepare synchronously updated state, tracks, or timeline
     // before observe() registered its listener.
     val didMetadataChange = updateMotionPhotoMetadata(currentPlayer)
@@ -289,7 +365,9 @@ internal constructor(
     if (didMetadataChange || didDurationChange) {
       syncMediaItem(currentPlayer)
     }
-    updateMotionAvailability(currentPlayer)
+    if (updateMotionAvailability(currentPlayer)) {
+      syncPlayWhenReady(currentPlayer)
+    }
   }
 
   internal suspend fun observe() {
@@ -318,12 +396,11 @@ internal constructor(
           Player.EVENT_TRACKS_CHANGED,
           Player.EVENT_PLAYER_ERROR,
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-        )
+        ) && updateMotionAvailability(this)
       ) {
-        updateMotionAvailability(this)
-      }
-      if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
-        syncRepeatMode(this)
+        // Motion that becomes unavailable has no frame to fade in, and motion that becomes
+        // available again starts underneath the still photo once its first frame has rendered.
+        syncPlayWhenReady(this)
       }
       val didMetadataChange =
         events.containsAny(
@@ -343,6 +420,9 @@ internal constructor(
           events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)
       ) {
         syncMediaItem(this)
+      }
+      if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
+        syncPlaybackState(this)
       }
       if (
         events.contains(Player.EVENT_TRACKS_CHANGED) &&
@@ -379,21 +459,22 @@ internal constructor(
         events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_ENDED
       ) {
         if (!_config.isLooping) {
-          showPhoto = true
-        } else if (!_showPhoto) {
+          markMotionEnded()
+        } else if (!isPhotoTarget) {
           // Repeat mode is unsupported or was not applied by the player, so emulate
           // REPEAT_MODE_ONE manually.
           if (isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)) {
             seekToDefaultPosition()
           } else {
-            showPhoto = true
+            markMotionEnded()
           }
         }
       }
     }
   }
 
-  private fun updateMotionAvailability(currentPlayer: Player) {
+  @CanIgnoreReturnValue
+  private fun updateMotionAvailability(currentPlayer: Player): Boolean {
     val hasNoVideoTrack =
       currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
         !currentPlayer.currentTracks.isEmpty &&
@@ -403,11 +484,7 @@ internal constructor(
     if (isMotionUnavailable) {
       hasRenderedFirstFrame = false
     }
-    if (isMotionUnavailable != wasMotionUnavailable) {
-      // Motion that becomes unavailable has no frame to fade in, and motion that becomes available
-      // again starts underneath the still photo once its first frame has rendered.
-      syncPlayWhenReady(currentPlayer)
-    }
+    return isMotionUnavailable != wasMotionUnavailable
   }
 
   @CanIgnoreReturnValue
@@ -456,7 +533,11 @@ internal constructor(
     return C.TIME_UNSET
   }
 
-  private fun syncRepeatMode(currentPlayer: Player) {
+  /**
+   * Synchronizes idempotent playback flags (`repeatMode` and `playWhenReady`) to [currentPlayer]
+   * without triggering one-shot transition side effects such as preparing or seeking.
+   */
+  private fun syncPlaybackState(currentPlayer: Player) {
     val repeatMode = if (_config.isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     if (
       currentPlayer.isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE) &&
@@ -464,46 +545,63 @@ internal constructor(
     ) {
       currentPlayer.repeatMode = repeatMode
     }
+    syncPlayWhenReady(currentPlayer)
   }
 
-  private fun syncPlaybackState(
+  @CanIgnoreReturnValue
+  private fun prepareIfNeeded(currentPlayer: Player, allowPrepareOnError: Boolean): Boolean {
+    val shouldPrepare =
+      currentPlayer.playbackState == Player.STATE_IDLE &&
+        (currentPlayer.playerError == null || allowPrepareOnError) &&
+        currentPlayer.isCommandAvailable(Player.COMMAND_PREPARE)
+    if (shouldPrepare) {
+      currentPlayer.prepare()
+    }
+    return shouldPrepare
+  }
+
+  private fun transitionToStillPhoto(currentPlayer: Player, allowPrepareOnError: Boolean = false) {
+    prepareIfNeeded(currentPlayer, allowPrepareOnError)
+    cancelDeferredRewind()
+    if (!_config.resumeVideoFromPreviousPosition) {
+      if (shouldDeferRewind()) {
+        deferredRewindJob = launchAfterTransition { seekToStartPosition(currentPlayer) }
+      } else {
+        seekToStartPosition(currentPlayer)
+      }
+    }
+    syncPlaybackState(currentPlayer)
+  }
+
+  private fun transitionToMotion(
     currentPlayer: Player,
     allowPrepareOnError: Boolean,
     isInitialBind: Boolean = false,
   ) {
-    syncRepeatMode(currentPlayer)
-    val wasIdle = currentPlayer.playbackState == Player.STATE_IDLE
-    if (
-      wasIdle &&
-        (currentPlayer.playerError == null || allowPrepareOnError) &&
-        currentPlayer.isCommandAvailable(Player.COMMAND_PREPARE)
-    ) {
-      currentPlayer.prepare()
-    }
-
+    val didPrepare = prepareIfNeeded(currentPlayer, allowPrepareOnError)
     val hadPendingDeferredRewind = deferredRewindJob?.isActive == true
     cancelDeferredRewind()
-    when {
-      _config.resumeVideoFromPreviousPosition -> {
-        if (!_showPhoto && currentPlayer.playbackState == Player.STATE_ENDED) {
-          seekToStartPosition(currentPlayer)
-        }
-      }
-      shouldDeferRewind() -> {
-        deferredRewindJob = launchAfterTransition { seekToStartPosition(currentPlayer) }
-      }
-      // When resuming motion (_showPhoto == false), the player was already rewound when returning
-      // to the photo unless a deferred rewind was still in flight, the player is being initialized
-      // or re-prepared from idle, or playback had ended.
-      _showPhoto ||
-        isInitialBind ||
+    val needsRewind =
+      if (_config.resumeVideoFromPreviousPosition) {
+        currentPlayer.playbackState == Player.STATE_ENDED
+      } else {
+        // When resuming motion, the player was already rewound when returning to the photo unless a
+        // deferred rewind was still in flight, the player is being initialized or re-prepared from
+        // idle, or playback had ended.
         hadPendingDeferredRewind ||
-        wasIdle ||
-        currentPlayer.playbackState == Player.STATE_ENDED -> {
-        seekToStartPosition(currentPlayer)
+          didPrepare ||
+          isInitialBind ||
+          currentPlayer.playbackState == Player.STATE_ENDED
       }
+    if (needsRewind) {
+      seekToStartPosition(currentPlayer)
     }
-    syncPlayWhenReady(currentPlayer)
+    if (didPrepare) {
+      // Refresh synchronously in case prepareIfNeeded() cleared a previous playerError before
+      // observePlayerEvents() processes the error change.
+      updateMotionAvailability(currentPlayer)
+    }
+    syncPlaybackState(currentPlayer)
   }
 
   /**
@@ -515,20 +613,23 @@ internal constructor(
    * photo fades out over a stationary frame.
    */
   private fun syncPlayWhenReady(currentPlayer: Player) {
-    cancelDeferredPlay()
     if (!currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+      cancelDeferredPlay()
       return
     }
-    if (_showPhoto || isPlaybackRangeEmpty) {
+    if (isPhotoTarget || isPlaybackRangeEmpty) {
+      cancelDeferredPlay()
       currentPlayer.playWhenReady = false
       return
     }
     if (isMotionUnavailable) {
+      cancelDeferredPlay()
       // There is no frame to fade in, so there is nothing to wait for.
       currentPlayer.playWhenReady = true
       return
     }
     if (!hasRenderedFirstFrame) {
+      cancelDeferredPlay()
       if (
         currentPlayer.playbackState == Player.STATE_BUFFERING ||
           currentPlayer.playbackState == Player.STATE_IDLE
@@ -547,14 +648,18 @@ internal constructor(
       }
       return
     }
+    isPlayPendingFirstFrame = false
+    if (currentPlayer.playWhenReady || deferredPlayJob?.isActive == true) {
+      return
+    }
     if (_config.transitionDurationMs > 0L) {
-      currentPlayer.playWhenReady = false
       deferredPlayJob = launchAfterTransition {
         if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
           currentPlayer.playWhenReady = true
         }
       }
     } else {
+      cancelDeferredPlay()
       currentPlayer.playWhenReady = true
     }
   }
@@ -566,7 +671,7 @@ internal constructor(
   }
 
   private fun shouldDeferRewind(): Boolean =
-    _showPhoto &&
+    isPhotoTarget &&
       hasRenderedFirstFrame &&
       !isMotionUnavailable &&
       !isPlaybackRangeEmpty &&
@@ -743,7 +848,7 @@ internal constructor(
         // player prepares the item and reports its timeline.
         loadedMediaItem == null && syncMediaItem(currentPlayer, mediaItem.clippingConfiguration)
       isPlaybackRangeEmpty = true
-      syncPlayWhenReady(currentPlayer)
+      syncPlaybackState(currentPlayer)
       return didUpdateMediaItem
     }
     val wasPlaybackRangeEmpty = isPlaybackRangeEmpty
@@ -777,7 +882,11 @@ internal constructor(
       syncPlayWhenReady(currentPlayer)
     }
     if (wasPlaybackRangeEmpty) {
-      syncPlaybackState(currentPlayer, allowPrepareOnError = false)
+      if (isPhotoTarget) {
+        transitionToStillPhoto(currentPlayer)
+      } else {
+        transitionToMotion(currentPlayer, allowPrepareOnError = false)
+      }
     }
     return didUpdateMediaItem
   }
@@ -788,7 +897,7 @@ internal constructor(
    * item on [currentPlayer] was updated.
    *
    * An in-place update that keeps the start position preserves the current playback position
-   * (unless [_showPhoto] is `true` and [MotionPhotoConfig.resumeVideoFromPreviousPosition] is
+   * (unless [isPhotoTarget] is `true` and [MotionPhotoConfig.resumeVideoFromPreviousPosition] is
    * `false`, or the current position is at or beyond the new end position), while a change of the
    * start position restarts from the new start.
    */
@@ -826,7 +935,7 @@ internal constructor(
       }
     if (
       previousClippingConfiguration.startPositionUs != clippingConfiguration.startPositionUs ||
-        (_showPhoto && !_config.resumeVideoFromPreviousPosition) ||
+        (isPhotoTarget && !_config.resumeVideoFromPreviousPosition) ||
         isCurrentPositionPastEnd
     ) {
       cancelDeferredRewind()
@@ -877,14 +986,14 @@ internal constructor(
  *   non-positive when [startBoundary] is [BOUNDARY_END_OF_VIDEO]. A start position before the start
  *   of the video is clamped to it. A start position at or beyond the end of the video (including
  *   [BOUNDARY_END_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the still photo stays
- *   visible and [MotionPhotoState.showPhoto] is left unchanged.
+ *   visible without mutating the requested motion state.
  * @property endBoundary The [PlaybackBoundary] anchor at which motion playback ends.
  * @property endBoundaryOffsetMs The offset in milliseconds added to [endBoundary] to compute the
  *   end position. Must be non-negative when [endBoundary] is [BOUNDARY_START_OF_VIDEO] and
  *   non-positive when [endBoundary] is [BOUNDARY_END_OF_VIDEO]. An end position beyond the end of
  *   the video is clamped to it by the player. An end position at or before the start position
  *   (including [BOUNDARY_START_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the
- *   still photo stays visible and [MotionPhotoState.showPhoto] is left unchanged.
+ *   still photo stays visible without mutating the requested motion state.
  */
 // TODO(b/544627271): Add custom key photo frame anchor timestamp
 // (`customImageAnchorTimestampMs`) and remaining presets in follow-up CLs.

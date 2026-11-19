@@ -132,7 +132,7 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
           player.prepare()
         }
       } else if (event == Lifecycle.Event.ON_STOP) {
-        motionPhotoState.showPhoto = true
+        motionPhotoState.showStillPhoto()
         player.stop()
       }
     }
@@ -154,10 +154,7 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
     MotionPhoto(
       state = motionPhotoState,
       contentDescription = mediaItem.mediaMetadata.title?.toString(),
-      modifier =
-        Modifier.fillMaxSize().noRippleClickable {
-          motionPhotoState.showPhoto = !motionPhotoState.showPhoto
-        },
+      modifier = Modifier.fillMaxSize().noRippleClickable(motionPhotoState::toggle),
       bitmapLoader = bitmapLoader,
     )
 
