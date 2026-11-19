@@ -69,7 +69,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
@@ -320,20 +319,20 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final long[] EMPTY_TRACK_ID_ARRAY = new long[0];
 
   /**
-   * GMS error code 2055 corresponds to {@link CastStatusCodes#APPLICATION_STOPPED}. This value is
+   * GMS error code 2055 corresponds to {@code CastStatusCodes.APPLICATION_STOPPED}. This value is
    * not part of the public API but is used when the receiver application stops.
    */
   @VisibleForTesting /* package */ static final int APPLICATION_STOPPED = 2055;
 
   /**
-   * GMS error code 2155 corresponds to {@link
-   * CastStatusCodes#SESSION_ENDED_WITH_REASON_ROUTE_CHANGED}. This value is not part of the public
+   * GMS error code 2155 corresponds to {@code
+   * CastStatusCodes.SESSION_ENDED_WITH_REASON_ROUTE_CHANGED}. This value is not part of the public
    * API but is used when the route playing the media is changed.
    */
   @VisibleForTesting /* package */ static final int SESSION_END_REASON_ROUTE_CHANGE = 2155;
 
   /**
-   * GMS error code 2154 corresponds to {@link CastStatusCodes#SESSION_ENDED_WITH_REASON_STOPPED}.
+   * GMS error code 2154 corresponds to {@code CastStatusCodes.SESSION_ENDED_WITH_REASON_STOPPED}.
    * This value is not part of the public API but is used when the stop casting button is pressed.
    */
   @VisibleForTesting /* package */ static final int SESSION_END_REASON_STOPPED = 2154;
