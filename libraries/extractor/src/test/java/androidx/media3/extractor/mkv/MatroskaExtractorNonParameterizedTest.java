@@ -18,10 +18,12 @@ package androidx.media3.extractor.mkv;
 import static androidx.media3.extractor.Extractor.RESULT_SEEK;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
@@ -66,5 +68,19 @@ public class MatroskaExtractorNonParameterizedTest {
         .isEqualTo(expectedGenericSeekPoint);
     assertThat(trackAwareSeekMap.getSeekPoints(timeStampUs, videoTrackId).first)
         .isEqualTo(expectedTrackSpecificSeekPoint);
+  }
+
+  // https://github.com/androidx/media/issues/3562
+  @Test
+  public void read_withStray0x80InInfo_skipsElement() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor, context, "media/mkv/sample_with_stray_0x80_in_info.mkv");
+
+    DumpFileAsserts.assertOutput(
+        context, output, "extractordumps/mkv/sample_with_chapters.mkv.0.dump");
   }
 }
