@@ -1098,26 +1098,26 @@ public abstract class MediaSessionService extends LifecycleService {
       }
       int callingPid = Binder.getCallingPid();
       int uid = Binder.getCallingUid();
-      long token = Binder.clearCallingIdentity();
       int pid = (callingPid != 0) ? callingPid : request.pid;
-      if (checkPackageValidity(mediaSessionService, request.packageName, uid) != PACKAGE_VALID) {
-        Log.w(
-            TAG,
-            "Ignoring connection from invalid package name "
-                + request.packageName
-                + " (uid="
-                + uid
-                + ")");
-        SessionUtil.disconnectIMediaController(caller);
-        return;
-      }
-      MediaSessionManager.RemoteUserInfo remoteUserInfo =
-          new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
-      boolean isTrusted =
-          MediaSessionManager.getSessionManager(mediaSessionService.getApplicationContext())
-              .isTrustedForMediaControl(remoteUserInfo, /* isPackageNameVerified= */ true);
-      pendingControllers.add(caller);
+      long token = Binder.clearCallingIdentity();
       try {
+        if (checkPackageValidity(mediaSessionService, request.packageName, uid) != PACKAGE_VALID) {
+          Log.w(
+              TAG,
+              "Ignoring connection from invalid package name "
+                  + request.packageName
+                  + " (uid="
+                  + uid
+                  + ")");
+          SessionUtil.disconnectIMediaController(caller);
+          return;
+        }
+        MediaSessionManager.RemoteUserInfo remoteUserInfo =
+            new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
+        boolean isTrusted =
+            MediaSessionManager.getSessionManager(mediaSessionService.getApplicationContext())
+                .isTrustedForMediaControl(remoteUserInfo, /* isPackageNameVerified= */ true);
+        pendingControllers.add(caller);
         handler.post(() -> {
           pendingControllers.remove(caller);
           boolean connected = false;
