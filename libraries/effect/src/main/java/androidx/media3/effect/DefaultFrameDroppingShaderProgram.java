@@ -108,9 +108,7 @@ import org.jspecify.annotations.Nullable;
   public void release() throws VideoFrameProcessingException {
     super.release();
     try {
-      if (previousTexture != null) {
-        previousTexture.release();
-      }
+      releasePreviousTexture();
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }
@@ -118,9 +116,7 @@ import org.jspecify.annotations.Nullable;
 
   private void reset() {
     try {
-      if (previousTexture != null) {
-        previousTexture.release();
-      }
+      releasePreviousTexture();
     } catch (GlUtil.GlException e) {
       onError(e);
     }
@@ -129,29 +125,35 @@ import org.jspecify.annotations.Nullable;
     framesReceived = 0;
   }
 
+  private void releasePreviousTexture() throws GlUtil.GlException {
+    try {
+      if (previousTexture != null) {
+        previousTexture.release();
+      }
+    } finally {
+      previousTexture = null;
+    }
+  }
+
   private void copyTextureToPreviousFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo newTexture, long presentationTimeUs) {
     try {
+      if (previousTexture != null
+          && (previousTexture.width != newTexture.width
+              || previousTexture.height != newTexture.height)) {
+        releasePreviousTexture();
+      }
       if (previousTexture == null) {
         int texId = GlUtil.createTexture(newTexture.width, newTexture.height, useHdr);
         previousTexture =
             glObjectsProvider.createBuffersForTexture(texId, newTexture.width, newTexture.height);
       }
       GlTextureInfo previousTexture = checkNotNull(this.previousTexture);
-      if (previousTexture.height != newTexture.height
-          || previousTexture.width != newTexture.width) {
-        previousTexture.release();
-        int texId = GlUtil.createTexture(newTexture.width, newTexture.height, useHdr);
-        previousTexture =
-            glObjectsProvider.createBuffersForTexture(texId, newTexture.width, newTexture.height);
-      }
-
       GlUtil.focusFramebufferUsingCurrentContext(
           previousTexture.fboId, previousTexture.width, previousTexture.height);
       GlUtil.clearFocusedBuffers();
       drawFrame(newTexture.texId, presentationTimeUs);
       previousPresentationTimeUs = presentationTimeUs;
-      this.previousTexture = previousTexture;
     } catch (VideoFrameProcessingException | GlUtil.GlException e) {
       onError(e);
     }

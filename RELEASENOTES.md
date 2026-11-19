@@ -67,6 +67,10 @@
         default to the L1 hardware library. Other DRM schemes ignore this
         setting.
 *   Effect:
+    *   Fix a `GlException` (`GL_INVALID_FRAMEBUFFER_OPERATION`) when reusing
+        `FrameDropEffect.createDefaultFrameDropEffect` across multiple input
+        streams or flushes, such as in multi-item `Transformer` exports
+        ([#3534](https://github.com/androidx/media/issues/3534)).
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
