@@ -28,6 +28,7 @@ import android.media.session.MediaController;
 import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.provider.Settings;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Log;
@@ -91,8 +92,9 @@ public final class MediaSessionManager {
    *
    * @param context The context to use to access the system service.
    * @param packageName The package name to filter by, or {@code null} for all packages.
-   * @param notificationListener The component name of the enabled notification listener, or {@code
-   *     null}.
+   * @param notificationListener The component name of the enabled notification listener belonging
+   *     to the calling UID, or {@code null}. Components not belonging to the calling UID are
+   *     ignored.
    * @return A {@link ListenableFuture} for the list of {@link SessionToken} instances.
    */
   public static ListenableFuture<List<SessionToken>> getActiveSessions(
@@ -103,9 +105,13 @@ public final class MediaSessionManager {
 
     boolean isOwnPackage =
         packageName != null && packageName.equals(applicationContext.getPackageName());
-    boolean hasPermission =
-        hasMediaControlPermission(applicationContext)
-            || hasEnabledNotificationListener(applicationContext, notificationListener);
+    boolean hasMediaControlPermission = hasMediaControlPermission(applicationContext);
+    @Nullable ComponentName validNotificationListener =
+        !hasMediaControlPermission
+                && hasEnabledNotificationListener(applicationContext, notificationListener)
+            ? notificationListener
+            : null;
+    boolean hasPermission = hasMediaControlPermission || validNotificationListener != null;
 
     if (!isOwnPackage && !hasPermission) {
       throw new SecurityException(
@@ -120,13 +126,14 @@ public final class MediaSessionManager {
     if (SDK_INT >= 37 && packageName != null) {
       ListenableFuture<List<SessionToken>> sessionsForPackage =
           Api37.getActiveSessionsForPackage(
-              applicationContext, platformManager, packageName, notificationListener);
+              applicationContext, platformManager, packageName, validNotificationListener);
       if (sessionsForPackage != null) {
         return sessionsForPackage;
       }
     }
 
-    List<MediaController> controllers = platformManager.getActiveSessions(notificationListener);
+    List<MediaController> controllers =
+        platformManager.getActiveSessions(validNotificationListener);
     if (packageName != null) {
       controllers = filterControllersByPackage(controllers, packageName);
     }
@@ -154,8 +161,9 @@ public final class MediaSessionManager {
    * @param packageName The package name to filter by, or {@code null} for all packages.
    * @param listener The listener to add.
    * @param executor The executor to execute the callback on.
-   * @param notificationListener The component name of the enabled notification listener, or {@code
-   *     null}.
+   * @param notificationListener The component name of the enabled notification listener belonging
+   *     to the calling UID, or {@code null}. Components not belonging to the calling UID are
+   *     ignored.
    */
   public static void addOnActiveSessionsChangedListener(
       Context context,
@@ -166,9 +174,13 @@ public final class MediaSessionManager {
     Context applicationContext = context.getApplicationContext();
     boolean isOwnPackage =
         packageName != null && packageName.equals(applicationContext.getPackageName());
-    boolean hasPermission =
-        hasMediaControlPermission(applicationContext)
-            || hasEnabledNotificationListener(applicationContext, notificationListener);
+    boolean hasMediaControlPermission = hasMediaControlPermission(applicationContext);
+    @Nullable ComponentName validNotificationListener =
+        !hasMediaControlPermission
+                && hasEnabledNotificationListener(applicationContext, notificationListener)
+            ? notificationListener
+            : null;
+    boolean hasPermission = hasMediaControlPermission || validNotificationListener != null;
 
     if (!isOwnPackage && !hasPermission) {
       throw new SecurityException(
@@ -218,13 +230,13 @@ public final class MediaSessionManager {
       boolean isPackageSpecific = false;
       if (SDK_INT >= 37 && packageName != null) {
         Api37.addOnActiveSessionsForPackageChangedListener(
-            platformManager, packageName, executor, notificationListener, platformListener);
+            platformManager, packageName, executor, validNotificationListener, platformListener);
         isPackageSpecific = true;
       }
 
       if (!isPackageSpecific) {
         platformManager.addOnActiveSessionsChangedListener(
-            platformListener, notificationListener, new Handler(Looper.getMainLooper()));
+            platformListener, validNotificationListener, new Handler(Looper.getMainLooper()));
       }
       listenersMap.put(listener, new ListenerWrapper(platformListener, isPackageSpecific));
     }
@@ -321,12 +333,20 @@ public final class MediaSessionManager {
 
   private static boolean hasEnabledNotificationListener(
       Context context, @Nullable ComponentName notificationListener) {
-    if (notificationListener == null) {
+    if (notificationListener == null
+        || SessionUtil.checkPackageValidity(
+                context, notificationListener.getPackageName(), Process.myUid())
+            != SessionUtil.PACKAGE_VALID) {
       return false;
     }
     if (SDK_INT >= 27) {
       NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
-      return notificationManager.isNotificationListenerAccessGranted(notificationListener);
+      try {
+        return notificationManager.isNotificationListenerAccessGranted(notificationListener);
+      } catch (SecurityException e) {
+        // The platform can still throw (e.g., SDK sandbox UIDs or foreign package contexts).
+        return false;
+      }
     }
     // Fallback for API < 27
     String enabledNotificationListeners =
