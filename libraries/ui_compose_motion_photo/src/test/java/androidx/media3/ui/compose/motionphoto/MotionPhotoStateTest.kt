@@ -1143,7 +1143,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          endPositionOffsetMs = 600L,
+          endBoundaryOffsetMs = 600L,
         )
       mainClock.advanceTimeBy(50L)
       waitForIdle()
@@ -1273,7 +1273,7 @@ class MotionPhotoStateTest {
     state.config =
       state.config.copy(
         startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-        startPositionOffsetMs = 0L,
+        startBoundaryOffsetMs = 0L,
       )
     mainClock.advanceTimeBy(200L)
     waitForIdle()
@@ -1723,7 +1723,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 200L,
+                startBoundaryOffsetMs = 200L,
               ),
           )
       }
@@ -1749,7 +1749,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-                startPositionOffsetMs = -300L,
+                startBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -1773,7 +1773,7 @@ class MotionPhotoStateTest {
       assertThat(player.playWhenReady).isTrue()
 
       // An offset that reaches before the start of the video is clamped to it.
-      state.config = state.config.copy(startPositionOffsetMs = -1_500L)
+      state.config = state.config.copy(startBoundaryOffsetMs = -1_500L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(0L)
@@ -1782,7 +1782,7 @@ class MotionPhotoStateTest {
 
       // A start at the end of the video leaves nothing to play: playback pauses and the photo is
       // shown without mutating showPhoto or the clipped item on the player.
-      state.config = state.config.copy(startPositionOffsetMs = 0L)
+      state.config = state.config.copy(startBoundaryOffsetMs = 0L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(0L)
@@ -1792,7 +1792,7 @@ class MotionPhotoStateTest {
 
       // Restoring a valid offset resumes playback in place after the crossfade from the still photo
       // completes, without resetting the first-frame gate.
-      state.config = state.config.copy(startPositionOffsetMs = -300L)
+      state.config = state.config.copy(startBoundaryOffsetMs = -300L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(700L)
@@ -1818,7 +1818,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 200L,
+                startBoundaryOffsetMs = 200L,
               ),
           )
       }
@@ -1833,7 +1833,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-          startPositionOffsetMs = -350L,
+          startBoundaryOffsetMs = -350L,
         )
       waitForIdle()
 
@@ -1849,7 +1849,7 @@ class MotionPhotoStateTest {
       // Without COMMAND_CHANGE_MEDIA_ITEMS, in-place clipping updates are skipped until the
       // command becomes available.
       player.removeCommands(Player.COMMAND_CHANGE_MEDIA_ITEMS)
-      state.config = state.config.copy(startPositionOffsetMs = -200L)
+      state.config = state.config.copy(startBoundaryOffsetMs = -200L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(650L)
@@ -1863,7 +1863,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          startPositionOffsetMs = 1_000L,
+          startBoundaryOffsetMs = 1_000L,
         )
       waitForIdle()
 
@@ -1887,7 +1887,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 600L,
+                startBoundaryOffsetMs = 600L,
               ),
           )
       }
@@ -1908,7 +1908,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-          startPositionOffsetMs = -300L,
+          startBoundaryOffsetMs = -300L,
         )
       waitForIdle()
 
@@ -1946,7 +1946,7 @@ class MotionPhotoStateTest {
               MotionPhotoConfig(
                 resumeVideoFromPreviousPosition = true,
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 200L,
+                startBoundaryOffsetMs = 200L,
               ),
           )
       }
@@ -1971,7 +1971,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                endPositionOffsetMs = 400L,
+                endBoundaryOffsetMs = 400L,
               ),
           )
       }
@@ -1995,7 +1995,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                endPositionOffsetMs = 400L,
+                endBoundaryOffsetMs = 400L,
               ),
           )
       }
@@ -2007,7 +2007,7 @@ class MotionPhotoStateTest {
       state.config =
         MotionPhotoConfig(
           endBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-          endPositionOffsetMs = -300L,
+          endBoundaryOffsetMs = -300L,
         )
       waitForIdle()
 
@@ -2051,7 +2051,7 @@ class MotionPhotoStateTest {
           initialConfig =
             MotionPhotoConfig(
               startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-              startPositionOffsetMs = 100L,
+              startBoundaryOffsetMs = 100L,
             ),
         )
     }
@@ -2067,7 +2067,7 @@ class MotionPhotoStateTest {
     state.config =
       state.config.copy(
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        endPositionOffsetMs = 600L,
+        endBoundaryOffsetMs = 600L,
       )
     waitForIdle()
 
@@ -2081,7 +2081,7 @@ class MotionPhotoStateTest {
     assertThat(state.visualState.isPhotoVisible).isFalse()
 
     // An end boundary beyond the video duration is passed through and clamped by the player.
-    state.config = state.config.copy(endPositionOffsetMs = 1_500L)
+    state.config = state.config.copy(endBoundaryOffsetMs = 1_500L)
     waitForIdle()
 
     assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionMs).isEqualTo(1_500L)
@@ -2103,7 +2103,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 100L,
+                startBoundaryOffsetMs = 100L,
               ),
           )
       }
@@ -2115,7 +2115,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          endPositionOffsetMs = 600L,
+          endBoundaryOffsetMs = 600L,
         )
       waitForIdle()
 
@@ -2140,7 +2140,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 100L,
+                startBoundaryOffsetMs = 100L,
               ),
           )
       }
@@ -2155,7 +2155,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          endPositionOffsetMs = 600L,
+          endBoundaryOffsetMs = 600L,
         )
       waitForIdle()
 
@@ -2176,7 +2176,7 @@ class MotionPhotoStateTest {
           initialConfig =
             MotionPhotoConfig(
               startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-              startPositionOffsetMs = 100L,
+              startBoundaryOffsetMs = 100L,
             ),
         )
     }
@@ -2191,7 +2191,7 @@ class MotionPhotoStateTest {
     state.config =
       state.config.copy(
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        endPositionOffsetMs = 600L,
+        endBoundaryOffsetMs = 600L,
       )
     waitForIdle()
 
@@ -2212,7 +2212,7 @@ class MotionPhotoStateTest {
           initialConfig =
             MotionPhotoConfig(
               startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-              startPositionOffsetMs = 100L,
+              startBoundaryOffsetMs = 100L,
             ),
         )
     }
@@ -2223,9 +2223,9 @@ class MotionPhotoStateTest {
 
     state.config =
       state.config.copy(
-        startPositionOffsetMs = 200L,
+        startBoundaryOffsetMs = 200L,
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        endPositionOffsetMs = 600L,
+        endBoundaryOffsetMs = 600L,
       )
     waitForIdle()
 
@@ -2250,7 +2250,7 @@ class MotionPhotoStateTest {
               MotionPhotoConfig(
                 resumeVideoFromPreviousPosition = true,
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 100L,
+                startBoundaryOffsetMs = 100L,
               ),
           )
       }
@@ -2265,7 +2265,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          endPositionOffsetMs = 600L,
+          endBoundaryOffsetMs = 600L,
         )
       waitForIdle()
 
@@ -2290,7 +2290,7 @@ class MotionPhotoStateTest {
               MotionPhotoConfig(
                 resumeVideoFromPreviousPosition = false,
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 100L,
+                startBoundaryOffsetMs = 100L,
               ),
           )
       }
@@ -2321,7 +2321,7 @@ class MotionPhotoStateTest {
       state.config =
         state.config.copy(
           endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          endPositionOffsetMs = 600L,
+          endBoundaryOffsetMs = 600L,
         )
       waitForIdle()
 
@@ -2351,7 +2351,7 @@ class MotionPhotoStateTest {
               MotionPhotoConfig(
                 resumeVideoFromPreviousPosition = false,
                 endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                endPositionOffsetMs = 600L,
+                endBoundaryOffsetMs = 600L,
               ),
           )
       }
@@ -2381,7 +2381,7 @@ class MotionPhotoStateTest {
     state.config =
       state.config.copy(
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        endPositionOffsetMs = 600L,
+        endBoundaryOffsetMs = 600L,
       )
     waitForIdle()
 
@@ -2404,7 +2404,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                endPositionOffsetMs = 1_500L,
+                endBoundaryOffsetMs = 1_500L,
               ),
           )
       }
@@ -2433,9 +2433,9 @@ class MotionPhotoStateTest {
           initialConfig =
             MotionPhotoConfig(
               startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-              startPositionOffsetMs = 100L,
+              startBoundaryOffsetMs = 100L,
               endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-              endPositionOffsetMs = 600L,
+              endBoundaryOffsetMs = 600L,
             ),
         )
     }
@@ -2469,9 +2469,9 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 500L,
+                startBoundaryOffsetMs = 500L,
                 endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                endPositionOffsetMs = 500L,
+                endBoundaryOffsetMs = 500L,
               ),
           )
       }
@@ -2482,7 +2482,7 @@ class MotionPhotoStateTest {
       assertThat(player.playWhenReady).isFalse()
 
       // An end before the start leaves nothing to play either.
-      state.config = state.config.copy(startPositionOffsetMs = 600L)
+      state.config = state.config.copy(startBoundaryOffsetMs = 600L)
       waitForIdle()
 
       assertThat(state.showPhoto).isFalse()
@@ -2518,7 +2518,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                startPositionOffsetMs = -50L,
+                startBoundaryOffsetMs = -50L,
               ),
           )
       }
@@ -2583,9 +2583,9 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                startPositionOffsetMs = -300L,
+                startBoundaryOffsetMs = -300L,
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = 300L,
+                endBoundaryOffsetMs = 300L,
               ),
           )
       }
@@ -2642,7 +2642,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -2778,7 +2778,7 @@ class MotionPhotoStateTest {
       assertThat(state.visualState.isPhotoVisible).isTrue()
       assertThat(player.playWhenReady).isFalse()
 
-      state.config = state.config.copy(startPositionOffsetMs = 100L)
+      state.config = state.config.copy(startBoundaryOffsetMs = 100L)
       waitForIdle()
 
       assertThat(player.currentMediaItem).isEqualTo(testMediaItem)
@@ -2786,7 +2786,7 @@ class MotionPhotoStateTest {
       assertThat(player.playWhenReady).isFalse()
 
       // A negative offset resolves relative to BOUNDARY_END_OF_VIDEO rather than staying unset.
-      state.config = state.config.copy(startPositionOffsetMs = -200L)
+      state.config = state.config.copy(startBoundaryOffsetMs = -200L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.startPositionMs).isEqualTo(800L)
@@ -2810,9 +2810,9 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                startPositionOffsetMs = -400L,
+                startBoundaryOffsetMs = -400L,
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -100L,
+                endBoundaryOffsetMs = -100L,
               ),
           )
       }
@@ -2840,7 +2840,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -2982,7 +2982,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -100L,
+                endBoundaryOffsetMs = -100L,
               ),
           )
       }
@@ -3011,7 +3011,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -3035,7 +3035,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -3060,7 +3060,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -3082,7 +3082,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -3110,7 +3110,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -300L,
+                endBoundaryOffsetMs = -300L,
               ),
           )
       }
@@ -3146,7 +3146,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -100L,
+                endBoundaryOffsetMs = -100L,
               ),
           )
       }
@@ -3187,7 +3187,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -100L,
+                endBoundaryOffsetMs = -100L,
               ),
           )
       }
@@ -3238,7 +3238,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = -100L,
+                endBoundaryOffsetMs = -100L,
               ),
           )
       }
@@ -3316,7 +3316,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                endPositionOffsetMs = 500L,
+                endBoundaryOffsetMs = 500L,
               ),
           )
       }
@@ -3324,7 +3324,7 @@ class MotionPhotoStateTest {
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(900_000L)
 
-      state.config = state.config.copy(endPositionOffsetMs = -1L)
+      state.config = state.config.copy(endBoundaryOffsetMs = -1L)
       waitForIdle()
 
       assertThat(player.currentMediaItem?.clippingConfiguration?.endPositionUs).isEqualTo(399_000L)
@@ -3349,7 +3349,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-                startPositionOffsetMs = -1L,
+                startBoundaryOffsetMs = -1L,
                 endBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
               ),
           )
@@ -3383,7 +3383,7 @@ class MotionPhotoStateTest {
             initialConfig =
               MotionPhotoConfig(
                 startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-                startPositionOffsetMs = 100L,
+                startBoundaryOffsetMs = 100L,
               ),
           )
       }
@@ -3406,13 +3406,13 @@ class MotionPhotoStateTest {
     assertThrows(IllegalArgumentException::class.java) {
       MotionPhotoConfig(
         startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        startPositionOffsetMs = -1L,
+        startBoundaryOffsetMs = -1L,
       )
     }
     assertThrows(IllegalArgumentException::class.java) {
       MotionPhotoConfig(
         startBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-        startPositionOffsetMs = 1L,
+        startBoundaryOffsetMs = 1L,
       )
     }
   }
@@ -3423,13 +3423,13 @@ class MotionPhotoStateTest {
     assertThrows(IllegalArgumentException::class.java) {
       MotionPhotoConfig(
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        endPositionOffsetMs = -1L,
+        endBoundaryOffsetMs = -1L,
       )
     }
     assertThrows(IllegalArgumentException::class.java) {
       MotionPhotoConfig(
         endBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-        endPositionOffsetMs = 1L,
+        endBoundaryOffsetMs = 1L,
       )
     }
   }
@@ -3449,9 +3449,9 @@ class MotionPhotoStateTest {
     assertThat(defaultConfig.transitionDurationMs).isEqualTo(200L)
     assertThat(defaultConfig.resumeVideoFromPreviousPosition).isFalse()
     assertThat(defaultConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_START_OF_VIDEO)
-    assertThat(defaultConfig.startPositionOffsetMs).isEqualTo(0L)
+    assertThat(defaultConfig.startBoundaryOffsetMs).isEqualTo(0L)
     assertThat(defaultConfig.endBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_END_OF_VIDEO)
-    assertThat(defaultConfig.endPositionOffsetMs).isEqualTo(0L)
+    assertThat(defaultConfig.endBoundaryOffsetMs).isEqualTo(0L)
     assertThat(defaultConfig).isEqualTo(MotionPhotoConfig())
     assertThat(defaultConfig.hashCode()).isEqualTo(MotionPhotoConfig().hashCode())
 
@@ -3470,62 +3470,62 @@ class MotionPhotoStateTest {
         transitionDurationMs = 350L,
         resumeVideoFromPreviousPosition = true,
         startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-        startPositionOffsetMs = -250L,
+        startBoundaryOffsetMs = -250L,
         endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-        endPositionOffsetMs = 600L,
+        endBoundaryOffsetMs = 600L,
       )
     assertThat(customConfig.isLooping).isFalse()
     assertThat(customConfig.transitionDurationMs).isEqualTo(350L)
     assertThat(customConfig.resumeVideoFromPreviousPosition).isTrue()
     assertThat(customConfig.startBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_PHOTO_FRAME)
-    assertThat(customConfig.startPositionOffsetMs).isEqualTo(-250L)
+    assertThat(customConfig.startBoundaryOffsetMs).isEqualTo(-250L)
     assertThat(customConfig.endBoundary).isEqualTo(MotionPhotoConfig.BOUNDARY_START_OF_VIDEO)
-    assertThat(customConfig.endPositionOffsetMs).isEqualTo(600L)
+    assertThat(customConfig.endBoundaryOffsetMs).isEqualTo(600L)
     assertThat(customConfig).isNotEqualTo(defaultConfig)
-    assertThat(customConfig).isNotEqualTo(customConfig.copy(startPositionOffsetMs = -100L))
+    assertThat(customConfig).isNotEqualTo(customConfig.copy(startBoundaryOffsetMs = -100L))
     assertThat(customConfig.hashCode())
-      .isNotEqualTo(customConfig.copy(startPositionOffsetMs = -100L).hashCode())
-    assertThat(customConfig).isNotEqualTo(customConfig.copy(endPositionOffsetMs = 500L))
+      .isNotEqualTo(customConfig.copy(startBoundaryOffsetMs = -100L).hashCode())
+    assertThat(customConfig).isNotEqualTo(customConfig.copy(endBoundaryOffsetMs = 500L))
     assertThat(customConfig.hashCode())
-      .isNotEqualTo(customConfig.copy(endPositionOffsetMs = 500L).hashCode())
+      .isNotEqualTo(customConfig.copy(endBoundaryOffsetMs = 500L).hashCode())
     assertThat(
         customConfig.copy(
           endBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
-          endPositionOffsetMs = 0L,
+          endBoundaryOffsetMs = 0L,
         )
       )
-      .isNotEqualTo(customConfig.copy(endPositionOffsetMs = 0L))
+      .isNotEqualTo(customConfig.copy(endBoundaryOffsetMs = 0L))
     assertThat(
         customConfig
-          .copy(endBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO, endPositionOffsetMs = 0L)
+          .copy(endBoundary = MotionPhotoConfig.BOUNDARY_END_OF_VIDEO, endBoundaryOffsetMs = 0L)
           .hashCode()
       )
-      .isNotEqualTo(customConfig.copy(endPositionOffsetMs = 0L).hashCode())
+      .isNotEqualTo(customConfig.copy(endBoundaryOffsetMs = 0L).hashCode())
     assertThat(
         customConfig.copy(
           startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-          startPositionOffsetMs = 0L,
+          startBoundaryOffsetMs = 0L,
         )
       )
-      .isNotEqualTo(customConfig.copy(startPositionOffsetMs = 0L))
+      .isNotEqualTo(customConfig.copy(startBoundaryOffsetMs = 0L))
     assertThat(
         customConfig
           .copy(
             startBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-            startPositionOffsetMs = 0L,
+            startBoundaryOffsetMs = 0L,
           )
           .hashCode()
       )
-      .isNotEqualTo(customConfig.copy(startPositionOffsetMs = 0L).hashCode())
+      .isNotEqualTo(customConfig.copy(startBoundaryOffsetMs = 0L).hashCode())
     assertThat(customConfig.hashCode())
       .isEqualTo(
         MotionPhotoConfig(
             transitionDurationMs = 350L,
             resumeVideoFromPreviousPosition = true,
             startBoundary = MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-            startPositionOffsetMs = -250L,
+            startBoundaryOffsetMs = -250L,
             endBoundary = MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-            endPositionOffsetMs = 600L,
+            endBoundaryOffsetMs = 600L,
           )
           .hashCode()
       )

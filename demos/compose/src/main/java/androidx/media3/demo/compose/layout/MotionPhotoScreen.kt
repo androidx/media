@@ -233,22 +233,22 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
           BoundaryControl(
             title = "Start",
             boundary = config.startBoundary,
-            offsetMs = config.startPositionOffsetMs,
+            offsetMs = config.startBoundaryOffsetMs,
             onChange = { boundary, offsetMs ->
               motionPhotoState.config =
                 motionPhotoState.config.copy(
                   startBoundary = boundary,
-                  startPositionOffsetMs = offsetMs,
+                  startBoundaryOffsetMs = offsetMs,
                 )
             },
           )
           BoundaryControl(
             title = "End",
             boundary = config.endBoundary,
-            offsetMs = config.endPositionOffsetMs,
+            offsetMs = config.endBoundaryOffsetMs,
             onChange = { boundary, offsetMs ->
               motionPhotoState.config =
-                motionPhotoState.config.copy(endBoundary = boundary, endPositionOffsetMs = offsetMs)
+                motionPhotoState.config.copy(endBoundary = boundary, endBoundaryOffsetMs = offsetMs)
             },
           )
           if (isRangeKnownEmpty(config)) {
@@ -366,13 +366,13 @@ private fun ConfigSwitchRow(
 private fun isRangeKnownEmpty(config: MotionPhotoConfig): Boolean =
   // Start sits at the end of the video, so no clamped end can lie after it.
   (config.startBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO &&
-    config.startPositionOffsetMs == 0L) ||
+    config.startBoundaryOffsetMs == 0L) ||
     // End sits at the start of the video, and start is never negative.
     (config.endBoundary == MotionPhotoConfig.BOUNDARY_START_OF_VIDEO &&
-      config.endPositionOffsetMs == 0L) ||
+      config.endBoundaryOffsetMs == 0L) ||
     // Same anchor for both, and end is not after start (holds under fallback too).
     (config.startBoundary == config.endBoundary &&
-      config.endPositionOffsetMs <= config.startPositionOffsetMs)
+      config.endBoundaryOffsetMs <= config.startBoundaryOffsetMs)
 
 private fun offsetRangeMs(boundary: @MotionPhotoConfig.PlaybackBoundary Int): LongRange =
   when (boundary) {
