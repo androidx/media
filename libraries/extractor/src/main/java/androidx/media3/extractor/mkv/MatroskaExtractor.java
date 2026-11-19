@@ -2003,7 +2003,8 @@ public class MatroskaExtractor implements Extractor {
               input, nalLengthData, nalUnitLengthFieldLengthDiff, nalUnitLengthFieldLength);
           sampleBytesRead += nalUnitLengthFieldLength;
           nalLength.setPosition(0);
-          sampleCurrentNalBytesRemaining = nalLength.readUnsignedIntToInt();
+          sampleCurrentNalBytesRemaining =
+              min(nalLength.readUnsignedIntToInt(), size - sampleBytesRead);
           // Write a start code for the current NAL unit.
           nalStartCode.setPosition(0);
           output.sampleData(nalStartCode, 4);

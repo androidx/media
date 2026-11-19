@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mkv;
 
+import static androidx.media3.extractor.Extractor.RESULT_END_OF_INPUT;
 import static androidx.media3.extractor.Extractor.RESULT_SEEK;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -66,5 +67,47 @@ public class MatroskaExtractorNonParameterizedTest {
         .isEqualTo(expectedGenericSeekPoint);
     assertThat(trackAwareSeekMap.getSeekPoints(timeStampUs, videoTrackId).first)
         .isEqualTo(expectedTrackSpecificSeekPoint);
+  }
+
+  @Test
+  public void malformedNalLength_doesNotReadPastSample() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
+    int nalLengthOffset =
+        findByteSequence(
+            fileBytes,
+            new byte[] {0, 0, 2, (byte) 0xAF, 6, 5, (byte) 0xFF, (byte) 0xFF});
+    assertThat(nalLengthOffset).isAtLeast(0);
+    fileBytes[nalLengthOffset + 2] = (byte) 0xFF;
+    fileBytes[nalLengthOffset + 3] = (byte) 0xFF;
+
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    extractor.init(new FakeExtractorOutput());
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(fileBytes).build();
+    PositionHolder positionHolder = new PositionHolder();
+
+    int readResult;
+    do {
+      readResult = extractor.read(input, positionHolder);
+      if (readResult == RESULT_SEEK) {
+        input.setPosition((int) positionHolder.position);
+      }
+    } while (readResult != RESULT_END_OF_INPUT);
+  }
+
+  private static int findByteSequence(byte[] data, byte[] sequence) {
+    for (int dataOffset = 0; dataOffset <= data.length - sequence.length; dataOffset++) {
+      boolean sequenceFound = true;
+      for (int sequenceOffset = 0; sequenceOffset < sequence.length; sequenceOffset++) {
+        if (data[dataOffset + sequenceOffset] != sequence[sequenceOffset]) {
+          sequenceFound = false;
+          break;
+        }
+      }
+      if (sequenceFound) {
+        return dataOffset;
+      }
+    }
+    return -1;
   }
 }
