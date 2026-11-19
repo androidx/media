@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 
+// TODO(b/585669262): Replace with Compose's Spanned.toAnnotatedString once it's public and supports
+//  cue spans.
 /**
  * Converts this [Spanned] text (e.g. [Cue.text][androidx.media3.common.text.Cue.text]) to an
  * [AnnotatedString].
