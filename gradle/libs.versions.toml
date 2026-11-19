@@ -51,6 +51,7 @@ androidxWindowVersion = "1.5.0"
 checkerframeworkVersion = "3.13.0"
 coilComposeVersion = "2.7.0"
 cronetVersion = "500.0.2"
+dackkaBuildId = "16708830"
 desugarJdkLibsVersion = "2.1.5"
 dexmakerVersion = "2.28.3"
 # Keep in sync with gms.strict-version-matcher-plugin
@@ -139,6 +140,7 @@ cronet-api = { group = "org.chromium.net", name = "cronet-api", version.ref = "c
 cronet-embedded = { group = "org.chromium.net", name = "cronet-embedded", version.ref = "cronetVersion" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibsVersion" }
 dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmakerVersion" }
+dokka-devsite-plugin = { group = "com.google.devsite", name = "dokka-devsite-plugin", version = "+" }
 errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorProneVersion" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glideVersion" }
 glide-concurrent-integration = { group = "com.github.bumptech.glide", name = "concurrent-integration", version.ref = "glideVersion" }

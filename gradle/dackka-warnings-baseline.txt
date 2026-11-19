@@ -1,0 +1,23 @@
+# Full-line regular expressions for known-acceptable Dackka warnings.
+# Empty lines and lines starting with '#' are ignored.
+
+# Standalone Media3 Gradle builds validate warnings without publishing HTML to
+# developer.android.com, so external package-list files are omitted while
+# (?!androidx\.media3\b) still enforces internal androidx.media3.* links.
+WARN: Missing package-list for (?!androidx\.media3\b).* \(go/dackka#missing-package-list\)
+
+# TODO(b/542454233): Remove once the fix for Dokka's 2.3 regression resolving
+# Java Javadoc {@link} tags to Kotlin-compiled JARs is available in AndroidX
+# (https://github.com/Kotlin/dokka/issues/4618; includes androidx.* JARs here).
+# go/keep-sorted start
+WARN: Couldn't resolve JavaDoc link '(Call\.Factory|OkHttpClient|CacheControl)' in libraries/datasource_okhttp/src/main/java/androidx/media3/datasource/okhttp/OkHttpDataSource\.java:\d+:\d+
+WARN: Couldn't resolve JavaDoc link '(Dispatcher|okhttp3\.mockwebserver\.MockWebServer|RecordedRequest)' in libraries/test_utils/src/main/java/androidx/media3/test/utils/WebServerDispatcher\.java:\d+:\d+
+WARN: Couldn't resolve JavaDoc link '(EnhancementClient|EnhancementSession)' in libraries/effect_play_services/src/main/java/androidx/media3/effect/playservices/EnhancementSessionManager\.java:\d+:\d+
+WARN: Couldn't resolve JavaDoc link '(START_STICKY|stopSelf)' in libraries/session/src/main/java/androidx/media3/session/MediaSessionService\.java:\d+:\d+
+WARN: Couldn't resolve JavaDoc link 'ColorInt' in libraries/extractor/src/main/java/androidx/media3/extractor/text/ssa/SsaStyle\.java:\d+:\d+
+WARN: Couldn't resolve JavaDoc link 'EnhancementSession' in libraries/effect_play_services/src/main/java/androidx/media3/effect/playservices/EnhancementSessionDecorator\.java:\d+:\d+
+# go/keep-sorted end
+
+# Package contains both public Java APIs and @Composable UI helpers (see
+# b/513146616, b/518757394).
+WARN: Package androidx\.media3\.cast is a compose package but is included in java docs
