@@ -18,9 +18,9 @@ package androidx.media3.exoplayer.trackselection;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
-import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
-import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED;
-import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.isFormatSupported;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -3511,12 +3511,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
    */
   private static boolean rendererSupportsOffload(
       Parameters parameters, @Capabilities int formatSupport, Format format) {
-    if (RendererCapabilities.getAudioOffloadSupport(formatSupport) == AUDIO_OFFLOAD_NOT_SUPPORTED) {
+    if ((RendererCapabilities.getAudioOffloadSupport(formatSupport)
+            & AUDIO_OFFLOAD_ENCODED_SUPPORTED)
+        == 0) {
       return false;
     }
     if (parameters.audioOffloadPreferences.isSpeedChangeSupportRequired
         && (RendererCapabilities.getAudioOffloadSupport(formatSupport)
-                & AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED)
+                & AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED)
             == 0) {
       return false;
     }
@@ -3525,7 +3527,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
       boolean isGapless = format.encoderDelay != 0 || format.encoderPadding != 0;
       boolean isGaplessSupported =
           (RendererCapabilities.getAudioOffloadSupport(formatSupport)
-                  & AUDIO_OFFLOAD_GAPLESS_SUPPORTED)
+                  & AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED)
               != 0;
       return !isGapless || isGaplessSupported;
     }

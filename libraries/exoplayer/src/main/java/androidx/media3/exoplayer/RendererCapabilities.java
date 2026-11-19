@@ -145,10 +145,11 @@ public interface RendererCapabilities {
   /**
    * Level of renderer support for audio offload.
    *
-   * <p>Speed change and gapless transition support with audio offload is represented by the bit
-   * mask flags {@link #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link
-   * #AUDIO_OFFLOAD_GAPLESS_SUPPORTED} respectively. If neither feature is supported then the value
-   * will be either {@link #AUDIO_OFFLOAD_SUPPORTED} or {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
+   * <p>Speed change and gapless transition support with encoded audio offload is represented by the
+   * bit mask flags {@link #AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED} and {@link
+   * #AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED} respectively. If neither feature is supported then
+   * the value will be {@link #AUDIO_OFFLOAD_ENCODED_SUPPORTED}, {@link
+   * #AUDIO_OFFLOAD_PCM_SUPPORTED}, or {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
    *
    * <p>For non-audio renderers, the level of support is always {@link
    * #AUDIO_OFFLOAD_NOT_SUPPORTED}.
@@ -156,25 +157,50 @@ public interface RendererCapabilities {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({
-    AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED,
-    AUDIO_OFFLOAD_GAPLESS_SUPPORTED,
-    AUDIO_OFFLOAD_SUPPORTED,
-    AUDIO_OFFLOAD_NOT_SUPPORTED
-  })
+  @IntDef(
+      flag = true,
+      value = {
+        AUDIO_OFFLOAD_PCM_SUPPORTED,
+        AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED,
+        AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED,
+        AUDIO_OFFLOAD_ENCODED_SUPPORTED,
+        AUDIO_OFFLOAD_NOT_SUPPORTED
+      })
   @interface AudioOffloadSupport {}
 
   /** A mask to apply to {@link Capabilities} to obtain {@link AudioOffloadSupport} only. */
-  int AUDIO_OFFLOAD_SUPPORT_MASK = 0b111 << 9;
+  int AUDIO_OFFLOAD_SUPPORT_MASK = 0b1111 << 9;
 
-  /** The renderer supports audio offload and speed changes with this format. */
-  int AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED = 0b100 << 9;
+  /**
+   * The renderer supports playing the audio in PCM offload mode (either directly if the input is
+   * PCM, or after decoding to PCM).
+   */
+  int AUDIO_OFFLOAD_PCM_SUPPORTED = 0b1000 << 9;
 
-  /** The renderer supports audio offload and gapless transitions with this format. */
-  int AUDIO_OFFLOAD_GAPLESS_SUPPORTED = 0b10 << 9;
+  /** The renderer supports encoded audio offload and speed changes with this format. */
+  int AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED = 0b100 << 9;
 
-  /** The renderer supports audio offload with this format. */
-  int AUDIO_OFFLOAD_SUPPORTED = 0b1 << 9;
+  /**
+   * @deprecated Use {@link #AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED} instead.
+   */
+  @Deprecated
+  int AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED = AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED;
+
+  /** The renderer supports encoded audio offload and gapless transitions with this format. */
+  int AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED = 0b10 << 9;
+
+  /**
+   * @deprecated Use {@link #AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED} instead.
+   */
+  @Deprecated int AUDIO_OFFLOAD_GAPLESS_SUPPORTED = AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED;
+
+  /** The renderer supports encoded audio offload with this format. */
+  int AUDIO_OFFLOAD_ENCODED_SUPPORTED = 0b1 << 9;
+
+  /**
+   * @deprecated Use {@link #AUDIO_OFFLOAD_ENCODED_SUPPORTED} instead.
+   */
+  @Deprecated int AUDIO_OFFLOAD_SUPPORTED = AUDIO_OFFLOAD_ENCODED_SUPPORTED;
 
   /** Audio offload is not supported with this format. */
   int AUDIO_OFFLOAD_NOT_SUPPORTED = 0;
@@ -212,12 +238,13 @@ public interface RendererCapabilities {
    *   <li>{@link DecoderSupport}: The level of decoder support. One of {@link
    *       #DECODER_SUPPORT_PRIMARY}, {@link #DECODER_SUPPORT_FALLBACK}, or {@link
    *       #DECODER_SUPPORT_FALLBACK_MIMETYPE}.
-   *   <li>{@link AudioOffloadSupport}: The level of offload support. Value will have the flag
-   *       {@link #AUDIO_OFFLOAD_SUPPORTED} or be {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}. In addition,
-   *       if it is {@link #AUDIO_OFFLOAD_SUPPORTED}, then one can check for {@link
-   *       #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link #AUDIO_OFFLOAD_GAPLESS_SUPPORTED}.
-   *       These represent speed change and gapless transition support with audio offload
-   *       respectively.
+   *   <li>{@link AudioOffloadSupport}: The level of offload support. Value will have the flags
+   *       {@link #AUDIO_OFFLOAD_ENCODED_SUPPORTED}, {@link #AUDIO_OFFLOAD_PCM_SUPPORTED}, or be
+   *       {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}. In addition, if {@link
+   *       #AUDIO_OFFLOAD_ENCODED_SUPPORTED} is set, then one can check for {@link
+   *       #AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED} and {@link
+   *       #AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED}. These represent speed change and gapless
+   *       transition support with encoded audio offload respectively.
    * </ul>
    */
   @Documented

@@ -56,6 +56,16 @@
         from MP4 and MOV files with MPEG (MP1, MP2, MP3) or DTS audio tracks.
 *   Inspector Frame:
 *   Audio:
+    *   Add `RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED` to advertise PCM
+        audio offload support. You can enable this using
+        `Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD)`. Note that when
+        enabled, `RendererCapabilities.getAudioOffloadSupport()` returns a
+        non-zero value (`AUDIO_OFFLOAD_PCM_SUPPORTED`) for supported audio
+        formats (including PCM and decoded audio formats) when the audio sink
+        supports PCM offload; callers checking specifically for encoded audio
+        offload support should explicitly check for the
+        `AUDIO_OFFLOAD_ENCODED_SUPPORTED` bit flag rather than
+        `!= AUDIO_OFFLOAD_NOT_SUPPORTED`.
 *   Video:
 *   Text:
     *   Fix `IndexOutOfBoundsException` when parsing a WebVTT cue with multiple

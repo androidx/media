@@ -37,6 +37,7 @@ import androidx.annotation.CallSuper;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
@@ -375,12 +376,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     // If the input is PCM then it will be passed directly to the sink. Hence the sink must support
     // the input format directly.
-    if (MimeTypes.AUDIO_RAW.equals(format.sampleMimeType) && !audioSink.supportsFormat(format)) {
+    if (isPcm(format) && !audioSink.supportsFormat(format)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
     }
     // For all other input formats, we expect the decoder to output 16-bit PCM.
-    if (!audioSink.supportsFormat(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, format.channelCount, format.sampleRate))) {
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, format.channelCount, format.sampleRate);
+    if (!audioSink.supportsFormat(decoderOutputPcmFormat)) {
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
     }
     List<MediaCodecInfo> decoderInfos =
@@ -422,6 +424,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
             : HARDWARE_ACCELERATION_NOT_SUPPORTED;
     @DecoderSupport
     int decoderSupport = isPreferredDecoder ? DECODER_SUPPORT_PRIMARY : DECODER_SUPPORT_FALLBACK;
+    if (Flags.isEnabled(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD)) {
+      audioOffloadSupport |= getAudioOffloadSupport(decoderOutputPcmFormat);
+    }
     return RendererCapabilities.create(
         formatSupport,
         adaptiveSupport,
@@ -432,19 +437,29 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   private @AudioOffloadSupport int getAudioOffloadSupport(Format format) {
+    if (isPcm(format) && !Flags.isEnabled(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD)) {
+      return AUDIO_OFFLOAD_NOT_SUPPORTED;
+    }
     androidx.media3.exoplayer.audio.AudioOffloadSupport audioSinkOffloadSupport =
         audioSink.getFormatOffloadSupport(format);
     if (!audioSinkOffloadSupport.isFormatSupported) {
       return AUDIO_OFFLOAD_NOT_SUPPORTED;
     }
-    @AudioOffloadSupport int audioOffloadSupport = AUDIO_OFFLOAD_SUPPORTED;
+    if (isPcm(format)) {
+      return AUDIO_OFFLOAD_PCM_SUPPORTED;
+    }
+    @AudioOffloadSupport int audioOffloadSupport = AUDIO_OFFLOAD_ENCODED_SUPPORTED;
     if (audioSinkOffloadSupport.isGaplessSupported) {
-      audioOffloadSupport |= AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
+      audioOffloadSupport |= AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED;
     }
     if (audioSinkOffloadSupport.isSpeedChangeSupported) {
-      audioOffloadSupport |= AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
+      audioOffloadSupport |= AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED;
     }
     return audioOffloadSupport;
+  }
+
+  private static boolean isPcm(Format format) {
+    return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW);
   }
 
   @Override
@@ -495,12 +510,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   protected boolean shouldUseBypass(Format format) {
-    if (getConfiguration().offloadModePreferred != AudioSink.OFFLOAD_MODE_DISABLED) {
+    if (!isPcm(format)
+        && getConfiguration().offloadModePreferred != AudioSink.OFFLOAD_MODE_DISABLED) {
       @AudioOffloadSupport int audioOffloadSupport = getAudioOffloadSupport(format);
-      if ((audioOffloadSupport & RendererCapabilities.AUDIO_OFFLOAD_SUPPORTED) != 0
+      if ((audioOffloadSupport & RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED) != 0
           && (getConfiguration().offloadModePreferred
                   == AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED
-              || (audioOffloadSupport & RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED) != 0
+              || (audioOffloadSupport
+                      & RendererCapabilities.AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED)
+                  != 0
               || (format.encoderDelay == 0 && format.encoderPadding == 0))) {
         return true;
       }

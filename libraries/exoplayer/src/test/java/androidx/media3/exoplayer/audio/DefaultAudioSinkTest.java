@@ -3507,6 +3507,169 @@ public final class DefaultAudioSinkTest {
     assertThat(createdOutputConfigs.get(0).originalMimeType).isEqualTo(MimeTypes.AUDIO_E_AC3_JOC);
   }
 
+  @Config(minSdk = 33)
+  @Test
+  public void getFormatOffloadSupport_withPcm16Bit_queriesProviderWithPcm16Bit() {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .build();
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        AudioAttributes.DEFAULT.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+    AtomicReference<Format> queriedFormat = new AtomicReference<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public FormatSupport getFormatSupport(FormatConfig formatConfig) {
+            queriedFormat.set(formatConfig.format);
+            return super.getFormatSupport(formatConfig);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format pcm16BitFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(CHANNEL_COUNT_STEREO)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+
+    AudioOffloadSupport support = defaultAudioSink.getFormatOffloadSupport(pcm16BitFormat);
+
+    assertThat(queriedFormat.get()).isEqualTo(pcm16BitFormat);
+    assertThat(support.isFormatSupported).isTrue();
+  }
+
+  @Config(minSdk = 33)
+  @Test
+  public void
+      getFormatOffloadSupport_withPcm24BitAndFloatOutputDisabled_queriesProviderWithPcm16Bit() {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .build();
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        AudioAttributes.DEFAULT.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+    AtomicReference<Format> queriedFormat = new AtomicReference<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public FormatSupport getFormatSupport(FormatConfig formatConfig) {
+            queriedFormat.set(formatConfig.format);
+            return super.getFormatSupport(formatConfig);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableFloatOutput(false)
+            .build();
+    Format pcm24BitFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .setChannelCount(CHANNEL_COUNT_STEREO)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+
+    AudioOffloadSupport support = defaultAudioSink.getFormatOffloadSupport(pcm24BitFormat);
+
+    assertThat(queriedFormat.get())
+        .isEqualTo(pcm24BitFormat.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build());
+    assertThat(support.isFormatSupported).isTrue();
+  }
+
+  @Config(minSdk = 33)
+  @Test
+  public void
+      getFormatOffloadSupport_withPcm24BitAndFloatOutputEnabled_queriesProviderWithPcmFloat() {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Context context = ApplicationProvider.getApplicationContext();
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+            .build();
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        AudioAttributes.DEFAULT.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+    AtomicReference<Format> queriedFormat = new AtomicReference<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public FormatSupport getFormatSupport(FormatConfig formatConfig) {
+            queriedFormat.set(formatConfig.format);
+            return super.getFormatSupport(formatConfig);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableFloatOutput(true)
+            .build();
+    Format pcm24BitFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .setChannelCount(CHANNEL_COUNT_STEREO)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+
+    AudioOffloadSupport support = defaultAudioSink.getFormatOffloadSupport(pcm24BitFormat);
+
+    assertThat(queriedFormat.get())
+        .isEqualTo(pcm24BitFormat.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build());
+    assertThat(support.isFormatSupported).isTrue();
+  }
+
+  @Test
+  public void getFormatOffloadSupport_withPcmAndFlagDisabled_returnsDefaultUnsupported() {
+    Flags.disableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean getFormatSupportCalled = new AtomicBoolean();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public FormatSupport getFormatSupport(FormatConfig formatConfig) {
+            getFormatSupportCalled.set(true);
+            return super.getFormatSupport(formatConfig);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    Format pcm16BitFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(CHANNEL_COUNT_STEREO)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+
+    AudioOffloadSupport support = defaultAudioSink.getFormatOffloadSupport(pcm16BitFormat);
+
+    assertThat(support).isEqualTo(AudioOffloadSupport.DEFAULT_UNSUPPORTED);
+    assertThat(getFormatSupportCalled.get()).isFalse();
+  }
+
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }

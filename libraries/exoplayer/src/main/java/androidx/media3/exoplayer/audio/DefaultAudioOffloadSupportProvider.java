@@ -24,11 +24,13 @@ import android.media.AudioManager;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -80,8 +82,13 @@ public final class DefaultAudioOffloadSupportProvider
     // the constructor so that the platform will be queried from the playback thread.
     boolean isOffloadVariableRateSupported = isOffloadVariableRateSupported(context);
 
-    @C.Encoding
-    int encoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
+    @C.Encoding int encoding;
+    if (Flags.isEnabled(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD)
+        && Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW)) {
+      encoding = format.pcmEncoding;
+    } else {
+      encoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
+    }
     if (encoding == C.ENCODING_INVALID
         || SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(encoding)) {
       // Example: AudioFormat.ENCODING_OPUS is supported only from API 30.

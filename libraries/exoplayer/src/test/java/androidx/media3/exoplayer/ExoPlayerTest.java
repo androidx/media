@@ -17518,7 +17518,7 @@ public final class ExoPlayerTest {
       @Capabilities int rendererCapabilities = super.supportsFormat(format);
       if (RendererCapabilities.getFormatSupport(rendererCapabilities) == C.FORMAT_HANDLED
           && getTrackType() == C.TRACK_TYPE_AUDIO) {
-        rendererCapabilities |= AUDIO_OFFLOAD_SUPPORTED;
+        rendererCapabilities |= AUDIO_OFFLOAD_ENCODED_SUPPORTED;
       }
       return rendererCapabilities;
     }

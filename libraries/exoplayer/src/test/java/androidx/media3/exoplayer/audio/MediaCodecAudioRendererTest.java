@@ -42,11 +42,13 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -63,6 +65,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeSampleStream;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -88,6 +91,7 @@ import org.robolectric.annotation.Config;
 @RunWith(AndroidJUnit4.class)
 public class MediaCodecAudioRendererTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   /** Payload for Ogg ID Header Page in accordance with RFC 7845. */
   private static final byte[] OGG_OPUS_ID_HEADER_PAYLOAD =
@@ -120,15 +124,21 @@ public class MediaCodecAudioRendererTest {
           .setSampleRate(48000)
           .setInitializationData(ImmutableList.of(OGG_OPUS_ID_HEADER_PAYLOAD))
           .build();
-  private static final AudioOffloadSupport AUDIO_OFFLOAD_SUPPORTED_GAPLESS_NOT_SUPPORTED =
+  private static final AudioOffloadSupport AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED =
       new AudioOffloadSupport.Builder()
           .setIsFormatSupported(true)
           .setIsGaplessSupported(false)
           .build();
-  private static final AudioOffloadSupport AUDIO_OFFLOAD_SUPPORTED_GAPLESS_SUPPORTED =
+  private static final AudioOffloadSupport AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_SUPPORTED =
       new AudioOffloadSupport.Builder()
           .setIsFormatSupported(true)
           .setIsGaplessSupported(true)
+          .build();
+  private static final AudioOffloadSupport AUDIO_OFFLOAD_PCM_SUPPORTED =
+      new AudioOffloadSupport.Builder()
+          .setIsFormatSupported(true)
+          .setIsGaplessSupported(true)
+          .setIsSpeedChangeSupported(true)
           .build();
   private static final RendererConfiguration
       RENDERER_CONFIGURATION_OFFLOAD_ENABLED_GAPLESS_REQUIRED =
@@ -680,7 +690,7 @@ public class MediaCodecAudioRendererTest {
   public void render_withOffloadConfiguredWithoutGaplessOffloadSupport_setsOffloadModeDisabled()
       throws Exception {
     when(audioSink.getFormatOffloadSupport(AUDIO_AAC))
-        .thenReturn(AUDIO_OFFLOAD_SUPPORTED_GAPLESS_NOT_SUPPORTED);
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED);
     Format format = AUDIO_AAC.buildUpon().setEncoderDelay(100).setEncoderPadding(100).build();
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
@@ -718,7 +728,7 @@ public class MediaCodecAudioRendererTest {
   @Config(minSdk = 29) // Audio offload is only supported on API 29+.
   public void render_replaceStreamWithOffloadSupport_setsOffloadModeEnabled() throws Exception {
     when(audioSink.getFormatOffloadSupport(any()))
-        .thenReturn(AUDIO_OFFLOAD_SUPPORTED_GAPLESS_NOT_SUPPORTED);
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED);
     Format format1 = AUDIO_AAC.buildUpon().setEncoderDelay(100).setEncoderPadding(100).build();
     Format format2 = AUDIO_AAC.buildUpon().setEncoderDelay(0).setEncoderPadding(0).build();
     FakeSampleStream fakeSampleStream1 =
@@ -781,7 +791,7 @@ public class MediaCodecAudioRendererTest {
   @Config(minSdk = 29) // Audio offload is only supported on API 29+.
   public void render_replaceStreamWithoutGaplessSupport_setsOffloadModeDisabled() throws Exception {
     when(audioSink.getFormatOffloadSupport(any()))
-        .thenReturn(AUDIO_OFFLOAD_SUPPORTED_GAPLESS_NOT_SUPPORTED);
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED);
     Format format1 = AUDIO_AAC.buildUpon().setEncoderDelay(0).setEncoderPadding(0).build();
     Format format2 = AUDIO_AAC.buildUpon().setEncoderDelay(100).setEncoderPadding(100).build();
     FakeSampleStream fakeSampleStream1 =
@@ -845,7 +855,7 @@ public class MediaCodecAudioRendererTest {
   @Config(minSdk = 30)
   public void render_offloadedOpusWithPadding_callsSetOffloadDelayPadding() throws Exception {
     when(audioSink.getFormatOffloadSupport(any()))
-        .thenReturn(AUDIO_OFFLOAD_SUPPORTED_GAPLESS_SUPPORTED);
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_SUPPORTED);
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -1853,6 +1863,213 @@ public class MediaCodecAudioRendererTest {
     InOrder inOrder = inOrder(audioSink);
     inOrder.verify(audioSink, times(2)).configure(any());
     inOrder.verify(audioSink).setEncoderPadding(133);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_withEncodedFormatAndEncodedOffloadSupportedOnly_returnsEncodedOffloadCapabilities()
+          throws Exception {
+    Format aacFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
+    when(audioSink.getFormatOffloadSupport(aacFormat))
+        .thenReturn(
+            new AudioOffloadSupport.Builder()
+                .setIsFormatSupported(true)
+                .setIsGaplessSupported(true)
+                .setIsSpeedChangeSupported(true)
+                .build());
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(aacFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(
+            RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED
+                | RendererCapabilities.AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED
+                | RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SPEED_CHANGE_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_withEncodedFormatAndPcmOffloadSupportedOnly_returnsPcmOffloadCapabilities()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format aacFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, aacFormat.channelCount, aacFormat.sampleRate);
+    when(audioSink.getFormatOffloadSupport(decoderOutputPcmFormat))
+        .thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(aacFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_withEncodedFormatAndBothEncodedAndPcmOffloadSupported_returnsCombinedOffloadCapabilities()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format aacFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, aacFormat.channelCount, aacFormat.sampleRate);
+    when(audioSink.getFormatOffloadSupport(aacFormat))
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED);
+    when(audioSink.getFormatOffloadSupport(decoderOutputPcmFormat))
+        .thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(aacFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(
+            RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED
+                | RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_withEncodedFormatDirectlySupportedByAudioSink_doesNotReturnPcmOffloadCapabilities()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format aacFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, aacFormat.channelCount, aacFormat.sampleRate);
+    when(audioSink.supportsFormat(aacFormat)).thenReturn(true);
+    when(audioSink.getFormatOffloadSupport(aacFormat))
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED);
+    when(audioSink.getFormatOffloadSupport(decoderOutputPcmFormat))
+        .thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(aacFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    // We do not advertise the PCM offload support.
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void supportsFormat_whenDecoderNotSupported_returnsAudioOffloadNotSupported()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format eac3Format = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_E_AC3).build();
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, eac3Format.channelCount, eac3Format.sampleRate);
+    when(audioSink.getFormatOffloadSupport(decoderOutputPcmFormat))
+        .thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+    MediaCodecSelector aacOnlyMediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            !mimeType.equals(MimeTypes.AUDIO_AAC)
+                ? ImmutableList.of()
+                : ImmutableList.of(
+                    MediaCodecInfo.newInstance(
+                        /* name= */ "aac-codec",
+                        /* mimeType= */ mimeType,
+                        /* codecMimeType= */ mimeType,
+                        /* capabilities= */ null,
+                        /* hardwareAccelerated= */ false,
+                        /* softwareOnly= */ true,
+                        /* vendor= */ false));
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            aacOnlyMediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    @Capabilities int capabilities = renderer.supportsFormat(eac3Format);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_SUBTYPE);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_whenFormatExceedsDecoderCapabilities_returnsCombinedOffloadCapabilities()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, AUDIO_AAC.channelCount, AUDIO_AAC.sampleRate);
+    when(audioSink.getFormatOffloadSupport(AUDIO_AAC))
+        .thenReturn(AUDIO_OFFLOAD_ENCODED_SUPPORTED_GAPLESS_NOT_SUPPORTED);
+    when(audioSink.getFormatOffloadSupport(decoderOutputPcmFormat))
+        .thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(AUDIO_AAC);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities))
+        .isEqualTo(C.FORMAT_EXCEEDS_CAPABILITIES);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(
+            RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED
+                | RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void supportsFormat_withPcmFormatAndPcmOffloadSupported_returnsPcmOffloadCapabilities()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format pcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100);
+    when(audioSink.getFormatOffloadSupport(pcmFormat)).thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(pcmFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_withEncodedFormatAndPcmOffloadSupportedOnlyAndFlagDisabled_returnsOffloadNotSupported()
+          throws Exception {
+    Flags.disableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format aacFormat = new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build();
+    Format decoderOutputPcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, aacFormat.channelCount, aacFormat.sampleRate);
+    when(audioSink.getFormatOffloadSupport(decoderOutputPcmFormat))
+        .thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(aacFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED);
+    verify(audioSink, never()).getFormatOffloadSupport(decoderOutputPcmFormat);
+  }
+
+  @Test
+  @Config(minSdk = 29)
+  public void
+      supportsFormat_withPcmFormatAndPcmOffloadSupportedAndFlagDisabled_returnsOffloadNotSupported()
+          throws Exception {
+    Flags.disableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format pcmFormat =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100);
+    when(audioSink.getFormatOffloadSupport(pcmFormat)).thenReturn(AUDIO_OFFLOAD_PCM_SUPPORTED);
+
+    @Capabilities int capabilities = mediaCodecAudioRenderer.supportsFormat(pcmFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getAudioOffloadSupport(capabilities))
+        .isEqualTo(RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED);
+    verify(audioSink, never()).getFormatOffloadSupport(pcmFormat);
   }
 
   @Test

@@ -39,6 +39,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
@@ -685,20 +686,9 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public @SinkFormatSupport int getFormatSupport(Format format) {
-    // For PCM formats, convert the format to what our audio processors will produce.
-    boolean transcodingViaAudioProcessors = false;
-    if (Util.isEncodingLinearPcm(format.pcmEncoding)) {
-      boolean usesFloatPcm = shouldUseFloatOutput(format.pcmEncoding);
-      if (usesFloatPcm && format.pcmEncoding != C.ENCODING_PCM_FLOAT) {
-        format = format.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build();
-        transcodingViaAudioProcessors = true;
-      }
-      if (!usesFloatPcm && format.pcmEncoding != C.ENCODING_PCM_16BIT) {
-        format = format.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build();
-        transcodingViaAudioProcessors = true;
-      }
-    }
-    switch (audioOutputProvider.getFormatSupport(getFormatConfig(format)).supportLevel) {
+    Format convertedFormat = maybeConvertPcmFormatFromAudioProcessors(format);
+    boolean transcodingViaAudioProcessors = convertedFormat != format;
+    switch (audioOutputProvider.getFormatSupport(getFormatConfig(convertedFormat)).supportLevel) {
       case AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY:
         return transcodingViaAudioProcessors
             ? SINK_FORMAT_SUPPORTED_WITH_TRANSCODING
@@ -713,15 +703,35 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public AudioOffloadSupport getFormatOffloadSupport(Format format) {
-    if (offloadDisabledUntilNextConfiguration) {
+    boolean isPcm = Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW);
+    if (offloadDisabledUntilNextConfiguration
+        || (isPcm && !Flags.isEnabled(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD))) {
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
-    FormatSupport formatSupport = audioOutputProvider.getFormatSupport(getFormatConfig(format));
+    Format convertedFormat = isPcm ? maybeConvertPcmFormatFromAudioProcessors(format) : format;
+    FormatSupport formatSupport =
+        audioOutputProvider.getFormatSupport(getFormatConfig(convertedFormat));
     return new AudioOffloadSupport.Builder()
         .setIsFormatSupported(formatSupport.isFormatSupportedForOffload)
         .setIsGaplessSupported(formatSupport.isGaplessSupportedForOffload)
         .setIsSpeedChangeSupported(formatSupport.isSpeedChangeSupportedForOffload)
         .build();
+  }
+
+  /**
+   * Returns a {@link Format} with the PCM encoding produced by the audio processors if conversion
+   * is needed, or {@code format} unchanged otherwise.
+   */
+  private Format maybeConvertPcmFormatFromAudioProcessors(Format format) {
+    if (!Util.isEncodingLinearPcm(format.pcmEncoding)) {
+      return format;
+    }
+    @C.PcmEncoding
+    int targetPcmEncoding =
+        shouldUseFloatOutput(format.pcmEncoding) ? C.ENCODING_PCM_FLOAT : C.ENCODING_PCM_16BIT;
+    return format.pcmEncoding != targetPcmEncoding
+        ? format.buildUpon().setPcmEncoding(targetPcmEncoding).build()
+        : format;
   }
 
   @Override

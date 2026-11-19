@@ -20,10 +20,14 @@ import static com.google.common.truth.Truth.assertThat;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
@@ -32,6 +36,8 @@ import org.robolectric.shadows.ShadowAudioSystem;
 /** Unit tests for {@link DefaultAudioOffloadSupportProvider}. */
 @RunWith(AndroidJUnit4.class)
 public final class DefaultAudioOffloadSupportProviderTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @Test
   public void
@@ -127,5 +133,105 @@ public final class DefaultAudioOffloadSupportProviderTest {
 
     assertThat(audioOffloadSupport.isFormatSupported).isTrue();
     assertThat(audioOffloadSupport.isGaplessSupported).isTrue();
+  }
+
+  @Test
+  public void
+      getAudioOffloadSupport_withRawMimeTypeButNoPcmEncodingValue_returnsAudioOffloadSupportDefaultUnsupported() {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format formatWithoutPcmEncoding =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setSampleRate(48_000)
+            .setChannelCount(2)
+            .build();
+    DefaultAudioOffloadSupportProvider provider = new DefaultAudioOffloadSupportProvider();
+
+    AudioOffloadSupport audioOffloadSupport =
+        provider.getAudioOffloadSupport(formatWithoutPcmEncoding, AudioAttributes.DEFAULT);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void getAudioOffloadSupport_withPcmOnApi33_correctlyInterpretsDirectPlaybackBitmask() {
+    Flags.enableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setSampleRate(48_000)
+            .setChannelCount(2)
+            .build();
+    AudioAttributes attributes = AudioAttributes.DEFAULT;
+    AudioFormat expectedAudioFormat =
+        new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setSampleRate(48_000)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .build();
+    DefaultAudioOffloadSupportProvider provider =
+        new DefaultAudioOffloadSupportProvider(ApplicationProvider.getApplicationContext());
+
+    // 1. Verify DIRECT_PLAYBACK_NOT_SUPPORTED
+    AudioOffloadSupport audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isFalse();
+
+    // 2. Verify DIRECT_PLAYBACK_OFFLOAD_SUPPORTED
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        expectedAudioFormat,
+        attributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+
+    audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isTrue();
+    assertThat(audioOffloadSupport.isGaplessSupported).isFalse();
+
+    // 3. Verify DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED
+    // For PCM offload, we don't actually use the field audioOffloadSupport.isGaplessSupported at
+    // the renderer level. Because audio processor provides the gapless support, we will treat this
+    // field for encoded offload only. But we will just verify that the AudioOffloadSupport always
+    // reflects the result from the AudioManager.
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        expectedAudioFormat,
+        attributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED
+            | AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED);
+
+    audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isTrue();
+    assertThat(audioOffloadSupport.isGaplessSupported).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void getAudioOffloadSupport_withPcmAndFlagDisabled_returnsDefaultUnsupported() {
+    Flags.disableFlag(Flags.FLAG_ENABLE_PCM_AUDIO_OFFLOAD);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setSampleRate(48_000)
+            .setChannelCount(2)
+            .build();
+    AudioAttributes attributes = AudioAttributes.DEFAULT;
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setSampleRate(48_000)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .build(),
+        attributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+    DefaultAudioOffloadSupportProvider provider =
+        new DefaultAudioOffloadSupportProvider(ApplicationProvider.getApplicationContext());
+
+    AudioOffloadSupport audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport).isEqualTo(AudioOffloadSupport.DEFAULT_UNSUPPORTED);
   }
 }

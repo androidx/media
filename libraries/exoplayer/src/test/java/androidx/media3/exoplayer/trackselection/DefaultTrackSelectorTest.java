@@ -24,8 +24,9 @@ import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPrefer
 import static androidx.media3.exoplayer.RendererCapabilities.ADAPTIVE_NOT_SEAMLESS;
 import static androidx.media3.exoplayer.RendererCapabilities.ADAPTIVE_NOT_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.ADAPTIVE_SEAMLESS;
-import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
-import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_ENCODED_SUPPORTED;
+import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.DECODER_SUPPORT_FALLBACK;
 import static androidx.media3.exoplayer.RendererCapabilities.DECODER_SUPPORT_FALLBACK_MIMETYPE;
 import static androidx.media3.exoplayer.RendererCapabilities.DECODER_SUPPORT_PRIMARY;
@@ -3438,7 +3439,7 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3476,7 +3477,7 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3515,7 +3516,7 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3553,7 +3554,7 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3592,7 +3593,7 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3637,7 +3638,7 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3682,8 +3683,8 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                /* audioOffloadSupport= */ AUDIO_OFFLOAD_SUPPORTED
-                    | AUDIO_OFFLOAD_GAPLESS_SUPPORTED));
+                /* audioOffloadSupport= */ AUDIO_OFFLOAD_ENCODED_SUPPORTED
+                    | AUDIO_OFFLOAD_ENCODED_GAPLESS_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
@@ -3723,11 +3724,87 @@ public final class DefaultTrackSelectorTest {
                 FORMAT_HANDLED,
                 ADAPTIVE_NOT_SEAMLESS,
                 TUNNELING_NOT_SUPPORTED,
-                AUDIO_OFFLOAD_SUPPORTED));
+                AUDIO_OFFLOAD_ENCODED_SUPPORTED));
 
     TrackSelectorResult result =
         trackSelector.selectTracks(
             new RendererCapabilities[] {capabilitiesOffloadSupport},
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertThat(result.selections).hasLength(1);
+    assertThat(result.selections[0]).isNull();
+  }
+
+  @Test
+  public void
+      selectTracks_withOnlyPcmOffloadSupportedAndOffloadPreferenceEnabled_returnsConfigOffloadDisabled()
+          throws Exception {
+    Format formatPcm =
+        new Format.Builder().setId("0").setSampleMimeType(MimeTypes.AUDIO_RAW).build();
+    TrackGroupArray trackGroups = new TrackGroupArray(new TrackGroup(formatPcm));
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AUDIO_OFFLOAD_MODE_ENABLED)
+                    .setIsGaplessSupportRequired(false)
+                    .setIsSpeedChangeSupportRequired(false)
+                    .build())
+            .build());
+    RendererCapabilities capabilitiesPcmOffloadSupport =
+        new FakeRendererCapabilities(
+            C.TRACK_TYPE_AUDIO,
+            RendererCapabilities.create(
+                FORMAT_HANDLED,
+                ADAPTIVE_NOT_SEAMLESS,
+                TUNNELING_NOT_SUPPORTED,
+                AUDIO_OFFLOAD_PCM_SUPPORTED));
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {capabilitiesPcmOffloadSupport},
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertThat(result.length).isEqualTo(1);
+    assertFixedSelection(result.selections[0], trackGroups, formatPcm);
+    assertThat(result.rendererConfigurations[0].offloadModePreferred)
+        .isEqualTo(OFFLOAD_MODE_DISABLED);
+  }
+
+  @Test
+  public void
+      selectTracks_withOnlyPcmOffloadSupportedAndOffloadPreferenceRequired_returnsEmptySelection()
+          throws Exception {
+    Format formatPcm =
+        new Format.Builder().setId("0").setSampleMimeType(MimeTypes.AUDIO_RAW).build();
+    TrackGroupArray trackGroups = new TrackGroupArray(new TrackGroup(formatPcm));
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setAudioOffloadPreferences(
+                new AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(AUDIO_OFFLOAD_MODE_REQUIRED)
+                    .setIsGaplessSupportRequired(false)
+                    .setIsSpeedChangeSupportRequired(false)
+                    .build())
+            .build());
+    RendererCapabilities capabilitiesPcmOffloadSupport =
+        new FakeRendererCapabilities(
+            C.TRACK_TYPE_AUDIO,
+            RendererCapabilities.create(
+                FORMAT_HANDLED,
+                ADAPTIVE_NOT_SEAMLESS,
+                TUNNELING_NOT_SUPPORTED,
+                AUDIO_OFFLOAD_PCM_SUPPORTED));
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {capabilitiesPcmOffloadSupport},
             trackGroups,
             periodId,
             TIMELINE);
