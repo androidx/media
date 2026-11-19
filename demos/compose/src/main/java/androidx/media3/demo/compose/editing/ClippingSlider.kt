@@ -1093,10 +1093,17 @@ private class ClippingSliderState(
     setClippingRange(initialClippingRangeMs)
   }
 
-  fun pause() {
-    if (!playWhenReady) return
+  // Only update playWhenReady if the player can change it, as otherwise no event would correct it.
+  private fun pause() {
+    if (!playWhenReady || player?.isCommandAvailable(Player.COMMAND_PLAY_PAUSE) != true) return
     playWhenReady = false
-    player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.pause() }
+    player.pause()
+  }
+
+  private fun play() {
+    if (playWhenReady || player?.isCommandAvailable(Player.COMMAND_PLAY_PAUSE) != true) return
+    playWhenReady = true
+    player.play()
   }
 
   /** Whether scrubbing mode was requested for the current interaction. */
@@ -1196,12 +1203,6 @@ private class ClippingSliderState(
         seekTo(newRange.endInclusive)
       }
     }
-  }
-
-  private fun play() {
-    if (playWhenReady) return
-    playWhenReady = true
-    player?.let { if (it.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) it.play() }
   }
 
   /**
