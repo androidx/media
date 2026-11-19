@@ -347,6 +347,14 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkvSample_withLinkedSeekHeads() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_linked_seek_heads.mkv",
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSampleLastCluster() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),

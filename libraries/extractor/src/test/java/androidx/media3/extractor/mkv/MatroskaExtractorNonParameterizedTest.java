@@ -67,4 +67,33 @@ public class MatroskaExtractorNonParameterizedTest {
     assertThat(trackAwareSeekMap.getSeekPoints(timeStampUs, videoTrackId).first)
         .isEqualTo(expectedTrackSpecificSeekPoint);
   }
+
+  @Test
+  public void read_cuesOnlyReferencedByLinkedSeekHead_seekMapIsSeekable() throws Exception {
+    // The first SeekHead only links to a SeekHead at the end of the file, which links to another
+    // SeekHead that references the Cues element. The rest of the file is identical to sample.mkv.
+    TrackAwareSeekMap expectedSeekMap = readSeekMap("media/mkv/sample.mkv");
+    TrackAwareSeekMap seekMap = readSeekMap("media/mkv/sample_with_linked_seek_heads.mkv");
+
+    assertThat(seekMap.isSeekable()).isTrue();
+    long timeUs = expectedSeekMap.getDurationUs() / 2;
+    assertThat(seekMap.getDurationUs()).isEqualTo(expectedSeekMap.getDurationUs());
+    assertThat(seekMap.getSeekPoints(timeUs)).isEqualTo(expectedSeekMap.getSeekPoints(timeUs));
+  }
+
+  private static TrackAwareSeekMap readSeekMap(String fileName) throws Exception {
+    byte[] fileBytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), fileName);
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(fileBytes).build();
+    PositionHolder positionHolder = new PositionHolder();
+    while (output.seekMap == null) {
+      int readResult = extractor.read(input, positionHolder);
+      if (readResult == RESULT_SEEK) {
+        input.setPosition((int) positionHolder.position);
+      }
+    }
+    return (TrackAwareSeekMap) output.seekMap;
+  }
 }
