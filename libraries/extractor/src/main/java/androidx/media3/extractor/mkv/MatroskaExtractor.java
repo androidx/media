@@ -679,18 +679,27 @@ public class MatroskaExtractor implements Extractor {
   /**
    * Maps an element ID to a corresponding type.
    *
+   * <p>The returned type may depend on the current parsing state.
+   *
    * @see EbmlProcessor#getElementType(int)
    */
   @CallSuper
   protected @EbmlProcessor.ElementType int getElementType(int id) {
     switch (id) {
+      case ID_CHAPTER_DISPLAY:
+        // libmkv 0.6.4 (used in HandBrake 0.9.4) writes MuxingApp (0x4D80) in Segment/Info as 0x80
+        // with a UTF-8 string payload
+        // (https://github.com/saintdev/libmkv/issues/5#issuecomment-3146904494). Treat 0x80 as
+        // unknown outside ChapterAtom so its bytes are skipped.
+        return currentChapters.isEmpty()
+            ? EbmlProcessor.ELEMENT_TYPE_UNKNOWN
+            : EbmlProcessor.ELEMENT_TYPE_MASTER;
       case ID_EBML:
       case ID_SEGMENT:
       case ID_CHAPTERS:
       case ID_EDITION_ENTRY:
       case ID_CHAPTER_ATOM:
       case ID_CHAPTER_TRACK:
-      case ID_CHAPTER_DISPLAY:
       case ID_SEEK_HEAD:
       case ID_SEEK:
       case ID_INFO:

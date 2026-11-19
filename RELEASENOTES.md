@@ -43,6 +43,10 @@
         from `Transformer.start`.
 *   Track Selection:
 *   Extractors:
+    *   Matroska: Fix `ParserException` when parsing files with a non-standard
+        `0x80` element outside `ChapterAtom`, such as `MuxingApp` written by
+        `libmkv` 0.6.4 / HandBrake 0.9.4
+        ([#3562](https://github.com/androidx/media/issues/3562)).
 *   Inspector:
     *   Fix `MediaExtractorCompat.getSampleCryptoInfo` to copy all array fields
         into the caller's `MediaCodec.CryptoInfo`, matching the platform
