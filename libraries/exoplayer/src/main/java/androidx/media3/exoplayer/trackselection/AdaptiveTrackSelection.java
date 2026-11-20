@@ -793,7 +793,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     latestBitrateEstimate = bandwidthMeter.getBitrateEstimate();
     long cautiousBandwidthEstimate = (long) (latestBitrateEstimate * bandwidthFraction);
     long timeToFirstByteEstimateUs = bandwidthMeter.getTimeToFirstByteEstimateUs();
-    if (timeToFirstByteEstimateUs == C.TIME_UNSET || chunkDurationUs == C.TIME_UNSET) {
+    if (timeToFirstByteEstimateUs == C.TIME_UNSET || chunkDurationUs <= 0) {
       return (long) (cautiousBandwidthEstimate / playbackSpeed);
     }
     float availableTimeToLoadUs =
