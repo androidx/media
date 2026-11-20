@@ -217,6 +217,8 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
         return new PesReader(new Id3Reader(MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_DVBSUBS:
         return new PesReader(new DvbSubtitleReader(esInfo.dvbSubtitleInfos, MimeTypes.VIDEO_MP2T));
+      case TsExtractor.TS_STREAM_TYPE_TELETEXT:
+        return new PesReader(new TeletextSubtitleReader(esInfo.teletextSubtitleInfos));
       case TsExtractor.TS_STREAM_TYPE_AIT:
         return new SectionReader(
             new PassthroughSectionPayloadReader(
@@ -225,6 +227,9 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
       case TsExtractor.TS_STREAM_TYPE_MHAS:
         return new PesReader(new MpeghReader(MimeTypes.VIDEO_MP2T));
       default:
+        if (!esInfo.teletextSubtitleInfos.isEmpty()) {
+          return new PesReader(new TeletextSubtitleReader(esInfo.teletextSubtitleInfos));
+        }
         return null;
     }
   }

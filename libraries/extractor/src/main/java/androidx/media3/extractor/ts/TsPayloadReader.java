@@ -109,6 +109,7 @@ public interface TsPayloadReader {
     public final @Nullable String language;
     public final @AudioType int audioType;
     public final List<DvbSubtitleInfo> dvbSubtitleInfos;
+    public final List<TeletextSubtitleInfo> teletextSubtitleInfos;
     public final byte[] descriptorBytes;
 
     /**
@@ -125,6 +126,31 @@ public interface TsPayloadReader {
         @AudioType int audioType,
         @Nullable List<DvbSubtitleInfo> dvbSubtitleInfos,
         byte[] descriptorBytes) {
+      this(
+          streamType,
+          language,
+          audioType,
+          dvbSubtitleInfos,
+          /* teletextSubtitleInfos= */ null,
+          descriptorBytes);
+    }
+
+    /**
+     * @param streamType The type of the stream as defined by the {@link TsExtractor}{@code
+     *     .TS_STREAM_TYPE_*}.
+     * @param language The language of the stream, as defined by ISO/IEC 13818-1, section 2.6.18.
+     * @param audioType The audio type of the stream, as defined by ISO/IEC 13818-1, section 2.6.18.
+     * @param dvbSubtitleInfos Information about DVB subtitles associated to the stream.
+     * @param teletextSubtitleInfos Information about Teletext subtitles associated to the stream.
+     * @param descriptorBytes The descriptor bytes associated to the stream.
+     */
+    public EsInfo(
+        int streamType,
+        @Nullable String language,
+        @AudioType int audioType,
+        @Nullable List<DvbSubtitleInfo> dvbSubtitleInfos,
+        @Nullable List<TeletextSubtitleInfo> teletextSubtitleInfos,
+        byte[] descriptorBytes) {
       this.streamType = streamType;
       this.language = language;
       this.audioType = audioType;
@@ -132,6 +158,10 @@ public interface TsPayloadReader {
           dvbSubtitleInfos == null
               ? Collections.emptyList()
               : Collections.unmodifiableList(dvbSubtitleInfos);
+      this.teletextSubtitleInfos =
+          teletextSubtitleInfos == null
+              ? Collections.emptyList()
+              : Collections.unmodifiableList(teletextSubtitleInfos);
       this.descriptorBytes = descriptorBytes;
     }
   }
@@ -154,6 +184,32 @@ public interface TsPayloadReader {
       this.language = language;
       this.type = type;
       this.initializationData = initializationData;
+    }
+  }
+
+  /**
+   * Holds information about a Teletext subtitle, as defined in ETSI EN 300 468 V1.11.1 section
+   * 6.2.42.
+   */
+  final class TeletextSubtitleInfo {
+
+    public final String language;
+    public final int teletextType;
+    public final int magazineNumber;
+    public final int pageNumber;
+
+    /**
+     * @param language The ISO 639-2 three-letter language code.
+     * @param teletextType The teletext type as defined in ETSI EN 300 468 table 53.
+     * @param magazineNumber The teletext magazine number (1-8).
+     * @param pageNumber The teletext page number (0-255).
+     */
+    public TeletextSubtitleInfo(
+        String language, int teletextType, int magazineNumber, int pageNumber) {
+      this.language = language;
+      this.teletextType = teletextType;
+      this.magazineNumber = magazineNumber;
+      this.pageNumber = pageNumber;
     }
   }
 
