@@ -1,8 +1,12 @@
 # Release notes
 
-### Unreleased changes
+## 1.12
 
-*   Common Library:
+### 1.12.0-rc01 (2026-11-25)
+
+This release includes the following changes since
+[1.12.0-beta01](#1120-beta01-2026-11-11):
+
 *   ExoPlayer:
     *   `SampleStream.FLAG_OMIT_SAMPLE_DATA` now ensures that
         `DecoderInputBuffer.cryptoInfo` is populated for encrypted samples.
@@ -29,9 +33,6 @@
     *   Fix an issue where `Player.getCurrentPosition()` could freeze during
         audio offload playback
         ([#3546](https://github.com/androidx/media/issues/3546)).
-*   CompositionPlayer:
-*   Transformer:
-*   Track Selection:
 *   Extractors:
     *   Matroska: Fix `ParserException` when parsing files with a non-standard
         `0x80` element outside `ChapterAtom`, such as `MuxingApp` written by
@@ -44,22 +45,10 @@
         overwriting previously returned arrays.
     *   Fix `ParserException` in `MetadataRetriever` when retrieving metadata
         from MP4 and MOV files with MPEG (MP1, MP2, MP3) or DTS audio tracks.
-*   Inspector Frame:
-*   Audio:
-*   Video:
 *   Text:
     *   Fix `IndexOutOfBoundsException` when parsing a WebVTT cue with multiple
         `<ruby>` tags nested inside another tag
         ([#3549](https://github.com/androidx/media/issues/3549)).
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Effect Lottie:
-*   Effect Play services:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Fix a bug where controllers from apps with notification listener access
         were marked as untrusted when the controller package wasn't explicitly
@@ -86,8 +75,6 @@
         preferences. This is guarded by
         `Flags.FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED`, which is
         enabled in canary mode.
-*   Downloads:
-*   Ktor extension:
 *   OkHttp extension:
     *   Fix the error code of failures in `OkHttpDataSource.open` before a
         response arrives, which was always
@@ -95,29 +82,16 @@
         gets `ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`, and a cleartext request
         that the network security policy blocks now throws
         `CleartextNotPermittedException`.
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Fix playback failure for multivariant playlists that declare a
         non-positive `FRAME-RATE` (for example `FRAME-RATE=0.000`), which are
         now parsed as having an unknown frame rate
         ([#3540](https://github.com/androidx/media/issues/3540)).
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Fix an issue where `RemoteCastPlayer` cleared its timeline before
         transferring playback state back to the local player in `CastPlayer`
         when the receiver app stopped externally
         ([#2182](https://github.com/androidx/media/issues/2182)).
-*   Test Utilities:
-*   Demo app:
-*   Remove deprecated symbols:
-
-## 1.12
 
 ### 1.12.0-beta01 (2026-11-11)
 
