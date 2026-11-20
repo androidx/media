@@ -4,35 +4,10 @@
 
 *   Common Library:
 *   ExoPlayer:
-    *   `SampleStream.FLAG_OMIT_SAMPLE_DATA` now ensures that
-        `DecoderInputBuffer.cryptoInfo` is populated for encrypted samples.
-        Custom `SampleStream` implementations must be updated to adhere to this
-        contract.
-    *   Fix `CryptoInfo.numBytesOfEncryptedData` over-reporting the encrypted
-        payload size for full-sample encrypted samples with supplemental data
-        (such as encrypted WebM/Matroska streams with block additions).
-    *   Fix an issue where calling `seekTo` while an ad is playing could freeze
-        `getCurrentPosition()` if another player operation (such as
-        `setPlayWhenReady`) was still pending on the playback thread
-        ([#3512](https://github.com/androidx/media/issues/3512)).
-    *   Add support for dynamic scheduling in `MetadataRenderer` to better align
-        scheduling work and CPU wake-cycles to when metadata samples can be read
-        or output. You can enable this using
-        `Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS)`.
     *   Add support for dynamic scheduling in `TextRenderer` to better align
         scheduling work and CPU wake-cycles to when `CuesWithTiming` subtitle
         cues change or can be read. You can enable this using
         `Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS)`.
-    *   Fix issue where `ExoPlayer.isLoading()` remains `true` when playback
-        transitions to `STATE_ENDED` or `STATE_IDLE`, causing an
-        `IllegalArgumentException` in `ForwardingSimpleBasePlayer`
-        ([#3467](https://github.com/androidx/media/issues/3467)).
-    *   Immediately wake up the playback loop to handle asynchronous
-        `MediaCodec` errors instead of waiting for the next scheduled rendering
-        iteration.
-    *   Fix an issue where `Player.getCurrentPosition()` could freeze during
-        audio offload playback
-        ([#3546](https://github.com/androidx/media/issues/3546)).
 *   CompositionPlayer:
 *   Transformer:
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`
@@ -43,17 +18,7 @@
         from `Transformer.start`.
 *   Track Selection:
 *   Extractors:
-    *   Matroska: Fix `ParserException` when parsing files with a non-standard
-        `0x80` element outside `ChapterAtom`, such as `MuxingApp` written by
-        `libmkv` 0.6.4 / HandBrake 0.9.4
-        ([#3562](https://github.com/androidx/media/issues/3562)).
 *   Inspector:
-    *   Fix `MediaExtractorCompat.getSampleCryptoInfo` to copy all array fields
-        into the caller's `MediaCodec.CryptoInfo`, matching the platform
-        `MediaExtractor` and preventing subsequent calls or reads from
-        overwriting previously returned arrays.
-    *   Fix `ParserException` in `MetadataRetriever` when retrieving metadata
-        from MP4 and MOV files with MPEG (MP1, MP2, MP3) or DTS audio tracks.
 *   Inspector Frame:
 *   Audio:
     *   Add `RendererCapabilities.AUDIO_OFFLOAD_PCM_SUPPORTED` to advertise PCM
@@ -68,9 +33,6 @@
         `!= AUDIO_OFFLOAD_NOT_SUPPORTED`.
 *   Video:
 *   Text:
-    *   Fix `IndexOutOfBoundsException` when parsing a WebVTT cue with multiple
-        `<ruby>` tags nested inside another tag
-        ([#3549](https://github.com/androidx/media/issues/3549)).
 *   Metadata:
     *   Fix issue in `Id3Decoder` where a malformed sub-frame with an invalid
         declared size could cause the enclosing `CHAP` or `CTOC` frame to be
@@ -104,47 +66,13 @@
         ([#3450](https://github.com/androidx/media/pull/3450)).
 *   IMA extension:
 *   Session:
-    *   Fix a bug where controllers from apps with notification listener access
-        were marked as untrusted when the controller package wasn't explicitly
-        queried in the session app's manifest (fixed for platform and legacy
-        controllers on API 33+, and for all controllers on API 30+ when the
-        listener service is exported)
-        ([#3507](https://github.com/androidx/media/issues/3507)).
 *   UI:
-    *   Fix an issue where `PlayerSurface` and `ContentFrame` with
-        `SURFACE_TYPE_SURFACE_VIEW` turned surrounding Compose backgrounds black
-        on Android 11 and earlier
-        ([#2638](https://github.com/androidx/media/issues/2638),
-        [#3285](https://github.com/androidx/media/issues/3285),
-        [#3466](https://github.com/androidx/media/issues/3466)).
-    *   Configure a width-based fractional seek tolerance in
-        `ExoPlayer.getScrubbingModeParameters()` when `ProgressSlider` in
-        `media3-ui-compose-material3` is used with `ExoPlayer`.
-    *   Fix `PlayerControlView` settings popup alignment when the control view
-        or its parent has padding or window insets applied
-        ([#234](https://github.com/androidx/media/issues/234)).
-    *   Apply the user's system caption style and text size in `SubtitleView`
-        (and therefore `PlayerView`) even if the system "Show captions" setting
-        is off, so that subtitles turned on in the app match the user's
-        preferences. This is guarded by
-        `Flags.FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED`, which is
-        enabled in canary mode.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:
-    *   Fix the error code of failures in `OkHttpDataSource.open` before a
-        response arrives, which was always
-        `ERROR_CODE_IO_NETWORK_CONNECTION_FAILED`. For example, a timeout now
-        gets `ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`, and a cleartext request
-        that the network security policy blocks now throws
-        `CleartextNotPermittedException`.
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
-    *   Fix playback failure for multivariant playlists that declare a
-        non-positive `FRAME-RATE` (for example `FRAME-RATE=0.000`), which are
-        now parsed as having an unknown frame rate
-        ([#3540](https://github.com/androidx/media/issues/3540)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
@@ -159,10 +87,6 @@
         [intent to join](https://developers.google.com/cast/docs/android_sender/intent_to_join),
         automatically deferring session startup if `Cast` initialization is
         still in progress.
-    *   Fix an issue where `RemoteCastPlayer` cleared its timeline before
-        transferring playback state back to the local player in `CastPlayer`
-        when the receiver app stopped externally
-        ([#2182](https://github.com/androidx/media/issues/2182)).
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:
@@ -199,6 +123,97 @@
         `UnrecognizedInputFormatException(String, Uri, List)` instead.
 
 ## 1.12
+
+### 1.12.0-rc01 (2026-11-25)
+
+This release includes the following changes since
+[1.12.0-beta01](#1120-beta01-2026-11-11):
+
+*   ExoPlayer:
+    *   `SampleStream.FLAG_OMIT_SAMPLE_DATA` now ensures that
+        `DecoderInputBuffer.cryptoInfo` is populated for encrypted samples.
+        Custom `SampleStream` implementations must be updated to adhere to this
+        contract.
+    *   Fix `CryptoInfo.numBytesOfEncryptedData` over-reporting the encrypted
+        payload size for full-sample encrypted samples with supplemental data
+        (such as encrypted WebM/Matroska streams with block additions).
+    *   Fix an issue where calling `seekTo` while an ad is playing could freeze
+        `getCurrentPosition()` if another player operation (such as
+        `setPlayWhenReady`) was still pending on the playback thread
+        ([#3512](https://github.com/androidx/media/issues/3512)).
+    *   Add support for dynamic scheduling in `MetadataRenderer` to better align
+        scheduling work and CPU wake-cycles to when metadata samples can be read
+        or output. You can enable this using
+        `Flags.enableFlag(Flags.FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS)`.
+    *   Fix issue where `ExoPlayer.isLoading()` remains `true` when playback
+        transitions to `STATE_ENDED` or `STATE_IDLE`, causing an
+        `IllegalArgumentException` in `ForwardingSimpleBasePlayer`
+        ([#3467](https://github.com/androidx/media/issues/3467)).
+    *   Immediately wake up the playback loop to handle asynchronous
+        `MediaCodec` errors instead of waiting for the next scheduled rendering
+        iteration.
+    *   Fix an issue where `Player.getCurrentPosition()` could freeze during
+        audio offload playback
+        ([#3546](https://github.com/androidx/media/issues/3546)).
+*   Extractors:
+    *   Matroska: Fix `ParserException` when parsing files with a non-standard
+        `0x80` element outside `ChapterAtom`, such as `MuxingApp` written by
+        `libmkv` 0.6.4 / HandBrake 0.9.4
+        ([#3562](https://github.com/androidx/media/issues/3562)).
+*   Inspector:
+    *   Fix `MediaExtractorCompat.getSampleCryptoInfo` to copy all array fields
+        into the caller's `MediaCodec.CryptoInfo`, matching the platform
+        `MediaExtractor` and preventing subsequent calls or reads from
+        overwriting previously returned arrays.
+    *   Fix `ParserException` in `MetadataRetriever` when retrieving metadata
+        from MP4 and MOV files with MPEG (MP1, MP2, MP3) or DTS audio tracks.
+*   Text:
+    *   Fix `IndexOutOfBoundsException` when parsing a WebVTT cue with multiple
+        `<ruby>` tags nested inside another tag
+        ([#3549](https://github.com/androidx/media/issues/3549)).
+*   Session:
+    *   Fix a bug where controllers from apps with notification listener access
+        were marked as untrusted when the controller package wasn't explicitly
+        queried in the session app's manifest (fixed for platform and legacy
+        controllers on API 33+, and for all controllers on API 30+ when the
+        listener service is exported)
+        ([#3507](https://github.com/androidx/media/issues/3507)).
+*   UI:
+    *   Fix an issue where `PlayerSurface` and `ContentFrame` with
+        `SURFACE_TYPE_SURFACE_VIEW` turned surrounding Compose backgrounds black
+        on Android 11 and earlier
+        ([#2638](https://github.com/androidx/media/issues/2638),
+        [#3285](https://github.com/androidx/media/issues/3285),
+        [#3466](https://github.com/androidx/media/issues/3466)).
+    *   Configure a width-based fractional seek tolerance in
+        `ExoPlayer.getScrubbingModeParameters()` when `ProgressSlider` in
+        `media3-ui-compose-material3` is used with `ExoPlayer`.
+    *   Fix `PlayerControlView` settings popup alignment when the control view
+        or its parent has padding or window insets applied
+        ([#234](https://github.com/androidx/media/issues/234)).
+    *   Apply the user's system caption style and text size in `SubtitleView`
+        (and therefore `PlayerView`) even if the system "Show captions" setting
+        is off, so that subtitles turned on in the app match the user's
+        preferences. This is guarded by
+        `Flags.FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED`, which is
+        enabled in canary mode.
+*   OkHttp extension:
+    *   Fix the error code of failures in `OkHttpDataSource.open` before a
+        response arrives, which was always
+        `ERROR_CODE_IO_NETWORK_CONNECTION_FAILED`. For example, a timeout now
+        gets `ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`, and a cleartext request
+        that the network security policy blocks now throws
+        `CleartextNotPermittedException`.
+*   HLS extension:
+    *   Fix playback failure for multivariant playlists that declare a
+        non-positive `FRAME-RATE` (for example `FRAME-RATE=0.000`), which are
+        now parsed as having an unknown frame rate
+        ([#3540](https://github.com/androidx/media/issues/3540)).
+*   Cast extension:
+    *   Fix an issue where `RemoteCastPlayer` cleared its timeline before
+        transferring playback state back to the local player in `CastPlayer`
+        when the receiver app stopped externally
+        ([#2182](https://github.com/androidx/media/issues/2182)).
 
 ### 1.12.0-beta01 (2026-11-11)
 
