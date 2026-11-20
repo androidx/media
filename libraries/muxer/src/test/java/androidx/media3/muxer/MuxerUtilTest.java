@@ -21,6 +21,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.container.Mp4CoverArtData;
+import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -29,6 +31,26 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link MuxerUtil}. */
 @RunWith(AndroidJUnit4.class)
 public class MuxerUtilTest {
+
+  @Test
+  public void isMetadataSupported_withCoverArt_returnsTrue() {
+    assertThat(
+            MuxerUtil.isMetadataSupported(
+                new Mp4CoverArtData(new byte[] {1}, Mp4CoverArtData.TYPE_JPEG)))
+        .isTrue();
+    assertThat(
+            MuxerUtil.isMetadataSupported(
+                new Mp4CoverArtData(new byte[] {1}, Mp4CoverArtData.TYPE_PNG)))
+        .isTrue();
+  }
+
+  @Test
+  public void isMetadataSupported_withApicFrame_returnsFalse() {
+    assertThat(
+            MuxerUtil.isMetadataSupported(
+                new ApicFrame(MimeTypes.IMAGE_JPEG, null, 0, new byte[] {1})))
+        .isFalse();
+  }
 
   @Test
   public void getFtypCompatibleBrands_withNonDolbyTracks_returnsEmptyList() {

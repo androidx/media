@@ -32,9 +32,11 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.BufferInfo;
@@ -108,6 +110,23 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
         TestUtil.getDumpFileName(
             /* originalFileName= */ tsFileName,
             /* modifications...= */ "transmuxed_with_inappmuxer"));
+  }
+
+  @Test
+  public void transmux_withCoverArtMetadataProvider_writesCoverArt() throws Exception {
+    byte[] image = new byte[] {1, 3, 5, 7};
+    Muxer.Factory factory =
+        new InAppMp4Muxer.Factory(
+            entries -> entries.add(new Mp4CoverArtData(image, Mp4CoverArtData.TYPE_PNG)));
+    Transformer transformer = new TestTransformerBuilder(context).setMuxerFactory(factory).build();
+
+    transformer.start(MediaItem.fromUri(Uri.parse(MP4_FILE_PATH)), outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    ApicFrame coverArt = retrieveMetadata(context, outputPath, ApicFrame.class);
+    assertThat(coverArt).isNotNull();
+    assertThat(coverArt.mimeType).isEqualTo(MimeTypes.IMAGE_PNG);
+    assertThat(coverArt.pictureData).isEqualTo(image);
   }
 
   @Test

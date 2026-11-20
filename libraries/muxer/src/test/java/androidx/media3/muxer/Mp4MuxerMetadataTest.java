@@ -27,12 +27,15 @@ import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
+import androidx.media3.extractor.metadata.id3.ApicFrame;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -57,6 +60,53 @@ public class Mp4MuxerMetadataTest {
   private final Context context = ApplicationProvider.getApplicationContext();
   private final Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
       MuxerTestUtil.getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+  @Test
+  public void writeMp4File_withJpegCoverArt_extractsCoverArtAndLocation() throws Exception {
+    assertCoverArtRoundTrip(Mp4CoverArtData.TYPE_JPEG, MimeTypes.IMAGE_JPEG);
+  }
+
+  @Test
+  public void writeMp4File_withPngCoverArt_extractsCoverArtAndLocation() throws Exception {
+    assertCoverArtRoundTrip(Mp4CoverArtData.TYPE_PNG, MimeTypes.IMAGE_PNG);
+  }
+
+  @Test
+  public void writeMp4File_withoutCoverArt_extractsNoCoverArt() throws Exception {
+    String path = temporaryFolder.newFile().getPath();
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(path)).build()) {
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), path);
+    Format format =
+        Iterables.getOnlyElement(output.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).lastFormat;
+    assertThat(findMetadataEntry(format, ApicFrame.class)).isNull();
+  }
+
+  private void assertCoverArtRoundTrip(int type, String mimeType) throws Exception {
+    byte[] image = new byte[] {1, 2, 3, 4, 5};
+    Mp4LocationData location = new Mp4LocationData(33f, -120f, 150.5f);
+    String path = temporaryFolder.newFile().getPath();
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(path)).build()) {
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      muxer.addMetadataEntry(location);
+      muxer.addMetadataEntry(new Mp4CoverArtData(image, type));
+    }
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), path);
+    Format format =
+        Iterables.getOnlyElement(output.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).lastFormat;
+    ApicFrame coverArt = findMetadataEntry(format, ApicFrame.class);
+    assertThat(coverArt).isNotNull();
+    assertThat(coverArt.mimeType).isEqualTo(mimeType);
+    assertThat(coverArt.pictureData).isEqualTo(image);
+    assertThat(findMetadataEntry(format, Mp4LocationData.class)).isEqualTo(location);
+  }
 
   @Test
   public void writeMp4File_orientationNotSet_setsOrientationTo0() throws Exception {

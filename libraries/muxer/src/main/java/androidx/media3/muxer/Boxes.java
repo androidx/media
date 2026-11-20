@@ -39,6 +39,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.BoxUtils;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.container.XmpData;
@@ -283,7 +284,7 @@ import org.jspecify.annotations.Nullable;
 
     ByteBuffer mvhdBox =
         mvhd(nextTrackId, creationTimestampSeconds, modificationTimestampSeconds, videoDurationUs);
-    ByteBuffer udtaBox = udta(metadataCollector.locationData);
+    ByteBuffer udtaBox = udta(metadataCollector.locationData, metadataCollector.coverArtData);
     ByteBuffer metaBox =
         metadataCollector.metadataEntries.isEmpty()
             ? ByteBuffer.allocate(0)
@@ -617,10 +618,30 @@ import org.jspecify.annotations.Nullable;
    * <p>This box contains user data like location info.
    */
   public static ByteBuffer udta(@Nullable Mp4LocationData location) {
-    if (location == null) {
+    return udta(location, /* coverArt= */ null);
+  }
+
+  /**
+   * Returns the udta box.
+   *
+   * <p>This box contains user data like location info and cover art.
+   */
+  public static ByteBuffer udta(
+      @Nullable Mp4LocationData location, @Nullable Mp4CoverArtData coverArt) {
+    List<ByteBuffer> subBoxes = new ArrayList<>();
+    if (location != null) {
+      subBoxes.add(xyz(location));
+    }
+    if (coverArt != null) {
+      subBoxes.add(coverArtMeta(coverArt));
+    }
+    if (subBoxes.isEmpty()) {
       return ByteBuffer.allocate(0);
     }
+    return BoxUtils.wrapBoxesIntoBox("udta", subBoxes);
+  }
 
+  private static ByteBuffer xyz(Mp4LocationData location) {
     String locationString =
         location.altitude != Mp4LocationData.ALTITUDE_UNSET
             ? Util.formatInvariant(
@@ -636,15 +657,41 @@ import org.jspecify.annotations.Nullable;
     xyzBoxContents.flip();
 
     return BoxUtils.wrapIntoBox(
-        "udta",
-        BoxUtils.wrapIntoBox(
-            new byte[] {
-              (byte) 0xA9, // copyright symbol
-              'x',
-              'y',
-              'z'
-            },
-            xyzBoxContents));
+        new byte[] {
+          (byte) 0xA9, // copyright symbol
+          'x',
+          'y',
+          'z'
+        },
+        xyzBoxContents);
+  }
+
+  /**
+   * Returns an iTunes-style meta box holding the cover art.
+   *
+   * <p>Unlike the QuickTime-style {@link #meta} box written for {@link MdtaMetadataEntry}, this
+   * one is a full box, so it starts with four bytes for version and flags. The platform reads the
+   * picture from {@code moov/udta/meta/ilst/covr}.
+   */
+  private static ByteBuffer coverArtMeta(Mp4CoverArtData coverArt) {
+    ByteBuffer dataContents = ByteBuffer.allocate(2 * Integer.BYTES + coverArt.data.length);
+    dataContents.putInt(coverArt.dataType); // version (0) and flags (the data type)
+    dataContents.putInt(0); // locale
+    dataContents.put(coverArt.data);
+    dataContents.flip();
+
+    ByteBuffer covrBox =
+        BoxUtils.wrapIntoBox("covr", BoxUtils.wrapIntoBox("data", dataContents));
+    ByteBuffer ilstBox = BoxUtils.wrapIntoBox("ilst", covrBox);
+    ByteBuffer hdlrBox = hdlr(/* handlerType= */ "mdir", /* handlerName= */ "");
+
+    ByteBuffer metaContents =
+        ByteBuffer.allocate(Integer.BYTES + hdlrBox.remaining() + ilstBox.remaining());
+    metaContents.putInt(0x0); // version and flags
+    metaContents.put(hdlrBox);
+    metaContents.put(ilstBox);
+    metaContents.flip();
+    return BoxUtils.wrapIntoBox("meta", metaContents);
   }
 
   /**

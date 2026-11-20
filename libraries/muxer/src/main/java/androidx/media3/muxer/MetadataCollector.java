@@ -19,6 +19,7 @@ import static androidx.media3.container.Mp4TimestampData.unixTimeToMp4TimeSecond
 
 import androidx.media3.common.Metadata;
 import androidx.media3.container.MdtaMetadataEntry;
+import androidx.media3.container.Mp4CoverArtData;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
@@ -34,6 +35,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public Set<MdtaMetadataEntry> metadataEntries;
   public Mp4TimestampData timestampData;
   public @MonotonicNonNull XmpData xmpData;
+  public @MonotonicNonNull Mp4CoverArtData coverArtData;
 
   /** Creates an instance. */
   public MetadataCollector() {
@@ -58,6 +60,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       metadataEntries.add((MdtaMetadataEntry) metadata);
     } else if (metadata instanceof XmpData) {
       xmpData = (XmpData) metadata;
+    } else if (metadata instanceof Mp4CoverArtData) {
+      coverArtData = (Mp4CoverArtData) metadata;
     } else {
       throw new IllegalArgumentException("Unsupported metadata");
     }
