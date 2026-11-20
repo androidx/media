@@ -19,13 +19,18 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Process;
 import android.provider.Settings;
@@ -75,37 +80,40 @@ public class MediaSessionLegacyStubTest {
         "enabled_notification_listeners",
         new ComponentName(NOTIFICATION_LISTENER_PACKAGE, "ListenerService").flattenToString());
     player = new TestExoPlayerBuilder(context).build();
-    session =
-        new MediaSession.Builder(context, player)
-            .setId("MediaSessionLegacyStubTest")
-            .setCallback(
-                new MediaSession.Callback() {
-                  @Override
-                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
-                      MediaSession session, ControllerInfo controller) {
-                    connectedControllers.add(controller);
-                    return immediateFuture(createAcceptedConnectionResult(controller));
-                  }
+    session = createSession(context);
+  }
 
-                  @Override
-                  public ListenableFuture<SessionResult> onCustomCommand(
-                      MediaSession session,
-                      ControllerInfo controller,
-                      SessionCommand customCommand,
-                      Bundle args) {
-                    customCommandCallers.add(controller);
-                    return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
-                  }
+  private MediaSession createSession(Context sessionContext) {
+    return new MediaSession.Builder(sessionContext, player)
+        .setId("MediaSessionLegacyStubTest")
+        .setCallback(
+            new MediaSession.Callback() {
+              @Override
+              public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
+                  MediaSession session, ControllerInfo controller) {
+                connectedControllers.add(controller);
+                return immediateFuture(createAcceptedConnectionResult(controller));
+              }
 
-                  @Override
-                  public boolean onMediaButtonEvent(
-                      MediaSession session, ControllerInfo controllerInfo, Intent intent) {
-                    lastMediaButtonCaller.set(controllerInfo);
-                    return MediaSession.Callback.super.onMediaButtonEvent(
-                        session, controllerInfo, intent);
-                  }
-                })
-            .build();
+              @Override
+              public ListenableFuture<SessionResult> onCustomCommand(
+                  MediaSession session,
+                  ControllerInfo controller,
+                  SessionCommand customCommand,
+                  Bundle args) {
+                customCommandCallers.add(controller);
+                return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+              }
+
+              @Override
+              public boolean onMediaButtonEvent(
+                  MediaSession session, ControllerInfo controllerInfo, Intent intent) {
+                lastMediaButtonCaller.set(controllerInfo);
+                return MediaSession.Callback.super.onMediaButtonEvent(
+                    session, controllerInfo, intent);
+              }
+            })
+        .build();
   }
 
   @After
@@ -455,6 +463,77 @@ public class MediaSessionLegacyStubTest {
     assertThat(player.getPlayWhenReady()).isFalse();
   }
 
+  @Test
+  @Config(minSdk = 33)
+  public void onPause_packageLookupRejectedForCallerInDifferentUserOnApi33_connectsAsVerified() {
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
+    RemoteUserInfo caller =
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_PID, otherUserUid);
+    session.release();
+    session = createSession(createContextRejectingPackageLookupForUid(otherUserUid));
+
+    dispatchToLegacyStub(caller, MediaSessionLegacyStub::onPause);
+
+    assertThat(connectedControllers).hasSize(1);
+    ControllerInfo controller = connectedControllers.get(0);
+    assertThat(controller.isPackageNameVerified()).isTrue();
+    assertThat(controller.isTrusted()).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 28, maxSdk = 32)
+  public void
+      onPause_packageLookupRejectedForCallerInDifferentUserBelowApi33_connectsAsUnverified() {
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
+    RemoteUserInfo caller =
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_PID, otherUserUid);
+    session.release();
+    session = createSession(createContextRejectingPackageLookupForUid(otherUserUid));
+
+    dispatchToLegacyStub(caller, MediaSessionLegacyStub::onPause);
+
+    assertThat(connectedControllers).hasSize(1);
+    ControllerInfo controller = connectedControllers.get(0);
+    assertThat(controller.isPackageNameVerified()).isFalse();
+    assertThat(controller.isTrusted()).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 28)
+  public void onPause_packageLookupRejectedForSystemCaller_pausesPlayback() {
+    RemoteUserInfo caller =
+        new RemoteUserInfo("android", NOTIFICATION_LISTENER_PID, Process.SYSTEM_UID);
+    session.release();
+    session = createSession(createContextRejectingPackageLookupForUid(Process.SYSTEM_UID));
+    player.play();
+
+    dispatchToLegacyStub(caller, MediaSessionLegacyStub::onPause);
+
+    assertThat(connectedControllers).hasSize(1);
+    assertThat(connectedControllers.get(0).isTrusted()).isTrue();
+    assertThat(player.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void
+      onMediaButtonEvent_packageLookupRejectedForCallerInDifferentUserOnApi33_marksPackageNameVerified() {
+    int otherUserUid = 10 * 100_000 + notificationListenerUid;
+    RemoteUserInfo caller =
+        new RemoteUserInfo(NOTIFICATION_LISTENER_PACKAGE, NOTIFICATION_LISTENER_PID, otherUserUid);
+    session.release();
+    session = createSession(createContextRejectingPackageLookupForUid(otherUserUid));
+    Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+    mediaButtonIntent.putExtra(
+        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT));
+
+    dispatchMediaButtonEvent(caller, mediaButtonIntent);
+
+    ControllerInfo controller = lastMediaButtonCaller.get();
+    assertThat(controller).isNotNull();
+    assertThat(controller.isPackageNameVerified()).isTrue();
+  }
+
   private MediaSession.ConnectionResult createAcceptedConnectionResult(ControllerInfo controller) {
     MediaSession.ConnectionResult.AcceptedResultBuilder builder =
         new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller);
@@ -467,6 +546,32 @@ public class MediaSessionLegacyStubTest {
               .build());
     }
     return builder.build();
+  }
+
+  /**
+   * Returns a {@link Context} whose {@link PackageManager} rejects looking up the packages of the
+   * given UID, like the platform does for UIDs of other users if the app isn't allowed to interact
+   * across users.
+   */
+  private Context createContextRejectingPackageLookupForUid(int uid) {
+    PackageManager packageManager =
+        mock(PackageManager.class, delegatesTo(context.getPackageManager()));
+    doThrow(
+            new SecurityException(
+                "getPackagesForUid: requires android.permission.INTERACT_ACROSS_USERS"))
+        .when(packageManager)
+        .getPackagesForUid(uid);
+    return new ContextWrapper(context) {
+      @Override
+      public Context getApplicationContext() {
+        return this;
+      }
+
+      @Override
+      public PackageManager getPackageManager() {
+        return packageManager;
+      }
+    };
   }
 
   private void installPackage(String packageName, int uid) {
