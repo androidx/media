@@ -1520,9 +1520,13 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   private void notifyAssetResolutionFailed(Object adsId, int adGroupIndex, int adIndexInAdGroup) {
     HlsAdSession session = adsMediaSourceSessionManager.getSession(adsId);
     if (session != null) {
-      AdPlaybackState adPlaybackState =
-          session.adPlaybackState.withAdLoadError(adGroupIndex, adIndexInAdGroup);
-      putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
+      AdPlaybackState adPlaybackState = session.adPlaybackState;
+      AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
+      // Only mark unresolved ads as failed, preserving manual changes made while loading.
+      if (adGroup.states[adIndexInAdGroup] == AD_STATE_UNAVAILABLE) {
+        putAndNotifyAdPlaybackStateUpdate(
+            adsId, adPlaybackState.withAdLoadError(adGroupIndex, adIndexInAdGroup));
+      }
     }
   }
 
