@@ -42,6 +42,7 @@ public class SlidingPercentileBandwidthStatistic implements BandwidthStatistic {
 
   private double weightSum;
   private long bitrateEstimate;
+  private long nextSampleId;
 
   /**
    * Creates an instance with a maximum of {@link #DEFAULT_MAX_SAMPLES_COUNT} samples, returning the
@@ -76,7 +77,7 @@ public class SlidingPercentileBandwidthStatistic implements BandwidthStatistic {
 
     double weight = Math.sqrt((double) bytes);
     long bitrate = bytes * 8_000_000 / durationUs;
-    Sample sample = new Sample(bitrate, weight);
+    Sample sample = new Sample(nextSampleId++, bitrate, weight);
     samples.add(sample);
     sortedSamples.add(sample);
     weightSum += weight;
@@ -94,6 +95,7 @@ public class SlidingPercentileBandwidthStatistic implements BandwidthStatistic {
     sortedSamples.clear();
     weightSum = 0;
     bitrateEstimate = ESTIMATE_NOT_AVAILABLE;
+    nextSampleId = 0;
   }
 
   private long calculateBitrateEstimate() {
@@ -127,17 +129,20 @@ public class SlidingPercentileBandwidthStatistic implements BandwidthStatistic {
   }
 
   private static class Sample implements Comparable<Sample> {
+    private final long id;
     private final long bitrate;
     private final double weight;
 
-    public Sample(long bitrate, double weight) {
+    public Sample(long id, long bitrate, double weight) {
+      this.id = id;
       this.bitrate = bitrate;
       this.weight = weight;
     }
 
     @Override
     public int compareTo(Sample other) {
-      return Long.compare(this.bitrate, other.bitrate);
+      int bitrateComparison = Long.compare(this.bitrate, other.bitrate);
+      return bitrateComparison != 0 ? bitrateComparison : Long.compare(this.id, other.id);
     }
   }
 }

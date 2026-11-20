@@ -106,6 +106,17 @@ public class SlidingPercentileBandwidthStatisticTest {
   }
 
   @Test
+  public void getBandwidthEstimate_equalBitrates_returnsEstimate() {
+    SlidingPercentileBandwidthStatistic statistic = new SlidingPercentileBandwidthStatistic();
+
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 800);
+    statistic.addSample(/* bytes= */ 100, /* durationUs= */ 80);
+
+    assertThat(statistic.getBandwidthEstimate()).isEqualTo(1_000_000);
+  }
+
+  @Test
   public void reset_withSamplesAdded_returnsNoEstimate() {
     SlidingPercentileBandwidthStatistic statistic =
         new SlidingPercentileBandwidthStatistic(/* maxSampleCount= */ 10, /* percentile= */ 0.5);
