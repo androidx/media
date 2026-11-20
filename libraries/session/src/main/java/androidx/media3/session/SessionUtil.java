@@ -76,7 +76,12 @@ import org.jspecify.annotations.Nullable;
       return PACKAGE_VALID;
     }
     PackageManager packageManager = context.getPackageManager();
-    String[] packagesForUid = packageManager.getPackagesForUid(uid);
+    String @Nullable [] packagesForUid = null;
+    try {
+      packagesForUid = packageManager.getPackagesForUid(uid);
+    } catch (SecurityException e) {
+      // The UID belongs to another user and the app isn't allowed to interact across users.
+    }
     if (packagesForUid != null && packagesForUid.length > 0) {
       for (String packageForUid : packagesForUid) {
         if (packageForUid.equals(packageName)) {
