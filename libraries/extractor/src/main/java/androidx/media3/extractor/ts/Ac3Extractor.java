@@ -22,6 +22,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -59,7 +60,7 @@ public final class Ac3Extractor implements Extractor {
   /** Creates a new extractor for AC-3 bitstreams. */
   public Ac3Extractor() {
     reader = new Ac3Reader(MimeTypes.AUDIO_AC3);
-    sampleData = new ParsableByteArray(MAX_SYNC_FRAME_SIZE);
+    sampleData = new ParsableByteArray();
   }
 
   // Extractor implementation.
@@ -101,6 +102,7 @@ public final class Ac3Extractor implements Extractor {
 
   @Override
   public void init(ExtractorOutput output) {
+    sampleData.reset(MAX_SYNC_FRAME_SIZE);
     reader.createTracks(output, new TrackIdGenerator(0, 1));
     output.endTracks();
     output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
@@ -114,7 +116,7 @@ public final class Ac3Extractor implements Extractor {
 
   @Override
   public void release() {
-    // Do nothing.
+    sampleData.reset(Util.EMPTY_BYTE_ARRAY);
   }
 
   @Override

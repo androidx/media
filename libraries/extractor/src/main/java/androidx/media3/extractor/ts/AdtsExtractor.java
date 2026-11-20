@@ -31,6 +31,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ConstantBitrateSeekMap;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -160,7 +161,7 @@ public final class AdtsExtractor implements Extractor {
     reader =
         new AdtsReader(
             /* exposeId3= */ (flags & FLAG_DISABLE_ID3_METADATA) == 0, MimeTypes.AUDIO_AAC);
-    packetBuffer = new ParsableByteArray(MAX_PACKET_SIZE);
+    packetBuffer = new ParsableByteArray();
     averageFrameSize = C.LENGTH_UNSET;
     firstFramePosition = C.INDEX_UNSET;
     // Allocate scratch space for an ID3 header. The same buffer is also used to read 4 byte values.
@@ -239,6 +240,7 @@ public final class AdtsExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     this.extractorOutput = output;
+    packetBuffer.reset(MAX_PACKET_SIZE);
     reader.createTracks(output, new TrackIdGenerator(0, 1));
     output.endTracks();
   }
@@ -252,7 +254,7 @@ public final class AdtsExtractor implements Extractor {
 
   @Override
   public void release() {
-    // Do nothing
+    packetBuffer.reset(Util.EMPTY_BYTE_ARRAY);
   }
 
   @Override

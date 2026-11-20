@@ -25,6 +25,7 @@ import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -55,6 +56,7 @@ public final class PsExtractor implements Extractor {
   // Max search length for additional audio and video tracks in input data after at least one audio
   // and video track has been found.
   private static final long MAX_SEARCH_LENGTH_AFTER_AUDIO_AND_VIDEO_FOUND = 8 * 1024;
+  private static final int PACKET_BUFFER_SIZE = 4096;
 
   public static final int PRIVATE_STREAM_1 = 0xBD;
   public static final int AUDIO_STREAM = 0xC0;
@@ -83,7 +85,7 @@ public final class PsExtractor implements Extractor {
 
   public PsExtractor(TimestampAdjuster timestampAdjuster) {
     this.timestampAdjuster = timestampAdjuster;
-    psPacketBuffer = new ParsableByteArray(4096);
+    psPacketBuffer = new ParsableByteArray();
     psPayloadReaders = new SparseArray<>();
     durationReader = new PsDurationReader();
   }
@@ -135,6 +137,7 @@ public final class PsExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     this.output = output;
+    psPacketBuffer.reset(PACKET_BUFFER_SIZE);
   }
 
   @Override
@@ -169,7 +172,7 @@ public final class PsExtractor implements Extractor {
 
   @Override
   public void release() {
-    // Do nothing
+    psPacketBuffer.reset(Util.EMPTY_BYTE_ARRAY);
   }
 
   @Override

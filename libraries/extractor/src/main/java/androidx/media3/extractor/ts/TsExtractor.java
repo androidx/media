@@ -337,7 +337,7 @@ public final class TsExtractor implements Extractor {
       timestampAdjusters = new ArrayList<>();
       timestampAdjusters.add(timestampAdjuster);
     }
-    tsPacketBuffer = new ParsableByteArray(new byte[BUFFER_SIZE], 0);
+    tsPacketBuffer = new ParsableByteArray();
     trackIds = new SparseBooleanArray();
     trackPids = new SparseBooleanArray();
     tsPayloadReaders = new SparseArray<>();
@@ -352,7 +352,7 @@ public final class TsExtractor implements Extractor {
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    byte[] buffer = tsPacketBuffer.getData();
+    byte[] buffer = new byte[TS_PACKET_SIZE * SNIFF_TS_PACKET_COUNT];
     input.peekFully(buffer, 0, TS_PACKET_SIZE * SNIFF_TS_PACKET_COUNT);
     for (int startPosCandidate = 0; startPosCandidate < TS_PACKET_SIZE; startPosCandidate++) {
       // Try to identify at least SNIFF_TS_PACKET_COUNT packets starting with TS_SYNC_BYTE.
@@ -377,6 +377,8 @@ public final class TsExtractor implements Extractor {
         (extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
             ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
             : output;
+    tsPacketBuffer.ensureCapacity(BUFFER_SIZE);
+    tsPacketBuffer.reset(/* limit= */ 0);
   }
 
   @Override
@@ -418,7 +420,7 @@ public final class TsExtractor implements Extractor {
 
   @Override
   public void release() {
-    // Do nothing
+    tsPacketBuffer.reset(Util.EMPTY_BYTE_ARRAY);
   }
 
   @Override
