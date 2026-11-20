@@ -46,6 +46,8 @@ import androidx.media3.common.VideoSize
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -742,5 +744,20 @@ class PresentationStateTest {
     waitForIdle()
 
     assertThat(state.showArtwork).isFalse()
+  }
+
+  @Test
+  fun observe_nullPlayer_suspendsUntilCancelled() = runTest {
+    val state = PresentationState()
+
+    val job = backgroundScope.launch { state.observe(player = null) }
+    testScheduler.runCurrent()
+
+    assertThat(job.isActive).isTrue()
+
+    job.cancel()
+    testScheduler.runCurrent()
+
+    assertThat(job.isCompleted).isTrue()
   }
 }

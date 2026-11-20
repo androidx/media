@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remember the value of [RepeatButtonState] created based on the passed [Player] and launch a
@@ -105,10 +106,11 @@ class RepeatButtonState(
    * * [Player.EVENT_REPEAT_MODE_CHANGED] in order to determine the latest [Player.getRepeatMode].
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe() {
-    playerStateObserver?.observe()
-  }
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 
   private fun getNextRepeatModeInSequence(player: Player): @Player.RepeatMode Int {
     val currRepeatModeIndex = toggleModeSequence.indexOf(player.repeatMode)

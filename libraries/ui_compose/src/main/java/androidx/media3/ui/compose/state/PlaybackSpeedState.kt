@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remember the value of [PlaybackSpeedState] created based on the passed [Player] and launch a
@@ -124,8 +125,9 @@ class PlaybackSpeedState(private val player: Player?) {
    * * [Player.EVENT_PLAYBACK_PARAMETERS_CHANGED] in order to determine the latest playback speed.
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the UI element
    *   responsible for setting the playback speed should be enabled, i.e. respond to user input.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe() {
-    playerStateObserver?.observe()
-  }
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 }

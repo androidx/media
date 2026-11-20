@@ -28,6 +28,8 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.AdditionalAnswers.delegatesTo
@@ -215,5 +217,20 @@ class SeekBackButtonStateTest {
 
     assertThat(state.isEnabled).isTrue()
     assertThat(state.seekBackAmountMs).isEqualTo(C.DEFAULT_SEEK_BACK_INCREMENT_MS)
+  }
+
+  @Test
+  fun observe_nullPlayer_suspendsUntilCancelled() = runTest {
+    val state = SeekBackButtonState(player = null)
+
+    val job = backgroundScope.launch { state.observe() }
+    testScheduler.runCurrent()
+
+    assertThat(job.isActive).isTrue()
+
+    job.cancel()
+    testScheduler.runCurrent()
+
+    assertThat(job.isCompleted).isTrue()
   }
 }

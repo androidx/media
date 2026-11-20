@@ -30,6 +30,8 @@ import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.AdditionalAnswers.delegatesTo
@@ -342,5 +344,20 @@ class PlaybackSpeedStateTest {
     // This verifies that the player remains the source of truth for speed constraints.
     assertThat(player.playbackParameters.speed).isEqualTo(1.0f)
     assertThat(state.playbackSpeed).isEqualTo(1.0f)
+  }
+
+  @Test
+  fun observe_nullPlayer_suspendsUntilCancelled() = runTest {
+    val state = PlaybackSpeedState(player = null)
+
+    val job = backgroundScope.launch { state.observe() }
+    testScheduler.runCurrent()
+
+    assertThat(job.isActive).isTrue()
+
+    job.cancel()
+    testScheduler.runCurrent()
+
+    assertThat(job.isCompleted).isTrue()
   }
 }

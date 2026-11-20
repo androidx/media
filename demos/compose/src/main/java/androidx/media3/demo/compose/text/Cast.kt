@@ -43,6 +43,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.state.PlayerStateObserver
 import androidx.media3.ui.compose.state.observeState
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [CastState] created based on the passed [Player] and launches a coroutine
@@ -79,8 +80,11 @@ internal class CastState(private val player: Player?) {
   /**
    * Subscribes to updates from [Player.Events] and listens to [Player.EVENT_DEVICE_INFO_CHANGED] in
    * order to determine whether playback is happening on a remote device.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe() = playerStateObserver?.observe()
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 }
 
 @OptIn(UnstableApi::class)

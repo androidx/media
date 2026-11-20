@@ -29,6 +29,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [CurrentMediaItemState] created based on the passed [Player] and launch a
@@ -100,7 +101,18 @@ class CurrentMediaItemState(private val player: Player?) {
       mediaMetadata = if (canGetMetadata) player.mediaMetadata else MediaMetadata.EMPTY
     }
 
-  suspend fun observe() {
-    playerStateObserver?.observe()
-  }
+  /**
+   * Subscribes to updates from [Player.Events] to update the current media item state.
+   *
+   * This method listens to the following events:
+   * * [Player.EVENT_POSITION_DISCONTINUITY]
+   * * [Player.EVENT_TIMELINE_CHANGED]
+   * * [Player.EVENT_MEDIA_METADATA_CHANGED]
+   * * [Player.EVENT_METADATA]
+   * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED]
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
+   */
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 }

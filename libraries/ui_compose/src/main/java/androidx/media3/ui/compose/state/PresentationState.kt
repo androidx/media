@@ -30,6 +30,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [PresentationState] created based on the passed [Player] and launches a
@@ -134,11 +135,16 @@ class PresentationState(keepContentOnReset: Boolean = false) {
    * * [Player.EVENT_RENDERED_FIRST_FRAME], [Player.EVENT_TRACKS_CHANGED], and
    *   [Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED] to determine whether the surface is ready
    *   to be shown
+   *
+   * @param player The [Player] to observe. If `null`, nothing is observed, but this still suspends
+   *   until cancelled.
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe(player: Player?) {
+  suspend fun observe(player: Player?): Nothing {
     try {
       this@PresentationState.player = player
-      playerStateObserver?.observe()
+      (playerStateObserver ?: awaitCancellation()).observe()
     } finally {
       this@PresentationState.player = null
     }

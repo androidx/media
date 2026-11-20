@@ -85,6 +85,7 @@ import androidx.media3.ui.compose.state.rememberProgressStateWithTickCount
 import com.google.common.collect.ImmutableList
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -1234,7 +1235,14 @@ private class ClippingSliderState(
     return (start..end) to wasAdjusted
   }
 
-  suspend fun observe() {
+  /**
+   * Subscribes to updates from [Player.Events] and user interactions to keep clipping and scrubbing
+   * states synchronized.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
+   */
+  suspend fun observe(): Nothing {
     coroutineScope {
       // Observe Player events (isPlaying, playWhenReady) to keep playback states synchronized.
       launch { playerStateObserver?.observe() }
@@ -1313,6 +1321,8 @@ private class ClippingSliderState(
             }
           }
       }
+
+      awaitCancellation()
     }
   }
 }

@@ -27,6 +27,8 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.AdditionalAnswers.delegatesTo
@@ -182,5 +184,20 @@ class PreviousButtonStateTest {
     waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
+  }
+
+  @Test
+  fun observe_nullPlayer_suspendsUntilCancelled() = runTest {
+    val state = PreviousButtonState(player = null)
+
+    val job = backgroundScope.launch { state.observe() }
+    testScheduler.runCurrent()
+
+    assertThat(job.isActive).isTrue()
+
+    job.cancel()
+    testScheduler.runCurrent()
+
+    assertThat(job.isCompleted).isTrue()
   }
 }

@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.text.Cue
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [CuesState] created based on the passed [Player] and launches a coroutine
@@ -63,6 +64,9 @@ class CuesState(private val player: Player?) {
   /**
    * Subscribes to updates from [Player.Events] and listens to [Player.EVENT_CUES] and
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] to update the [cues] state.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe(): Nothing? = playerStateObserver?.observe()
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 }

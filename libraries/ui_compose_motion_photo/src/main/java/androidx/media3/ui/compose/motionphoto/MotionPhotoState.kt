@@ -42,6 +42,7 @@ import androidx.media3.extractor.metadata.MotionPhotoMetadata
 import com.google.errorprone.annotations.CanIgnoreReturnValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -370,8 +371,8 @@ internal constructor(
     }
   }
 
-  internal suspend fun observe() {
-    val currentPlayer = player ?: return
+  internal suspend fun observe(): Nothing {
+    val currentPlayer = player ?: awaitCancellation()
     try {
       observePlayerEvents(currentPlayer)
     } finally {
@@ -382,7 +383,7 @@ internal constructor(
     }
   }
 
-  private suspend fun observePlayerEvents(currentPlayer: Player) {
+  private suspend fun observePlayerEvents(currentPlayer: Player): Nothing {
     currentPlayer.listenTo(
       Player.EVENT_TRACKS_CHANGED,
       Player.EVENT_TIMELINE_CHANGED,

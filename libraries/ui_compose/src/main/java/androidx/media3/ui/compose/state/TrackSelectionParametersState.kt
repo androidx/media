@@ -27,6 +27,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [TrackSelectionParametersState] created based on the passed [Player] and
@@ -103,9 +104,10 @@ class TrackSelectionParametersState(private val player: Player?) {
    * [Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED], and
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] to update the state properties.
    *
-   * This is a suspending function that runs indefinitely until cancelled.
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe(): Nothing? = playerStateObserver?.observe()
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 
   private fun Player?.getTracksIfCommandAvailable(): Tracks =
     this?.takeIf { it.isCommandAvailable(Player.COMMAND_GET_TRACKS) }?.currentTracks ?: Tracks.EMPTY

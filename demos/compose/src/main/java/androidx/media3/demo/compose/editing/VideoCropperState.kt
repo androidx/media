@@ -31,6 +31,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.ui.compose.state.PlayerStateObserver
 import androidx.media3.ui.compose.state.observeState
 import kotlin.math.abs
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * A small epsilon value used to compare aspect ratios to account for floating point imprecision.
@@ -133,9 +134,14 @@ class VideoCropperState(
     updateCropRect()
   }
 
-  suspend fun observe() {
-    playerStateObserver?.observe()
-  }
+  /**
+   * Subscribes to updates from [Player.Events] and listens to [Player.EVENT_VIDEO_SIZE_CHANGED] to
+   * update the video size and crop rectangle.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
+   */
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 
   private fun validateCropRect(cropRect: Rect) {
     require(

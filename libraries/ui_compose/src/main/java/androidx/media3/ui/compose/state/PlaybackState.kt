@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /** Creates and remembers a [PlaybackState] for the given [Player]. */
 @UnstableApi
@@ -94,6 +95,9 @@ class PlaybackState(private val player: Player?) {
    * * [Player.EVENT_IS_PLAYING_CHANGED] in order to determine whether the player is actively
    *   playing.
    * * [Player.EVENT_PLAYER_ERROR] in order to determine whether a playback error occurred.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe(): Nothing? = playerStateObserver?.observe()
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 }

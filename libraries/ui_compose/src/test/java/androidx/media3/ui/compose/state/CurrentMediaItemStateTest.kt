@@ -27,6 +27,8 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -154,5 +156,20 @@ class CurrentMediaItemStateTest {
 
     assertThat(state.durationMs).isEqualTo(1000)
     assertThat(state.mediaMetadata).isEqualTo(testMediaMetadata)
+  }
+
+  @Test
+  fun observe_nullPlayer_suspendsUntilCancelled() = runTest {
+    val state = CurrentMediaItemState(player = null)
+
+    val job = backgroundScope.launch { state.observe() }
+    testScheduler.runCurrent()
+
+    assertThat(job.isActive).isTrue()
+
+    job.cancel()
+    testScheduler.runCurrent()
+
+    assertThat(job.isCompleted).isTrue()
   }
 }

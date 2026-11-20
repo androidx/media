@@ -31,6 +31,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remember the value of [ProgressStateWithTickInterval] created based on the passed [Player] and
@@ -179,8 +180,11 @@ class ProgressStateWithTickInterval(
   /**
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
    */
-  suspend fun observe(): Nothing? = updateJob?.observeProgress()
+  suspend fun observe(): Nothing = (updateJob ?: awaitCancellation()).observeProgress()
 
   private fun nextMediaWakeUpPositionMs(player: Player): Long {
     if (tickIntervalMs == 0L) {

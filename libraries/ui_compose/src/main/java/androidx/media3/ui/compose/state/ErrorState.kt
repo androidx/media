@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Remembers the value of [ErrorState] created based on the passed [Player] and launches a coroutine
@@ -54,6 +55,11 @@ class ErrorState(private val player: Player?) {
       error = player.playerError
     }
 
-  /** Subscribes to updates from [Player.Events] to update the [error] state. */
-  suspend fun observe(): Nothing? = playerStateObserver?.observe()
+  /**
+   * Subscribes to updates from [Player.Events] to update the [error] state.
+   *
+   * @return Nothing This function never returns normally. It will either continue indefinitely or
+   *   terminate due to an exception or cancellation, also when the player is `null`.
+   */
+  suspend fun observe(): Nothing = (playerStateObserver ?: awaitCancellation()).observe()
 }
