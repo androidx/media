@@ -146,6 +146,8 @@
         now parsed as having an unknown frame rate
         ([#3540](https://github.com/androidx/media/issues/3540)).
 *   DASH extension:
+    *   Fix off-by-one millisecond errors when parsing `xs:duration`
+        attributes with fractional seconds (such as `Period@start`).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
