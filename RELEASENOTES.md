@@ -88,6 +88,10 @@
         `FrameDropEffect.createDefaultFrameDropEffect` across multiple input
         streams or flushes, such as in multi-item `Transformer` exports
         ([#3534](https://github.com/androidx/media/issues/3534)).
+    *   Fix a GL sync object leak in `MultipleInputVideoGraph` that could cause
+        long multi-sequence `Composition` exports to fail with "Too many open
+        files" ([#3519](https://github.com/androidx/media/issues/3519),
+        [#3523](https://github.com/androidx/media/pull/3523)).
 *   Effect Lottie:
 *   Effect Play services:
 *   Muxers:
