@@ -233,28 +233,42 @@ import org.jspecify.annotations.Nullable;
   private boolean queueImagePlanesFrame(
       ImagePlanesFrame outputImagePlanesFrame, GlTextureFrame inputFrame)
       throws VideoFrameProcessingException {
-    Format outputFormat = checkNotNull(this.outputFormat);
+    // TODO(b/570487705): Require outputFrameFormat dimensions to match this.outputFormat once
+    // resolveOutputFormat() gets the FrameWriter's adjusted dimensions from FrameWriter.Info.
+    Format outputFrameFormat = outputImagePlanesFrame.getFormat();
+    int outputFrameWidth = outputFrameFormat.width;
+    int outputFrameHeight = outputFrameFormat.height;
     validateImagePlanesFrame(outputImagePlanesFrame);
     try {
+      @Nullable GlTextureInfo intermediateTexture = this.intermediateTexture;
       if (intermediateTexture == null) {
-        // outputFormat is established once on the first frame and never changes.
+        // The output frame size is established once on the first frame and never changes.
         intermediateTexture =
             createTextureWithFbo(
-                outputFormat.width,
-                outputFormat.height,
-                /* useHighPrecisionColorComponents= */ false);
+                outputFrameWidth, outputFrameHeight, /* useHighPrecisionColorComponents= */ false);
+        this.intermediateTexture = intermediateTexture;
+      } else {
+        checkArgument(
+            outputFrameWidth == intermediateTexture.width,
+            "Output frame width (%s) must match initial output frame width (%s)",
+            outputFrameWidth,
+            intermediateTexture.width);
+        checkArgument(
+            outputFrameHeight == intermediateTexture.height,
+            "Output frame height (%s) must match initial output frame height (%s)",
+            outputFrameHeight,
+            intermediateTexture.height);
       }
-      GlTextureInfo intermediateTexture = this.intermediateTexture;
       GlUtil.focusFramebufferUsingCurrentContext(
-          intermediateTexture.fboId, outputFormat.width, outputFormat.height);
+          intermediateTexture.fboId, outputFrameWidth, outputFrameHeight);
       drawFrameToFocusedFramebuffer(inputFrame);
-      if (outputImagePlanesFrame.getFormat().pixelFormat == PixelFormat.RGBA_8888) {
+      if (outputFrameFormat.pixelFormat == PixelFormat.RGBA_8888) {
         readFocusedFramebufferToRgba8888Frame(outputImagePlanesFrame);
       } else {
         if (rgbaToYuvConverter == null) {
           rgbaToYuvConverter =
               new GlRgbaToYuvConverter(
-                  context, hardwareBufferJniWrapper, outputFormat.width, outputFormat.height);
+                  context, hardwareBufferJniWrapper, outputFrameWidth, outputFrameHeight);
         }
         rgbaToYuvConverter.convertToYuv420(
             intermediateTexture.texId, outputImagePlanesFrame.getPlanes());
@@ -274,32 +288,21 @@ import org.jspecify.annotations.Nullable;
     return true;
   }
 
-  private void validateImagePlanesFrame(ImagePlanesFrame frame) {
-    Format outputFormat = checkNotNull(this.outputFormat);
+  private static void validateImagePlanesFrame(ImagePlanesFrame frame) {
     Format frameFormat = frame.getFormat();
-    checkArgument(
-        frameFormat.width == outputFormat.width || frameFormat.width == Format.NO_VALUE,
-        "Frame width (%s) must match outputFormat width (%s)",
-        frameFormat.width,
-        outputFormat.width);
-    checkArgument(
-        frameFormat.height == outputFormat.height || frameFormat.height == Format.NO_VALUE,
-        "Frame height (%s) must match outputFormat height (%s)",
-        frameFormat.height,
-        outputFormat.height);
     if (frameFormat.pixelFormat == PixelFormat.RGBA_8888) {
-      validateRgba8888Planes(frame.getPlanes(), outputFormat.width, outputFormat.height);
+      validateRgba8888Planes(frame.getPlanes(), frameFormat.width, frameFormat.height);
     } else if (frameFormat.pixelFormat == ImageFormat.YV12) {
-      validatePlanarYuv420Planes(frame.getPlanes(), outputFormat.width, outputFormat.height);
+      validatePlanarYuv420Planes(frame.getPlanes(), frameFormat.width, frameFormat.height);
     } else {
       throw new IllegalArgumentException("Unsupported pixel format: " + frameFormat.pixelFormat);
     }
   }
 
   private void readFocusedFramebufferToRgba8888Frame(ImagePlanesFrame frame) throws GlException {
-    Format outputFormat = checkNotNull(this.outputFormat);
-    int width = outputFormat.width;
-    int height = outputFormat.height;
+    Format frameFormat = frame.getFormat();
+    int width = frameFormat.width;
+    int height = frameFormat.height;
     Plane plane = frame.getPlanes().get(0);
     ByteBuffer planeBuffer = plane.getBuffer();
     int rowBytes = width * plane.getPixelStride();
@@ -319,7 +322,8 @@ import org.jspecify.annotations.Nullable;
     }
     // OpenGL ES 2.0 lacks GL_PACK_ROW_LENGTH, so glReadPixels always outputs tightly packed rows.
     // Read into a tightly packed scratch buffer first, then copy each row into planeBuffer at its
-    // rowStride offset. outputFormat is established once on the first frame and never changes.
+    // rowStride offset. The output frame size is established once on the first frame and never
+    // changes.
     // TODO(b/573498289): On OpenGL ES 3.0+, set GL_PACK_ROW_LENGTH to read directly into
     // planeBuffer when rowStride is a multiple of pixelStride.
     if (rgbaReadbackBuffer == null) {

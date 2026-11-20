@@ -58,6 +58,7 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
@@ -69,7 +70,9 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -690,6 +693,40 @@ public final class FrameWriterGlTextureFrameConsumerTest {
   }
 
   @Test
+  public void queue_imagePlanesFrameWhenFrameWriterAdjustsSize_rendersAtAdjustedSize(
+      @TestParameter boolean useYv12) throws Exception {
+    frameWriter =
+        useYv12
+            ? BitmapSavingFrameWriter.createForYv12ImagePlanes(TIMEOUT_MS)
+            : BitmapSavingFrameWriter.createForRgbaImagePlanes(TIMEOUT_MS);
+    FrameWriter sizeAdjustingFrameWriter =
+        new SizeAdjustingFrameWriter(
+            frameWriter, /* adjustedWidth= */ 32, /* adjustedHeight= */ 24);
+    frameWriterGlTextureFrameConsumer =
+        new FrameWriterGlTextureFrameConsumer(
+            context, sizeAdjustingFrameWriter, HardwareBufferJni.INSTANCE);
+    Bitmap inputBitmap =
+        BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor(
+            /* width= */ 16, /* height= */ 12, Color.GREEN);
+    Bitmap expectedBitmap =
+        BitmapPixelTestUtil.createArgb8888BitmapWithSolidColor(
+            /* width= */ 32, /* height= */ 24, Color.GREEN);
+
+    queueFrameOnGlThread(() -> createGlTextureFrame(inputBitmap, /* presentationTimeUs= */ 1000));
+
+    List<Bitmap> actualBitmaps = frameWriter.outputBitmaps;
+    assertThat(actualBitmaps).hasSize(1);
+    if (useYv12) {
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmaps.get(0), PSNR_THRESHOLD);
+    } else {
+      assertThat(
+              getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+                  expectedBitmap, actualBitmaps.get(0), testName.getMethodName()))
+          .isLessThan(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
+    }
+  }
+
+  @Test
   @SdkSuppress(minSdkVersion = 29)
   public void queue_withDisplayTime_forwardsDisplayTime() throws Exception {
     setUpHardwareBufferFrameConsumer(/* info= */ (format, usage) -> true);
@@ -1160,6 +1197,57 @@ public final class FrameWriterGlTextureFrameConsumerTest {
     public boolean nativeCopyHardwareBufferToHardwareBuffer(
         HardwareBuffer srcHb, HardwareBuffer dstHb) {
       return delegate.nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb);
+    }
+  }
+
+  /**
+   * A forwarding {@link FrameWriter} that overrides the configured frame dimensions to a fixed
+   * size, reporting formats with any other dimensions as unsupported in {@link #getInfo()}.
+   */
+  private static final class SizeAdjustingFrameWriter implements FrameWriter {
+    private final FrameWriter delegate;
+    private final int adjustedWidth;
+    private final int adjustedHeight;
+
+    private SizeAdjustingFrameWriter(FrameWriter delegate, int adjustedWidth, int adjustedHeight) {
+      this.delegate = delegate;
+      this.adjustedWidth = adjustedWidth;
+      this.adjustedHeight = adjustedHeight;
+    }
+
+    @Override
+    public Info getInfo() {
+      return (format, usage) ->
+          format.width == adjustedWidth
+              && format.height == adjustedHeight
+              && delegate.getInfo().isSupported(format, usage);
+    }
+
+    @Override
+    public void configure(Format format, long usage) {
+      delegate.configure(
+          format.buildUpon().setWidth(adjustedWidth).setHeight(adjustedHeight).build(), usage);
+    }
+
+    @Override
+    public @Nullable AsyncFrame dequeueInputFrame(
+        Executor wakeupExecutor, Runnable wakeupListener) {
+      return delegate.dequeueInputFrame(wakeupExecutor, wakeupListener);
+    }
+
+    @Override
+    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {
+      delegate.queueInputFrame(frame, writeCompleteFence);
+    }
+
+    @Override
+    public void signalEndOfStream() {
+      delegate.signalEndOfStream();
+    }
+
+    @Override
+    public void close() {
+      delegate.close();
     }
   }
 }
