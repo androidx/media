@@ -1091,7 +1091,14 @@ private class ClippingSliderState(
     }
 
   init {
-    setClippingRange(initialClippingRangeMs)
+    // Show the initial range right away if the duration is already known, for example when the
+    // slider re-enters the composition with a prepared player. Keeping the player position within
+    // the range is left to observe(), as seeking here would be a side effect of the composition.
+    if (durationMs > 0) {
+      updateSliderRanges(
+        calculateClippingRangeProgress(initialClippingRangeMs, minClippedDurationMs).first
+      )
+    }
   }
 
   // Only update playWhenReady if the player can change it, as otherwise no event would correct it.
@@ -1182,16 +1189,7 @@ private class ClippingSliderState(
   }
 
   private fun applyClippingRange(newRange: ClosedFloatingPointRange<Float>, updateSlider: Boolean) {
-    if (updateSlider) {
-      val sliderRange = sliderRangeFromClippingRange(newRange)
-      if (rangeSliderState.startValue != sliderRange.start) {
-        rangeSliderState.startValue = sliderRange.start
-      }
-      if (rangeSliderState.endValue != sliderRange.endInclusive) {
-        rangeSliderState.endValue = sliderRange.endInclusive
-      }
-      updateProgressSliderRange(newRange)
-    }
+    if (updateSlider) updateSliderRanges(newRange)
 
     // Ensure the player's current position hasn't been left outside the new bounds. The position is
     // read from the player, because playbackProgress stays at 0 until the slider is measured, which
@@ -1204,6 +1202,18 @@ private class ClippingSliderState(
         seekTo(newRange.endInclusive)
       }
     }
+  }
+
+  /** Moves the clipping thumbs to [range] and limits the position thumb to it. */
+  private fun updateSliderRanges(range: ClosedFloatingPointRange<Float>) {
+    val sliderRange = sliderRangeFromClippingRange(range)
+    if (rangeSliderState.startValue != sliderRange.start) {
+      rangeSliderState.startValue = sliderRange.start
+    }
+    if (rangeSliderState.endValue != sliderRange.endInclusive) {
+      rangeSliderState.endValue = sliderRange.endInclusive
+    }
+    updateProgressSliderRange(range)
   }
 
   /**
