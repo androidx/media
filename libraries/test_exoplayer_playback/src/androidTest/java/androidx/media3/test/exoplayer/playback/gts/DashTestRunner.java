@@ -85,6 +85,10 @@ import org.jspecify.annotations.Nullable;
   private static final int MIN_LOADABLE_RETRY_COUNT = 10;
   private static final int MAX_CONSECUTIVE_DROPPED_VIDEO_FRAMES = 10;
   private static final float MAX_DROPPED_VIDEO_FRAME_FRACTION = 0.01f;
+  // Allow for slight refresh-rate differences below the content frame rate (for example, when the
+  // actual display refresh rate is slightly lower than the requested rate or for 1000/1001 NTSC
+  // frame rates).
+  private static final float MAX_REFRESH_RATE_DEVIATION_SKIP_FRACTION = 0.005f;
 
   private static final String WIDEVINE_SECURITY_LEVEL_1 = "L1";
   private static final String WIDEVINE_SECURITY_LEVEL_3 = "L3";
@@ -389,19 +393,20 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     protected void assertPassed(DecoderCounters audioCounters, DecoderCounters videoCounters) {
+      int totalVideoBuffers = DecoderCountersUtil.getTotalBufferCount(videoCounters);
       if (fullPlaybackNoSeeking) {
-        // We shouldn't have skipped any output buffers.
+        // We shouldn't have skipped any audio output buffers.
         DecoderCountersUtil.assertSkippedOutputBufferCount(
             tag + AUDIO_TAG_SUFFIX, audioCounters, 0);
         int expectedSkips = 0;
-        int tolerance = 0;
+        int tolerance =
+            (int) Math.ceil(totalVideoBuffers * MAX_REFRESH_RATE_DEVIATION_SKIP_FRACTION) + 1;
         if (displayRefreshRate > 0
             && contentFrameRate != Format.NO_VALUE
             && contentFrameRate > displayRefreshRate) {
           double expectedSkipFraction = 1.0 - (double) displayRefreshRate / contentFrameRate;
-          int totalBuffers = DecoderCountersUtil.getTotalBufferCount(videoCounters);
-          expectedSkips = (int) (totalBuffers * expectedSkipFraction);
-          tolerance = Math.max(5, (int) (totalBuffers * 0.1f));
+          expectedSkips = (int) (totalVideoBuffers * expectedSkipFraction);
+          tolerance = Math.max(5, (int) (totalVideoBuffers * 0.1f));
         }
         DecoderCountersUtil.assertSkippedOutputBufferCount(
             tag + VIDEO_TAG_SUFFIX, videoCounters, expectedSkips, tolerance);
@@ -411,10 +416,7 @@ import org.jspecify.annotations.Nullable;
       try {
         if (!shouldSkipDroppedOutputBufferPerformanceAssertions()) {
           int droppedFrameLimit =
-              (int)
-                  Math.ceil(
-                      MAX_DROPPED_VIDEO_FRAME_FRACTION
-                          * DecoderCountersUtil.getTotalBufferCount(videoCounters));
+              (int) Math.ceil(MAX_DROPPED_VIDEO_FRAME_FRACTION * totalVideoBuffers);
           // Assert that performance is acceptable.
           // Assert that total dropped frames were within limit.
           DecoderCountersUtil.assertDroppedBufferLimit(
