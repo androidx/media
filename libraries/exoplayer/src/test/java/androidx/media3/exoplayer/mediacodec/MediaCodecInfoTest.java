@@ -646,6 +646,23 @@ public final class MediaCodecInfoTest {
     assertThat(codecInfo.isFormatSupported(context, format)).isTrue();
   }
 
+  @Test
+  public void isFormatSupported_av1Main10WithHlgAndMain10ProfileSupport_returnsTrue() {
+    MediaCodecInfo codecInfo =
+        buildAv1CodecInfo(
+            createCodecProfileLevel(
+                CodecProfileLevel.AV1ProfileMain10, CodecProfileLevel.AV1Level51));
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(VIDEO_AV1)
+            .setCodecs("av01.0.13M.10")
+            .setColorInfo(new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_HLG).build())
+            .build();
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(codecInfo.isFormatSupported(context, format)).isTrue();
+  }
+
   private static MediaCodecInfo buildHevcCodecInfo(CodecProfileLevel... profileLevels) {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setString(MediaFormat.KEY_MIME, VIDEO_H265);
@@ -660,6 +677,30 @@ public final class MediaCodecInfoTest {
         "h265",
         VIDEO_H265,
         VIDEO_H265,
+        capabilities,
+        /* hardwareAccelerated= */ true,
+        /* softwareOnly= */ false,
+        /* vendor= */ true,
+        /* adaptive= */ true,
+        /* tunneling= */ false,
+        /* secure= */ false,
+        /* detachedSurfaceSupported= */ true);
+  }
+
+  private static MediaCodecInfo buildAv1CodecInfo(CodecProfileLevel... profileLevels) {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setString(MediaFormat.KEY_MIME, VIDEO_AV1);
+    @SuppressWarnings("UnnecessarilyFullyQualified") // Unnecessary to import CodecCapabilities.
+    android.media.MediaCodecInfo.CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(mediaFormat)
+            .setColorFormats(new int[0])
+            .setProfileLevels(profileLevels)
+            .build();
+    return new MediaCodecInfo(
+        "av1",
+        VIDEO_AV1,
+        VIDEO_AV1,
         capabilities,
         /* hardwareAccelerated= */ true,
         /* softwareOnly= */ false,
