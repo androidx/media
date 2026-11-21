@@ -105,6 +105,8 @@
         `setDrmHttpDataSourceFactory(DataSource.Factory)` instead.
     *   Remove `DefaultMuxer.Factory(long)`. Use
         `DefaultMuxer.Factory.setVideoDurationUs(long)` instead.
+    *   Remove `DefaultTrackSelector.Parameters.hasSelectionOverride(int,
+        TrackGroupArray)`. Use `TrackSelectionParameters.overrides` instead.
     *   Remove `DefaultVideoFrameProcessor.setInputDefaultBufferSize(int, int)`.
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`

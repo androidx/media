@@ -1172,6 +1172,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
       @CanIgnoreReturnValue
       @Deprecated
+      @SuppressWarnings("deprecation") // Calling deprecated super method.
       @Override
       public Builder setViewportSizeToPhysicalDisplaySize(
           Context context, boolean viewportOrientationMayChange) {
@@ -2023,23 +2024,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
      */
     public boolean getRendererDisabled(int rendererIndex) {
       return rendererDisabledFlags.get(rendererIndex);
-    }
-
-    /**
-     * Returns whether there is an override for the specified renderer and {@link TrackGroupArray}.
-     *
-     * @param rendererIndex The renderer index.
-     * @param groups The {@link TrackGroupArray}.
-     * @return Whether there is an override.
-     * @deprecated Only works to retrieve the overrides set with the deprecated {@link
-     *     Builder#setSelectionOverride(int, TrackGroupArray, SelectionOverride)}. Use {@link
-     *     TrackSelectionParameters#overrides} instead.
-     */
-    @Deprecated
-    public boolean hasSelectionOverride(int rendererIndex, TrackGroupArray groups) {
-      @Nullable Map<TrackGroupArray, @Nullable SelectionOverride> overrides =
-          selectionOverrides.get(rendererIndex);
-      return overrides != null && overrides.containsKey(groups);
     }
 
     /**
@@ -3320,7 +3304,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
     }
   }
 
-  @SuppressWarnings("deprecation") // Calling legacy hasSelectionOverride and getSelectionOverride
   private static void applyLegacyRendererOverrides(
       MappedTrackInfo mappedTrackInfo,
       Parameters params,
@@ -3328,11 +3311,12 @@ public class DefaultTrackSelector extends MappingTrackSelector
     int rendererCount = mappedTrackInfo.getRendererCount();
     for (int rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++) {
       TrackGroupArray trackGroups = mappedTrackInfo.getTrackGroups(rendererIndex);
-      if (!params.hasSelectionOverride(rendererIndex, trackGroups)) {
+      @Nullable Map<TrackGroupArray, @Nullable SelectionOverride> overrides =
+          params.selectionOverrides.get(rendererIndex);
+      if (overrides == null || !overrides.containsKey(trackGroups)) {
         continue;
       }
-      @Nullable SelectionOverride override =
-          params.getSelectionOverride(rendererIndex, trackGroups);
+      @Nullable SelectionOverride override = overrides.get(trackGroups);
       ExoTrackSelection.@Nullable Definition selection;
       if (override != null && override.tracks.length != 0) {
         selection =
