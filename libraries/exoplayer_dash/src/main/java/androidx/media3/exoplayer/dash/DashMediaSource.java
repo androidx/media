@@ -752,6 +752,69 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestEventDispatcher.loadStarted(loadEventInfo.build(), loadable.type, retryCount);
   }
 
+  private static int getRemovedPeriodCount(
+      @androidx.annotation.Nullable DashManifest oldManifest,
+      DashManifest newManifest) {
+
+    // Initial manifest load.
+    if (oldManifest == null) {
+      return 0;
+    }
+
+    int oldCount = oldManifest.getPeriodCount();
+    int newCount = newManifest.getPeriodCount();
+
+    if (oldCount == 0 || newCount == 0) {
+      return 0;
+    }
+
+    String firstNewId = newManifest.getPeriod(0).id;
+
+    // Find the new first Period in the previous manifest.
+    // DASH Periods are ordered; removed Periods form a prefix.
+    if (firstNewId != null) {
+      for (int oldIndex = 0; oldIndex < oldCount; oldIndex++) {
+
+        if (!firstNewId.equals(oldManifest.getPeriod(oldIndex).id)) {
+          continue;
+        }
+
+        // Validate the entire overlapping sequence.
+        int overlap = Math.min(oldCount - oldIndex, newCount);
+        boolean valid = true;
+
+        for (int i = 0; i < overlap; i++) {
+          String oldId = oldManifest.getPeriod(oldIndex + i).id;
+          String newId = newManifest.getPeriod(i).id;
+
+          if (oldId == null || !oldId.equals(newId)) {
+            valid = false;
+            break;
+          }
+        }
+
+        if (valid) {
+          return oldIndex;
+        }
+
+        // Same first ID but inconsistent subsequent Periods.
+        // Do not trust the overlap calculation.
+        break;
+      }
+    }
+
+    // Original Media3 timestamp-based fallback.
+    long newFirstStartMs = newManifest.getPeriod(0).startMs;
+    int removedCount = 0;
+
+    while (removedCount < oldCount
+        && oldManifest.getPeriod(removedCount).startMs < newFirstStartMs) {
+      removedCount++;
+    }
+
+    return removedCount;
+  }
+
   /* package */ void onManifestLoadCompleted(
       ParsingLoadable<DashManifest> loadable, long elapsedRealtimeMs, long loadDurationMs) {
     LoadEventInfo loadEventInfo =
@@ -765,23 +828,24 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestEventDispatcher.loadCompleted(loadEventInfo, loadable.type);
     DashManifest newManifest = loadable.getResult();
 
-    int oldPeriodCount = manifest == null ? 0 : manifest.getPeriodCount();
-    int removedPeriodCount = 0;
-    long newFirstPeriodStartTimeMs = newManifest.getPeriod(0).startMs;
-    while (removedPeriodCount < oldPeriodCount
-        && manifest.getPeriod(removedPeriodCount).startMs < newFirstPeriodStartTimeMs) {
-      removedPeriodCount++;
+    if (newManifest == null) {
+      Log.w(TAG, "DASH manifest update skipped: parsed manifest is null");
+      return;
     }
+    int oldPeriodCount = manifest == null ? 0 : manifest.getPeriodCount();
+    int removedPeriodCount = getRemovedPeriodCount(manifest, newManifest);
 
     if (newManifest.dynamic) {
       boolean isManifestStale = false;
       if (oldPeriodCount - removedPeriodCount > newManifest.getPeriodCount()) {
-        // After discarding old periods, we should never have more periods than listed in the new
-        // manifest. That would mean that a previously announced period is no longer advertised. If
-        // this condition occurs, assume that we are hitting a manifest server that is out of sync
-        // and behind.
-        Log.w(TAG, "Loaded out of sync manifest");
-        isManifestStale = true;
+        Log.w(TAG,
+            "DASH manifest Period count reduced unexpectedly"
+                + ": oldPeriodCount=" + oldPeriodCount
+                + ", removedPeriodCount=" + removedPeriodCount
+                + ", newPeriodCount=" + newManifest.getPeriodCount());
+        // Do not set isManifestStale here.
+        // A reduction in Period count alone does not prove
+        // that the new manifest is stale.
       } else if (expiredManifestPublishTimeUs != C.TIME_UNSET
           && newManifest.publishTimeMs * 1000 <= expiredManifestPublishTimeUs) {
         // If we receive a dynamic manifest that's older than expected (i.e. its publish time has
@@ -1066,11 +1130,19 @@ public final class DashMediaSource extends BaseMediaSource {
     // Update any periods.
     for (int i = 0; i < periodsById.size(); i++) {
       int id = periodsById.keyAt(i);
-      if (id >= firstPeriodId) {
-        periodsById.valueAt(i).updateManifest(manifest, id - firstPeriodId);
-      } else {
-        // This period has been removed from the manifest so it doesn't need to be updated.
+      int periodIndex = id - firstPeriodId;
+
+      if (periodIndex < 0 || periodIndex >= manifest.getPeriodCount()) {
+        Log.w(
+            TAG,
+            "Skipping DASH Period update: periodIndex="
+                + periodIndex
+                + ", periodCount="
+                + manifest.getPeriodCount());
+        continue;
       }
+
+      periodsById.valueAt(i).updateManifest(manifest, periodIndex);
     }
     // Update the window.
     Period firstPeriod = manifest.getPeriod(0);
