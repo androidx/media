@@ -122,6 +122,14 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
+   * Returns whether {@link #execute} loads media onto the receiver, which replaces the receiver's
+   * media session.
+   */
+  public boolean executesLoad(RemoteMediaClient remoteMediaClient) {
+    return false;
+  }
+
+  /**
    * Applies this operation's optimistic changes onto {@code snapshot} and returns the resulting
    * {@link QueueSnapshot}.
    */
@@ -317,6 +325,11 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
+    public boolean executesLoad(RemoteMediaClient remoteMediaClient) {
+      return true;
+    }
+
+    @Override
     public QueueSnapshot createMaskedSnapshot(
         QueueSnapshot snapshot, CastTimelineTracker timelineTracker) {
       CastTimeline maskedTimeline =
@@ -359,6 +372,11 @@ import org.jspecify.annotations.Nullable;
     @Override
     public boolean shouldReloadOnQueueEnd(QueueSnapshot baseSnapshot) {
       return baseSnapshot.timeline.isEmpty();
+    }
+
+    @Override
+    public boolean executesLoad(RemoteMediaClient remoteMediaClient) {
+      return isReceiverQueueEmpty(remoteMediaClient);
     }
 
     @Override

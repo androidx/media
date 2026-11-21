@@ -87,6 +87,10 @@
         [intent to join](https://developers.google.com/cast/docs/android_sender/intent_to_join),
         automatically deferring session startup if `Cast` initialization is
         still in progress.
+    *   Fix a bug where calling `play()` or `pause()` on `RemoteCastPlayer`
+        while a load was in flight (for example, right after `setMediaItems`)
+        was rejected by the receiver, so new media could load paused
+        ([#3557](https://github.com/androidx/media/issues/3557)).
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:

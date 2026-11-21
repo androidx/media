@@ -700,6 +700,28 @@ public final class RemoteCastPlayer extends BasePlayer {
     setPlayerStateAndNotifyIfChanged(
         playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, playbackState);
     listeners.flushEvents();
+    if (queueOrchestrator.isLoadInFlight()) {
+      // Play and pause requests target the receiver's current media session, which the in-flight
+      // load replaces, so the receiver would reject them. Keep playWhenReady masked and send the
+      // request once the load completes.
+      ResultCallback<MediaChannelResult> loadMaskingCallback = unused -> {};
+      this.playWhenReady.pendingResultCallback = loadMaskingCallback;
+      queueOrchestrator.runAfterLoad(
+          () -> {
+            if (this.playWhenReady.pendingResultCallback == loadMaskingCallback) {
+              this.playWhenReady.clearPendingResultCallback();
+              sendPlayWhenReadyToReceiver(playWhenReady);
+            }
+          });
+      return;
+    }
+    sendPlayWhenReadyToReceiver(playWhenReady);
+  }
+
+  private void sendPlayWhenReadyToReceiver(boolean playWhenReady) {
+    if (!isCastSessionActive()) {
+      return;
+    }
     if (getMediaStatus() == null || CastUtils.hasQueueEnded(remoteMediaClient)) {
       // No media status means that both play and pause will fail, causing playWhenReady to be reset
       // to true. By not calling play/pause, the playWhenReady state holder remains populated until

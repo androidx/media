@@ -397,6 +397,98 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void play_whileLoadReplacingExistingMediaIsPending_playsAfterLoadCompletes() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1));
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
+
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item2));
+    remoteCastPlayer.play();
+
+    // The load was sent before play(), so it doesn't autoplay. play() must not be sent while the
+    // load is pending, because the receiver rejects it for the media session being replaced.
+    verify(mockRemoteMediaClient, times(2)).load(loadArgumentCaptor.capture());
+    assertThat(loadArgumentCaptor.getValue().getAutoplay()).isFalse();
+    verify(mockRemoteMediaClient, never()).play();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+
+    // The receiver reports the new media as paused. The masked playWhenReady is kept.
+    remoteMediaClientCallback.onStatusUpdated();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+
+    // The load completes, after which play() is sent for the new media.
+    updateTimeLine(
+        ImmutableList.of(item2), /* mediaQueueItemIds= */ new int[] {2}, /* currentItemId= */ 2);
+    verify(mockRemoteMediaClient).play();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+
+    verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
+    when(mockRemoteMediaClient.isPaused()).thenReturn(false);
+    setResultCallbackArgumentCaptor.getValue().onResult(defaultSuccessResult);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+  }
+
+  @Test
+  public void playAndPause_whileLoadIsPending_sendsOnlyLastRequestAfterLoadCompletes() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1));
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
+
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item2));
+    remoteCastPlayer.play();
+    remoteCastPlayer.pause();
+    updateTimeLine(
+        ImmutableList.of(item2), /* mediaQueueItemIds= */ new int[] {2}, /* currentItemId= */ 2);
+
+    verify(mockRemoteMediaClient, never()).play();
+    verify(mockRemoteMediaClient).pause();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
+  public void play_whilePendingLoadIsReplacedByAnotherLoad_playsAfterLatestLoadCompletes() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    MediaItem item2 = createMediaItem(/* mediaQueueItemId= */ 2);
+    MediaItem item3 = createMediaItem(/* mediaQueueItemId= */ 3);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1));
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
+    MediaChannelResult replacedResult = mock(MediaChannelResult.class);
+    when(replacedResult.getStatus()).thenReturn(new Status(CastStatusCodes.REPLACED));
+
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item2));
+    remoteCastPlayer.play();
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item3));
+    pendingResultCallbacks.remove(0).onResult(replacedResult);
+
+    verify(mockRemoteMediaClient, never()).play();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+
+    updateTimeLine(
+        ImmutableList.of(item3), /* mediaQueueItemIds= */ new int[] {3}, /* currentItemId= */ 3);
+
+    verify(mockRemoteMediaClient).play();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+  }
+
+  @Test
+  public void play_afterLoadCompleted_isSentImmediately() {
+    MediaItem item1 = createMediaItem(/* mediaQueueItemId= */ 1);
+    remoteCastPlayer.setMediaItems(ImmutableList.of(item1));
+    updateTimeLine(
+        ImmutableList.of(item1), /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
+
+    remoteCastPlayer.play();
+
+    verify(mockRemoteMediaClient).play();
+  }
+
+  @Test
   public void playbackParameters_defaultPlaybackSpeed_isUnitSpeed() {
     assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
   }
