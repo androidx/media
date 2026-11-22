@@ -18,6 +18,9 @@
         from `Transformer.start`.
 *   Track Selection:
 *   Extractors:
+    *   MPEG-TS: Read the DVB supplementary audio descriptor, so audio
+        description and clean audio tracks get the right role flags and
+        language ([#3574](https://github.com/androidx/media/issues/3574)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:

@@ -280,6 +280,14 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void streamWithSupplementaryAudioDescriptorOfMpegAudio() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/ts/sample_mpeg_audio_with_supplementary_audio_descriptor.ts",
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithMpeghBlCicp1Single() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
