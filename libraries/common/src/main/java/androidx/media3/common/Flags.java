@@ -134,6 +134,7 @@ public final class Flags {
    *   <li>{@link #FLAG_IGNORE_SHORT_MP4_MDHD_DURATION}
    *   <li>{@link #FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR}
    *   <li>{@link #FLAG_ENABLE_PCM_AUDIO_OFFLOAD}
+   *   <li>{@link #FLAG_UNIFIED_DECODER_RENDERER}
    * </ul>
    */
   @Documented
@@ -162,6 +163,7 @@ public final class Flags {
         FLAG_IGNORE_SHORT_MP4_MDHD_DURATION,
         FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR,
         FLAG_ENABLE_PCM_AUDIO_OFFLOAD,
+        FLAG_UNIFIED_DECODER_RENDERER,
       })
   public @interface Flag {}
 
@@ -389,7 +391,19 @@ public final class Flags {
   @ExperimentalApi // TODO(b/567859445): Remove this flag.
   public static final int FLAG_ENABLE_PCM_AUDIO_OFFLOAD = 20;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 21;
+  /**
+   * Flag to enable the unified decoder renderer architecture in ExoPlayer.
+   *
+   * <p>When enabled, extension decoders (such as Dav1d, VP9, FFmpeg) are unified under {@code
+   * MediaCodecVideoRenderer} and {@code MediaCodecAudioRenderer} via {@code ExtensionCodecAdapter}
+   * rather than instantiated as separate {@code Renderer} instances.
+   *
+   * <p>This flag is not yet covered by canary mode and defaults to {@code false}.
+   */
+  @ExperimentalApi // TODO(b/562381449): Remove this flag.
+  public static final int FLAG_UNIFIED_DECODER_RENDERER = 21;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 22;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 
@@ -405,6 +419,7 @@ public final class Flags {
     STATIC_FLAG_STATES.put(FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS, false);
     STATIC_FLAG_STATES.put(FLAG_METADATA_RENDERER_DURATION_TO_PROGRESS, false);
     STATIC_FLAG_STATES.put(FLAG_ENABLE_PCM_AUDIO_OFFLOAD, false);
+    STATIC_FLAG_STATES.put(FLAG_UNIFIED_DECODER_RENDERER, false);
 
     // Statically enabled flags (kept as fallback for opt-out).
     STATIC_FLAG_STATES.put(FLAG_DYNAMIC_SCHEDULING, true);

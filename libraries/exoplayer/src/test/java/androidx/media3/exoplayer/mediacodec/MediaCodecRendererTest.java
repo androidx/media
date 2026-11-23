@@ -16,7 +16,10 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.format;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,7 +58,10 @@ import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
+import androidx.media3.decoder.Decoder;
+import androidx.media3.decoder.DecoderException;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.decoder.SimpleDecoderOutputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -76,8 +82,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
@@ -835,6 +843,461 @@ public class MediaCodecRendererTest {
         .contains("ISE from inside MediaCodec");
   }
 
+  @Test
+  public void render_whenExtensionCodecThrowsDecoderException_wrapsInExoPlaybackException()
+      throws Exception {
+    DecoderException decoderException = new DecoderException("Extension decoder failed") {};
+    FakeExtensionDecoder failingDecoder =
+        new FakeExtensionDecoder(/* initialBufferSize= */ 128) {
+          @Override
+          public DecoderInputBuffer dequeueInputBuffer() throws DecoderException {
+            throw decoderException;
+          }
+        };
+    MediaCodecAdapter.Factory extensionAdapterFactory =
+        configuration -> new ExtensionCodecAdapter(configuration.format, failingDecoder) {};
+    TestRenderer renderer = new TestRenderer(extensionAdapterFactory);
+    ExoPlaybackException playbackException;
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        Format format =
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.AUDIO_AAC)
+                .setAverageBitrate(1000)
+                .build();
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(format, /* sampleTimesUs...= */ 0, 100, 200, 300, 400, 500);
+        enableAndStartRenderer(
+            renderer, format, fakeSampleStream, /* positionUs= */ 0, /* startPositionUs= */ 400);
+        long elapsedRealtimeUs = SystemClock.elapsedRealtime() * 1000;
+
+        playbackException =
+            assertThrows(
+                ExoPlaybackException.class,
+                () -> renderer.render(/* positionUs= */ 0, elapsedRealtimeUs));
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(playbackException.type).isEqualTo(ExoPlaybackException.TYPE_RENDERER);
+    assertThat(playbackException.errorCode)
+        .isEqualTo(ExoPlaybackException.ERROR_CODE_DECODING_FAILED);
+    assertThat(playbackException)
+        .hasCauseThat()
+        .hasCauseThat()
+        .hasCauseThat()
+        .isSameInstanceAs(decoderException);
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecAdapterAndEarlyReturnAfterReallocation_synchronizesInputBufferData()
+          throws Exception {
+    FakeExtensionDecoder fakeDecoder = new FakeExtensionDecoder(/* initialBufferSize= */ 0);
+    MediaCodecAdapter.Factory extensionAdapterFactory =
+        configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {};
+    TestRenderer renderer =
+        new TestRenderer(extensionAdapterFactory) {
+          @Override
+          protected DecoderReuseEvaluation canReuseCodec(
+              MediaCodecInfo codecInfo,
+              Format oldFormat,
+              Format newFormat,
+              boolean isAdaptiveFormatChange) {
+            return new DecoderReuseEvaluation(
+                codecInfo.name,
+                oldFormat,
+                newFormat,
+                DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+
+          @Override
+          protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
+            return buffer.timeUs == 0;
+          }
+        };
+    int capacityAfterSkippedSample;
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        Format initialFormat =
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H264)
+                .setWidth(640)
+                .setHeight(360)
+                .build();
+        Format reconfiguredFormat =
+            initialFormat
+                .buildUpon()
+                .setInitializationData(ImmutableList.of(new byte[256]))
+                .build();
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(
+                initialFormat,
+                ImmutableList.of(sample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME, new byte[64])));
+        enableAndStartRenderer(renderer, initialFormat, fakeSampleStream);
+
+        // First render reads the 64-byte sample and returns early via shouldSkipDecoderInputBuffer
+        // before queueInputBuffer.
+        renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+        capacityAfterSkippedSample = checkNotNull(fakeDecoder.decoderInputBuffer.data).capacity();
+        // Queue a keyframe followed by a format with 256-byte initializationData and no sample yet,
+        // triggering RECONFIGURATION_STATE_WRITE_PENDING followed by RESULT_NOTHING_READ.
+        fakeSampleStream.append(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+                format(reconfiguredFormat)));
+        fakeSampleStream.writeData(/* startPositionUs= */ 0);
+        renderer.render(/* positionUs= */ 20_000, SystemClock.elapsedRealtime() * 1000);
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(capacityAfterSkippedSample).isAtLeast(64);
+    assertThat(checkNotNull(fakeDecoder.decoderInputBuffer.data).capacity()).isAtLeast(256);
+  }
+
+  @Test
+  public void
+      resetPosition_withExtensionCodecAdapterAndPendingInputBuffer_flushesAndResetsInputBuffer()
+          throws Exception {
+    FakeExtensionDecoder fakeDecoder = new FakeExtensionDecoder(/* initialBufferSize= */ 128);
+    MediaCodecAdapter.Factory extensionAdapterFactory =
+        configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {};
+    TestRenderer renderer =
+        new TestRenderer(extensionAdapterFactory) {
+          @Override
+          protected boolean shouldDiscardDecoderInputBuffer(DecoderInputBuffer buffer) {
+            return buffer.timeUs == 0;
+          }
+        };
+    int flushCountAfterReset;
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        Format format =
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H264)
+                .setWidth(640)
+                .setHeight(360)
+                .build();
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(
+                format,
+                ImmutableList.of(sample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME, new byte[64])));
+        enableAndStartRenderer(renderer, format, fakeSampleStream);
+        // First render dequeues inputBuffer, writes 64 bytes, and discards via
+        // shouldDiscardDecoderInputBuffer without clearing buffer.data before any buffer is queued
+        // (codecReceivedBuffers == false).
+        renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+
+        renderer.resetPosition(/* positionUs= */ 20_000, /* sampleStreamIsResetToKeyFrame= */ true);
+        fakeSampleStream.append(
+            ImmutableList.of(oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME)));
+        fakeSampleStream.writeData(/* startPositionUs= */ 0);
+        renderer.render(/* positionUs= */ 20_000, SystemClock.elapsedRealtime() * 1000);
+        flushCountAfterReset = fakeDecoder.flushCount;
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(flushCountAfterReset).isEqualTo(1);
+    assertThat(fakeDecoder.lastQueuedSize).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      renderAndResetPosition_withExtensionCodecAdapter_updatesOutputStartTimeUsAndBufferFlags()
+          throws Exception {
+    FakeExtensionDecoder fakeDecoder = new FakeExtensionDecoder(/* initialBufferSize= */ 128);
+    MediaCodecAdapter.Factory extensionAdapterFactory =
+        configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {};
+    TestRenderer renderer = new TestRenderer(extensionAdapterFactory);
+    List<Long> outputStartTimesUsBeforeDisable;
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        Format format =
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H264)
+                .setWidth(640)
+                .setHeight(360)
+                .build();
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(
+                format,
+                ImmutableList.of(
+                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(/* timeUs= */ 0),
+                    oneByteSample(/* timeUs= */ 10_000, C.BUFFER_FLAG_LAST_SAMPLE)));
+        enableAndStartRenderer(
+            renderer,
+            format,
+            fakeSampleStream,
+            /* positionUs= */ 10_000,
+            /* startPositionUs= */ 10_000);
+
+        renderer.render(/* positionUs= */ 10_000, SystemClock.elapsedRealtime() * 1000);
+        renderer.resetPosition(
+            /* positionUs= */ 20_000, /* sampleStreamIsResetToKeyFrame= */ false);
+        fakeSampleStream.append(
+            ImmutableList.of(oneByteSample(/* timeUs= */ 10_000, C.BUFFER_FLAG_KEY_FRAME)));
+        fakeSampleStream.writeData(/* startPositionUs= */ 0);
+        renderer.render(/* positionUs= */ 20_000, SystemClock.elapsedRealtime() * 1000);
+        renderer.resetPosition(/* positionUs= */ 30_000, /* sampleStreamIsResetToKeyFrame= */ true);
+        fakeSampleStream.append(
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+        fakeSampleStream.writeData(/* startPositionUs= */ 0);
+        renderer.render(/* positionUs= */ 30_000, SystemClock.elapsedRealtime() * 1000);
+        outputStartTimesUsBeforeDisable = new ArrayList<>(fakeDecoder.outputStartTimesUs);
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(outputStartTimesUsBeforeDisable)
+        .containsExactly(10_000L, 20_000L, C.TIME_UNSET, 30_000L)
+        .inOrder();
+    assertThat(fakeDecoder.queuedInputKeyFrameFlags)
+        .containsExactly(true, false, false, true, true)
+        .inOrder();
+    assertThat(fakeDecoder.queuedInputFirstSampleFlags)
+        .containsExactly(true, false, false, false, true)
+        .inOrder();
+    assertThat(fakeDecoder.queuedInputLastSampleFlags)
+        .containsExactly(false, false, true, false, false)
+        .inOrder();
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecRequiringInitDataMatchAndChangedAv1InitData_reinitializesCodec()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    List<Format> configuredFormats = new ArrayList<>();
+    MediaCodecAdapter.Factory extensionAdapterFactory =
+        configuration -> {
+          configuredFormats.add(configuration.format);
+          return new ExtensionCodecAdapter(
+              configuration.format, new FakeExtensionDecoder(/* initialBufferSize= */ 128)) {};
+        };
+    ExtensionCodecInfo av1ExtensionCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.av1.decoder", MimeTypes.VIDEO_AV1) {
+          @Override
+          protected boolean requiresInitializationDataMatch() {
+            return true;
+          }
+        };
+    TestRenderer renderer =
+        new TestRenderer(extensionAdapterFactory) {
+          @Override
+          protected ImmutableList<MediaCodecInfo> getDecoderInfos(
+              MediaCodecSelector mediaCodecSelector, Format format, boolean requiresSecureDecoder) {
+            return ImmutableList.of(av1ExtensionCodecInfo);
+          }
+        };
+    Format av1Format1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setWidth(640)
+            .setHeight(360)
+            .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3}))
+            .build();
+    Format av1Format2 =
+        av1Format1
+            .buildUpon()
+            .setInitializationData(ImmutableList.of(new byte[] {4, 5, 6}))
+            .build();
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(
+                av1Format1,
+                ImmutableList.of(
+                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                    format(av1Format2),
+                    oneByteSample(/* timeUs= */ 10_000, C.BUFFER_FLAG_KEY_FRAME),
+                    END_OF_STREAM_ITEM));
+        enableAndStartRenderer(renderer, av1Format1, fakeSampleStream);
+
+        renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+        renderer.render(/* positionUs= */ 10_000, SystemClock.elapsedRealtime() * 1000);
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(configuredFormats).hasSize(2);
+    assertThat(configuredFormats.get(0).initializationData)
+        .isEqualTo(av1Format1.initializationData);
+    assertThat(configuredFormats.get(1).initializationData)
+        .isEqualTo(av1Format2.initializationData);
+  }
+
+  @Test
+  public void
+      flushOrReinitializeCodec_whenSwitchingFromPlatformAv1CodecToExtensionCodec_preservesInitializationData()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    List<Format> configuredFormats = new ArrayList<>();
+    MediaCodecInfo platformAv1CodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.av1.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* codecMimeType= */ MimeTypes.VIDEO_AV1,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    ExtensionCodecInfo extensionAv1CodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.av1.decoder", MimeTypes.VIDEO_AV1) {};
+    List<MediaCodecInfo> currentCodecInfos = new ArrayList<>();
+    currentCodecInfos.add(platformAv1CodecInfo);
+    MediaCodecAdapter.Factory adapterFactory =
+        configuration -> {
+          configuredFormats.add(configuration.format);
+          return new ExtensionCodecAdapter(
+              configuration.format, new FakeExtensionDecoder(/* initialBufferSize= */ 128)) {};
+        };
+    TestRenderer renderer =
+        new TestRenderer(adapterFactory) {
+          @Override
+          protected ImmutableList<MediaCodecInfo> getDecoderInfos(
+              MediaCodecSelector mediaCodecSelector, Format format, boolean requiresSecureDecoder) {
+            return ImmutableList.copyOf(currentCodecInfos);
+          }
+
+          @Override
+          protected boolean shouldReleaseCodecInsteadOfFlushing() {
+            return true;
+          }
+        };
+    Format av1Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setWidth(640)
+            .setHeight(360)
+            .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3}))
+            .build();
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(av1Format, /* sampleTimesUs...= */ 0, 10_000);
+        enableAndStartRenderer(renderer, av1Format, fakeSampleStream);
+
+        renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+        currentCodecInfos.clear();
+        currentCodecInfos.add(extensionAv1CodecInfo);
+        renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(configuredFormats).hasSize(2);
+    assertThat(configuredFormats.get(0).initializationData).isEmpty();
+    assertThat(configuredFormats.get(1).initializationData).isEqualTo(av1Format.initializationData);
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecInfoAndNonExtensionCodecAdapter_releasesAdapterAndThrowsDecoderInitFailed()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    AtomicBoolean adapterReleased = new AtomicBoolean();
+    ExtensionCodecInfo extensionCodecInfo =
+        ExtensionCodecInfo.newInstance(/* name= */ "c2.media3.av1.decoder", MimeTypes.VIDEO_AV1);
+    MediaCodecAdapter.Factory invalidWrapperFactory =
+        configuration ->
+            new ThrowingMediaCodecAdapter(() -> new IllegalStateException("Unexpected call")) {
+              @Override
+              public void release() {
+                adapterReleased.set(true);
+              }
+            };
+    TestRenderer renderer =
+        new TestRenderer(invalidWrapperFactory) {
+          @Override
+          protected ImmutableList<MediaCodecInfo> getDecoderInfos(
+              MediaCodecSelector mediaCodecSelector, Format format, boolean requiresSecureDecoder) {
+            return ImmutableList.of(extensionCodecInfo);
+          }
+        };
+    ExoPlaybackException thrown;
+    @Nullable MediaCodecAdapter codecAfterFailure;
+    try {
+      try {
+        renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+        Format av1Format =
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_AV1)
+                .setWidth(640)
+                .setHeight(360)
+                .build();
+        FakeSampleStream fakeSampleStream =
+            createFakeSampleStream(av1Format, /* sampleTimesUs...= */ 0);
+        enableAndStartRenderer(renderer, av1Format, fakeSampleStream);
+
+        thrown =
+            assertThrows(
+                ExoPlaybackException.class,
+                () -> renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000));
+        codecAfterFailure = renderer.getCodec();
+      } finally {
+        stopDisableAndResetRenderer(renderer);
+      }
+    } finally {
+      renderer.release();
+    }
+
+    assertThat(thrown.errorCode).isEqualTo(PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(IllegalStateException.class);
+    assertThat(adapterReleased.get()).isTrue();
+    assertThat(codecAfterFailure).isNull();
+  }
+
+  @Test
+  public void
+      render_withNonMediaCodecAndNonDecoderExceptionIllegalStateException_rethrowsIllegalStateException()
+          throws Exception {
+    MediaCodecAdapter.Factory throwingMediaCodecAdapterFactory =
+        new ThrowingMediaCodecAdapter.Factory(() -> new IllegalStateException("Non-codec ISE"));
+    TestRenderer renderer = new TestRenderer(throwingMediaCodecAdapterFactory);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    Format format =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setAverageBitrate(1000).build();
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(format, /* sampleTimesUs...= */ 0, 100);
+    enableAndStartRenderer(renderer, format, fakeSampleStream);
+    long elapsedRealtimeUs = SystemClock.elapsedRealtime() * 1000;
+
+    IllegalStateException thrown =
+        assertThrows(
+            IllegalStateException.class,
+            () -> renderer.render(/* positionUs= */ 0, elapsedRealtimeUs));
+
+    assertThat(thrown).hasMessageThat().contains("Non-codec ISE");
+  }
+
   // b/347367307#comment6
   @Test
   public void render_wrapsCryptoExceptionFromAnyMediaCodecMethod() throws Exception {
@@ -1454,6 +1917,48 @@ public class MediaCodecRendererTest {
     shadowOf(Looper.getMainLooper()).idle();
   }
 
+  private static void enableAndStartRenderer(
+      MediaCodecRenderer renderer, Format format, FakeSampleStream sampleStream) throws Exception {
+    enableAndStartRenderer(
+        renderer, format, sampleStream, /* positionUs= */ 0, /* startPositionUs= */ 0);
+  }
+
+  private static void enableAndStartRenderer(
+      MediaCodecRenderer renderer,
+      Format format,
+      FakeSampleStream sampleStream,
+      long positionUs,
+      long startPositionUs)
+      throws Exception {
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        sampleStream,
+        positionUs,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        startPositionUs,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+  }
+
+  private static void stopDisableAndResetRenderer(MediaCodecRenderer renderer) {
+    try {
+      if (renderer.getState() == Renderer.STATE_STARTED) {
+        renderer.stop();
+      }
+    } finally {
+      try {
+        if (renderer.getState() == Renderer.STATE_ENABLED) {
+          renderer.disable();
+        }
+      } finally {
+        renderer.reset();
+      }
+    }
+  }
+
   private FakeSampleStream createFakeSampleStream(Format format, long... sampleTimesUs) {
     ImmutableList.Builder<FakeSampleStream.FakeSampleStreamItem> sampleListBuilder =
         ImmutableList.builder();
@@ -1461,6 +1966,11 @@ public class MediaCodecRendererTest {
       sampleListBuilder.add(oneByteSample(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME));
     }
     sampleListBuilder.add(END_OF_STREAM_ITEM);
+    return createFakeSampleStream(format, sampleListBuilder.build());
+  }
+
+  private static FakeSampleStream createFakeSampleStream(
+      Format format, List<FakeSampleStream.FakeSampleStreamItem> sampleItems) {
     FakeSampleStream sampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -1468,7 +1978,7 @@ public class MediaCodecRendererTest {
             DrmSessionManager.DRM_UNSUPPORTED,
             new DrmSessionEventListener.EventDispatcher(),
             /* initialFormat= */ format,
-            sampleListBuilder.build());
+            sampleItems);
     sampleStream.writeData(/* startPositionUs= */ 0);
     return sampleStream;
   }
@@ -1606,7 +2116,7 @@ public class MediaCodecRendererTest {
 
     private final Supplier<RuntimeException> exceptionSupplier;
 
-    private ThrowingMediaCodecAdapter(Supplier<RuntimeException> exceptionSupplier) {
+    ThrowingMediaCodecAdapter(Supplier<RuntimeException> exceptionSupplier) {
       this.exceptionSupplier = exceptionSupplier;
     }
 
@@ -1908,6 +2418,88 @@ public class MediaCodecRendererTest {
             eq(isDecodeOnly),
             anyBoolean(),
             any());
+  }
+
+  private static class FakeExtensionDecoder
+      implements Decoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException> {
+
+    private final DecoderInputBuffer decoderInputBuffer;
+    private final List<Long> outputStartTimesUs;
+    private final List<Boolean> queuedInputKeyFrameFlags;
+    private final List<Boolean> queuedInputFirstSampleFlags;
+    private final List<Boolean> queuedInputLastSampleFlags;
+    private int lastQueuedSize;
+    private int flushCount;
+    private boolean inputDequeued;
+    private boolean pendingEndOfStreamOutput;
+
+    private FakeExtensionDecoder(int initialBufferSize) {
+      decoderInputBuffer =
+          new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+      if (initialBufferSize > 0) {
+        decoderInputBuffer.ensureSpaceForWrite(initialBufferSize);
+      }
+      outputStartTimesUs = new ArrayList<>();
+      queuedInputKeyFrameFlags = new ArrayList<>();
+      queuedInputFirstSampleFlags = new ArrayList<>();
+      queuedInputLastSampleFlags = new ArrayList<>();
+    }
+
+    @Override
+    public String getName() {
+      return "FakeExtensionDecoder";
+    }
+
+    @Override
+    public @Nullable DecoderInputBuffer dequeueInputBuffer() throws DecoderException {
+      if (inputDequeued) {
+        return null;
+      }
+      inputDequeued = true;
+      decoderInputBuffer.clear();
+      return decoderInputBuffer;
+    }
+
+    @Override
+    public void queueInputBuffer(DecoderInputBuffer inputBuffer) throws DecoderException {
+      inputDequeued = false;
+      if (inputBuffer.isEndOfStream()) {
+        pendingEndOfStreamOutput = true;
+      } else {
+        queuedInputKeyFrameFlags.add(inputBuffer.isKeyFrame());
+        queuedInputFirstSampleFlags.add(inputBuffer.isFirstSample());
+        queuedInputLastSampleFlags.add(inputBuffer.isLastSample());
+        if (inputBuffer.data != null) {
+          lastQueuedSize = inputBuffer.data.remaining();
+        }
+      }
+    }
+
+    @Override
+    public @Nullable SimpleDecoderOutputBuffer dequeueOutputBuffer() throws DecoderException {
+      if (pendingEndOfStreamOutput) {
+        pendingEndOfStreamOutput = false;
+        SimpleDecoderOutputBuffer eosBuffer = new SimpleDecoderOutputBuffer(unused -> {});
+        eosBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+        return eosBuffer;
+      }
+      return null;
+    }
+
+    @Override
+    public void flush() {
+      flushCount++;
+      inputDequeued = false;
+      pendingEndOfStreamOutput = false;
+    }
+
+    @Override
+    public void release() {}
+
+    @Override
+    public void setOutputStartTimeUs(long outputStartTimeUs) {
+      outputStartTimesUs.add(outputStartTimeUs);
+    }
   }
 
   @Test
