@@ -72,6 +72,9 @@ ktorVersion = "3.5.1"
 leakCanaryVersion = "2.10"
 lottieVersion = "6.6.0"
 mockitoVersion = "3.12.4"
+# MockWebServer's new API (mockwebserver3) is only published with OkHttp 5. Used for tests only;
+# okhttpVersion below is what the library depends on.
+okhttpMockwebserver3Version = "5.3.2"
 okhttpVersion = "4.12.0"
 playServicesCronetVersion = "18.0.1"
 playServicesMediaEffectEnhancementVersion = "16.0.0-beta08"
@@ -166,6 +169,7 @@ material = { group = "com.google.android.material", name = "material", version.r
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoVersion" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttpVersion" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
+okhttp-mockwebserver3 = { group = "com.squareup.okhttp3", name = "mockwebserver3", version.ref = "okhttpMockwebserver3Version" }
 okhttp-urlconnection = { group = "com.squareup.okhttp3", name = "okhttp-urlconnection", version.ref = "okhttpVersion" }
 play-services-cronet = { group = "com.google.android.gms", name = "play-services-cronet", version.ref = "playServicesCronetVersion" }
 play-services-media-effect-enhancement = { group = "com.google.android.gms", name = "play-services-media-effect-enhancement", version.ref = "playServicesMediaEffectEnhancementVersion" }
