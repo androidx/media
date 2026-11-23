@@ -23,11 +23,9 @@ import org.gradle.api.artifacts.CacheableRule
 import org.gradle.api.artifacts.ComponentMetadataContext
 import org.gradle.api.artifacts.ComponentMetadataRule
 import org.gradle.api.artifacts.VersionCatalog
-import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.kotlin.dsl.all
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
-import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog) {
@@ -77,14 +75,10 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       }
     }
 
-    // TODO: b/502167525 - Upgrade source/targetCompatibility to JavaVersion.VERSION_11.
-    // AndroidX bytecode has moved to Java 11 (b/457821470). When androidx.compose.bom is updated,
-    // Kotlin consumers calling inline Compose APIs will require JVM target 11.
     compileOptions.apply {
-      sourceCompatibility = JavaVersion.VERSION_1_8
-      targetCompatibility = JavaVersion.VERSION_1_8
+      sourceCompatibility = JavaVersion.VERSION_11
+      targetCompatibility = JavaVersion.VERSION_11
     }
-    tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("-Xlint:-options") }
 
     testOptions.apply {
       unitTests.all {

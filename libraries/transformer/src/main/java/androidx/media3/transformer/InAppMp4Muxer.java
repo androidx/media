@@ -315,14 +315,12 @@ public final class InAppMp4Muxer implements Muxer {
   }
 
   @Override
-  @SuppressWarnings("TryWithResourcesVariable") // try (muxer) requires Java 9.
   public void close() throws MuxerException {
     if (isClosed) {
       return;
     }
     isClosed = true;
-    // TODO: b/502167525 - Use try (muxer) once Media3 compiles with Java 11.
-    try (Mp4Muxer unused = muxer) {
+    try (muxer) {
       if (videoDurationUs != C.TIME_UNSET && videoTrackId != TRACK_ID_UNSET) {
         BufferInfo bufferInfo =
             new BufferInfo(

@@ -131,6 +131,11 @@
         Throwable, int)` instead.
     *   Remove `UnrecognizedInputFormatException(String, Uri)`. Use
         `UnrecognizedInputFormatException(String, Uri, List)` instead.
+*   Build:
+    *   Compile all libraries with Java 11 source and target compatibility, in
+        line with other AndroidX libraries. The libraries now contain Java 11
+        bytecode (class file version 55)
+        ([#1891](https://github.com/androidx/media/issues/1891)).
 
 ## 1.12
 

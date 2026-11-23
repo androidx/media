@@ -20,13 +20,6 @@ plugins {
 android {
   namespace = "androidx.media3.demo.effect"
 
-  // TODO: b/502167525 - Remove this temporary JVM 11 override once commonConfig.kt
-  // is migrated to Java 11 and the rc01 dependency is reverted back to the BOM.
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-  }
-
   buildTypes {
     getByName("release") {
       isShrinkResources = true
