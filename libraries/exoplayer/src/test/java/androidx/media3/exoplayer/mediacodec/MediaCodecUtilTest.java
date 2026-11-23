@@ -620,6 +620,39 @@ public final class MediaCodecUtilTest {
     assertThat(decoderInfos).isEmpty();
   }
 
+  @Test
+  public void
+      getDecoderInfosSoftMatch_withEncryptedFormat_filtersOnlyExtensionDecodersNotSupportingDrm()
+          throws Exception {
+    Format encryptedAv1Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCryptoType(C.CRYPTO_TYPE_CUSTOM_BASE)
+            .build();
+    ExtensionCodecInfo defaultExtensionInfo =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.av1.default.decoder", MimeTypes.VIDEO_AV1);
+    ExtensionCodecInfo drmCapableExtensionInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.av1.drm.decoder", MimeTypes.VIDEO_AV1) {
+          @Override
+          public boolean isFormatDrmSupported(Format format) {
+            return format.cryptoType == C.CRYPTO_TYPE_CUSTOM_BASE;
+          }
+        };
+    MediaCodecSelector mediaCodecSelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            ImmutableList.of(defaultExtensionInfo, drmCapableExtensionInfo);
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getDecoderInfosSoftMatch(
+            mediaCodecSelector,
+            encryptedAv1Format,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(drmCapableExtensionInfo);
+  }
+
   private static CodecCapabilities createCodecCapabilities(int profile, int level) {
     CodecCapabilities capabilities = new CodecCapabilities();
     capabilities.profileLevels = new CodecProfileLevel[] {createCodecProfileLevel(profile, level)};

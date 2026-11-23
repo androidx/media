@@ -188,8 +188,10 @@ public final class MediaCodecUtil {
       boolean requiresTunnelingDecoder)
       throws DecoderQueryException {
     List<MediaCodecInfo> decoderInfos =
-        mediaCodecSelector.getDecoderInfos(
-            format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+        filterOutExtensionDecodersIfEncrypted(
+            mediaCodecSelector.getDecoderInfos(
+                format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder),
+            format);
     List<MediaCodecInfo> alternativeDecoderInfos =
         getAlternativeDecoderInfos(
             mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
@@ -276,8 +278,10 @@ public final class MediaCodecUtil {
     if (alternativeMimeType == null) {
       return ImmutableList.of();
     }
-    return mediaCodecSelector.getDecoderInfos(
-        alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    return filterOutExtensionDecodersIfEncrypted(
+        mediaCodecSelector.getDecoderInfos(
+            alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder),
+        format);
   }
 
   /**
@@ -502,6 +506,23 @@ public final class MediaCodecUtil {
   }
 
   // Internal methods.
+
+  private static List<MediaCodecInfo> filterOutExtensionDecodersIfEncrypted(
+      List<MediaCodecInfo> decoderInfos, Format format) {
+    if (decoderInfos.isEmpty()
+        || (format.cryptoType == C.CRYPTO_TYPE_NONE && format.drmInitData == null)) {
+      return decoderInfos;
+    }
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (!(decoderInfo instanceof ExtensionCodecInfo)
+          || ((ExtensionCodecInfo) decoderInfo).isFormatDrmSupported(format)) {
+        result.add(decoderInfo);
+      }
+    }
+    return result.build();
+  }
 
   /**
    * Returns whether the device supports decoding E-AC3 JOC streams using a standard E-AC3 decoder
