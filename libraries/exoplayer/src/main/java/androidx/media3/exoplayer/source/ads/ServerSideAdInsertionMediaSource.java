@@ -350,8 +350,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
               mediaPeriodImpl.mediaPeriodId.windowSequenceNumber,
               mediaPeriodImpl.mediaPeriodId.periodUid),
           mediaPeriodImpl.sharedPeriod);
-      if (mediaPeriods.isEmpty()) {
-        // Keep until disabled.
+      if (mediaPeriods.isEmpty() && mediaPeriodImpl.sharedPeriod.isPrepared) {
+        // Keep until disabled. Unprepared periods are released immediately so that the next period
+        // can prepare the wrapped source at its own start position.
         lastUsedMediaPeriod = mediaPeriodImpl.sharedPeriod;
       } else {
         mediaPeriodImpl.sharedPeriod.release(mediaSource);
@@ -850,6 +851,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       mediaPeriod.lastStartPositionUs = positionUs;
       if (mediaPeriod.equals(mediaPeriods.get(0))) {
         // Do the real selection for the current first period in the list.
+        @Nullable ExoTrackSelection[] oldTrackSelections = trackSelections;
         trackSelections = Arrays.copyOf(selections, selections.length);
         long requestedPositionUs =
             getStreamPositionUs(positionUs, mediaPeriod.mediaPeriodId, adPlaybackState);
@@ -875,7 +877,13 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
             streams[i] =
                 new SampleStreamImpl(
                     mediaPeriod, /* streamIndex= */ i, /* isReusedStream= */ false);
-            lastDownstreamFormatChangeData[i] = null;
+            // Clear the last known downstream format only when the selection changed, because the
+            // wrapped source may not report it again if a stream is recreated for the same
+            // selection (e.g. after a seek into another period of the same wrapped media period).
+            if (i >= oldTrackSelections.length
+                || !Objects.equals(oldTrackSelections[i], selections[i])) {
+              lastDownstreamFormatChangeData[i] = null;
+            }
           }
         }
         return getMediaPeriodPositionUs(

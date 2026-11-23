@@ -35,10 +35,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.media3.common.AdPlaybackState;
@@ -1044,6 +1046,321 @@ public final class ServerSideAdInsertionMediaSourceTest {
         selectSingleTrack(contentMediaPeriod, trackGroup, /* positionUs= */ 300_000);
 
     assertThat(streams[0].getFlags()).isEqualTo(0);
+  }
+
+  @Test
+  public void readData_seekWithUnchangedSelection_notifiesDownstreamFormat() throws Exception {
+    Format format = new Format.Builder().setId("track0").build();
+    TrackGroup trackGroup = new TrackGroup(format);
+    FakeTimeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(10_000_000L)
+                .setWindowPositionInFirstPeriodUs(0L)
+                .build());
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    // Midroll ad at stream position 5s with a duration of 1s.
+    AdPlaybackState adPlaybackState =
+        addAdGroupToAdPlaybackState(
+            new AdPlaybackState(/* adsId= */ new Object()),
+            /* fromPositionUs= */ 5_000_000L,
+            /* contentResumeOffsetUs= */ 0L,
+            /* adDurationsUs...= */ 1_000_000L);
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    FakeMediaSource wrappedMediaSource =
+        createSilentFormatFakeMediaSource(timeline, new TrackGroupArray(trackGroup));
+    ServerSideAdInsertionMediaSource mediaSource =
+        new ServerSideAdInsertionMediaSource(
+            wrappedMediaSource, /* adPlaybackStateUpdater= */ null);
+    mediaSource.setAdPlaybackStates(ImmutableMap.of(periodUid, adPlaybackState), timeline);
+    MediaSourceEventListener eventListener = mock(MediaSourceEventListener.class);
+    mediaSource.addEventListener(new Handler(Util.getCurrentOrMainLooper()), eventListener);
+    AtomicReference<Timeline> timelineReference = new AtomicReference<>();
+    MediaSource.MediaSourceCaller caller =
+        (source, newTimeline) -> timelineReference.set(newTimeline);
+    mediaSource.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> timelineReference.get() != null);
+    MediaSource.MediaPeriodId wrappedPeriodId =
+        new MediaSource.MediaPeriodId(periodUid, /* windowSequenceNumber= */ 0);
+    MediaSource.MediaPeriodId contentBeforeAdId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 0);
+    MediaSource.MediaPeriodId contentAfterAdId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ C.INDEX_UNSET);
+    MediaLoadData downstreamFormatData =
+        new MediaLoadData(
+            DATA_TYPE_MEDIA,
+            C.TRACK_TYPE_DEFAULT,
+            format,
+            C.SELECTION_REASON_INITIAL,
+            /* trackSelectionData= */ null,
+            /* mediaStartTimeMs= */ 0L,
+            /* mediaEndTimeMs= */ C.TIME_UNSET);
+    MediaPeriod contentBeforeAd =
+        mediaSource.createPeriod(contentBeforeAdId, allocator, /* startPositionUs= */ 0L);
+    prepareMediaPeriod(contentBeforeAd, /* positionUs= */ 0L);
+    SampleStream[] streamsBeforeAd =
+        selectSingleTrack(contentBeforeAd, trackGroup, /* positionUs= */ 0L);
+    boolean unused =
+        contentBeforeAd.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1f).build());
+    // The wrapped source reports the downstream format once for the whole wrapped period.
+    mediaSource.onDownstreamFormatChanged(
+        /* windowIndex= */ 0, wrappedPeriodId, downstreamFormatData);
+    readUntilSampleRead(streamsBeforeAd[0]);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Seek across the ad: the player releases the period before the ad and creates the content
+    // period after the ad with the same track selection.
+    mediaSource.releasePeriod(contentBeforeAd);
+    MediaPeriod contentAfterAd =
+        mediaSource.createPeriod(contentAfterAdId, allocator, /* startPositionUs= */ 5_000_000L);
+    prepareMediaPeriod(contentAfterAd, /* positionUs= */ 5_000_000L);
+    SampleStream[] streamsAfterAd =
+        selectSingleTrack(contentAfterAd, trackGroup, /* positionUs= */ 5_000_000L);
+    unused =
+        contentAfterAd.continueLoading(
+            new LoadingInfo.Builder()
+                .setPlaybackPositionUs(5_000_000L)
+                .setPlaybackSpeed(1f)
+                .build());
+    readUntilSampleRead(streamsAfterAd[0]);
+    shadowOf(Looper.getMainLooper()).idle();
+    mediaSource.releasePeriod(contentAfterAd);
+    mediaSource.releaseSource(caller);
+
+    ArgumentCaptor<MediaLoadData> beforeAdLoadData = ArgumentCaptor.forClass(MediaLoadData.class);
+    ArgumentCaptor<MediaLoadData> afterAdLoadData = ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(eventListener)
+        .onDownstreamFormatChanged(eq(0), eq(contentBeforeAdId), beforeAdLoadData.capture());
+    verify(eventListener)
+        .onDownstreamFormatChanged(eq(0), eq(contentAfterAdId), afterAdLoadData.capture());
+    assertThat(beforeAdLoadData.getValue().trackFormat).isEqualTo(format);
+    assertThat(afterAdLoadData.getValue().trackFormat).isEqualTo(format);
+    wrappedMediaSource.assertReleased();
+  }
+
+  @Test
+  public void readData_seekWithChangedSelection_clearsPreviousDownstreamFormat() throws Exception {
+    Format format0 = new Format.Builder().setId("track0").build();
+    Format format1 = new Format.Builder().setId("track1").build();
+    TrackGroup trackGroup0 = new TrackGroup(format0);
+    TrackGroup trackGroup1 = new TrackGroup(format1);
+    FakeTimeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(10_000_000L)
+                .setWindowPositionInFirstPeriodUs(0L)
+                .build());
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    // Midroll ad at stream position 5s with a duration of 1s.
+    AdPlaybackState adPlaybackState =
+        addAdGroupToAdPlaybackState(
+            new AdPlaybackState(/* adsId= */ new Object()),
+            /* fromPositionUs= */ 5_000_000L,
+            /* contentResumeOffsetUs= */ 0L,
+            /* adDurationsUs...= */ 1_000_000L);
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    FakeMediaSource wrappedMediaSource =
+        createSilentFormatFakeMediaSource(timeline, new TrackGroupArray(trackGroup0, trackGroup1));
+    ServerSideAdInsertionMediaSource mediaSource =
+        new ServerSideAdInsertionMediaSource(
+            wrappedMediaSource, /* adPlaybackStateUpdater= */ null);
+    mediaSource.setAdPlaybackStates(ImmutableMap.of(periodUid, adPlaybackState), timeline);
+    MediaSourceEventListener eventListener = mock(MediaSourceEventListener.class);
+    mediaSource.addEventListener(new Handler(Util.getCurrentOrMainLooper()), eventListener);
+    AtomicReference<Timeline> timelineReference = new AtomicReference<>();
+    MediaSource.MediaSourceCaller caller =
+        (source, newTimeline) -> timelineReference.set(newTimeline);
+    mediaSource.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> timelineReference.get() != null);
+    MediaSource.MediaPeriodId wrappedPeriodId =
+        new MediaSource.MediaPeriodId(periodUid, /* windowSequenceNumber= */ 0);
+    MediaSource.MediaPeriodId contentBeforeAdId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 0);
+    MediaSource.MediaPeriodId contentAfterAdId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ C.INDEX_UNSET);
+    MediaLoadData downstreamFormat0Data =
+        new MediaLoadData(
+            DATA_TYPE_MEDIA,
+            C.TRACK_TYPE_DEFAULT,
+            format0,
+            C.SELECTION_REASON_INITIAL,
+            /* trackSelectionData= */ null,
+            /* mediaStartTimeMs= */ 0L,
+            /* mediaEndTimeMs= */ C.TIME_UNSET);
+    MediaPeriod contentBeforeAd =
+        mediaSource.createPeriod(contentBeforeAdId, allocator, /* startPositionUs= */ 0L);
+    prepareMediaPeriod(contentBeforeAd, /* positionUs= */ 0L);
+    SampleStream[] streamsBeforeAd =
+        selectSingleTrack(contentBeforeAd, trackGroup0, /* positionUs= */ 0L);
+    boolean unused =
+        contentBeforeAd.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1f).build());
+    mediaSource.onDownstreamFormatChanged(
+        /* windowIndex= */ 0, wrappedPeriodId, downstreamFormat0Data);
+    readUntilSampleRead(streamsBeforeAd[0]);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    // Seek across the ad and switch to trackGroup1: the cached downstream format for trackGroup0
+    // must be cleared and not re-emitted for contentAfterAdId.
+    mediaSource.releasePeriod(contentBeforeAd);
+    MediaPeriod contentAfterAd =
+        mediaSource.createPeriod(contentAfterAdId, allocator, /* startPositionUs= */ 5_000_000L);
+    prepareMediaPeriod(contentAfterAd, /* positionUs= */ 5_000_000L);
+    SampleStream[] streamsAfterAd =
+        selectSingleTrack(contentAfterAd, trackGroup1, /* positionUs= */ 5_000_000L);
+    unused =
+        contentAfterAd.continueLoading(
+            new LoadingInfo.Builder()
+                .setPlaybackPositionUs(5_000_000L)
+                .setPlaybackSpeed(1f)
+                .build());
+    readUntilSampleRead(streamsAfterAd[0]);
+    shadowOf(Looper.getMainLooper()).idle();
+    mediaSource.releasePeriod(contentAfterAd);
+    mediaSource.releaseSource(caller);
+
+    ArgumentCaptor<MediaLoadData> beforeAdLoadData = ArgumentCaptor.forClass(MediaLoadData.class);
+    verify(eventListener)
+        .onDownstreamFormatChanged(eq(0), eq(contentBeforeAdId), beforeAdLoadData.capture());
+    assertThat(beforeAdLoadData.getValue().trackFormat).isEqualTo(format0);
+    verify(eventListener, never()).onDownstreamFormatChanged(eq(0), eq(contentAfterAdId), any());
+    wrappedMediaSource.assertReleased();
+  }
+
+  @Test
+  public void releasePeriod_beforePrepared_doesNotReuseWrappedPeriod() throws Exception {
+    FakeTimeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(10_000_000L)
+                .setWindowPositionInFirstPeriodUs(0L)
+                .build());
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    // Midroll ad at stream position 5s with a duration of 1s.
+    AdPlaybackState adPlaybackState =
+        addAdGroupToAdPlaybackState(
+            new AdPlaybackState(/* adsId= */ new Object()),
+            /* fromPositionUs= */ 5_000_000L,
+            /* contentResumeOffsetUs= */ 0L,
+            /* adDurationsUs...= */ 1_000_000L);
+    DefaultAllocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024);
+    List<Long> wrappedStartPositionsUs = new ArrayList<>();
+    FakeMediaSource wrappedMediaSource =
+        new FakeMediaSource(timeline) {
+          @Override
+          public MediaPeriod createPeriod(
+              MediaPeriodId id, Allocator allocator, long startPositionUs) {
+            wrappedStartPositionsUs.add(startPositionUs);
+            return super.createPeriod(id, allocator, startPositionUs);
+          }
+        };
+    wrappedMediaSource.setPeriodDefersOnPreparedCallback(true);
+    ServerSideAdInsertionMediaSource mediaSource =
+        new ServerSideAdInsertionMediaSource(
+            wrappedMediaSource, /* adPlaybackStateUpdater= */ null);
+    mediaSource.setAdPlaybackStates(ImmutableMap.of(periodUid, adPlaybackState), timeline);
+    AtomicReference<Timeline> timelineReference = new AtomicReference<>();
+    MediaSource.MediaSourceCaller caller =
+        (source, newTimeline) -> timelineReference.set(newTimeline);
+    mediaSource.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    runMainLooperUntil(() -> timelineReference.get() != null);
+    MediaSource.MediaPeriodId contentBeforeAdId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 0);
+    MediaSource.MediaPeriodId contentAfterAdId =
+        new MediaSource.MediaPeriodId(
+            periodUid, /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ C.INDEX_UNSET);
+    MediaPeriod.Callback callback =
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod mediaPeriod) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        };
+    MediaPeriod contentBeforeAd =
+        mediaSource.createPeriod(contentBeforeAdId, allocator, /* startPositionUs= */ 0L);
+    contentBeforeAd.prepare(callback, /* positionUs= */ 0L);
+
+    // Seek across the ad before the preparation of the first period completes.
+    mediaSource.releasePeriod(contentBeforeAd);
+    MediaPeriod contentAfterAd =
+        mediaSource.createPeriod(contentAfterAdId, allocator, /* startPositionUs= */ 5_000_000L);
+    contentAfterAd.prepare(callback, /* positionUs= */ 5_000_000L);
+    mediaSource.releasePeriod(contentAfterAd);
+    mediaSource.releaseSource(caller);
+
+    // The unprepared wrapped period is released and a new one is created at the stream position
+    // of the content after the ad.
+    assertThat(wrappedStartPositionsUs).containsExactly(0L, 6_000_000L).inOrder();
+    wrappedMediaSource.assertReleased();
+  }
+
+  private static FakeMediaSource createSilentFormatFakeMediaSource(
+      Timeline timeline, TrackGroupArray trackGroups) {
+    // Wrapped source whose sample streams never report downstream format changes themselves (like
+    // ProgressiveMediaPeriod, which only reports the first format per track).
+    return new FakeMediaSource(timeline) {
+      @Override
+      protected MediaPeriod createMediaPeriod(
+          MediaPeriodId id,
+          TrackGroupArray trackGroupArray,
+          Allocator allocator,
+          MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+          DrmSessionManager drmSessionManager,
+          DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+          @Nullable TransferListener transferListener) {
+        return new FakeMediaPeriod(
+            trackGroups,
+            allocator,
+            /* trackDataFactory= */ (unusedFormat, mediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                    oneByteSample(/* timeUs= */ 6_000_000L, C.BUFFER_FLAG_KEY_FRAME),
+                    END_OF_STREAM_ITEM),
+            mediaSourceEventDispatcher,
+            drmSessionManager,
+            drmEventDispatcher,
+            /* deferOnPrepared= */ false) {
+          @Override
+          protected FakeSampleStream createSampleStream(
+              Allocator allocator,
+              MediaSourceEventListener.@Nullable EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              Format initialFormat,
+              List<FakeSampleStream.FakeSampleStreamItem> fakeSampleStreamItems) {
+            return new FakeSampleStream(
+                allocator,
+                /* mediaSourceEventDispatcher= */ null,
+                drmSessionManager,
+                drmEventDispatcher,
+                initialFormat,
+                fakeSampleStreamItems);
+          }
+        };
+      }
+    };
+  }
+
+  private static void readUntilSampleRead(SampleStream sampleStream) {
+    FormatHolder formatHolder = new FormatHolder();
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int result;
+    do {
+      buffer.clear();
+      result = sampleStream.readData(formatHolder, buffer, /* readFlags= */ 0);
+    } while (result != C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
   }
 
   /**
