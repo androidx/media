@@ -77,6 +77,8 @@
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   AV1 extension: Fix a native memory leak of one decoded frame each time
+        `Libdav1dVideoRenderer` releases its decoder in surface output mode.
 *   MIDI extension:
     *   Move Sonivox wavetable data from `assets/` to `res/raw/` so that Android
         resource shrinking strips the wavetable resource when MIDI playback is

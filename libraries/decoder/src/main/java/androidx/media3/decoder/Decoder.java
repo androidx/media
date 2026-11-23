@@ -79,7 +79,12 @@ public interface Decoder<I, O, E extends DecoderException> {
    */
   void flush();
 
-  /** Releases the decoder. Must be called when the decoder is no longer needed. */
+  /**
+   * Releases the decoder. Must be called when the decoder is no longer needed.
+   *
+   * <p>The caller is not required to release dequeued output buffers before calling this method;
+   * implementations must free any internal or native resources associated with them.
+   */
   void release();
 
   /** Callback for asynchronous events. */

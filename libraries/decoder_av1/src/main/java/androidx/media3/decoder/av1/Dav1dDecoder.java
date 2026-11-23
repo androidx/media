@@ -59,6 +59,8 @@ public final class Dav1dDecoder
   @GuardedBy("lock")
   private final DecoderInputBuffer[] availableInputBuffers;
 
+  private final VideoDecoderOutputBuffer[] allOutputBuffers;
+
   @GuardedBy("lock")
   private final VideoDecoderOutputBuffer[] availableOutputBuffers;
 
@@ -146,10 +148,12 @@ public final class Dav1dDecoder
       allInputBuffers[i].ensureSpaceForWrite(initialInputBufferSize);
       availableInputBuffers[i] = allInputBuffers[i];
     }
+    allOutputBuffers = new VideoDecoderOutputBuffer[numOutputBuffers];
     availableOutputBuffers = new VideoDecoderOutputBuffer[numOutputBuffers];
     availableOutputBufferCount = numOutputBuffers;
     for (int i = 0; i < availableOutputBufferCount; i++) {
-      availableOutputBuffers[i] = new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+      allOutputBuffers[i] = new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+      availableOutputBuffers[i] = allOutputBuffers[i];
     }
     decodeThread =
         new Thread("ExoPlayer:Dav1dDecoder") {
@@ -617,6 +621,18 @@ public final class Dav1dDecoder
         // method depends on a valid context.
         while (!queuedOutputBuffers.isEmpty()) {
           queuedOutputBuffers.removeFirst().release();
+        }
+        // Free the native frames still attached to output buffers that the caller has dequeued but
+        // not released yet (e.g. a renderer releasing the decoder while holding a frame). Once the
+        // context is cleared, releaseOutputBuffer() can no longer free them, so they would leak.
+        // dav1dReleaseFrame clears the attached frame, so a later release() of the same buffer only
+        // returns it to the pool. Skip buffers without an attached frame: besides avoiding needless
+        // JNI calls, this keeps the init-failure path (where the JNI field IDs may not be set up)
+        // from calling into the native code at all.
+        for (VideoDecoderOutputBuffer outputBuffer : allOutputBuffers) {
+          if (outputBuffer.decoderPrivate != 0) {
+            dav1dReleaseFrame(context, outputBuffer);
+          }
         }
         this.dav1dDecoderContext = 0;
       }

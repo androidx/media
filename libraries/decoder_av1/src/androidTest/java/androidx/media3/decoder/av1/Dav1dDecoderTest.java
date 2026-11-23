@@ -200,6 +200,34 @@ public final class Dav1dDecoderTest {
   }
 
   /**
+   * Tests releasing the decoder while the caller still holds a dequeued surface-mode output buffer.
+   *
+   * <p>Ensures that {@code Dav1dDecoder.release()} frees the native picture attached to the held
+   * buffer, rather than leaking it once the decoder context is closed, and that releasing the
+   * buffer afterwards is safe.
+   */
+  @Test(timeout = 10_000)
+  public void release_whileHoldingSurfaceYuvOutputBuffer_freesNativePicture() throws Exception {
+    // Given a decoded surface-mode frame that the caller has dequeued but not released.
+    decoder = createDecoder();
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
+    VideoDecoderOutputBuffer outputBuffer =
+        feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
+    long initialDecoderPrivate = outputBuffer.decoderPrivate;
+
+    // When releasing the decoder before the output buffer.
+    decoder.release();
+    decoder = null;
+
+    // Then the native picture was freed by the decoder, and releasing the buffer afterwards is
+    // safe.
+    assertThat(initialDecoderPrivate).isNotEqualTo(0);
+    assertThat(outputBuffer.decoderPrivate).isEqualTo(0);
+    outputBuffer.release();
+    assertThat(outputBuffer.decoderPrivate).isEqualTo(0);
+  }
+
+  /**
    * Tests decode-only preroll handling when {@code outputStartTimeUs} is set.
    *
    * <p>Ensures that frames earlier than the target start time are marked as decode-only,
