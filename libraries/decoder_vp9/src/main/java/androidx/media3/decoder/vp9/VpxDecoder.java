@@ -164,7 +164,7 @@ public final class VpxDecoder
       }
     }
 
-    if (isAtLeastOutputStartTimeUs(inputBuffer.timeUs)) {
+    if (!outputBuffer.shouldBeSkipped) {
       outputBuffer.init(inputBuffer.timeUs, outputMode, lastSupplementalData);
       int getFrameResult = vpxGetFrame(vpxDecContext, outputBuffer);
       if (getFrameResult == 1) {
@@ -173,8 +173,6 @@ public final class VpxDecoder
         return new VpxDecoderException("Buffer initialization failed.");
       }
       outputBuffer.format = inputBuffer.format;
-    } else {
-      outputBuffer.shouldBeSkipped = true;
     }
     return null;
   }

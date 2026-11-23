@@ -103,10 +103,13 @@ public abstract class SimpleDecoder<
   }
 
   /**
-   * Returns whether a sample time is greater or equal to the {@link #setOutputStartTimeUs output
-   * start time}, if set.
+   * Returns whether a sample time is greater or equal to the {@linkplain #setOutputStartTimeUs
+   * output start time}, if set.
    *
-   * <p>If this method returns false, the buffer will not be made available as an output buffer.
+   * <p>If this method returns {@code false}, the output buffer's {@link
+   * DecoderOutputBuffer#shouldBeSkipped} field is pre-populated to {@code true} before {@link
+   * #decode(DecoderInputBuffer, DecoderOutputBuffer, boolean)} is called (unless the output buffer
+   * is a {@link VideoDecoderOutputBuffer} marked with {@link C#BUFFER_FLAG_LAST_SAMPLE}).
    *
    * @param timeUs The buffer time, in microseconds.
    * @return Whether the buffer time is greater or equal to the output start time, or {@code true}
@@ -121,15 +124,15 @@ public abstract class SimpleDecoder<
   @Override
   public final void setOutputStartTimeUs(long outputStartTimeUs) {
     synchronized (lock) {
-      checkState(availableInputBufferCount == availableInputBuffers.length || flushed);
       this.outputStartTimeUs = outputStartTimeUs;
     }
   }
 
   @Override
-  public final void setCallback(Callback callback, Executor executor) {
+  public final void setCallback(@Nullable Callback callback, @Nullable Executor executor) {
+    checkArgument(callback == null || executor != null);
     synchronized (lock) {
-      this.executor = executor;
+      this.executor = callback != null ? executor : null;
       this.onOutputBufferAvailableRunnable =
           callback != null ? callback::onOutputBufferAvailable : null;
       this.onInputBufferAvailableRunnable =
@@ -172,6 +175,19 @@ public abstract class SimpleDecoder<
     }
   }
 
+  @Override
+  public final int getAndResetSkippedOutputBufferCount() {
+    synchronized (lock) {
+      int count = skippedOutputBufferCount;
+      skippedOutputBufferCount = 0;
+      for (O queuedOutputBuffer : queuedOutputBuffers) {
+        count += queuedOutputBuffer.skippedOutputBufferCount;
+        queuedOutputBuffer.skippedOutputBufferCount = 0;
+      }
+      return count;
+    }
+  }
+
   /**
    * Releases an output buffer back to the decoder.
    *
@@ -191,11 +207,11 @@ public abstract class SimpleDecoder<
       flushed = true;
       skippedOutputBufferCount = 0;
       if (dequeuedInputBuffer != null) {
-        releaseInputBufferInternal(dequeuedInputBuffer, /* notifyCallback= */ false);
+        releaseInputBufferInternal(dequeuedInputBuffer);
         dequeuedInputBuffer = null;
       }
       while (!queuedInputBuffers.isEmpty()) {
-        releaseInputBufferInternal(queuedInputBuffers.removeFirst(), /* notifyCallback= */ false);
+        releaseInputBufferInternal(queuedInputBuffers.removeFirst());
       }
       while (!queuedOutputBuffers.isEmpty()) {
         queuedOutputBuffers.removeFirst().release();
@@ -271,6 +287,7 @@ public abstract class SimpleDecoder<
       flushed = false;
     }
 
+    boolean shouldSkipPreDecode = false;
     if (inputBuffer.isEndOfStream()) {
       outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
     } else {
@@ -278,7 +295,11 @@ public abstract class SimpleDecoder<
       if (inputBuffer.isFirstSample()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
       }
-      if (!isAtLeastOutputStartTimeUs(inputBuffer.timeUs)) {
+      if (inputBuffer.isLastSample()) {
+        outputBuffer.addFlag(C.BUFFER_FLAG_LAST_SAMPLE);
+      }
+      shouldSkipPreDecode = shouldSkipOutputBuffer(outputBuffer);
+      if (shouldSkipPreDecode) {
         outputBuffer.shouldBeSkipped = true;
       }
       @Nullable E exception;
@@ -295,31 +316,49 @@ public abstract class SimpleDecoder<
         exception = createUnexpectedDecodeException(e);
       }
       if (exception != null) {
+        @Nullable Runnable currentOnOutputBufferAvailableRunnable;
+        @Nullable Executor currentExecutor;
         synchronized (lock) {
           this.exception = exception;
+          currentOnOutputBufferAvailableRunnable = this.onOutputBufferAvailableRunnable;
+          currentExecutor = this.executor;
+        }
+        if (currentExecutor != null && currentOnOutputBufferAvailableRunnable != null) {
+          currentExecutor.execute(currentOnOutputBufferAvailableRunnable);
         }
         return false;
       }
     }
 
+    @Nullable Runnable currentOnOutputBufferAvailableRunnable = null;
+    @Nullable Runnable currentOnInputBufferAvailableRunnable;
+    @Nullable Executor currentExecutor;
     synchronized (lock) {
       if (flushed) {
         outputBuffer.release();
-      } else if (outputBuffer.shouldBeSkipped) {
+      } else if (!outputBuffer.isEndOfStream()
+          && (outputBuffer.shouldBeSkipped
+              || (!shouldSkipPreDecode && shouldSkipOutputBuffer(outputBuffer)))) {
         skippedOutputBufferCount++;
         outputBuffer.release();
       } else {
         outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
         skippedOutputBufferCount = 0;
         queuedOutputBuffers.addLast(outputBuffer);
-        Runnable currentOnOutputBufferAvailableRunnable = this.onOutputBufferAvailableRunnable;
-        Executor currentExecutor = this.executor;
-        if (currentOnOutputBufferAvailableRunnable != null && currentExecutor != null) {
-          currentExecutor.execute(currentOnOutputBufferAvailableRunnable);
-        }
+        currentOnOutputBufferAvailableRunnable = this.onOutputBufferAvailableRunnable;
       }
       // Make the input buffer available again.
-      releaseInputBufferInternal(inputBuffer, /* notifyCallback= */ true);
+      releaseInputBufferInternal(inputBuffer);
+      currentOnInputBufferAvailableRunnable = this.onInputBufferAvailableRunnable;
+      currentExecutor = this.executor;
+    }
+    if (currentExecutor != null) {
+      if (currentOnOutputBufferAvailableRunnable != null) {
+        currentExecutor.execute(currentOnOutputBufferAvailableRunnable);
+      }
+      if (currentOnInputBufferAvailableRunnable != null) {
+        currentExecutor.execute(currentOnInputBufferAvailableRunnable);
+      }
     }
 
     return true;
@@ -329,16 +368,15 @@ public abstract class SimpleDecoder<
     return !queuedInputBuffers.isEmpty() && availableOutputBufferCount > 0;
   }
 
-  private void releaseInputBufferInternal(I inputBuffer, boolean notifyCallback) {
+  private boolean shouldSkipOutputBuffer(O outputBuffer) {
+    return outputBuffer.shouldBeSkipped
+        || (!isAtLeastOutputStartTimeUs(outputBuffer.timeUs)
+            && !(outputBuffer instanceof VideoDecoderOutputBuffer && outputBuffer.isLastSample()));
+  }
+
+  private void releaseInputBufferInternal(I inputBuffer) {
     inputBuffer.clear();
     availableInputBuffers[availableInputBufferCount++] = inputBuffer;
-    Runnable currentOnInputBufferAvailableRunnable = this.onInputBufferAvailableRunnable;
-    Executor currentExecutor = this.executor;
-    if (notifyCallback
-        && currentOnInputBufferAvailableRunnable != null
-        && currentExecutor != null) {
-      currentExecutor.execute(currentOnInputBufferAvailableRunnable);
-    }
   }
 
   private void releaseOutputBufferInternal(O outputBuffer) {
@@ -364,11 +402,15 @@ public abstract class SimpleDecoder<
    * Decodes the {@code inputBuffer} and stores any decoded output in {@code outputBuffer}.
    *
    * @param inputBuffer The buffer to decode.
-   * @param outputBuffer The output buffer to store decoded data. The output buffer will not be made
-   *     available to dequeue if its {@link DecoderOutputBuffer#timeUs} is not {@linkplain
-   *     #isAtLeastOutputStartTimeUs at least the output start time} or when it's marked with {@link
-   *     DecoderOutputBuffer#shouldBeSkipped}. The output buffer may not have been populated in
-   *     these cases.
+   * @param outputBuffer The output buffer to store decoded data. {@link
+   *     DecoderOutputBuffer#shouldBeSkipped} is pre-populated to {@code true} before this method is
+   *     called if {@link DecoderOutputBuffer#timeUs} is not {@linkplain #isAtLeastOutputStartTimeUs
+   *     at least the output start time} (except for {@link VideoDecoderOutputBuffer} instances
+   *     marked with {@link C#BUFFER_FLAG_LAST_SAMPLE}), and may be modified by the implementation.
+   *     The output buffer will not be made available to dequeue if {@link
+   *     DecoderOutputBuffer#shouldBeSkipped} is {@code true} after this method returns, or if
+   *     {@link DecoderOutputBuffer#timeUs} is before an output start time updated while this method
+   *     was executing. The output buffer may not have been populated in these cases.
    * @param reset Whether the decoder must be reset before decoding.
    * @return A decoder exception if an error occurred, or null if decoding was successful.
    */

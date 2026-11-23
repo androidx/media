@@ -256,6 +256,22 @@ public final class Dav1dDecoder
   }
 
   @Override
+  public final int getAndResetSkippedOutputBufferCount() {
+    synchronized (lock) {
+      if (flushed) {
+        return 0;
+      }
+      int count = skippedOutputBufferCount;
+      skippedOutputBufferCount = 0;
+      for (VideoDecoderOutputBuffer queuedOutputBuffer : queuedOutputBuffers) {
+        count += queuedOutputBuffer.skippedOutputBufferCount;
+        queuedOutputBuffer.skippedOutputBufferCount = 0;
+      }
+      return count;
+    }
+  }
+
+  @Override
   public final void flush() {
     synchronized (lock) {
       flushed = true;
@@ -271,10 +287,11 @@ public final class Dav1dDecoder
   }
 
   @Override
-  public final void setCallback(Callback callback, Executor executor) {
+  public final void setCallback(@Nullable Callback callback, @Nullable Executor executor) {
+    checkArgument(callback == null || executor != null);
     synchronized (lock) {
       this.callback = callback;
-      this.executor = executor;
+      this.executor = callback != null ? executor : null;
     }
   }
 

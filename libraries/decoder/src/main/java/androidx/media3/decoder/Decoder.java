@@ -15,6 +15,7 @@
  */
 package androidx.media3.decoder;
 
+import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import java.util.concurrent.Executor;
 import org.jspecify.annotations.Nullable;
@@ -29,6 +30,18 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public interface Decoder<I, O, E extends DecoderException> {
 
+  /** Callback for asynchronous events. */
+  interface Callback {
+    /** Called when an input buffer becomes available to be dequeued. */
+    void onInputBufferAvailable();
+
+    /**
+     * Called when an output buffer becomes available to be dequeued, or when a decoder error
+     * occurs.
+     */
+    void onOutputBufferAvailable();
+  }
+
   /**
    * Returns the name of the decoder.
    *
@@ -39,13 +52,13 @@ public interface Decoder<I, O, E extends DecoderException> {
   /**
    * Sets the timestamp from which output buffers should be produced, in microseconds.
    *
-   * <p>Any decoded buffer with a timestamp less than {@code outputStartTimeUs} should be skipped by
-   * the implementation and not made available via {@link #dequeueOutputBuffer}.
+   * <p>Any buffer decoded after this call with a timestamp less than {@code outputStartTimeUs}
+   * should be skipped by the implementation and not made available via {@link
+   * #dequeueOutputBuffer}, unless the corresponding input buffer is flagged with {@link
+   * C#BUFFER_FLAG_LAST_SAMPLE}, in which case it must still be produced.
    *
-   * <p>This method must only be called before {@linkplain #queueInputBuffer queuing the first input
-   * buffer} initially or after {@link #flush()}.
-   *
-   * @param outputStartTimeUs The time from which output buffer should be produced, in microseconds.
+   * @param outputStartTimeUs The time from which output buffers should be produced, in
+   *     microseconds, or {@link C#TIME_UNSET} to clear the start time.
    */
   void setOutputStartTimeUs(long outputStartTimeUs);
 
@@ -87,22 +100,23 @@ public interface Decoder<I, O, E extends DecoderException> {
    */
   void release();
 
-  /** Callback for asynchronous events. */
-  interface Callback {
-    /** Called when an input buffer becomes available to be dequeued. */
-    void onInputBufferAvailable();
-
-    /** Called when an output buffer becomes available to be dequeued. */
-    void onOutputBufferAvailable();
+  /**
+   * Returns the number of output buffers skipped since the last call to this method or since the
+   * last {@linkplain #dequeueOutputBuffer() dequeued output buffer} reported them via {@link
+   * DecoderOutputBuffer#skippedOutputBufferCount}, and resets the pending skipped count to zero.
+   */
+  default int getAndResetSkippedOutputBufferCount() {
+    return 0;
   }
 
   /**
    * Sets the callback and executor.
    *
-   * @param callback The callback to receive events.
-   * @param executor The executor on which the callback will be invoked.
+   * @param callback The callback to receive events, or {@code null} to clear the callback.
+   * @param executor The executor on which the callback will be called, or {@code null} if {@code
+   *     callback} is {@code null}.
    */
-  default void setCallback(Callback callback, Executor executor) {
+  default void setCallback(@Nullable Callback callback, @Nullable Executor executor) {
     // Do nothing by default.
   }
 }
