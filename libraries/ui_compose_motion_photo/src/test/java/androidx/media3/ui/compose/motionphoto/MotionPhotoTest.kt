@@ -22,6 +22,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.view.SurfaceView
 import android.view.View
+import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
@@ -36,7 +37,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -421,6 +424,162 @@ class MotionPhotoTest {
         )
         .isFalse()
     }
+
+  @Test
+  fun motionPhoto_withNullPlayer_doesNotCreateSurfaceView() = runComposeUiTest {
+    lateinit var composeView: View
+
+    setContent {
+      composeView = LocalView.current
+      val state = rememberMotionPhotoState(player = null, mediaItem = unresolvableMediaItem)
+      MotionPhoto(
+        state = state,
+        modifier = Modifier.size(100.dp),
+        photo = { Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG)) },
+      )
+    }
+    waitForIdle()
+
+    assertThat(findViewWithType(composeView, SurfaceView::class.java)).isNull()
+  }
+
+  @Test
+  fun motionPhoto_withNullPlayerUnderLooseConstraints_fillsBoundedParent() = runComposeUiTest {
+    val fileMediaItem = MediaItem.fromUri(createTestImageUri())
+
+    setContent {
+      Box(modifier = Modifier.size(100.dp)) {
+        val state = rememberMotionPhotoState(player = null, mediaItem = fileMediaItem)
+        MotionPhoto(
+          state = state,
+          contentDescription = PHOTO_CONTENT_DESCRIPTION,
+          placeholder = null,
+          error = null,
+        )
+      }
+    }
+    waitUntil {
+      onAllNodesWithContentDescription(PHOTO_CONTENT_DESCRIPTION).fetchSemanticsNodes().isNotEmpty()
+    }
+
+    onNodeWithContentDescription(PHOTO_CONTENT_DESCRIPTION)
+      .assertIsDisplayed()
+      .assertWidthIsEqualTo(100.dp)
+      .assertHeightIsEqualTo(100.dp)
+  }
+
+  @Test
+  fun motionPhoto_whenPlayerAttached_createsSurfaceViewBehindOpaquePhoto() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+    var currentPlayer by mutableStateOf<Player?>(null)
+    lateinit var state: MotionPhotoState
+    lateinit var composeView: View
+    setContent {
+      composeView = LocalView.current
+      state = rememberMotionPhotoState(player = currentPlayer, mediaItem = unresolvableMediaItem)
+      MotionPhoto(
+        state = state,
+        modifier = Modifier.size(100.dp),
+        photo = { Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG)) },
+      )
+    }
+    waitForIdle()
+
+    currentPlayer = player
+    waitForIdle()
+
+    assertThat(state.visualState.isPhotoVisible).isTrue()
+    assertThat(findViewWithType(composeView, SurfaceView::class.java)).isNotNull()
+    assertThat(player.videoOutput).isInstanceOf(SurfaceView::class.java)
+  }
+
+  @Test
+  fun motionPhoto_whenPlayerDetachedWhilePhotoOpaque_removesSurfaceViewAndClearsVideoOutput() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      var currentPlayer by mutableStateOf<Player?>(player)
+      lateinit var composeView: View
+      setContent {
+        composeView = LocalView.current
+        val state =
+          rememberMotionPhotoState(
+            player = currentPlayer,
+            mediaItem = unresolvableMediaItem,
+            initialShowMotion = false,
+          )
+        MotionPhoto(
+          state = state,
+          modifier = Modifier.size(100.dp),
+          photo = { Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG)) },
+        )
+      }
+      waitForIdle()
+      val attachedSurfaceView = findViewWithType(composeView, SurfaceView::class.java)
+
+      currentPlayer = null
+      waitForIdle()
+
+      assertThat(attachedSurfaceView).isNotNull()
+      assertThat(findViewWithType(composeView, SurfaceView::class.java)).isNull()
+      assertThat(player.videoOutput).isNull()
+    }
+
+  @Test
+  fun motionPhoto_whenPlayerDetachedDuringPlayback_removesSurfaceViewAfterCrossfadeAndClearsVideoOutput() =
+    runComposeUiTest {
+      val player = FakePlayer(bufferingDelayMs = 0)
+      var currentPlayer by mutableStateOf<Player?>(player)
+      lateinit var composeView: View
+      setContent {
+        composeView = LocalView.current
+        val state =
+          rememberMotionPhotoState(
+            player = currentPlayer,
+            mediaItem = unresolvableMediaItem,
+            initialShowMotion = true,
+            initialConfig = MotionPhotoConfig(transitionDurationMs = 200L),
+          )
+        MotionPhoto(
+          state = state,
+          modifier = Modifier.size(100.dp),
+          photo = { Box(modifier = Modifier.size(100.dp).testTag(PHOTO_SLOT_TAG)) },
+        )
+      }
+      waitForIdle()
+      player.renderFirstFrame(true)
+      waitForIdle()
+      mainClock.autoAdvance = false
+
+      currentPlayer = null
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      mainClock.advanceTimeBy(100L)
+      waitForIdle()
+      val surfaceViewMidCrossfade = findViewWithType(composeView, SurfaceView::class.java)
+      val videoOutputMidCrossfade = player.videoOutput
+      mainClock.advanceTimeBy(150L)
+      mainClock.autoAdvance = true
+      waitForIdle()
+
+      assertThat(videoOutputMidCrossfade).isNull()
+      assertThat(surfaceViewMidCrossfade).isNotNull()
+      assertThat(findViewWithType(composeView, SurfaceView::class.java)).isNull()
+      assertThat(player.videoOutput).isNull()
+    }
+
+  private fun <T : View> findViewWithType(root: View, clazz: Class<T>): T? {
+    if (clazz.isInstance(root)) {
+      return clazz.cast(root)
+    }
+    if (root is ViewGroup) {
+      for (i in 0 until root.childCount) {
+        findViewWithType(root.getChildAt(i), clazz)?.let {
+          return it
+        }
+      }
+    }
+    return null
+  }
 
   private fun createTestImageUri(): Uri {
     val bitmap = createBitmap(4, 4)

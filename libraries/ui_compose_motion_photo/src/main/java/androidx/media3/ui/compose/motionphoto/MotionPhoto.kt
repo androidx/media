@@ -23,7 +23,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,6 +40,8 @@ import androidx.media3.common.util.BitmapLoader
 import androidx.media3.ui.compose.AsyncImage
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.ImageSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Composable for displaying a Motion Photo using a hoisted [MotionPhotoState] and a built-in or
@@ -95,7 +102,7 @@ fun MotionPhoto(
   contentScale: ContentScale = ContentScale.Fit,
   photo: @Composable () -> Unit,
 ) {
-  val photoAlpha by
+  val photoAlphaState =
     animateFloatAsState(
       targetValue = if (state.visualState.isPhotoVisible) 1f else 0f,
       animationSpec =
@@ -105,13 +112,27 @@ fun MotionPhoto(
         ),
       label = "photoAlpha",
     )
+  val isPhotoOpaque by remember(photoAlphaState) { derivedStateOf { photoAlphaState.value >= 1f } }
+  var retainContentFrameForClear by remember { mutableStateOf(false) }
   Box(modifier = modifier) {
-    ContentFrame(player = state.player, contentScale = contentScale, artwork = null)
+    if (state.player != null || retainContentFrameForClear || !isPhotoOpaque) {
+      ContentFrame(player = state.player, contentScale = contentScale, artwork = null)
+    }
     Box(
-      Modifier.matchParentSize().graphicsLayer { alpha = photoAlpha },
+      Modifier.fillMaxSize().graphicsLayer { alpha = photoAlphaState.value },
       contentAlignment = Alignment.Center,
     ) {
       photo()
+    }
+  }
+  LaunchedEffect(state.player != null) {
+    if (state.player != null) {
+      retainContentFrameForClear = true
+    } else if (retainContentFrameForClear) {
+      // Keep ContentFrame mounted until PlayerSurface's LaunchedEffect finishes clearing the
+      // detached view from the previous player on Dispatchers.Main.
+      withContext(Dispatchers.Main) {}
+      retainContentFrameForClear = false
     }
   }
 }
