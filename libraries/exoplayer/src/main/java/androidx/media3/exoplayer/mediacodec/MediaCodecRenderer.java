@@ -1624,6 +1624,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             DEBUG_LOG_TAG,
             Util.getTrackTypeString(getTrackType()) + ", discard input, pts=" + presentationTimeUs);
       }
+      if (!hasReadStreamToEnd() && !buffer.isLastSample()) {
+        // The previous last sample isn't the last one anymore, for example because the read end
+        // time was extended.
+        getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
+      }
       return true;
     }
 
@@ -1660,6 +1665,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (hasReadStreamToEnd() || buffer.isLastSample()) {
       // Notify output queue of the last buffer's timestamp.
       getLastOutputStreamInfo().lastBufferTimeUs = getLargestValidQueuedPresentationTimeUs();
+    } else {
+      // The previous last sample isn't the last one anymore, for example because the read end
+      // time was extended.
+      getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
     }
     buffer.flip();
     if (buffer.hasSupplementalData()) {
@@ -2745,6 +2754,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           if (hasReadStreamToEnd() || bypassSampleBuffer.isLastSample()) {
             // Notify output queue of the last buffer's timestamp.
             getLastOutputStreamInfo().lastBufferTimeUs = largestQueuedPresentationTimeUs;
+          } else {
+            // The previous last sample isn't the last one anymore, for example because the read
+            // end time was extended.
+            getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
           }
           if (waitingForFirstSampleInFormat) {
             // This is the first buffer in a new format, the output format must be updated.

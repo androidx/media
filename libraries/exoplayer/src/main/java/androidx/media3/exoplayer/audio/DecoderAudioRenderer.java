@@ -611,6 +611,10 @@ public abstract class DecoderAudioRenderer<
         largestQueuedPresentationTimeUs = inputBuffer.timeUs;
         if (hasReadStreamToEnd() || inputBuffer.isLastSample()) {
           lastBufferInStreamPresentationTimeUs = largestQueuedPresentationTimeUs;
+        } else {
+          // The previous last sample isn't the last one anymore, for example because the read end
+          // time was extended.
+          lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
         }
         inputBuffer.flip();
         inputBuffer.format = inputFormat;

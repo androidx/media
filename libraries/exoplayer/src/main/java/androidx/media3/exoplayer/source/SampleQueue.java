@@ -485,10 +485,15 @@ public class SampleQueue implements TrackOutput {
   @CallSuper
   public synchronized boolean isReady(boolean loadingFinished) {
     int readIndex = getReadIndex();
+    int readEndTimeAbsoluteIndex = getReadEndTimeAbsoluteIndex(loadingFinished);
     if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex) {
       return true;
     }
-    if (!hasNextSample() || isReadEndTimeIndexMaybeReached()) {
+    if (isReadEndTimeIndexMaybeReached(loadingFinished)) {
+      // The upstream format may belong to a sample after the read end time, so don't report it.
+      return false;
+    }
+    if (!hasNextSample()) {
       return loadingFinished
           || isLastSampleQueued
           || (upstreamFormat != null && upstreamFormat != downstreamFormat);
@@ -508,7 +513,14 @@ public class SampleQueue implements TrackOutput {
     int readIndex = getReadIndex();
     boolean readEndTimeReached =
         readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex;
-    if (!hasNextSample() || isReadEndTimeIndexMaybeReached() || readEndTimeReached) {
+    // Unlike read, this doesn't hold back the sample before the candidate (see
+    // isReadEndTimeIndexMaybeReached), as it doesn't know whether loading has finished and could
+    // otherwise hold it back forever. So this may return the size of a sample that read doesn't
+    // return yet.
+    boolean readEndTimeIndexCandidateReached =
+        readEndTimeAbsoluteIndexCandidate != C.INDEX_UNSET
+            && readIndex >= readEndTimeAbsoluteIndexCandidate;
+    if (!hasNextSample() || readEndTimeIndexCandidateReached || readEndTimeReached) {
       return -1;
     }
     int relativeReadIndex = getRelativeIndex(readPosition);
@@ -880,9 +892,14 @@ public class SampleQueue implements TrackOutput {
       SampleExtrasHolder extrasHolder) {
     buffer.waitingForKeys = false;
     int readIndex = getReadIndex();
+    int readEndTimeAbsoluteIndex = getReadEndTimeAbsoluteIndex(loadingFinished);
     boolean readEndTimeReached =
         readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex;
-    if (!hasNextSample() || isReadEndTimeIndexMaybeReached() || readEndTimeReached) {
+    if (isReadEndTimeIndexMaybeReached(loadingFinished)) {
+      // The upstream format may belong to a sample after the read end time, so don't read it.
+      return C.RESULT_NOTHING_READ;
+    }
+    if (!hasNextSample() || readEndTimeReached) {
       if (loadingFinished || isLastSampleQueued || readEndTimeReached) {
         buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
         buffer.timeUs = C.TIME_END_OF_SOURCE;
@@ -908,7 +925,15 @@ public class SampleQueue implements TrackOutput {
     }
 
     buffer.setFlags(flags[relativeReadIndex]);
-    if (readPosition == (length - 1) && (loadingFinished || isLastSampleQueued)) {
+    boolean isLastSampleOfStream =
+        readPosition == (length - 1) && (loadingFinished || isLastSampleQueued);
+    // Reading stops at readEndTimeAbsoluteIndex, so the sample before it is the last one that's
+    // read. Flag it like the last sample of the stream, so that renderers can identify the last
+    // frame, for example to render it after a seek to the end. This sample is held back until
+    // readEndTimeAbsoluteIndex is known, see isReadEndTimeIndexMaybeReached.
+    boolean isLastSampleBeforeReadEndTime =
+        readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex == readEndTimeAbsoluteIndex - 1;
+    if (isLastSampleOfStream || isLastSampleBeforeReadEndTime) {
       buffer.addFlag(C.BUFFER_FLAG_LAST_SAMPLE);
     }
     buffer.timeUs = timesUs[relativeReadIndex];
@@ -1107,13 +1132,29 @@ public class SampleQueue implements TrackOutput {
   }
 
   /**
-   * Returns whether the read end time index might have been reached, but cannot be confirmed yet
-   * due to potential sample reordering.
+   * Returns the absolute index of the first sample that should not be read due to the read end
+   * time, or {@link C#INDEX_UNSET} if it isn't known.
+   *
+   * <p>Once loading has finished, no more samples are queued that could confirm or replace {@link
+   * #readEndTimeAbsoluteIndexCandidate}, so the candidate is used.
    */
-  private boolean isReadEndTimeIndexMaybeReached() {
-    return readEndTimeAbsoluteIndex == C.INDEX_UNSET
+  private int getReadEndTimeAbsoluteIndex(boolean loadingFinished) {
+    return readEndTimeAbsoluteIndex != C.INDEX_UNSET || !loadingFinished
+        ? readEndTimeAbsoluteIndex
+        : readEndTimeAbsoluteIndexCandidate;
+  }
+
+  /**
+   * Returns whether the last sample before the read end time index might have been reached, but
+   * cannot be confirmed yet due to potential sample reordering.
+   */
+  private boolean isReadEndTimeIndexMaybeReached(boolean loadingFinished) {
+    // Hold back the sample at readEndTimeAbsoluteIndexCandidate - 1 until it's known whether it
+    // needs to be flagged with C.BUFFER_FLAG_LAST_SAMPLE.
+    return !loadingFinished
+        && readEndTimeAbsoluteIndex == C.INDEX_UNSET
         && readEndTimeAbsoluteIndexCandidate != C.INDEX_UNSET
-        && getReadIndex() >= readEndTimeAbsoluteIndexCandidate;
+        && getReadIndex() >= readEndTimeAbsoluteIndexCandidate - 1;
   }
 
   /**

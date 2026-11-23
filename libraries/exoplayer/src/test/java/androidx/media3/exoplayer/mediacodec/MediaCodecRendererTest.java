@@ -55,6 +55,7 @@ import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.ThrowingRunnable;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -622,6 +623,164 @@ public class MediaCodecRendererTest {
         inOrder, renderer, /* presentationTimeUs= */ 400, /* isDecodeOnly= */ false);
     verifyProcessOutputBufferDecodeOnly(
         inOrder, renderer, /* presentationTimeUs= */ 500, /* isDecodeOnly= */ false);
+  }
+
+  @Test
+  public void render_samplesAfterLastSample_clearsLastBufferFlag() throws Exception {
+    Format format =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setAverageBitrate(1000).build();
+    // A sample follows the sample flagged as the last one, for example because the read end time
+    // was extended after the flagged sample was read.
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(
+                    /* timeUs= */ 200, C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_LAST_SAMPLE),
+                oneByteSample(/* timeUs= */ 300, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    ReclaimableMediaCodecAdapter codecAdapter = new ReclaimableMediaCodecAdapter();
+    codecAdapter.makeInputBuffersAvailable(/* count= */ 4);
+    MediaCodecRenderer renderer = spy(new TestRenderer(configuration -> codecAdapter));
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+
+    // Queues all samples to the codec, including 300 after the sample flagged as the last one.
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    codecAdapter.enqueueOutputBuffer(/* presentationTimeUs= */ 300);
+    renderer.render(/* positionUs= */ 300, SystemClock.elapsedRealtime() * 1000);
+
+    verify(renderer)
+        .processOutputBuffer(
+            anyLong(),
+            anyLong(),
+            any(),
+            any(),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            /* bufferPresentationTimeUs= */ eq(300L),
+            anyBoolean(),
+            /* isLastBuffer= */ eq(false),
+            any());
+  }
+
+  @Test
+  public void render_discardedSampleAfterLastSample_clearsLastBufferInStreamPresentationTime()
+      throws Exception {
+    Format format =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).setAverageBitrate(1000).build();
+    // A sample follows the sample flagged as the last one, for example because the read end time
+    // was extended after the flagged sample was read.
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(
+                    /* timeUs= */ 200, C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_LAST_SAMPLE),
+                oneByteSample(/* timeUs= */ 300, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    MediaSource.MediaPeriodId mediaPeriodId = new MediaSource.MediaPeriodId(new Object());
+    MediaCodecRenderer renderer =
+        new TestRenderer() {
+          @Override
+          protected boolean shouldSkipDecoderInputBuffer(DecoderInputBuffer buffer) {
+            return buffer.timeUs == 300;
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId);
+    renderer.start();
+
+    long positionUs = 0;
+    while (fakeSampleStream.isReady()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+
+    assertThat(renderer.getLastBufferInStreamPresentationTimeUs()).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void render_samplesAfterLastSampleInBypassMode_clearsLastBufferInStreamPresentationTime()
+      throws Exception {
+    Format format =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1000).build();
+    // A sample follows the sample flagged as the last one, for example because the read end time
+    // was extended after the flagged sample was read.
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(
+                    /* timeUs= */ 200, C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_LAST_SAMPLE),
+                oneByteSample(/* timeUs= */ 300, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    MediaSource.MediaPeriodId mediaPeriodId = new MediaSource.MediaPeriodId(new Object());
+    MediaCodecRenderer renderer =
+        new TestRenderer() {
+          @Override
+          protected boolean shouldUseBypass(Format format) {
+            return true;
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId);
+    renderer.start();
+
+    long positionUs = 0;
+    while (fakeSampleStream.isReady()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 100;
+    }
+
+    assertThat(renderer.getLastBufferInStreamPresentationTimeUs()).isEqualTo(C.TIME_UNSET);
   }
 
   @Test
