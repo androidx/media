@@ -80,6 +80,8 @@ class PlaylistState(private val player: Player?) {
   var playlistMetadata: MediaMetadata by mutableStateOf(MediaMetadata.EMPTY)
     private set
 
+  private val window = Timeline.Window()
+
   private val playerStateObserver =
     player?.observeState(
       Player.EVENT_TIMELINE_CHANGED,
@@ -101,9 +103,9 @@ class PlaylistState(private val player: Player?) {
    * @throws IndexOutOfBoundsException if the index is out of bounds.
    */
   fun getMediaItemAt(index: Int): MediaItem {
-    if (index < 0 || index >= timeline.windowCount) throw IndexOutOfBoundsException()
-    val window = Timeline.Window()
-    return timeline.getWindow(index, window).mediaItem
+    val currentTimeline = timeline
+    if (index < 0 || index >= currentTimeline.windowCount) throw IndexOutOfBoundsException()
+    return synchronized(window) { currentTimeline.getWindow(index, window).mediaItem }
   }
 
   /**
