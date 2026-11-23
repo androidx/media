@@ -24,6 +24,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
+import org.junit.After
 import org.junit.Rule
 import org.junit.runner.RunWith
 
@@ -32,29 +33,21 @@ class KtorDataSourceContractTest : DataSourceContractTest() {
 
   @JvmField @Rule var httpDataSourceTestEnv = HttpDataSourceTestEnv()
 
+  private val httpClients =
+    listOf(Android, OkHttp).map { engineFactory ->
+      HttpClient(engineFactory) {
+        // Ensure that 'resource not found' tests fail fast (b/403179253).
+        install(HttpTimeout) { connectTimeoutMillis = 800 }
+      }
+    }
+
+  @After
+  fun tearDown() {
+    httpClients.forEach(HttpClient::close)
+  }
+
   override fun createDataSources(): List<DataSource> {
-    return listOf(
-      KtorDataSource.Factory(
-          HttpClient(Android) {
-            install(HttpTimeout) {
-              requestTimeoutMillis = 800
-              connectTimeoutMillis = 800
-              socketTimeoutMillis = 800
-            }
-          }
-        )
-        .createDataSource(),
-      KtorDataSource.Factory(
-          HttpClient(OkHttp) {
-            install(HttpTimeout) {
-              requestTimeoutMillis = 800
-              connectTimeoutMillis = 800
-              socketTimeoutMillis = 800
-            }
-          }
-        )
-        .createDataSource(),
-    )
+    return httpClients.map { KtorDataSource.Factory(it).createDataSource() }
   }
 
   override fun getTestResources(): ImmutableList<TestResource> {

@@ -15,7 +15,6 @@
  */
 package androidx.media3.datasource.ktor
 
-import android.os.SystemClock
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceUtil
@@ -28,7 +27,6 @@ import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider
 import io.ktor.client.HttpClient
-import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.engine.android.Android
 import io.ktor.client.engine.okhttp.OkHttp
@@ -39,12 +37,17 @@ import io.ktor.client.statement.HttpResponse
 import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
+import mockwebserver3.MockResponseBody
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
+import okio.BufferedSink
 import org.junit.After
 import org.junit.Assert.assertThrows
 import org.junit.Before
@@ -82,7 +85,7 @@ class KtorDataSourceTest(
 
   @Test
   fun open_setsCorrectHeaders() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(MockResponse())
 
     val propertyFromFactory = "fromFactory"
@@ -132,7 +135,7 @@ class KtorDataSourceTest(
 
   @Test
   fun open_invalidResponseCode() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(MockResponse(code = 404, body = "failure msg"))
 
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
@@ -150,7 +153,7 @@ class KtorDataSourceTest(
 
   @Test
   fun factory_setRequestPropertyAfterCreation_setsCorrectHeaders() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(MockResponse())
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
@@ -170,7 +173,7 @@ class KtorDataSourceTest(
 
   @Test
   fun open_malformedUrl_throwsException() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri("not-a-valid-url").build()
@@ -183,7 +186,7 @@ class KtorDataSourceTest(
 
   @Test
   fun open_httpPost_sendsPostRequest() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(MockResponse())
 
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
@@ -205,11 +208,7 @@ class KtorDataSourceTest(
 
   @Test
   fun cookiesConfigured_cookiesPersistedBetweenRequests() {
-    httpClient =
-      HttpClient(httpClientEngineFactory) {
-        configureTimeout()
-        install(HttpCookies)
-      }
+    httpClient = HttpClient(httpClientEngineFactory) { install(HttpCookies) }
     mockWebServer.enqueue(
       MockResponse.Builder().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val").build()
     )
@@ -234,11 +233,7 @@ class KtorDataSourceTest(
 
   @Test
   fun cookiesConfigured_cookiesForwardedOnRedirect() {
-    httpClient =
-      HttpClient(httpClientEngineFactory) {
-        configureTimeout()
-        install(HttpCookies)
-      }
+    httpClient = HttpClient(httpClientEngineFactory) { install(HttpCookies) }
     MockWebServer().use { redirectWebServer ->
       redirectWebServer.start()
       val originUrl = mockWebServer.url("bar").toString()
@@ -265,7 +260,7 @@ class KtorDataSourceTest(
 
   @Test
   fun factory_setUserAgent_setsCorrectHeader() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(MockResponse())
 
     val userAgent = "testUserAgent"
@@ -281,7 +276,7 @@ class KtorDataSourceTest(
 
   @Test
   fun factory_setContentTypePredicate_filtersContentType() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(
       MockResponse.Builder().code(200).setHeader("Content-Type", "text/html").build()
     )
@@ -304,7 +299,7 @@ class KtorDataSourceTest(
 
   @Test
   fun factory_setTransferListener_setsListener() {
-    httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
+    httpClient = HttpClient(httpClientEngineFactory)
     mockWebServer.enqueue(MockResponse())
 
     var transferInitializingCalled = false
@@ -364,39 +359,27 @@ class KtorDataSourceTest(
   @Test
   fun open_doesNotWaitForResponseBody() {
     val testData = "a".repeat(100)
-    val bodyDelayMs = 2000L
+    val responseBody = CompletableDeferred<String>()
     mockWebServer.enqueue(
       MockResponse.Builder()
         .code(200)
-        .setHeader("Content-Length", testData.length)
-        .body(testData)
-        .bodyDelay(bodyDelayMs, TimeUnit.MILLISECONDS)
+        .body(createDeferredResponseBody(testData.length.toLong(), responseBody))
         .build()
     )
-
-    httpClient =
-      HttpClient(httpClientEngineFactory) {
-        install(HttpTimeout) {
-          requestTimeoutMillis = 5000
-          connectTimeoutMillis = 5000
-          socketTimeoutMillis = 5000
-        }
-      }
+    httpClient = HttpClient(httpClientEngineFactory)
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
-    val startTimeMs = SystemClock.elapsedRealtime()
-    assertThat(dataSource.open(dataSpec)).isEqualTo(testData.length.toLong())
-    val openDurationMs = SystemClock.elapsedRealtime() - startTimeMs
+    try {
+      // open() must return while the server is still blocked from writing the body.
+      assertThat(dataSource.open(dataSpec)).isEqualTo(testData.length.toLong())
 
-    // Verify that open() completed without waiting for the delayed response body.
-    assertThat(openDurationMs).isLessThan(1000L)
-
-    val buffer = ByteArray(10)
-    val bytesRead = dataSource.read(buffer, 0, buffer.size)
-    val readDurationMs = SystemClock.elapsedRealtime() - startTimeMs
-    assertThat(bytesRead).isEqualTo(10)
-    assertThat(readDurationMs).isGreaterThan(bodyDelayMs)
+      responseBody.complete(testData)
+      assertThat(DataSourceUtil.readToEnd(dataSource))
+        .isEqualTo(testData.toByteArray(StandardCharsets.UTF_8))
+    } finally {
+      responseBody.cancel()
+    }
   }
 
   @Test
@@ -411,7 +394,6 @@ class KtorDataSourceTest(
     var response: HttpResponse? = null
     httpClient =
       HttpClient(httpClientEngineFactory) {
-        configureTimeout()
         install(createClientPlugin("CaptureResponse") { onResponse { response = it } })
       }
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
@@ -437,38 +419,36 @@ class KtorDataSourceTest(
 
   @Test
   fun read_responseBodyTimeout_throwsNetworkConnectionTimeoutException() {
+    val responseBody = CompletableDeferred<String>()
     mockWebServer.enqueue(
       MockResponse.Builder()
         .code(200)
-        .setHeader(HttpHeaders.CONTENT_LENGTH, 100)
-        .body("a".repeat(100))
-        .bodyDelay(1_000, TimeUnit.MILLISECONDS)
+        .body(createDeferredResponseBody(contentLength = 100, responseBody))
         .build()
     )
     httpClient =
-      HttpClient(httpClientEngineFactory) {
-        install(HttpTimeout) {
-          requestTimeoutMillis = 5_000
-          connectTimeoutMillis = 5_000
-          socketTimeoutMillis = 100
-        }
-      }
+      HttpClient(httpClientEngineFactory) { install(HttpTimeout) { socketTimeoutMillis = 1_000 } }
     dataSource = KtorDataSource.Factory(httpClient).createDataSource()
-    assertThat(
-        dataSource.open(
-          DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+
+    try {
+      assertThat(
+          dataSource.open(
+            DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+          )
         )
-      )
-      .isEqualTo(100)
+        .isEqualTo(100)
 
-    val exception =
-      assertThrows(HttpDataSource.HttpDataSourceException::class.java) {
-        DataSourceUtil.readToEnd(dataSource)
-      }
+      val exception =
+        assertThrows(HttpDataSource.HttpDataSourceException::class.java) {
+          DataSourceUtil.readToEnd(dataSource)
+        }
 
-    assertThat(exception.reason)
-      .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
-    assertThat(exception).hasCauseThat().isInstanceOf(SocketTimeoutException::class.java)
+      assertThat(exception.reason)
+        .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
+      assertThat(exception).hasCauseThat().isInstanceOf(SocketTimeoutException::class.java)
+    } finally {
+      responseBody.cancel()
+    }
   }
 
   @Test
@@ -483,7 +463,6 @@ class KtorDataSourceTest(
     var response: HttpResponse? = null
     httpClient =
       HttpClient(httpClientEngineFactory) {
-        configureTimeout()
         install(createClientPlugin("CaptureResponse") { onResponse { response = it } })
       }
     dataSource =
@@ -509,12 +488,21 @@ class KtorDataSourceTest(
       .isEqualTo(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
   }
 
-  // TODO: b/503301819 - Remove this when the OkHttp engine works without it.
-  private fun HttpClientConfig<*>.configureTimeout() {
-    install(HttpTimeout) {
-      requestTimeoutMillis = 800
-      connectTimeoutMillis = 800
-      socketTimeoutMillis = 800
+  private fun createDeferredResponseBody(
+    contentLength: Long,
+    body: Deferred<String>,
+  ): MockResponseBody =
+    object : MockResponseBody {
+      override val contentLength: Long = contentLength
+
+      override fun writeTo(sink: BufferedSink) {
+        try {
+          sink.writeUtf8(runBlocking { body.await() })
+          // Flush explicitly because mockwebserver3 < 5.5.0 calls emit() rather than flush().
+          sink.flush()
+        } catch (_: CancellationException) {
+          // The test ended before supplying a response body.
+        }
+      }
     }
-  }
 }
