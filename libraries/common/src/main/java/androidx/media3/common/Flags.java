@@ -88,8 +88,10 @@ public final class Flags {
   // 2. Canary Rollout (Dynamic Flag):
   //    - When ready for general rollout, remove the flag from STATIC_FLAG_STATES so it is enabled
   //      by default in canary mode and disabled when canary mode is turned off.
-  //    - Keep in canary mode for at least 2 months or until the next Media3 release (whichever is
-  //      later). Note the earliest cleanup date in the TODO (e.g. `(earliest cleanup: 2026-11-24)`)
+  //    - Keep in canary mode for at least 2 months and at least 2 weeks after the next stable
+  //      Media3 release that includes the flag in canary mode (the next release whose beta01
+  //      branch has not yet been cut, unless cherry-picked). Note the earliest cleanup date in
+  //      the TODO (e.g. `(earliest cleanup: 2026-11-24)`).
   //
   // 3. Fallback Mechanism (Statically Enabled, Optional):
   //    - If an opt-out mechanism is temporarily desired after graduating from canary mode,
@@ -250,7 +252,7 @@ public final class Flags {
    * IndexOutOfBoundsException} (or {@link java.nio.BufferOverflowException}) even if the read is
    * within the bounds of the underlying byte array.
    */
-  @ExperimentalApi // TODO: b/147657250 - Remove this flag (earliest cleanup: 2026-12-01).
+  @ExperimentalApi // TODO(b/147657250): Remove this flag (earliest cleanup: 2026-12-23).
   public static final int FLAG_ENFORCE_PARSABLE_BYTE_ARRAY_LIMIT = 8;
 
   /**
@@ -260,7 +262,7 @@ public final class Flags {
    * <p>When enabled on API 29+, {@code AudioTrackAudioOutput} releases the underlying {@link
    * android.media.AudioTrack} without calling {@code flush()} first.
    */
-  @ExperimentalApi // TODO: b/567523724 - Remove this flag (earliest cleanup: 2026-11-29).
+  @ExperimentalApi // TODO(b/567523724): Remove this flag (earliest cleanup: 2026-12-23).
   public static final int FLAG_SKIP_AUDIO_TRACK_FLUSH_BEFORE_RELEASE = 9;
 
   /**
@@ -285,7 +287,7 @@ public final class Flags {
    * both {@code Period.eventStreams} and {@code Period.alternativeMpdEvents}. When disabled, only
    * {@code Period.eventStreams} is populated using standard {@code EventStream} parsing.
    */
-  @ExperimentalApi // TODO: b/564892081 - Remove this flag (earliest cleanup: 2026-11-30).
+  @ExperimentalApi // TODO(b/564892081): Remove this flag (earliest cleanup: 2026-12-23).
   public static final int FLAG_PARSE_DASH_ALTERNATIVE_MPD_EVENTS = 11;
 
   /**
@@ -307,14 +309,14 @@ public final class Flags {
    * <p>When enabled, {@code OggOpusAudioPacketizer} writes Ogg page headers directly into the input
    * buffer instead of allocating an intermediate output buffer.
    */
-  @ExperimentalApi // TODO(b/577053786): Remove this flag (earliest cleanup: 2026-12-24).
+  @ExperimentalApi // TODO(b/577053786): Remove this flag (earliest cleanup: 2027-01-02).
   public static final int FLAG_ENABLE_OGG_OPUS_IN_PLACE_PACKETIZATION = 13;
 
   /**
    * Flag to pause {@code ProgressiveMediaPeriod} loading on the loader thread as soon as tracks,
    * seek map, and upstream track formats required for preparation are ready.
    */
-  @ExperimentalApi // TODO(b/577057587): Remove this flag (earliest cleanup: 2027-01-15).
+  @ExperimentalApi // TODO(b/577057587): Remove this flag (earliest cleanup: 2027-01-10).
   public static final int FLAG_PAUSE_PROGRESSIVE_LOADER_ON_PREPARATION_READY = 14;
 
   /**
@@ -339,7 +341,7 @@ public final class Flags {
    * CaptioningManager} is available. When this flag is disabled, they only apply them if the system
    * "Show captions" setting is on, and use the default style and font scale otherwise.
    */
-  @ExperimentalApi // TODO(b/580239399): Remove this flag.
+  @ExperimentalApi // TODO(b/580239399): Remove this flag (earliest cleanup: 2027-01-11).
   public static final int FLAG_APPLY_USER_CAPTION_STYLE_IF_CAPTIONS_DISABLED = 16;
 
   /**
@@ -361,7 +363,7 @@ public final class Flags {
    * {@code tkhd} track duration when an unedited track's {@code mdhd} duration is shorter than
    * {@code tkhd} by more than one {@code mvhd} timescale tick.
    */
-  @ExperimentalApi // TODO(b/582815028): Remove this flag (earliest cleanup: 2027-01-10).
+  @ExperimentalApi // TODO(b/582815028): Remove this flag (earliest cleanup: 2027-01-12).
   public static final int FLAG_IGNORE_SHORT_MP4_MDHD_DURATION = 18;
 
   /**
@@ -373,7 +375,7 @@ public final class Flags {
    * queueing errors wake up the playback loop and surface pending codec errors on the next {@code
    * render()} call even if an output buffer is already held while paused.
    */
-  @ExperimentalApi // TODO(b/573657512): Remove this flag (earliest cleanup: 2027-04-07).
+  @ExperimentalApi // TODO(b/573657512): Remove this flag (earliest cleanup: 2027-01-16).
   public static final int FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR = 19;
 
   /**
