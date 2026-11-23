@@ -111,6 +111,8 @@
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
         instead.
+    *   Remove `HttpDataSourceTestEnv.getNonexistentUrl()`. Use
+        `HttpDataSourceTestEnv.getNotFoundResources()` instead.
     *   Remove
         `MediaSourceEventListener.EventDispatcher.loadStarted(LoadEventInfo,
         MediaLoadData)`. Use
