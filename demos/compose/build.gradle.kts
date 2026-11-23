@@ -52,9 +52,6 @@ dependencies {
   implementation(project(":lib-inspector-frame"))
   implementation(project(":lib-ui-compose-material3"))
   implementation(project(":lib-ui-compose-motion-photo"))
-  // TODO(b/555710150): Revert this once our Gradle BOM is updated to a stable version that
-  // includes the M3 API changes (Slider).
-  implementation("androidx.compose.material3:material3:1.5.0-rc01")
 
   // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
   debugImplementation(libs.leakcanary.android)

@@ -6,6 +6,8 @@ appTargetSdkVersion = "37"
 minSdkVersion = "24"
 libTestTargetSdkVersion = "36"
 compileSdkVersion = "37"
+# Compose 1.13 requires compiling against API level 37.1 or later.
+compileSdkMinorVersion = "1"
 # See https://developer.android.com/training/cars/media/automotive-os#automotive-module
 automotiveMinSdkVersion = "28"
 
@@ -25,7 +27,7 @@ androidxAnnotationVersion = "1.6.0"
 androidxAppCompatVersion = "1.7.0"
 androidxCollectionVersion = "1.2.0"
 # See https://developer.android.com/develop/ui/compose/bom/bom-mapping
-androidxComposeBomVersion = "2026.05.00" # TODO: b/502167525 - Upgade
+androidxComposeBomVersion = "2026.11.01"
 androidxConcurrentFuturesVersion = "1.2.0"
 androidxConstraintLayoutVersion = "2.1.4"
 androidxCoreVersion = "1.9.0"

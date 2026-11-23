@@ -71,6 +71,12 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   `media3-ui-compose`, `media3-ui-compose-material3` and `media3-cast` now
+        require compile SDK 37.1 or later, due to a dependency on the
+        `2026.11.01` Compose BOM (Compose 1.13.0 and Material3 1.5.0). Compose
+        ships Java 11 bytecode since version 1.12, so app Kotlin code that calls
+        inline Compose APIs, such as `remember`, needs a JVM target of 11 or
+        higher.
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

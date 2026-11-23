@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog) {
   android.apply {
     compileSdk = libs.findVersion("compileSdkVersion").get().requiredVersion.toInt()
+    compileSdkMinor = libs.findVersion("compileSdkMinorVersion").get().requiredVersion.toInt()
 
     defaultConfig.apply {
       minSdk = libs.findVersion("minSdkVersion").get().requiredVersion.toInt()
@@ -65,14 +66,6 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       // TODO: https://github.com/square/okhttp/issues/9084 - Remove once OkHttp publishes Gradle
       // dependency alignment metadata.
       components.all<OkHttpVersionAlignmentRule>()
-
-      constraints {
-        // TODO: b/502167525 - Remove once Compose ui-test-junit4 transitively depends on
-        // espresso-core 3.7.0+.
-        val espressoCore = libs.findLibrary("androidx-test-espresso-core").get()
-        add("testImplementation", espressoCore)
-        add("androidTestImplementation", espressoCore)
-      }
     }
 
     compileOptions.apply {
