@@ -208,15 +208,15 @@ internal constructor(
   private var isMotionUnavailable by mutableStateOf(false)
   private var isPlaybackRangeEmpty by mutableStateOf(false)
   private var hasRenderedFirstFrame by mutableStateOf(false)
-  private var isPhotoForced by mutableStateOf(!initialShowMotion)
-  private var hasMotionEnded by mutableStateOf(false)
+  private var motionTarget by
+    mutableStateOf(if (initialShowMotion) MotionTarget.MOTION else MotionTarget.PHOTO_FORCED)
   private var videoDurationUs: Long = C.TIME_UNSET
   private var photoPresentationTimestampUs: Long = C.TIME_UNSET
   private var hasKnownTracks = false
   private var hasWarnedAboutPhotoFrameFallback = false
 
   private val isPhotoTarget: Boolean
-    get() = isPhotoForced || hasMotionEnded
+    get() = motionTarget != MotionTarget.MOTION
 
   private val showMotion: Boolean
     get() = !isPhotoTarget && player?.playbackState != Player.STATE_IDLE
@@ -232,8 +232,7 @@ internal constructor(
     if (showMotion) {
       return
     }
-    isPhotoForced = false
-    hasMotionEnded = false
+    motionTarget = MotionTarget.MOTION
     player?.let { transitionToMotion(it, allowPrepareOnError = true) }
   }
 
@@ -245,8 +244,7 @@ internal constructor(
    */
   fun showStillPhoto() {
     val wasPhotoTarget = isPhotoTarget
-    isPhotoForced = true
-    hasMotionEnded = false
+    motionTarget = MotionTarget.PHOTO_FORCED
     if (!wasPhotoTarget) {
       player?.let { transitionToStillPhoto(it) }
     }
@@ -270,7 +268,7 @@ internal constructor(
     if (isPhotoTarget) {
       return
     }
-    hasMotionEnded = true
+    motionTarget = MotionTarget.MOTION_ENDED
     player?.let { transitionToStillPhoto(it) }
   }
 
@@ -295,11 +293,12 @@ internal constructor(
       }
       // Play-once finishes on the still photo, so changing non-looping options (e.g., boundaries
       // or transition duration) should not auto-play motion until playMotion() or looping is set.
-      val restartedEndedMotion = !previousConfig.isLooping && _config.isLooping && hasMotionEnded
+      val restartedEndedMotion =
+        !previousConfig.isLooping && _config.isLooping && motionTarget == MotionTarget.MOTION_ENDED
       val currentPlayer = player
       if (currentPlayer == null) {
         if (restartedEndedMotion) {
-          hasMotionEnded = false
+          motionTarget = MotionTarget.MOTION
         }
         return
       }
@@ -312,7 +311,7 @@ internal constructor(
         syncMediaItem(currentPlayer)
       }
       if (restartedEndedMotion) {
-        hasMotionEnded = false
+        motionTarget = MotionTarget.MOTION
         transitionToMotion(currentPlayer, allowPrepareOnError = false)
       } else if (
         currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping && !isPhotoTarget
@@ -943,6 +942,12 @@ internal constructor(
       seekToStartPosition(currentPlayer)
     }
     return true
+  }
+
+  private enum class MotionTarget {
+    MOTION,
+    PHOTO_FORCED,
+    MOTION_ENDED,
   }
 
   companion object {
