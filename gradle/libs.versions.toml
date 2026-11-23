@@ -10,7 +10,7 @@ compileSdkVersion = "37"
 automotiveMinSdkVersion = "28"
 
 # Gradle Plugins
-androidGradlePlugin = "9.1.1"
+androidGradlePlugin = "9.5.2"
 kotlinComposeCompiler = "2.2.0"
 kotlinGradlePlugin = "2.2.0"
 protobufGradlePlugin = "0.10.0"
