@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import androidx.media3.common.Format;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekPoint;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -114,6 +115,139 @@ public final class AdtsExtractorNonParameterizedTest {
     FakeTrackOutput trackOutput = output.trackOutputs.get(0);
     assertFormatIsMono44100Hz(trackOutput.lastFormat);
     assertThat(trackOutput.getSampleCount()).isEqualTo(144);
+  }
+
+  // https://github.com/androidx/media/issues/3571
+  @Test
+  public void read_withCbrSeekingAndTrailingMetadata_updatesSeekMapDurationAtEndOfInput()
+      throws Exception {
+    byte[] cleanData = getByteArray(ApplicationProvider.getApplicationContext(), SAMPLE_FILE);
+    byte[] taggedData = Bytes.concat(cleanData, createApeV2Trailer(/* totalSize= */ 105_020));
+
+    FakeExtractorOutput cleanOutput =
+        TestUtil.extractAllSamplesFromByteArray(
+            new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING), cleanData);
+
+    AdtsExtractor extractor = new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+    FakeExtractorOutput taggedOutput = new FakeExtractorOutput();
+    extractor.init(taggedOutput);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(taggedData).build();
+    PositionHolder positionHolder = new PositionHolder();
+    while (taggedOutput.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    long initialEstimatedDurationUs = taggedOutput.seekMap.getDurationUs();
+    assertThat(initialEstimatedDurationUs).isGreaterThan(cleanOutput.seekMap.getDurationUs());
+
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(taggedOutput.seekMap.getDurationUs()).isEqualTo(cleanOutput.seekMap.getDurationUs());
+    assertThat(taggedOutput.seekMap.getSeekPoints(taggedOutput.seekMap.getDurationUs()))
+        .isEqualTo(cleanOutput.seekMap.getSeekPoints(cleanOutput.seekMap.getDurationUs()));
+    assertThat(taggedOutput.trackOutputs.get(0).getSampleCount())
+        .isEqualTo(cleanOutput.trackOutputs.get(0).getSampleCount());
+  }
+
+  // https://github.com/androidx/media/issues/3571
+  @Test
+  public void read_withCbrSeekingAndTrailingMetadata_afterMidStreamSeek_updatesSeekMapAtEndOfInput()
+      throws Exception {
+    byte[] cleanData = getByteArray(ApplicationProvider.getApplicationContext(), SAMPLE_FILE);
+    byte[] taggedData = Bytes.concat(cleanData, createApeV2Trailer(/* totalSize= */ 105_020));
+
+    FakeExtractorOutput cleanOutput =
+        TestUtil.extractAllSamplesFromByteArray(
+            new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING), cleanData);
+
+    AdtsExtractor extractor = new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+    FakeExtractorOutput taggedOutput = new FakeExtractorOutput();
+    extractor.init(taggedOutput);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(taggedData).build();
+    PositionHolder positionHolder = new PositionHolder();
+    while (taggedOutput.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+
+    SeekPoint midPoint = taggedOutput.seekMap.getSeekPoints(/* timeUs= */ 1_500_000).first;
+    extractor.seek(midPoint.position, midPoint.timeUs);
+    input.setPosition((int) midPoint.position);
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(taggedOutput.seekMap.getDurationUs()).isEqualTo(cleanOutput.seekMap.getDurationUs());
+  }
+
+  // https://github.com/androidx/media/issues/3571
+  @Test
+  public void read_withCbrSeekingAndTrailingMetadata_longStream_updatesSeekMapDurationAtEndOfInput()
+      throws Exception {
+    byte[] sampleData = getByteArray(ApplicationProvider.getApplicationContext(), SAMPLE_FILE);
+    // Repeat sample.adts 8 times (1,152 frames > NUM_FRAMES_FOR_AVERAGE_FRAME_SIZE = 1,000) so
+    // calculateAverageFrameSize() finishes before reaching the trailing metadata.
+    byte[] cleanData =
+        Bytes.concat(
+            sampleData,
+            sampleData,
+            sampleData,
+            sampleData,
+            sampleData,
+            sampleData,
+            sampleData,
+            sampleData);
+    byte[] taggedData = Bytes.concat(cleanData, createApeV2Trailer(/* totalSize= */ 105_020));
+
+    FakeExtractorOutput cleanOutput =
+        TestUtil.extractAllSamplesFromByteArray(
+            new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING), cleanData);
+
+    AdtsExtractor extractor = new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+    FakeExtractorOutput taggedOutput = new FakeExtractorOutput();
+    extractor.init(taggedOutput);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(taggedData).build();
+    PositionHolder positionHolder = new PositionHolder();
+    while (taggedOutput.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    assertThat(taggedOutput.seekMap.getDurationUs())
+        .isGreaterThan(cleanOutput.seekMap.getDurationUs());
+
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(taggedOutput.seekMap.getDurationUs()).isEqualTo(cleanOutput.seekMap.getDurationUs());
+    assertThat(taggedOutput.seekMap.getSeekPoints(taggedOutput.seekMap.getDurationUs()))
+        .isEqualTo(cleanOutput.seekMap.getSeekPoints(cleanOutput.seekMap.getDurationUs()));
+    assertThat(taggedOutput.trackOutputs.get(0).getSampleCount())
+        .isEqualTo(cleanOutput.trackOutputs.get(0).getSampleCount());
+  }
+
+  @Test
+  public void read_withCbrSeeking_seekToEndAfterPartialRead_doesNotShortenDuration()
+      throws Exception {
+    byte[] cleanData = getByteArray(ApplicationProvider.getApplicationContext(), SAMPLE_FILE);
+    AdtsExtractor extractor = new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(cleanData).build();
+    PositionHolder positionHolder = new PositionHolder();
+    while (output.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    long durationBeforeSeekUs = output.seekMap.getDurationUs();
+    // Seek past the last complete frame so no new complete sample is emitted before EOF.
+    int nearEndPosition = cleanData.length - 5;
+    extractor.seek(nearEndPosition, durationBeforeSeekUs);
+    input.setPosition(nearEndPosition);
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(durationBeforeSeekUs);
+  }
+
+  private static byte[] createApeV2Trailer(int totalSize) {
+    byte[] trailer = new byte[totalSize];
+    Arrays.fill(trailer, (byte) 'A');
+    byte[] preamble = {'A', 'P', 'E', 'T', 'A', 'G', 'E', 'X'};
+    System.arraycopy(preamble, 0, trailer, 0, preamble.length);
+    System.arraycopy(preamble, 0, trailer, totalSize - 32, preamble.length);
+    return trailer;
   }
 
   private static void assertSniff(byte[] data, boolean expectedResult) throws IOException {
