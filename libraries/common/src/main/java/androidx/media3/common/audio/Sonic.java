@@ -1111,14 +1111,13 @@ import java.util.Arrays;
           short pVal = samples[positionFrames + period + i];
           diff += Math.abs(sVal - pVal);
         }
-        // Note that the highest number of samples we add into diff will be less than 256, since we
-        // skip samples. Thus, diff is a 24 bit number, and we can safely multiply by numSamples
-        // without overflow.
-        if (diff * bestPeriod < minDiff * period) {
+        // Cast to long to avoid 32-bit overflow when multiplying diff by period on the full-rate
+        // pass, where period can reach maxPeriod (e.g. 678 samples at 44.1 kHz).
+        if ((long) diff * bestPeriod < (long) minDiff * period) {
           minDiff = diff;
           bestPeriod = period;
         }
-        if (diff * worstPeriod > maxDiff * period) {
+        if ((long) diff * worstPeriod > (long) maxDiff * period) {
           maxDiff = diff;
           worstPeriod = period;
         }

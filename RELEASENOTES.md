@@ -31,6 +31,10 @@
         offload support should explicitly check for the
         `AUDIO_OFFLOAD_ENCODED_SUPPORTED` bit flag rather than
         `!= AUDIO_OFFLOAD_NOT_SUPPORTED`.
+    *   Fix integer overflow in `SonicAudioProcessor` pitch detection that could
+        cause audible fluttering when time-stretching or pitch-shifting loud
+        16-bit PCM audio
+        ([#3565](https://github.com/androidx/media/issues/3565)).
 *   Video:
 *   Text:
 *   Metadata:
