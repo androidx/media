@@ -239,9 +239,11 @@ import org.jspecify.annotations.Nullable;
       if (framesInUse >= CAPACITY) {
         return;
       }
+      @Nullable InputSurface imageInputSurface = null;
       @Nullable ImageAdapter image = null;
       for (int i = 0; i < inputSurfaces.size(); i++) {
-        image = inputSurfaces.get(i).imageReader.acquireNextImage();
+        imageInputSurface = inputSurfaces.get(i);
+        image = imageInputSurface.acquireNextImage();
         if (image != null) {
           break;
         }
@@ -249,20 +251,25 @@ import org.jspecify.annotations.Nullable;
       if (image == null) {
         return;
       }
-      try {
-        // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
-        // CAPACITY images are queued.
-        framesInUse++;
-        @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
-        // If the SequenceFrameReader is flushed after queueFrameViaSurface is called, but before
-        // onImageAvailable, then when onImageAvailable is called there will be no matching
-        // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
-        // this scenario.
-        if (frameInfo == null) {
+      InputSurface inputSurface = checkNotNull(imageInputSurface);
+      // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
+      // CAPACITY images are queued.
+      framesInUse++;
+      @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
+      // If the SequenceFrameReader is flushed after queueFrameViaSurface is called, but before
+      // onImageAvailable, then when onImageAvailable is called there will be no matching
+      // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
+      // this scenario.
+      if (frameInfo == null) {
+        framesInUse--;
+        try {
           image.close();
-          framesInUse--;
-          return;
+        } finally {
+          inputSurface.onImageClosed();
         }
+        return;
+      }
+      try {
         long itemPresentationTimeUs = frameInfo.itemPresentationTimeUs;
         long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
         int indexOfItem = frameInfo.itemIndex;
@@ -275,18 +282,23 @@ import org.jspecify.annotations.Nullable;
         frameConsumer.accept(
             frameReaderImpl.createAsyncFrameFromImage(
                 image,
+                inputSurface,
                 itemPresentationTimeUs,
                 sequenceOffsetUs,
                 indexOfItem,
                 frameInfo.format,
                 frameInfo.additionalMetadata));
-        maybeOutputPendingBitmaps();
-        maybeWakeupVideoRenderer();
       } catch (RuntimeException e) {
-        image.close();
         framesInUse--;
+        try {
+          image.close();
+        } finally {
+          inputSurface.onImageClosed();
+        }
         throw e;
       }
+      maybeOutputPendingBitmaps();
+      maybeWakeupVideoRenderer();
     }
   }
 
@@ -333,15 +345,19 @@ import org.jspecify.annotations.Nullable;
 
   /** Releases any resources. */
   void release() {
+    ImmutableList<InputSurface> inputSurfacesToRelease;
+    @Nullable BitmapToFrameConverter<?> converterToClose;
     synchronized (this) {
-      ImmutableList<InputSurface> inputSurfacesToRelease = ImmutableList.copyOf(inputSurfaces);
-      for (int i = 0; i < inputSurfacesToRelease.size(); i++) {
-        inputSurfacesToRelease.get(i).release();
-      }
-      if (bitmapToFrameConverter != null) {
-        bitmapToFrameConverter.close();
-        bitmapToFrameConverter = null;
-      }
+      inputSurfacesToRelease = ImmutableList.copyOf(inputSurfaces);
+      inputSurfaces.clear();
+      converterToClose = bitmapToFrameConverter;
+      bitmapToFrameConverter = null;
+    }
+    for (int i = 0; i < inputSurfacesToRelease.size(); i++) {
+      inputSurfacesToRelease.get(i).release();
+    }
+    if (converterToClose != null) {
+      converterToClose.close();
     }
   }
 
@@ -424,8 +440,7 @@ import org.jspecify.annotations.Nullable;
                 createFrameMetadata(
                     presentationTimeUs, itemIndex, /* additionalMetadata= */ ImmutableMap.of()),
                 playbackExecutor,
-                /* onFrameReleased= */ releaseFence ->
-                    releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence));
+                /* onFrameReleased= */ this::releaseFrame);
     return new AsyncFrame(frame, /* acquireFence= */ null);
   }
 
@@ -455,10 +470,54 @@ import org.jspecify.annotations.Nullable;
         .buildOrThrow();
   }
 
+  private void releaseFrame(@Nullable SyncFenceWrapper releaseFence) {
+    awaitAndCloseReleaseFence(releaseFence);
+    synchronized (this) {
+      framesInUse--;
+    }
+    maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
   private void releaseFrame(
-      @Nullable ImageAdapter image,
-      @Nullable HardwareBuffer hardwareBuffer,
-      @Nullable SyncFenceWrapper releaseFence) {
+      @Nullable SyncFenceWrapper releaseFence, ImageAdapter image, InputSurface inputSurface) {
+    awaitAndCloseReleaseFence(releaseFence);
+    try {
+      synchronized (this) {
+        framesInUse--;
+        image.close();
+      }
+    } finally {
+      inputSurface.onImageClosed();
+    }
+    maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
+  @RequiresApi(28)
+  private void releaseFrame(
+      @Nullable SyncFenceWrapper releaseFence,
+      ImageAdapter image,
+      InputSurface inputSurface,
+      HardwareBuffer hardwareBuffer) {
+    awaitAndCloseReleaseFence(releaseFence);
+    try {
+      synchronized (this) {
+        framesInUse--;
+        try {
+          hardwareBuffer.close();
+        } finally {
+          image.close();
+        }
+      }
+    } finally {
+      inputSurface.onImageClosed();
+    }
+    maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
+  private static void awaitAndCloseReleaseFence(@Nullable SyncFenceWrapper releaseFence) {
     if (releaseFence != null) {
       // TODO: b/475744934 - Use the NDK to set the fence on the Image.
       if (!releaseFence.awaitMs(RELEASE_TIMEOUT_MS)) {
@@ -466,17 +525,6 @@ import org.jspecify.annotations.Nullable;
       }
       releaseFence.close();
     }
-    synchronized (this) {
-      framesInUse--;
-      if (SDK_INT >= 26 && hardwareBuffer != null) {
-        hardwareBuffer.close();
-      }
-      if (image != null) {
-        image.close();
-      }
-    }
-    maybeOutputPendingBitmaps();
-    maybeWakeupVideoRenderer();
   }
 
   private void maybeWakeupVideoRenderer() {
@@ -495,7 +543,13 @@ import org.jspecify.annotations.Nullable;
   /** A {@link Surface} that a single producer, such as a decoder, renders frames into. */
   /* package */ final class InputSurface {
     private final ImageReaderAdapter imageReader;
-    private @Nullable Surface surface;
+    private final Surface surface;
+
+    @GuardedBy("SequenceFrameReader.this")
+    private int acquiredImageCount;
+
+    @GuardedBy("SequenceFrameReader.this")
+    private boolean isReleased;
 
     private InputSurface() {
       // The width and height are sensible defaults for tests and are typically ignored when
@@ -516,13 +570,11 @@ import org.jspecify.annotations.Nullable;
             }
           },
           playbackHandler);
+      surface = imageReader.getSurface();
     }
 
     /** Returns the {@link Surface} to render frames into. */
     Surface getSurface() {
-      if (surface == null) {
-        surface = imageReader.getSurface();
-      }
       return surface;
     }
 
@@ -576,15 +628,47 @@ import org.jspecify.annotations.Nullable;
       imageReader.notifyFrameQueued(presentationTimeUs);
     }
 
-    /** Releases this input surface. */
-    void release() {
+    /** Acquires the next available image from this input surface, if any. */
+    @Nullable ImageAdapter acquireNextImage() {
       synchronized (SequenceFrameReader.this) {
+        @Nullable ImageAdapter image = imageReader.acquireNextImage();
+        if (image != null) {
+          acquiredImageCount++;
+        }
+        return image;
+      }
+    }
+
+    /** Notifies this input surface that a previously acquired image has been closed. */
+    void onImageClosed() {
+      boolean shouldCloseImageReader;
+      synchronized (SequenceFrameReader.this) {
+        checkState(acquiredImageCount > 0);
+        acquiredImageCount--;
+        shouldCloseImageReader = isReleased && acquiredImageCount == 0;
+      }
+      if (shouldCloseImageReader) {
+        imageReader.close();
+      }
+    }
+
+    /**
+     * Releases this input surface, closing its image reader once all acquired images are closed.
+     */
+    void release() {
+      boolean shouldCloseImageReader;
+      synchronized (SequenceFrameReader.this) {
+        if (isReleased) {
+          return;
+        }
+        isReleased = true;
         inputSurfaces.remove(this);
+        shouldCloseImageReader = acquiredImageCount == 0;
       }
-      if (surface != null) {
-        surface.release();
+      surface.release();
+      if (shouldCloseImageReader) {
+        imageReader.close();
       }
-      imageReader.close();
     }
   }
 
@@ -606,6 +690,7 @@ import org.jspecify.annotations.Nullable;
     /** Creates an {@link AsyncFrame} from an acquired {@link ImageAdapter}. */
     AsyncFrame createAsyncFrameFromImage(
         ImageAdapter image,
+        InputSurface inputSurface,
         long presentationTimeUs,
         long sequenceOffsetUs,
         int indexOfItem,
@@ -642,6 +727,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public AsyncFrame createAsyncFrameFromImage(
         ImageAdapter image,
+        InputSurface inputSurface,
         long presentationTimeUs,
         long sequenceOffsetUs,
         int indexOfItem,
@@ -656,7 +742,7 @@ import org.jspecify.annotations.Nullable;
                   hardwareBuffer,
                   playbackExecutor,
                   /* releaseCallback= */ releaseFence ->
-                      releaseFrame(image, hardwareBuffer, releaseFence))
+                      releaseFrame(releaseFence, image, inputSurface, hardwareBuffer))
               .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
               .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
               .setFormat(resolveFrameFormat(format))
@@ -694,6 +780,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public AsyncFrame createAsyncFrameFromImage(
         ImageAdapter image,
+        InputSurface inputSurface,
         long presentationTimeUs,
         long sequenceOffsetUs,
         int indexOfItem,
@@ -705,7 +792,7 @@ import org.jspecify.annotations.Nullable;
                   resolveFrameFormat(format),
                   playbackExecutor,
                   /* releaseCallback= */ releaseFence ->
-                      releaseFrame(image, /* hardwareBuffer= */ null, releaseFence))
+                      releaseFrame(releaseFence, image, inputSurface))
               .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
               .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
               .setInternalImage(image.getInternalImage())

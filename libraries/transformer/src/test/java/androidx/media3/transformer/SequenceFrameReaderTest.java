@@ -720,6 +720,78 @@ public class SequenceFrameReaderTest {
   }
 
   @Test
+  @Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
+  public void releaseInputSurface_withFrameInUse_doesNotCloseImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    SequenceFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface surface = frameReader.createInputSurface();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+
+    surface.release();
+
+    assertThat(imageReader.isClosed()).isFalse();
+  }
+
+  @Test
+  @Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
+  public void
+      releaseFrame_afterInputSurfaceReleasedWithRemainingFrameInUse_doesNotCloseImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    SequenceFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface surface = frameReader.createInputSurface();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 33_333,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+    surface.release();
+
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(imageReader.isClosed()).isFalse();
+  }
+
+  @Test
+  @Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
+  public void releaseFrame_afterInputSurfaceReleased_closesImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    SequenceFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface surface = frameReader.createInputSurface();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+    surface.release();
+
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(imageReader.isClosed()).isTrue();
+  }
+
+  @Test
   public void queueFrame_withDifferentInputSurfaces_outputsFramesInOrder() {
     SequenceFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
     InputSurface inputSurface1 = frameReader.createInputSurface();
