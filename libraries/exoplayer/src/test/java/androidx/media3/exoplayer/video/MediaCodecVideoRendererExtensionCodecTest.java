@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.format;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -4397,6 +4398,162 @@ public final class MediaCodecVideoRendererExtensionCodecTest {
 
     assertThat(fakeVideoSink.flushCallCount).isEqualTo(flushCountBeforeReset + 1);
     assertThat(fakeVideoSink.lastFlushResetPosition).isTrue();
+  }
+
+  // Robolectric's CodecCapabilitiesBuilder only populates supported feature flags on API 29+.
+  @Config(minSdk = 29)
+  @Test
+  public void
+      supportsFormat_withPreferredNonTunnelingExtensionAndTunnelingHw_returnsTunnelingNotSupported()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    MediaCodecInfo nonTunnelingHardwareAv1 =
+        createTunnelingTestAv1CodecInfo(/* name= */ "c2.qti.av1.decoder", /* tunneling= */ false);
+    MediaCodecInfo tunnelingHardwareAv1 =
+        createTunnelingTestAv1CodecInfo(
+            /* name= */ "c2.qti.av1.decoder.tunneled", /* tunneling= */ true);
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (!Objects.equals(mimeType, MimeTypes.VIDEO_AV1) || requiresSecureDecoder) {
+            return ImmutableList.of();
+          }
+          return requiresTunnelingDecoder
+              ? ImmutableList.of(tunnelingHardwareAv1)
+              : ImmutableList.of(AV1_EXTENSION_CODEC_INFO, nonTunnelingHardwareAv1);
+        };
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(selector)
+            .build();
+    createdRenderers.add(renderer);
+
+    @Capabilities int capabilities = renderer.supportsFormat(VIDEO_AV1);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getDecoderSupport(capabilities))
+        .isEqualTo(RendererCapabilities.DECODER_SUPPORT_PRIMARY);
+    assertThat(RendererCapabilities.getTunnelingSupport(capabilities))
+        .isEqualTo(RendererCapabilities.TUNNELING_NOT_SUPPORTED);
+  }
+
+  // Robolectric's CodecCapabilitiesBuilder only populates supported feature flags on API 29+.
+  @Config(minSdk = 29)
+  @Test
+  public void supportsFormat_withPreferredHwAndFallbackExtension_returnsTunnelingSupported()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    MediaCodecInfo nonTunnelingHardwareAv1 =
+        createTunnelingTestAv1CodecInfo(/* name= */ "c2.qti.av1.decoder", /* tunneling= */ false);
+    MediaCodecInfo tunnelingHardwareAv1 =
+        createTunnelingTestAv1CodecInfo(
+            /* name= */ "c2.qti.av1.decoder.tunneled", /* tunneling= */ true);
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (!Objects.equals(mimeType, MimeTypes.VIDEO_AV1) || requiresSecureDecoder) {
+            return ImmutableList.of();
+          }
+          return requiresTunnelingDecoder
+              ? ImmutableList.of(tunnelingHardwareAv1)
+              : ImmutableList.of(nonTunnelingHardwareAv1, AV1_EXTENSION_CODEC_INFO);
+        };
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaCodecSelector(selector)
+            .build();
+    createdRenderers.add(renderer);
+
+    @Capabilities int capabilities = renderer.supportsFormat(VIDEO_AV1);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities)).isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getDecoderSupport(capabilities))
+        .isEqualTo(RendererCapabilities.DECODER_SUPPORT_PRIMARY);
+    assertThat(RendererCapabilities.getTunnelingSupport(capabilities))
+        .isEqualTo(RendererCapabilities.TUNNELING_SUPPORTED);
+  }
+
+  @Test
+  public void enable_withRetainedWrappedExtensionCodecAndVideoSinkWhileJoining_flushesVideoSink()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    Surface sinkInputSurface = createValidSurface(/* texName= */ 1);
+    FakeVideoSink fakeVideoSink = new FakeVideoSink(sinkInputSurface);
+    MediaCodecVideoRenderer renderer =
+        createRenderer(
+            configuration ->
+                new ForwardingMediaCodecAdapter(
+                    new TestVideoExtensionCodecAdapter(
+                        configuration.format,
+                        new FakePassthroughVideoDecoder(configuration.format),
+                        configuration.surface)) {},
+            AV1_EXTENSION_CODEC_SELECTOR,
+            builder -> builder.setVideoSink(fakeVideoSink).setAllowedJoiningTimeMs(5_000),
+            fakeClock);
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            VIDEO_AV1_720P,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 40_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_AV1_720P},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, msToUs(fakeClock.elapsedRealtime()));
+    int flushCountBeforeReEnable = fakeVideoSink.flushCallCount;
+    renderer.stop();
+    renderer.disable();
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_AV1_720P},
+        fakeSampleStream,
+        /* positionUs= */ 20_000,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 20_000,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+
+    assertThat(fakeVideoSink.flushCallCount).isEqualTo(flushCountBeforeReEnable + 1);
+    assertThat(fakeVideoSink.lastFlushResetPosition).isTrue();
+  }
+
+  private static MediaCodecInfo createTunnelingTestAv1CodecInfo(String name, boolean tunneling) {
+    MediaFormat mediaFormat =
+        MediaFormat.createVideoFormat(MimeTypes.VIDEO_AV1, /* width= */ 1920, /* height= */ 1080);
+    mediaFormat.setFeatureEnabled(CodecCapabilities.FEATURE_AdaptivePlayback, true);
+    if (tunneling) {
+      mediaFormat.setFeatureEnabled(CodecCapabilities.FEATURE_TunneledPlayback, true);
+    }
+    CodecCapabilities capabilities =
+        MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+            .setMediaFormat(mediaFormat)
+            .setIsEncoder(false)
+            .setColorFormats(new int[] {CodecCapabilities.COLOR_FormatYUV420Flexible})
+            .setProfileLevels(
+                new CodecProfileLevel[] {
+                  createCodecProfileLevel(
+                      CodecProfileLevel.AV1ProfileMain8, CodecProfileLevel.AV1Level4)
+                })
+            .build();
+    return MediaCodecInfo.newInstance(
+        name,
+        MimeTypes.VIDEO_AV1,
+        MimeTypes.VIDEO_AV1,
+        capabilities,
+        /* hardwareAccelerated= */ true,
+        /* softwareOnly= */ false,
+        /* vendor= */ true);
   }
 
   private Surface createValidSurface(int texName) {

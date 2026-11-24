@@ -27,10 +27,12 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.content.Context;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
+import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
@@ -38,6 +40,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import java.util.Objects;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowBuild;
@@ -45,6 +49,11 @@ import org.robolectric.shadows.ShadowBuild;
 /** Unit tests for {@link MediaCodecUtil}. */
 @RunWith(AndroidJUnit4.class)
 public final class MediaCodecUtilTest {
+
+  @After
+  public void tearDown() {
+    MediaCodecUtil.clearDecoderInfoCache();
+  }
 
   private static final byte[] CSD0 =
       new byte[] {
@@ -651,6 +660,383 @@ public final class MediaCodecUtilTest {
             /* requiresTunnelingDecoder= */ false);
 
     assertThat(decoderInfos).containsExactly(drmCapableExtensionInfo);
+  }
+
+  @Test
+  public void getDecoderInfosSoftMatch_withDrmInitDataOnly_excludesExtensionDecoders()
+      throws Exception {
+    MediaCodecInfo platformCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.av1.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* codecMimeType= */ MimeTypes.VIDEO_AV1,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    ExtensionCodecInfo extensionCodecInfo =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.av1.dav1d.decoder", MimeTypes.VIDEO_AV1);
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            ImmutableList.of(platformCodecInfo, extensionCodecInfo);
+    Format drmInitDataFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setDrmInitData(
+                new DrmInitData(
+                    new DrmInitData.SchemeData(
+                        C.WIDEVINE_UUID, MimeTypes.VIDEO_MP4, new byte[] {1})))
+            .build();
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getDecoderInfosSoftMatch(
+            selector,
+            drmInitDataFormat,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(platformCodecInfo);
+  }
+
+  @Test
+  public void getDecoderInfosSoftMatch_withUnencryptedFormat_includesExtensionDecoders()
+      throws Exception {
+    MediaCodecInfo platformCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.av1.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* codecMimeType= */ MimeTypes.VIDEO_AV1,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    ExtensionCodecInfo extensionCodecInfo =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.av1.dav1d.decoder", MimeTypes.VIDEO_AV1);
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            ImmutableList.of(platformCodecInfo, extensionCodecInfo);
+    Format unencryptedFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build();
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getDecoderInfosSoftMatch(
+            selector,
+            unencryptedFormat,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(platformCodecInfo, extensionCodecInfo).inOrder();
+  }
+
+  @Test
+  public void getAlternativeDecoderInfos_withEncryptedFormat_excludesExtensionDecoders()
+      throws Exception {
+    MediaCodecInfo platformCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.av1.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* codecMimeType= */ MimeTypes.VIDEO_AV1,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    ExtensionCodecInfo extensionCodecInfo =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.av1.dav1d.decoder", MimeTypes.VIDEO_AV1);
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            Objects.equals(mimeType, MimeTypes.VIDEO_AV1)
+                ? ImmutableList.of(platformCodecInfo, extensionCodecInfo)
+                : ImmutableList.of();
+    Format encryptedDolbyVisionAv1Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setCryptoType(C.CRYPTO_TYPE_FRAMEWORK)
+            .build();
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getAlternativeDecoderInfos(
+            selector,
+            encryptedDolbyVisionAv1Format,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(platformCodecInfo);
+  }
+
+  @Test
+  public void getAlternativeDecoderInfos_withUnsupportedExtensionDecoder_excludesExtensionDecoder()
+      throws Exception {
+    MediaCodecInfo platformCodecInfo =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.av1.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* codecMimeType= */ MimeTypes.VIDEO_AV1,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    ExtensionCodecInfo av1OnlyExtensionCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.av1.only.decoder", MimeTypes.VIDEO_AV1) {
+          @Override
+          protected boolean isFormatSupported(Format format) {
+            return Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_AV1);
+          }
+        };
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            Objects.equals(mimeType, MimeTypes.VIDEO_AV1)
+                ? ImmutableList.of(av1OnlyExtensionCodecInfo, platformCodecInfo)
+                : ImmutableList.of();
+    Format dolbyVisionAv1Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .build();
+
+    List<MediaCodecInfo> decoderInfos =
+        MediaCodecUtil.getAlternativeDecoderInfos(
+            selector,
+            dolbyVisionAv1Format,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoderInfos).containsExactly(platformCodecInfo);
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_whenHwExceedsCapabilitiesAndExtensionSupportsFormat_promotesExtension() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaCodecInfo hwLevel4 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.qti.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCMainTierLevel4),
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    ExtensionCodecInfo extensionHevc =
+        ExtensionCodecInfo.newInstance(/* name= */ "c2.media3.hevc.decoder", MimeTypes.VIDEO_H265);
+    Format level51Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.1.6.H153.B0")
+            .build();
+
+    List<MediaCodecInfo> sorted =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(hwLevel4, extensionHevc), level51Format);
+
+    assertThat(sorted).containsExactly(extensionHevc, hwLevel4).inOrder();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_whenBothHwAndExtensionSupportFormat_preservesInputOrder() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaCodecInfo hwLevel51 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.qti.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCHighTierLevel51),
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    ExtensionCodecInfo extensionHevc =
+        ExtensionCodecInfo.newInstance(/* name= */ "c2.media3.hevc.decoder", MimeTypes.VIDEO_H265);
+    Format level4Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.1.6.L120.B0")
+            .build();
+
+    List<MediaCodecInfo> sortedModeOn =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(hwLevel51, extensionHevc), level4Format);
+    List<MediaCodecInfo> sortedModePrefer =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(extensionHevc, hwLevel51), level4Format);
+
+    assertThat(sortedModeOn).containsExactly(hwLevel51, extensionHevc).inOrder();
+    assertThat(sortedModePrefer).containsExactly(extensionHevc, hwLevel51).inOrder();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_whenHwExceedsCapabilitiesAndPlatformSwSupportsFormat_preservesHwFirst() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaCodecInfo hwLevel4 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.qti.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCMainTierLevel4),
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    MediaCodecInfo platformSwLevel51 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCHighTierLevel51),
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    ExtensionCodecInfo extensionHevc =
+        ExtensionCodecInfo.newInstance(/* name= */ "c2.media3.hevc.decoder", MimeTypes.VIDEO_H265);
+    Format level51Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.1.6.H153.B0")
+            .build();
+
+    List<MediaCodecInfo> sorted =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(hwLevel4, platformSwLevel51, extensionHevc), level51Format);
+
+    assertThat(sorted).containsExactly(hwLevel4, platformSwLevel51, extensionHevc).inOrder();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_whenExtensionPrecedesPlatformSwAndHwExceedsCapabilities_promotesExtension() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaCodecInfo hwLevel4 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.qti.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCMainTierLevel4),
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    ExtensionCodecInfo extensionHevc =
+        ExtensionCodecInfo.newInstance(/* name= */ "c2.media3.hevc.decoder", MimeTypes.VIDEO_H265);
+    MediaCodecInfo platformSwLevel51 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCHighTierLevel51),
+            /* hardwareAccelerated= */ false,
+            /* softwareOnly= */ true,
+            /* vendor= */ false);
+    Format level51Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.1.6.H153.B0")
+            .build();
+
+    List<MediaCodecInfo> sorted =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(hwLevel4, extensionHevc, platformSwLevel51), level51Format);
+
+    assertThat(sorted).containsExactly(extensionHevc, hwLevel4, platformSwLevel51).inOrder();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_whenHwExceedsCapabilitiesAndExtensionUnsupported_keepsHwFirst() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaCodecInfo hwLevel4 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.qti.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCMainTierLevel4),
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    ExtensionCodecInfo unsupportedExtension =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.hevc.decoder", MimeTypes.VIDEO_H265) {
+          @Override
+          protected boolean isFormatSupported(Format format) {
+            return false;
+          }
+        };
+    Format level51Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.1.6.H153.B0")
+            .build();
+
+    List<MediaCodecInfo> sorted =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(hwLevel4, unsupportedExtension), level51Format);
+
+    assertThat(sorted).containsExactly(hwLevel4, unsupportedExtension).inOrder();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_whenPlatformCapabilitiesUnknown_preservesInputOrder() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaCodecInfo hwUnknownCapabilities =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.android.av1.hardware.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_AV1,
+            /* codecMimeType= */ MimeTypes.VIDEO_AV1,
+            /* capabilities= */ null,
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    ExtensionCodecInfo extensionAv1 =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.av1.dav1d.decoder", MimeTypes.VIDEO_AV1);
+    Format av1Format720p =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setWidth(1280)
+            .setHeight(720)
+            .build();
+
+    List<MediaCodecInfo> sorted =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context, ImmutableList.of(hwUnknownCapabilities, extensionAv1), av1Format720p);
+
+    assertThat(sorted).containsExactly(hwUnknownCapabilities, extensionAv1).inOrder();
+  }
+
+  @Test
+  public void
+      getDecoderInfosSortedByFormatSupport_withPreferredAndFallbackExtensionsAroundFullSupportingHw_promotesOnlyPreferredExtension() {
+    Context context = ApplicationProvider.getApplicationContext();
+    ExtensionCodecInfo preferredExtensionHevc =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.hevc.preferred.decoder", MimeTypes.VIDEO_H265);
+    MediaCodecInfo hwLevel51 =
+        MediaCodecInfo.newInstance(
+            /* name= */ "c2.qti.hevc.decoder",
+            /* mimeType= */ MimeTypes.VIDEO_H265,
+            /* codecMimeType= */ MimeTypes.VIDEO_H265,
+            createCodecCapabilities(HEVCProfileMain, HEVCHighTierLevel51),
+            /* hardwareAccelerated= */ true,
+            /* softwareOnly= */ false,
+            /* vendor= */ true);
+    ExtensionCodecInfo fallbackExtensionHevc =
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.hevc.fallback.decoder", MimeTypes.VIDEO_H265);
+    Format level4Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.1.6.L120.B0")
+            .build();
+
+    List<MediaCodecInfo> sorted =
+        MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+            context,
+            ImmutableList.of(preferredExtensionHevc, hwLevel51, fallbackExtensionHevc),
+            level4Format);
+
+    assertThat(sorted)
+        .containsExactly(preferredExtensionHevc, hwLevel51, fallbackExtensionHevc)
+        .inOrder();
   }
 
   private static CodecCapabilities createCodecCapabilities(int profile, int level) {

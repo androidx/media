@@ -769,7 +769,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     if (decoderInfos.isEmpty()) {
       if (Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)
-          && format.cryptoType != C.CRYPTO_TYPE_NONE) {
+          && (format.cryptoType != C.CRYPTO_TYPE_NONE || drmInitData != null)) {
         // Prioritize FORMAT_UNSUPPORTED_DRM over capability checks (matching supportsFormatDrm).
         Format unencryptedFormat =
             format.buildUpon().setCryptoType(C.CRYPTO_TYPE_NONE).setDrmInitData(null).build();
