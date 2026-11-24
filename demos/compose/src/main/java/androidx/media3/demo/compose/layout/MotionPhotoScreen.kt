@@ -41,9 +41,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -64,6 +66,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceBitmapLoader
+import androidx.media3.demo.compose.motionphoto.PlaybackRangeIndicator
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.util.EventLogger
@@ -217,14 +220,27 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
     }
 
     if (showCustomSheet) {
-      ModalBottomSheet(onDismissRequest = { showCustomSheet = false }) {
+      ModalBottomSheet(
+        onDismissRequest = { showCustomSheet = false },
+        sheetState =
+          rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+          ),
+      ) {
         val config = motionPhotoState.config
+        PlaybackRangeIndicator(
+          player = player,
+          config = config,
+          modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp),
+        )
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp))
         Column(
           modifier =
             Modifier.fillMaxWidth()
+              .weight(1f, fill = false)
               .verticalScroll(rememberScrollState())
-              .padding(horizontal = 24.dp)
-              .padding(bottom = 24.dp),
+              .padding(start = 24.dp, top = 12.dp, end = 24.dp, bottom = 24.dp),
           verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
           BoundaryControl(
@@ -248,13 +264,6 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
                 motionPhotoState.config.copy(endBoundary = boundary, endBoundaryOffsetMs = offsetMs)
             },
           )
-          if (isRangeKnownEmpty(config)) {
-            Text(
-              text = "Nothing to play: the end is not after the start",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.error,
-            )
-          }
           HorizontalDivider()
           ConfigSwitchRow(
             label = "Loop motion",
@@ -359,17 +368,6 @@ private fun ConfigSwitchRow(
     Switch(checked = checked, onCheckedChange = onCheckedChange)
   }
 }
-
-private fun isRangeKnownEmpty(config: MotionPhotoConfig): Boolean =
-  // Start sits at the end of the video, so no clamped end can lie after it.
-  (config.startBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO &&
-    config.startBoundaryOffsetMs == 0L) ||
-    // End sits at the start of the video, and start is never negative.
-    (config.endBoundary == MotionPhotoConfig.BOUNDARY_START_OF_VIDEO &&
-      config.endBoundaryOffsetMs == 0L) ||
-    // Same anchor for both, and end is not after start (holds under fallback too).
-    (config.startBoundary == config.endBoundary &&
-      config.endBoundaryOffsetMs <= config.startBoundaryOffsetMs)
 
 private fun offsetRangeMs(boundary: @MotionPhotoConfig.PlaybackBoundary Int): LongRange =
   when (boundary) {
