@@ -169,6 +169,13 @@ import org.jspecify.annotations.Nullable;
     // Do nothing.
   }
 
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    // Only a single sample at timestamp 0 is provided, so no samples exist beyond the end
+    // position.
+    return endPositionUs;
+  }
+
   public void releasePeriod() {
     if (loadingFuture != null) {
       loadingFuture.cancel(/* mayInterruptIfRunning= */ false);

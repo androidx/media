@@ -295,12 +295,15 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public long setEndPositionUs(long endPositionUs) {
-    boolean supported = true;
     for (MediaPeriod period : periods) {
-      long actualEndPositionUs = period.setEndPositionUs(endPositionUs);
-      supported &= actualEndPositionUs == endPositionUs;
+      if (period.setEndPositionUs(endPositionUs) != endPositionUs) {
+        for (MediaPeriod childPeriod : periods) {
+          long unused = childPeriod.setEndPositionUs(C.TIME_END_OF_SOURCE);
+        }
+        return C.TIME_END_OF_SOURCE;
+      }
     }
-    return supported ? endPositionUs : C.TIME_END_OF_SOURCE;
+    return endPositionUs;
   }
 
   // MediaPeriod.Callback implementation
