@@ -137,6 +137,9 @@
     *   Remove `RawResourceDataSource.RawResourceDataSourceException(String)`.
         Use `RawResourceDataSource.RawResourceDataSourceException(String,
         Throwable, int)` instead.
+    *   Remove `TsExtractor(int)`. Use `TsExtractor(int, int,
+        SubtitleParser.Factory, TimestampAdjuster, TsPayloadReader.Factory,
+        int)` instead.
     *   Remove `UnrecognizedInputFormatException(String, Uri)`. Use
         `UnrecognizedInputFormatException(String, Uri, List)` instead.
 *   Build:

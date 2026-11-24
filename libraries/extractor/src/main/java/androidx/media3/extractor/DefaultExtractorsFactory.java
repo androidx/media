@@ -356,7 +356,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
    * Sets flags for {@link DefaultTsPayloadReaderFactory}s used by {@link TsExtractor} instances
    * created by the factory.
    *
-   * @see TsExtractor#TsExtractor(int)
+   * @see DefaultTsPayloadReaderFactory#DefaultTsPayloadReaderFactory(int)
    * @param flags The flags to use.
    * @return The factory, for convenience.
    */
