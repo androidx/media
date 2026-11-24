@@ -91,6 +91,10 @@
         ships Java 11 bytecode since version 1.12, so app Kotlin code that calls
         inline Compose APIs, such as `remember`, needs a JVM target of 11 or
         higher.
+    *   `media3-ui-compose-material3`: Pass the seek amount format argument to
+        `pluralStringResource` in `SeekBackButton` and `SeekForwardButton` so
+        default accessibility content descriptions format `%d`
+        ([#3577](https://github.com/androidx/media/issues/3577)).
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:

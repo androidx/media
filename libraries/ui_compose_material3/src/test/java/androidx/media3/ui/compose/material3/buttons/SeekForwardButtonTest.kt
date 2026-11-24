@@ -69,6 +69,28 @@ class SeekForwardButtonTest {
   }
 
   @Test
+  fun defaultContentDescription_formatsSeekForwardIncrement() = runComposeUiTest {
+    val player = FakePlayer()
+    player.setSeekForwardIncrementMs(5_000)
+
+    setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
+
+    onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Skip forward 5 seconds")
+
+    runOnIdle { player.setSeekForwardIncrementMs(10_000) }
+    onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Skip forward 10 seconds")
+
+    runOnIdle { player.setSeekForwardIncrementMs(15_000) }
+    onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Skip forward 15 seconds")
+
+    runOnIdle { player.setSeekForwardIncrementMs(30_000) }
+    onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Skip forward 30 seconds")
+
+    runOnIdle { player.setSeekForwardIncrementMs(1_000) }
+    onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Skip forward")
+  }
+
+  @Test
   fun customizeContentDescription() = runComposeUiTest {
     val player = FakePlayer()
 

@@ -181,10 +181,10 @@ fun SeekBackButton(
 private val defaultSeekBackContentDescription: @Composable SeekBackButtonState.() -> String =
   @Composable {
     when (seekBackAmountMs) {
-      in 2500..7500 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 5)
-      in 7500..12500 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 10)
-      in 12500..20000 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 15)
-      in 20000..40000 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 30)
+      in 2500..7500 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 5, 5)
+      in 7500..12500 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 10, 10)
+      in 12500..20000 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 15, 15)
+      in 20000..40000 -> pluralStringResource(R.plurals.seek_back_by_amount_button, count = 30, 30)
       else -> stringResource(R.string.seek_back_button)
     }
   }

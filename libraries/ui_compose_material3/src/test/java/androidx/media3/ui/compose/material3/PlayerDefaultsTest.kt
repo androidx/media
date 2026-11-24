@@ -78,9 +78,9 @@ class PlayerDefaultsTest {
   @Test
   fun centerControls_defaultContent_displaysAllButtons() {
     val seekForwardDesc =
-      context.resources.getQuantityString(R.plurals.seek_forward_by_amount_button, 15)
+      context.resources.getQuantityString(R.plurals.seek_forward_by_amount_button, 15, 15)
     val seekBackwardDesc =
-      context.resources.getQuantityString(R.plurals.seek_back_by_amount_button, 10)
+      context.resources.getQuantityString(R.plurals.seek_back_by_amount_button, 10, 10)
     val player =
       FakePlayer().apply {
         setSeekForwardIncrementMs(15_000L)
