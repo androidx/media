@@ -21,6 +21,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
 import android.view.SurfaceView
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
@@ -50,6 +51,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakeBitmapLoader
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.SettableFuture
@@ -566,6 +568,43 @@ class MotionPhotoTest {
       assertThat(findViewWithType(composeView, SurfaceView::class.java)).isNull()
       assertThat(player.videoOutput).isNull()
     }
+
+  @Test
+  fun motionPhoto_withTextureViewSurfaceType_setsTextureViewOnPlayer() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+
+    setContent {
+      val state = rememberMotionPhotoState(player = player, mediaItem = unresolvableMediaItem)
+      MotionPhoto(
+        state = state,
+        contentDescription = PHOTO_CONTENT_DESCRIPTION,
+        modifier = Modifier.size(100.dp),
+        surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
+        bitmapLoader = FakeBitmapLoader(createBitmap(4, 4)),
+      )
+    }
+    waitForIdle()
+
+    assertThat(player.videoOutput).isInstanceOf(TextureView::class.java)
+  }
+
+  @Test
+  fun motionPhoto_customPhotoAndTextureView_setsTextureViewOnPlayer() = runComposeUiTest {
+    val player = FakePlayer(bufferingDelayMs = 0)
+
+    setContent {
+      val state = rememberMotionPhotoState(player = player, mediaItem = unresolvableMediaItem)
+      MotionPhoto(
+        state = state,
+        modifier = Modifier.size(100.dp),
+        surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
+        photo = {},
+      )
+    }
+    waitForIdle()
+
+    assertThat(player.videoOutput).isInstanceOf(TextureView::class.java)
+  }
 
   private fun <T : View> findViewWithType(root: View, clazz: Class<T>): T? {
     if (clazz.isInstance(root)) {
