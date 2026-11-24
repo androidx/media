@@ -54,8 +54,13 @@ import androidx.media3.extractor.SeekMap;
   /** A {@link Seeker} that does not support seeking through audio data. */
   /* package */ class UnseekableSeeker extends SeekMap.Unseekable implements Seeker {
 
-    public UnseekableSeeker() {
-      super(/* durationUs= */ C.TIME_UNSET);
+    private final long dataStartPosition;
+    private final long dataEndPosition;
+
+    public UnseekableSeeker(long dataStartPosition, long dataEndPosition) {
+      super(/* durationUs= */ C.TIME_UNSET, dataStartPosition);
+      this.dataStartPosition = dataStartPosition;
+      this.dataEndPosition = dataEndPosition;
     }
 
     @Override
@@ -65,13 +70,12 @@ import androidx.media3.extractor.SeekMap;
 
     @Override
     public long getDataStartPosition() {
-      return 0;
+      return dataStartPosition;
     }
 
     @Override
     public long getDataEndPosition() {
-      // Position unset as we do not know the data end position. Note that returning 0 doesn't work.
-      return C.INDEX_UNSET;
+      return dataEndPosition;
     }
 
     @Override
