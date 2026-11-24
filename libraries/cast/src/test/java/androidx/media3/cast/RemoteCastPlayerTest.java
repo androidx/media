@@ -92,6 +92,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
@@ -247,15 +248,14 @@ public class RemoteCastPlayerTest {
     when(spyTrackSelector.evaluate(any()))
         .thenAnswer(invocation ->
             invocation.getArgument(0, CastTrackSelectorRequest.class).buildResultUpon().build());
+    // Pre-initialize the Cast singleton with mockCastContext so RemoteCastPlayer.Builder reuses
+    // it instead of attempting to load the real GMS CastContext.
+    Cast unused = Cast.getSingletonInstance(mockCastContext);
     remoteCastPlayer =
-        new RemoteCastPlayer(
-            /* context= */ null,
-            Cast.getSingletonInstance(mockCastContext),
-            mediaItemConverter,
-            spyTrackSelector,
-            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
-            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
-            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+        new RemoteCastPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaItemConverter(mediaItemConverter)
+            .setTrackSelector(spyTrackSelector)
+            .build();
     remoteCastPlayer.addListener(mockListener);
     verify(mockSessionManager)
         .addSessionManagerListener(sessionManagerListenerCaptor.capture(), eq(CastSession.class));
@@ -2815,39 +2815,32 @@ public class RemoteCastPlayerTest {
   public void isCommandAvailable_withTrackSelector_returnsTrueForTrackSelectionCommand() {
     when(mockSessionManager.getCurrentCastSession()).thenReturn(null);
     RemoteCastPlayer remoteCastPlayerWithTrackSelector =
-        new RemoteCastPlayer(
-            /* context= */ null,
-            Cast.getSingletonInstance(mockCastContext),
-            mediaItemConverter,
-            new CastTrackSelector() {
-              @Override
-              public CastTrackSelectorResult evaluate(CastTrackSelectorRequest request) {
-                return request.buildResultUpon().build();
-              }
-            },
-            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
-            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
-            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+        new RemoteCastPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaItemConverter(mediaItemConverter)
+            .setTrackSelector(
+                new CastTrackSelector() {
+                  @Override
+                  public CastTrackSelectorResult evaluate(CastTrackSelectorRequest request) {
+                    return request.buildResultUpon().build();
+                  }
+                })
+            .build();
 
     assertThat(
             remoteCastPlayerWithTrackSelector
                 .getAvailableCommands()
                 .contains(Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS))
         .isTrue();
+
+    remoteCastPlayerWithTrackSelector.release();
   }
 
   @Test
   public void isCommandAvailable_withoutTrackSelector_returnsFalseForTrackSelectionCommand() {
-    // TODO: b/112049705 - Replace with builder call once MR2 robolectric shadows are available.
     RemoteCastPlayer remoteCastPlayerWithoutTrackSelector =
-        new RemoteCastPlayer(
-            /* context= */ null,
-            Cast.getSingletonInstance(mockCastContext),
-            mediaItemConverter,
-            /* trackSelector= */ null,
-            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
-            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
-            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+        new RemoteCastPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaItemConverter(mediaItemConverter)
+            .build();
     Listener mockListener = mock(Listener.class);
     remoteCastPlayerWithoutTrackSelector.addListener(mockListener);
     TrackSelectionParameters currentParams =
@@ -2864,6 +2857,8 @@ public class RemoteCastPlayerTest {
     assertThat(isTrackSelectionSupported).isFalse();
     verify(mockListener, never()).onTrackSelectionParametersChanged(any());
     verify(mockRemoteMediaClient, never()).setActiveMediaTracks(any());
+
+    remoteCastPlayerWithoutTrackSelector.release();
   }
 
   @Test
