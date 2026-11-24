@@ -15,13 +15,10 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
-import android.graphics.ImageFormat;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.VisibleForTesting;
@@ -136,19 +133,16 @@ import org.jspecify.annotations.Nullable;
           frameConsumer.accept(asyncFrame);
         };
     this.sequenceFrameReader =
-        new SequenceFrameReader(
-            checkNotNull(composition),
-            sequenceIndex,
-            intermediateConsumer,
-            playbackLooper,
-            // TODO(b/531653682): Move surface pixel format selection into SequenceFrameReader.
-            /* defaultSurfacePixelFormat= */ SDK_INT >= 28
-                ? ImageFormat.PRIVATE
-                : ImageFormat.YUV_420_888,
-            imageReaderAdapterFactory,
-            e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
-            listenerHandler,
-            hardwareBufferJniWrapper);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(sequenceIndex)
+            .setFrameConsumer(intermediateConsumer)
+            .setPlaybackLooper(playbackLooper)
+            .setImageReaderAdapterFactory(imageReaderAdapterFactory)
+            .setListener(
+                e -> errorConsumer.accept(ExportException.createForUnexpected(e)), listenerHandler)
+            .setHardwareBufferJniWrapper(hardwareBufferJniWrapper)
+            .build();
     inputSurface = sequenceFrameReader.createInputSurface();
     sequenceFrameReader.addRendererWakeupListener(this::maybeWakeupRenderer);
   }
