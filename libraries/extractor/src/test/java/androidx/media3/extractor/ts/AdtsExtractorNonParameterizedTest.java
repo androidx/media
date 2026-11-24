@@ -18,9 +18,13 @@ package androidx.media3.extractor.ts;
 import static androidx.media3.test.utils.TestUtil.getByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.C;
+import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
+import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -239,6 +243,46 @@ public final class AdtsExtractorNonParameterizedTest {
     while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
 
     assertThat(output.seekMap.getDurationUs()).isEqualTo(durationBeforeSeekUs);
+  }
+
+  @Test
+  public void read_withCbrSeeking_prematureEofBeforeDeclaredLength_retainsInitialSeekMap()
+      throws Exception {
+    byte[] cleanData = getByteArray(ApplicationProvider.getApplicationContext(), SAMPLE_FILE);
+    long declaredLength = cleanData.length + 4_096L;
+    DataReader prematureEofReader =
+        new DataReader() {
+          private int offset;
+
+          @Override
+          public int read(byte[] buffer, int destOffset, int length) {
+            if (offset >= cleanData.length) {
+              return C.RESULT_END_OF_INPUT;
+            }
+            int bytesToRead = Math.min(length, cleanData.length - offset);
+            System.arraycopy(cleanData, offset, buffer, destOffset, bytesToRead);
+            offset += bytesToRead;
+            return bytesToRead;
+          }
+        };
+    DefaultExtractorInput input =
+        new DefaultExtractorInput(prematureEofReader, /* position= */ 0, declaredLength);
+
+    AdtsExtractor extractor = new AdtsExtractor(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    PositionHolder positionHolder = new PositionHolder();
+    while (output.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    SeekMap initialSeekMap = output.seekMap;
+    long initialDurationUs = initialSeekMap.getDurationUs();
+
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(input.getPosition()).isLessThan(declaredLength);
+    assertThat(output.seekMap).isSameInstanceAs(initialSeekMap);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(initialDurationUs);
   }
 
   private static byte[] createApeV2Trailer(int totalSize) {

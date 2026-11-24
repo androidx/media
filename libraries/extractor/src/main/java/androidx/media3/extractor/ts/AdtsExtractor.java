@@ -284,7 +284,7 @@ public final class AdtsExtractor implements Extractor {
     long bufferStartPosition = input.getPosition();
     int bytesRead = input.read(packetBuffer.getData(), 0, MAX_PACKET_SIZE);
     boolean readEndOfStream = bytesRead == RESULT_END_OF_INPUT;
-    maybeOutputSeekMap(inputLength, readEndOfStream);
+    maybeOutputSeekMap(inputLength, readEndOfStream, input.getPosition());
     if (readEndOfStream) {
       return RESULT_END_OF_INPUT;
     }
@@ -347,9 +347,10 @@ public final class AdtsExtractor implements Extractor {
   }
 
   @RequiresNonNull("extractorOutput")
-  private void maybeOutputSeekMap(long inputLength, boolean readEndOfStream) {
+  private void maybeOutputSeekMap(long inputLength, boolean readEndOfStream, long inputPosition) {
     if (hasOutputSeekMap) {
       if (readEndOfStream
+          && inputPosition == inputLength
           && seekMapDataEndPosition != C.INDEX_UNSET
           && seekMapDataEndPosition != C.LENGTH_UNSET
           && endPositionOfLastSampleRead != C.INDEX_UNSET
@@ -378,6 +379,7 @@ public final class AdtsExtractor implements Extractor {
       long dataEndPosition = inputLength;
       if (readEndOfStream
           && inputLength != C.LENGTH_UNSET
+          && inputPosition == inputLength
           && endPositionOfLastSampleRead != C.INDEX_UNSET
           && endPositionOfLastSampleRead > firstFramePosition
           && endPositionOfLastSampleRead < inputLength) {
