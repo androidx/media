@@ -8076,6 +8076,187 @@ public class MediaCodecVideoRendererTest {
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
   }
 
+  @Test
+  public void render_withOutputFormatWithoutWidthOrHeight_fallsBackToFormatDimensions()
+      throws Exception {
+    Format h264Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1280)
+            .setHeight(720)
+            .build();
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setCodecAdapterFactory(configuration ->
+                new ForwardingMediaCodecAdapter(codecAdapterFactory.createAdapter(configuration)) {
+                  @Override
+                  public MediaFormat getOutputFormat() {
+                    MediaFormat formatWithoutDimensions = new MediaFormat();
+                    formatWithoutDimensions.setString(MediaFormat.KEY_MIME, MimeTypes.VIDEO_H264);
+                    return formatWithoutDimensions;
+                  }
+                })
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(0)
+            .setEventHandler(new Handler(testMainLooper))
+            .setEventListener(eventListener)
+            .build();
+    try {
+      renderer.init(/* index= */ 0, PlayerId.UNSET, new FakeClock(/* initialTimeMs= */ 0));
+      renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+      FakeSampleStream fakeSampleStream =
+          createFakeSampleStream(
+              h264Format,
+              ImmutableList.of(
+                  oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+      enableAndStartRenderer(renderer, h264Format, fakeSampleStream);
+      for (int i = 0; i < 6; i++) {
+        renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+        codecAdapterFactory.idleQueueingAndCallbackThreads();
+        shadowOf(testMainLooper).idle();
+      }
+
+      verify(eventListener).onVideoSizeChanged(new VideoSize(1280, 720));
+    } finally {
+      stopDisableResetAndRelease(renderer);
+    }
+  }
+
+  @Test
+  public void render_withUnifiedFlagEnabled_rendersPlatformCodecToSurface() throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+            .setCodecAdapterFactory(codecAdapterFactory)
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(0)
+            .setEventHandler(new Handler(testMainLooper))
+            .setEventListener(eventListener)
+            .build();
+    try {
+      renderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
+      renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+      FakeSampleStream fakeSampleStream =
+          createFakeSampleStream(
+              VIDEO_H264,
+              ImmutableList.of(
+                  oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+      enableAndStartRenderer(renderer, VIDEO_H264, fakeSampleStream);
+      renderer.setCurrentStreamFinal();
+      renderAndAdvance(
+          renderer,
+          fakeClock,
+          /* startPositionUs= */ 0,
+          renderer::isEnded,
+          /* maxIterations= */ 20);
+
+      assertThat(renderer.isEnded()).isTrue();
+      verify(eventListener).onRenderedFirstFrame(eq(surface), anyLong());
+    } finally {
+      stopDisableResetAndRelease(renderer);
+    }
+  }
+
+  @Test
+  public void render_withUnifiedFlagEnabledAndVideoSink_rendersPlatformCodecToVideoSink()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    SurfaceTexture sinkInputSurfaceTexture = new SurfaceTexture(/* texName= */ 1);
+    try {
+      Surface sinkInputSurface = new Surface(sinkInputSurfaceTexture);
+      try {
+        FakeVideoSink fakeVideoSink = new FakeVideoSink(sinkInputSurface);
+        MediaCodecVideoRenderer renderer =
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(codecAdapterFactory)
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setVideoSink(fakeVideoSink)
+                .build();
+        try {
+          renderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
+          renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+          FakeSampleStream fakeSampleStream =
+              createFakeSampleStream(
+                  VIDEO_H264,
+                  ImmutableList.of(
+                      oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+          enableAndStartRenderer(renderer, VIDEO_H264, fakeSampleStream);
+          renderer.setCurrentStreamFinal();
+          renderAndAdvance(
+              renderer,
+              fakeClock,
+              /* startPositionUs= */ 0,
+              () ->
+                  renderer.hasReadStreamToEnd()
+                      && !fakeVideoSink.handledFrameTimestampsUs.isEmpty(),
+              /* maxIterations= */ 20);
+
+          assertThat(renderer.hasReadStreamToEnd()).isTrue();
+          assertThat(fakeVideoSink.handledFrameTimestampsUs).containsExactly(0L);
+        } finally {
+          stopDisableResetAndRelease(renderer);
+        }
+      } finally {
+        sinkInputSurface.release();
+      }
+    } finally {
+      sinkInputSurfaceTexture.release();
+    }
+  }
+
+  private static void stopDisableResetAndRelease(MediaCodecVideoRenderer renderer) {
+    @Nullable Throwable firstError = null;
+    try {
+      if (renderer.getState() == STATE_STARTED) {
+        renderer.stop();
+      }
+    } catch (Throwable t) {
+      firstError = recordError(firstError, t);
+    }
+    try {
+      if (renderer.getState() == Renderer.STATE_ENABLED) {
+        renderer.disable();
+      }
+    } catch (Throwable t) {
+      firstError = recordError(firstError, t);
+    }
+    try {
+      renderer.reset();
+    } catch (Throwable t) {
+      firstError = recordError(firstError, t);
+    }
+    try {
+      renderer.release();
+    } catch (Throwable t) {
+      firstError = recordError(firstError, t);
+    }
+    if (firstError instanceof RuntimeException) {
+      throw (RuntimeException) firstError;
+    } else if (firstError instanceof Error) {
+      throw (Error) firstError;
+    } else if (firstError != null) {
+      throw new RuntimeException(firstError);
+    }
+  }
+
+  private static Throwable recordError(@Nullable Throwable firstError, Throwable newError) {
+    if (firstError == null) {
+      return newError;
+    }
+    if (firstError != newError) {
+      firstError.addSuppressed(newError);
+    }
+    return firstError;
+  }
+
   // setUp() attaches a non-null display Surface to mediaCodecVideoRenderer, so most tests in this
   // class never instantiate a PlaceholderSurfaceInterface. Only the tests that run without an
   // output surface are parameterized with useImageReaderPlaceholderSurface to avoid doubling the
