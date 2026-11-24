@@ -645,7 +645,7 @@ public interface AudioSink {
 
   /**
    * The audio sink will prefer offload playback except in the case where both the track is gapless
-   * and the device does support gapless offload playback.
+   * and the device does not support gapless offload playback.
    *
    * <p>Use this option to prioritize uninterrupted playback of consecutive audio tracks over power
    * savings.

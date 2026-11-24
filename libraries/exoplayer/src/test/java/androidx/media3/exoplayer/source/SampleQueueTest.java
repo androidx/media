@@ -533,7 +533,8 @@ public final class SampleQueueTest {
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         sampleFormats,
-        sampleFlags);
+        sampleFlags,
+        /* endsWithLastSample= */ true);
     assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
   }
 
@@ -554,7 +555,8 @@ public final class SampleQueueTest {
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         SAMPLE_FORMATS,
-        SAMPLE_FLAGS);
+        SAMPLE_FLAGS,
+        /* endsWithLastSample= */ true);
     assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
   }
 
@@ -575,7 +577,8 @@ public final class SampleQueueTest {
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         SAMPLE_FORMATS,
-        sampleFlags);
+        sampleFlags,
+        /* endsWithLastSample= */ true);
     assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
   }
 
@@ -587,15 +590,108 @@ public final class SampleQueueTest {
     writeTestData(
         DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
 
+    // The sample at 6000 might be the first one after the end, so the sample before it is held back
+    // until it's known whether it's the last one.
     assertReadTestData(
         /* startFormat= */ null,
         /* firstSampleIndex= */ 0,
-        /* sampleCount= */ 7,
+        /* sampleCount= */ 6,
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         SAMPLE_FORMATS,
         SAMPLE_FLAGS);
+    assertThat(sampleQueue.isReady(/* loadingFinished= */ false)).isFalse();
     assertReadNothing(/* formatRequired= */ false);
+  }
+
+  @Test
+  public void read_unorderedSamplesWithEndMaybeReachedAndLoadingFinished_readsLastSampleWithFlag() {
+    long[] sampleTimestamps = new long[] {0, 3000, 1000, 2000, 4000, 7000, 5000, 6000};
+
+    sampleQueue.setReadEndTimeUs(5500);
+    writeTestData(
+        DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, SAMPLE_FORMATS, SAMPLE_FLAGS);
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 6,
+        /* sampleOffsetUs= */ 0,
+        sampleTimestamps,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS);
+
+    // No more samples can confirm the end, so the sample before it is read as the last sample.
+    assertThat(sampleQueue.isReady(/* loadingFinished= */ true)).isTrue();
+    assertReadLastSample(
+        /* timeUs= */ 5000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        DATA.length - SAMPLE_OFFSETS[6] - SAMPLE_SIZES[6],
+        SAMPLE_SIZES[6]);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ true);
+  }
+
+  @Test
+  public void read_endMaybeReachedAndCandidateInDifferentFormat_doesNotReadFormat() {
+    writeFormat(FORMAT_1);
+    sampleQueue.setReadEndTimeUs(5500);
+    writeSample(DATA, /* timestampUs= */ 0, C.BUFFER_FLAG_KEY_FRAME);
+    writeSample(DATA, /* timestampUs= */ 1000, /* sampleFlags= */ 0);
+    writeFormat(FORMAT_2);
+    writeSample(DATA, /* timestampUs= */ 6000, /* sampleFlags= */ 0);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        DATA.length);
+
+    // The sample at 1000 is held back. The format of the sample at 6000, which might be the first
+    // one after the end, must not be read before it.
+    assertThat(sampleQueue.isReady(/* loadingFinished= */ false)).isFalse();
+    assertReadNothing(/* formatRequired= */ false);
+
+    assertReadLastSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        DATA.length);
+    assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ true);
+  }
+
+  @Test
+  public void read_endMaybeReachedThenReordered_readsHeldBackSampleWithoutFlag() {
+    writeFormat(FORMAT_1);
+    sampleQueue.setReadEndTimeUs(5500);
+    writeSample(DATA, /* timestampUs= */ 0, C.BUFFER_FLAG_KEY_FRAME);
+    writeSample(DATA, /* timestampUs= */ 1000, /* sampleFlags= */ 0);
+    writeSample(DATA, /* timestampUs= */ 6000, /* sampleFlags= */ 0);
+    assertReadFormat(/* formatRequired= */ false, FORMAT_1);
+    assertReadSample(
+        /* timeUs= */ 0,
+        /* isKeyFrame= */ true,
+        /* isEncrypted= */ false,
+        DATA,
+        /* offset= */ 0,
+        DATA.length);
+    assertReadNothing(/* formatRequired= */ false);
+
+    // A reordered sample before the end shows that the sample at 6000 isn't the first one after it.
+    writeSample(DATA, /* timestampUs= */ 5000, /* sampleFlags= */ 0);
+
+    assertReadSample(
+        /* timeUs= */ 1000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        /* isLastSample= */ false,
+        DATA,
+        /* offset= */ 0,
+        DATA.length);
   }
 
   @Test
@@ -1689,7 +1785,8 @@ public final class SampleQueueTest {
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         SAMPLE_FORMATS,
-        SAMPLE_FLAGS);
+        SAMPLE_FLAGS,
+        /* endsWithLastSample= */ true);
     assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
   }
 
@@ -1719,7 +1816,8 @@ public final class SampleQueueTest {
         /* sampleOffsetUs= */ 0,
         nextSampleTimestamps,
         SAMPLE_FORMATS,
-        SAMPLE_FLAGS);
+        SAMPLE_FLAGS,
+        /* endsWithLastSample= */ true);
     assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
   }
 
@@ -1747,18 +1845,57 @@ public final class SampleQueueTest {
         DATA, SAMPLE_SIZES, SAMPLE_OFFSETS, sampleTimestamps, sampleFormats, SAMPLE_FLAGS);
     sampleQueue.setReadEndTimeUs(5500);
 
+    // The sample at 6000 might be the first one after the end, so the sample before it is held back
+    // until it's known whether it's the last one.
     assertReadTestData(
         /* startFormat= */ null,
         /* firstSampleIndex= */ 0,
-        /* sampleCount= */ 6,
+        /* sampleCount= */ 5,
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         sampleFormats,
         SAMPLE_FLAGS);
     assertReadNothing(/* formatRequired= */ false);
 
+    // The third sample after the end confirms it, so the sample before it is read as the last one.
     writeSample(DATA, /* timestampUs= */ 8000, /* sampleFlags= */ 0);
+    assertReadSample(
+        /* timeUs= */ 5000,
+        /* isKeyFrame= */ false,
+        /* isEncrypted= */ false,
+        /* isLastSample= */ true,
+        DATA,
+        DATA.length - SAMPLE_OFFSETS[5] - SAMPLE_SIZES[5],
+        SAMPLE_SIZES[5]);
     assertReadEndOfStream(/* formatRequired= */ false, /* loadingFinished= */ false);
+  }
+
+  @Test
+  public void setReadEndTimeUs_extendedAfterReadingLastSample_readsFollowingSamplesWithoutFlag() {
+    writeTestData();
+    sampleQueue.setReadEndTimeUs(3500);
+    assertReadTestData(
+        /* startFormat= */ null,
+        /* firstSampleIndex= */ 0,
+        /* sampleCount= */ 4,
+        /* sampleOffsetUs= */ 0,
+        SAMPLE_TIMESTAMPS,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS,
+        /* endsWithLastSample= */ true);
+
+    sampleQueue.setReadEndTimeUs(C.TIME_END_OF_SOURCE);
+
+    assertReadTestData(
+        /* startFormat= */ FORMAT_1,
+        /* firstSampleIndex= */ 4,
+        /* sampleCount= */ 4,
+        /* sampleOffsetUs= */ 0,
+        SAMPLE_TIMESTAMPS,
+        SAMPLE_FORMATS,
+        SAMPLE_FLAGS,
+        /* endsWithLastSample= */ false);
+    assertReadNothing(/* formatRequired= */ false);
   }
 
   @Test
@@ -1804,7 +1941,8 @@ public final class SampleQueueTest {
         /* sampleOffsetUs= */ 0,
         sampleTimestamps,
         sampleFormats,
-        SAMPLE_FLAGS);
+        SAMPLE_FLAGS,
+        /* endsWithLastSample= */ true);
     assertReadEndOfStream(/* formatRequired= */ false);
   }
 
@@ -2462,6 +2600,39 @@ public final class SampleQueueTest {
       long[] sampleTimestampsUs,
       Format[] sampleFormats,
       int[] sampleFlags) {
+    assertReadTestData(
+        startFormat,
+        firstSampleIndex,
+        sampleCount,
+        sampleOffsetUs,
+        sampleTimestampsUs,
+        sampleFormats,
+        sampleFlags,
+        /* endsWithLastSample= */ false);
+  }
+
+  /**
+   * Asserts correct reading of standard test data from {@code sampleQueue}.
+   *
+   * @param startFormat The format of the last sample previously read from {@code sampleQueue}.
+   * @param firstSampleIndex The index of the first sample that's expected to be read.
+   * @param sampleCount The number of samples to read.
+   * @param sampleOffsetUs The expected sample offset.
+   * @param sampleTimestampsUs The expected sample timestamps, in microseconds.
+   * @param sampleFormats The expected sample formats.
+   * @param sampleFlags The expected sample flags.
+   * @param endsWithLastSample Whether the last sample read is expected to have {@link
+   *     C#BUFFER_FLAG_LAST_SAMPLE} set.
+   */
+  private void assertReadTestData(
+      @Nullable Format startFormat,
+      int firstSampleIndex,
+      int sampleCount,
+      long sampleOffsetUs,
+      long[] sampleTimestampsUs,
+      Format[] sampleFormats,
+      int[] sampleFlags,
+      boolean endsWithLastSample) {
     Format format = adjustFormat(startFormat, sampleOffsetUs);
     for (int i = firstSampleIndex; i < firstSampleIndex + sampleCount; i++) {
       // Use equals() on the read side despite using referential equality on the write side, since
@@ -2476,10 +2647,12 @@ public final class SampleQueueTest {
       assertReadFormat(true, testSampleFormat);
       // Assert the sample is as expected.
       long expectedTimeUs = sampleTimestampsUs[i] + sampleOffsetUs;
+      boolean isLastSample = endsWithLastSample && i == firstSampleIndex + sampleCount - 1;
       assertReadSample(
           expectedTimeUs,
           (sampleFlags[i] & C.BUFFER_FLAG_KEY_FRAME) != 0,
           /* isEncrypted= */ false,
+          isLastSample,
           DATA,
           DATA.length - SAMPLE_OFFSETS[i] - SAMPLE_SIZES[i],
           SAMPLE_SIZES[i]);
@@ -2624,6 +2797,30 @@ public final class SampleQueueTest {
       byte[] sampleData,
       int offset,
       int length) {
+    assertReadSample(
+        timeUs, isKeyFrame, isEncrypted, /* isLastSample= */ false, sampleData, offset, length);
+  }
+
+  /**
+   * Asserts {@link SampleQueue#read} returns {@link C#RESULT_BUFFER_READ} and that the buffer is
+   * filled with the specified sample data.
+   *
+   * @param timeUs The expected buffer timestamp.
+   * @param isKeyFrame The expected keyframe flag.
+   * @param isEncrypted The expected encrypted flag.
+   * @param isLastSample The expected last sample flag.
+   * @param sampleData An array containing the expected sample data.
+   * @param offset The offset in {@code sampleData} of the expected sample data.
+   * @param length The length of the expected sample data.
+   */
+  private void assertReadSample(
+      long timeUs,
+      boolean isKeyFrame,
+      boolean isEncrypted,
+      boolean isLastSample,
+      byte[] sampleData,
+      int offset,
+      int length) {
     // Check that peek whilst omitting data yields the expected values.
     formatHolder.format = null;
     DecoderInputBuffer flagsOnlyBuffer = DecoderInputBuffer.newNoDataInstance();
@@ -2634,20 +2831,13 @@ public final class SampleQueueTest {
             FLAG_OMIT_SAMPLE_DATA | FLAG_PEEK,
             /* loadingFinished= */ false);
     assertSampleBufferReadResult(
-        flagsOnlyBuffer, result, timeUs, isKeyFrame, isEncrypted, /* isLastSample= */ false);
+        flagsOnlyBuffer, result, timeUs, isKeyFrame, isEncrypted, isLastSample);
 
     // Check that peek yields the expected values.
     clearFormatHolderAndInputBuffer();
     result = sampleQueue.read(formatHolder, inputBuffer, FLAG_PEEK, /* loadingFinished= */ false);
     assertSampleBufferReadResult(
-        result,
-        timeUs,
-        isKeyFrame,
-        isEncrypted,
-        /* isLastSample= */ false,
-        sampleData,
-        offset,
-        length);
+        result, timeUs, isKeyFrame, isEncrypted, isLastSample, sampleData, offset, length);
 
     // Check that read yields the expected values.
     clearFormatHolderAndInputBuffer();
@@ -2655,14 +2845,7 @@ public final class SampleQueueTest {
         sampleQueue.read(
             formatHolder, inputBuffer, /* readFlags= */ 0, /* loadingFinished= */ false);
     assertSampleBufferReadResult(
-        result,
-        timeUs,
-        isKeyFrame,
-        isEncrypted,
-        /* isLastSample= */ false,
-        sampleData,
-        offset,
-        length);
+        result, timeUs, isKeyFrame, isEncrypted, isLastSample, sampleData, offset, length);
   }
 
   /**

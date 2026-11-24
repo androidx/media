@@ -186,6 +186,14 @@ internal constructor(
   private var deferredRewindJob: Job? = null
   private var deferredPlayJob: Job? = null
   private var isPlayPendingFirstFrame = false
+  /**
+   * Whether [player] has yet to return to the start position. Set when it is bound, when the still
+   * photo is shown or resume is turned off while it is shown, and before it is prepared from
+   * [Player.STATE_IDLE] (it may have stopped mid-motion). Always `false` while
+   * [MotionPhotoConfig.resumeVideoFromPreviousPosition] is `true`. Cleared once [rewind] seeks, and
+   * when a new media item or player resets the position anyway.
+   */
+  private var isRewindPending = false
 
   /** The [Player] driving media playback. */
   internal var player: Player?
@@ -194,6 +202,7 @@ internal constructor(
       if (_player != value) {
         cancelDeferredRewind()
         cancelDeferredPlay()
+        isRewindPending = false
         _player = value
         isMotionUnavailable = false
         isPlaybackRangeEmpty = false
@@ -208,15 +217,15 @@ internal constructor(
   private var isMotionUnavailable by mutableStateOf(false)
   private var isPlaybackRangeEmpty by mutableStateOf(false)
   private var hasRenderedFirstFrame by mutableStateOf(false)
-  private var isPhotoForced by mutableStateOf(!initialShowMotion)
-  private var hasMotionEnded by mutableStateOf(false)
+  private var motionTarget by
+    mutableStateOf(if (initialShowMotion) MotionTarget.MOTION else MotionTarget.PHOTO_FORCED)
   private var videoDurationUs: Long = C.TIME_UNSET
   private var photoPresentationTimestampUs: Long = C.TIME_UNSET
   private var hasKnownTracks = false
   private var hasWarnedAboutPhotoFrameFallback = false
 
   private val isPhotoTarget: Boolean
-    get() = isPhotoForced || hasMotionEnded
+    get() = motionTarget != MotionTarget.MOTION
 
   private val showMotion: Boolean
     get() = !isPhotoTarget && player?.playbackState != Player.STATE_IDLE
@@ -232,9 +241,15 @@ internal constructor(
     if (showMotion) {
       return
     }
-    isPhotoForced = false
-    hasMotionEnded = false
-    player?.let { transitionToMotion(it, allowPrepareOnError = true) }
+    motionTarget = MotionTarget.MOTION
+    player?.let { currentPlayer ->
+      if (
+        !_config.resumeVideoFromPreviousPosition && currentPlayer.playbackState == Player.STATE_IDLE
+      ) {
+        isRewindPending = true
+      }
+      syncMotion(currentPlayer, allowPrepareOnError = true)
+    }
   }
 
   /**
@@ -245,8 +260,7 @@ internal constructor(
    */
   fun showStillPhoto() {
     val wasPhotoTarget = isPhotoTarget
-    isPhotoForced = true
-    hasMotionEnded = false
+    motionTarget = MotionTarget.PHOTO_FORCED
     if (!wasPhotoTarget) {
       player?.let { transitionToStillPhoto(it) }
     }
@@ -270,7 +284,7 @@ internal constructor(
     if (isPhotoTarget) {
       return
     }
-    hasMotionEnded = true
+    motionTarget = MotionTarget.MOTION_ENDED
     player?.let { transitionToStillPhoto(it) }
   }
 
@@ -292,14 +306,18 @@ internal constructor(
       _config = value
       if (_config.resumeVideoFromPreviousPosition) {
         cancelDeferredRewind()
+        isRewindPending = false
+      } else if (previousConfig.resumeVideoFromPreviousPosition && isPhotoTarget) {
+        isRewindPending = true
       }
       // Play-once finishes on the still photo, so changing non-looping options (e.g., boundaries
       // or transition duration) should not auto-play motion until playMotion() or looping is set.
-      val restartedEndedMotion = !previousConfig.isLooping && _config.isLooping && hasMotionEnded
+      val restartedEndedMotion =
+        !previousConfig.isLooping && _config.isLooping && motionTarget == MotionTarget.MOTION_ENDED
       val currentPlayer = player
       if (currentPlayer == null) {
         if (restartedEndedMotion) {
-          hasMotionEnded = false
+          motionTarget = MotionTarget.MOTION
         }
         return
       }
@@ -312,19 +330,15 @@ internal constructor(
         syncMediaItem(currentPlayer)
       }
       if (restartedEndedMotion) {
-        hasMotionEnded = false
-        transitionToMotion(currentPlayer, allowPrepareOnError = false)
+        motionTarget = MotionTarget.MOTION
+        syncMotion(currentPlayer, allowPrepareOnError = false)
       } else if (
         currentPlayer.playbackState == Player.STATE_ENDED && !_config.isLooping && !isPhotoTarget
       ) {
         markMotionEnded()
       } else {
-        if (
-          isPhotoTarget &&
-            previousConfig.resumeVideoFromPreviousPosition &&
-            !_config.resumeVideoFromPreviousPosition
-        ) {
-          seekToStartPosition(currentPlayer)
+        if (isRewindPending && isPhotoTarget && deferredRewindJob == null) {
+          rewind(currentPlayer)
         }
         syncPlaybackState(currentPlayer)
       }
@@ -345,20 +359,13 @@ internal constructor(
 
   internal fun bindAndInitialize() {
     val currentPlayer = player ?: return
+    isRewindPending = !_config.resumeVideoFromPreviousPosition
     updateMotionPhotoMetadata(currentPlayer)
     updateVideoDuration(currentPlayer)
     val didUpdateMediaItem = syncMediaItem(currentPlayer)
-    updateMotionAvailability(currentPlayer)
     // If no new item or clipping update was applied, an existing error is not stale.
-    if (isPhotoTarget) {
-      transitionToStillPhoto(currentPlayer, allowPrepareOnError = didUpdateMediaItem)
-    } else {
-      transitionToMotion(
-        currentPlayer,
-        allowPrepareOnError = didUpdateMediaItem,
-        isInitialBind = true,
-      )
-    }
+    prepare(currentPlayer, allowPrepareOnError = didUpdateMediaItem)
+    updateMotionAvailability(currentPlayer)
     // Re-check in case setMediaItem or prepare synchronously updated state, tracks, or timeline
     // before observe() registered its listener.
     val didMetadataChange = updateMotionPhotoMetadata(currentPlayer)
@@ -366,8 +373,10 @@ internal constructor(
     if (didMetadataChange || didDurationChange) {
       syncMediaItem(currentPlayer)
     }
-    if (updateMotionAvailability(currentPlayer)) {
-      syncPlayWhenReady(currentPlayer)
+    if (isPhotoTarget) {
+      syncStillPhoto(currentPlayer)
+    } else {
+      syncMotion(currentPlayer, allowPrepareOnError = false)
     }
   }
 
@@ -549,58 +558,71 @@ internal constructor(
     syncPlayWhenReady(currentPlayer)
   }
 
-  @CanIgnoreReturnValue
-  private fun prepareIfNeeded(currentPlayer: Player, allowPrepareOnError: Boolean): Boolean {
-    val shouldPrepare =
+  private fun prepare(currentPlayer: Player, allowPrepareOnError: Boolean) {
+    if (
       currentPlayer.playbackState == Player.STATE_IDLE &&
         (currentPlayer.playerError == null || allowPrepareOnError) &&
         currentPlayer.isCommandAvailable(Player.COMMAND_PREPARE)
-    if (shouldPrepare) {
+    ) {
       currentPlayer.prepare()
+      // Refresh synchronously in case prepare() cleared a previous playerError before
+      // observePlayerEvents() processes the error change.
+      updateMotionAvailability(currentPlayer)
     }
-    return shouldPrepare
   }
 
-  private fun transitionToStillPhoto(currentPlayer: Player, allowPrepareOnError: Boolean = false) {
-    prepareIfNeeded(currentPlayer, allowPrepareOnError)
+  private fun rewind(currentPlayer: Player) {
+    cancelDeferredRewind()
+    if (
+      currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
+        currentPlayer.currentMediaItem != null &&
+        currentPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+    ) {
+      isRewindPending = false
+      currentPlayer.seekToDefaultPosition()
+    }
+  }
+
+  /**
+   * Owes a rewind for the still photo that was just requested, deferred until the crossfade to it
+   * has completed if there is one, and syncs [currentPlayer] to it.
+   */
+  private fun transitionToStillPhoto(currentPlayer: Player) {
     cancelDeferredRewind()
     if (!_config.resumeVideoFromPreviousPosition) {
+      isRewindPending = true
       if (shouldDeferRewind()) {
-        deferredRewindJob = launchAfterTransition { seekToStartPosition(currentPlayer) }
-      } else {
-        seekToStartPosition(currentPlayer)
+        deferredRewindJob = launchAfterTransition { rewind(currentPlayer) }
       }
+    }
+    syncStillPhoto(currentPlayer)
+  }
+
+  /**
+   * Syncs [currentPlayer] while the still photo is the target. Unlike [syncPlaybackState], this
+   * prepares the player and performs a rewind that is still pending (or that ended playback needs),
+   * but it never starts or restarts a deferred one.
+   */
+  private fun syncStillPhoto(currentPlayer: Player) {
+    prepare(currentPlayer, allowPrepareOnError = false)
+    if (
+      !_config.resumeVideoFromPreviousPosition &&
+        deferredRewindJob == null &&
+        (isRewindPending || currentPlayer.playbackState == Player.STATE_ENDED)
+    ) {
+      rewind(currentPlayer)
     }
     syncPlaybackState(currentPlayer)
   }
 
-  private fun transitionToMotion(
-    currentPlayer: Player,
-    allowPrepareOnError: Boolean,
-    isInitialBind: Boolean = false,
-  ) {
-    val didPrepare = prepareIfNeeded(currentPlayer, allowPrepareOnError)
-    val hadPendingDeferredRewind = deferredRewindJob?.isActive == true
-    cancelDeferredRewind()
-    val needsRewind =
-      if (_config.resumeVideoFromPreviousPosition) {
-        currentPlayer.playbackState == Player.STATE_ENDED
-      } else {
-        // When resuming motion, the player was already rewound when returning to the photo unless a
-        // deferred rewind was still in flight, the player is being initialized or re-prepared from
-        // idle, or playback had ended.
-        hadPendingDeferredRewind ||
-          didPrepare ||
-          isInitialBind ||
-          currentPlayer.playbackState == Player.STATE_ENDED
-      }
-    if (needsRewind) {
-      seekToStartPosition(currentPlayer)
-    }
-    if (didPrepare) {
-      // Refresh synchronously in case prepareIfNeeded() cleared a previous playerError before
-      // observePlayerEvents() processes the error change.
-      updateMotionAvailability(currentPlayer)
+  /**
+   * Syncs [currentPlayer] while motion is the target. Unlike [syncPlaybackState], this prepares the
+   * player and performs a rewind if one is still pending or playback has ended.
+   */
+  private fun syncMotion(currentPlayer: Player, allowPrepareOnError: Boolean) {
+    prepare(currentPlayer, allowPrepareOnError)
+    if (isRewindPending || currentPlayer.playbackState == Player.STATE_ENDED) {
+      rewind(currentPlayer)
     }
     syncPlaybackState(currentPlayer)
   }
@@ -694,16 +716,6 @@ internal constructor(
     return coroutineScope.launch {
       delay(transitionDurationMs)
       action()
-    }
-  }
-
-  private fun seekToStartPosition(currentPlayer: Player) {
-    if (
-      currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
-        currentPlayer.currentMediaItem != null &&
-        currentPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
-    ) {
-      currentPlayer.seekToDefaultPosition()
     }
   }
 
@@ -854,6 +866,17 @@ internal constructor(
     }
     val wasPlaybackRangeEmpty = isPlaybackRangeEmpty
     isPlaybackRangeEmpty = false
+    // Record an idle player's pending rewind before the in-place clipping update below, so a
+    // rewind there (for example on a start change) clears the flag instead of seeking again in
+    // syncMotion().
+    if (
+      wasPlaybackRangeEmpty &&
+        !isPhotoTarget &&
+        currentPlayer.playbackState == Player.STATE_IDLE &&
+        !_config.resumeVideoFromPreviousPosition
+    ) {
+      isRewindPending = true
+    }
     // The photo frame itself must be decoded at the end of a range ending at BOUNDARY_PHOTO_FRAME
     // without an offset (see PHOTO_FRAME_TIMESTAMP_TOLERANCE_US), so that end position is moved
     // later. The un-toleranced position is used for everything else, in particular for deciding
@@ -884,9 +907,9 @@ internal constructor(
     }
     if (wasPlaybackRangeEmpty) {
       if (isPhotoTarget) {
-        transitionToStillPhoto(currentPlayer)
+        syncStillPhoto(currentPlayer)
       } else {
-        transitionToMotion(currentPlayer, allowPrepareOnError = false)
+        syncMotion(currentPlayer, allowPrepareOnError = false)
       }
     }
     return didUpdateMediaItem
@@ -898,9 +921,8 @@ internal constructor(
    * item on [currentPlayer] was updated.
    *
    * An in-place update that keeps the start position preserves the current playback position
-   * (unless [isPhotoTarget] is `true` and [MotionPhotoConfig.resumeVideoFromPreviousPosition] is
-   * `false`, or the current position is at or beyond the new end position), while a change of the
-   * start position restarts from the new start.
+   * (unless [isPhotoTarget] and [isRewindPending] are `true`, or the current position is at or
+   * beyond the new end position), while a change of the start position restarts from the new start.
    */
   private fun syncMediaItem(
     currentPlayer: Player,
@@ -915,6 +937,7 @@ internal constructor(
         return false
       }
       cancelDeferredRewind()
+      isRewindPending = false
       currentPlayer.setMediaItem(clippedMediaItem)
       hasRenderedFirstFrame = false
       return true
@@ -936,13 +959,18 @@ internal constructor(
       }
     if (
       previousClippingConfiguration.startPositionUs != clippingConfiguration.startPositionUs ||
-        (isPhotoTarget && !_config.resumeVideoFromPreviousPosition) ||
+        (isPhotoTarget && isRewindPending) ||
         isCurrentPositionPastEnd
     ) {
-      cancelDeferredRewind()
-      seekToStartPosition(currentPlayer)
+      rewind(currentPlayer)
     }
     return true
+  }
+
+  private enum class MotionTarget {
+    MOTION,
+    PHOTO_FORCED,
+    MOTION_ENDED,
   }
 
   companion object {

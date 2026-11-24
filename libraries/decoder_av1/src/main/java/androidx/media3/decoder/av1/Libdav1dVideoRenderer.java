@@ -38,12 +38,18 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
 
+  // LINT.IfChange(thread_count_constants)
   // Attempts to use as many threads as is the default for the dav1d library.
   public static final int THREAD_COUNT_DECODER_DEFAULT = 0;
   // Current default: # of performance cores.
   public static final int THREAD_COUNT_PERFORMACE_CORES = -1;
   // Current experimental: # of cores / 2.
   public static final int THREAD_COUNT_EXPERIMENTAL = -2;
+
+  // LINT.ThenChange(
+  //     ../../../../../jni/dav1d_jni.cc,
+  //     Dav1dCodecAdapter.java:thread_count_constants
+  // )
 
   private static final String TAG = "Libdav1dVideoRenderer";
   private static final int DEFAULT_NUM_OF_INPUT_BUFFERS = 4;

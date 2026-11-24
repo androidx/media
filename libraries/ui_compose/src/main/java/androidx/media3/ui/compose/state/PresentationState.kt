@@ -129,6 +129,8 @@ class PresentationState(keepContentOnReset: Boolean = false) {
 
   private var lastPeriodUidWithTracks: Any? = null
 
+  private val period = Timeline.Period()
+
   /**
    * Subscribes to updates from [Player.Events] and listens to
    * * [Player.EVENT_VIDEO_SIZE_CHANGED] to determine pixelWidthHeightRatio-adjusted video size
@@ -225,7 +227,6 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       return false
     }
 
-    val period = Timeline.Period()
     if (player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty) {
       lastPeriodUidWithTracks =
         timeline.getPeriod(player.currentPeriodIndex, period, /* setIds= */ true).uid

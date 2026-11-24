@@ -23,7 +23,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,6 +40,10 @@ import androidx.media3.common.util.BitmapLoader
 import androidx.media3.ui.compose.AsyncImage
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.ImageSource
+import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+import androidx.media3.ui.compose.SurfaceType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Composable for displaying a Motion Photo using a hoisted [MotionPhotoState] and a built-in or
@@ -43,6 +52,9 @@ import androidx.media3.ui.compose.ImageSource
  * @param state The [MotionPhotoState] governing playback coordination.
  * @param contentDescription Text used by accessibility services to describe the still photo.
  * @param modifier The [Modifier] to be applied to the layout.
+ * @param surfaceType The type of surface to use for video playback. See [SurfaceType] and
+ *   [androidx.media3.ui.compose.PlayerSurface] for guidance on choosing a surface type (e.g. using
+ *   `SURFACE_TYPE_TEXTURE_VIEW` inside clipped or transformed containers).
  * @param contentScale The [ContentScale] strategy for the video frame and photo overlay.
  * @param bitmapLoader Optional [BitmapLoader] used to decode the still photo. If `null`, a default
  *   loader that only supports local URIs (`content`, `file`, and `android.resource` schemes) is
@@ -56,12 +68,18 @@ fun MotionPhoto(
   state: MotionPhotoState,
   contentDescription: String?,
   modifier: Modifier = Modifier,
+  surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   bitmapLoader: BitmapLoader? = null,
   placeholder: Painter? = ColorPainter(Color.Black),
   error: Painter? = ColorPainter(Color.Black),
 ) {
-  MotionPhoto(state = state, modifier = modifier, contentScale = contentScale) {
+  MotionPhoto(
+    state = state,
+    modifier = modifier,
+    surfaceType = surfaceType,
+    contentScale = contentScale,
+  ) {
     AsyncImage(
       source = ImageSource.Uri(checkNotNull(state.mediaItem.localConfiguration?.uri)),
       modifier = Modifier.fillMaxSize(),
@@ -80,6 +98,9 @@ fun MotionPhoto(
  *
  * @param state The [MotionPhotoState] governing playback coordination.
  * @param modifier The [Modifier] to be applied to the layout.
+ * @param surfaceType The type of surface to use for video playback. See [SurfaceType] and
+ *   [androidx.media3.ui.compose.PlayerSurface] for guidance on choosing a surface type (e.g. using
+ *   `SURFACE_TYPE_TEXTURE_VIEW` inside clipped or transformed containers).
  * @param contentScale The [ContentScale] strategy for the video frame.
  * @param photo The photo overlay to be displayed when the still photo is visible. To align with the
  *   video frame during transitions, this composable should use the same [ContentScale] as
@@ -92,10 +113,11 @@ fun MotionPhoto(
 fun MotionPhoto(
   state: MotionPhotoState,
   modifier: Modifier = Modifier,
+  surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   photo: @Composable () -> Unit,
 ) {
-  val photoAlpha by
+  val photoAlphaState =
     animateFloatAsState(
       targetValue = if (state.visualState.isPhotoVisible) 1f else 0f,
       animationSpec =
@@ -105,13 +127,32 @@ fun MotionPhoto(
         ),
       label = "photoAlpha",
     )
+  val isPhotoOpaque by remember(photoAlphaState) { derivedStateOf { photoAlphaState.value >= 1f } }
+  var retainContentFrameForClear by remember { mutableStateOf(false) }
   Box(modifier = modifier) {
-    ContentFrame(player = state.player, contentScale = contentScale, artwork = null)
+    if (state.player != null || retainContentFrameForClear || !isPhotoOpaque) {
+      ContentFrame(
+        player = state.player,
+        surfaceType = surfaceType,
+        contentScale = contentScale,
+        artwork = null,
+      )
+    }
     Box(
-      Modifier.matchParentSize().graphicsLayer { alpha = photoAlpha },
+      Modifier.fillMaxSize().graphicsLayer { alpha = photoAlphaState.value },
       contentAlignment = Alignment.Center,
     ) {
       photo()
+    }
+  }
+  LaunchedEffect(state.player != null) {
+    if (state.player != null) {
+      retainContentFrameForClear = true
+    } else if (retainContentFrameForClear) {
+      // Keep ContentFrame mounted until PlayerSurface's LaunchedEffect finishes clearing the
+      // detached view from the previous player on Dispatchers.Main.
+      withContext(Dispatchers.Main) {}
+      retainContentFrameForClear = false
     }
   }
 }

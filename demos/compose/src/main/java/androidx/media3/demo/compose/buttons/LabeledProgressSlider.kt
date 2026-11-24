@@ -50,6 +50,7 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,7 @@ import androidx.media3.ui.compose.material3.util.clearFractionalSeekToleranceIfE
 import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
 import androidx.media3.ui.compose.material3.util.setFractionalSeekTolerance
 import androidx.media3.ui.compose.state.ProgressStateWithTickCount
+import java.util.Formatter
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -233,9 +235,17 @@ private fun SeekTimeThumb(
   interactionSource: MutableInteractionSource,
   enabled: Boolean = true,
 ) {
+  val locale = LocalLocale.current.platformLocale
+  val formatBuilder = remember { StringBuilder() }
+  val formatter = remember(locale) { Formatter(formatBuilder, locale) }
   LabeledThumb(interactionSource = interactionSource, enabled = enabled) {
     Text(
-      text = Util.getStringForTime(progressState.progressToPosition(sliderState.value)),
+      text =
+        Util.getStringForTime(
+          formatBuilder,
+          formatter,
+          progressState.progressToPosition(sliderState.value),
+        ),
       modifier =
         Modifier.background(
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),

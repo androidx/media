@@ -205,6 +205,13 @@ import org.jspecify.annotations.Nullable;
     return positionUs;
   }
 
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    // Only a single sample at timestamp 0 is provided, so no samples exist beyond the end
+    // position.
+    return endPositionUs;
+  }
+
   // Loader.Callback implementation.
 
   @Override

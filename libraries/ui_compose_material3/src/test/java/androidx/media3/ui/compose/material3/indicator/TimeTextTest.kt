@@ -24,11 +24,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.DeviceConfigurationOverride
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.Locales
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.test.utils.FakePlayer
@@ -224,4 +228,28 @@ class TimeTextTest {
       composeTestRule.onNodeWithTag("position").assertDoesNotExist()
       composeTestRule.onNodeWithTag("remaining").assertTextEquals("00:07")
     }
+
+  @Test
+  fun positionAndDurationText_localeChanges_updatesFormattedDigits() {
+    val player =
+      FakePlayer(
+        playlist =
+          listOf(
+            SimpleBasePlayer.MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build()
+          )
+      )
+    player.setPosition(3_000)
+    var currentLocale by mutableStateOf(Locale("en-US"))
+    composeTestRule.setContent {
+      DeviceConfigurationOverride(DeviceConfigurationOverride.Locales(LocaleList(currentLocale))) {
+        PositionAndDurationText(player, Modifier.testTag("combined"))
+      }
+    }
+    composeTestRule.onNodeWithTag("combined").assertTextEquals("00:03 / 00:10")
+
+    currentLocale = Locale("fa-IR")
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("combined").assertTextEquals("۰۰:۰۳ / ۰۰:۱۰")
+  }
 }

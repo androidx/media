@@ -25,9 +25,9 @@ android {
 
 dependencies {
   api(project(":lib-common"))
+  api(project(":lib-ui-compose"))
   implementation(project(":lib-common-ktx"))
   implementation(project(":lib-extractor"))
-  implementation(project(":lib-ui-compose"))
 
   api(platform(libs.androidx.compose.bom))
   api(libs.androidx.compose.foundation)
@@ -36,4 +36,5 @@ dependencies {
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
+  testImplementation(libs.mockito.core)
 }

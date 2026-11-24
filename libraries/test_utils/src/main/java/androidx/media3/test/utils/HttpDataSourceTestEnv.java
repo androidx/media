@@ -187,14 +187,6 @@ public class HttpDataSourceTestEnv extends ExternalResource {
             .build());
   }
 
-  /**
-   * @deprecated Use {@link #getNotFoundResources()} instead.
-   */
-  @Deprecated
-  public String getNonexistentUrl() {
-    return originServer.url("/not/a/real/path").toString();
-  }
-
   @Override
   protected void before() throws Throwable {
     originServer.start();

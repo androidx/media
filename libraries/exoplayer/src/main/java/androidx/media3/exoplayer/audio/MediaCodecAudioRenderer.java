@@ -63,6 +63,8 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener.EventDispatcher;
 import androidx.media3.exoplayer.audio.AudioSink.InitializationException;
 import androidx.media3.exoplayer.audio.AudioSink.WriteException;
+import androidx.media3.exoplayer.mediacodec.ExtensionCodecAdapter;
+import androidx.media3.exoplayer.mediacodec.ExtensionCodecInfo;
 import androidx.media3.exoplayer.mediacodec.LoudnessCodecController;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
@@ -154,6 +156,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private long currentPositionUs;
   private boolean allowPositionDiscontinuity;
   private boolean audioSinkNeedsReset;
+  // TODO(b/470373575): Remove when FLAG_PROCESSED_STREAM_CHANGED_AT_START is removed.
+  private boolean pendingInitialStreamDiscontinuityForExtensionCodec;
   private boolean hasPendingReportedSkippedSilence;
   private boolean hasReportedAudioPositionAdvancing;
   private int rendererPriority;
@@ -388,6 +392,25 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     List<MediaCodecInfo> decoderInfos =
         getDecoderInfos(mediaCodecSelector, format, /* requiresSecureDecoder= */ false, audioSink);
     if (decoderInfos.isEmpty()) {
+      if (Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)
+          && (formatHasDrm || format.drmInitData != null)) {
+        Format unencryptedFormat =
+            format.buildUpon().setCryptoType(C.CRYPTO_TYPE_NONE).setDrmInitData(null).build();
+        List<MediaCodecInfo> unencryptedDecoderInfos =
+            getDecoderInfos(
+                mediaCodecSelector,
+                unencryptedFormat,
+                /* requiresSecureDecoder= */ false,
+                audioSink);
+        if (!unencryptedDecoderInfos.isEmpty()) {
+          for (int i = 0; i < unencryptedDecoderInfos.size(); i++) {
+            if (unencryptedDecoderInfos.get(i).isFormatSupported(context, unencryptedFormat)) {
+              return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_DRM);
+            }
+          }
+          return RendererCapabilities.create(C.FORMAT_EXCEEDS_CAPABILITIES);
+        }
+      }
       return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
     }
     if (!supportsFormatDrm) {
@@ -560,7 +583,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       // to stereo.
       discardReasons |= DecoderReuseEvaluation.DISCARD_REASON_AUDIO_BYPASS_POSSIBLE;
     }
-    if (newFormat.maxInputSize > codecMaxInputSize) {
+    if (!(codecInfo instanceof ExtensionCodecInfo) && newFormat.maxInputSize > codecMaxInputSize) {
       discardReasons |= DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
     }
 
@@ -744,6 +767,12 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
           !Objects.equals(format.sampleMimeType, audioSinkInputFormat.sampleMimeType)
               ? format.sampleMimeType
               : null;
+      if (pendingInitialStreamDiscontinuityForExtensionCodec) {
+        pendingInitialStreamDiscontinuityForExtensionCodec = false;
+        if (ExtensionCodecAdapter.maybeUnwrap(getCodec()) != null) {
+          audioSink.handleDiscontinuity();
+        }
+      }
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(audioSinkInputFormat)
               .setOriginalMimeType(originalMimeType)
@@ -780,6 +809,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
       throws ExoPlaybackException {
     super.onEnabled(joining, mayRenderStartOfStream);
+    pendingInitialStreamDiscontinuityForExtensionCodec =
+        !Flags.isEnabled(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START);
     eventDispatcher.enabled(decoderCounters);
     if (getConfiguration().tunneling) {
       audioSink.enableTunnelingV21();
@@ -795,9 +826,12 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onPositionReset(
       long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
       throws ExoPlaybackException {
+    boolean wasPendingInitialStreamDiscontinuity =
+        pendingInitialStreamDiscontinuityForExtensionCodec;
     super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     clearPendingEncoderPadding();
     audioSink.flush();
+    pendingInitialStreamDiscontinuityForExtensionCodec = wasPendingInitialStreamDiscontinuity;
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
@@ -829,6 +863,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onDisabled() {
     audioSinkNeedsReset = true;
+    pendingInitialStreamDiscontinuityForExtensionCodec = false;
     inputFormat = null;
     currentOutputFormat = null;
     clearPendingEncoderPadding();
@@ -938,9 +973,20 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onProcessedStreamChange() {
     super.onProcessedStreamChange();
+    pendingInitialStreamDiscontinuityForExtensionCodec = false;
     currentOutputFormat = null;
     currentOutputEncoderPadding = Format.NO_VALUE;
     audioSink.handleDiscontinuity();
+  }
+
+  @CallSuper
+  @Override
+  protected void onSkippedOutputBuffers(int skippedBufferCount) {
+    super.onSkippedOutputBuffers(skippedBufferCount);
+    if (getState() != STATE_DISABLED) {
+      pendingInitialStreamDiscontinuityForExtensionCodec = false;
+      audioSink.handleDiscontinuity();
+    }
   }
 
   @Override
@@ -983,6 +1029,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         codec.releaseOutputBuffer(bufferIndex, false);
       }
       decoderCounters.skippedOutputBufferCount += sampleCount;
+      pendingInitialStreamDiscontinuityForExtensionCodec = false;
       audioSink.handleDiscontinuity();
       return true;
     }
@@ -1118,6 +1165,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   @SuppressWarnings("ReferenceEquality")
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer) {
+    if (ExtensionCodecAdapter.maybeUnwrap(getCodec()) != null) {
+      // Extension decoders (such as OpusDecoder) handle inputBuffer.supplementalData directly.
+      return;
+    }
     @Nullable Format format = buffer.format;
     if (format != null && Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_OPUS)) {
       ByteBuffer data = checkNotNull(buffer.supplementalData);

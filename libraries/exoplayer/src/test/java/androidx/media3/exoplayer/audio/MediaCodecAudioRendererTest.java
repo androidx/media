@@ -15,11 +15,16 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_DRM_SESSION_CHANGED;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_REUSE_NOT_IMPLEMENTED;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_FLUSH;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.format;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +47,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.media3.common.C;
+import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -49,16 +55,28 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
+import androidx.media3.decoder.CryptoConfig;
+import androidx.media3.decoder.Decoder;
+import androidx.media3.decoder.DecoderException;
+import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.decoder.SimpleDecoderOutputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
+import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
+import androidx.media3.exoplayer.mediacodec.ExtensionCodecAdapter;
+import androidx.media3.exoplayer.mediacodec.ExtensionCodecInfo;
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -72,10 +90,19 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -146,6 +173,7 @@ public class MediaCodecAudioRendererTest {
               AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED, /* tunneling= */ false);
 
   private final AtomicReference<AudioSink.Listener> audioSinkListener = new AtomicReference<>();
+  private final List<MediaCodecAudioRenderer> renderersToRelease = new ArrayList<>();
 
   private MediaCodecAudioRenderer mediaCodecAudioRenderer;
   private DefaultMediaCodecAdapterFactory codecAdapterFactory;
@@ -212,6 +240,45 @@ public class MediaCodecAudioRendererTest {
             audioRendererEventListener,
             audioSink);
     mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    Throwable firstError = null;
+    for (MediaCodecAudioRenderer renderer : renderersToRelease) {
+      try {
+        if (renderer.getState() == Renderer.STATE_STARTED) {
+          renderer.stop();
+        }
+      } catch (Throwable t) {
+        firstError = recordError(firstError, t);
+      }
+      try {
+        if (renderer.getState() == Renderer.STATE_ENABLED) {
+          renderer.disable();
+        }
+      } catch (Throwable t) {
+        firstError = recordError(firstError, t);
+      }
+      try {
+        renderer.reset();
+      } catch (Throwable t) {
+        firstError = recordError(firstError, t);
+      }
+      try {
+        renderer.release();
+      } catch (Throwable t) {
+        firstError = recordError(firstError, t);
+      }
+    }
+    renderersToRelease.clear();
+    if (firstError instanceof Exception) {
+      throw (Exception) firstError;
+    } else if (firstError instanceof Error) {
+      throw (Error) firstError;
+    } else if (firstError != null) {
+      throw new RuntimeException(firstError);
+    }
   }
 
   @Test
@@ -2859,6 +2926,861 @@ public class MediaCodecAudioRendererTest {
     assertThat(mediaCodecAudioRenderer.isReady()).isFalse();
   }
 
+  @Test
+  public void supportsFormat_withOnlyExtensionCodecAndEncryptedFormat_returnsFormatUnsupportedDrm()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    MediaCodecSelector extensionOnlySelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            ImmutableList.of(
+                ExtensionCodecInfo.newInstance(
+                    /* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS));
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            extensionOnlySelector,
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    renderersToRelease.add(renderer);
+    Format cryptoTypeEncryptedOpus =
+        AUDIO_OPUS.buildUpon().setCryptoType(C.CRYPTO_TYPE_FRAMEWORK).build();
+    Format drmInitDataEncryptedOpus =
+        AUDIO_OPUS
+            .buildUpon()
+            .setDrmInitData(
+                new DrmInitData(
+                    new DrmInitData.SchemeData(
+                        C.WIDEVINE_UUID, MimeTypes.AUDIO_OPUS, new byte[] {1})))
+            .build();
+
+    @RendererCapabilities.Capabilities
+    int cryptoTypeCapabilities = renderer.supportsFormat(cryptoTypeEncryptedOpus);
+    @RendererCapabilities.Capabilities
+    int drmInitDataCapabilities = renderer.supportsFormat(drmInitDataEncryptedOpus);
+
+    assertThat(RendererCapabilities.getFormatSupport(cryptoTypeCapabilities))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_DRM);
+    assertThat(RendererCapabilities.getFormatSupport(drmInitDataCapabilities))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_DRM);
+  }
+
+  @Test
+  public void
+      supportsFormat_withOnlyExtensionCodecAndEncryptedFormatAndUnifiedFlagDisabled_returnsFormatUnsupportedSubtype()
+          throws Exception {
+    Flags.disableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    MediaCodecSelector extensionOnlySelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+            ImmutableList.of(
+                ExtensionCodecInfo.newInstance(
+                    /* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS));
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            extensionOnlySelector,
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    renderersToRelease.add(renderer);
+    Format encryptedOpus = AUDIO_OPUS.buildUpon().setCryptoType(C.CRYPTO_TYPE_FRAMEWORK).build();
+
+    @RendererCapabilities.Capabilities int capabilities = renderer.supportsFormat(encryptedOpus);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_SUBTYPE);
+  }
+
+  @Test
+  public void
+      supportsFormat_withOnlyExtensionCodecAndEncryptedUnsupportedFormat_returnsFormatExceedsCapabilities()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    renderersToRelease.add(mediaCodecAudioRenderer);
+    MediaCodecSelector selector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+          if (requiresSecureDecoder) {
+            return ImmutableList.of();
+          }
+          return ImmutableList.of(
+              new ExtensionCodecInfo(
+                  /* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS) {
+                @Override
+                protected boolean isFormatSupported(Format candidateFormat) {
+                  return false;
+                }
+              });
+        };
+    Format encryptedUnsupportedFormat =
+        AUDIO_OPUS.buildUpon().setCryptoType(C.CRYPTO_TYPE_CUSTOM_BASE).build();
+
+    @Capabilities
+    int capabilities = mediaCodecAudioRenderer.supportsFormat(selector, encryptedUnsupportedFormat);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities))
+        .isEqualTo(C.FORMAT_EXCEEDS_CAPABILITIES);
+  }
+
+  @Test
+  public void supportsFormat_withUnsupportedEncryptedFormat_returnsFormatUnsupportedSubtype()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    MediaCodecSelector emptySelector =
+        (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> ImmutableList.of();
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            emptySelector,
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    renderersToRelease.add(renderer);
+    Format encryptedOpus = AUDIO_OPUS.buildUpon().setCryptoType(C.CRYPTO_TYPE_FRAMEWORK).build();
+
+    @RendererCapabilities.Capabilities int capabilities = renderer.supportsFormat(encryptedOpus);
+
+    assertThat(RendererCapabilities.getFormatSupport(capabilities))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_SUBTYPE);
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecAndFormatChangeAfterBuffersQueued_drainsAndReinitializesCodec()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder firstDecoder = new FakeAudioExtensionDecoder();
+    FakeAudioExtensionDecoder secondDecoder = new FakeAudioExtensionDecoder();
+    List<Format> configuredFormats = new ArrayList<>();
+    MediaCodecAudioRenderer renderer =
+        createExtensionAudioRenderer(configuration -> {
+          configuredFormats.add(configuration.format);
+          FakeAudioExtensionDecoder decoder =
+              configuredFormats.size() == 1 ? firstDecoder : secondDecoder;
+          return new ExtensionCodecAdapter(configuration.format, decoder) {};
+        });
+    Format firstFormat =
+        AUDIO_OPUS
+            .buildUpon()
+            .setChannelCount(2)
+            .setEncoderDelay(100)
+            .setEncoderPadding(200)
+            .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3}))
+            .build();
+    Format secondFormat =
+        AUDIO_OPUS
+            .buildUpon()
+            .setChannelCount(6)
+            .setEncoderDelay(300)
+            .setEncoderPadding(400)
+            .setInitializationData(ImmutableList.of(new byte[] {4, 5, 6}))
+            .build();
+
+    renderSampleStreamToEnd(
+        renderer,
+        firstFormat,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+            format(secondFormat),
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+
+    assertThat(configuredFormats).containsExactly(firstFormat, secondFormat).inOrder();
+    assertThat(firstDecoder.receivedEos).isTrue();
+    assertThat(firstDecoder.isReleased).isTrue();
+    assertThat(firstDecoder.queuedInputBufferFormats).containsExactly(firstFormat);
+    assertThat(secondDecoder.queuedInputBufferFormats).containsExactly(secondFormat);
+    ArgumentCaptor<DecoderReuseEvaluation> evaluationCaptor =
+        ArgumentCaptor.forClass(DecoderReuseEvaluation.class);
+    verify(audioRendererEventListener, times(2))
+        .onAudioInputFormatChanged(any(), evaluationCaptor.capture());
+    assertThat(evaluationCaptor.getAllValues().get(0)).isNull();
+    assertThat(evaluationCaptor.getAllValues().get(1).result).isEqualTo(REUSE_RESULT_NO);
+    assertThat(evaluationCaptor.getAllValues().get(1).discardReasons)
+        .isEqualTo(DISCARD_REASON_REUSE_NOT_IMPLEMENTED);
+    ArgumentCaptor<AudioSink.AudioSinkConfig> sinkConfigCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, times(2)).configure(sinkConfigCaptor.capture());
+    AudioSink.AudioSinkConfig firstSinkConfig = sinkConfigCaptor.getAllValues().get(0);
+    AudioSink.AudioSinkConfig secondSinkConfig = sinkConfigCaptor.getAllValues().get(1);
+    assertThat(firstSinkConfig.format.channelCount).isEqualTo(2);
+    assertThat(firstSinkConfig.format.encoderDelay).isEqualTo(100);
+    assertThat(firstSinkConfig.format.encoderPadding).isEqualTo(200);
+    assertThat(secondSinkConfig.format.channelCount).isEqualTo(6);
+    assertThat(secondSinkConfig.format.encoderDelay).isEqualTo(300);
+    assertThat(secondSinkConfig.format.encoderPadding).isEqualTo(400);
+  }
+
+  @Test
+  public void
+      render_withReusableAudioExtensionCodecWithoutReconfiguration_reusesDecoderAndUpdatesOutputFormat()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    AtomicInteger adapterCreationCount = new AtomicInteger();
+    ExtensionCodecInfo reusableAudioCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.mpegh.decoder", MimeTypes.AUDIO_MPEGH_MHM1) {
+          @Override
+          public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
+            return new DecoderReuseEvaluation(
+                name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+        };
+    MediaCodecAudioRenderer renderer =
+        createExtensionAudioRenderer(
+            configuration -> {
+              adapterCreationCount.incrementAndGet();
+              return new ExtensionCodecAdapter(configuration.format, fakeDecoder) {};
+            },
+            reusableAudioCodecInfo);
+    Format firstFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
+            .setChannelCount(2)
+            .setSampleRate(48_000)
+            .setEncoderDelay(50)
+            .setEncoderPadding(60)
+            .setMaxInputSize(1024)
+            .build();
+    Format secondFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
+            .setChannelCount(6)
+            .setSampleRate(44_100)
+            .setEncoderDelay(70)
+            .setEncoderPadding(80)
+            .setMaxInputSize(8192)
+            .build();
+
+    renderSampleStreamToEnd(
+        renderer,
+        firstFormat,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+            format(secondFormat),
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+
+    assertThat(adapterCreationCount.get()).isEqualTo(1);
+    assertThat(fakeDecoder.queuedInputBufferFormats)
+        .containsExactly(firstFormat, secondFormat)
+        .inOrder();
+    ArgumentCaptor<DecoderReuseEvaluation> evaluationCaptor =
+        ArgumentCaptor.forClass(DecoderReuseEvaluation.class);
+    verify(audioRendererEventListener, times(2))
+        .onAudioInputFormatChanged(any(), evaluationCaptor.capture());
+    assertThat(evaluationCaptor.getAllValues().get(1).result)
+        .isEqualTo(REUSE_RESULT_YES_WITHOUT_RECONFIGURATION);
+    assertThat(evaluationCaptor.getAllValues().get(1).discardReasons).isEqualTo(0);
+    ArgumentCaptor<AudioSink.AudioSinkConfig> sinkConfigCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, times(2)).configure(sinkConfigCaptor.capture());
+    AudioSink.AudioSinkConfig firstSinkConfig = sinkConfigCaptor.getAllValues().get(0);
+    AudioSink.AudioSinkConfig secondSinkConfig = sinkConfigCaptor.getAllValues().get(1);
+    assertThat(firstSinkConfig.format.channelCount).isEqualTo(2);
+    assertThat(firstSinkConfig.format.sampleRate).isEqualTo(48_000);
+    assertThat(firstSinkConfig.format.encoderDelay).isEqualTo(50);
+    assertThat(firstSinkConfig.format.encoderPadding).isEqualTo(60);
+    assertThat(secondSinkConfig.format.channelCount).isEqualTo(6);
+    assertThat(secondSinkConfig.format.sampleRate).isEqualTo(44_100);
+    assertThat(secondSinkConfig.format.encoderDelay).isEqualTo(70);
+    assertThat(secondSinkConfig.format.encoderPadding).isEqualTo(80);
+  }
+
+  @Test
+  public void render_withReusableAudioExtensionCodecWithFlush_drainsFlushesAndUpdatesOutputFormat()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    AtomicInteger adapterCreationCount = new AtomicInteger();
+    ExtensionCodecInfo flushableAudioCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.mpegh.decoder", MimeTypes.AUDIO_MPEGH_MHM1) {
+          @Override
+          public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
+            return new DecoderReuseEvaluation(
+                name, oldFormat, newFormat, REUSE_RESULT_YES_WITH_FLUSH, /* discardReasons= */ 0);
+          }
+        };
+    MediaCodecAudioRenderer renderer =
+        createExtensionAudioRenderer(
+            configuration -> {
+              adapterCreationCount.incrementAndGet();
+              return new ExtensionCodecAdapter(configuration.format, fakeDecoder) {};
+            },
+            flushableAudioCodecInfo);
+    Format firstFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
+            .setChannelCount(2)
+            .setSampleRate(48_000)
+            .build();
+    Format secondFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_MPEGH_MHM1)
+            .setChannelCount(2)
+            .setSampleRate(44_100)
+            .setEncoderDelay(120)
+            .setEncoderPadding(240)
+            .build();
+
+    renderSampleStreamToEnd(
+        renderer,
+        firstFormat,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+            format(secondFormat),
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+
+    assertThat(adapterCreationCount.get()).isEqualTo(1);
+    assertThat(fakeDecoder.flushCount).isEqualTo(1);
+    ArgumentCaptor<AudioSink.AudioSinkConfig> sinkConfigCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, times(2)).configure(sinkConfigCaptor.capture());
+    assertThat(sinkConfigCaptor.getAllValues().get(0).format.sampleRate).isEqualTo(48_000);
+    assertThat(sinkConfigCaptor.getAllValues().get(1).format.sampleRate).isEqualTo(44_100);
+    assertThat(sinkConfigCaptor.getAllValues().get(1).format.encoderDelay).isEqualTo(120);
+    assertThat(sinkConfigCaptor.getAllValues().get(1).format.encoderPadding).isEqualTo(240);
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecSwitchingToBypassFormat_releasesCodecWithAudioBypassPossibleReason()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    ExtensionCodecInfo reusableOpusCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS) {
+          @Override
+          public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
+            return new DecoderReuseEvaluation(
+                name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+        };
+    Format bypassOpusFormat = AUDIO_OPUS.buildUpon().setId("bypass").build();
+    when(audioSink.supportsFormat(bypassOpusFormat)).thenReturn(true);
+    MediaCodecAudioRenderer renderer =
+        createExtensionAudioRenderer(
+            configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {},
+            reusableOpusCodecInfo);
+
+    renderSampleStreamToEnd(
+        renderer,
+        AUDIO_OPUS,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+            format(bypassOpusFormat),
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+
+    assertThat(fakeDecoder.isReleased).isTrue();
+    ArgumentCaptor<DecoderReuseEvaluation> evaluationCaptor =
+        ArgumentCaptor.forClass(DecoderReuseEvaluation.class);
+    verify(audioRendererEventListener, times(2))
+        .onAudioInputFormatChanged(any(), evaluationCaptor.capture());
+    assertThat(evaluationCaptor.getAllValues().get(1).result).isEqualTo(REUSE_RESULT_NO);
+    assertThat(evaluationCaptor.getAllValues().get(1).discardReasons)
+        .isEqualTo(DecoderReuseEvaluation.DISCARD_REASON_AUDIO_BYPASS_POSSIBLE);
+  }
+
+  @Test
+  public void
+      onInputFormatChanged_withExtensionCodecAndDifferentDrmSessions_returnsNoWithDrmSessionChanged()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder firstDecoder = new FakeAudioExtensionDecoder();
+    FakeAudioExtensionDecoder secondDecoder = new FakeAudioExtensionDecoder();
+    AtomicInteger adapterCreationCount = new AtomicInteger();
+    ExtensionCodecInfo customCryptoAudioCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.opus.custom.decoder", MimeTypes.AUDIO_OPUS) {
+          @Override
+          protected boolean isFormatSupported(Format format) {
+            return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_OPUS);
+          }
+
+          @Override
+          public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
+            return new DecoderReuseEvaluation(
+                name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+        };
+    CryptoConfig customCryptoConfig = new CryptoConfig() {};
+    DrmSession firstDrmSession = new FakeDrmSession(customCryptoConfig);
+    DrmSession secondDrmSession = new FakeDrmSession(customCryptoConfig);
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            configuration -> {
+              FakeAudioExtensionDecoder decoder =
+                  adapterCreationCount.incrementAndGet() == 1 ? firstDecoder : secondDecoder;
+              return new ExtensionCodecAdapter(configuration.format, decoder) {};
+            },
+            (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+                ImmutableList.of(customCryptoAudioCodecInfo),
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink) {
+          @Override
+          protected @Nullable DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
+              throws ExoPlaybackException {
+            formatHolder.drmSession =
+                Objects.equals(checkNotNull(formatHolder.format).id, "1")
+                    ? firstDrmSession
+                    : secondDrmSession;
+            return super.onInputFormatChanged(formatHolder);
+          }
+        };
+    renderersToRelease.add(renderer);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    Format firstFormat = AUDIO_OPUS.buildUpon().setId("1").build();
+    Format secondFormat = AUDIO_OPUS.buildUpon().setId("2").build();
+
+    renderSampleStreamToEnd(
+        renderer,
+        firstFormat,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+            format(secondFormat),
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+
+    assertThat(adapterCreationCount.get()).isEqualTo(2);
+    assertThat(firstDecoder.isReleased).isTrue();
+    ArgumentCaptor<DecoderReuseEvaluation> evaluationCaptor =
+        ArgumentCaptor.forClass(DecoderReuseEvaluation.class);
+    verify(audioRendererEventListener, times(2))
+        .onAudioInputFormatChanged(any(), evaluationCaptor.capture());
+    assertThat(evaluationCaptor.getAllValues().get(1).result).isEqualTo(REUSE_RESULT_NO);
+    assertThat(evaluationCaptor.getAllValues().get(1).discardReasons)
+        .isEqualTo(DISCARD_REASON_DRM_SESSION_CHANGED);
+  }
+
+  @Test
+  public void render_withBypassEac3AndUnifiedFlagEnabled_stripsInitializationData()
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    renderersToRelease.add(mediaCodecAudioRenderer);
+    Format eac3WithCsd =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3)
+            .setChannelCount(2)
+            .setSampleRate(48_000)
+            .setInitializationData(ImmutableList.of(new byte[] {1, 2, 3}))
+            .build();
+    when(audioSink.supportsFormat(eac3WithCsd)).thenReturn(true);
+
+    renderSampleStreamToEnd(
+        mediaCodecAudioRenderer,
+        eac3WithCsd,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> sinkConfigCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink).configure(sinkConfigCaptor.capture());
+    assertThat(sinkConfigCaptor.getValue().format.initializationData).isEmpty();
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecAndSupplementalData_forwardsAndClearsSupplementalDataWithoutSinkTrimming()
+          throws Exception {
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    MediaCodecAudioRenderer renderer = createExtensionAudioRenderer(fakeDecoder);
+
+    renderSampleStreamToEnd(
+        renderer,
+        AUDIO_OPUS,
+        ImmutableList.of(
+            sample(
+                /* timeUs= */ 0,
+                C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                SAMPLE_ONE_BYTE_WITH_SUPPLEMENTAL_DATA),
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            sample(
+                /* timeUs= */ 40_000,
+                C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_HAS_SUPPLEMENTAL_DATA,
+                SAMPLE_ONE_BYTE_WITH_240_PADDING_SAMPLES_SUPPLEMENTAL_DATA),
+            END_OF_STREAM_ITEM));
+
+    assertThat(fakeDecoder.firstSupplementalDataBytes)
+        .isEqualTo(TestUtil.createByteArray(0xA, 0x2C, 0x2A, 0x0, 0x0, 0x0, 0x0, 0x0));
+    assertThat(fakeDecoder.secondSampleHadSupplementalData).isFalse();
+    assertThat(fakeDecoder.lastNonEosSampleHadSupplementalData).isTrue();
+    verify(audioSink, never()).setEncoderPadding(anyInt());
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecAndSkippedOutputBuffers_updatesCountersAndHandlesDiscontinuity()
+          throws Exception {
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    fakeDecoder.nextSkippedOutputBufferCount = 2;
+    MediaCodecAudioRenderer renderer = createExtensionAudioRenderer(fakeDecoder);
+
+    renderSampleStreamToEnd(
+        renderer,
+        AUDIO_OPUS,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+    ArgumentCaptor<DecoderCounters> countersCaptor = ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(audioRendererEventListener).onAudioEnabled(countersCaptor.capture());
+    assertThat(countersCaptor.getValue().skippedOutputBufferCount).isEqualTo(2);
+    assertThat(countersCaptor.getValue().renderedOutputBufferCount).isEqualTo(1);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).configure(any());
+  }
+
+  @Test
+  public void
+      disable_withExtensionCodecAndUnharvestedSkippedBuffers_updatesCountersWithoutHandlingDiscontinuity()
+          throws Exception {
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    fakeDecoder.shouldSkipNextOutputBuffer = true;
+    MediaCodecAudioRenderer renderer = createExtensionAudioRenderer(fakeDecoder);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            AUDIO_OPUS, ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+
+    // First render feeds sample 0 into fakeDecoder after drainOutputBuffer has already run, leaving
+    // the skipped buffer count unharvested until disable() releases the codec.
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    renderer.stop();
+    renderer.disable();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<DecoderCounters> countersCaptor = ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(audioRendererEventListener).onAudioEnabled(countersCaptor.capture());
+    assertThat(countersCaptor.getValue().skippedOutputBufferCount).isEqualTo(1);
+    assertThat(countersCaptor.getValue().renderedOutputBufferCount).isEqualTo(0);
+    verify(audioSink, never()).handleDiscontinuity();
+  }
+
+  // Disabling and re-enabling without reset() keeps audioSinkNeedsReset true; skipped output
+  // buffers must still signal a discontinuity to AudioSink.
+  @Test
+  public void render_reEnabledWithSkippedBuffer_handlesDiscontinuity() throws Exception {
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    MediaCodecAudioRenderer renderer = createExtensionAudioRenderer(fakeDecoder);
+    renderSampleStreamToEnd(
+        renderer,
+        AUDIO_OPUS,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    renderer.stop();
+    renderer.disable();
+    FakeSampleStream secondStream =
+        createFakeSampleStream(
+            AUDIO_OPUS, ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        secondStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    // Render sample 0 to AudioSink before appending the skipped sample so handleDiscontinuity() is
+    // asserted strictly between sample 0 and sample 2.
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    fakeDecoder.sampleTimeUsToSkip = 20_000;
+
+    secondStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+            oneByteSample(/* timeUs= */ 40_000, C.BUFFER_FLAG_KEY_FRAME),
+            END_OF_STREAM_ITEM));
+    secondStream.writeData(/* startPositionUs= */ 0);
+    renderer.setCurrentStreamFinal();
+    for (int i = 0; i < 10 && !renderer.isEnded(); i++) {
+      renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<DecoderCounters> countersCaptor = ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(audioRendererEventListener, times(2)).onAudioEnabled(countersCaptor.capture());
+    assertThat(countersCaptor.getAllValues().get(1).skippedOutputBufferCount).isEqualTo(1);
+    assertThat(countersCaptor.getAllValues().get(1).renderedOutputBufferCount).isEqualTo(2);
+    verify(audioSink, never()).reset();
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 0L), anyInt());
+    inOrder.verify(audioSink).flush();
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 0L), anyInt());
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 40_000L), anyInt());
+  }
+
+  @Test
+  public void
+      render_withExtensionCodecAndStreamTransitionWhenLastBufferSkipped_updatesOutputStreamOffset()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    fakeDecoder.sampleTimeUsToSkip = 20_000;
+    ExtensionCodecInfo reusableOpusCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS) {
+          @Override
+          public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
+            return new DecoderReuseEvaluation(
+                name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
+        };
+    MediaCodecAudioRenderer renderer =
+        createExtensionAudioRenderer(
+            configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {},
+            reusableOpusCodecInfo);
+    Format secondStreamFormat =
+        AUDIO_OPUS.buildUpon().setSampleRate(44_100).setEncoderDelay(500).build();
+    FakeSampleStream firstStream =
+        createFakeSampleStream(
+            AUDIO_OPUS,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    FakeSampleStream secondStream =
+        createFakeSampleStream(
+            secondStreamFormat,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        firstStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    for (int i = 0; i < 4 && !renderer.hasReadStreamToEnd(); i++) {
+      renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    renderer.replaceStream(
+        new Format[] {secondStreamFormat},
+        secondStream,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 100_000,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+    for (int i = 0; i < 10 && !renderer.isEnded(); i++) {
+      renderer.render(/* positionUs= */ 100_000, SystemClock.elapsedRealtime() * 1000);
+    }
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(audioSink);
+    ArgumentCaptor<AudioSink.AudioSinkConfig> sinkConfigCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    inOrder.verify(audioSink).setOutputStreamOffsetUs(0);
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 0L), anyInt());
+    inOrder.verify(audioSink).setOutputStreamOffsetUs(100_000);
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).configure(sinkConfigCaptor.capture());
+    assertThat(sinkConfigCaptor.getValue().format.sampleRate).isEqualTo(44_100);
+    assertThat(sinkConfigCaptor.getValue().format.encoderDelay).isEqualTo(500);
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 100_000L), anyInt());
+  }
+
+  @Test
+  public void
+      render_withFlushingExtensionCodecAndStreamTransitionWhenLastBufferSkipped_updatesOutputStreamOffsetOnEos()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    fakeDecoder.sampleTimeUsToSkip = 20_000;
+    ExtensionCodecInfo flushableOpusCodecInfo =
+        new ExtensionCodecInfo(/* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS) {
+          @Override
+          public DecoderReuseEvaluation canReuseCodec(Format oldFormat, Format newFormat) {
+            return new DecoderReuseEvaluation(
+                name, oldFormat, newFormat, REUSE_RESULT_YES_WITH_FLUSH, /* discardReasons= */ 0);
+          }
+        };
+    MediaCodecAudioRenderer renderer =
+        createExtensionAudioRenderer(
+            configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {},
+            flushableOpusCodecInfo);
+    Format secondStreamFormat = AUDIO_OPUS.buildUpon().setEncoderDelay(500).build();
+    FakeSampleStream firstStream =
+        createFakeSampleStream(
+            AUDIO_OPUS,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 20_000, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    FakeSampleStream secondStream =
+        createFakeSampleStream(
+            secondStreamFormat,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        firstStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    for (int i = 0; i < 4 && !renderer.hasReadStreamToEnd(); i++) {
+      renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    renderer.replaceStream(
+        new Format[] {secondStreamFormat},
+        secondStream,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 100_000,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.setCurrentStreamFinal();
+    for (int i = 0; i < 10 && !renderer.isEnded(); i++) {
+      renderer.render(/* positionUs= */ 100_000, SystemClock.elapsedRealtime() * 1000);
+    }
+    shadowOf(Looper.getMainLooper()).idle();
+
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).setOutputStreamOffsetUs(0);
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 0L), anyInt());
+    inOrder.verify(audioSink).setOutputStreamOffsetUs(100_000);
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).handleBuffer(any(), longThat(pts -> pts == 100_000L), anyInt());
+  }
+
+  // TODO(b/470373575): Remove when FLAG_PROCESSED_STREAM_CHANGED_AT_START is removed.
+  @Test
+  public void
+      render_withExtensionCodecAndProcessedStreamChangedAtStartDisabled_callsHandleDiscontinuity()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    Flags.disableFlag(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    MediaCodecAudioRenderer renderer = createExtensionAudioRenderer(fakeDecoder);
+
+    renderSampleStreamToEnd(
+        renderer,
+        AUDIO_OPUS,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).configure(any());
+    verify(audioSink).handleDiscontinuity();
+  }
+
+  // TODO(b/470373575): Remove when FLAG_PROCESSED_STREAM_CHANGED_AT_START is removed.
+  @Test
+  public void
+      render_withExtensionCodecAndPositionResetAfterSkippedBufferBeforeFirstOutput_callsHandleDiscontinuityAfterFlush()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    Flags.disableFlag(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START);
+    FakeAudioExtensionDecoder fakeDecoder = new FakeAudioExtensionDecoder();
+    fakeDecoder.shouldSkipNextOutputBuffer = true;
+    MediaCodecAudioRenderer renderer = createExtensionAudioRenderer(fakeDecoder);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            AUDIO_OPUS, ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_OPUS},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+
+    // First render feeds sample 0 and skips it in fakeDecoder (leaving 1 unharvested skipped buffer
+    // and no output buffer produced yet). resetPosition then harvests the skipped buffer during
+    // super.onPositionReset() -> flushCodec(), and restores pendingInitialStreamDiscontinuity after
+    // audioSink.flush().
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.setCurrentStreamFinal();
+    for (int i = 0; i < 10 && !renderer.isEnded(); i++) {
+      renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<DecoderCounters> countersCaptor = ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(audioRendererEventListener).onAudioEnabled(countersCaptor.capture());
+    assertThat(countersCaptor.getValue().skippedOutputBufferCount).isEqualTo(1);
+    assertThat(countersCaptor.getValue().renderedOutputBufferCount).isEqualTo(1);
+    InOrder inOrder = inOrder(audioSink);
+    inOrder.verify(audioSink).flush();
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).flush();
+    inOrder.verify(audioSink).handleDiscontinuity();
+    inOrder.verify(audioSink).configure(any());
+  }
+
+  // TODO(b/470373575): Remove when FLAG_PROCESSED_STREAM_CHANGED_AT_START is removed.
+  @Test
+  public void
+      render_withPlatformCodecAndProcessedStreamChangedAtStartDisabled_doesNotCallHandleDiscontinuity()
+          throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    Flags.disableFlag(Flags.FLAG_PROCESSED_STREAM_CHANGED_AT_START);
+    renderersToRelease.add(mediaCodecAudioRenderer);
+    codecAdapterFactory.forceDisableAsynchronous();
+
+    renderSampleStreamToEnd(
+        mediaCodecAudioRenderer,
+        AUDIO_AAC,
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+
+    verify(audioSink).configure(any());
+    verify(audioSink, never()).handleDiscontinuity();
+  }
+
   private void setupRendererWithFakeClock(FakeClock fakeClock) {
     mediaCodecAudioRenderer =
         new MediaCodecAudioRenderer(
@@ -2941,5 +3863,279 @@ public class MediaCodecAudioRendererTest {
         .setEncoderDelay(inputFormat.encoderDelay)
         .setEncoderPadding(inputFormat.encoderPadding)
         .build();
+  }
+
+  private MediaCodecAudioRenderer createExtensionAudioRenderer(
+      FakeAudioExtensionDecoder fakeDecoder) {
+    return createExtensionAudioRenderer(
+        configuration -> new ExtensionCodecAdapter(configuration.format, fakeDecoder) {});
+  }
+
+  private MediaCodecAudioRenderer createExtensionAudioRenderer(
+      MediaCodecAdapter.Factory adapterFactory) {
+    return createExtensionAudioRenderer(
+        adapterFactory,
+        ExtensionCodecInfo.newInstance(
+            /* name= */ "c2.media3.opus.libopus.decoder", MimeTypes.AUDIO_OPUS));
+  }
+
+  private MediaCodecAudioRenderer createExtensionAudioRenderer(
+      MediaCodecAdapter.Factory adapterFactory, MediaCodecInfo... codecInfos) {
+    MediaCodecAudioRenderer renderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            adapterFactory,
+            (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
+                ImmutableList.copyOf(codecInfos),
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    renderersToRelease.add(renderer);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    return renderer;
+  }
+
+  private static Throwable recordError(@Nullable Throwable firstError, Throwable newError) {
+    if (firstError == null) {
+      return newError;
+    }
+    if (firstError != newError) {
+      firstError.addSuppressed(newError);
+    }
+    return firstError;
+  }
+
+  private static FakeSampleStream createFakeSampleStream(
+      Format initialFormat, List<FakeSampleStream.FakeSampleStreamItem> sampleStreamItems) {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            initialFormat,
+            sampleStreamItems);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    return fakeSampleStream;
+  }
+
+  private static void renderSampleStreamToEnd(
+      MediaCodecAudioRenderer renderer,
+      Format initialFormat,
+      List<FakeSampleStream.FakeSampleStreamItem> sampleStreamItems)
+      throws Exception {
+    FakeSampleStream fakeSampleStream = createFakeSampleStream(initialFormat, sampleStreamItems);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {initialFormat},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.setCurrentStreamFinal();
+    for (int i = 0; i < 10 && !renderer.isEnded(); i++) {
+      renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    shadowOf(Looper.getMainLooper()).idle();
+  }
+
+  private static final class FakeAudioExtensionDecoder
+      implements Decoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException> {
+
+    private final Queue<DecoderInputBuffer> availableInputBuffers;
+    private final Queue<SimpleDecoderOutputBuffer> availableOutputBuffers;
+    private final Queue<SimpleDecoderOutputBuffer> queuedOutputBuffers;
+    private final List<Format> queuedInputBufferFormats;
+    private int nextSkippedOutputBufferCount;
+    private boolean shouldSkipNextOutputBuffer;
+    private long sampleTimeUsToSkip;
+    private byte @Nullable [] firstSupplementalDataBytes;
+    private boolean secondSampleHadSupplementalData;
+    private boolean lastNonEosSampleHadSupplementalData;
+    private int nonEosSampleCount;
+    private boolean receivedEos;
+    private boolean isReleased;
+    private int flushCount;
+
+    private FakeAudioExtensionDecoder() {
+      availableInputBuffers = new ArrayDeque<>();
+      availableOutputBuffers = new ArrayDeque<>();
+      queuedOutputBuffers = new ArrayDeque<>();
+      queuedInputBufferFormats = new ArrayList<>();
+      sampleTimeUsToSkip = C.TIME_UNSET;
+      for (int i = 0; i < 4; i++) {
+        DecoderInputBuffer inputBuffer =
+            new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+        inputBuffer.ensureSpaceForWrite(1024);
+        availableInputBuffers.add(inputBuffer);
+        availableOutputBuffers.add(new SimpleDecoderOutputBuffer(this::releaseOutputBuffer));
+      }
+    }
+
+    @Override
+    public String getName() {
+      return "FakeAudioExtensionDecoder";
+    }
+
+    @Override
+    public void setOutputStartTimeUs(long outputStartTimeUs) {}
+
+    @Override
+    public @Nullable DecoderInputBuffer dequeueInputBuffer() {
+      return availableInputBuffers.poll();
+    }
+
+    @Override
+    public void queueInputBuffer(DecoderInputBuffer inputBuffer) {
+      if (inputBuffer.isEndOfStream()) {
+        receivedEos = true;
+      } else {
+        if (inputBuffer.format != null) {
+          queuedInputBufferFormats.add(inputBuffer.format);
+        }
+        nonEosSampleCount++;
+        if (nonEosSampleCount == 2) {
+          secondSampleHadSupplementalData = inputBuffer.hasSupplementalData();
+        }
+        lastNonEosSampleHadSupplementalData = inputBuffer.hasSupplementalData();
+        if (inputBuffer.hasSupplementalData()
+            && inputBuffer.supplementalData != null
+            && firstSupplementalDataBytes == null) {
+          firstSupplementalDataBytes = new byte[inputBuffer.supplementalData.remaining()];
+          inputBuffer.supplementalData.duplicate().get(firstSupplementalDataBytes);
+        }
+      }
+      SimpleDecoderOutputBuffer outputBuffer = availableOutputBuffers.poll();
+      if (outputBuffer != null) {
+        if (inputBuffer.isEndOfStream()) {
+          outputBuffer.init(inputBuffer.timeUs, /* size= */ 0);
+          outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+          if (nextSkippedOutputBufferCount > 0) {
+            outputBuffer.skippedOutputBufferCount = nextSkippedOutputBufferCount;
+            nextSkippedOutputBufferCount = 0;
+          }
+          queuedOutputBuffers.add(outputBuffer);
+        } else {
+          outputBuffer.init(inputBuffer.timeUs, /* size= */ 4);
+          outputBuffer.data.putInt(0);
+          outputBuffer.data.flip();
+          if (shouldSkipNextOutputBuffer || inputBuffer.timeUs == sampleTimeUsToSkip) {
+            outputBuffer.shouldBeSkipped = true;
+            shouldSkipNextOutputBuffer = false;
+            nextSkippedOutputBufferCount++;
+            outputBuffer.release();
+          } else {
+            if (nextSkippedOutputBufferCount > 0) {
+              outputBuffer.skippedOutputBufferCount = nextSkippedOutputBufferCount;
+              nextSkippedOutputBufferCount = 0;
+            }
+            queuedOutputBuffers.add(outputBuffer);
+          }
+        }
+      }
+      inputBuffer.clear();
+      availableInputBuffers.add(inputBuffer);
+    }
+
+    @Override
+    public @Nullable SimpleDecoderOutputBuffer dequeueOutputBuffer() {
+      return queuedOutputBuffers.poll();
+    }
+
+    @Override
+    public int getAndResetSkippedOutputBufferCount() {
+      int count = nextSkippedOutputBufferCount;
+      nextSkippedOutputBufferCount = 0;
+      for (SimpleDecoderOutputBuffer outputBuffer : queuedOutputBuffers) {
+        count += outputBuffer.skippedOutputBufferCount;
+        outputBuffer.skippedOutputBufferCount = 0;
+      }
+      return count;
+    }
+
+    @Override
+    public void flush() {
+      flushCount++;
+      while (!queuedOutputBuffers.isEmpty()) {
+        queuedOutputBuffers.poll().release();
+      }
+    }
+
+    @Override
+    public void release() {
+      isReleased = true;
+      while (!queuedOutputBuffers.isEmpty()) {
+        queuedOutputBuffers.poll().release();
+      }
+      for (int i = availableInputBuffers.size(); i < 4; i++) {
+        DecoderInputBuffer inputBuffer =
+            new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
+        inputBuffer.ensureSpaceForWrite(1024);
+        availableInputBuffers.add(inputBuffer);
+      }
+      for (int i = availableOutputBuffers.size(); i < 4; i++) {
+        availableOutputBuffers.add(new SimpleDecoderOutputBuffer(this::releaseOutputBuffer));
+      }
+    }
+
+    private void releaseOutputBuffer(SimpleDecoderOutputBuffer buffer) {
+      buffer.clear();
+      availableOutputBuffers.add(buffer);
+    }
+  }
+
+  private static final class FakeDrmSession implements DrmSession {
+
+    private final CryptoConfig cryptoConfig;
+
+    private FakeDrmSession(CryptoConfig cryptoConfig) {
+      this.cryptoConfig = cryptoConfig;
+    }
+
+    @Override
+    public @State int getState() {
+      return DrmSession.STATE_OPENED_WITH_KEYS;
+    }
+
+    @Override
+    public @Nullable DrmSessionException getError() {
+      return null;
+    }
+
+    @Override
+    public UUID getSchemeUuid() {
+      return C.WIDEVINE_UUID;
+    }
+
+    @Override
+    public CryptoConfig getCryptoConfig() {
+      return cryptoConfig;
+    }
+
+    @Override
+    public @Nullable Map<String, String> queryKeyStatus() {
+      return null;
+    }
+
+    @Override
+    public byte @Nullable [] getOfflineLicenseKeySetId() {
+      return null;
+    }
+
+    @Override
+    public boolean requiresSecureDecoder(String mimeType) {
+      return false;
+    }
+
+    @Override
+    public void acquire(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {}
+
+    @Override
+    public void release(DrmSessionEventListener.@Nullable EventDispatcher eventDispatcher) {}
   }
 }

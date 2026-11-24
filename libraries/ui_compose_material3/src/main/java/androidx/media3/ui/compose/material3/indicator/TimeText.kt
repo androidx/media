@@ -19,9 +19,11 @@ package androidx.media3.ui.compose.material3.indicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.text.TextStyle
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -29,6 +31,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.getStringForTime
 import androidx.media3.ui.compose.indicators.TimeText
 import androidx.media3.ui.compose.state.ProgressStateWithTickInterval
+import java.util.Formatter
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -147,10 +150,13 @@ private fun TimeText(
   modifier: Modifier,
   color: Color,
 ) {
+  val locale = LocalLocale.current.platformLocale
+  val formatBuilder = remember { StringBuilder() }
+  val formatter = remember(locale) { Formatter(formatBuilder, locale) }
   val text =
     when (timeFormat.format) {
-      TimeFormat.POSITION -> getStringForTime(state.currentPositionMs)
-      TimeFormat.DURATION -> getStringForTime(state.durationMs)
+      TimeFormat.POSITION -> getStringForTime(formatBuilder, formatter, state.currentPositionMs)
+      TimeFormat.DURATION -> getStringForTime(formatBuilder, formatter, state.durationMs)
       TimeFormat.REMAINING ->
         if (state.durationMs != C.TIME_UNSET) {
           val remainingMs =
@@ -159,13 +165,13 @@ private fun TimeText(
             } else {
               state.durationMs - state.currentPositionMs
             }
-          getStringForTime(remainingMs)
+          getStringForTime(formatBuilder, formatter, remainingMs)
         } else {
-          getStringForTime(C.TIME_UNSET)
+          getStringForTime(formatBuilder, formatter, C.TIME_UNSET)
         }
 
       TimeFormat.POSITION_AND_DURATION ->
-        "${getStringForTime(state.currentPositionMs)}${timeFormat.separator}${getStringForTime(state.durationMs)}"
+        "${getStringForTime(formatBuilder, formatter, state.currentPositionMs)}${timeFormat.separator}${getStringForTime(formatBuilder, formatter, state.durationMs)}"
 
       else -> throw IllegalStateException("Unrecognized TimeFormat ${timeFormat.format}")
     }

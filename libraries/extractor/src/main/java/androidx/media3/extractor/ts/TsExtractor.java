@@ -235,21 +235,6 @@ public final class TsExtractor implements Extractor {
    *     TsPayloadReader.Factory, int)} instead.
    */
   @Deprecated
-  public TsExtractor(@DefaultTsPayloadReaderFactory.Flags int defaultTsPayloadReaderFlags) {
-    this(
-        MODE_SINGLE_PMT,
-        FLAG_EMIT_RAW_SUBTITLE_DATA,
-        SubtitleParser.Factory.UNSUPPORTED,
-        new TimestampAdjuster(0),
-        new DefaultTsPayloadReaderFactory(defaultTsPayloadReaderFlags),
-        DEFAULT_TIMESTAMP_SEARCH_BYTES);
-  }
-
-  /**
-   * @deprecated Use {@link #TsExtractor(int, int, SubtitleParser.Factory, TimestampAdjuster,
-   *     TsPayloadReader.Factory, int)} instead.
-   */
-  @Deprecated
   public TsExtractor(
       @Mode int mode,
       @DefaultTsPayloadReaderFactory.Flags int defaultTsPayloadReaderFlags,

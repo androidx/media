@@ -274,6 +274,38 @@ public class SonicTest {
   }
 
   @Test
+  public void queueInput_speedUpLoudPeriodicShortSamples_preservesPeriodicWaveform() {
+    // On the full-rate pitch pass (~[561, 649] at 44.1 kHz), non-matching periods of a full-scale
+    // 600-frame sine wave yield diff ~4M, which overflows 32-bit int when multiplied by period and
+    // causes Sonic to reject the exact period=600 match (diff=0) in favor of a mismatched period.
+    // Selecting the true 600-frame period overlap-adds identical cycles and preserves the sine wave
+    // sample-for-sample.
+    short[] inputSamples =
+        createFullScaleSineWaveShortArray(
+            /* frameCount= */ 4800, /* channelCount= */ 2, /* periodFrames= */ 600);
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 44100,
+            /* channelCount= */ 2,
+            /* speed= */ 2f,
+            /* pitch= */ 1f,
+            /* outputSampleRateHz= */ 44100,
+            /* useFloatSamples= */ false);
+
+    sonic.queueInput(createByteBuffer(inputSamples));
+    sonic.queueEndOfStream();
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
+    sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
+
+    short[] expectedSamples =
+        createFullScaleSineWaveShortArray(
+            /* frameCount= */ 2400, /* channelCount= */ 2, /* periodFrames= */ 600);
+    assertThat(createShortArray(outputBuffer)).isEqualTo(expectedSamples);
+  }
+
+  @Test
   public void
       getExpectedFrameCountAfterProcessorApplied_timeStretchingFaster_returnsExpectedSampleCount() {
     long samples =
@@ -539,5 +571,21 @@ public class SonicTest {
             /* outputFrameCount= */ outputLength - truncationError);
 
     assertThat(inputSamples).isEqualTo(26_902_000);
+  }
+
+  private static short[] createFullScaleSineWaveShortArray(
+      int frameCount, int channelCount, int periodFrames) {
+    short[] samples = new short[frameCount * channelCount];
+    for (int frame = 0; frame < frameCount; frame++) {
+      short sample =
+          (short)
+              Math.round(
+                  Short.MAX_VALUE
+                      * Math.sin(2.0 * Math.PI * (frame % periodFrames) / periodFrames));
+      for (int channel = 0; channel < channelCount; channel++) {
+        samples[frame * channelCount + channel] = sample;
+      }
+    }
+    return samples;
   }
 }

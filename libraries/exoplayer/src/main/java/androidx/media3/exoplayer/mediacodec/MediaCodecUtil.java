@@ -45,8 +45,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.InlineMe;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -188,8 +190,10 @@ public final class MediaCodecUtil {
       boolean requiresTunnelingDecoder)
       throws DecoderQueryException {
     List<MediaCodecInfo> decoderInfos =
-        mediaCodecSelector.getDecoderInfos(
-            format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+        filterOutExtensionDecodersIfEncrypted(
+            mediaCodecSelector.getDecoderInfos(
+                format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder),
+            format);
     List<MediaCodecInfo> alternativeDecoderInfos =
         getAlternativeDecoderInfos(
             mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
@@ -276,8 +280,10 @@ public final class MediaCodecUtil {
     if (alternativeMimeType == null) {
       return ImmutableList.of();
     }
-    return mediaCodecSelector.getDecoderInfos(
-        alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    return filterOutUnsupportedAlternativeExtensionDecoders(
+        mediaCodecSelector.getDecoderInfos(
+            alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder),
+        format);
   }
 
   /**
@@ -335,15 +341,37 @@ public final class MediaCodecUtil {
 
   /**
    * Returns a copy of the provided decoder list sorted such that decoders with functional format
-   * support are listed first. The returned list is modifiable for convenience.
+   * support are listed first. When an extension decoder fully supports {@code format} and no
+   * higher-priority non-extension decoder fully supports {@code format} (or has unknown {@code
+   * null} {@link MediaCodecInfo#capabilities} while functionally supporting {@code format}), that
+   * extension decoder is listed ahead of decoders with only functional support. Ties preserve the
+   * order of {@code decoderInfos}. The returned list is modifiable for convenience.
    */
   @CheckResult
   public static List<MediaCodecInfo> getDecoderInfosSortedByFormatSupport(
       Context context, List<MediaCodecInfo> decoderInfos, Format format) {
     decoderInfos = new ArrayList<>(decoderInfos);
+    Set<MediaCodecInfo> promotableExtensionDecoders = new HashSet<>();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (decoderInfo instanceof ExtensionCodecInfo) {
+        if (decoderInfo.isFormatSupported(context, format)) {
+          promotableExtensionDecoders.add(decoderInfo);
+        }
+      } else if (decoderInfo.isFormatSupported(context, format)
+          || (decoderInfo.capabilities == null
+              && decoderInfo.isFormatFunctionallySupported(context, format))) {
+        break;
+      }
+    }
     sortByScore(
         decoderInfos,
-        decoderInfo -> decoderInfo.isFormatFunctionallySupported(context, format) ? 1 : 0);
+        decoderInfo -> {
+          if (promotableExtensionDecoders.contains(decoderInfo)) {
+            return 2;
+          }
+          return decoderInfo.isFormatFunctionallySupported(context, format) ? 1 : 0;
+        });
     return decoderInfos;
   }
 
@@ -502,6 +530,50 @@ public final class MediaCodecUtil {
   }
 
   // Internal methods.
+
+  private static List<MediaCodecInfo> filterOutExtensionDecodersIfEncrypted(
+      List<MediaCodecInfo> decoderInfos, Format format) {
+    if (decoderInfos.isEmpty()
+        || (format.cryptoType == C.CRYPTO_TYPE_NONE && format.drmInitData == null)) {
+      return decoderInfos;
+    }
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (!(decoderInfo instanceof ExtensionCodecInfo)
+          || ((ExtensionCodecInfo) decoderInfo).isFormatDrmSupported(format)) {
+        result.add(decoderInfo);
+      }
+    }
+    return result.build();
+  }
+
+  private static List<MediaCodecInfo> filterOutUnsupportedAlternativeExtensionDecoders(
+      List<MediaCodecInfo> decoderInfos, Format format) {
+    boolean hasExtensionDecoder = false;
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      if (decoderInfos.get(i) instanceof ExtensionCodecInfo) {
+        hasExtensionDecoder = true;
+        break;
+      }
+    }
+    if (!hasExtensionDecoder) {
+      return decoderInfos;
+    }
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (!(decoderInfo instanceof ExtensionCodecInfo)) {
+        result.add(decoderInfo);
+      } else {
+        ExtensionCodecInfo extensionInfo = (ExtensionCodecInfo) decoderInfo;
+        if (extensionInfo.isFormatDrmSupported(format) && extensionInfo.isFormatSupported(format)) {
+          result.add(decoderInfo);
+        }
+      }
+    }
+    return result.build();
+  }
 
   /**
    * Returns whether the device supports decoding E-AC3 JOC streams using a standard E-AC3 decoder

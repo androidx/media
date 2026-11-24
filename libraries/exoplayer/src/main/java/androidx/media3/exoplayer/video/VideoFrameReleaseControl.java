@@ -36,6 +36,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -197,6 +198,7 @@ public final class VideoFrameReleaseControl {
   private float playbackSpeed;
   private Clock clock;
   private boolean hasOutputSurface;
+  private boolean hasOutputBufferRenderer;
   private boolean frameReadyWithoutSurface;
   private boolean disableAdvancingTimestampChecks;
   private boolean requiresOutputSurface;
@@ -348,9 +350,7 @@ public final class VideoFrameReleaseControl {
    * @return Whether the release control is ready.
    */
   public boolean isReady(boolean otherwiseReady) {
-    if (otherwiseReady
-        && (firstFrameState == C.FIRST_FRAME_RENDERED
-            || (frameReadyWithoutSurface && (!hasOutputSurface || !requiresOutputSurface)))) {
+    if (otherwiseReady && hasReadyFrame()) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -519,6 +519,39 @@ public final class VideoFrameReleaseControl {
   }
 
   /**
+   * Sets whether a non-surface output buffer renderer is attached and usable by the active codec.
+   *
+   * <p>Must not be {@code true} while an output surface is set. When the state changes, only lowers
+   * {@link C#FIRST_FRAME_RENDERED} to {@link C#FIRST_FRAME_NOT_RENDERED}, preserving {@link
+   * C#FIRST_FRAME_NOT_RENDERED_AFTER_STREAM_CHANGE} and {@link
+   * C#FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED}.
+   *
+   * @return Whether the state changed.
+   */
+  @CanIgnoreReturnValue
+  /* package */ boolean setHasOutputBufferRenderer(boolean hasOutputBufferRenderer) {
+    if (this.hasOutputBufferRenderer == hasOutputBufferRenderer) {
+      return false;
+    }
+    this.hasOutputBufferRenderer = hasOutputBufferRenderer;
+    frameReadyWithoutSurface = false;
+    if (firstFrameState == C.FIRST_FRAME_RENDERED) {
+      firstFrameState = C.FIRST_FRAME_NOT_RENDERED;
+    }
+    return true;
+  }
+
+  /**
+   * Returns whether a first frame has been rendered or a frame is ready while no output is
+   * attached, without mutating joining state.
+   */
+  /* package */ boolean hasReadyFrame() {
+    boolean hasOutput = hasOutputSurface || hasOutputBufferRenderer;
+    return firstFrameState == C.FIRST_FRAME_RENDERED
+        || (frameReadyWithoutSurface && (!hasOutput || !requiresOutputSurface));
+  }
+
+  /**
    * Experimental setter to ignore the checks for advancing timestamps before checking whether a
    * late frame needs to be force released.
    */
@@ -614,8 +647,9 @@ public final class VideoFrameReleaseControl {
     if (isDecodeOnlyFrame && !isLastFrame) {
       return FRAME_RELEASE_SKIP;
     }
-    if (!hasOutputSurface && requiresOutputSurface) {
-      // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
+    boolean hasOutput = hasOutputSurface || hasOutputBufferRenderer;
+    if (!hasOutput && requiresOutputSurface) {
+      // Skip frames in sync with playback, so we'll be at the right frame if an output is set.
       if (!onlyProbe
           && frameTimingEvaluator.shouldIgnoreFrame(
               frameReleaseInfo.earlyUs,
