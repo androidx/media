@@ -692,9 +692,15 @@ public final class TsExtractor implements Extractor {
     private static final int TS_PMT_DESC_DVB_EXT = 0x7F;
     private static final int TS_PMT_DESC_DVBSUBS = 0x59;
 
+    private static final int TS_PMT_DESC_DVB_EXT_SUPPLEMENTARY_AUDIO = 0x06;
     private static final int TS_PMT_DESC_DVB_EXT_AC4 = 0x15;
     private static final int TS_PMT_DESC_DVB_EXT_DTS_HD = 0x0E;
     private static final int TS_PMT_DESC_DVB_EXT_DTS_UHD = 0x21;
+
+    // editorial_classification values of the supplementary_audio_descriptor (ETSI EN 300 468).
+    private static final int EDITORIAL_CLASSIFICATION_AUDIO_DESCRIPTION = 0x01;
+    private static final int EDITORIAL_CLASSIFICATION_CLEAN_AUDIO = 0x02;
+    private static final int EDITORIAL_CLASSIFICATION_SPOKEN_SUBTITLES = 0x03;
 
     private final ParsableBitArray pmtScratch;
     private final SparseArray<@Nullable TsPayloadReader> trackIdToReaderScratch;
@@ -855,6 +861,10 @@ public final class TsExtractor implements Extractor {
       int streamType = -1;
       String language = null;
       @EsInfo.AudioType int audioType = AUDIO_TYPE_UNDEFINED;
+      // The supplementary_audio_descriptor is more specific than the ISO 639 descriptor, so its
+      // values take precedence regardless of the order of the descriptors.
+      @Nullable String supplementaryAudioLanguage = null;
+      @EsInfo.AudioType int supplementaryAudioType = AUDIO_TYPE_UNDEFINED;
       List<DvbSubtitleInfo> dvbSubtitleInfos = null;
       while (data.getPosition() < descriptorsEndPosition) {
         int descriptorTag = data.readUnsignedByte();
@@ -891,6 +901,17 @@ public final class TsExtractor implements Extractor {
           } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_DTS_UHD) {
             // DTS-UHD descriptor in DVB (ETSI EN 300 468).
             streamType = TS_STREAM_TYPE_DTS_UHD;
+          } else if (descriptorTagExt == TS_PMT_DESC_DVB_EXT_SUPPLEMENTARY_AUDIO
+              && data.getPosition() < positionOfNextDescriptor) {
+            // supplementary_audio_descriptor in DVB (ETSI EN 300 468).
+            // mix_type (1), editorial_classification (5), reserved_future_use (1),
+            // language_code_present (1)
+            int flags = data.readUnsignedByte();
+            supplementaryAudioType = getAudioTypeFromEditorialClassification((flags >> 2) & 0x1F);
+            boolean languageCodePresent = (flags & 0x01) != 0;
+            if (languageCodePresent && positionOfNextDescriptor - data.getPosition() >= 3) {
+              supplementaryAudioLanguage = data.readString(3).trim();
+            }
           }
         } else if (descriptorTag == TS_PMT_DESC_DTS) { // DTS_descriptor
           streamType = TS_STREAM_TYPE_DTS;
@@ -915,12 +936,31 @@ public final class TsExtractor implements Extractor {
         data.skipBytes(positionOfNextDescriptor - data.getPosition());
       }
       data.setPosition(descriptorsEndPosition);
+      if (supplementaryAudioLanguage != null) {
+        language = supplementaryAudioLanguage;
+      }
+      if (supplementaryAudioType != AUDIO_TYPE_UNDEFINED) {
+        audioType = supplementaryAudioType;
+      }
       return new EsInfo(
           streamType,
           language,
           audioType,
           dvbSubtitleInfos,
           Arrays.copyOfRange(data.getData(), descriptorsStartPosition, descriptorsEndPosition));
+    }
+
+    private @EsInfo.AudioType int getAudioTypeFromEditorialClassification(
+        int editorialClassification) {
+      switch (editorialClassification) {
+        case EDITORIAL_CLASSIFICATION_AUDIO_DESCRIPTION:
+        case EDITORIAL_CLASSIFICATION_SPOKEN_SUBTITLES:
+          return EsInfo.AUDIO_TYPE_VISUAL_IMPAIRED_COMMENTARY;
+        case EDITORIAL_CLASSIFICATION_CLEAN_AUDIO:
+          return EsInfo.AUDIO_TYPE_HEARING_IMPAIRED;
+        default:
+          return AUDIO_TYPE_UNDEFINED;
+      }
     }
   }
 }
