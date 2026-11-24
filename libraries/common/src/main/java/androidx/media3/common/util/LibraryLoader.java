@@ -15,9 +15,13 @@
  */
 package androidx.media3.common.util;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkState;
 
+import androidx.annotation.RestrictTo;
+import androidx.annotation.VisibleForTesting;
 import java.util.Arrays;
+import org.jspecify.annotations.Nullable;
 
 /** Configurable loader for native libraries. */
 @UnstableApi
@@ -28,6 +32,7 @@ public abstract class LibraryLoader {
   private String[] nativeLibraries;
   private boolean loadAttempted;
   private boolean isAvailable;
+  private @Nullable Boolean isAvailableForTesting;
 
   /**
    * @param libraries The names of the libraries to load.
@@ -47,6 +52,9 @@ public abstract class LibraryLoader {
 
   /** Returns whether the underlying libraries are available, loading them if necessary. */
   public synchronized boolean isAvailable() {
+    if (isAvailableForTesting != null) {
+      return isAvailableForTesting;
+    }
     if (loadAttempted) {
       return isAvailable;
     }
@@ -62,6 +70,22 @@ public abstract class LibraryLoader {
       Log.w(TAG, "Failed to load " + Arrays.toString(nativeLibraries), exception);
     }
     return isAvailable;
+  }
+
+  /**
+   * Overrides whether the underlying libraries are available for testing.
+   *
+   * <p>Passing {@code true} skips loading the native libraries, so it must only be used in
+   * Java-layer unit tests (such as Robolectric tests) where code paths relying on native methods
+   * are not invoked.
+   *
+   * @param isAvailable Whether the underlying libraries should be reported as available, or {@code
+   *     null} to restore default loading behavior.
+   */
+  @RestrictTo(LIBRARY_GROUP)
+  @VisibleForTesting
+  public synchronized void setAvailableForTesting(@Nullable Boolean isAvailable) {
+    this.isAvailableForTesting = isAvailable;
   }
 
   /**
