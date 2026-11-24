@@ -534,15 +534,37 @@ public final class Ac3Util {
    * @return The number of audio samples represented by the syncframe.
    */
   public static int parseAc3SyncframeAudioSampleCount(ByteBuffer buffer) {
-    // Parse the bitstream ID for AC-3 and E-AC-3 (see subsections 4.3, E.1.2 and E.1.3.1.6).
-    boolean isEac3 = ((buffer.get(buffer.position() + 5) & 0xF8) >> 3) > 10;
-    if (isEac3) {
-      int fscod = (buffer.get(buffer.position() + 4) & 0xC0) >> 6;
-      int numblkscod = fscod == 0x03 ? 3 : (buffer.get(buffer.position() + 4) & 0x30) >> 4;
-      return BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod] * AUDIO_SAMPLES_PER_AUDIO_BLOCK;
-    } else {
-      return AC3_SYNCFRAME_AUDIO_SAMPLE_COUNT;
+    return parseAc3SyncframeAudioSampleCount(buffer, buffer.position());
+  }
+
+  /**
+   * Reads the number of audio samples represented by the given (E-)AC-3 access unit, which may
+   * contain several syncframes. For E-AC-3, this is the sum over the syncframes that have the same
+   * stream type and substream ID as the first syncframe. Parsing stops at the first position that
+   * is not a complete E-AC-3 syncframe. The buffer's position is not modified.
+   *
+   * @param buffer The {@link ByteBuffer} from which to read the access unit.
+   * @return The number of audio samples represented by the access unit.
+   */
+  public static int parseAc3AccessUnitAudioSampleCount(ByteBuffer buffer) {
+    int position = buffer.position();
+    int sampleCount = parseAc3SyncframeAudioSampleCount(buffer);
+    if (!isEac3Syncframe(buffer, position)) {
+      return sampleCount;
     }
+    int streamTypeAndSubstreamId = buffer.get(position + 2) & 0xF8;
+    int offset = position + getEac3SyncframeSize(buffer, position);
+    while (offset + 6 <= buffer.limit() && isEac3Syncframe(buffer, offset)) {
+      int syncframeSize = getEac3SyncframeSize(buffer, offset);
+      if (offset + syncframeSize > buffer.limit()) {
+        break;
+      }
+      if ((buffer.get(offset + 2) & 0xF8) == streamTypeAndSubstreamId) {
+        sampleCount += parseAc3SyncframeAudioSampleCount(buffer, offset);
+      }
+      offset += syncframeSize;
+    }
+    return sampleCount;
   }
 
   /**
@@ -599,6 +621,29 @@ public final class Ac3Util {
     // TODO: Link to specification if available.
     boolean isMlp = (buffer.get(buffer.position() + offset + 7) & 0xFF) == 0xBB;
     return 40 << ((buffer.get(buffer.position() + offset + (isMlp ? 9 : 8)) >> 4) & 0x07);
+  }
+
+  private static int parseAc3SyncframeAudioSampleCount(ByteBuffer buffer, int index) {
+    // Parse the bitstream ID for AC-3 and E-AC-3 (see subsections 4.3, E.1.2 and E.1.3.1.6).
+    boolean isEac3 = ((buffer.get(index + 5) & 0xF8) >> 3) > 10;
+    if (isEac3) {
+      int fscod = (buffer.get(index + 4) & 0xC0) >> 6;
+      int numblkscod = fscod == 0x03 ? 3 : (buffer.get(index + 4) & 0x30) >> 4;
+      return BLOCKS_PER_SYNCFRAME_BY_NUMBLKSCOD[numblkscod] * AUDIO_SAMPLES_PER_AUDIO_BLOCK;
+    } else {
+      return AC3_SYNCFRAME_AUDIO_SAMPLE_COUNT;
+    }
+  }
+
+  private static boolean isEac3Syncframe(ByteBuffer buffer, int index) {
+    return buffer.get(index) == 0x0B
+        && buffer.get(index + 1) == 0x77
+        && ((buffer.get(index + 5) & 0xF8) >> 3) > 10;
+  }
+
+  private static int getEac3SyncframeSize(ByteBuffer buffer, int index) {
+    int frmsiz = ((buffer.get(index + 2) & 0x07) << 8) | (buffer.get(index + 3) & 0xFF);
+    return (frmsiz + 1) * 2; // See frmsiz in subsection E.1.3.1.3.
   }
 
   private static int getAc3SyncframeSize(int fscod, int frmsizecod) {
