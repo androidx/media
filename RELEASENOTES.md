@@ -38,6 +38,10 @@
         metadata, and ignore malformed non-integer or non-positive `TLEN` values
         instead of throwing `NumberFormatException`
         ([#3492](https://github.com/androidx/media/issues/3492)).
+    *   Matroska: Set `Format.maxInputSize` for FLAC tracks from the maximum
+        frame size in the `STREAMINFO` block, so that decoders are configured
+        with an input buffer large enough for large frames, such as those of
+        multichannel 24-bit audio.
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
