@@ -167,6 +167,9 @@ import org.jspecify.annotations.Nullable;
   /** Called when the {@link Format} of the samples fed to the renderer is known. */
   protected void onInputFormatRead(Format inputFormat) {}
 
+  /** Called when {@link #sampleConsumer} has been initialized. */
+  protected void onSampleConsumerInitialized(SampleConsumer sampleConsumer) {}
+
   /** Initializes {@link #decoder} with an appropriate {@linkplain Codec decoder}. */
   @EnsuresNonNull("decoder")
   protected abstract void initDecoder(Format inputFormat) throws ExportException;
@@ -291,6 +294,7 @@ import org.jspecify.annotations.Nullable;
       return false;
     }
     this.sampleConsumer = sampleConsumer;
+    onSampleConsumerInitialized(sampleConsumer);
     return true;
   }
 

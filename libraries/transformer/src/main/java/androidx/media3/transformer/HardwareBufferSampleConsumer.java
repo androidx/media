@@ -36,6 +36,7 @@ import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.SequenceFrameReader.Listener;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -59,6 +60,7 @@ import org.jspecify.annotations.Nullable;
   private int currentMediaItemIndex = C.INDEX_UNSET;
   private long currentTimeOffsetUs;
   private long nextTimeOffsetUs;
+  private volatile @Nullable Runnable wakeupListener;
 
   /**
    * Creates a new instance.
@@ -148,6 +150,7 @@ import org.jspecify.annotations.Nullable;
             listenerHandler,
             hardwareBufferJniWrapper);
     inputSurface = sequenceFrameReader.createInputSurface();
+    sequenceFrameReader.addRendererWakeupListener(this::maybeWakeupRenderer);
   }
 
   @Override
@@ -218,8 +221,22 @@ import org.jspecify.annotations.Nullable;
     return 0;
   }
 
+  @CanIgnoreReturnValue
+  @Override
+  public boolean setWakeupListener(@Nullable Runnable wakeupListener) {
+    this.wakeupListener = wakeupListener;
+    return true;
+  }
+
   /** Releases resources associated with the underlying {@link SequenceFrameReader}. */
   public void release() {
     sequenceFrameReader.release();
+  }
+
+  private void maybeWakeupRenderer() {
+    @Nullable Runnable listener = wakeupListener;
+    if (listener != null) {
+      listener.run();
+    }
   }
 }

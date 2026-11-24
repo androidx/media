@@ -25,6 +25,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.video.Frame;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.source.SampleStream;
 import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
@@ -37,6 +38,15 @@ import org.jspecify.annotations.Nullable;
 /* package */ final class ExoAssetLoaderVideoRenderer extends ExoAssetLoaderBaseRenderer {
 
   private static final String TAG = "ExoAssetLoaderVideoRenderer";
+
+  /**
+   * Duration to progress, in microseconds, when {@link #sampleConsumer} supports {@linkplain
+   * SampleConsumer#setWakeupListener wakeup notifications}.
+   *
+   * <p>Wakeup notifications only signal downstream consumer capacity, so periodic {@link #render}
+   * calls are still needed to poll the synchronous {@link #decoder}.
+   */
+  private static final long WAKEUP_SUPPORTED_DURATION_TO_PROGRESS_US = 2_000L;
 
   private final boolean flattenForSlowMotion;
   private final Codec.DecoderFactory decoderFactory;
@@ -52,6 +62,8 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;
   private long nextDecoderOutputExpectedTimestampUs;
+  private volatile @Nullable WakeupListener wakeupListener;
+  private boolean sampleConsumerSupportsWakeup;
 
   public ExoAssetLoaderVideoRenderer(
       boolean flattenForSlowMotion,
@@ -79,16 +91,31 @@ import org.jspecify.annotations.Nullable;
     return TAG;
   }
 
+  @Override
+  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    if (messageType == MSG_SET_WAKEUP_LISTENER) {
+      wakeupListener = (WakeupListener) message;
+    } else {
+      super.handleMessage(messageType, message);
+    }
+  }
+
   /**
    * {@inheritDoc}
    *
-   * <p>The duration is calculated based on the number of {@linkplain #maxDecoderPendingFrameCount
-   * allowed pending frames}.
+   * <p>When {@link #sampleConsumer} supports {@linkplain SampleConsumer#setWakeupListener wakeup
+   * notifications}, returns {@link #WAKEUP_SUPPORTED_DURATION_TO_PROGRESS_US}; otherwise, the
+   * duration is calculated based on the number of {@linkplain #maxDecoderPendingFrameCount allowed
+   * pending frames}.
    */
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
-    if (getState() == STATE_ENABLED) {
+    if (getState() == STATE_ENABLED || isEnded()) {
       return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+    if (sampleConsumerSupportsWakeup) {
+      return WAKEUP_SUPPORTED_DURATION_TO_PROGRESS_US;
     }
     if (maxDecoderPendingFrameCount == C.INDEX_UNSET) {
       return DEFAULT_DURATION_TO_PROGRESS_US;
@@ -96,6 +123,16 @@ import org.jspecify.annotations.Nullable;
     // TODO: b/258809496 - Consider using async API and dynamic scheduling when decoder input
     //  slots are available.
     return maxDecoderPendingFrameCount * 2_000L;
+  }
+
+  @Override
+  protected void onReset() {
+    if (sampleConsumer != null) {
+      sampleConsumer.setWakeupListener(null);
+    }
+    sampleConsumerSupportsWakeup = false;
+    wakeupListener = null;
+    super.onReset();
   }
 
   @Override
@@ -124,6 +161,11 @@ import org.jspecify.annotations.Nullable;
     if (flattenForSlowMotion) {
       sefVideoSlowMotionFlattener = new SefSlowMotionFlattener(inputFormat);
     }
+  }
+
+  @Override
+  protected void onSampleConsumerInitialized(SampleConsumer sampleConsumer) {
+    sampleConsumerSupportsWakeup = sampleConsumer.setWakeupListener(this::maybeWakeup);
   }
 
   @Override
@@ -262,5 +304,12 @@ import org.jspecify.annotations.Nullable;
       }
     }
     return false;
+  }
+
+  private void maybeWakeup() {
+    @Nullable WakeupListener listener = wakeupListener;
+    if (listener != null) {
+      listener.onWakeup();
+    }
   }
 }
