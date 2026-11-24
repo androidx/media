@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static androidx.media3.test.exoplayer.playback.gts.GtsTestUtil.isL1WidevineAvailable;
 import static androidx.media3.test.exoplayer.playback.gts.GtsTestUtil.shouldSkipWidevineTest;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -79,7 +80,7 @@ public final class DashWidevineOfflineTest {
                 DashTestData.WIDEVINE_AAC_AUDIO_REPRESENTATION_ID,
                 DashTestData.WIDEVINE_H264_CDD_FIXED);
 
-    boolean useL1Widevine = DashTestRunner.isL1WidevineAvailable(MimeTypes.VIDEO_H264);
+    boolean useL1Widevine = isL1WidevineAvailable(MimeTypes.VIDEO_H264);
     String widevineLicenseUrl = DashTestData.getWidevineLicenseUrl(true, useL1Widevine);
     httpDataSourceFactory = new DefaultHttpDataSource.Factory();
     offlineLicenseHelper =
