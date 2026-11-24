@@ -15,8 +15,10 @@
  */
 package androidx.media3.decoder.av1;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
@@ -38,8 +40,10 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -62,12 +66,6 @@ public final class Dav1dDecoderTest {
   private static final long STREAM_DECODE_TIMEOUT_MS = 20_000;
 
   /**
-   * {@link Dav1dDecoder} emits the end-of-stream output buffer without draining libdav1d, so up to
-   * {@code threads + maxFrameDelay} trailing frames may legitimately never be output.
-   */
-  private static final int EOS_UNDRAINED_FRAME_SLACK = THREADS + MAX_FRAME_DELAY;
-
-  /**
    * Minimum API level for tests that render to a {@link Surface}.
    *
    * <p>On the legacy x86 emulator images below API 30, locking a {@code HAL_PIXEL_FORMAT_YV12}
@@ -80,12 +78,19 @@ public final class Dav1dDecoderTest {
    */
   private static final int MIN_API_FOR_SURFACE_RENDERING = 30;
 
+  // 32x16 8-bit I420 AV1 keyframe OBU (Y=41, U=240, V=110).
+  private static final byte[] av18bitI420Sample =
+      new byte[] {
+        18, 0, 10, 10, 0, 0, 0, 2, 31, -4, -38, -7, 0, 64, 50, 20, 16, 0, -128, 0, 0, 31, 124, -115,
+        -27, 23, -103, 0, -44, -55, 65, -107, -13, 100, 19, 12
+      };
+
   private static FakeTrackOutput sdr8BitVideoTrack;
   private static FakeTrackOutput hdr10BitVideoTrack;
 
-  @Nullable private Dav1dDecoder decoder;
-  @Nullable private Surface surface;
-  @Nullable private SurfaceTexture surfaceTexture;
+  private @Nullable Dav1dDecoder decoder;
+  private @Nullable Surface surface;
+  private @Nullable SurfaceTexture surfaceTexture;
 
   @BeforeClass
   public static void extractTestTracks() throws IOException {
@@ -95,23 +100,30 @@ public final class Dav1dDecoderTest {
   }
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     assertWithMessage("Dav1d library is not available").that(Dav1dLibrary.isAvailable()).isTrue();
+    decoder = createDecoder();
   }
 
   @After
   public void tearDown() {
-    if (decoder != null) {
-      decoder.release();
-      decoder = null;
-    }
-    if (surface != null) {
-      surface.release();
-      surface = null;
-    }
-    if (surfaceTexture != null) {
-      surfaceTexture.release();
-      surfaceTexture = null;
+    try {
+      if (decoder != null) {
+        decoder.release();
+        decoder = null;
+      }
+    } finally {
+      try {
+        if (surface != null) {
+          surface.release();
+          surface = null;
+        }
+      } finally {
+        if (surfaceTexture != null) {
+          surfaceTexture.release();
+          surfaceTexture = null;
+        }
+      }
     }
   }
 
@@ -123,21 +135,22 @@ public final class Dav1dDecoderTest {
    */
   @Test(timeout = 10_000)
   public void decode_yuvOutputMode_populatesYuvPlanes() throws Exception {
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
 
     VideoDecoderOutputBuffer outputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
-
-    assertThat(outputBuffer.mode).isEqualTo(C.VIDEO_OUTPUT_MODE_YUV);
-    assertThat(outputBuffer.width).isEqualTo(1080);
-    assertThat(outputBuffer.height).isEqualTo(720);
-    assertThat(outputBuffer.decoderPrivate).isEqualTo(0);
-    assertThat(outputBuffer.data).isNotNull();
-    assertThat(outputBuffer.data.remaining()).isGreaterThan(0);
-    assertThat(outputBuffer.yuvPlanes).isNotNull();
-    assertThat(outputBuffer.yuvPlanes).hasLength(3);
-    outputBuffer.release();
+    try {
+      assertThat(outputBuffer.mode).isEqualTo(C.VIDEO_OUTPUT_MODE_YUV);
+      assertThat(outputBuffer.width).isEqualTo(1080);
+      assertThat(outputBuffer.height).isEqualTo(720);
+      assertThat(outputBuffer.decoderPrivate).isEqualTo(0);
+      assertThat(outputBuffer.data).isNotNull();
+      assertThat(outputBuffer.data.remaining()).isGreaterThan(0);
+      assertThat(outputBuffer.yuvPlanes).isNotNull();
+      assertThat(outputBuffer.yuvPlanes).hasLength(3);
+    } finally {
+      outputBuffer.release();
+    }
   }
 
   /**
@@ -156,16 +169,20 @@ public final class Dav1dDecoderTest {
     surfaceTexture = new SurfaceTexture(/* texName= */ 0);
     surfaceTexture.setDefaultBufferSize(1080, 720);
     surface = new Surface(surfaceTexture);
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
     VideoDecoderOutputBuffer outputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
-    long initialDecoderPrivate = outputBuffer.decoderPrivate;
+    long initialDecoderPrivate;
+    long decoderPrivateAfterRender;
+    try {
+      initialDecoderPrivate = outputBuffer.decoderPrivate;
 
-    // When rendering the output buffer to the surface and then releasing the buffer.
-    decoder.renderToSurface(outputBuffer, surface);
-    long decoderPrivateAfterRender = outputBuffer.decoderPrivate;
-    outputBuffer.release();
+      // When rendering the output buffer to the surface and then releasing the buffer.
+      decoder.renderToSurface(outputBuffer, surface);
+      decoderPrivateAfterRender = outputBuffer.decoderPrivate;
+    } finally {
+      outputBuffer.release();
+    }
 
     // Then dav1dGetFrame populated a heap Dav1dPicture handle and dav1dRenderFrame cleared it.
     assertThat(outputBuffer.mode).isEqualTo(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
@@ -185,7 +202,6 @@ public final class Dav1dDecoderTest {
   public void decode_surfaceYuvOutputMode_releaseWithoutRenderClearsDecoderPrivate()
       throws Exception {
     // Given a decoded surface-mode frame that will be dropped without calling renderToSurface.
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
     VideoDecoderOutputBuffer outputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
@@ -209,7 +225,6 @@ public final class Dav1dDecoderTest {
   @Test(timeout = 10_000)
   public void release_whileHoldingSurfaceYuvOutputBuffer_freesNativePicture() throws Exception {
     // Given a decoded surface-mode frame that the caller has dequeued but not released.
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
     VideoDecoderOutputBuffer outputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
@@ -236,16 +251,17 @@ public final class Dav1dDecoderTest {
   @Test(timeout = 10_000)
   public void decode_framesBeforeOutputStartTimeUs_skipsDecodeOnlyFrames() throws Exception {
     long targetStartTimeUs = sdr8BitVideoTrack.getSampleTimeUs(3);
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
     decoder.setOutputStartTimeUs(targetStartTimeUs);
 
     VideoDecoderOutputBuffer outputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
-
-    assertThat(outputBuffer.timeUs).isAtLeast(targetStartTimeUs);
-    assertThat(outputBuffer.skippedOutputBufferCount).isEqualTo(3);
-    outputBuffer.release();
+    try {
+      assertThat(outputBuffer.timeUs).isAtLeast(targetStartTimeUs);
+      assertThat(outputBuffer.skippedOutputBufferCount).isEqualTo(3);
+    } finally {
+      outputBuffer.release();
+    }
   }
 
   /**
@@ -256,7 +272,6 @@ public final class Dav1dDecoderTest {
    */
   @Test(timeout = 10_000)
   public void decode_10BitInYuvOutputMode_throwsDav1dDecoderException() throws Exception {
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
 
     Dav1dDecoderException thrown =
@@ -285,21 +300,23 @@ public final class Dav1dDecoderTest {
     surfaceTexture = new SurfaceTexture(/* texName= */ 0);
     surfaceTexture.setDefaultBufferSize(1080, 720);
     surface = new Surface(surfaceTexture);
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
     VideoDecoderOutputBuffer outputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
-    decoder.renderToSurface(outputBuffer, surface);
+    try {
+      decoder.renderToSurface(outputBuffer, surface);
 
-    // When rendering the same buffer a second time.
-    Dav1dDecoderException thrown =
-        assertThrows(
-            Dav1dDecoderException.class, () -> decoder.renderToSurface(outputBuffer, surface));
+      // When rendering the same buffer a second time.
+      Dav1dDecoderException thrown =
+          assertThrows(
+              Dav1dDecoderException.class, () -> decoder.renderToSurface(outputBuffer, surface));
 
-    // Then the native layer reports the missing picture rather than reading freed memory.
-    assertThat(thrown).hasMessageThat().contains("Failed to render output buffer to surface");
-    assertThat(outputBuffer.decoderPrivate).isEqualTo(0);
-    outputBuffer.release();
+      // Then the native layer reports the missing picture rather than reading freed memory.
+      assertThat(thrown).hasMessageThat().contains("Failed to render output buffer to surface");
+      assertThat(outputBuffer.decoderPrivate).isEqualTo(0);
+    } finally {
+      outputBuffer.release();
+    }
   }
 
   /**
@@ -314,7 +331,6 @@ public final class Dav1dDecoderTest {
       throws Exception {
     // Given a self-consuming placeholder surface and a surface-mode decoder.
     surface = PlaceholderSurface.newInstance(ApplicationProvider.getApplicationContext(), false);
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_SURFACE_YUV);
 
     // When decoding the whole stream, rendering and releasing every output buffer so that each
@@ -322,9 +338,7 @@ public final class Dav1dDecoderTest {
     int renderedFrameCount = feedAndDrainEntireStream(decoder, sdr8BitVideoTrack, surface);
 
     // Then every emitted frame was rendered without native errors or double frees.
-    int sampleCount = sdr8BitVideoTrack.getSampleCount();
-    assertThat(renderedFrameCount).isAtLeast(sampleCount - EOS_UNDRAINED_FRAME_SLACK);
-    assertThat(renderedFrameCount).isAtMost(sampleCount);
+    assertThat(renderedFrameCount).isEqualTo(sdr8BitVideoTrack.getSampleCount());
   }
 
   /**
@@ -336,7 +350,6 @@ public final class Dav1dDecoderTest {
   @Test(timeout = 30_000)
   public void decodeEntireStream_yuvOutputMode_outputsEveryFrame() throws Exception {
     // Given a YUV-mode decoder.
-    decoder = createDecoder();
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
 
     // When decoding the whole stream and releasing every output buffer.
@@ -344,14 +357,201 @@ public final class Dav1dDecoderTest {
         feedAndDrainEntireStream(decoder, sdr8BitVideoTrack, /* surface= */ null);
 
     // Then every emitted frame carried YUV planes and no native picture handle.
-    int sampleCount = sdr8BitVideoTrack.getSampleCount();
-    assertThat(outputFrameCount).isAtLeast(sampleCount - EOS_UNDRAINED_FRAME_SLACK);
-    assertThat(outputFrameCount).isAtMost(sampleCount);
+    assertThat(outputFrameCount).isEqualTo(sdr8BitVideoTrack.getSampleCount());
+  }
+
+  @Test(timeout = 10_000)
+  public void decode_withDelayedFramesBeforeOutputStartTime_skipsNonLastAndEmitsLastSample()
+      throws Exception {
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    decoder.setOutputStartTimeUs(100_000);
+    CountDownLatch outputAvailableLatch = new CountDownLatch(2);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {}
+
+          @Override
+          public void onOutputBufferAvailable() {
+            outputAvailableLatch.countDown();
+          }
+        },
+        Runnable::run);
+    DecoderInputBuffer firstInput = checkNotNull(decoder.dequeueInputBuffer());
+    firstInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(firstInput.data).put(av18bitI420Sample).flip();
+    firstInput.timeUs = 10_000;
+    decoder.queueInputBuffer(firstInput);
+    DecoderInputBuffer lastSampleInput = checkNotNull(decoder.dequeueInputBuffer());
+    lastSampleInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(lastSampleInput.data).put(av18bitI420Sample).flip();
+    lastSampleInput.timeUs = 20_000;
+    lastSampleInput.addFlag(C.BUFFER_FLAG_LAST_SAMPLE);
+    decoder.queueInputBuffer(lastSampleInput);
+    DecoderInputBuffer eosInput = checkNotNull(decoder.dequeueInputBuffer());
+    eosInput.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+
+    decoder.queueInputBuffer(eosInput);
+    boolean outputsAvailable = outputAvailableLatch.await(5, SECONDS);
+    int skippedCount = decoder.getAndResetSkippedOutputBufferCount();
+    VideoDecoderOutputBuffer lastSampleOutput = checkNotNull(decoder.dequeueOutputBuffer());
+    long lastSampleTimeUs;
+    boolean isLastSample;
+    boolean shouldBeSkipped;
+    boolean isEndOfStream;
+    try {
+      lastSampleTimeUs = lastSampleOutput.timeUs;
+      isLastSample = lastSampleOutput.isLastSample();
+      shouldBeSkipped = lastSampleOutput.shouldBeSkipped;
+      VideoDecoderOutputBuffer eosOutput = checkNotNull(decoder.dequeueOutputBuffer());
+      try {
+        isEndOfStream = eosOutput.isEndOfStream();
+      } finally {
+        eosOutput.release();
+      }
+    } finally {
+      lastSampleOutput.release();
+    }
+
+    assertWithMessage("Timed out waiting for last sample and EOS output buffers")
+        .that(outputsAvailable)
+        .isTrue();
+    assertThat(skippedCount).isEqualTo(1);
+    assertThat(lastSampleTimeUs).isEqualTo(20_000);
+    assertThat(isLastSample).isTrue();
+    assertThat(shouldBeSkipped).isFalse();
+    assertThat(isEndOfStream).isTrue();
+  }
+
+  @Test(timeout = 10_000)
+  public void
+      getAndResetSkippedOutputBufferCount_withPendingAndQueuedSkips_harvestsSkipsWithoutDuplication()
+          throws Exception {
+    checkNotNull(decoder).release();
+    decoder = null;
+    decoder =
+        new Dav1dDecoder(
+            NUM_INPUT_BUFFERS,
+            NUM_OUTPUT_BUFFERS,
+            INITIAL_INPUT_BUFFER_SIZE,
+            /* threads= */ 1,
+            /* maxFrameDelay= */ 1,
+            /* useCustomAllocator= */ false,
+            C.THREAD_PRIORITY_NO_OP);
+    CountDownLatch inputsProcessedLatch = new CountDownLatch(3);
+    CountDownLatch outputAvailableLatch = new CountDownLatch(1);
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    decoder.setOutputStartTimeUs(20_000);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {
+            inputsProcessedLatch.countDown();
+          }
+
+          @Override
+          public void onOutputBufferAvailable() {
+            outputAvailableLatch.countDown();
+          }
+        },
+        Runnable::run);
+    DecoderInputBuffer firstSkippedInput = checkNotNull(decoder.dequeueInputBuffer());
+    firstSkippedInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(firstSkippedInput.data).put(av18bitI420Sample).flip();
+    firstSkippedInput.timeUs = 10_000;
+    decoder.queueInputBuffer(firstSkippedInput);
+    DecoderInputBuffer renderedInput = checkNotNull(decoder.dequeueInputBuffer());
+    renderedInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(renderedInput.data).put(av18bitI420Sample).flip();
+    renderedInput.timeUs = 20_000;
+    decoder.queueInputBuffer(renderedInput);
+    DecoderInputBuffer secondSkippedInput = checkNotNull(decoder.dequeueInputBuffer());
+    secondSkippedInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(secondSkippedInput.data).put(av18bitI420Sample).flip();
+    secondSkippedInput.timeUs = 15_000;
+    decoder.queueInputBuffer(secondSkippedInput);
+    boolean inputsProcessed = inputsProcessedLatch.await(5, SECONDS);
+    boolean outputAvailable = outputAvailableLatch.await(5, SECONDS);
+
+    int harvestedCount = decoder.getAndResetSkippedOutputBufferCount();
+    int secondHarvestedCount = decoder.getAndResetSkippedOutputBufferCount();
+    VideoDecoderOutputBuffer outputBuffer = checkNotNull(decoder.dequeueOutputBuffer());
+    long outputBufferTimeUs = outputBuffer.timeUs;
+    int outputBufferSkippedCount = outputBuffer.skippedOutputBufferCount;
+    outputBuffer.release();
+
+    assertThat(inputsProcessed).isTrue();
+    assertThat(outputAvailable).isTrue();
+    assertThat(harvestedCount).isEqualTo(2);
+    assertThat(secondHarvestedCount).isEqualTo(0);
+    assertThat(outputBufferTimeUs).isEqualTo(20_000);
+    assertThat(outputBufferSkippedCount).isEqualTo(0);
+  }
+
+  @Test(timeout = 10_000)
+  public void flush_withPendingSkippedOutputBuffers_clearsSkippedOutputBufferCountImmediately()
+      throws Exception {
+    checkNotNull(decoder).release();
+    decoder = null;
+    decoder =
+        new Dav1dDecoder(
+            /* numInputBuffers= */ 1,
+            /* numOutputBuffers= */ 1,
+            INITIAL_INPUT_BUFFER_SIZE,
+            /* threads= */ 1,
+            /* maxFrameDelay= */ 1,
+            /* useCustomAllocator= */ false,
+            C.THREAD_PRIORITY_NO_OP);
+    CountDownLatch skippedSampleProcessedLatch = new CountDownLatch(1);
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    decoder.setOutputStartTimeUs(20_000);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {
+            skippedSampleProcessedLatch.countDown();
+          }
+
+          @Override
+          public void onOutputBufferAvailable() {}
+        },
+        Runnable::run);
+    DecoderInputBuffer skippedInput = checkNotNull(decoder.dequeueInputBuffer());
+    skippedInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(skippedInput.data).put(av18bitI420Sample).flip();
+    skippedInput.timeUs = 10_000;
+    decoder.queueInputBuffer(skippedInput);
+    boolean skippedSampleProcessed = skippedSampleProcessedLatch.await(5, SECONDS);
+    checkNotNull(decoder.dequeueInputBuffer());
+    CountDownLatch flushCompletedLatch = new CountDownLatch(1);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {
+            flushCompletedLatch.countDown();
+          }
+
+          @Override
+          public void onOutputBufferAvailable() {}
+        },
+        Runnable::run);
+
+    decoder.flush();
+    int skippedCountImmediatelyAfterFlush = decoder.getAndResetSkippedOutputBufferCount();
+    boolean flushCompleted = flushCompletedLatch.await(5, SECONDS);
+    int skippedCountAfterFlushCompleted = decoder.getAndResetSkippedOutputBufferCount();
+
+    assertThat(skippedSampleProcessed).isTrue();
+    assertThat(skippedCountImmediatelyAfterFlush).isEqualTo(0);
+    assertThat(flushCompleted).isTrue();
+    assertThat(skippedCountAfterFlushCompleted).isEqualTo(0);
   }
 
   @Test(timeout = 15_000)
   public void dequeueInputBuffer_whileFlushPending_recoversInputBuffer() throws Exception {
     // Use 1 input buffer so overwriting dequeuedInputBuffer during flush() leaves 0 buffers.
+    checkNotNull(this.decoder).release();
+    this.decoder = null;
     Dav1dDecoder decoder = createDecoder(/* numInputBuffers= */ 1, NUM_OUTPUT_BUFFERS);
     this.decoder = decoder;
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
@@ -393,13 +593,14 @@ public final class Dav1dDecoderTest {
   @Test(timeout = 15_000)
   public void flush_withFrameDelayedInput_recoversAllInputBuffersAndDecodesStream()
       throws Exception {
+    checkNotNull(decoder).release();
+    decoder = null;
     decoder = createDecoder(NUM_INPUT_BUFFERS, /* numOutputBuffers= */ 1);
     decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
     VideoDecoderOutputBuffer heldOutputBuffer =
         feedSamplesUntilOutputBuffer(decoder, sdr8BitVideoTrack);
-
-    decoder.flush();
     try {
+      decoder.flush();
       dequeueAndQueueBurstAfterFlush(decoder, sdr8BitVideoTrack);
     } finally {
       heldOutputBuffer.release();
@@ -408,8 +609,7 @@ public final class Dav1dDecoderTest {
     int outputFrameCount =
         feedAndDrainStream(decoder, sdr8BitVideoTrack, NUM_INPUT_BUFFERS, /* surface= */ null);
 
-    assertThat(outputFrameCount)
-        .isAtLeast(sdr8BitVideoTrack.getSampleCount() - EOS_UNDRAINED_FRAME_SLACK);
+    assertThat(outputFrameCount).isEqualTo(sdr8BitVideoTrack.getSampleCount());
   }
 
   private static Dav1dDecoder createDecoder() throws Dav1dDecoderException {
@@ -426,6 +626,219 @@ public final class Dav1dDecoderTest {
         MAX_FRAME_DELAY,
         /* useCustomAllocator= */ false,
         C.THREAD_PRIORITY_NO_OP);
+  }
+
+  @Test(timeout = 10_000)
+  public void queueInputBuffer_withEndOfStream_drainsDelayedFramesBeforeEndOfStreamOutputBuffer()
+      throws Exception {
+    CountDownLatch twoOutputsAvailableLatch = new CountDownLatch(2);
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {}
+
+          @Override
+          public void onOutputBufferAvailable() {
+            twoOutputsAvailableLatch.countDown();
+          }
+        },
+        Runnable::run);
+    DecoderInputBuffer sampleBuffer = checkNotNull(decoder.dequeueInputBuffer());
+    sampleBuffer.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(sampleBuffer.data).put(av18bitI420Sample).flip();
+    sampleBuffer.timeUs = 10_000;
+    sampleBuffer.addFlag(C.BUFFER_FLAG_LAST_SAMPLE);
+    decoder.queueInputBuffer(sampleBuffer);
+    DecoderInputBuffer eosBuffer = checkNotNull(decoder.dequeueInputBuffer());
+    eosBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+
+    decoder.queueInputBuffer(eosBuffer);
+    boolean outputsAvailable = twoOutputsAvailableLatch.await(5, SECONDS);
+    @Nullable VideoDecoderOutputBuffer drainedFrame = decoder.dequeueOutputBuffer();
+    @Nullable VideoDecoderOutputBuffer eosOutput = decoder.dequeueOutputBuffer();
+    boolean drainedFrameIsEos = drainedFrame != null && drainedFrame.isEndOfStream();
+    long drainedFrameTimeUs = drainedFrame != null ? drainedFrame.timeUs : C.TIME_UNSET;
+    boolean drainedFrameIsLastSample = drainedFrame != null && drainedFrame.isLastSample();
+    boolean eosOutputIsEos = eosOutput != null && eosOutput.isEndOfStream();
+    if (drainedFrame != null) {
+      drainedFrame.release();
+    }
+    if (eosOutput != null) {
+      eosOutput.release();
+    }
+
+    assertThat(outputsAvailable).isTrue();
+    assertThat(drainedFrame).isNotNull();
+    assertThat(drainedFrameIsEos).isFalse();
+    assertThat(drainedFrameTimeUs).isEqualTo(10_000);
+    assertThat(drainedFrameIsLastSample).isTrue();
+    assertThat(eosOutput).isNotNull();
+    assertThat(eosOutputIsEos).isTrue();
+  }
+
+  @Test(timeout = 10_000)
+  public void flush_withDequeuedInputBuffer_reclaimsInputBuffer() throws Exception {
+    decoder.release();
+    decoder =
+        new Dav1dDecoder(
+            /* numInputBuffers= */ 1,
+            /* numOutputBuffers= */ 1,
+            /* initialInputBufferSize= */ 1024,
+            /* threads= */ 1,
+            /* maxFrameDelay= */ 1,
+            /* useCustomAllocator= */ false,
+            C.THREAD_PRIORITY_NO_OP);
+    DecoderInputBuffer initialBuffer = checkNotNull(decoder.dequeueInputBuffer());
+    CountDownLatch inputBufferAvailableLatch = new CountDownLatch(1);
+    @Nullable DecoderInputBuffer[] reclaimedBuffer = new DecoderInputBuffer[1];
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {
+            try {
+              reclaimedBuffer[0] = decoder.dequeueInputBuffer();
+            } catch (Dav1dDecoderException e) {
+              throw new RuntimeException(e);
+            } finally {
+              inputBufferAvailableLatch.countDown();
+            }
+          }
+
+          @Override
+          public void onOutputBufferAvailable() {}
+        },
+        Runnable::run);
+
+    decoder.flush();
+    boolean callbackReceived = inputBufferAvailableLatch.await(5, SECONDS);
+
+    assertWithMessage("Timed out waiting for reclaimed input buffer after flush")
+        .that(callbackReceived)
+        .isTrue();
+    assertThat(reclaimedBuffer[0]).isSameInstanceAs(initialBuffer);
+  }
+
+  @Test(timeout = 10_000)
+  public void flush_withInputBufferHeldByNativeDecoder_reclaimsInputBuffer() throws Exception {
+    decoder.release();
+    decoder =
+        new Dav1dDecoder(
+            /* numInputBuffers= */ 1,
+            /* numOutputBuffers= */ 2,
+            /* initialInputBufferSize= */ 1024,
+            /* threads= */ 1,
+            /* maxFrameDelay= */ 1,
+            /* useCustomAllocator= */ false,
+            C.THREAD_PRIORITY_NO_OP);
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    CountDownLatch firstOutputAvailableLatch = new CountDownLatch(1);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {}
+
+          @Override
+          public void onOutputBufferAvailable() {
+            firstOutputAvailableLatch.countDown();
+          }
+        },
+        Runnable::run);
+    DecoderInputBuffer initialBuffer = checkNotNull(decoder.dequeueInputBuffer());
+    initialBuffer.ensureSpaceForWrite(av18bitI420Sample.length * 2);
+    ByteBuffer initialBufferData = checkNotNull(initialBuffer.data);
+    initialBufferData.put(av18bitI420Sample);
+    initialBufferData.put(av18bitI420Sample);
+    initialBufferData.flip();
+    initialBuffer.timeUs = 10_000;
+    decoder.queueInputBuffer(initialBuffer);
+    boolean firstOutputAvailable = firstOutputAvailableLatch.await(5, SECONDS);
+    @Nullable DecoderInputBuffer inputBufferBeforeFlush = decoder.dequeueInputBuffer();
+    CountDownLatch inputBufferReclaimedLatch = new CountDownLatch(1);
+    @Nullable DecoderInputBuffer[] reclaimedBuffer = new DecoderInputBuffer[1];
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {
+            try {
+              reclaimedBuffer[0] = decoder.dequeueInputBuffer();
+            } catch (Dav1dDecoderException e) {
+              throw new RuntimeException(e);
+            } finally {
+              inputBufferReclaimedLatch.countDown();
+            }
+          }
+
+          @Override
+          public void onOutputBufferAvailable() {}
+        },
+        Runnable::run);
+
+    decoder.flush();
+    boolean callbackReceived = inputBufferReclaimedLatch.await(5, SECONDS);
+
+    assertThat(firstOutputAvailable).isTrue();
+    assertThat(inputBufferBeforeFlush).isNull();
+    assertWithMessage("Timed out waiting for reclaimed input buffer after flush")
+        .that(callbackReceived)
+        .isTrue();
+    assertThat(reclaimedBuffer[0]).isSameInstanceAs(initialBuffer);
+  }
+
+  @Test(timeout = 10_000)
+  public void decode_onMidStreamResolutionChange_updatesOutputBufferDimensions() throws Exception {
+    decoder.setOutputMode(C.VIDEO_OUTPUT_MODE_YUV);
+    CountDownLatch outputsAvailableLatch = new CountDownLatch(2);
+    decoder.setCallback(
+        new Decoder.Callback() {
+          @Override
+          public void onInputBufferAvailable() {}
+
+          @Override
+          public void onOutputBufferAvailable() {
+            outputsAvailableLatch.countDown();
+          }
+        },
+        Runnable::run);
+    DecoderInputBuffer firstInput = checkNotNull(decoder.dequeueInputBuffer());
+    firstInput.ensureSpaceForWrite(av18bitI420Sample.length);
+    checkNotNull(firstInput.data).put(av18bitI420Sample).flip();
+    firstInput.timeUs = 10_000;
+    decoder.queueInputBuffer(firstInput);
+    DecoderInputBuffer secondInput = checkNotNull(decoder.dequeueInputBuffer());
+    byte[] highResSample = sdr8BitVideoTrack.getSampleData(0);
+    secondInput.ensureSpaceForWrite(highResSample.length);
+    checkNotNull(secondInput.data).put(highResSample).flip();
+    secondInput.timeUs = 20_000;
+    decoder.queueInputBuffer(secondInput);
+    DecoderInputBuffer eosInput = checkNotNull(decoder.dequeueInputBuffer());
+    eosInput.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+
+    decoder.queueInputBuffer(eosInput);
+    boolean outputsAvailable = outputsAvailableLatch.await(5, SECONDS);
+
+    assertWithMessage("Timed out waiting for resolution-change output buffers")
+        .that(outputsAvailable)
+        .isTrue();
+    @Nullable VideoDecoderOutputBuffer firstFrame = decoder.dequeueOutputBuffer();
+    @Nullable VideoDecoderOutputBuffer secondFrame = decoder.dequeueOutputBuffer();
+    try {
+      assertThat(firstFrame).isNotNull();
+      assertThat(firstFrame.width).isEqualTo(32);
+      assertThat(firstFrame.height).isEqualTo(16);
+      assertThat(firstFrame.timeUs).isEqualTo(10_000);
+      assertThat(secondFrame).isNotNull();
+      assertThat(secondFrame.width).isEqualTo(1080);
+      assertThat(secondFrame.height).isEqualTo(720);
+      assertThat(secondFrame.timeUs).isEqualTo(20_000);
+    } finally {
+      if (firstFrame != null) {
+        firstFrame.release();
+      }
+      if (secondFrame != null) {
+        secondFrame.release();
+      }
+    }
   }
 
   private static @Nullable DecoderInputBuffer pollInputBuffer(Dav1dDecoder decoder, long timeoutMs)

@@ -89,6 +89,8 @@
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   AV1 extension: Fix a native memory leak of one decoded frame each time
         `Libdav1dVideoRenderer` releases its decoder in surface output mode.
+    *   AV1: Fix missing frames at the end of stream and improve multi-threaded
+        decoding throughput in `Libdav1dVideoRenderer` when `maxFrameDelay > 1`.
 *   MIDI extension:
     *   Move Sonivox wavetable data from `assets/` to `res/raw/` so that Android
         resource shrinking strips the wavetable resource when MIDI playback is
