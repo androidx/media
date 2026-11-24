@@ -16,16 +16,27 @@
 package androidx.media3.exoplayer.source;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.TrackGroup;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadingInfo;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
+import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -99,6 +110,155 @@ public final class ExternallyLoadedMediaPeriodTest {
     mediaPeriod.releasePeriod();
 
     assertThat(actualEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+  }
+
+  @Test
+  public void isLoading_beforePrepare_returnsFalse() {
+    ExternallyLoadedMediaPeriod mediaPeriod =
+        new ExternallyLoadedMediaPeriod(
+            TEST_URI,
+            MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE,
+            loadRequest -> SettableFuture.create());
+
+    boolean isLoading = mediaPeriod.isLoading();
+    mediaPeriod.releasePeriod();
+
+    assertThat(isLoading).isFalse();
+  }
+
+  // The load must already be reported via isLoading() when the player handles onPrepared, as the
+  // player evaluates Player.isLoading() for this period based on isLoading() alone.
+  @Test
+  public void prepare_startsLoadingBeforeOnPrepared() {
+    SettableFuture<Object> loadFuture = SettableFuture.create();
+    AtomicBoolean isLoadingInOnPrepared = new AtomicBoolean();
+    ExternallyLoadedMediaPeriod mediaPeriod =
+        new ExternallyLoadedMediaPeriod(
+            TEST_URI, MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE, loadRequest -> loadFuture);
+
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {
+            isLoadingInOnPrepared.set(period.isLoading());
+          }
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0L);
+    loadFuture.set(new Object());
+    boolean isLoadingAfterCompletion = mediaPeriod.isLoading();
+    mediaPeriod.releasePeriod();
+
+    assertThat(isLoadingInOnPrepared.get()).isTrue();
+    assertThat(isLoadingAfterCompletion).isFalse();
+  }
+
+  @Test
+  public void isLoading_afterLoadFailure_returnsFalseAndStreamThrowsError() {
+    RuntimeException loadException = new RuntimeException("Load failed");
+    SettableFuture<Object> loadFuture = SettableFuture.create();
+    ExternallyLoadedMediaPeriod mediaPeriod =
+        new ExternallyLoadedMediaPeriod(
+            TEST_URI, MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE, loadRequest -> loadFuture);
+    mediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0L);
+    SampleStream stream = selectSingleTrack(mediaPeriod);
+
+    boolean isLoadingWhilePending = mediaPeriod.isLoading();
+    loadFuture.setException(loadException);
+    boolean isLoadingAfterFailure = mediaPeriod.isLoading();
+    IOException thrown = assertThrows(IOException.class, stream::maybeThrowError);
+    mediaPeriod.releasePeriod();
+
+    assertThat(isLoadingWhilePending).isTrue();
+    assertThat(isLoadingAfterFailure).isFalse();
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(loadException);
+  }
+
+  @Test
+  public void continueLoading_inMergingMediaPeriodWithPendingAndFailedFuture_doesNotLoop() {
+    SettableFuture<Object> loadFuture = SettableFuture.create();
+    ExternallyLoadedMediaPeriod externallyLoadedPeriod =
+        new ExternallyLoadedMediaPeriod(
+            TEST_URI, MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE, loadRequest -> loadFuture);
+    FakeMediaPeriod siblingPeriod =
+        new FakeMediaPeriod(
+            new TrackGroupArray(
+                new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build())),
+            new DefaultAllocator(/* trimOnReset= */ false, /* individualAllocationSize= */ 1024),
+            /* singleSampleTimeUs= */ 0L,
+            new EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, new MediaPeriodId(new Object()))) {
+          @Override
+          public long getNextLoadPositionUs() {
+            return 1_000_000L;
+          }
+
+          @Override
+          public boolean continueLoading(LoadingInfo loadingInfo) {
+            return false;
+          }
+        };
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0},
+            externallyLoadedPeriod,
+            siblingPeriod);
+    mergingMediaPeriod.prepare(
+        new MediaPeriod.Callback() {
+          @Override
+          public void onPrepared(MediaPeriod period) {}
+
+          @Override
+          public void onContinueLoadingRequested(MediaPeriod source) {}
+        },
+        /* positionUs= */ 0L);
+    SampleStream[] streams = new SampleStream[2];
+    assertThat(
+            mergingMediaPeriod.selectTracks(
+                new ExoTrackSelection[] {
+                  new FixedTrackSelection(
+                      mergingMediaPeriod.getTrackGroups().get(0), /* track= */ 0),
+                  new FixedTrackSelection(
+                      mergingMediaPeriod.getTrackGroups().get(1), /* track= */ 0)
+                },
+                /* mayRetainStreamFlags= */ new boolean[] {false, false},
+                streams,
+                /* streamResetFlags= */ new boolean[] {false, false},
+                /* positionUs= */ 0L))
+        .isEqualTo(0L);
+    LoadingInfo loadingInfo = new LoadingInfo.Builder().setPlaybackPositionUs(0L).build();
+
+    boolean directProgressWhilePending = externallyLoadedPeriod.continueLoading(loadingInfo);
+    boolean mergedProgressWhilePending = mergingMediaPeriod.continueLoading(loadingInfo);
+    long nextLoadPositionWhilePending = externallyLoadedPeriod.getNextLoadPositionUs();
+    long mergedNextLoadPositionWhilePending = mergingMediaPeriod.getNextLoadPositionUs();
+    boolean mergedIsLoadingWhilePending = mergingMediaPeriod.isLoading();
+    loadFuture.setException(new RuntimeException("Load failed"));
+    boolean directProgressAfterFailure = externallyLoadedPeriod.continueLoading(loadingInfo);
+    boolean mergedProgressAfterFailure = mergingMediaPeriod.continueLoading(loadingInfo);
+    boolean mergedIsLoadingAfterFailure = mergingMediaPeriod.isLoading();
+    siblingPeriod.release();
+    externallyLoadedPeriod.releasePeriod();
+
+    assertThat(directProgressWhilePending).isFalse();
+    assertThat(mergedProgressWhilePending).isFalse();
+    assertThat(nextLoadPositionWhilePending).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(mergedNextLoadPositionWhilePending).isEqualTo(1_000_000L);
+    assertThat(mergedIsLoadingWhilePending).isTrue();
+    assertThat(directProgressAfterFailure).isFalse();
+    assertThat(mergedProgressAfterFailure).isFalse();
+    assertThat(mergedIsLoadingAfterFailure).isFalse();
   }
 
   private static ExternallyLoadedMediaPeriod createPreparedLoadedMediaPeriod() {

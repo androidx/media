@@ -66,7 +66,6 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public void prepare(Callback callback, long positionUs) {
-    callback.onPrepared(this);
     loadingFuture = externalLoader.load(new LoadRequest(uri));
     Futures.addCallback(
         loadingFuture,
@@ -82,6 +81,7 @@ import org.jspecify.annotations.Nullable;
           }
         },
         MoreExecutors.directExecutor());
+    callback.onPrepared(this);
   }
 
   @Override
@@ -151,17 +151,19 @@ import org.jspecify.annotations.Nullable;
 
   @Override
   public long getNextLoadPositionUs() {
-    return loadingFinished.get() ? C.TIME_END_OF_SOURCE : 0;
+    // Loading is started in prepare() rather than driven by continueLoading(), so there is never a
+    // next load position to report.
+    return C.TIME_END_OF_SOURCE;
   }
 
   @Override
   public boolean continueLoading(LoadingInfo loadingInfo) {
-    return !loadingFinished.get();
+    return false;
   }
 
   @Override
   public boolean isLoading() {
-    return !loadingFinished.get();
+    return loadingFuture != null && !loadingFinished.get() && loadingThrowable.get() == null;
   }
 
   @Override

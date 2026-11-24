@@ -8,6 +8,10 @@
         scheduling work and CPU wake-cycles to when `CuesWithTiming` subtitle
         cues change or can be read. You can enable this using
         `Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS)`.
+    *   Fix an issue where the playback thread stops responding when an
+        `ExternallyLoadedMediaSource` (for example an image loaded via
+        `ExternalLoader`) is combined with other sources in a
+        `MergingMediaSource` while the external load is pending or has failed.
 *   CompositionPlayer:
 *   Transformer:
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`
