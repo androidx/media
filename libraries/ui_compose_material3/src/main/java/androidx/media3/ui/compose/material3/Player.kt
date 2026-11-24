@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -191,8 +192,8 @@ private fun PlayerImpl(
   val bottomControlsFocus = remember { FocusRequester() }
   val controlsTransition = updateTransition(showControls, label = "PlayerControls")
   val isVisible = { visible: Boolean -> visible }
-  val enter = fadeIn(PlayerTokens.ControlsFadeSpec)
-  val exit = fadeOut(PlayerTokens.ControlsFadeSpec)
+  val enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec())
+  val exit = fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec())
 
   Box(modifier) {
     ContentFrame(

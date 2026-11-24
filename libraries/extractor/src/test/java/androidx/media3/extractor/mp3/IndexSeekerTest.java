@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION;
 import static androidx.media3.extractor.mp3.Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFile;
 import static com.google.common.truth.Truth.assertThat;
@@ -171,6 +172,36 @@ public class IndexSeekerTest {
     assertFirstFrameAfterSeekIsWithinMinDifference(
         fileName, trackOutput, targetSeekTimeUs, extractedFrameIndex);
     assertFirstFrameAfterSeekHasCorrectData(fileName, trackOutput, extractedFrameIndex);
+  }
+
+  @Test
+  public void seeking_headerlessVbrWithDisableCbrAssumption_seeksAccurately() throws Exception {
+    String fileName = "media/mp3/bear-vbr-no-seek-table.mp3";
+    Uri fileUri = TestUtil.buildAssetUri(fileName);
+    Mp3Extractor headerlessExtractor =
+        new Mp3Extractor(FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION | FLAG_ENABLE_INDEX_SEEKING);
+    SeekMap seekMap =
+        TestUtil.extractSeekMap(headerlessExtractor, extractorOutput, dataSource, fileUri);
+    FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
+
+    long firstSeekTimeUs = 1_234_000;
+    int firstExtractedIndex =
+        TestUtil.seekToTimeUs(
+            headerlessExtractor, seekMap, firstSeekTimeUs, dataSource, trackOutput, fileUri);
+    long secondSeekTimeUs = 500_000;
+    int secondExtractedIndex =
+        TestUtil.seekToTimeUs(
+            headerlessExtractor, seekMap, secondSeekTimeUs, dataSource, trackOutput, fileUri);
+
+    assertThat(seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(firstExtractedIndex).isNotEqualTo(C.INDEX_UNSET);
+    assertFirstFrameAfterSeekIsWithinMinDifference(
+        fileName, trackOutput, firstSeekTimeUs, firstExtractedIndex);
+    assertFirstFrameAfterSeekHasCorrectData(fileName, trackOutput, firstExtractedIndex);
+    assertThat(secondExtractedIndex).isNotEqualTo(C.INDEX_UNSET);
+    assertFirstFrameAfterSeekIsWithinMinDifference(
+        fileName, trackOutput, secondSeekTimeUs, secondExtractedIndex);
+    assertFirstFrameAfterSeekHasCorrectData(fileName, trackOutput, secondExtractedIndex);
   }
 
   private static void assertFirstFrameAfterSeekIsWithinMinDifference(

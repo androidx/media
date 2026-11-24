@@ -24,6 +24,11 @@
 *   Extractors:
     *   MP4: Fix crash when seeking `Mp4Extractor` to the start of a file with
         auxiliary tracks (`Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS`).
+    *   MP3: Add `Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION` to
+        disable assuming a constant bitrate for streams without explicit seeking
+        or bitrate metadata, allowing fallback to `FLAG_ENABLE_INDEX_SEEKING`
+        for variable-bitrate MP3s lacking a VBR header
+        ([#3492](https://github.com/androidx/media/issues/3492)).
     *   ADTS: Update the constant-bitrate `SeekMap` end position to the last
         complete audio frame at end of input so trailing metadata (such as
         APEv2 tags) does not inflate reported duration or seek ranges

@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
@@ -267,6 +268,155 @@ public final class Mp3ExtractorTest {
 
     assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
     assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionOnly_returnsUnseekableSeekMap() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(output.seekMap.getSeekPoints(/* timeUs= */ 0).first)
+        .isEqualTo(new SeekPoint(/* timeUs= */ 0, /* position= */ 224));
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionAndIndexSeeking_usesIndexSeeker() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+    @Mp3Extractor.Flags
+    int flags =
+        Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+            | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING;
+
+    FakeExtractorOutput initialOutput =
+        extractUntilSeekMap(new Mp3Extractor(flags), fileBytes, /* simulateUnknownLength= */ false);
+    FakeExtractorOutput fullOutput =
+        TestUtil.extractAllSamplesFromByteArray(new Mp3Extractor(flags), fileBytes);
+
+    assertThat(initialOutput.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(initialOutput.seekMap.isSeekable()).isTrue();
+    assertThat(initialOutput.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(fullOutput.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(fullOutput.seekMap.getDurationUs()).isEqualTo(2_807_979);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionAndCbrSeeking_usesCbrSeeker() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(ConstantBitrateSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionCbrSeekingUnknownLength_unseekable() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionCbrSeekingAlwaysUnknownLength_usesCbr() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(ConstantBitrateSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionWithIndexAndCbrSeeking_prefersIndexSeeker()
+      throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  private enum ExplicitMetadataSample {
+    XING("media/mp3/bear-vbr-xing-header.mp3", XingSeeker.class),
+    VBRI("media/mp3/bear-vbr-vbri-header.mp3", VbriSeeker.class),
+    INFO("media/mp3/test-cbr-info-header.mp3", ConstantBitrateSeeker.class),
+    MLLT("media/mp3/bear-id3.mp3", MlltSeeker.class);
+
+    private final String assetPath;
+    private final Class<? extends Seeker> expectedSeekerClass;
+
+    ExplicitMetadataSample(String assetPath, Class<? extends Seeker> expectedSeekerClass) {
+      this.assetPath = assetPath;
+      this.expectedSeekerClass = expectedSeekerClass;
+    }
+  }
+
+  @Test
+  public void read_explicitMetadataWithDisableCbrAssumption_usesMetadataSeeker(
+      @TestParameter ExplicitMetadataSample sample) throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), sample.assetPath);
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(sample.expectedSeekerClass);
+    assertThat(output.seekMap.isSeekable()).isTrue();
   }
 
   // https://github.com/androidx/media/issues/1563

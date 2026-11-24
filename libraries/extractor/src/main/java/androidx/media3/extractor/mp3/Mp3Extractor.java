@@ -68,7 +68,8 @@ public final class Mp3Extractor implements Extractor {
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING}, {@link #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS},
-   * {@link #FLAG_ENABLE_INDEX_SEEKING} and {@link #FLAG_DISABLE_ID3_METADATA}.
+   * {@link #FLAG_ENABLE_INDEX_SEEKING}, {@link #FLAG_DISABLE_ID3_METADATA}, {@link
+   * #FLAG_DISABLE_ARTWORK_METADATA}, and {@link #FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION}.
    */
   @Documented
   @Retention(SOURCE)
@@ -80,7 +81,8 @@ public final class Mp3Extractor implements Extractor {
         FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS,
         FLAG_ENABLE_INDEX_SEEKING,
         FLAG_DISABLE_ID3_METADATA,
-        FLAG_DISABLE_ARTWORK_METADATA
+        FLAG_DISABLE_ARTWORK_METADATA,
+        FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
       })
   public @interface Flags {}
 
@@ -106,11 +108,13 @@ public final class Mp3Extractor implements Extractor {
   /**
    * Flag to enable index seeking, in which a time-to-byte mapping is built as the file is read.
    *
-   * <p>This is used as a fallback in two cases:
+   * <p>This is used as a fallback in the following cases:
    *
    * <ul>
    *   <li>The file contains metadata indicating it is VBR (e.g. Xing, VBRI or MLLT frames), but
    *       doesn't contain enough information to support VBR-aware seeking (e.g. table of contents).
+   *   <li>The file has no explicit seeking or constant-bitrate metadata and {@link
+   *       #FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION} is set.
    *   <li>The file is CBR (either indicated by explicit metadata, or absence of any VBR metadata),
    *       the length of the file (in bytes) is not known, and {@link
    *       #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS} is not set.
@@ -134,6 +138,33 @@ public final class Mp3Extractor implements Extractor {
 
   /** Flag to disable parsing of artwork metadata. */
   public static final int FLAG_DISABLE_ARTWORK_METADATA = 1 << 4;
+
+  /**
+   * Flag to disable assuming a constant bitrate for streams without explicit seeking or
+   * constant-bitrate metadata (such as Xing, Info, VBRI, or MLLT frames).
+   *
+   * <p>By default, streams that are not identified as variable bitrate (for example, streams
+   * without VBR metadata) may be assumed to have a constant bitrate, allowing immediate seeking and
+   * duration estimation when the stream length is known. This assumption can produce inaccurate
+   * durations and seek positions for variable-bitrate streams that cannot be reliably identified as
+   * such.
+   *
+   * <p>When this flag is set, streams are not assumed to be constant bitrate unless explicit
+   * constant-bitrate metadata (such as an Info frame) is present. Seeking for streams without
+   * explicit seeking or constant-bitrate metadata then depends on the other flags:
+   *
+   * <ul>
+   *   <li>If {@link #FLAG_ENABLE_INDEX_SEEKING} is set, frame-index seeking is used.
+   *   <li>Otherwise, if {@link #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING} or {@link
+   *       #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS} is set, constant-bitrate seeking is forced
+   *       as a fallback.
+   *   <li>Otherwise, seeking is disabled.
+   * </ul>
+   *
+   * <p>Streams with explicit seeking or constant-bitrate metadata (e.g. Xing with a table of
+   * contents, VBRI, MLLT, or Info frames) are unaffected by this flag.
+   */
+  public static final int FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION = 1 << 5;
 
   private static final String TAG = "Mp3Extractor";
 
@@ -514,7 +545,7 @@ public final class Mp3Extractor implements Extractor {
     Seeker metadataSeeker = maybeHandleSeekMetadata(id3Metadata, input.getPosition());
 
     if (disableSeeking) {
-      return new UnseekableSeeker();
+      return new UnseekableSeeker(/* dataStartPosition= */ 0, /* dataEndPosition= */ C.INDEX_UNSET);
     }
 
     Seeker resultSeeker;
@@ -522,6 +553,11 @@ public final class Mp3Extractor implements Extractor {
       resultSeeker = metadataSeeker;
     } else if (seekFrameSeeker != null) {
       resultSeeker = seekFrameSeeker;
+    } else if ((flags & FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION) != 0) {
+      long dataEndPosition =
+          input.getLength() != C.LENGTH_UNSET ? input.getLength() : C.INDEX_UNSET;
+      resultSeeker =
+          new UnseekableSeeker(/* dataStartPosition= */ input.getPosition(), dataEndPosition);
     } else {
       resultSeeker = getConstantBitrateSeeker(input);
     }
@@ -546,6 +582,12 @@ public final class Mp3Extractor implements Extractor {
         resultSeeker.getDataEndPosition() != C.INDEX_UNSET
             ? resultSeeker.getDataEndPosition()
             : input.getLength();
+    if (inputLength == C.LENGTH_UNSET
+        && (flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) == 0) {
+      // Constant bitrate seeking is not allowed when the input length is unknown unless
+      // FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS is set, so keep resultSeeker as-is.
+      return resultSeeker;
+    }
     if (durationUs == C.TIME_UNSET || inputLength == C.LENGTH_UNSET) {
       // resultSeeker doesn't provide enough info to do 'enhanced' CBR seeking, so we just do
       // normal CBR seeking without any additional info from the file.
