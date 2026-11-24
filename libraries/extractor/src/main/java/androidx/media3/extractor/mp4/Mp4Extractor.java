@@ -379,6 +379,8 @@ public final class Mp4Extractor implements Extractor {
     chapterSampleTables.clear();
     quickTimeChapters.clear();
     if (position == 0) {
+      readingAuxiliaryTracks = false;
+      sampleOffsetForAuxiliaryTracks = 0;
       // Reading the SEF data occurs before normal MP4 parsing. Therefore we can not transition to
       // reading the atom header until that has completed.
       if (parserState != STATE_READING_SEF) {

@@ -181,6 +181,82 @@ public final class Mp4ExtractorNonParameterizedTest {
   }
 
   @Test
+  public void seek_toStartAfterExtractingAuxiliaryTracks_reExtractsAuxiliaryTracks()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String nonInterleavedFilePath = "media/mp4/sample_with_fake_auxiliary_tracks.mp4";
+    String interleavedFilePath =
+        "media/mp4/sample_with_fake_auxiliary_tracks_interleaved_with_primary_video_tracks.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
+
+    FakeExtractorOutput initialOutput =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, nonInterleavedFilePath);
+    mp4Extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+    FakeExtractorOutput outputAfterSeek =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, nonInterleavedFilePath);
+    mp4Extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+    FakeExtractorOutput interleavedOutputAfterSeek =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, interleavedFilePath);
+
+    String nonInterleavedDumpPath =
+        getDumpFilePath(nonInterleavedFilePath, "_with_flag_read_auxiliary_tracks");
+    DumpFileAsserts.assertOutput(context, initialOutput, nonInterleavedDumpPath);
+    DumpFileAsserts.assertOutput(context, outputAfterSeek, nonInterleavedDumpPath);
+    DumpFileAsserts.assertOutput(
+        context,
+        interleavedOutputAfterSeek,
+        getDumpFilePath(interleavedFilePath, "_with_flag_read_auxiliary_tracks"));
+  }
+
+  @Test
+  public void seek_toNonZeroPositionWithAuxiliaryTracks_extractsRemainingSamples()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    byte[] data = TestUtil.getByteArray(context, "media/mp4/sample_with_fake_auxiliary_tracks.mp4");
+    FakeExtractorOutput expectedOutput =
+        TestUtil.extractAllSamplesFromByteArray(
+            new Mp4Extractor(
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS),
+            data);
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(mp4Extractor, data);
+    SeekMap.SeekPoints seekPoints = output.seekMap.getSeekPoints(/* timeUs= */ 0);
+    output.clearTrackOutputs();
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+    input.setPosition((int) seekPoints.first.position);
+
+    mp4Extractor.seek(seekPoints.first.position, seekPoints.first.timeUs);
+    PositionHolder positionHolder = new PositionHolder();
+    int readResult = Extractor.RESULT_CONTINUE;
+    while (readResult != Extractor.RESULT_END_OF_INPUT) {
+      readResult = mp4Extractor.read(input, positionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        input.setPosition((int) positionHolder.position);
+      }
+    }
+
+    assertThat(seekPoints.first.position).isGreaterThan(0);
+    assertThat(output.numberOfTracks).isEqualTo(expectedOutput.numberOfTracks);
+    for (int trackIndex = 0; trackIndex < expectedOutput.numberOfTracks; trackIndex++) {
+      FakeTrackOutput expectedTrack = expectedOutput.trackOutputs.valueAt(trackIndex);
+      FakeTrackOutput actualTrack = output.trackOutputs.valueAt(trackIndex);
+      actualTrack.assertSampleCount(expectedTrack.getSampleCount());
+      for (int sampleIndex = 0; sampleIndex < expectedTrack.getSampleCount(); sampleIndex++) {
+        actualTrack.assertSample(
+            sampleIndex,
+            expectedTrack.getSampleData(sampleIndex),
+            expectedTrack.getSampleTimeUs(sampleIndex),
+            expectedTrack.getSampleFlags(sampleIndex),
+            expectedTrack.getSampleCryptoData(sampleIndex));
+      }
+    }
+  }
+
+  @Test
   public void
       extract_fileHavingAuxiliaryTracksInterleavedWithPrimaryVideoTracksWithReadAuxiliaryTracksFlag_extractsAuxiliaryTracks()
           throws Exception {

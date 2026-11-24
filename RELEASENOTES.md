@@ -22,6 +22,8 @@
         from `Transformer.start`.
 *   Track Selection:
 *   Extractors:
+    *   MP4: Fix crash when seeking `Mp4Extractor` to the start of a file with
+        auxiliary tracks (`Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS`).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
