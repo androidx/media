@@ -579,10 +579,10 @@ class PlayerFenceTest {
       player.play()
 
       val exception =
-        assertFailsWith<IllegalStateException> { player.awaitContentPositionAtLeast(500) }
+        assertFailsWith<IllegalStateException> { player.awaitContentPositionAtLeast(2_000) }
       assertThat(exception)
         .hasMessageThat()
-        .contains("Playback left item 0 before reaching position 500m")
+        .contains("Playback left item 0 before reaching position 2000ms")
     }
 
   @Test
