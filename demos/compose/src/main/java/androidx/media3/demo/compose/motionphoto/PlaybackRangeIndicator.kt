@@ -105,8 +105,8 @@ internal fun PlaybackRangeIndicator(
   val playbackRange = resolvePlaybackRange(videoInfo, config)
   val resolvedRange = playbackRange?.takeIf { it.videoDurationMs > 0L }
   val usesPhotoFrameBoundary =
-    config.startBoundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME ||
-      config.endBoundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME
+    config.rangeStart.origin == MotionPhotoConfig.Boundary.PHOTO_FRAME ||
+      config.rangeEnd.origin == MotionPhotoConfig.Boundary.PHOTO_FRAME
   val hasPhotoFrame = resolvedRange != null && resolvedRange.photoFramePositionMs != C.TIME_UNSET
   val clampedPhotoFrameMs =
     if (resolvedRange != null && hasPhotoFrame) {
@@ -415,39 +415,49 @@ private fun resolvePlaybackRange(
     return null
   }
   val photoUs = videoInfo.photoPresentationTimestampUs
-  fun resolveBoundary(boundary: @MotionPhotoConfig.PlaybackBoundary Int): Int =
-    if (boundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME && photoUs == C.TIME_UNSET) {
-      MotionPhotoConfig.BOUNDARY_END_OF_VIDEO
+  fun resolveBoundary(boundary: MotionPhotoConfig.Boundary): MotionPhotoConfig.Boundary =
+    if (boundary.origin == MotionPhotoConfig.Boundary.PHOTO_FRAME && photoUs == C.TIME_UNSET) {
+      MotionPhotoConfig.Boundary.END_OF_VIDEO.plusMs(boundary.offsetMs)
     } else {
       boundary
     }
 
-  fun boundaryBaseUs(boundary: @MotionPhotoConfig.PlaybackBoundary Int): Long =
-    when (boundary) {
-      MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L
-      MotionPhotoConfig.BOUNDARY_PHOTO_FRAME -> photoUs
+  fun boundaryBaseUs(boundary: MotionPhotoConfig.Boundary): Long =
+    when (boundary.origin) {
+      MotionPhotoConfig.Boundary.START_OF_VIDEO -> 0L
+      MotionPhotoConfig.Boundary.PHOTO_FRAME -> photoUs
       else -> videoDurationUs
     }
 
-  val startBoundary = resolveBoundary(config.startBoundary)
-  val endBoundary = resolveBoundary(config.endBoundary)
-  val startUs = maxOf(0L, boundaryBaseUs(startBoundary) + Util.msToUs(config.startBoundaryOffsetMs))
-  val endOffsetUs = Util.msToUs(config.endBoundaryOffsetMs)
+  val startBoundary = resolveBoundary(config.rangeStart)
+  val endBoundary = resolveBoundary(config.rangeEnd)
+  val startUs = addOffsetUs(boundaryBaseUs(startBoundary), Util.msToUs(startBoundary.offsetMs))
   val endUs =
-    if (endBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO && endOffsetUs >= 0L) {
+    if (
+      endBoundary.origin == MotionPhotoConfig.Boundary.END_OF_VIDEO && endBoundary.offsetMs >= 0L
+    ) {
       videoDurationUs
     } else {
-      boundaryBaseUs(endBoundary) + endOffsetUs
+      addOffsetUs(boundaryBaseUs(endBoundary), Util.msToUs(endBoundary.offsetMs))
     }
   val isEmpty = startUs >= videoDurationUs || endUs <= startUs
   return PlaybackRange(
     videoDurationMs = Util.usToMs(videoDurationUs),
     photoFramePositionMs = Util.usToMs(photoUs),
     startPositionMs = Util.usToMs(startUs.coerceAtMost(videoDurationUs)),
-    endPositionMs = Util.usToMs(endUs.coerceIn(0L, videoDurationUs)),
+    endPositionMs = Util.usToMs(endUs.coerceAtMost(videoDurationUs)),
     isEmpty = isEmpty,
   )
 }
+
+private fun addOffsetUs(baseUs: Long, offsetUs: Long): Long =
+  if (offsetUs > 0L && baseUs > Long.MAX_VALUE - offsetUs) {
+    Long.MAX_VALUE
+  } else {
+    // A position before the start of the video is its start. This also keeps extreme negative
+    // offsets away from the C.TIME_UNSET and C.TIME_END_OF_SOURCE sentinels.
+    maxOf(0L, baseUs + offsetUs)
+  }
 
 private fun StringBuilder.appendPhotoFrameAccessibility(
   playbackRange: PlaybackRange,
