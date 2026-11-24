@@ -3204,7 +3204,8 @@ public class MatroskaExtractor implements Extractor {
           || codecPrivate[1] != 'L'
           || codecPrivate[2] != 'a'
           || codecPrivate[3] != 'C'
-          || (codecPrivate[4] & 0x7F) != 0) {
+          || (codecPrivate[FlacConstants.STREAM_MARKER_SIZE] & 0x7F)
+              != FlacConstants.METADATA_TYPE_STREAM_INFO) {
         return Format.NO_VALUE;
       }
       int maxFrameSize =
