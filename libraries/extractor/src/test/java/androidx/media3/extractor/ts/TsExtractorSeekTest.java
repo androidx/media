@@ -16,8 +16,16 @@
 package androidx.media3.extractor.ts;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
+import android.util.SparseArray;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.extractor.Extractor;
@@ -25,14 +33,21 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
+import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -209,6 +224,66 @@ public final class TsExtractorSeekTest {
       assertFirstFrameAfterSeekContainTargetSeekTime(
           trackOutput, targetSeekTimeUs, extractedFrameIndex);
     }
+  }
+
+  @Test
+  public void seek_resetsSubtitleParser() throws Exception {
+    List<SubtitleParser> createdParsers = new ArrayList<>();
+    SubtitleParser.Factory subtitleParserFactory =
+        new ForwardingSubtitleParserFactory(new DefaultSubtitleParserFactory()) {
+          @Override
+          public SubtitleParser create(Format format) {
+            SubtitleParser parser = mock(SubtitleParser.class, delegatesTo(super.create(format)));
+            createdParsers.add(parser);
+            return parser;
+          }
+        };
+    TsPayloadReader.Factory payloadReaderFactory =
+        new TsPayloadReader.Factory() {
+          private final DefaultTsPayloadReaderFactory defaultFactory =
+              new DefaultTsPayloadReaderFactory();
+
+          @Override
+          public SparseArray<TsPayloadReader> createInitialPayloadReaders() {
+            return defaultFactory.createInitialPayloadReaders();
+          }
+
+          @Override
+          public @Nullable TsPayloadReader createPayloadReader(
+              int streamType, TsPayloadReader.EsInfo esInfo) {
+            if (streamType == TsExtractor.TS_STREAM_TYPE_MPA) {
+              return new PesReader(
+                  new DvbSubtitleReader(
+                      ImmutableList.of(
+                          new TsPayloadReader.DvbSubtitleInfo(
+                              /* language= */ "en",
+                              /* type= */ 0,
+                              /* initializationData= */ new byte[4])),
+                      MimeTypes.VIDEO_MP2T));
+            }
+            return defaultFactory.createPayloadReader(streamType, esInfo);
+          }
+        };
+    TsExtractor extractor =
+        new TsExtractor(
+            TsExtractor.MODE_SINGLE_PMT,
+            /* extractorFlags= */ 0,
+            subtitleParserFactory,
+            new TimestampAdjuster(0),
+            payloadReaderFactory,
+            TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES);
+    TestUtil.extractAllSamplesFromFile(
+        extractor,
+        ApplicationProvider.getApplicationContext(),
+        "media/ts/sample_h262_mpeg_audio.ts");
+    SubtitleParser subtitleParser = Iterables.getOnlyElement(createdParsers);
+    // Clear invocations from TsExtractor's internal seek(0, 0) via pendingSeekToStart during
+    // initial extraction.
+    clearInvocations(subtitleParser);
+
+    extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+
+    verify(subtitleParser).reset();
   }
 
   // Internal methods

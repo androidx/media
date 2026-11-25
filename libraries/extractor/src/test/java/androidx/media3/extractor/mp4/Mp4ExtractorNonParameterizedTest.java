@@ -17,6 +17,9 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import androidx.media3.common.C;
@@ -34,6 +37,7 @@ import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrackOutput.CryptoData;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -593,6 +597,28 @@ public final class Mp4ExtractorNonParameterizedTest {
     assertThat(audioTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
     assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(1_024);
     assertThat(audioTrack.lastFormat.encoderPadding).isEqualTo(384);
+  }
+
+  @Test
+  public void seek_resetsSubtitleParser() throws Exception {
+    List<SubtitleParser> createdParsers = new ArrayList<>();
+    SubtitleParser.Factory subtitleParserFactory =
+        new ForwardingSubtitleParserFactory(new DefaultSubtitleParserFactory()) {
+          @Override
+          public SubtitleParser create(Format format) {
+            SubtitleParser parser = mock(SubtitleParser.class, delegatesTo(super.create(format)));
+            createdParsers.add(parser);
+            return parser;
+          }
+        };
+    Mp4Extractor extractor = new Mp4Extractor(subtitleParserFactory);
+    TestUtil.extractAllSamplesFromFile(
+        extractor, ApplicationProvider.getApplicationContext(), "media/mp4/sample_with_vobsub.mp4");
+    SubtitleParser subtitleParser = Iterables.getOnlyElement(createdParsers);
+
+    extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+
+    verify(subtitleParser).reset();
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {

@@ -17,11 +17,17 @@ package androidx.media3.extractor.mkv;
 
 import static androidx.media3.extractor.Extractor.RESULT_SEEK;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import androidx.media3.common.Format;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -29,6 +35,9 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.Iterables;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -82,5 +91,27 @@ public class MatroskaExtractorNonParameterizedTest {
 
     DumpFileAsserts.assertOutput(
         context, output, "extractordumps/mkv/sample_with_chapters.mkv.0.dump");
+  }
+
+  @Test
+  public void seek_resetsSubtitleParser() throws Exception {
+    List<SubtitleParser> createdParsers = new ArrayList<>();
+    SubtitleParser.Factory subtitleParserFactory =
+        new ForwardingSubtitleParserFactory(new DefaultSubtitleParserFactory()) {
+          @Override
+          public SubtitleParser create(Format format) {
+            SubtitleParser parser = mock(SubtitleParser.class, delegatesTo(super.create(format)));
+            createdParsers.add(parser);
+            return parser;
+          }
+        };
+    MatroskaExtractor extractor = new MatroskaExtractor(subtitleParserFactory);
+    TestUtil.extractAllSamplesFromFile(
+        extractor, ApplicationProvider.getApplicationContext(), "media/mkv/sample_with_srt.mkv");
+    SubtitleParser subtitleParser = Iterables.getOnlyElement(createdParsers);
+
+    extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+
+    verify(subtitleParser).reset();
   }
 }

@@ -17,13 +17,19 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import androidx.media3.common.Flags;
+import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.container.BoxUtils;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.SniffFailure;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -40,7 +46,9 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -342,6 +350,30 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
 
     assertThat(output.numberOfTracks).isEqualTo(1);
     assertThat(output.trackOutputs.get(0).lastFormat.sampleMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
+  @Test
+  public void seek_resetsSubtitleParser() throws Exception {
+    List<SubtitleParser> createdParsers = new ArrayList<>();
+    SubtitleParser.Factory subtitleParserFactory =
+        new ForwardingSubtitleParserFactory(new DefaultSubtitleParserFactory()) {
+          @Override
+          public SubtitleParser create(Format format) {
+            SubtitleParser parser = mock(SubtitleParser.class, delegatesTo(super.create(format)));
+            createdParsers.add(parser);
+            return parser;
+          }
+        };
+    FragmentedMp4Extractor extractor = new FragmentedMp4Extractor(subtitleParserFactory);
+    TestUtil.extractAllSamplesFromFile(
+        extractor,
+        ApplicationProvider.getApplicationContext(),
+        "media/dash/webvtt-in-mp4/sample.text.mp4");
+    SubtitleParser subtitleParser = Iterables.getOnlyElement(createdParsers);
+
+    extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+
+    verify(subtitleParser).reset();
   }
 
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {
