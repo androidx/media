@@ -14,6 +14,9 @@
         `MergingMediaSource` while the external load is pending or has failed.
 *   CompositionPlayer:
 *   Transformer:
+    *   Fix `IllegalArgumentException` in `EncoderUtil.getSupportedResolution`
+        when clamping an unsupported width to a device encoder's supported range
+        produces an unaligned width.
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`
         calls and creating the output, on an internal thread instead of the
         application thread. `Transformer.Listener` callbacks are still called on

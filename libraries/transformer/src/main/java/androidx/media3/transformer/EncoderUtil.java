@@ -301,8 +301,19 @@ public final class EncoderUtil {
       }
     }
 
-    int supportedWidth = videoCapabilities.getSupportedWidths().clamp(width);
-    int adjustedHeight = videoCapabilities.getSupportedHeightsFor(supportedWidth).clamp(height);
+    int supportedWidth = findAlignedSupportedWidth(videoCapabilities, width, widthAlignment);
+    if (supportedWidth == C.LENGTH_UNSET) {
+      return null;
+    }
+    Range<Integer> supportedHeights;
+    try {
+      supportedHeights = videoCapabilities.getSupportedHeightsFor(supportedWidth);
+    } catch (IllegalArgumentException e) {
+      // Some devices throw IllegalArgumentException from getSupportedHeightsFor even for aligned
+      // widths inside getSupportedWidths().
+      return null;
+    }
+    int adjustedHeight = supportedHeights.clamp(height);
     if (adjustedHeight != height) {
       width =
           alignResolution((int) round((double) width * adjustedHeight / height), widthAlignment);
@@ -549,6 +560,30 @@ public final class EncoderUtil {
     return shouldRoundDown
         ? (int) (alignment * floor((float) size / alignment))
         : alignment * round((float) size / alignment);
+  }
+
+  /**
+   * Returns an aligned width within {@link MediaCodecInfo.VideoCapabilities#getSupportedWidths()},
+   * or {@link C#LENGTH_UNSET} if none exists.
+   */
+  private static int findAlignedSupportedWidth(
+      MediaCodecInfo.VideoCapabilities videoCapabilities, int width, int widthAlignment) {
+    Range<Integer> supportedWidths = videoCapabilities.getSupportedWidths();
+    // Pre-align width before clamping so an in-range width stays divisible by widthAlignment.
+    int supportedWidth = supportedWidths.clamp(alignResolution(width, widthAlignment));
+    if (supportedWidth % widthAlignment == 0) {
+      return supportedWidth;
+    }
+    // An unaligned value means clamping hit an unaligned range endpoint: align down first to stay
+    // within upper bounds, or step up by one alignment unit to clear an unaligned lower bound.
+    int alignedDown = supportedWidth - (supportedWidth % widthAlignment);
+    if (supportedWidths.contains(alignedDown)) {
+      return alignedDown;
+    }
+    if (supportedWidths.contains(alignedDown + widthAlignment)) {
+      return alignedDown + widthAlignment;
+    }
+    return C.LENGTH_UNSET;
   }
 
   private static synchronized void maybePopulateEncoderInfo() {
