@@ -260,9 +260,14 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
           HorizontalDivider()
           ConfigSwitchRow(
             label = "Loop motion",
-            checked = config.isLooping,
+            checked = config.loopMode != MotionPhotoConfig.LOOP_MODE_OFF,
             onCheckedChange = { isLooping ->
-              motionPhotoState.config = motionPhotoState.config.copy(isLooping = isLooping)
+              motionPhotoState.config =
+                motionPhotoState.config.copy(
+                  loopMode =
+                    if (isLooping) MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START
+                    else MotionPhotoConfig.LOOP_MODE_OFF
+                )
             },
           )
           ConfigSwitchRow(
