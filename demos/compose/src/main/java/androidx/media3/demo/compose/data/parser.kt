@@ -104,6 +104,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
   var subtitleMimeType: String? = null
   var subtitleLanguage: String? = null
   var isMotionPhoto = false
+  var adTagUri: Uri? = null
 
   val mediaItem = MediaItem.Builder()
   reader.beginObject()
@@ -118,6 +119,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
       "subtitle_mime_type" -> subtitleMimeType = reader.nextString()
       "subtitle_language" -> subtitleLanguage = reader.nextString()
       "is_motion_photo" -> isMotionPhoto = reader.nextBoolean()
+      "ad_tag_uri" -> adTagUri = reader.nextString().toUri()
       "playlist" -> {
         check(!insidePlaylist) { "Invalid nesting of playlists" }
         children = mutableListOf()
@@ -148,6 +150,7 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
     artworkUri?.let { metadata.setArtworkUri(it) }
 
     mediaItem.setUri(uri).setMediaMetadata(metadata.build())
+    adTagUri?.let { mediaItem.setAdsConfiguration(MediaItem.AdsConfiguration.Builder(it).build()) }
 
     if (subtitleUri != null && subtitleMimeType == null) {
       Log.w("parser", "Subtitle URI provided but MIME type is missing for item: $title")
