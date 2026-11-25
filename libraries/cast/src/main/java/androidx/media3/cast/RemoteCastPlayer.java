@@ -2053,6 +2053,9 @@ public final class RemoteCastPlayer extends BasePlayer {
               + statusCode
               + ": "
               + CastUtils.getLogString(statusCode));
+      if (castSession != null && castSession == RemoteCastPlayer.this.castSession) {
+        setCastSession(null, SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+      }
     }
 
     @Override
@@ -2068,6 +2071,9 @@ public final class RemoteCastPlayer extends BasePlayer {
               + statusCode
               + ": "
               + CastUtils.getLogString(statusCode));
+      if (castSession != null && castSession == RemoteCastPlayer.this.castSession) {
+        setCastSession(null, SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+      }
     }
 
     @Override

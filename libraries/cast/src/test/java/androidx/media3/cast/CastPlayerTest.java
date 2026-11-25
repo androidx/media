@@ -398,6 +398,30 @@ public final class CastPlayerTest {
   }
 
   @Test
+  public void playerTransfer_whenSessionStartFailed_transfersToLocalPlayerAndPauses() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionStartFailed(mockCastSession, /* statusCode= */ 2259);
+
+    assertThat(castPlayer.getDeviceInfo().playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_LOCAL);
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
+  public void playerTransfer_whenSessionResumeFailed_transfersToLocalPlayerAndPauses() {
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "");
+    castPlayer = castPlayerBuilder.build();
+    castPlayer.setPlayWhenReady(true);
+
+    castSessionListener.onSessionResumeFailed(mockCastSession, /* statusCode= */ 2259);
+
+    assertThat(castPlayer.getDeviceInfo().playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_LOCAL);
+    assertThat(localPlayer.getPlayWhenReady()).isFalse();
+  }
+
+  @Test
   public void playerTransfer_whenSessionStarted_doesNotPauseRemotePlayer() {
     castPlayer = castPlayerBuilder.build();
     castPlayer.setMediaItem(MediaItem.fromUri("http://uri"));

@@ -112,6 +112,9 @@
         [intent to join](https://developers.google.com/cast/docs/android_sender/intent_to_join),
         automatically deferring session startup if `Cast` initialization is
         still in progress.
+    *   Fix `RemoteCastPlayer` retaining a dead `CastSession` when
+        `onSessionStartFailed` or `onSessionResumeFailed` is invoked for the
+        active session ([#3580](https://github.com/androidx/media/issues/3580)).
 *   Test Utilities:
 *   Demo app:
 *   Remove deprecated symbols:

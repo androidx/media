@@ -3176,6 +3176,54 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void
+      onSessionStartFailed_forCurrentSession_clearsSessionAndNotifiesUnavailableWithDisconnectedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionStartFailed(mockCastSession, /* statusCode= */ 2259);
+
+    assertThat(remoteCastPlayer.isCastSessionAvailable()).isFalse();
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+  }
+
+  @Test
+  public void onSessionStartFailed_forDifferentSession_keepsCurrentSession() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+    CastSession otherCastSession = mock(CastSession.class);
+
+    sessionManagerListener.onSessionStartFailed(otherCastSession, /* statusCode= */ 2259);
+
+    assertThat(remoteCastPlayer.isCastSessionAvailable()).isTrue();
+    verify(mockSessionAvailabilityListener, never()).onCastSessionUnavailable(anyInt());
+  }
+
+  @Test
+  public void
+      onSessionResumeFailed_forCurrentSession_clearsSessionAndNotifiesUnavailableWithDisconnectedReason() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+
+    sessionManagerListener.onSessionResumeFailed(mockCastSession, /* statusCode= */ 2259);
+
+    assertThat(remoteCastPlayer.isCastSessionAvailable()).isFalse();
+    verify(mockSessionAvailabilityListener)
+        .onCastSessionUnavailable(
+            SessionAvailabilityListener.SESSION_UNAVAILABLE_REASON_DISCONNECTED);
+  }
+
+  @Test
+  public void onSessionResumeFailed_forDifferentSession_keepsCurrentSession() {
+    remoteCastPlayer.setSessionAvailabilityListener(mockSessionAvailabilityListener);
+    CastSession otherCastSession = mock(CastSession.class);
+
+    sessionManagerListener.onSessionResumeFailed(otherCastSession, /* statusCode= */ 2259);
+
+    assertThat(remoteCastPlayer.isCastSessionAvailable()).isTrue();
+    verify(mockSessionAvailabilityListener, never()).onCastSessionUnavailable(anyInt());
+  }
+
+  @Test
   @SuppressWarnings("deprecation") // Testing deprecated listener method.
   public void onCastSessionUnavailable_notifiesLegacyListener() {
     class LegacyListener implements SessionAvailabilityListener {
