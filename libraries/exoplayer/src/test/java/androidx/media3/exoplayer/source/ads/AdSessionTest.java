@@ -565,6 +565,165 @@ public final class AdSessionTest {
   }
 
   @Test
+  public void setIsDynamic_afterDynamicToStatic_notifiesAllAdsCompleted() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+    session.setAdPlaybackState(initialState.withAdDurationsUs(/* adGroupIndex= */ 0, 1L, 2L));
+    verify(mockSdkBridge, never()).onAllAdsCompleted(any(), any());
+
+    session.setIsDynamic(false);
+
+    verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, session.getAdPlaybackState());
+  }
+
+  @Test
+  public void setIsDynamic_falseWithoutPriorTrueCall_notifiesAllAdsCompleted() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+
+    session.setIsDynamic(false);
+
+    verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, initialState);
+  }
+
+  @Test
+  public void setIsDynamic_onlyLivePostrollPlaceholder_doesNotNotifyAllAdsCompleted() {
+    AdPlaybackState initialState =
+        new AdPlaybackState(ADS_ID)
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false);
+    AdSession session = createSession(initialState);
+
+    session.setIsDynamic(false);
+
+    verify(mockSdkBridge, never()).onAllAdsCompleted(any(), any());
+  }
+
+  @Test
+  public void setIsDynamic_falseWhileInAdGroup_defersAllAdsCompletedUntilAdGroupEnded() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    AdSession session = createSession(initialState);
+    session.startAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, /* playWhenReady= */ true);
+    session.handleAdEnded(
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 1,
+        Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+        /* playWhenReady= */ true);
+
+    session.setIsDynamic(false);
+    verify(mockSdkBridge, never()).onAllAdsCompleted(any(), any());
+    // Only when the ad group is ended, the all ads completed event is notified.
+    session.endAdGroup();
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onAdGroupEnded(ADS_ID, /* adGroupIndex= */ 0);
+    inOrder.verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, session.getAdPlaybackState());
+  }
+
+  @Test
+  public void setIsDynamic_afterStop_doesNotNotifyAllAdsCompleted() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+    session.stop();
+
+    session.setIsDynamic(false);
+
+    verify(mockSdkBridge, never()).onAllAdsCompleted(any(), any());
+  }
+
+  @Test
+  public void setIsDynamic_falseCalledTwice_notifiesAllAdsCompletedOnce() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+
+    session.setIsDynamic(false);
+    session.setIsDynamic(false);
+
+    verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, initialState);
+  }
+
+  @Test
+  public void setIsDynamic_revertedToTrueWithNewAdGroup_notifiesAgainWhenStatic() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+    session.setIsDynamic(false);
+    AdPlaybackState stateWithNewAdGroup =
+        initialState
+            .withNewAdGroup(/* adGroupIndex= */ 1, /* adGroupTimeUs= */ 10 * C.MICROS_PER_SECOND)
+            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, AD_MEDIA_ITEM_1);
+    AdPlaybackState stateWithSecondPlayedAdGroup =
+        stateWithNewAdGroup.withPlayedAd(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0);
+    session.setIsDynamic(true);
+    session.setAdPlaybackState(stateWithNewAdGroup);
+    session.setAdPlaybackState(stateWithSecondPlayedAdGroup);
+    verify(mockSdkBridge).onAllAdsCompleted(eq(ADS_ID), any());
+
+    session.setIsDynamic(false);
+
+    InOrder inOrder = inOrder(mockSdkBridge);
+    inOrder.verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, initialState);
+    inOrder.verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, stateWithSecondPlayedAdGroup);
+  }
+
+  @Test
+  public void setIsDynamic_roundTripWithoutNewAds_notifiesAllAdsCompletedOnce() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+    session.setIsDynamic(false);
+    session.setIsDynamic(true);
+    session.setAdPlaybackState(initialState.withAdDurationsUs(/* adGroupIndex= */ 0, 1L, 2L));
+
+    session.setIsDynamic(false);
+
+    verify(mockSdkBridge).onAllAdsCompleted(ADS_ID, initialState);
+    verify(mockSdkBridge).onAllAdsCompleted(eq(ADS_ID), any());
+  }
+
+  @Test
+  public void resetAllAds_staticWithLivePostrollPlaceholder_resetsAllAdsCompletedFlag() {
+    AdPlaybackState initialState =
+        createTwoAdState()
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    AdSession session = createSession(initialState);
+    session.setIsDynamic(false);
+
+    session.resetAllAds(/* resetErrorAds= */ true);
+    session.setAdPlaybackState(initialState);
+
+    verify(mockSdkBridge, times(2)).onAllAdsCompleted(ADS_ID, initialState);
+  }
+
+  @Test
   public void setAdPlaybackState_reactivatingEndedAd_removesFromEndedAdsAndResetsCompletionFlags() {
     AdPlaybackState initialState =
         new AdPlaybackState(ADS_ID, /* adGroupTimesUs...= */ 0L)

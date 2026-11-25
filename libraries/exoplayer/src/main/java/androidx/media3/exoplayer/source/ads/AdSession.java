@@ -71,6 +71,9 @@ import java.util.function.Consumer;
   private boolean isAdPaused;
   private boolean allAdsCompletedNotified;
   private boolean contentCompletedNotified;
+  // Assume dynamic until the tracker reports a static timeline, to avoid a premature
+  // onAllAdsCompleted.
+  private boolean isDynamic = true;
   private boolean isStopped;
 
   /**
@@ -194,7 +197,7 @@ import java.util.function.Consumer;
               /* adIndexInAdGroup= */ (int) adKey.longValue()));
     }
     contentCompletedNotified = false;
-    if (!areAllAdsCompleted(state)) {
+    if (!areAllAdsCompleted(state, /* isDynamic= */ false)) {
       allAdsCompletedNotified = false;
     }
     setAdPlaybackStateInternal(state);
@@ -487,6 +490,28 @@ import java.util.function.Consumer;
   }
 
   /**
+   * Updates whether the content of this session is still dynamic (meaning new ad groups may still
+   * arrive before a trailing live postroll placeholder).
+   *
+   * <p>A trailing live postroll placeholder in the {@link AdPlaybackState} is ignored when {@code
+   * isDynamic} is {@code false}. When {@code isDynamic} transitions from {@code true} to {@code
+   * false} (and no ad group is active), {@link SdkBridge#onAllAdsCompleted} is notified if all
+   * playable ads have completed and have not already been reported as completed.
+   *
+   * @param isDynamic Whether the session's content is still dynamic.
+   */
+  public void setIsDynamic(boolean isDynamic) {
+    if (isStopped) {
+      return;
+    }
+    boolean wasDynamic = this.isDynamic;
+    this.isDynamic = isDynamic;
+    if (wasDynamic && !isDynamic) {
+      maybeNotifyAllAdsCompletedIfNotInAdGroup();
+    }
+  }
+
+  /**
    * Stops the session and notifies {@link SdkBridge#onSessionStopped}. The session must not be used
    * afterwards.
    */
@@ -550,19 +575,21 @@ import java.util.function.Consumer;
   }
 
   /**
-   * Returns whether all playable ads in {@code state} have been played, skipped or errored.
+   * Returns whether all playable ads in {@code state} have been played, skipped, or errored.
    *
-   * <p>While {@code state} ends with a live postroll placeholder, more ads may still be inserted
-   * and the result is {@code false}.
+   * <p>A live postroll placeholder is ignored when {@code isDynamic} is {@code false}; while {@code
+   * isDynamic} is {@code true}, more ads may still be inserted and the result is {@code false}.
    */
-  private static boolean areAllAdsCompleted(AdPlaybackState state) {
-    if (state.endsWithLivePostrollPlaceHolder()) {
+  private static boolean areAllAdsCompleted(AdPlaybackState state, boolean isDynamic) {
+    boolean hasLivePostrollPlaceholder = state.endsWithLivePostrollPlaceHolder();
+    if (hasLivePostrollPlaceholder && isDynamic) {
       return false;
     }
-    if (state.adGroupCount <= state.removedAdGroupCount) {
+    int playableAdGroupCount = state.adGroupCount - (hasLivePostrollPlaceholder ? 1 : 0);
+    if (playableAdGroupCount <= state.removedAdGroupCount) {
       return false;
     }
-    for (int i = state.removedAdGroupCount; i < state.adGroupCount; i++) {
+    for (int i = state.removedAdGroupCount; i < playableAdGroupCount; i++) {
       if (state.getAdGroup(i).hasUnplayedAds()) {
         return false;
       }
@@ -611,6 +638,7 @@ import java.util.function.Consumer;
   private List<Long> syncStateWithUpdatedAdPlaybackState(
       AdPlaybackState oldState, AdPlaybackState newState) {
     boolean hasReactivatedAd = false;
+    boolean hasNewAdGroupWithAds = false;
     List<Long> newlyErroredAds = new ArrayList<>();
     for (int i = newState.removedAdGroupCount; i < newState.adGroupCount; i++) {
       if (newState.isLivePostrollPlaceholder(i)) {
@@ -619,6 +647,9 @@ import java.util.function.Consumer;
       boolean isExistingAdGroup =
           i < oldState.adGroupCount && !oldState.isLivePostrollPlaceholder(i);
       AdPlaybackState.AdGroup newGroup = newState.getAdGroup(i);
+      if (!isExistingAdGroup && newGroup.count != 0) {
+        hasNewAdGroupWithAds = true;
+      }
       for (int j = 0; j < newGroup.states.length; j++) {
         @AdPlaybackState.AdState int newAdState = newGroup.states[j];
         long adKey = getAdKey(i, j);
@@ -644,7 +675,9 @@ import java.util.function.Consumer;
     if (hasReactivatedAd) {
       contentCompletedNotified = false;
     }
-    if (!areAllAdsCompleted(newState)) {
+    if (hasReactivatedAd
+        || hasNewAdGroupWithAds
+        || !areAllAdsCompleted(newState, /* isDynamic= */ false)) {
       allAdsCompletedNotified = false;
     }
     return newlyErroredAds;
@@ -688,7 +721,7 @@ import java.util.function.Consumer;
       // Already notified, or the session was stopped re-entrantly by a preceding bridge callback.
       return;
     }
-    if (!areAllAdsCompleted(adPlaybackState)) {
+    if (!areAllAdsCompleted(adPlaybackState, isDynamic)) {
       return;
     }
     allAdsCompletedNotified = true;
