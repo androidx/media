@@ -20,7 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.ComposeUiTestConfig
 import androidx.compose.ui.test.assertRangeInfoEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -44,9 +44,8 @@ private const val INDICATOR_TAG = "indicator"
 @RunWith(AndroidJUnit4::class)
 class LinearProgressIndicatorTest {
   private val testDispatcher = StandardTestDispatcher(TestCoroutineScheduler())
-  @OptIn(ExperimentalTestApi::class)
   @get:Rule
-  val composeTestRule = createComposeRule(testDispatcher)
+  val composeTestRule = createComposeRule(ComposeUiTestConfig(effectContext = testDispatcher))
 
   @Test
   fun indicator_nonDefaultPosition_displaysProgressProportionally() {

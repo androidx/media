@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.ComposeUiTestConfig
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertRangeInfoEquals
@@ -77,9 +77,8 @@ private const val SLIDER_TAG = "slider"
 class ProgressSliderTest {
   private val testDispatcher = StandardTestDispatcher(TestCoroutineScheduler())
   private val playersToRelease = mutableListOf<ExoPlayer>()
-  @OptIn(ExperimentalTestApi::class)
   @get:Rule
-  val composeTestRule = createComposeRule(testDispatcher)
+  val composeTestRule = createComposeRule(ComposeUiTestConfig(effectContext = testDispatcher))
 
   @After
   fun tearDown() {

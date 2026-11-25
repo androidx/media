@@ -24,8 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ComposeUiTestConfig
 import androidx.compose.ui.test.DeviceConfigurationOverride
-import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.Locales
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -49,9 +49,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TimeTextTest {
   private val testDispatcher = StandardTestDispatcher(TestCoroutineScheduler())
-  @OptIn(ExperimentalTestApi::class)
   @get:Rule
-  val composeTestRule = createComposeRule(testDispatcher)
+  val composeTestRule = createComposeRule(ComposeUiTestConfig(effectContext = testDispatcher))
 
   @Test
   fun textDisplayed_position() {
