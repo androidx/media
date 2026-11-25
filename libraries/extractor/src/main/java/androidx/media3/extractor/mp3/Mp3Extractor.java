@@ -150,19 +150,19 @@ public final class Mp3Extractor implements Extractor {
    * such.
    *
    * <p>When this flag is set, streams are not assumed to be constant bitrate unless explicit
-   * constant-bitrate metadata (such as an Info frame) is present. Seeking for streams without
+   * constant-bitrate metadata (such as a usable Info frame) is present. Seeking for streams without
    * explicit seeking or constant-bitrate metadata then depends on the other flags:
    *
    * <ul>
    *   <li>If {@link #FLAG_ENABLE_INDEX_SEEKING} is set, frame-index seeking is used.
    *   <li>Otherwise, if {@link #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING} or {@link
-   *       #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS} is set, constant-bitrate seeking is forced
-   *       as a fallback.
+   *       #FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS} is set, constant-bitrate seeking may be
+   *       forced as a fallback.
    *   <li>Otherwise, seeking is disabled.
    * </ul>
    *
    * <p>Streams with explicit seeking or constant-bitrate metadata (e.g. Xing with a table of
-   * contents, VBRI, MLLT, or Info frames) are unaffected by this flag.
+   * contents, VBRI, MLLT, or usable Info frames) are unaffected by this flag.
    */
   public static final int FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION = 1 << 5;
 
