@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.graphics.ImageFormat;
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import androidx.media3.common.C;
@@ -51,6 +52,7 @@ import org.jspecify.annotations.Nullable;
   private final boolean flattenForSlowMotion;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
+  private final boolean decodeVideoToYuv420;
   private final List<Long> decodeOnlyPresentationTimestamps;
 
   /** The metadata of the frames queued to the decoder. */
@@ -69,6 +71,7 @@ import org.jspecify.annotations.Nullable;
       boolean flattenForSlowMotion,
       Codec.DecoderFactory decoderFactory,
       @Composition.HdrMode int hdrMode,
+      boolean decodeVideoToYuv420,
       TransformerMediaClock mediaClock,
       AssetLoader.Listener assetLoaderListener,
       @Nullable LogSessionId logSessionId,
@@ -77,6 +80,7 @@ import org.jspecify.annotations.Nullable;
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.decoderFactory = decoderFactory;
     this.hdrMode = hdrMode;
+    this.decodeVideoToYuv420 = decodeVideoToYuv420;
     this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
     pendingFrameMetadata = new FrameMetadataQueue();
@@ -176,9 +180,13 @@ import org.jspecify.annotations.Nullable;
     boolean isDecoderToneMappingRequired =
         ColorInfo.isTransferHdr(inputFormat.colorInfo)
             && hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
+    Format decoderInputFormat =
+        decodeVideoToYuv420
+            ? inputFormat.buildUpon().setPixelFormat(ImageFormat.YUV_420_888).build()
+            : inputFormat;
     decoder =
         decoderFactory.createForVideoDecoding(
-            inputFormat,
+            decoderInputFormat,
             checkNotNull(sampleConsumer.getInputSurface()),
             isDecoderToneMappingRequired,
             logSessionId);

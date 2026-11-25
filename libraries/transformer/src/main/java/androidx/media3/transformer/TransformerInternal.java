@@ -279,7 +279,11 @@ import org.jspecify.annotations.Nullable;
               sequence,
               assetLoaderFactory,
               new CompositionSettings(
-                  transformationRequest.hdrMode, composition.retainHdrFromUltraHdrImage),
+                  transformationRequest.hdrMode,
+                  composition.retainHdrFromUltraHdrImage,
+                  // Below API 28, FrameProcessor reads decoded video from a YUV_420_888
+                  // ImageReader surface.
+                  /* decodeVideoToYuv420= */ SDK_INT < 28 && frameProcessorFactory != null),
               sequenceAssetLoaderListener,
               clock,
               internalLooper));

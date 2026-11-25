@@ -148,10 +148,17 @@ public interface AssetLoader {
 
     public final @HdrMode int hdrMode;
     public final boolean retainHdrFromUltraHdrImage;
+    /* package */ final boolean decodeVideoToYuv420;
 
     public CompositionSettings(@HdrMode int hdrMode, boolean retainHdrFromUltraHdrImage) {
+      this(hdrMode, retainHdrFromUltraHdrImage, /* decodeVideoToYuv420= */ false);
+    }
+
+    /* package */ CompositionSettings(
+        @HdrMode int hdrMode, boolean retainHdrFromUltraHdrImage, boolean decodeVideoToYuv420) {
       this.hdrMode = hdrMode;
       this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
+      this.decodeVideoToYuv420 = decodeVideoToYuv420;
     }
   }
 

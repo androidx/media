@@ -223,7 +223,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
               ? mediaSourceFactory
               : createMediaSourceFactory(context, editedMediaItem.flattenForSlowMotion),
           decoderFactory,
-          compositionSettings.hdrMode,
+          compositionSettings,
           looper,
           listener,
           clock,
@@ -271,7 +271,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       EditedMediaItem editedMediaItem,
       MediaSource.Factory mediaSourceFactory,
       Codec.DecoderFactory decoderFactory,
-      @Composition.HdrMode int hdrMode,
+      CompositionSettings compositionSettings,
       Looper looper,
       Listener listener,
       Clock clock,
@@ -288,7 +288,11 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         new ExoPlayer.Builder(
                 context,
                 new RenderersFactoryImpl(
-                    editedMediaItem, this.decoderFactory, hdrMode, listener, logSessionId))
+                    editedMediaItem,
+                    this.decoderFactory,
+                    compositionSettings,
+                    listener,
+                    logSessionId))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
@@ -373,19 +377,19 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final TransformerMediaClock mediaClock;
     private final EditedMediaItem editedMediaItem;
     private final Codec.DecoderFactory decoderFactory;
-    private final @Composition.HdrMode int hdrMode;
+    private final CompositionSettings compositionSettings;
     private final Listener assetLoaderListener;
     private final @Nullable LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
         EditedMediaItem editedMediaItem,
         Codec.DecoderFactory decoderFactory,
-        @Composition.HdrMode int hdrMode,
+        CompositionSettings compositionSettings,
         Listener assetLoaderListener,
         @Nullable LogSessionId logSessionId) {
       this.editedMediaItem = editedMediaItem;
       this.decoderFactory = decoderFactory;
-      this.hdrMode = hdrMode;
+      this.compositionSettings = compositionSettings;
       this.assetLoaderListener = assetLoaderListener;
       this.logSessionId = logSessionId;
       mediaClock = new TransformerMediaClock();
@@ -409,7 +413,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             new ExoAssetLoaderVideoRenderer(
                 editedMediaItem.flattenForSlowMotion,
                 decoderFactory,
-                hdrMode,
+                compositionSettings.hdrMode,
+                compositionSettings.decodeVideoToYuv420,
                 mediaClock,
                 assetLoaderListener,
                 logSessionId,
