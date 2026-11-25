@@ -141,6 +141,8 @@
         instead.
     *   Remove `HttpDataSourceTestEnv.getNonexistentUrl()`. Use
         `HttpDataSourceTestEnv.getNotFoundResources()` instead.
+    *   Remove `LoadControl.onPrepared()`. Use
+        `LoadControl.onPrepared(PlayerId)` instead.
     *   Remove
         `MediaSourceEventListener.EventDispatcher.loadStarted(LoadEventInfo,
         MediaLoadData)`. Use
