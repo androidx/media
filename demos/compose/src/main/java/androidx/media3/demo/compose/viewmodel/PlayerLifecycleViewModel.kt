@@ -27,6 +27,8 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ima.ImaAdsLoader
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.util.EventLogger
 import kotlin.math.max
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +59,8 @@ internal class PlayerLifecycleViewModel(
 
   private val _player = MutableStateFlow<Player?>(null)
   val player: StateFlow<Player?> = _player.asStateFlow()
+
+  private var adsLoader: ImaAdsLoader? = null
 
   private var startTrackSelectionParameters: TrackSelectionParameters
     get() =
@@ -102,12 +106,22 @@ internal class PlayerLifecycleViewModel(
   fun initializePlayer(useCast: Boolean = false) {
     if (_player.value == null) {
       val exoPlayer =
-        ExoPlayer.Builder(getApplication()).build().apply {
-          addAnalyticsListener(EventLogger())
-          trackSelectionParameters = startTrackSelectionParameters
-          playWhenReady = startAutoPlay
-          volume = startVolume
-        }
+        ExoPlayer.Builder(getApplication())
+          .setMediaSourceFactory(
+            DefaultMediaSourceFactory(getApplication<Application>())
+              .setLocalAdInsertionComponents(
+                /* adsLoaderProvider= */ ::getAdsLoader,
+                // TODO: b/589690655 - Provide an attached ViewGroup for IMA ad UI and viewability.
+                /* adViewProvider= */ { null },
+              )
+          )
+          .build()
+          .apply {
+            addAnalyticsListener(EventLogger())
+            trackSelectionParameters = startTrackSelectionParameters
+            playWhenReady = startAutoPlay
+            volume = startVolume
+          }
       if (useCast) {
         _localPlayer.value = exoPlayer
         _player.value = CastPlayer.Builder(getApplication()).setLocalPlayer(exoPlayer).build()
@@ -116,6 +130,14 @@ internal class PlayerLifecycleViewModel(
         _player.value = exoPlayer
       }
     }
+  }
+
+  private fun getAdsLoader(adsConfiguration: MediaItem.AdsConfiguration): ImaAdsLoader {
+    // Reuse the ads loader across player instances, so that ad playback can resume.
+    val loader = adsLoader ?: ImaAdsLoader.Builder(getApplication()).build().also { adsLoader = it }
+    // Attach the local ExoPlayer, which the player wraps when casting is enabled.
+    loader.setPlayer(_localPlayer.value ?: _player.value)
+    return loader
   }
 
   /**
@@ -174,11 +196,25 @@ internal class PlayerLifecycleViewModel(
     _player.value?.release()
     _localPlayer.value = null
     _player.value = null
+    // Keep the ads loader, so that ad playback can resume when the player is recreated.
+    adsLoader?.setPlayer(null)
   }
 
   override fun onCleared() {
     releasePlayer()
+    releaseAdsLoader()
     clearSavedState()
+  }
+
+  /**
+   * Releases the ads loader together with its ad playback state, which [releasePlayer] keeps.
+   *
+   * Called when navigating away from the player screen, so that ads aren't resumed for the next
+   * playlist.
+   */
+  fun releaseAdsLoader() {
+    adsLoader?.release()
+    adsLoader = null
   }
 
   /**
