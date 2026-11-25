@@ -77,10 +77,6 @@ class PlayerDefaultsTest {
 
   @Test
   fun centerControls_defaultContent_displaysAllButtons() {
-    val seekForwardDesc =
-      context.resources.getQuantityString(R.plurals.seek_forward_by_amount_button, 15)
-    val seekBackwardDesc =
-      context.resources.getQuantityString(R.plurals.seek_back_by_amount_button, 10)
     val player =
       FakePlayer().apply {
         setSeekForwardIncrementMs(15_000L)
@@ -90,8 +86,8 @@ class PlayerDefaultsTest {
       PlayerDefaults.CenterControls(player = player, modifier = Modifier.size(400.dp))
     }
 
-    composeTestRule.onNode(hasContentDescription(seekBackwardDesc)).assertIsDisplayed()
-    composeTestRule.onNode(hasContentDescription(seekForwardDesc)).assertIsDisplayed()
+    composeTestRule.onNode(hasContentDescription("Skip back 10 seconds")).assertIsDisplayed()
+    composeTestRule.onNode(hasContentDescription("Skip forward 15 seconds")).assertIsDisplayed()
     composeTestRule
       .onNode(hasContentDescription(context.getString(R.string.playpause_button_play)))
       .assertIsDisplayed()
