@@ -503,10 +503,18 @@ public class MatroskaExtractor implements Extractor {
   private long currentCueClusterPosition = C.INDEX_UNSET;
   private long currentCueRelativePosition = C.INDEX_UNSET;
   private int primarySeekTrackNumber = C.INDEX_UNSET;
-  private static final int MAX_SEEK_HEAD_HOPS = 16;
-  private final long[] pendingSeekHeadPositions = new long[MAX_SEEK_HEAD_HOPS];
+  /**
+   * The maximum number of index-resolution seeks (to secondary SeekHead elements and to Cues
+   * elements combined) performed before the media is treated as unseekable.
+   */
+  /* package */ static final int MAX_INDEX_SEEKS = 16;
+
+  private final long[] pendingSeekHeadPositions = new long[MAX_INDEX_SEEKS];
   private int pendingSeekHeadCount;
-  private final long[] visitedSeekHeadPositions = new long[MAX_SEEK_HEAD_HOPS];
+  // Targets of all index-resolution seeks performed so far. Its size is the shared attempt budget
+  // for SeekHead and Cues seeks: no index seek is performed once it is full, so every performed
+  // seek is recorded.
+  private final long[] visitedSeekHeadPositions = new long[MAX_INDEX_SEEKS];
   private int visitedSeekHeadCount;
   private boolean seekForCues;
   private long cuesContentPosition = C.INDEX_UNSET;
@@ -675,8 +683,8 @@ public class MatroskaExtractor implements Extractor {
       continueReading = reader.read(input);
       if (continueReading
           && (maybeSeekForTracks(seekPosition, input.getPosition())
-              || maybeSeekForSecondarySeekHead(seekPosition, input.getPosition())
-              || maybeSeekForCues(seekPosition, input.getPosition()))) {
+              || maybeSeekForSecondarySeekHead(seekPosition, input)
+              || maybeSeekForCues(seekPosition, input))) {
         return Extractor.RESULT_SEEK;
       }
     }
@@ -980,7 +988,7 @@ public class MatroskaExtractor implements Extractor {
         } else if (seekEntryId == ID_SEEK_HEAD && cuesContentPosition == C.INDEX_UNSET) {
           if (!arrayContains(visitedSeekHeadPositions, visitedSeekHeadCount, seekEntryPosition)
               && !arrayContains(pendingSeekHeadPositions, pendingSeekHeadCount, seekEntryPosition)
-              && visitedSeekHeadCount + pendingSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
+              && visitedSeekHeadCount + pendingSeekHeadCount < MAX_INDEX_SEEKS) {
             pendingSeekHeadPositions[pendingSeekHeadCount++] = seekEntryPosition;
           }
         }
@@ -2237,23 +2245,88 @@ public class MatroskaExtractor implements Extractor {
     return bytesWritten;
   }
 
+  /**
+   * Updates the position of the holder to the next pending secondary SeekHead position, if the
+   * shared index seek budget is not exhausted and the position is within bounds. Pending positions
+   * that are out of bounds are skipped. If no seek is possible, index resolution is abandoned and
+   * the media is treated as unseekable.
+   *
+   * @param seekPosition The holder whose position will be updated.
+   * @param input The current input.
+   * @return Whether the seek position was updated.
+   */
   private boolean maybeSeekForSecondarySeekHead(
-      PositionHolder seekPosition, long currentPosition) {
-    if (seekForSecondarySeekHead) {
-      seekForSecondarySeekHead = false;
-      if (pendingSeekHeadCount > 0) {
-        if (seekPositionAfterBuildingCues == C.INDEX_UNSET) {
-          seekPositionAfterBuildingCues = currentPosition;
-        }
-        long targetPosition = removePendingSeekHeadPosition();
-        if (visitedSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
-          visitedSeekHeadPositions[visitedSeekHeadCount++] = targetPosition;
-        }
-        seekPosition.position = targetPosition;
+      PositionHolder seekPosition, ExtractorInput input) {
+    if (!seekForSecondarySeekHead) {
+      return false;
+    }
+    seekForSecondarySeekHead = false;
+    while (pendingSeekHeadCount > 0) {
+      long targetPosition = removePendingSeekHeadPosition();
+      if (maybeStartIndexSeek(seekPosition, input, targetPosition)) {
         return true;
       }
+      if (visitedSeekHeadCount >= MAX_INDEX_SEEKS) {
+        break;
+      }
     }
+    abandonIndexResolution();
     return false;
+  }
+
+  /**
+   * Starts an index-resolution seek (to a secondary SeekHead or to Cues) if the shared attempt
+   * budget allows it and {@code targetPosition} is within the known Segment and input bounds.
+   *
+   * @return Whether the seek position was updated.
+   */
+  private boolean maybeStartIndexSeek(
+      PositionHolder seekPosition, ExtractorInput input, long targetPosition) {
+    if (visitedSeekHeadCount >= MAX_INDEX_SEEKS
+        || !isIndexSeekTargetInBounds(targetPosition, input.getLength())) {
+      return false;
+    }
+    if (seekPositionAfterBuildingCues == C.INDEX_UNSET) {
+      seekPositionAfterBuildingCues = input.getPosition();
+    }
+    visitedSeekHeadPositions[visitedSeekHeadCount++] = targetPosition;
+    seekPosition.position = targetPosition;
+    return true;
+  }
+
+  /**
+   * Returns whether {@code position} is a valid target for an index-resolution seek, i.e. it lies
+   * within the Segment content and, if the input length is known, before the end of the input.
+   *
+   * <p>This must be checked before returning {@link Extractor#RESULT_SEEK}, because the caller
+   * reopens the data source at the requested position before the extractor reads again, and data
+   * sources may fail for positions beyond the end of the input.
+   */
+  private boolean isIndexSeekTargetInBounds(long position, long inputLength) {
+    if (position == C.INDEX_UNSET
+        || segmentContentPosition == C.INDEX_UNSET
+        || position < segmentContentPosition
+        || position - segmentContentPosition >= segmentContentSize) {
+      return false;
+    }
+    return inputLength == C.LENGTH_UNSET || position < inputLength;
+  }
+
+  /**
+   * Stops resolving the index. Outputs an unseekable seek map if no seek map was sent yet, so that
+   * extraction continues from the original position.
+   */
+  private void abandonIndexResolution() {
+    seekForCues = false;
+    seekForSecondarySeekHead = false;
+    cuesContentPosition = C.INDEX_UNSET;
+    pendingSeekHeadCount = 0;
+    if (!sentSeekMap) {
+      checkNotNull(extractorOutput).seekMap(new SeekMap.Unseekable(durationUs));
+      sentSeekMap = true;
+      outputTrackFormats();
+      maybeEndTracks();
+    }
   }
 
   private long removePendingSeekHeadPosition() {
@@ -2281,22 +2354,25 @@ public class MatroskaExtractor implements Extractor {
    * permits use of master seek entry. After building Cues sets the holder's position back to where
    * it was before.
    *
+   * <p>The seek to the Cues element shares the index seek budget with secondary SeekHead seeks and
+   * is only performed if the Cues position is within bounds. Otherwise index resolution is
+   * abandoned and the media is treated as unseekable.
+   *
    * @param seekPosition The holder whose position will be updated.
-   * @param currentPosition Current position of the input.
+   * @param input The current input.
    * @return Whether the seek position was updated.
    */
-  private boolean maybeSeekForCues(PositionHolder seekPosition, long currentPosition) {
+  private boolean maybeSeekForCues(PositionHolder seekPosition, ExtractorInput input) {
+    long currentPosition = input.getPosition();
     if (seekForCues) {
-      if (seekPositionAfterBuildingCues == C.INDEX_UNSET) {
-        seekPositionAfterBuildingCues = currentPosition;
-      }
-      seekPosition.position = cuesContentPosition;
-      if (visitedSeekHeadCount < MAX_SEEK_HEAD_HOPS) {
-        visitedSeekHeadPositions[visitedSeekHeadCount++] = cuesContentPosition;
-      }
+      long targetPosition = cuesContentPosition;
       cuesContentPosition = C.INDEX_UNSET;
       seekForCues = false;
-      return true;
+      if (maybeStartIndexSeek(seekPosition, input, targetPosition)) {
+        return true;
+      }
+      abandonIndexResolution();
+      // Fall through to seek back to the original position, if any.
     }
     // After parsing Cues or concluding index resolution, seek back to original position if
     // available. We will not do this unless we seeked to get to the Cues or secondary SeekHead in
