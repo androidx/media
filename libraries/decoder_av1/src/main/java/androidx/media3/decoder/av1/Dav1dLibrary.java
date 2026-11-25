@@ -42,6 +42,7 @@ public final class Dav1dLibrary {
 
   private Dav1dLibrary() {}
 
+  // LINT.IfChange(is_available)
   /** Returns whether the underlying library is available, loading it if necessary. */
   public static boolean isAvailable() {
     try {
@@ -50,6 +51,11 @@ public final class Dav1dLibrary {
       return false;
     }
   }
+
+  // LINT.ThenChange(
+  //     ../../../../../../../../exoplayer/proguard-rules.txt,
+  //
+  // ../../../../../../../../exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecUtil.java:dav1d_extension_discovery)
 
   /**
    * Overrides whether the underlying library is available for testing.

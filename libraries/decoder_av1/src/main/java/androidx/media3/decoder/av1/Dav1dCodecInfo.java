@@ -30,14 +30,23 @@ import org.jspecify.annotations.Nullable;
 @UnstableApi
 public final class Dav1dCodecInfo extends ExtensionCodecInfo {
 
+  // LINT.IfChange(codec_name)
   /** The codec name for the Dav1d decoder. */
   public static final String NAME = "c2.media3.av1.dav1d.decoder";
 
+  // LINT.ThenChange(../../../../../../../../exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/DefaultMediaCodecAdapterFactory.java:dav1d_adapter_factory)
+
+  // LINT.IfChange(constructor)
   /** Creates an instance. */
   @RestrictTo(LIBRARY_GROUP)
   public Dav1dCodecInfo() {
     super(NAME, MimeTypes.VIDEO_AV1);
   }
+
+  // LINT.ThenChange(
+  //     ../../../../../../../../exoplayer/proguard-rules.txt,
+  //
+  // ../../../../../../../../exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecUtil.java:dav1d_extension_discovery)
 
   @Override
   protected boolean isFormatSupported(Format format) {

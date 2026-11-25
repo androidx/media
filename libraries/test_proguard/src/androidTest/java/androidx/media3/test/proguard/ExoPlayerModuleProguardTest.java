@@ -49,8 +49,25 @@ public final class ExoPlayerModuleProguardTest {
 
   @Test
   public void defaultRenderersFactory_createLibdav1dVideoRenderer_succeeds() {
-    ExoPlayerModuleProguard.createLibdav1dVideoRendererWithDefaultRenderersFactory(
-        ApplicationProvider.getApplicationContext());
+    // Video renderers register frame release listeners on a Looper thread.
+    getInstrumentation()
+        .runOnMainSync(() ->
+            ExoPlayerModuleProguard.createLibdav1dVideoRendererWithDefaultRenderersFactory(
+                getApplicationContext()));
+  }
+
+  @Test
+  public void defaultRenderersFactory_createDav1dCodecAdapter_succeeds() {
+    // MediaCodecVideoRenderer requires a Looper thread for initialization and rendering.
+    getInstrumentation()
+        .runOnMainSync(() -> {
+          try {
+            ExoPlayerModuleProguard.createDav1dCodecAdapterWithDefaultRenderersFactory(
+                getApplicationContext());
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   @Test

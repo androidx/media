@@ -32,10 +32,12 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -43,6 +45,7 @@ import androidx.media3.container.NalUnitUtil;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.InlineMe;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,6 +77,9 @@ public final class MediaCodecUtil {
 
   @GuardedBy("MediaCodecUtil.class")
   private static final HashMap<CodecKey, List<MediaCodecInfo>> decoderInfosCache = new HashMap<>();
+
+  private static final ExtensionDecoderLoader DAV1D_EXTENSION_LOADER =
+      new ExtensionDecoderLoader(MimeTypes.VIDEO_AV1);
 
   // Lazily initialized.
   private static int maxH264DecodableFrameSize = -1;
@@ -160,6 +166,38 @@ public final class MediaCodecUtil {
     ImmutableList<MediaCodecInfo> immutableDecoderInfos = ImmutableList.copyOf(decoderInfos);
     decoderInfosCache.put(key, immutableDecoderInfos);
     return immutableDecoderInfos;
+  }
+
+  /**
+   * Returns a list of available extension decoders for the specified MIME type when {@link
+   * Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled.
+   *
+   * <p>This method is experimental and may be renamed or removed in a future release.
+   *
+   * @param mimeType The MIME type, or {@code null} if unknown.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return An unmodifiable list of {@link MediaCodecInfo} instances for extension decoders, or an
+   *     empty list if {@link Flags#FLAG_UNIFIED_DECODER_RENDERER} is disabled, {@code mimeType} is
+   *     {@code null}, secure or tunneling decoding is required, or no matching extension decoder is
+   *     available.
+   */
+  @ExperimentalApi // TODO(b/562381449): Remove or make non-experimental.
+  public static List<MediaCodecInfo> getExtensionDecoderInfos(
+      @Nullable String mimeType, boolean requiresSecureDecoder, boolean requiresTunnelingDecoder) {
+    if (!Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)
+        || mimeType == null
+        || requiresSecureDecoder
+        || requiresTunnelingDecoder) {
+      return ImmutableList.of();
+    }
+
+    String normalizedMimeType = MimeTypes.normalizeMimeType(mimeType);
+    if (!normalizedMimeType.equals(MimeTypes.VIDEO_AV1)) {
+      return ImmutableList.of();
+    }
+
+    return DAV1D_EXTENSION_LOADER.getCodecInfos();
   }
 
   /**
@@ -887,6 +925,80 @@ public final class MediaCodecUtil {
   /** Stably sorts the provided {@code list} in-place, in order of decreasing score. */
   private static <T> void sortByScore(List<T> list, ScoreProvider<T> scoreProvider) {
     list.sort((a, b) -> scoreProvider.getScore(b) - scoreProvider.getScore(a));
+  }
+
+  private static final class ExtensionDecoderLoader {
+
+    private final String mimeType;
+
+    @GuardedBy("this")
+    private boolean extensionLoaded;
+
+    @GuardedBy("this")
+    private @Nullable Method isAvailableMethod;
+
+    @GuardedBy("this")
+    private ImmutableList<MediaCodecInfo> codecInfos;
+
+    ExtensionDecoderLoader(String mimeType) {
+      this.mimeType = mimeType;
+      this.codecInfos = ImmutableList.of();
+    }
+
+    List<MediaCodecInfo> getCodecInfos() {
+      @Nullable Method isAvailableMethod;
+      ImmutableList<MediaCodecInfo> codecInfos;
+      synchronized (this) {
+        if (!extensionLoaded) {
+          if (!mimeType.equals(MimeTypes.VIDEO_AV1)) {
+            throw new IllegalArgumentException("Unsupported extension MIME type: " + mimeType);
+          }
+          // LINT.IfChange(dav1d_extension_discovery)
+          @Nullable Class<?> libraryClass = null;
+          try {
+            libraryClass = Class.forName("androidx.media3.decoder.av1.Dav1dLibrary");
+          } catch (ClassNotFoundException e) {
+            // Expected if extension artifact is not bundled.
+          }
+          if (libraryClass != null) {
+            try {
+              Method loadedIsAvailableMethod = libraryClass.getMethod("isAvailable");
+              MediaCodecInfo codecInfo =
+                  Class.forName("androidx.media3.decoder.av1.Dav1dCodecInfo")
+                      .asSubclass(MediaCodecInfo.class)
+                      .getConstructor()
+                      .newInstance();
+              // LINT.ThenChange(
+              //     ../../../../../../../proguard-rules.txt,
+              //
+              // ../../../../../../../../decoder_av1/src/main/java/androidx/media3/decoder/av1/Dav1dLibrary.java:is_available,
+              //
+              // ../../../../../../../../decoder_av1/src/main/java/androidx/media3/decoder/av1/Dav1dCodecInfo.java:constructor)
+              this.isAvailableMethod = loadedIsAvailableMethod;
+              this.codecInfos = ImmutableList.of(codecInfo);
+            } catch (Exception e) {
+              // The extension is present, but reflective lookup or instantiation failed.
+              throw new IllegalStateException("Error loading extension for " + mimeType, e);
+            }
+          }
+          extensionLoaded = true;
+        }
+        isAvailableMethod = this.isAvailableMethod;
+        codecInfos = this.codecInfos;
+      }
+      if (isAvailableMethod == null) {
+        return ImmutableList.of();
+      }
+      try {
+        // isAvailable() is a static method, so passing a null receiver to Method.invoke is safe.
+        @SuppressWarnings("nullness:argument")
+        boolean isLibraryAvailable =
+            Objects.equals(isAvailableMethod.invoke(/* obj= */ null), true);
+        return isLibraryAvailable ? codecInfos : ImmutableList.of();
+      } catch (Exception e) {
+        throw new IllegalStateException("Error querying extension for " + mimeType, e);
+      }
+    }
   }
 
   /** Interface for providers of item scores. */
