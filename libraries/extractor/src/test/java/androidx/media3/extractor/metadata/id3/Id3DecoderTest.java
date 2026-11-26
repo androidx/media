@@ -15,9 +15,11 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
+import static androidx.media3.test.utils.Id3TestUtil.buildFrames;
+import static androidx.media3.test.utils.Id3TestUtil.buildSingleFrameTag;
+import static androidx.media3.test.utils.Id3TestUtil.buildTag;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createMetadataInputBuffer;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -26,6 +28,7 @@ import static org.junit.Assert.assertThrows;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import androidx.media3.test.utils.Id3TestUtil.FrameSpec;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import java.util.Arrays;
@@ -36,7 +39,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class Id3DecoderTest {
 
-  private static final int FRAME_HEADER_LENGTH = 10;
   private static final int ID3_TEXT_ENCODING_UTF_8 = 3;
 
   @Test
@@ -434,7 +436,7 @@ public final class Id3DecoderTest {
   @Test
   public void decodeMultiFrames() {
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec(
                 "COMM",
                 new byte[] {
@@ -498,7 +500,7 @@ public final class Id3DecoderTest {
   @Test
   public void decodeApicFrame_truncatedBeforePictureType_skipsMalformedFrameAndDecodesNextFrame() {
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec("APIC", new byte[0]),
             new FrameSpec(
                 "APIC", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'i', 'm', 'a', 'g', 'e', '/', 'p'}),
@@ -517,15 +519,16 @@ public final class Id3DecoderTest {
 
   @Test
   public void decodeApicFrame_v2JpgWithPictureData_decodesFrame() {
-    byte[] v2Frames =
-        Bytes.concat(
-            "PIC".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 13, ID3_TEXT_ENCODING_UTF_8},
-            "JPG".getBytes(ISO_8859_1),
-            new byte[] {3},
-            "cover\0".getBytes(ISO_8859_1),
-            new byte[] {1, 2});
-    byte[] rawId3 = buildTag(/* majorVersion= */ 2, /* flags= */ 0, v2Frames);
+    byte[] rawId3 =
+        buildSingleFrameTag(
+            /* majorVersion= */ 2,
+            "PIC",
+            Bytes.concat(
+                new byte[] {ID3_TEXT_ENCODING_UTF_8},
+                "JPG".getBytes(ISO_8859_1),
+                new byte[] {3},
+                "cover\0".getBytes(ISO_8859_1),
+                new byte[] {1, 2}));
     byte[] oversizedBuffer = Arrays.copyOf(rawId3, rawId3.length + 16);
     Arrays.fill(oversizedBuffer, rawId3.length, oversizedBuffer.length, (byte) 'Z');
     Id3Decoder decoder = new Id3Decoder();
@@ -543,23 +546,23 @@ public final class Id3DecoderTest {
   @Test
   public void
       decodeApicFrame_v2TruncatedBeforePictureType_skipsMalformedFrameAndDecodesNextFrame() {
-    byte[] v2Frames =
-        Bytes.concat(
+    byte[] rawId3 =
+        buildTag(
+            /* majorVersion= */ 2,
             // Frame 1: PIC with frameSize=3 (1 encoding byte + 2 format bytes, missing 3rd format
             // byte and pictureType).
-            "PIC".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 3, ID3_TEXT_ENCODING_UTF_8},
-            "JP".getBytes(ISO_8859_1),
+            new FrameSpec(
+                "PIC",
+                Bytes.concat(new byte[] {ID3_TEXT_ENCODING_UTF_8}, "JP".getBytes(ISO_8859_1))),
             // Frame 2: PIC with frameSize=4 (1 encoding byte + 3 format bytes, missing
             // pictureType).
-            "PIC".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 4, ID3_TEXT_ENCODING_UTF_8},
-            "JPG".getBytes(ISO_8859_1),
+            new FrameSpec(
+                "PIC",
+                Bytes.concat(new byte[] {ID3_TEXT_ENCODING_UTF_8}, "JPG".getBytes(ISO_8859_1))),
             // Frame 3: TT2 ("OK").
-            "TT2".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 4, ID3_TEXT_ENCODING_UTF_8},
-            "OK\0".getBytes(ISO_8859_1));
-    byte[] rawId3 = buildTag(/* majorVersion= */ 2, /* flags= */ 0, v2Frames);
+            new FrameSpec(
+                "TT2",
+                Bytes.concat(new byte[] {ID3_TEXT_ENCODING_UTF_8}, "OK\0".getBytes(ISO_8859_1))));
     Id3Decoder decoder = new Id3Decoder();
 
     Metadata metadata = decoder.decode(rawId3, rawId3.length);
@@ -573,7 +576,7 @@ public final class Id3DecoderTest {
   @Test
   public void decodeBinaryFrame_followedBySecondFrame_copiesOnlyFrameSlice() {
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec("XXXX", new byte[] {4, 5, 6}),
             new FrameSpec("WCOM", new byte[] {'h', 't', 't', 'p', ':', '/', '/', 'a'}),
             new FrameSpec("PRIV", new byte[] {'o', 'w', 'n', 'e', 'r', 0, 7, 8}));
@@ -597,7 +600,7 @@ public final class Id3DecoderTest {
   @Test
   public void decode_multiFramesWithUnterminatedStringsAndBinaryPayloads_staysWithinFrameBounds() {
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec("TXXX", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'k', 'e', 'y'}),
             new FrameSpec("TIT2", new byte[] {/* ID3_TEXT_ENCODING_UTF_16BE= */ 2, 0, 'H', 0, 'i'}),
             new FrameSpec(
@@ -733,7 +736,7 @@ public final class Id3DecoderTest {
                 new FrameSpec("TIT2", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'T', 'O', 'C', 0})),
             new byte[] {0, 0});
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec("CTOC", Bytes.concat(ctocHeaderPayload, ctocSubFramesAndTrailingBytes)),
             new FrameSpec(
                 "TPE1", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'A', 'r', 't', 'i', 's', 't', 0}));
@@ -776,7 +779,7 @@ public final class Id3DecoderTest {
             "TIT2".getBytes(ISO_8859_1),
             new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0});
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec("CHAP", new byte[0]),
             new FrameSpec("CHAP", "unterminated".getBytes(ISO_8859_1)),
             new FrameSpec("CHAP", Bytes.concat("ch\0".getBytes(ISO_8859_1), new byte[15])),
@@ -806,9 +809,9 @@ public final class Id3DecoderTest {
   public void
       decodeChapterFrame_v3SubframesWithLargeUnsignedSizes_skipsMalformedSubframesWithoutDroppingChapters() {
     byte[] validSubFrame =
-        Bytes.concat(
-            "TIT2".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 0, 4, 0, 0, ID3_TEXT_ENCODING_UTF_8, 'O', 'K', 0});
+        buildFrames(
+            /* majorVersion= */ 3,
+            new FrameSpec("TIT2", new byte[] {ID3_TEXT_ENCODING_UTF_8, 'O', 'K', 0}));
     byte[] chap1Payload =
         Bytes.concat(
             "ch1\0".getBytes(ISO_8859_1),
@@ -829,15 +832,11 @@ public final class Id3DecoderTest {
             validSubFrame,
             "TIT2".getBytes(ISO_8859_1),
             new byte[] {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0});
-    byte[] v3Frames =
-        Bytes.concat(
-            "CHAP".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 0, (byte) chap1Payload.length, 0, 0},
-            chap1Payload,
-            "CHAP".getBytes(ISO_8859_1),
-            new byte[] {0, 0, 0, (byte) chap2Payload.length, 0, 0},
-            chap2Payload);
-    byte[] rawId3 = buildTag(/* majorVersion= */ 3, /* flags= */ 0, v3Frames);
+    byte[] rawId3 =
+        buildTag(
+            /* majorVersion= */ 3,
+            new FrameSpec("CHAP", chap1Payload),
+            new FrameSpec("CHAP", chap2Payload));
     Id3Decoder decoder = new Id3Decoder();
 
     Metadata metadata = decoder.decode(rawId3, rawId3.length);
@@ -923,7 +922,7 @@ public final class Id3DecoderTest {
   @Test
   public void decode_unsynchronizedV4FrameFollowedByFrame_staysWithinFrameBounds() {
     byte[] rawId3 =
-        buildMultiFramesTag(
+        buildTag(
             new FrameSpec(
                 "XXXX",
                 new byte[] {(byte) 0xFF, 0x00, (byte) 0xAB, (byte) 0xFF, 0x00, 0x00, (byte) 0xFF},
@@ -967,77 +966,5 @@ public final class Id3DecoderTest {
     buffer.data = buffer.data.slice();
 
     assertThrows(IllegalArgumentException.class, () -> decoder.decode(buffer));
-  }
-
-  public static byte[] buildSingleFrameTag(String frameId, byte[] frameData) {
-    return buildMultiFramesTag(new FrameSpec(frameId, frameData));
-  }
-
-  public static byte[] buildMultiFramesTag(FrameSpec... frames) {
-    return buildTag(/* majorVersion= */ 4, /* flags= */ 0, buildFrames(frames));
-  }
-
-  private static byte[] buildTag(int majorVersion, int flags, byte[] framesData) {
-    int framesSize = framesData.length;
-    byte[] tagData = new byte[Id3Decoder.ID3_HEADER_LENGTH + framesSize];
-    tagData[0] = 'I';
-    tagData[1] = 'D';
-    tagData[2] = '3';
-    tagData[3] = (byte) majorVersion;
-    tagData[4] = 0;
-    tagData[5] = (byte) flags;
-    tagData[6] = (byte) ((framesSize >> 21) & 0x7F);
-    tagData[7] = (byte) ((framesSize >> 14) & 0x7F);
-    tagData[8] = (byte) ((framesSize >> 7) & 0x7F);
-    tagData[9] = (byte) (framesSize & 0x7F);
-    System.arraycopy(framesData, 0, tagData, Id3Decoder.ID3_HEADER_LENGTH, framesSize);
-    return tagData;
-  }
-
-  private static byte[] buildFrames(FrameSpec... frames) {
-    int totalLength = 0;
-    for (FrameSpec frame : frames) {
-      totalLength += FRAME_HEADER_LENGTH + frame.frameData.length;
-    }
-    byte[] framesData = new byte[totalLength];
-    int offset = 0;
-    for (FrameSpec frame : frames) {
-      byte[] frameData = frame.frameData;
-      checkState(frameData.length < (1 << 28));
-      byte[] frameIdBytes = frame.frameId.getBytes(UTF_8);
-      checkState(frameIdBytes.length == 4);
-
-      framesData[offset++] = frameIdBytes[0];
-      framesData[offset++] = frameIdBytes[1];
-      framesData[offset++] = frameIdBytes[2];
-      framesData[offset++] = frameIdBytes[3];
-      framesData[offset++] = (byte) ((frameData.length >> 21) & 0x7F);
-      framesData[offset++] = (byte) ((frameData.length >> 14) & 0x7F);
-      framesData[offset++] = (byte) ((frameData.length >> 7) & 0x7F);
-      framesData[offset++] = (byte) (frameData.length & 0x7F);
-      framesData[offset++] = (byte) (frame.flags >> 8);
-      framesData[offset++] = (byte) frame.flags;
-
-      System.arraycopy(frameData, 0, framesData, offset, frameData.length);
-      offset += frameData.length;
-    }
-    return framesData;
-  }
-
-  /** Specify an ID3 frame. */
-  public static final class FrameSpec {
-    public final String frameId;
-    public final byte[] frameData;
-    public final int flags;
-
-    public FrameSpec(String frameId, byte[] frameData) {
-      this(frameId, frameData, /* flags= */ 0);
-    }
-
-    public FrameSpec(String frameId, byte[] frameData, int flags) {
-      this.frameId = frameId;
-      this.frameData = frameData;
-      this.flags = flags;
-    }
   }
 }

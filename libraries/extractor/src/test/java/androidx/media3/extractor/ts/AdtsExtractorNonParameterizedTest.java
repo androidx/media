@@ -25,6 +25,7 @@ import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.Id3TestUtil;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -105,7 +106,11 @@ public final class AdtsExtractorNonParameterizedTest {
       throws Exception {
     byte[] data = getByteArray(ApplicationProvider.getApplicationContext(), SAMPLE_FILE);
     // Inputs that start with ID3 headers aren't synchronized, but left to the reader.
-    byte[] input = Bytes.concat(createId3Tag(/* dataLength= */ 10), new byte[10], data);
+    byte[] input =
+        Bytes.concat(
+            Id3TestUtil.buildTag(/* majorVersion= */ 4, /* flags= */ 0, new byte[10]),
+            new byte[10],
+            data);
 
     FakeExtractorOutput output =
         TestUtil.extractAllSamplesFromByteArray(new AdtsExtractor(), input);
@@ -173,19 +178,5 @@ public final class AdtsExtractorNonParameterizedTest {
         (frameLength >> 3) & 0xFF,
         ((frameLength & 0x7) << 5) | 0x1F, // adts_buffer_fullness=0x7FF (VBR).
         0xFC); // number_of_raw_data_blocks_in_frame=0.
-  }
-
-  /** Creates an ID3v2.4 tag with {@code dataLength} bytes of (zero) data after its header. */
-  private static byte[] createId3Tag(int dataLength) {
-    byte[] tag = new byte[10 + dataLength];
-    tag[0] = 'I';
-    tag[1] = 'D';
-    tag[2] = '3';
-    tag[3] = 4; // Major version.
-    tag[6] = (byte) ((dataLength >> 21) & 0x7F);
-    tag[7] = (byte) ((dataLength >> 14) & 0x7F);
-    tag[8] = (byte) ((dataLength >> 7) & 0x7F);
-    tag[9] = (byte) (dataLength & 0x7F);
-    return tag;
   }
 }
