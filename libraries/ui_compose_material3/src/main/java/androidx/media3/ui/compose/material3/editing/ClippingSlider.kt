@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.demo.compose.editing
+package androidx.media3.ui.compose.material3.editing
 
 import android.graphics.Bitmap
+import androidx.annotation.RestrictTo
+import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.DragInteraction
@@ -75,7 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.R
+import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.material3.util.isScrubbingModeEnabled
 import androidx.media3.ui.compose.material3.util.setScrubbingModeEnabled
 import androidx.media3.ui.compose.state.PlayerStateObserver
@@ -91,7 +93,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** The ratio of the total width of a clipping thumb to the width of the image row. */
-private const val CLIPPING_THUMB_WIDTH_RATIO = 1f / 15
+internal const val CLIPPING_THUMB_WIDTH_RATIO = 1f / 15
 /** The ratio of the plain, solid width of a clipping thumb to its total width. */
 private const val CLIPPING_THUMB_PLAIN_RATIO = 0.8f
 /** The ratio of the plain, solid width of a clipping thumb to the width of the image row. */
@@ -106,9 +108,9 @@ private const val CLIPPING_THUMB_PLAIN_WIDTH_RATIO =
  * [CLIPPING_THUMB_WIDTH_RATIO] / 2 after the image row start and ends [CLIPPING_THUMB_WIDTH_RATIO]
  * / 2 before the image row end.
  */
-private const val CLIPPING_TRACK_WIDTH_RATIO = 1f - CLIPPING_THUMB_WIDTH_RATIO
+internal const val CLIPPING_TRACK_WIDTH_RATIO = 1f - CLIPPING_THUMB_WIDTH_RATIO
 /** The ratio of the maximum progress slider length to the width of the image row. */
-private const val PROGRESS_SLIDER_MAX_LENGTH_RATIO = 1f - 2 * CLIPPING_THUMB_PLAIN_WIDTH_RATIO
+internal const val PROGRESS_SLIDER_MAX_LENGTH_RATIO = 1f - 2 * CLIPPING_THUMB_PLAIN_WIDTH_RATIO
 /** The ratio of the clipping frame's horizontal bar thickness to the total height of the slider. */
 private const val CLIPPING_FRAME_THICKNESS_RATIO = 0.05f
 
@@ -133,12 +135,10 @@ private val POSITION_THUMB_WIDTH = 4.dp
 /** The ratio of the playback position thumb height to the slider track height. */
 private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
 
-// TODO: b/505719491
-//  - Implement accessibility requirements
-//  - Move to material3 module and mark API unstable
-//  - Add tests
-//  - Optimize ProgressSlider recomposition scope (e.g. sliderColors reading playbackProgress on
-// every frame)
+// TODO: b/560200977 - Implement accessibility requirements and mark the API @UnstableApi.
+// TODO: b/560195769 - Add tests for the remaining behaviours.
+// TODO: b/505719491 - Optimize ProgressSlider recomposition scope (e.g. sliderColors reading
+//  playbackProgress on every frame).
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
  * position.
@@ -194,6 +194,7 @@ private const val POSITION_THUMB_HEIGHT_RATIO = 1.1f
  *   being painted. The second boolean indicates whether the thumb has reached its absolute boundary
  *   within the media (start of media for the start thumb, end of the media for the end thumb).
  */
+@RestrictTo(LIBRARY_GROUP)
 @Composable
 fun ClippingSlider(
   player: Player?,
@@ -282,7 +283,7 @@ fun ClippingSlider(
  *   within the media (start of media for the start thumb, end of the media for the end thumb).
  */
 @Composable
-private fun ClippingSlider(
+internal fun ClippingSlider(
   state: ClippingSliderState,
   bitmaps: ImmutableList<Bitmap>,
   modifier: Modifier = Modifier,
@@ -725,7 +726,7 @@ private fun ProgressSlider(
 }
 
 @Composable
-private fun rememberClippingSliderState(
+internal fun rememberClippingSliderState(
   player: Player?,
   positionTickCount: Int,
   initialClippingRangeMs: LongRange = 0L..C.TIME_END_OF_SOURCE,
@@ -888,7 +889,7 @@ private fun calculateMinRangeDelta(minClippedDurationMs: Long, durationMs: Long)
  * @param initialMinClippedDurationMs The initial minimum allowed duration between clipping start
  *   and end in milliseconds.
  */
-private class ClippingSliderState(
+internal class ClippingSliderState(
   private val player: Player?,
   private val positionProgressState: ProgressStateWithTickCount,
   private val initialClippingRangeMs: LongRange,
