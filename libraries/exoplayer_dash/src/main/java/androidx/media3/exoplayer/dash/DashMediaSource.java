@@ -753,7 +753,7 @@ public final class DashMediaSource extends BaseMediaSource {
   }
 
   private static int getRemovedPeriodCount(
-      @androidx.annotation.Nullable DashManifest oldManifest,
+      @Nullable DashManifest oldManifest,
       DashManifest newManifest) {
 
     // Initial manifest load.
@@ -828,55 +828,54 @@ public final class DashMediaSource extends BaseMediaSource {
     manifestEventDispatcher.loadCompleted(loadEventInfo, loadable.type);
     DashManifest newManifest = loadable.getResult();
 
-    if (newManifest == null) {
-      Log.w(TAG, "DASH manifest update skipped: parsed manifest is null");
-      return;
-    }
-    int oldPeriodCount = manifest == null ? 0 : manifest.getPeriodCount();
-    int removedPeriodCount = getRemovedPeriodCount(manifest, newManifest);
+    if (newManifest != null) {
+      int oldPeriodCount = manifest == null ? 0 : manifest.getPeriodCount();
+      int removedPeriodCount = getRemovedPeriodCount(manifest, newManifest);
 
-    if (newManifest.dynamic) {
-      boolean isManifestStale = false;
-      if (oldPeriodCount - removedPeriodCount > newManifest.getPeriodCount()) {
-        Log.w(TAG,
-            "DASH manifest Period count reduced unexpectedly"
-                + ": oldPeriodCount=" + oldPeriodCount
-                + ", removedPeriodCount=" + removedPeriodCount
-                + ", newPeriodCount=" + newManifest.getPeriodCount());
-        // Do not set isManifestStale here.
-        // A reduction in Period count alone does not prove
-        // that the new manifest is stale.
-      } else if (expiredManifestPublishTimeUs != C.TIME_UNSET
-          && newManifest.publishTimeMs * 1000 <= expiredManifestPublishTimeUs) {
-        // If we receive a dynamic manifest that's older than expected (i.e. its publish time has
-        // expired, or it's dynamic and we know the presentation has ended), then this manifest is
-        // stale.
-        Log.w(
-            TAG,
-            "Loaded stale dynamic manifest: "
-                + newManifest.publishTimeMs
-                + ", "
-                + expiredManifestPublishTimeUs);
-        isManifestStale = true;
-      }
-
-      if (isManifestStale) {
-        if (staleManifestReloadAttempt++
-            < loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)) {
-          scheduleManifestRefresh(getManifestLoadRetryDelayMillis());
-        } else {
-          manifestFatalError = new DashManifestStaleException();
+      if (newManifest.dynamic) {
+        boolean isManifestStale = false;
+        if (oldPeriodCount - removedPeriodCount > newManifest.getPeriodCount()) {
+          Log.w(TAG,
+              "DASH manifest Period count reduced unexpectedly"
+                  + ": oldPeriodCount=" + oldPeriodCount
+                  + ", removedPeriodCount=" + removedPeriodCount
+                  + ", newPeriodCount=" + newManifest.getPeriodCount());
+          // Do not set isManifestStale here.
+          // A reduction in Period count alone does not prove
+          // that the new manifest is stale.
         }
-        return;
+        if (expiredManifestPublishTimeUs != C.TIME_UNSET
+            && newManifest.publishTimeMs * 1000 <= expiredManifestPublishTimeUs) {
+          // If we receive a dynamic manifest that's older than expected (i.e. its publish time has
+          // expired, or it's dynamic and we know the presentation has ended), then this manifest is
+          // stale.
+          Log.w(
+              TAG,
+              "Loaded stale dynamic manifest: "
+                  + newManifest.publishTimeMs
+                  + ", "
+                  + expiredManifestPublishTimeUs);
+          isManifestStale = true;
+        }
+
+        if (isManifestStale) {
+          if (staleManifestReloadAttempt++
+              < loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type)) {
+            scheduleManifestRefresh(getManifestLoadRetryDelayMillis());
+          } else {
+            manifestFatalError = new DashManifestStaleException();
+          }
+          return;
+        }
+        staleManifestReloadAttempt = 0;
       }
-      staleManifestReloadAttempt = 0;
+      manifest = newManifest;
+      firstPeriodId += removedPeriodCount;
     }
 
-    manifest = newManifest;
     manifestLoadPending &= manifest.dynamic;
     manifestLoadStartTimestampMs = elapsedRealtimeMs - loadDurationMs;
     manifestLoadEndTimestampMs = elapsedRealtimeMs;
-    firstPeriodId += removedPeriodCount;
 
     Uri uriFromPreviousRequest =
         cmcdConfiguration != null
@@ -899,7 +898,7 @@ public final class DashMediaSource extends BaseMediaSource {
         // Replace the manifest locations with ones specified by a manifest Location element (if
         // present), or with the final (possibly redirected) URI. This follows the recommendation
         // in DASH-IF-IOP 4.3, section 3.2.15.3. See: https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf.
-        if (!newManifest.locations.isEmpty()) {
+        if (newManifest != null && !newManifest.locations.isEmpty()) {
           manifestLocations = newManifest.locations;
         } else {
           manifestLocations =

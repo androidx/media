@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.dash;
 
-import static androidx.media3.common.MediaLibraryInfo.TAG;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -75,6 +75,7 @@ import org.jspecify.annotations.Nullable;
 /** A default {@link DashChunkSource} implementation. */
 @UnstableApi
 public class DefaultDashChunkSource implements DashChunkSource {
+  private static final String TAG = "DefaultDashChunkSource";
 
   /** {@link DashChunkSource.Factory} for {@link DefaultDashChunkSource} instances. */
   public static final class Factory implements DashChunkSource.Factory {
