@@ -157,6 +157,10 @@
     *   Remove `RawResourceDataSource.RawResourceDataSourceException(String)`.
         Use `RawResourceDataSource.RawResourceDataSourceException(String,
         Throwable, int)` instead.
+    *   Remove
+        `SinglePeriodTimeline(long, boolean, boolean, boolean, Object, Object)`.
+        Use `SinglePeriodTimeline(long, boolean, boolean, boolean, Object,
+        MediaItem)` instead.
     *   Remove `TsExtractor(int)`. Use `TsExtractor(int, int,
         SubtitleParser.Factory, TimestampAdjuster, TsPayloadReader.Factory,
         int)` instead.

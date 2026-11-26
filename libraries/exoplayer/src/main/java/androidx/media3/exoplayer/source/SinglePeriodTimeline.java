@@ -49,32 +49,6 @@ public final class SinglePeriodTimeline extends Timeline {
   private final MediaItem.@Nullable LiveConfiguration liveConfiguration;
 
   /**
-   * @deprecated Use {@link #SinglePeriodTimeline(long, boolean, boolean, boolean, Object,
-   *     MediaItem)} instead.
-   */
-  // Provide backwards compatibility.
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public SinglePeriodTimeline(
-      long durationUs,
-      boolean isSeekable,
-      boolean isDynamic,
-      boolean isLive,
-      @Nullable Object manifest,
-      @Nullable Object tag) {
-    this(
-        durationUs,
-        durationUs,
-        /* windowPositionInPeriodUs= */ 0,
-        /* windowDefaultStartPositionUs= */ 0,
-        isSeekable,
-        isDynamic,
-        isLive,
-        manifest,
-        tag);
-  }
-
-  /**
    * Creates a timeline containing a single period and a window that spans it.
    *
    * @param durationUs The duration of the period, in microseconds.
