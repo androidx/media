@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.transformer.AndroidTestUtil.getVideoSampleTimesUs;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -40,6 +41,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.inspector.MetadataRetriever;
 import androidx.media3.transformer.AndroidTestUtil.BatchProgressReportingMuxer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -67,6 +69,9 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TransformerPauseResumeTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  @Rule
+  public final GlFrameProcessorTestRule glFrameProcessorTestRule = new GlFrameProcessorTestRule();
 
   private static final long PRESENTATION_TIME_US_TO_BLOCK_FRAME = 1_500_000L;
   private static final int DEFAULT_TIMEOUT_SECONDS = 120;
@@ -787,6 +792,54 @@ public class TransformerPauseResumeTest {
             getActualMediaDurationUs(resultWithResume.filePath)
                 - getActualMediaDurationUs(resultWithoutResume.filePath))
         .isLessThan(maxDiffExpectedInDurationUs);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = AndroidTestUtil.HARDWARE_BUFFER_FRAME_PROCESSOR_MIN_SDK)
+  public void resume_withDefaultGlFrameProcessor_outputsIncreasingVideoTimestamps()
+      throws Exception {
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
+    Composition composition =
+        buildSingleSequenceComposition(
+            /* clippingStartPositionMs= */ 0,
+            /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
+            /* mediaItemsInSequence= */ 1);
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    Transformer blockingTransformer =
+        glFrameProcessorTestRule
+            .createTransformerBuilder(context)
+            .setMuxerFactory(
+                new AndroidTestUtil.FrameBlockingMuxerFactory(
+                    PRESENTATION_TIME_US_TO_BLOCK_FRAME, countDownLatch::countDown))
+            .build();
+    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
+    // Block here until timeout reached or latch is counted down.
+    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException(
+          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
+    }
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(
+                context, glFrameProcessorTestRule.createTransformerBuilder(context).build())
+            .build()
+            .run(testId, composition, firstOutputPath);
+
+    // A resumed export processes 4 inputs. A fallback to a full export processes 1.
+    assertThat(result.exportResult.processedInputs).hasSize(4);
+    // Rarely, MediaCodec decoders output frames in the wrong order. See b/343476417#comment5.
+    assertThat(result.exportResult.videoFrameCount).isWithin(2).of(MP4_ASSET_FRAME_COUNT);
+    // The resumed video must continue from the last sync sample of the partial output, rather than
+    // restart from 0.
+    assertThat(getVideoSampleTimesUs(result.filePath)).isInStrictOrder();
   }
 
   /**

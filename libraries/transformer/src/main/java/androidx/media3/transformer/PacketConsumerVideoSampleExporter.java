@@ -114,6 +114,7 @@ import org.jspecify.annotations.Nullable;
       MuxerWrapper muxerWrapper,
       Consumer<ExportException> errorConsumer,
       FallbackListener fallbackListener,
+      long initialTimestampOffsetUs,
       ImmutableList<Integer> allowedEncodingRotationDegrees,
       @Nullable LogSessionId logSessionId,
       Looper playbackLooper,
@@ -216,6 +217,7 @@ import org.jspecify.annotations.Nullable;
           new HardwareBufferSampleConsumer(
               composition,
               sequenceIndex,
+              initialTimestampOffsetUs,
               playbackLooper,
               handlerWrapper,
               frameConsumer,

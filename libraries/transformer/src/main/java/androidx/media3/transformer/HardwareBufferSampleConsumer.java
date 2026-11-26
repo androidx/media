@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
  * A {@link GraphInput} that wraps {@link SequenceFrameReader}.
  *
  * <p>Offsets {@link Frame#KEY_DISPLAY_TIME_NS} based on preceding media item durations to ensure a
- * continuous timeline within the sequence.
+ * continuous timeline within the sequence, starting from an initial timestamp offset.
  */
 /* package */ final class HardwareBufferSampleConsumer implements GraphInput {
 
@@ -64,6 +64,8 @@ import org.jspecify.annotations.Nullable;
    *
    * @param composition The {@link Composition} containing the sequences being exported.
    * @param sequenceIndex The index of the sequence this consumer belongs to.
+   * @param initialTimestampOffsetUs The offset to add to the timestamps of all output frames, in
+   *     microseconds. A negative value shifts the timestamps earlier.
    * @param playbackLooper The {@link Looper} for playback operations.
    * @param listenerHandler The {@link HandlerWrapper} for scheduling to dispatch {@link Listener}
    *     callbacks.
@@ -75,6 +77,7 @@ import org.jspecify.annotations.Nullable;
   public HardwareBufferSampleConsumer(
       Composition composition,
       int sequenceIndex,
+      long initialTimestampOffsetUs,
       Looper playbackLooper,
       HandlerWrapper listenerHandler,
       Consumer<AsyncFrame> frameConsumer,
@@ -83,6 +86,7 @@ import org.jspecify.annotations.Nullable;
     this(
         composition,
         sequenceIndex,
+        initialTimestampOffsetUs,
         playbackLooper,
         listenerHandler,
         frameConsumer,
@@ -99,6 +103,7 @@ import org.jspecify.annotations.Nullable;
   /* package */ HardwareBufferSampleConsumer(
       Composition composition,
       int sequenceIndex,
+      long initialTimestampOffsetUs,
       Looper playbackLooper,
       HandlerWrapper listenerHandler,
       Consumer<AsyncFrame> frameConsumer,
@@ -107,6 +112,7 @@ import org.jspecify.annotations.Nullable;
       ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
+    currentTimeOffsetUs = initialTimestampOffsetUs;
     // Modify the release times of frames exiting the sequenceFrameReader to account for item
     // duration.
     Consumer<AsyncFrame> intermediateConsumer =

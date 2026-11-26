@@ -148,6 +148,7 @@ public class SequenceAssetLoaderTest {
         new HardwareBufferSampleConsumer(
             composition,
             /* sequenceIndex= */ 0,
+            /* initialTimestampOffsetUs= */ 0,
             /* playbackLooper= */ looper,
             listenerHandler,
             /* frameConsumer= */ receivedFrames::add,

@@ -788,6 +788,7 @@ import org.jspecify.annotations.Nullable;
                   muxerWrapper,
                   /* errorConsumer= */ this::onError,
                   fallbackListener,
+                  /* initialTimestampOffsetUs= */ videoSampleTimestampOffsetUs,
                   allowedEncodingRotationDegrees,
                   logSessionId,
                   internalLooper,
