@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
@@ -22,11 +23,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SyncFenceWrapper;
@@ -43,7 +44,6 @@ import org.jspecify.annotations.Nullable;
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
 /** Computes the release time for each {@linkplain List<AsyncFrame> packet}. */
-@RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 /* package */ class CompositionVideoPacketReleaseControl
     implements CompositionRendererListener, AutoCloseable {
@@ -270,17 +270,17 @@ import org.jspecify.annotations.Nullable;
 
   private ImmutableList<AsyncFrame> retainFrames(ImmutableList<AsyncFrame> newlyQueuedPacket) {
     ImmutableList.Builder<AsyncFrame> retainedFrames = new ImmutableList.Builder<>();
-    for (int i = 0; i < newlyQueuedPacket.size(); i++) {
-      AsyncFrame asyncFrame = newlyQueuedPacket.get(i);
-      checkState(asyncFrame.frame instanceof DefaultHardwareBufferFrame);
-      DefaultHardwareBufferFrame retainedFrame =
-          ((DefaultHardwareBufferFrame) asyncFrame.frame)
-              .buildUpon()
-              .shouldIncrementReferenceCount()
-              .build();
-      retainedFrames.add(new AsyncFrame(retainedFrame, asyncFrame.acquireFence));
+    try {
+      for (int i = 0; i < newlyQueuedPacket.size(); i++) {
+        AsyncFrame asyncFrame = newlyQueuedPacket.get(i);
+        Frame retainedFrame = retainFrame(asyncFrame.frame);
+        retainedFrames.add(new AsyncFrame(retainedFrame, asyncFrame.acquireFence));
+      }
+      return retainedFrames.build();
+    } catch (RuntimeException e) {
+      releasePacket(retainedFrames.build());
+      throw e;
     }
-    return retainedFrames.build();
   }
 
   /**
@@ -336,42 +336,55 @@ import org.jspecify.annotations.Nullable;
   private boolean setReleaseTimeAndQueueDownstream(
       ImmutableList<AsyncFrame> packet, long releaseTimeNs) {
     ImmutableList.Builder<AsyncFrame> downstreamAsyncFrames = ImmutableList.builder();
-
-    for (int i = 0; i < packet.size(); i++) {
-      AsyncFrame asyncFrame = packet.get(i);
-      Frame inputFrame = asyncFrame.frame;
-
-      ImmutableMap.Builder<String, Object> metadataBuilder =
-          ImmutableMap.<String, Object>builder()
-              .putAll(inputFrame.getMetadata())
-              .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs)
-              .put(KEY_FRAME_DISCONTINUITY_NUMBER, currentStreamDiscontinuityNumber);
-
-      checkState(inputFrame instanceof DefaultHardwareBufferFrame);
-      Frame downstreamFrame =
-          ((DefaultHardwareBufferFrame) inputFrame)
-              .buildUpon()
-              .shouldIncrementReferenceCount()
-              .setMetadata(metadataBuilder.buildKeepingLast())
-              .build();
-
-      downstreamAsyncFrames.add(new AsyncFrame(downstreamFrame, asyncFrame.acquireFence));
-    }
-
-    ImmutableList<AsyncFrame> asyncFrameList = downstreamAsyncFrames.build();
     boolean queued = false;
     try {
+      for (int i = 0; i < packet.size(); i++) {
+        AsyncFrame asyncFrame = packet.get(i);
+        Frame inputFrame = asyncFrame.frame;
+
+        ImmutableMap.Builder<String, Object> metadataBuilder =
+            ImmutableMap.<String, Object>builder()
+                .putAll(inputFrame.getMetadata())
+                .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs)
+                .put(KEY_FRAME_DISCONTINUITY_NUMBER, currentStreamDiscontinuityNumber);
+
+        Frame downstreamFrame = retainFrame(inputFrame, metadataBuilder.buildKeepingLast());
+
+        downstreamAsyncFrames.add(new AsyncFrame(downstreamFrame, asyncFrame.acquireFence));
+      }
       queued =
-          inFlightFrameManager.trackIfSuccessful(downstreamFrameProcessor::queue, asyncFrameList);
+          inFlightFrameManager.trackIfSuccessful(
+              downstreamFrameProcessor::queue, downstreamAsyncFrames.build());
       return queued;
     } finally {
       if (queued) {
         updateLastQueuedPacket(packet);
         releasePacket(packet);
       } else {
-        releasePacket(asyncFrameList);
+        releasePacket(downstreamAsyncFrames.build());
       }
     }
+  }
+
+  private static Frame retainFrame(Frame frame) {
+    return retainFrame(frame, frame.getMetadata());
+  }
+
+  private static Frame retainFrame(Frame frame, ImmutableMap<String, Object> metadata) {
+    if (SDK_INT >= 26 && frame instanceof DefaultHardwareBufferFrame) {
+      return ((DefaultHardwareBufferFrame) frame)
+          .buildUpon()
+          .shouldIncrementReferenceCount()
+          .setMetadata(metadata)
+          .build();
+    } else if (frame instanceof DefaultImagePlanesFrame) {
+      return ((DefaultImagePlanesFrame) frame)
+          .buildUpon()
+          .shouldIncrementReferenceCount()
+          .setMetadata(metadata)
+          .build();
+    }
+    throw new IllegalArgumentException("Unsupported frame type: " + frame);
   }
 
   private static void releasePacket(@Nullable List<AsyncFrame> packet) {

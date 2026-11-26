@@ -187,7 +187,7 @@ public class AudioPositionAdvancingTest {
     repeatFlakyTest(
         /* maxRepetitions= */ 5,
         () -> {
-          MediaItem mediaItem = MediaItem.fromUri("asset:///media/mp3/bear-id3.mp3");
+          MediaItem mediaItem = MediaItem.fromUri("asset:///media/mp4/sample_audio_only_15s.mp4");
           AtomicLong reportedStartSystemTimeMs = new AtomicLong();
           ConditionVariable onAdvancingCalled = new ConditionVariable();
           AnalyticsListener analyticsListener =
@@ -219,8 +219,9 @@ public class AudioPositionAdvancingTest {
                 player.addListener(playerListener);
                 player.setMediaItem(mediaItem);
                 player.prepare();
-                // Assume that after 1 second, the playback position is reliable enough to
-                // calculate the actual start time manually.
+                // Wait until 4 seconds so AudioTrackPositionTracker's 10% position smoothing
+                // converges after the initial AudioTrack.getTimestamp() lock-in before
+                // calculating the actual start time manually.
                 player
                     .createMessage((type, message) -> {
                       calculatedStartSystemTimeMs.set(
@@ -228,26 +229,28 @@ public class AudioPositionAdvancingTest {
                       calculationMessageHandled.open();
                     })
                     .setLooper(Looper.getMainLooper())
-                    .setPosition(1000)
+                    .setPosition(4000)
                     .send();
                 player.play();
               });
 
-          assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
-          assertWithMessage("Unexpected playback exception thrown: ")
-              .that(playbackException.get())
-              .isNull();
-          assertThat(calculationMessageHandled.block(TIMEOUT_MS)).isTrue();
-          // The message callback runs on the main looper, where System.currentTimeMillis() is
-          // evaluated after looper scheduling delay, while player.getCurrentPosition() returns the
-          // position sampled when the message was scheduled on the internal playback thread. This
-          // looper dispatch delay can easily exceed tens of milliseconds on slow emulators, so we
-          // use 50 ms.
-          assertThat(reportedStartSystemTimeMs.get())
-              .isWithin(50)
-              .of(calculatedStartSystemTimeMs.get());
-
-          getInstrumentation().runOnMainSync(() -> playerRef.get().release());
+          try {
+            assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+            assertWithMessage("Unexpected playback exception thrown: ")
+                .that(playbackException.get())
+                .isNull();
+            assertThat(calculationMessageHandled.block(TIMEOUT_MS)).isTrue();
+            // The message callback runs on the main looper, where System.currentTimeMillis() is
+            // evaluated after looper scheduling delay, while player.getCurrentPosition() returns
+            // the position sampled when the message was scheduled on the internal playback thread.
+            // This looper dispatch delay can easily exceed tens of milliseconds on slow emulators,
+            // so we use 50 ms.
+            assertThat(reportedStartSystemTimeMs.get())
+                .isWithin(50)
+                .of(calculatedStartSystemTimeMs.get());
+          } finally {
+            getInstrumentation().runOnMainSync(() -> playerRef.get().release());
+          }
         });
   }
 }

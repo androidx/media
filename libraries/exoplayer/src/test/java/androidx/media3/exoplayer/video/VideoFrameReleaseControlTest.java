@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -1905,6 +1906,392 @@ public class VideoFrameReleaseControlTest {
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
     assertThat(secondNonProbeAfterAdvancingAction)
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_withOutputBufferRendererDuringCatchUpJoin_skipsLateFramesWithoutClearingJoinDeadline()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ true,
+                /* shouldDropFrame= */ true,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 100,
+            /* skipBuffersWithIdenticalReleaseTime= */ true);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ false);
+
+    int initialPositionAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 50_000,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    boolean readyDuringJoin = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+    boolean stillJoiningAfterReadyCheck = videoFrameReleaseControl.isJoining();
+    clock.advanceTime(/* timeDiffMs= */ 10);
+    int lateCatchUpAction =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 60_000,
+            /* elapsedRealtimeUs= */ 10_000,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    clock.advanceTime(/* timeDiffMs= */ 95);
+    boolean readyAfterJoinDeadlineExceeded =
+        videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+
+    assertThat(initialPositionAction)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    assertThat(readyDuringJoin).isTrue();
+    assertThat(stillJoiningAfterReadyCheck).isTrue();
+    assertThat(lateCatchUpAction).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
+    assertThat(readyAfterJoinDeadlineExceeded).isFalse();
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_withOutputBufferRendererAndFirstFrameWhenStarted_staysNotReadyUntilAllowed()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_STARTED);
+
+    int actionBeforeAllowed =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    boolean readyBeforeAllowed = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+    videoFrameReleaseControl.allowReleaseFirstFrameBeforeStarted();
+    int actionAfterAllowed =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    boolean isFirstFrame = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    boolean readyAfterReleased = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+
+    assertThat(actionBeforeAllowed)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    assertThat(readyBeforeAllowed).isFalse();
+    assertThat(actionAfterAllowed).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    assertThat(isFirstFrame).isTrue();
+    assertThat(readyAfterReleased).isTrue();
+  }
+
+  @Test
+  public void onStreamChanged_withoutSurfaceAfterFrameReady_preservesReadyState()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    boolean readyInFirstStream = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+    boolean hasReadyFrameInFirstStream = videoFrameReleaseControl.hasReadyFrame();
+
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
+    boolean readyAfterStreamChange = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+    boolean hasReadyFrameAfterStreamChange = videoFrameReleaseControl.hasReadyFrame();
+
+    assertThat(readyInFirstStream).isTrue();
+    assertThat(hasReadyFrameInFirstStream).isTrue();
+    assertThat(readyAfterStreamChange).isTrue();
+    assertThat(hasReadyFrameAfterStreamChange).isTrue();
+  }
+
+  @Test
+  public void setHasOutputBufferRenderer_unchangedValue_returnsFalseAndPreservesFirstFrameState() {
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    boolean unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    boolean changed = videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    boolean readyAfterCall = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+    boolean nextFrameIsFirst = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    assertThat(changed).isFalse();
+    assertThat(readyAfterCall).isTrue();
+    assertThat(nextFrameIsFirst).isFalse();
+  }
+
+  @Test
+  public void setHasOutputBufferRenderer_changedToTrue_clearsFrameReadyWithoutSurface()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+
+    boolean changed = videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    boolean readyAfterChange = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+
+    assertThat(changed).isTrue();
+    assertThat(readyAfterChange).isFalse();
+  }
+
+  @Test
+  public void setHasOutputBufferRenderer_changedToFalseAfterFirstFrame_lowersFirstFrameState() {
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    boolean unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    boolean changed = videoFrameReleaseControl.setHasOutputBufferRenderer(false);
+    boolean readyAfterChange = videoFrameReleaseControl.isReady(/* otherwiseReady= */ true);
+    boolean hasReadyFrameAfterChange = videoFrameReleaseControl.hasReadyFrame();
+
+    assertThat(changed).isTrue();
+    assertThat(readyAfterChange).isFalse();
+    assertThat(hasReadyFrameAfterChange).isFalse();
+  }
+
+  @Test
+  public void
+      setHasOutputBufferRenderer_toggledAcrossStreamChange_preservesAfterStreamChangeReleaseRule()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    boolean unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
+
+    videoFrameReleaseControl.setHasOutputBufferRenderer(false);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    @VideoFrameReleaseControl.FrameReleaseAction
+    int actionBeforeStreamStart =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 100_000,
+            /* positionUs= */ 50_000,
+            /* elapsedRealtimeUs= */ 50_000,
+            /* outputStreamStartPositionUs= */ 100_000,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+    @VideoFrameReleaseControl.FrameReleaseAction
+    int actionAtStreamStart =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 100_000,
+            /* positionUs= */ 100_000,
+            /* elapsedRealtimeUs= */ 100_000,
+            /* outputStreamStartPositionUs= */ 100_000,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+
+    assertThat(actionBeforeStreamStart)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    assertThat(actionAtStreamStart).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+  }
+
+  @Test
+  public void setHasOutputBufferRenderer_toggledAfterBackwardSeekWhilePaused_releasesImmediately()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    boolean unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    videoFrameReleaseControl.onStopped();
+    videoFrameReleaseControl.reset();
+    videoFrameReleaseControl.onStarted();
+    unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    videoFrameReleaseControl.onStopped();
+
+    videoFrameReleaseControl.setHasOutputBufferRenderer(false);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    @VideoFrameReleaseControl.FrameReleaseAction
+    int actionAfterBackwardSeek =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 20_000_000,
+            /* positionUs= */ 20_000_000,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 600_000_000,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 1L,
+            frameReleaseInfo);
+
+    assertThat(actionAfterBackwardSeek)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+  }
+
+  @Test
+  public void setHasOutputBufferRenderer_changedToFalse_clearsFrameReadyWithoutSurface()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_STARTED);
+    int unused =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    boolean hasReadyFrameBeforeClear = videoFrameReleaseControl.hasReadyFrame();
+
+    boolean changed = videoFrameReleaseControl.setHasOutputBufferRenderer(false);
+
+    assertThat(hasReadyFrameBeforeClear).isTrue();
+    assertThat(changed).isTrue();
+    assertThat(videoFrameReleaseControl.hasReadyFrame()).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
+  }
+
+  @Test
+  public void setHasOutputBufferRenderer_changedToTrueAfterFirstFrame_lowersFirstFrameState() {
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    boolean unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    boolean changed = videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+
+    assertThat(changed).isTrue();
+    assertThat(videoFrameReleaseControl.hasReadyFrame()).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
+  }
+
+  @Test
+  public void
+      setOutputSurface_setToNullWhileHasOutputBufferRendererTrue_preservesHasOutputBufferRenderer() {
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    boolean changed = videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    boolean unused = videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    assertThat(changed).isFalse();
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
+  }
+
+  @Test
+  public void
+      setHasOutputBufferRenderer_toggledWhileOnlyAllowedIfStarted_preservesOnlyAllowedIfStartedState()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_WHEN_STARTED);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(false);
+    videoFrameReleaseControl.setHasOutputBufferRenderer(true);
+
+    int actionWhileStopped =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+    videoFrameReleaseControl.onStarted();
+    int actionAfterStarted =
+        videoFrameReleaseControl.getFrameReleaseAction(
+            /* presentationTimeUs= */ 0,
+            /* positionUs= */ 0,
+            /* elapsedRealtimeUs= */ 0,
+            /* outputStreamStartPositionUs= */ 0,
+            /* isDecodeOnlyFrame= */ false,
+            /* isLastFrame= */ false,
+            frameRateEstimator.getFrameDurationNs(),
+            /* frameIndex= */ 0L,
+            frameReleaseInfo);
+
+    assertThat(actionWhileStopped)
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+    assertThat(actionAfterStarted).isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
 
   private VideoFrameReleaseControl createVideoFrameReleaseControl() {

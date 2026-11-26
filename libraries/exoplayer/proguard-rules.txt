@@ -97,3 +97,17 @@
 # These notes are independent of the keep rules
 -dontnote androidx.media3.effect.SingleInputVideoGraph$Factory
 -dontnote androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
+
+# Accessed via reflection in MediaCodecUtil and DefaultMediaCodecAdapterFactory
+-dontnote androidx.media3.decoder.av1.Dav1dLibrary
+-keepclassmembers class androidx.media3.decoder.av1.Dav1dLibrary {
+  public static boolean isAvailable();
+}
+-dontnote androidx.media3.decoder.av1.Dav1dCodecInfo
+-keepclassmembers class androidx.media3.decoder.av1.Dav1dCodecInfo {
+  <init>();
+}
+-dontnote androidx.media3.decoder.av1.Dav1dCodecAdapter$Factory
+-keepclassmembers class androidx.media3.decoder.av1.Dav1dCodecAdapter$Factory {
+  <init>();
+}

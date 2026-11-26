@@ -149,7 +149,7 @@ public final class MidiDecoder
     if (lastReceivedTimestampUs == C.TIME_UNSET) {
       outputTimeUs = inputBuffer.timeUs;
     }
-    boolean isDecodeOnly = !isAtLeastOutputStartTimeUs(inputBuffer.timeUs);
+    boolean isDecodeOnly = outputBuffer.shouldBeSkipped;
     try {
       if (!isDecodeOnly) {
         // Yield the thread to the Synthesizer to produce PCM samples up to this buffer's timestamp.

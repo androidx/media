@@ -38,18 +38,22 @@ import androidx.media3.common.Timeline.Window;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLiveSeekableRange;
+import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueItem;
+import com.google.android.gms.cast.MediaSeekOptions;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link QueuedOperation}. */
 @RunWith(AndroidJUnit4.class)
@@ -109,6 +113,37 @@ public final class QueuedOperationTest {
     Window window1 = snapshot.timeline.getWindow(/* windowIndex= */ 1, new Window());
     assertThat(window0.defaultPositionUs).isEqualTo(5_000_000L);
     assertThat(window1.defaultPositionUs).isEqualTo(0L);
+  }
+
+  @Test
+  public void setMediaItems_createMaskedSnapshot_withUnsetStartPosition_masksDefaultPosition() {
+    MediaItem unclippedItem = createMediaItem("id1");
+    MediaItem clippedItem =
+        createMediaItem("id2")
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(5_000L).build())
+            .build();
+    SetMediaItemsOperation unclippedOperation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(unclippedItem, clippedItem),
+            /* startIndex= */ 0,
+            /* startPositionMs= */ C.TIME_UNSET);
+    SetMediaItemsOperation clippedOperation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(unclippedItem, clippedItem),
+            /* startIndex= */ 1,
+            /* startPositionMs= */ C.TIME_UNSET);
+
+    QueueSnapshot unclippedSnapshot =
+        unclippedOperation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+    QueueSnapshot clippedSnapshot =
+        clippedOperation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+
+    assertThat(unclippedSnapshot.currentWindowIndex).isEqualTo(0);
+    assertThat(unclippedSnapshot.maskedPositionMs).isEqualTo(0L);
+    assertThat(clippedSnapshot.currentWindowIndex).isEqualTo(1);
+    assertThat(clippedSnapshot.maskedPositionMs).isEqualTo(5_000L);
   }
 
   @Test
@@ -269,6 +304,54 @@ public final class QueuedOperationTest {
     assertThat(updatedSnapshot.timeline.getWindowCount()).isEqualTo(1);
     assertThat(getMediaIdAt(updatedSnapshot.timeline, 0)).isEqualTo("A");
     assertThat(updatedSnapshot.currentWindowIndex).isEqualTo(0);
+    assertThat(updatedSnapshot.maskedPositionMs).isEqualTo(0L);
+  }
+
+  @Test
+  public void
+      addMediaItems_createMaskedSnapshot_toEmptySnapshotWithClipping_masksDefaultPosition() {
+    MediaItem clippedItem =
+        createMediaItem("A")
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(5_000L).build())
+            .build();
+    AddMediaItemsOperation operation =
+        new AddMediaItemsOperation(
+            /* insertBeforePeriodUid= */ null, ImmutableList.of(clippedItem));
+
+    QueueSnapshot updatedSnapshot =
+        operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+
+    assertThat(updatedSnapshot.currentWindowIndex).isEqualTo(0);
+    assertThat(updatedSnapshot.maskedPositionMs).isEqualTo(5_000L);
+  }
+
+  @Test
+  public void
+      addMediaItems_createMaskedSnapshot_afterRemovingLastItemWithClipping_masksDefaultPosition() {
+    QueueSnapshot initialSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A");
+    Object uidA = initialSnapshot.timeline.getWindow(0, new Window()).uid;
+    QueueSnapshot emptiedSnapshot =
+        new RemoveMediaItemsOperation(ImmutableList.of(uidA))
+            .createMaskedSnapshot(initialSnapshot, timelineTracker);
+    MediaItem clippedItem =
+        createMediaItem("B")
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(5_000L).build())
+            .build();
+    AddMediaItemsOperation addOperation =
+        new AddMediaItemsOperation(
+            /* insertBeforePeriodUid= */ null, ImmutableList.of(clippedItem));
+
+    QueueSnapshot updatedSnapshot =
+        addOperation.createMaskedSnapshot(emptiedSnapshot, timelineTracker);
+
+    assertThat(emptiedSnapshot.timeline.isEmpty()).isTrue();
+    assertThat(emptiedSnapshot.maskedPositionMs).isEqualTo(0L);
+    assertThat(updatedSnapshot.currentWindowIndex).isEqualTo(0);
+    assertThat(updatedSnapshot.maskedPositionMs).isEqualTo(5_000L);
   }
 
   @Test
@@ -484,6 +567,94 @@ public final class QueuedOperationTest {
   }
 
   @Test
+  public void seek_createMaskedSnapshot_withUnsetPosition_resolvesWindowDefaultPosition() {
+    MediaItem itemA = createMediaItem("A");
+    MediaItem itemB = createMediaItem("B");
+    ItemUid uidA = ItemUid.generateItemUid();
+    ItemUid uidB = ItemUid.generateItemUid();
+    Map<ItemUid, ItemData> itemDataMap = new HashMap<>();
+    itemDataMap.put(
+        uidA,
+        new ItemData(
+            /* durationUs= */ 100_000_000L,
+            /* defaultPositionUs= */ 0L,
+            /* isLive= */ false,
+            /* isSeekable= */ true,
+            itemA,
+            "A"));
+    itemDataMap.put(
+        uidB,
+        new ItemData(
+            /* durationUs= */ 60_000_000L,
+            /* defaultPositionUs= */ 60_000_000L,
+            /* isLive= */ true,
+            /* isSeekable= */ true,
+            itemB,
+            "B"));
+    CastTimeline timeline = new CastTimeline(ImmutableList.of(uidA, uidB), itemDataMap);
+    QueueSnapshot initialSnapshot =
+        new QueueSnapshot(timeline, /* currentWindowIndex= */ 0, /* maskedPositionMs= */ 10_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ C.TIME_UNSET,
+            /* targetPeriodUid= */ uidB,
+            /* isWindowChange= */ true);
+
+    QueueSnapshot updatedSnapshot =
+        seekOperation.createMaskedSnapshot(initialSnapshot, timelineTracker);
+
+    assertThat(updatedSnapshot.currentWindowIndex).isEqualTo(1);
+    assertThat(updatedSnapshot.maskedPositionMs).isEqualTo(60_000L);
+  }
+
+  @Test
+  public void seek_createMaskedSnapshot_reinvokedWithMissingUid_resetsResolvedDefaultPosition() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo vodMediaInfo =
+        new MediaInfo.Builder("https://example.com/vod.mp4")
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(vodMediaInfo);
+    ItemUid uid = ItemUid.of("uid-0");
+    CastTimeline timelineWithClippedItem =
+        new CastTimeline(
+            ImmutableList.of(uid),
+            ImmutableMap.of(
+                uid,
+                new ItemData(
+                    /* durationUs= */ 60_000_000L,
+                    /* defaultPositionUs= */ 5_000_000L,
+                    /* isLive= */ false,
+                    /* isSeekable= */ true,
+                    createMediaItem("clipped"),
+                    "https://example.com/vod.mp4")));
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ C.TIME_UNSET,
+            /* targetPeriodUid= */ uid,
+            /* isWindowChange= */ false);
+    QueueSnapshot unusedFirstSnapshot =
+        seekOperation.createMaskedSnapshot(
+            new QueueSnapshot(
+                timelineWithClippedItem, /* currentWindowIndex= */ 0, /* maskedPositionMs= */ 0L),
+            timelineTracker);
+
+    QueueSnapshot secondSnapshot =
+        seekOperation.createMaskedSnapshot(
+            createSampleSnapshot(/* currentWindowIndex= */ 0, "other"), timelineTracker);
+    PendingResult<MediaChannelResult> unusedResult =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    assertThat(secondSnapshot.maskedPositionMs).isEqualTo(C.TIME_UNSET);
+    verify(mockRemoteMediaClient)
+        .seek(new MediaSeekOptions.Builder().setPosition(0L).setIsSeekToInfinite(false).build());
+  }
+
+  @Test
   public void addMediaItems_createMaskedSnapshot_calledTwice_isIdempotent() {
     QueueSnapshot initialSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A", "B");
     Object uidB = initialSnapshot.timeline.getWindow(1, new Window()).uid;
@@ -579,7 +750,7 @@ public final class QueuedOperationTest {
   }
 
   @Test
-  public void seek_shouldReloadOnQueueEnd_returnsTrue() {
+  public void seek_shouldReloadOnQueueEnd_whenTargetUidPresent_returnsTrue() {
     QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A");
     Object uidA = baseSnapshot.timeline.getWindow(0, new Window()).uid;
     SeekOperation operation =
@@ -587,6 +758,18 @@ public final class QueuedOperationTest {
             /* positionMs= */ 0L, /* targetPeriodUid= */ uidA, /* isWindowChange= */ false);
 
     assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isTrue();
+  }
+
+  @Test
+  public void seek_shouldReloadOnQueueEnd_whenTargetUidMissing_returnsFalse() {
+    QueueSnapshot baseSnapshot = createSampleSnapshot(/* currentWindowIndex= */ 0, "A");
+    SeekOperation operation =
+        new SeekOperation(
+            /* positionMs= */ 45_000L,
+            /* targetPeriodUid= */ ItemUid.of("missing-uid"),
+            /* isWindowChange= */ true);
+
+    assertThat(operation.shouldReloadOnQueueEnd(baseSnapshot)).isFalse();
   }
 
   @Test
@@ -628,7 +811,102 @@ public final class QueuedOperationTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation") // Verifies deprecated RemoteMediaClient.seek(long) call.
+  public void setMediaItems_getReloadStartPositionMs_returnsStartPosition() {
+    SetMediaItemsOperation unsetOperation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(createMediaItem("A")),
+            /* startIndex= */ 0,
+            /* startPositionMs= */ C.TIME_UNSET);
+    SetMediaItemsOperation explicitOperation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(createMediaItem("A")),
+            /* startIndex= */ 0,
+            /* startPositionMs= */ 12_000L);
+
+    assertThat(unsetOperation.getReloadStartPositionMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(explicitOperation.getReloadStartPositionMs()).isEqualTo(12_000L);
+  }
+
+  @Test
+  public void seek_getReloadStartPositionMs_returnsPosition() {
+    SeekOperation unsetSeek =
+        new SeekOperation(
+            /* positionMs= */ C.TIME_UNSET,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+    SeekOperation explicitSeek =
+        new SeekOperation(
+            /* positionMs= */ 8_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    assertThat(unsetSeek.getReloadStartPositionMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(explicitSeek.getReloadStartPositionMs()).isEqualTo(8_000L);
+  }
+
+  @Test
+  public void addMediaItems_getReloadStartPositionMs_returnsTimeUnset() {
+    AddMediaItemsOperation operation =
+        new AddMediaItemsOperation(
+            /* insertBeforePeriodUid= */ null, ImmutableList.of(createMediaItem("A")));
+
+    assertThat(operation.getReloadStartPositionMs()).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void setMediaItems_execute_withUnsetStartPosition_passesPlayPositionUnassigned() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    SetMediaItemsOperation operation =
+        new SetMediaItemsOperation(
+            ImmutableList.of(createMediaItem("A"), createMediaItem("B")),
+            /* startIndex= */ 1,
+            /* startPositionMs= */ C.TIME_UNSET);
+    QueueSnapshot unusedSnapshot =
+        operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+
+    PendingResult<MediaChannelResult> unusedResult =
+        operation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    ArgumentCaptor<MediaLoadRequestData> loadCaptor =
+        ArgumentCaptor.forClass(MediaLoadRequestData.class);
+    verify(mockRemoteMediaClient).load(loadCaptor.capture());
+    MediaLoadRequestData requestData = loadCaptor.getValue();
+    assertThat(requestData.getQueueData().getStartIndex()).isEqualTo(1);
+    assertThat(requestData.getQueueData().getStartTime())
+        .isEqualTo(MediaLoadRequestData.PLAY_POSITION_UNASSIGNED);
+    assertThat(requestData.getCurrentTime())
+        .isEqualTo(MediaLoadRequestData.PLAY_POSITION_UNASSIGNED);
+  }
+
+  @Test
+  public void addMediaItems_execute_onEmptyReceiverQueue_passesPlayPositionUnassigned() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
+    AddMediaItemsOperation operation =
+        new AddMediaItemsOperation(
+            /* insertBeforePeriodUid= */ null, ImmutableList.of(createMediaItem("A")));
+    QueueSnapshot unusedSnapshot =
+        operation.createMaskedSnapshot(QueueSnapshot.EMPTY, timelineTracker);
+
+    PendingResult<MediaChannelResult> unusedResult =
+        operation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    ArgumentCaptor<MediaLoadRequestData> loadCaptor =
+        ArgumentCaptor.forClass(MediaLoadRequestData.class);
+    verify(mockRemoteMediaClient).load(loadCaptor.capture());
+    MediaLoadRequestData requestData = loadCaptor.getValue();
+    assertThat(requestData.getQueueData().getStartIndex()).isEqualTo(0);
+    assertThat(requestData.getQueueData().getStartTime())
+        .isEqualTo(MediaLoadRequestData.PLAY_POSITION_UNASSIGNED);
+    assertThat(requestData.getCurrentTime())
+        .isEqualTo(MediaLoadRequestData.PLAY_POSITION_UNASSIGNED);
+  }
+
+  @Test
   public void seek_execute_sameWindowOnLiveStream_addsLiveSeekableRangeStart() {
     RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
@@ -648,6 +926,7 @@ public final class QueuedOperationTest {
     when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
     when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
     when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(160_000L);
     SeekOperation seekOperation =
         new SeekOperation(
             /* positionMs= */ 15_000L,
@@ -658,7 +937,216 @@ public final class QueuedOperationTest {
         seekOperation.execute(
             mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
 
-    verify(mockRemoteMediaClient).seek(115_000L);
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder()
+                .setPosition(115_000L)
+                .setIsSeekToInfinite(false)
+                .build());
+  }
+
+  @Test
+  public void
+      seek_execute_sameWindowOnExtrapolatedLiveStreamBehindLiveEdge_setsIsSeekToInfiniteFalse() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(120_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(180_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 45_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder()
+                .setPosition(165_000L)
+                .setIsSeekToInfinite(false)
+                .build());
+  }
+
+  @Test
+  public void seek_execute_sameWindowOnLiveStreamAtLiveEdge_setsIsSeekToInfiniteTrue() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(160_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 60_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder().setPosition(160_000L).setIsSeekToInfinite(true).build());
+  }
+
+  @Test
+  public void seek_execute_sameWindowOnLiveStreamBeyondLiveEdge_setsIsSeekToInfiniteTrue() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(160_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 70_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder().setPosition(170_000L).setIsSeekToInfinite(true).build());
+  }
+
+  @Test
+  public void seek_execute_sameWindowOnLiveStreamWithUnsetPosition_seeksToLiveEdgeWithInfinite() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(false)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(160_000L);
+    ItemUid uid = ItemUid.of("uid-0");
+    CastTimeline timeline =
+        new CastTimeline(
+            ImmutableList.of(uid),
+            ImmutableMap.of(
+                uid,
+                new ItemData(
+                    /* durationUs= */ 60_000_000L,
+                    /* defaultPositionUs= */ 60_000_000L,
+                    /* isLive= */ true,
+                    /* isSeekable= */ true,
+                    createMediaItem("live"),
+                    "https://example.com/live.m3u8")));
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ C.TIME_UNSET,
+            /* targetPeriodUid= */ uid,
+            /* isWindowChange= */ false);
+    QueueSnapshot unusedSnapshot =
+        seekOperation.createMaskedSnapshot(
+            new QueueSnapshot(timeline, /* currentWindowIndex= */ 0, /* maskedPositionMs= */ 0L),
+            timelineTracker);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder().setPosition(160_000L).setIsSeekToInfinite(true).build());
+  }
+
+  @Test
+  public void seek_execute_sameWindowOnEndedLiveStreamAtEnd_setsIsSeekToInfiniteFalse() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    MediaInfo liveMediaInfo =
+        new MediaInfo.Builder("https://example.com/live.m3u8")
+            .setContentType(MimeTypes.APPLICATION_M3U8)
+            .setStreamType(MediaInfo.STREAM_TYPE_LIVE)
+            .build();
+    MediaLiveSeekableRange seekableRange =
+        new MediaLiveSeekableRange.Builder()
+            .setStartTime(100_000L)
+            .setEndTime(160_000L)
+            .setIsMovingWindow(true)
+            .setIsLiveDone(true)
+            .build();
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(liveMediaInfo);
+    when(mockMediaStatus.getLiveSeekableRange()).thenReturn(seekableRange);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeStart()).thenReturn(100_000L);
+    when(mockRemoteMediaClient.getApproximateLiveSeekableRangeEnd()).thenReturn(160_000L);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ 60_000L,
+            /* targetPeriodUid= */ ItemUid.of("uid-0"),
+            /* isWindowChange= */ false);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder()
+                .setPosition(160_000L)
+                .setIsSeekToInfinite(false)
+                .build());
   }
 
   @Test
@@ -709,7 +1197,42 @@ public final class QueuedOperationTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation") // Verifies deprecated RemoteMediaClient.seek(long) call.
+  public void seek_execute_otherWindowWithUnsetPosition_passesPlayPositionUnassigned() {
+    RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
+    MediaQueue mockMediaQueue = mock(MediaQueue.class);
+    MediaStatus mockMediaStatus = mock(MediaStatus.class);
+    CastTimelineTracker.RegisteredMediaItems registeredItems =
+        timelineTracker.registerMediaItems(
+            ImmutableList.of(createMediaItem("live1"), createMediaItem("live2")));
+    MediaQueueItem queueItem1 =
+        new MediaQueueItem.Builder(registeredItems.queueItems[0].getMedia()).setItemId(10).build();
+    MediaQueueItem queueItem2 =
+        new MediaQueueItem.Builder(registeredItems.queueItems[1].getMedia()).setItemId(20).build();
+    when(mockRemoteMediaClient.getMediaQueue()).thenReturn(mockMediaQueue);
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {10, 20});
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
+    when(mockMediaStatus.getCurrentItemId()).thenReturn(10);
+    when(mockMediaStatus.getMediaInfo()).thenReturn(queueItem1.getMedia());
+    when(mockMediaStatus.getQueueItems()).thenReturn(ImmutableList.of(queueItem1, queueItem2));
+    CastTimeline unusedTimeline = timelineTracker.getCastTimeline(mockRemoteMediaClient);
+    SeekOperation seekOperation =
+        new SeekOperation(
+            /* positionMs= */ C.TIME_UNSET,
+            /* targetPeriodUid= */ registeredItems.itemUids.get(1),
+            /* isWindowChange= */ true);
+
+    PendingResult<MediaChannelResult> unused =
+        seekOperation.execute(
+            mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
+
+    verify(mockRemoteMediaClient)
+        .queueJumpToItem(
+            /* itemId= */ 20,
+            /* playPosition= */ MediaLoadRequestData.PLAY_POSITION_UNASSIGNED,
+            /* customData= */ null);
+  }
+
+  @Test
   public void seek_execute_sameWindowOnVodStream_doesNotAddLiveSeekableRangeStart() {
     RemoteMediaClient mockRemoteMediaClient = mock(RemoteMediaClient.class);
     MediaStatus mockMediaStatus = mock(MediaStatus.class);
@@ -731,7 +1254,9 @@ public final class QueuedOperationTest {
         seekOperation.execute(
             mockRemoteMediaClient, timelineTracker, new PlayerTransferState.Builder().build());
 
-    verify(mockRemoteMediaClient).seek(15_000L);
+    verify(mockRemoteMediaClient)
+        .seek(
+            new MediaSeekOptions.Builder().setPosition(15_000L).setIsSeekToInfinite(false).build());
   }
 
   private QueueSnapshot createSampleSnapshot(int currentWindowIndex, String... mediaIds) {

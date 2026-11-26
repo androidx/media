@@ -61,6 +61,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
 import androidx.media3.decoder.CryptoConfig;
+import androidx.media3.decoder.DecoderException;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
 import androidx.media3.exoplayer.BaseRenderer;
@@ -320,7 +321,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final boolean enableDecoderFallback;
   private final float assumedMinimumCodecOperatingRate;
   private final DecoderInputBuffer noDataBuffer;
-  private final DecoderInputBuffer buffer;
+  private final DecoderInputBuffer mediaCodecBuffer;
   private @Nullable DecoderInputBuffer bypassSampleBuffer;
   private @Nullable BatchBuffer bypassBatchBuffer;
   private final MediaCodec.BufferInfo outputBufferInfo;
@@ -328,11 +329,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private @Nullable OggOpusAudioPacketizer oggOpusAudioPacketizer;
   private final AtomicInteger readDataResultHolder;
 
+  private DecoderInputBuffer buffer;
   private @Nullable Format inputFormat;
   private @MonotonicNonNull Format outputFormat;
   private @Nullable DrmSession codecDrmSession;
   private @Nullable DrmSession sourceDrmSession;
-  private @MonotonicNonNull WakeupListener wakeupListener;
+  private volatile @MonotonicNonNull WakeupListener wakeupListener;
 
   /**
    * A framework {@link MediaCrypto} for use with {@link MediaCodec#queueSecureInputBuffer(int, int,
@@ -426,7 +428,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     this.assumedMinimumCodecOperatingRate = assumedMinimumCodecOperatingRate;
     readDataResultHolder = new AtomicInteger();
     noDataBuffer = DecoderInputBuffer.newNoDataInstance();
-    buffer = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
+    mediaCodecBuffer = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
+    buffer = mediaCodecBuffer;
     outputBufferInfo = new MediaCodec.BufferInfo();
     currentPlaybackSpeed = 1f;
     targetPlaybackSpeed = 1f;
@@ -770,6 +773,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (!sampleStreamIsResetToKeyFrame) {
       // onPositionReset is not resetting the sample stream and so codec-related state will not
       // be reset.
+      @Nullable ExtensionCodecAdapter extensionCodec = ExtensionCodecAdapter.maybeUnwrap(codec);
+      if (extensionCodec != null) {
+        extensionCodec.setOutputStartTimeUs(getLastResetPositionUs());
+      }
       return;
     }
     inputStreamEnded = false;
@@ -850,8 +857,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     bypassSampleBuffer = null;
     oggOpusAudioPacketizer = null;
     try {
+      @Nullable MediaCodecAdapter codec = this.codec;
       if (codec != null) {
-        codec.release();
+        try {
+          maybeHarvestSkippedOutputBuffers();
+        } finally {
+          codec.release();
+        }
         decoderCounters.decoderReleaseCount++;
         onCodecReleased(checkNotNull(codecInfo).name);
       }
@@ -959,7 +971,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       throw createRendererException(
           e, inputFormat, Util.getErrorCodeForMediaDrmErrorCode(e.getErrorCode()));
     } catch (IllegalStateException e) {
-      if (isMediaCodecException(e)) {
+      if (isMediaCodecException(e) || e.getCause() instanceof DecoderException) {
         onCodecError(e);
         boolean isRecoverable =
             (e instanceof CodecException) && ((CodecException) e).isRecoverable();
@@ -1042,12 +1054,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /**
    * Returns whether the codec should be flushed in cases such that the codec was not released.
    *
-   * <p>The default implementation returns whether buffers have been received by the codec.
+   * <p>The default implementation returns whether buffers have been received by the codec or the
+   * codec is an {@link ExtensionCodecAdapter}.
    *
    * @see #flushOrReleaseCodec
    */
   protected boolean shouldFlushCodec() {
-    return codecReceivedBuffers;
+    return codecReceivedBuffers || ExtensionCodecAdapter.maybeUnwrap(codec) != null;
   }
 
   /**
@@ -1066,7 +1079,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       Log.d(DEBUG_LOG_TAG, Util.getTrackTypeString(getTrackType()) + ", flush codec");
     }
     try {
-      checkNotNull(codec).flush();
+      MediaCodecAdapter codec = checkNotNull(this.codec);
+      maybeHarvestSkippedOutputBuffers();
+      codec.flush();
+      @Nullable ExtensionCodecAdapter extensionCodec = ExtensionCodecAdapter.maybeUnwrap(codec);
+      if (extensionCodec != null) {
+        extensionCodec.setOutputStartTimeUs(getLastResetPositionUs());
+      }
     } finally {
       resetCodecStateForFlush();
     }
@@ -1076,7 +1095,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private void resetCommonStateForFlush() {
     largestQueuedPresentationTimeUs = C.TIME_UNSET;
     largestQueuedPresentationTimeWithinDurationUs = C.TIME_UNSET;
-    getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
+    OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
+    lastOutputStreamInfo.lastBufferTimeUs = C.TIME_UNSET;
+    lastOutputStreamInfo.hasQueuedFirstSample = false;
     lastProcessedOutputBufferTimeUs = C.TIME_UNSET;
   }
 
@@ -1381,41 +1402,59 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   private void initCodec(MediaCodecInfo codecInfo, @Nullable MediaCrypto crypto) throws Exception {
     this.codecInfo = codecInfo;
-    Format inputFormat = checkNotNull(this.inputFormat);
-    long codecInitializingTimestamp;
-    long codecInitializedTimestamp;
+    Format codecInputFormat =
+        maybeStripInitializationDataForMediaCodec(checkNotNull(this.inputFormat), codecInfo);
     String codecName = codecInfo.name;
     float codecOperatingRate =
-        getCodecOperatingRateV23(targetPlaybackSpeed, inputFormat, getStreamFormats());
+        getCodecOperatingRateV23(targetPlaybackSpeed, codecInputFormat, getStreamFormats());
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
       codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     }
-    codecInitializingTimestamp = getClock().elapsedRealtime();
+    long codecInitializingTimestamp = getClock().elapsedRealtime();
     MediaCodecAdapter.Configuration configuration =
-        getMediaCodecConfiguration(codecInfo, inputFormat, crypto, codecOperatingRate);
+        getMediaCodecConfiguration(codecInfo, codecInputFormat, crypto, codecOperatingRate);
     if (SDK_INT >= 31) {
       Api31.setLogSessionIdToMediaCodecFormat(configuration, getPlayerId());
     }
     try {
       TraceUtil.beginSection("createCodec:" + codecName);
-      codec = codecAdapterFactory.createAdapter(configuration);
-      codecRegisteredOnBufferAvailableListener =
-          codec.registerOnBufferAvailableListener(new MediaCodecRendererCodecAdapterListener());
+      MediaCodecAdapter codec = codecAdapterFactory.createAdapter(configuration);
+      boolean initialized = false;
+      try {
+        @Nullable ExtensionCodecAdapter extensionCodec = ExtensionCodecAdapter.maybeUnwrap(codec);
+        if (codecInfo instanceof ExtensionCodecInfo && extensionCodec == null) {
+          throw new IllegalStateException(
+              "Adapter for ExtensionCodecInfo must be an ExtensionCodecAdapter (or wrapped only"
+                  + " with ForwardingMediaCodecAdapter): "
+                  + codec.getClass().getName());
+        }
+        if (extensionCodec != null) {
+          extensionCodec.setOutputStartTimeUs(getLastResetPositionUs());
+        }
+        codecRegisteredOnBufferAvailableListener =
+            codec.registerOnBufferAvailableListener(new MediaCodecRendererCodecAdapterListener());
+        this.codec = codec;
+        initialized = true;
+      } finally {
+        if (!initialized) {
+          codec.release();
+        }
+      }
     } finally {
       TraceUtil.endSection();
     }
-    codecInitializedTimestamp = getClock().elapsedRealtime();
+    long codecInitializedTimestamp = getClock().elapsedRealtime();
 
-    if (!codecInfo.isFormatSupported(context, inputFormat)) {
+    if (!codecInfo.isFormatSupported(context, codecInputFormat)) {
       Log.w(
           TAG,
           Util.formatInvariant(
               "Format exceeds selected codec's capabilities [%s, %s]",
-              Format.toLogString(inputFormat), codecName));
+              Format.toLogString(codecInputFormat), codecName));
     }
 
     this.codecOperatingRate = codecOperatingRate;
-    codecInputFormat = inputFormat;
+    this.codecInputFormat = codecInputFormat;
     codecNeedsAdaptationWorkaround = codecNeedsAdaptationWorkaround(codecName);
     codecNeedsSosFlushWorkaround = codecNeedsSosFlushWorkaround(codecName);
     codecNeedsEosPropagation = codecNeedsEosPropagationWorkaround(codecInfo);
@@ -1456,7 +1495,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   private void resetInputBuffer() {
     inputIndex = C.INDEX_UNSET;
-    buffer.data = null;
+    mediaCodecBuffer.data = null;
+    mediaCodecBuffer.format = null;
+    buffer = mediaCodecBuffer;
   }
 
   private void resetOutputBuffer() {
@@ -1488,12 +1529,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     MediaCodecAdapter codec = checkNotNull(this.codec);
+    @Nullable ExtensionCodecAdapter extensionCodec = ExtensionCodecAdapter.maybeUnwrap(codec);
     if (inputIndex < 0) {
       inputIndex = codec.dequeueInputBufferIndex();
       if (inputIndex < 0) {
         return false;
       }
-      buffer.data = codec.getInputBuffer(inputIndex);
+      if (extensionCodec != null) {
+        buffer = extensionCodec.getDequeuedInputBuffer();
+      } else {
+        buffer = mediaCodecBuffer;
+        buffer.data = codec.getInputBuffer(inputIndex);
+      }
       buffer.clear();
     }
 
@@ -1528,11 +1575,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (codecReconfigurationState == RECONFIGURATION_STATE_WRITE_PENDING) {
       for (int i = 0; i < checkNotNull(codecInputFormat).initializationData.size(); i++) {
         byte[] data = codecInputFormat.initializationData.get(i);
+        buffer.ensureSpaceForWrite(data.length);
         checkNotNull(buffer.data).put(data);
       }
       codecReconfigurationState = RECONFIGURATION_STATE_QUEUE_PENDING;
     }
-    int adaptiveReconfigurationBytes = checkNotNull(buffer.data).position();
+    int adaptiveReconfigurationBytes = buffer.data != null ? buffer.data.position() : 0;
 
     FormatHolder formatHolder = getFormatHolder();
     try {
@@ -1624,6 +1672,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             DEBUG_LOG_TAG,
             Util.getTrackTypeString(getTrackType()) + ", discard input, pts=" + presentationTimeUs);
       }
+      if (!hasReadStreamToEnd() && !buffer.isLastSample()) {
+        // The previous last sample isn't the last one anymore, for example because the read end
+        // time was extended.
+        getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
+      }
       return true;
     }
 
@@ -1634,7 +1687,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     if (waitingForFirstSampleInFormat) {
       OutputStreamInfo lastStreamInfo = getLastOutputStreamInfo();
-      lastStreamInfo.formatQueue.add(presentationTimeUs, checkNotNull(inputFormat));
+      lastStreamInfo.formatQueue.add(presentationTimeUs, checkNotNull(codecInputFormat));
       lastStreamInfo.queuedBufferAfterReset = true;
       waitingForFirstSampleInFormat = false;
     }
@@ -1651,19 +1704,33 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, presentationTimeUs);
+    OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
     long streamEndPositionUs = getStreamEndPositionUs();
     if (streamEndPositionUs == C.TIME_UNSET
-        || presentationTimeUs - getLastOutputStreamInfo().streamOffsetUs < streamEndPositionUs) {
+        || presentationTimeUs - lastOutputStreamInfo.streamOffsetUs < streamEndPositionUs) {
       largestQueuedPresentationTimeWithinDurationUs =
           max(largestQueuedPresentationTimeWithinDurationUs, presentationTimeUs);
     }
+    if (!lastOutputStreamInfo.hasQueuedFirstSample) {
+      lastOutputStreamInfo.hasQueuedFirstSample = true;
+      if (extensionCodec != null && presentationTimeUs == lastOutputStreamInfo.streamOffsetUs) {
+        buffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
+      }
+    }
     if (hasReadStreamToEnd() || buffer.isLastSample()) {
       // Notify output queue of the last buffer's timestamp.
-      getLastOutputStreamInfo().lastBufferTimeUs = getLargestValidQueuedPresentationTimeUs();
+      lastOutputStreamInfo.lastBufferTimeUs = getLargestValidQueuedPresentationTimeUs();
+      if (extensionCodec != null) {
+        buffer.addFlag(C.BUFFER_FLAG_LAST_SAMPLE);
+      }
+    } else {
+      // The previous last sample isn't the last one anymore, for example because the read end
+      // time was extended.
+      lastOutputStreamInfo.lastBufferTimeUs = C.TIME_UNSET;
     }
     buffer.flip();
+    buffer.format = codecInputFormat;
     if (buffer.hasSupplementalData()) {
-      buffer.format = inputFormat;
       handleInputBufferSupplementalData(buffer);
     }
 
@@ -1791,24 +1858,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
     }
 
-    // Remove the initialization data (CSD) when decoding AV1, VP9, E-AC-3, or E-AC-3 JOC, as
-    // it is not required by MediaCodec for these encodings, and some codec implementations fail
-    // if it's present.
-    // * https://developer.android.com/reference/android/media/MediaCodec#CSD
-    // * b/229399008#comment9
-    // * https://github.com/androidx/media/issues/2408
-    if ((Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_AV1)
-            || Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_VP9)
-            || Objects.equals(newFormat.sampleMimeType, MimeTypes.AUDIO_E_AC3)
-            || Objects.equals(newFormat.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)
-            || (Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
-                && Objects.equals(
-                    CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(newFormat),
-                    MimeTypes.VIDEO_AV1)))
-        && !newFormat.initializationData.isEmpty()) {
-      newFormat = newFormat.buildUpon().setInitializationData(null).build();
+    if (!Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)) {
+      newFormat = maybeStripInitializationDataForMediaCodec(newFormat, /* codecInfo= */ null);
     }
-
     setSourceDrmSession(formatHolder.drmSession);
     inputFormat = newFormat;
 
@@ -1831,14 +1883,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // member variables are updated during the logic below.
     MediaCodecAdapter codec = this.codec;
     MediaCodecInfo codecInfo = checkNotNull(this.codecInfo);
+    Format newCodecInputFormat = maybeStripInitializationDataForMediaCodec(newFormat, codecInfo);
 
     Format oldFormat = checkNotNull(codecInputFormat);
-    if (drmNeedsCodecReinitialization(codecInfo, newFormat, codecDrmSession, sourceDrmSession)) {
+    if (drmNeedsCodecReinitialization(
+        codecInfo, newCodecInputFormat, codecDrmSession, sourceDrmSession)) {
       drainAndReinitializeCodec();
       return new DecoderReuseEvaluation(
           codecInfo.name,
           oldFormat,
-          newFormat,
+          newCodecInputFormat,
           REUSE_RESULT_NO,
           DISCARD_REASON_DRM_SESSION_CHANGED);
     }
@@ -1848,7 +1902,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         canReuseCodec(
             codecInfo,
             oldFormat,
-            newFormat,
+            newCodecInputFormat,
             /* isAdaptiveFormatChange= */ getLastOutputStreamInfo().queuedBufferAfterReset);
     @DecoderDiscardReasons int overridingDiscardReasons = 0;
     switch (evaluation.result) {
@@ -1856,8 +1910,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         drainAndReinitializeCodec();
         break;
       case REUSE_RESULT_YES_WITH_FLUSH:
-        updateCodecOperatingRate(newFormat);
-        codecInputFormat = newFormat;
+        updateCodecOperatingRate(newCodecInputFormat);
+        codecInputFormat = newCodecInputFormat;
         if (drainAndUpdateCodecDrmSession) {
           if (!drainAndUpdateCodecDrmSession()) {
             overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
@@ -1867,18 +1921,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         }
         break;
       case REUSE_RESULT_YES_WITH_RECONFIGURATION:
-        updateCodecOperatingRate(newFormat);
+        updateCodecOperatingRate(newCodecInputFormat);
         codecReconfigured = true;
         codecReconfigurationState = RECONFIGURATION_STATE_WRITE_PENDING;
         codecNeedsAdaptationWorkaroundBuffer = codecNeedsAdaptationWorkaround;
-        codecInputFormat = newFormat;
+        codecInputFormat = newCodecInputFormat;
         if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSession()) {
           overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
         }
         break;
       case REUSE_RESULT_YES_WITHOUT_RECONFIGURATION:
-        updateCodecOperatingRate(newFormat);
-        codecInputFormat = newFormat;
+        updateCodecOperatingRate(newCodecInputFormat);
+        codecInputFormat = newCodecInputFormat;
         if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSession()) {
           overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
         }
@@ -1892,7 +1946,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // Initial evaluation indicated reuse was possible, but codec re-initialization was triggered.
       // The reasons are indicated by overridingDiscardReasons.
       return new DecoderReuseEvaluation(
-          codecInfo.name, oldFormat, newFormat, REUSE_RESULT_NO, overridingDiscardReasons);
+          codecInfo.name,
+          oldFormat,
+          newCodecInputFormat,
+          REUSE_RESULT_NO,
+          overridingDiscardReasons);
     }
 
     return evaluation;
@@ -2009,13 +2067,30 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   @CallSuper
   protected void onProcessedOutputBuffer(long presentationTimeUs) {
-    // Use max even though lastProcessedOutputBufferTimeUs should be increasing for tests because
-    // test codecs do not reorder samples.
-    lastProcessedOutputBufferTimeUs = max(presentationTimeUs, lastProcessedOutputBufferTimeUs);
-    while (!pendingOutputStreamChanges.isEmpty()
-        && presentationTimeUs >= pendingOutputStreamChanges.peek().previousStreamLastBufferTimeUs) {
-      setOutputStreamInfo(checkNotNull(pendingOutputStreamChanges.poll()));
-      onProcessedStreamChange();
+    onProcessedOutputBufferTimeUs(presentationTimeUs);
+  }
+
+  /**
+   * Called when output buffers are skipped by an {@link ExtensionCodecAdapter}.
+   *
+   * @param skippedBufferCount The number of skipped output buffers.
+   */
+  @CallSuper
+  protected void onSkippedOutputBuffers(int skippedBufferCount) {
+    decoderCounters.skippedOutputBufferCount += skippedBufferCount;
+  }
+
+  /**
+   * Harvests any output buffers skipped internally by an {@link ExtensionCodecAdapter} and forwards
+   * the count to {@link #onSkippedOutputBuffers(int)}.
+   */
+  protected final void maybeHarvestSkippedOutputBuffers() {
+    @Nullable ExtensionCodecAdapter extensionCodec = ExtensionCodecAdapter.maybeUnwrap(codec);
+    if (extensionCodec != null) {
+      int skippedCount = extensionCodec.getAndResetSkippedOutputBufferCount();
+      if (skippedCount > 0) {
+        onSkippedOutputBuffers(skippedCount);
+      }
     }
   }
 
@@ -2234,6 +2309,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     MediaCodecAdapter codec = checkNotNull(this.codec);
     if (!hasOutputBuffer()) {
       int outputIndex = codec.dequeueOutputBufferIndex(outputBufferInfo);
+      maybeHarvestSkippedOutputBuffers();
       if (outputIndex < 0) {
         if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED /* (-2) */) {
           processOutputMediaFormatChanged();
@@ -2266,6 +2342,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       } else if (outputBufferInfo.size == 0
           && (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
         // The dequeued buffer indicates the end of the stream. Process it immediately.
+        if (ExtensionCodecAdapter.maybeUnwrap(codec) != null
+            && largestQueuedPresentationTimeUs != C.TIME_UNSET) {
+          onProcessedOutputBufferTimeUs(largestQueuedPresentationTimeUs);
+        }
         processEndOfStream();
         return false;
       }
@@ -2279,6 +2359,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         outputBuffer.position(outputBufferInfo.offset);
         outputBuffer.limit(outputBufferInfo.offset + outputBufferInfo.size);
       }
+      maybeAdvancePendingOutputStreamChangesForExtensionCodec(outputBufferInfo.presentationTimeUs);
       updateOutputFormatForTime(outputBufferInfo.presentationTimeUs);
       if (DEBUG_LOG_ENABLED) {
         Log.d(
@@ -2350,6 +2431,28 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
     codecOutputMediaFormat = mediaFormat;
     codecOutputMediaFormatChanged = true;
+  }
+
+  private void maybeAdvancePendingOutputStreamChangesForExtensionCodec(long presentationTimeUs) {
+    if (ExtensionCodecAdapter.maybeUnwrap(codec) == null) {
+      return;
+    }
+    while (!pendingOutputStreamChanges.isEmpty()
+        && presentationTimeUs > pendingOutputStreamChanges.peek().previousStreamLastBufferTimeUs) {
+      onProcessedOutputBufferTimeUs(
+          pendingOutputStreamChanges.peek().previousStreamLastBufferTimeUs);
+    }
+  }
+
+  private void onProcessedOutputBufferTimeUs(long presentationTimeUs) {
+    // Use max even though lastProcessedOutputBufferTimeUs should be increasing for tests because
+    // test codecs do not reorder samples.
+    lastProcessedOutputBufferTimeUs = max(presentationTimeUs, lastProcessedOutputBufferTimeUs);
+    while (!pendingOutputStreamChanges.isEmpty()
+        && presentationTimeUs >= pendingOutputStreamChanges.peek().previousStreamLastBufferTimeUs) {
+      setOutputStreamInfo(checkNotNull(pendingOutputStreamChanges.poll()));
+      onProcessedStreamChange();
+    }
   }
 
   /**
@@ -2549,6 +2652,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return false;
     }
 
+    if (codecInfo instanceof ExtensionCodecInfo) {
+      return true;
+    }
+
     // Note: At least one of oldSession and newSession are non-null.
 
     if (newSession == null || oldSession == null) {
@@ -2745,10 +2852,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           if (hasReadStreamToEnd() || bypassSampleBuffer.isLastSample()) {
             // Notify output queue of the last buffer's timestamp.
             getLastOutputStreamInfo().lastBufferTimeUs = largestQueuedPresentationTimeUs;
+          } else {
+            // The previous last sample isn't the last one anymore, for example because the read
+            // end time was extended.
+            getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
           }
           if (waitingForFirstSampleInFormat) {
             // This is the first buffer in a new format, the output format must be updated.
-            outputFormat = checkNotNull(inputFormat);
+            outputFormat =
+                maybeStripInitializationDataForMediaCodec(
+                    checkNotNull(inputFormat), /* codecInfo= */ null);
             if (Objects.equals(outputFormat.sampleMimeType, MimeTypes.AUDIO_OPUS)
                 && !outputFormat.initializationData.isEmpty()) {
               // Format mimetype is Opus so format should be updated with preSkip data.
@@ -2908,6 +3021,31 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         || (Build.MANUFACTURER.equals("Amazon") && Build.MODEL.equals("AFTS") && codecInfo.secure);
   }
 
+  private static Format maybeStripInitializationDataForMediaCodec(
+      Format format, @Nullable MediaCodecInfo codecInfo) {
+    if (codecInfo instanceof ExtensionCodecInfo) {
+      return format;
+    }
+    // Remove the initialization data (CSD) when decoding AV1, VP9, E-AC-3, or E-AC-3 JOC with
+    // platform MediaCodec, as it is not required by MediaCodec for these encodings, and some codec
+    // implementations fail if it's present.
+    // * https://developer.android.com/reference/android/media/MediaCodec#CSD
+    // * b/229399008#comment9
+    // * https://github.com/androidx/media/issues/2408
+    if ((Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_AV1)
+            || Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_VP9)
+            || Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3)
+            || Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)
+            || (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+                && Objects.equals(
+                    CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(format),
+                    MimeTypes.VIDEO_AV1)))
+        && !format.initializationData.isEmpty()) {
+      return format.buildUpon().setInitializationData(null).build();
+    }
+    return format;
+  }
+
   private static final class OutputStreamInfo {
 
     private static final OutputStreamInfo UNSET =
@@ -2926,6 +3064,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     private long durationUs;
     private @SampleStream.Flags int streamFlags;
     private boolean queuedBufferAfterReset;
+    private boolean hasQueuedFirstSample;
     private long lastBufferTimeUs;
 
     private OutputStreamInfo(
@@ -2965,6 +3104,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       implements MediaCodecAdapter.OnBufferAvailableListener {
     @Override
     public void onInputBufferAvailable() {
+      @Nullable WakeupListener wakeupListener = MediaCodecRenderer.this.wakeupListener;
       if (wakeupListener != null) {
         wakeupListener.onWakeup();
       }
@@ -2972,6 +3112,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     @Override
     public void onOutputBufferAvailable() {
+      @Nullable WakeupListener wakeupListener = MediaCodecRenderer.this.wakeupListener;
       if (wakeupListener != null) {
         wakeupListener.onWakeup();
       }

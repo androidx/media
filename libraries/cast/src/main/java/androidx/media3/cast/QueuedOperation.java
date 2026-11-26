@@ -17,6 +17,7 @@ package androidx.media3.cast;
 
 import static androidx.media3.cast.CastTimeline.ItemData.UNKNOWN_CONTENT_ID;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -28,9 +29,11 @@ import androidx.media3.common.Player;
 import androidx.media3.common.PlayerTransferState;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
+import com.google.android.gms.cast.MediaLiveSeekableRange;
 import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
+import com.google.android.gms.cast.MediaSeekOptions;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
@@ -122,6 +125,14 @@ import org.jspecify.annotations.Nullable;
   }
 
   /**
+   * Returns the start position in milliseconds (or {@link C#TIME_UNSET} for the item's default
+   * position) to pass to {@link #executeLoad} when reloading the queue after it has ended.
+   */
+  public long getReloadStartPositionMs() {
+    return C.TIME_UNSET;
+  }
+
+  /**
    * Applies this operation's optimistic changes onto {@code snapshot} and returns the resulting
    * {@link QueueSnapshot}.
    */
@@ -158,19 +169,26 @@ import org.jspecify.annotations.Nullable;
       PlayerTransferState playerTransferState,
       int startIndex,
       long startPositionMs) {
+    // Pass PLAY_POSITION_UNASSIGNED for C.TIME_UNSET so the receiver starts at the item's natural
+    // default position (0 for VOD, or the live edge for live streams whose DVR window is not yet
+    // known in the local timeline).
+    long playPositionMs =
+        startPositionMs != C.TIME_UNSET
+            ? startPositionMs
+            : MediaLoadRequestData.PLAY_POSITION_UNASSIGNED;
     MediaQueueData mediaQueueData =
         new MediaQueueData.Builder()
             .setItems(Arrays.asList(queueItems))
             .setStartIndex(startIndex)
             .setRepeatMode(toCastRepeatMode(playerTransferState.getRepeatMode()))
-            .setStartTime(startPositionMs)
+            .setStartTime(playPositionMs)
             .build();
     MediaLoadRequestData loadRequestData =
         new MediaLoadRequestData.Builder()
             .setAutoplay(playerTransferState.getPlayWhenReady())
             .setMediaInfo(queueItems[startIndex].getMedia())
             .setQueueData(mediaQueueData)
-            .setCurrentTime(startPositionMs)
+            .setCurrentTime(playPositionMs)
             .setPlaybackRate(playerTransferState.getPlaybackParameters().speed)
             .build();
     return remoteMediaClient.load(loadRequestData);
@@ -317,12 +335,25 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
+    public long getReloadStartPositionMs() {
+      return startPositionMs;
+    }
+
+    @Override
     public QueueSnapshot createMaskedSnapshot(
         QueueSnapshot snapshot, CastTimelineTracker timelineTracker) {
       CastTimeline maskedTimeline =
           registerAndCreateMaskingTimeline(
               CastTimeline.EMPTY_CAST_TIMELINE, /* index= */ 0, timelineTracker);
-      return new QueueSnapshot(maskedTimeline, startIndex, startPositionMs);
+      long maskedPositionMs =
+          startPositionMs != C.TIME_UNSET
+              ? startPositionMs
+              : maskedTimeline.isEmpty()
+                  ? 0L
+                  : maskedTimeline
+                      .getWindow(startIndex, new Timeline.Window())
+                      .getDefaultPositionMs();
+      return new QueueSnapshot(maskedTimeline, startIndex, maskedPositionMs);
     }
 
     @Override
@@ -391,7 +422,11 @@ import org.jspecify.annotations.Nullable;
         int idx = newTimeline.getIndexOfPeriod(playingUid);
         newWindowIndex = idx != C.INDEX_UNSET ? idx : 0;
       }
-      return new QueueSnapshot(newTimeline, newWindowIndex, snapshot.maskedPositionMs);
+      long maskedPositionMs =
+          currentTimeline.isEmpty()
+              ? newTimeline.getWindow(0, window).getDefaultPositionMs()
+              : snapshot.maskedPositionMs;
+      return new QueueSnapshot(newTimeline, newWindowIndex, maskedPositionMs);
     }
 
     @Override
@@ -418,7 +453,7 @@ import org.jspecify.annotations.Nullable;
             queueItems,
             playerTransferState,
             /* startIndex= */ 0,
-            /* startPositionMs= */ 0);
+            /* startPositionMs= */ C.TIME_UNSET);
       }
       int insertBeforeItemId =
           insertBeforePeriodUid != null
@@ -659,10 +694,17 @@ import org.jspecify.annotations.Nullable;
     private final Object targetPeriodUid;
     private final boolean isWindowChange;
 
+    /**
+     * The target window's default position in milliseconds, populated by {@link
+     * #createMaskedSnapshot} before {@link #execute} is called.
+     */
+    private long resolvedDefaultPositionMs;
+
     public SeekOperation(long positionMs, Object targetPeriodUid, boolean isWindowChange) {
       this.positionMs = positionMs;
       this.targetPeriodUid = targetPeriodUid;
       this.isWindowChange = isWindowChange;
+      this.resolvedDefaultPositionMs = 0L;
     }
 
     @Override
@@ -672,19 +714,29 @@ import org.jspecify.annotations.Nullable;
 
     @Override
     public boolean shouldReloadOnQueueEnd(QueueSnapshot baseSnapshot) {
-      return true;
+      return baseSnapshot.timeline.getIndexOfPeriod(targetPeriodUid) != C.INDEX_UNSET;
+    }
+
+    @Override
+    public long getReloadStartPositionMs() {
+      return positionMs;
     }
 
     @Override
     public QueueSnapshot createMaskedSnapshot(
         QueueSnapshot snapshot, CastTimelineTracker timelineTracker) {
+      resolvedDefaultPositionMs = 0L;
       CastTimeline timeline = snapshot.timeline;
       if (timeline.isEmpty()) {
-        return new QueueSnapshot(timeline, /* currentWindowIndex= */ 0, positionMs);
+        return new QueueSnapshot(
+            timeline, /* currentWindowIndex= */ 0, positionMs != C.TIME_UNSET ? positionMs : 0L);
       }
       int resolvedIndex = timeline.getIndexOfPeriod(targetPeriodUid);
       if (resolvedIndex != C.INDEX_UNSET) {
-        return new QueueSnapshot(timeline, resolvedIndex, positionMs);
+        resolvedDefaultPositionMs =
+            timeline.getWindow(resolvedIndex, new Timeline.Window()).getDefaultPositionMs();
+        long maskedPositionMs = positionMs != C.TIME_UNSET ? positionMs : resolvedDefaultPositionMs;
+        return new QueueSnapshot(timeline, resolvedIndex, maskedPositionMs);
       }
       int fallbackIndex = min(snapshot.currentWindowIndex, timeline.getWindowCount() - 1);
       return new QueueSnapshot(timeline, fallbackIndex, C.TIME_UNSET);
@@ -709,15 +761,41 @@ import org.jspecify.annotations.Nullable;
         PlayerTransferState playerTransferState) {
       if (isWindowChange) {
         int receiverItemId = timelineTracker.getReceiverItemId(targetPeriodUid);
+        // Pass PLAY_POSITION_UNASSIGNED for C.TIME_UNSET so the receiver starts at the item's
+        // natural default position (0 for VOD, or the live edge for live streams whose DVR window
+        // is not yet known in the local timeline).
+        long playPositionMs =
+            positionMs != C.TIME_UNSET ? positionMs : MediaLoadRequestData.PLAY_POSITION_UNASSIGNED;
         return remoteMediaClient.queueJumpToItem(
-            receiverItemId, positionMs, /* customData= */ null);
+            receiverItemId, playPositionMs, /* customData= */ null);
       }
+      long windowPositionMs = positionMs != C.TIME_UNSET ? positionMs : resolvedDefaultPositionMs;
       long liveSeekableRangeStartMs = CastUtils.getLiveSeekableRangeStartMs(remoteMediaClient);
-      long seekPositionMs =
-          liveSeekableRangeStartMs != C.TIME_UNSET
-              ? positionMs + liveSeekableRangeStartMs
-              : positionMs;
-      return remoteMediaClient.seek(seekPositionMs);
+      long seekPositionMs;
+      boolean isSeekToInfinite = false;
+      if (liveSeekableRangeStartMs != C.TIME_UNSET) {
+        MediaLiveSeekableRange liveSeekableRange =
+            checkNotNull(remoteMediaClient.getMediaStatus()).getLiveSeekableRange();
+        checkNotNull(liveSeekableRange);
+        // For active seekable live streams, resolvedDefaultPositionMs is the window duration
+        // (endTime - startTime), so adding liveSeekableRangeStartMs targets the live edge; for
+        // finished static live streams, resolvedDefaultPositionMs is 0, targeting
+        // liveSeekableRangeStartMs.
+        seekPositionMs = liveSeekableRangeStartMs + windowPositionMs;
+        // Request seek-to-infinite when seeking to the default position or at/beyond the live edge
+        // of an ongoing live stream so the receiver snaps to the live edge.
+        isSeekToInfinite =
+            !liveSeekableRange.isLiveDone()
+                && (positionMs == C.TIME_UNSET
+                    || seekPositionMs >= remoteMediaClient.getApproximateLiveSeekableRangeEnd());
+      } else {
+        seekPositionMs = windowPositionMs;
+      }
+      return remoteMediaClient.seek(
+          new MediaSeekOptions.Builder()
+              .setPosition(seekPositionMs)
+              .setIsSeekToInfinite(isSeekToInfinite)
+              .build());
     }
   }
 }

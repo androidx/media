@@ -8,8 +8,15 @@
         scheduling work and CPU wake-cycles to when `CuesWithTiming` subtitle
         cues change or can be read. You can enable this using
         `Flags.enableFlag(Flags.FLAG_TEXT_RENDERER_DURATION_TO_PROGRESS)`.
+    *   Fix an issue where the playback thread stops responding when an
+        `ExternallyLoadedMediaSource` (for example an image loaded via
+        `ExternalLoader`) is combined with other sources in a
+        `MergingMediaSource` while the external load is pending or has failed.
 *   CompositionPlayer:
 *   Transformer:
+    *   Fix `IllegalArgumentException` in `EncoderUtil.getSupportedResolution`
+        when clamping an unsupported width to a device encoder's supported range
+        produces an unaligned width.
     *   Run all export work, including `AssetLoader.Factory.createAssetLoader`
         calls and creating the output, on an internal thread instead of the
         application thread. `Transformer.Listener` callbacks are still called on
@@ -18,6 +25,19 @@
         from `Transformer.start`.
 *   Track Selection:
 *   Extractors:
+    *   MP4: Fix crash when seeking `Mp4Extractor` to the start of a file with
+        auxiliary tracks (`Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS`).
+    *   MP3: Add `Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION` to
+        disable assuming a constant bitrate for streams without explicit seeking
+        or bitrate metadata, allowing fallback to `FLAG_ENABLE_INDEX_SEEKING`
+        for variable-bitrate MP3s lacking a VBR header
+        ([#3492](https://github.com/androidx/media/issues/3492)).
+    *   MP3: Use valid ID3 `TLEN` frames as the initial duration when
+        `FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION` or
+        `FLAG_ENABLE_INDEX_SEEKING` is used without seek-frame duration
+        metadata, and ignore malformed non-integer or non-positive `TLEN` values
+        instead of throwing `NumberFormatException`
+        ([#3492](https://github.com/androidx/media/issues/3492)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
@@ -31,6 +51,10 @@
         offload support should explicitly check for the
         `AUDIO_OFFLOAD_ENCODED_SUPPORTED` bit flag rather than
         `!= AUDIO_OFFLOAD_NOT_SUPPORTED`.
+    *   Fix integer overflow in `SonicAudioProcessor` pitch detection that could
+        cause audible fluttering when time-stretching or pitch-shifting loud
+        16-bit PCM audio
+        ([#3565](https://github.com/androidx/media/issues/3565)).
 *   Video:
 *   Text:
 *   Metadata:
@@ -67,6 +91,16 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   `media3-ui-compose`, `media3-ui-compose-material3` and `media3-cast` now
+        require compile SDK 37.1 or later, due to a dependency on the
+        `2026.11.01` Compose BOM (Compose 1.13.0 and Material3 1.5.0). Compose
+        ships Java 11 bytecode since version 1.12, so app Kotlin code that calls
+        inline Compose APIs, such as `remember`, needs a JVM target of 11 or
+        higher.
+    *   Fix an issue where the default content descriptions of `SeekBackButton`
+        and `SeekForwardButton` in `media3-ui-compose-material3` contained a
+        literal `%d` instead of the seek amount
+        ([#3577](https://github.com/androidx/media/issues/3577)).
 *   Downloads:
 *   Ktor extension:
 *   OkHttp extension:
@@ -77,6 +111,10 @@
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   AV1 extension: Fix a native memory leak of one decoded frame each time
+        `Libdav1dVideoRenderer` releases its decoder in surface output mode.
+    *   AV1: Fix missing frames at the end of stream and improve multi-threaded
+        decoding throughput in `Libdav1dVideoRenderer` when `maxFrameDelay > 1`.
 *   MIDI extension:
     *   Move Sonivox wavetable data from `assets/` to `res/raw/` so that Android
         resource shrinking strips the wavetable resource when MIDI playback is
@@ -111,6 +149,10 @@
         Use
         `VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION`
         instead.
+    *   Remove `HttpDataSourceTestEnv.getNonexistentUrl()`. Use
+        `HttpDataSourceTestEnv.getNotFoundResources()` instead.
+    *   Remove `LoadControl.onPrepared()`. Use
+        `LoadControl.onPrepared(PlayerId)` instead.
     *   Remove
         `MediaSourceEventListener.EventDispatcher.loadStarted(LoadEventInfo,
         MediaLoadData)`. Use
@@ -121,8 +163,20 @@
     *   Remove `RawResourceDataSource.RawResourceDataSourceException(String)`.
         Use `RawResourceDataSource.RawResourceDataSourceException(String,
         Throwable, int)` instead.
+    *   Remove
+        `SinglePeriodTimeline(long, boolean, boolean, boolean, Object, Object)`.
+        Use `SinglePeriodTimeline(long, boolean, boolean, boolean, Object,
+        MediaItem)` instead.
+    *   Remove `TsExtractor(int)`. Use `TsExtractor(int, int,
+        SubtitleParser.Factory, TimestampAdjuster, TsPayloadReader.Factory,
+        int)` instead.
     *   Remove `UnrecognizedInputFormatException(String, Uri)`. Use
         `UnrecognizedInputFormatException(String, Uri, List)` instead.
+*   Build:
+    *   Compile all libraries with Java 11 source and target compatibility, in
+        line with other AndroidX libraries. The libraries now contain Java 11
+        bytecode (class file version 55)
+        ([#1891](https://github.com/androidx/media/issues/1891)).
 
 ## 1.12
 

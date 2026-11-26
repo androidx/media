@@ -33,6 +33,7 @@ import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -51,6 +52,7 @@ import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -101,7 +103,7 @@ import org.jspecify.annotations.Nullable;
   private final Composition composition;
   private final int sequenceIndex;
   private final Consumer<AsyncFrame> frameConsumer;
-  private final int defaultSurfacePixelFormat;
+  private final int surfacePixelFormat;
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
@@ -137,49 +139,31 @@ import org.jspecify.annotations.Nullable;
   @GuardedBy("this")
   private int framesInUse;
 
-  /**
-   * Creates an instance.
-   *
-   * @param composition The {@link Composition} for which this reader produces frames.
-   * @param sequenceIndex The index of the {@link EditedMediaItemSequence} in the composition.
-   * @param frameConsumer The downstream consumer of frames.
-   * @param playbackLooper The looper associated with the playback thread.
-   * @param defaultSurfacePixelFormat The default pixel format used by the {@linkplain InputSurface
-   *     input surfaces}. Some producers override this format, but the behavior is device-specific.
-   * @param imageReaderAdapterFactory The {@link ImageReaderAdapter.Factory} used to create the
-   *     internal {@link ImageReaderAdapter} instances.
-   * @param listener The listener.
-   * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
-   * @param hardwareBufferJniWrapper A {@link HardwareBufferJniWrapper} used to convert software
-   *     bitmaps to hardware buffers.
-   */
-  /* package */ SequenceFrameReader(
-      Composition composition,
-      int sequenceIndex,
-      Consumer<AsyncFrame> frameConsumer,
-      Looper playbackLooper,
-      int defaultSurfacePixelFormat,
-      ImageReaderAdapter.Factory imageReaderAdapterFactory,
-      Listener listener,
-      HandlerWrapper listenerHandler,
-      HardwareBufferJniWrapper hardwareBufferJniWrapper) {
-    this.composition = composition;
-    this.sequenceIndex = sequenceIndex;
-    this.frameConsumer = frameConsumer;
-    this.defaultSurfacePixelFormat = defaultSurfacePixelFormat;
-    this.imageReaderAdapterFactory = imageReaderAdapterFactory;
-    this.listener = listener;
-    this.listenerHandler = listenerHandler;
-    playbackHandler = new Handler(playbackLooper);
+  private SequenceFrameReader(Builder builder) {
+    checkState(builder.sequenceIndex >= 0);
+    this.composition = checkNotNull(builder.composition);
+    this.sequenceIndex = builder.sequenceIndex;
+    this.frameConsumer = checkNotNull(builder.frameConsumer);
+    this.imageReaderAdapterFactory = checkNotNull(builder.imageReaderAdapterFactory);
+    this.listener = checkNotNull(builder.listener);
+    this.listenerHandler = checkNotNull(builder.listenerHandler);
+    playbackHandler = new Handler(checkNotNull(builder.playbackLooper));
     playbackExecutor =
         new HandlerExecutor(playbackHandler, e -> listenerHandler.post(() -> listener.onError(e)));
     rendererWakeupListenerList = new ArrayList<>();
     pendingFrameInfo = new ArrayDeque<>();
     inputSurfaces = new ArrayList<>();
+    HardwareBufferJniWrapper hardwareBufferJniWrapper =
+        checkNotNull(builder.hardwareBufferJniWrapper);
     frameReaderImpl =
         SDK_INT >= 28
             ? new HardwareBufferFrameReaderImpl(hardwareBufferJniWrapper)
             : new ImagePlanesFrameReaderImpl();
+    surfacePixelFormat =
+        builder.surfacePixelFormat != Format.NO_VALUE
+            ? builder.surfacePixelFormat
+            : frameReaderImpl.getSurfacePixelFormat();
+    checkState(SDK_INT >= 28 || surfacePixelFormat == ImageFormat.YUV_420_888);
   }
 
   /**
@@ -239,9 +223,11 @@ import org.jspecify.annotations.Nullable;
       if (framesInUse >= CAPACITY) {
         return;
       }
+      @Nullable InputSurface imageInputSurface = null;
       @Nullable ImageAdapter image = null;
       for (int i = 0; i < inputSurfaces.size(); i++) {
-        image = inputSurfaces.get(i).imageReader.acquireNextImage();
+        imageInputSurface = inputSurfaces.get(i);
+        image = imageInputSurface.acquireNextImage();
         if (image != null) {
           break;
         }
@@ -249,20 +235,25 @@ import org.jspecify.annotations.Nullable;
       if (image == null) {
         return;
       }
-      try {
-        // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
-        // CAPACITY images are queued.
-        framesInUse++;
-        @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
-        // If the SequenceFrameReader is flushed after queueFrameViaSurface is called, but before
-        // onImageAvailable, then when onImageAvailable is called there will be no matching
-        // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
-        // this scenario.
-        if (frameInfo == null) {
+      InputSurface inputSurface = checkNotNull(imageInputSurface);
+      // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
+      // CAPACITY images are queued.
+      framesInUse++;
+      @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
+      // If the SequenceFrameReader is flushed after queueFrameViaSurface is called, but before
+      // onImageAvailable, then when onImageAvailable is called there will be no matching
+      // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
+      // this scenario.
+      if (frameInfo == null) {
+        framesInUse--;
+        try {
           image.close();
-          framesInUse--;
-          return;
+        } finally {
+          inputSurface.onImageClosed();
         }
+        return;
+      }
+      try {
         long itemPresentationTimeUs = frameInfo.itemPresentationTimeUs;
         long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
         int indexOfItem = frameInfo.itemIndex;
@@ -275,18 +266,23 @@ import org.jspecify.annotations.Nullable;
         frameConsumer.accept(
             frameReaderImpl.createAsyncFrameFromImage(
                 image,
+                inputSurface,
                 itemPresentationTimeUs,
                 sequenceOffsetUs,
                 indexOfItem,
                 frameInfo.format,
                 frameInfo.additionalMetadata));
-        maybeOutputPendingBitmaps();
-        maybeWakeupVideoRenderer();
       } catch (RuntimeException e) {
-        image.close();
         framesInUse--;
+        try {
+          image.close();
+        } finally {
+          inputSurface.onImageClosed();
+        }
         throw e;
       }
+      maybeOutputPendingBitmaps();
+      maybeWakeupVideoRenderer();
     }
   }
 
@@ -333,15 +329,19 @@ import org.jspecify.annotations.Nullable;
 
   /** Releases any resources. */
   void release() {
+    ImmutableList<InputSurface> inputSurfacesToRelease;
+    @Nullable BitmapToFrameConverter<?> converterToClose;
     synchronized (this) {
-      ImmutableList<InputSurface> inputSurfacesToRelease = ImmutableList.copyOf(inputSurfaces);
-      for (int i = 0; i < inputSurfacesToRelease.size(); i++) {
-        inputSurfacesToRelease.get(i).release();
-      }
-      if (bitmapToFrameConverter != null) {
-        bitmapToFrameConverter.close();
-        bitmapToFrameConverter = null;
-      }
+      inputSurfacesToRelease = ImmutableList.copyOf(inputSurfaces);
+      inputSurfaces.clear();
+      converterToClose = bitmapToFrameConverter;
+      bitmapToFrameConverter = null;
+    }
+    for (int i = 0; i < inputSurfacesToRelease.size(); i++) {
+      inputSurfacesToRelease.get(i).release();
+    }
+    if (converterToClose != null) {
+      converterToClose.close();
     }
   }
 
@@ -424,8 +424,7 @@ import org.jspecify.annotations.Nullable;
                 createFrameMetadata(
                     presentationTimeUs, itemIndex, /* additionalMetadata= */ ImmutableMap.of()),
                 playbackExecutor,
-                /* onFrameReleased= */ releaseFence ->
-                    releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence));
+                /* onFrameReleased= */ this::releaseFrame);
     return new AsyncFrame(frame, /* acquireFence= */ null);
   }
 
@@ -455,10 +454,54 @@ import org.jspecify.annotations.Nullable;
         .buildOrThrow();
   }
 
+  private void releaseFrame(@Nullable SyncFenceWrapper releaseFence) {
+    awaitAndCloseReleaseFence(releaseFence);
+    synchronized (this) {
+      framesInUse--;
+    }
+    maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
   private void releaseFrame(
-      @Nullable ImageAdapter image,
-      @Nullable HardwareBuffer hardwareBuffer,
-      @Nullable SyncFenceWrapper releaseFence) {
+      @Nullable SyncFenceWrapper releaseFence, ImageAdapter image, InputSurface inputSurface) {
+    awaitAndCloseReleaseFence(releaseFence);
+    try {
+      synchronized (this) {
+        framesInUse--;
+        image.close();
+      }
+    } finally {
+      inputSurface.onImageClosed();
+    }
+    maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
+  @RequiresApi(28)
+  private void releaseFrame(
+      @Nullable SyncFenceWrapper releaseFence,
+      ImageAdapter image,
+      InputSurface inputSurface,
+      HardwareBuffer hardwareBuffer) {
+    awaitAndCloseReleaseFence(releaseFence);
+    try {
+      synchronized (this) {
+        framesInUse--;
+        try {
+          hardwareBuffer.close();
+        } finally {
+          image.close();
+        }
+      }
+    } finally {
+      inputSurface.onImageClosed();
+    }
+    maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
+  private static void awaitAndCloseReleaseFence(@Nullable SyncFenceWrapper releaseFence) {
     if (releaseFence != null) {
       // TODO: b/475744934 - Use the NDK to set the fence on the Image.
       if (!releaseFence.awaitMs(RELEASE_TIMEOUT_MS)) {
@@ -466,17 +509,6 @@ import org.jspecify.annotations.Nullable;
       }
       releaseFence.close();
     }
-    synchronized (this) {
-      framesInUse--;
-      if (SDK_INT >= 26 && hardwareBuffer != null) {
-        hardwareBuffer.close();
-      }
-      if (image != null) {
-        image.close();
-      }
-    }
-    maybeOutputPendingBitmaps();
-    maybeWakeupVideoRenderer();
   }
 
   private void maybeWakeupVideoRenderer() {
@@ -492,10 +524,123 @@ import org.jspecify.annotations.Nullable;
     return ColorInfo.SRGB_BT709_FULL;
   }
 
+  /** A builder for {@link SequenceFrameReader} instances. */
+  /* package */ static final class Builder {
+
+    private @MonotonicNonNull Composition composition;
+    private int sequenceIndex;
+    private @MonotonicNonNull Consumer<AsyncFrame> frameConsumer;
+    private @MonotonicNonNull Looper playbackLooper;
+    private @MonotonicNonNull Listener listener;
+    private @MonotonicNonNull HandlerWrapper listenerHandler;
+    private @MonotonicNonNull HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private ImageReaderAdapter.@MonotonicNonNull Factory imageReaderAdapterFactory;
+    private int surfacePixelFormat;
+
+    /** Creates a builder. */
+    /* package */ Builder() {
+      sequenceIndex = C.INDEX_UNSET;
+      surfacePixelFormat = Format.NO_VALUE;
+    }
+
+    /** Sets the {@link Composition} for which this reader produces frames. */
+    @CanIgnoreReturnValue
+    public Builder setComposition(Composition composition) {
+      this.composition = composition;
+      return this;
+    }
+
+    /** Sets the index of the {@link EditedMediaItemSequence} in the composition. */
+    @CanIgnoreReturnValue
+    public Builder setSequenceIndex(int sequenceIndex) {
+      this.sequenceIndex = sequenceIndex;
+      return this;
+    }
+
+    /** Sets the downstream {@link Consumer} of frames. */
+    @CanIgnoreReturnValue
+    public Builder setFrameConsumer(Consumer<AsyncFrame> frameConsumer) {
+      this.frameConsumer = frameConsumer;
+      return this;
+    }
+
+    /** Sets the {@link Looper} associated with the playback thread. */
+    @CanIgnoreReturnValue
+    public Builder setPlaybackLooper(Looper playbackLooper) {
+      this.playbackLooper = playbackLooper;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Listener} and the {@link HandlerWrapper} on which its callbacks are
+     * dispatched.
+     */
+    @CanIgnoreReturnValue
+    public Builder setListener(Listener listener, HandlerWrapper listenerHandler) {
+      this.listener = listener;
+      this.listenerHandler = listenerHandler;
+      return this;
+    }
+
+    /**
+     * Sets the {@link HardwareBufferJniWrapper} used to convert software bitmaps to hardware
+     * buffers.
+     */
+    @CanIgnoreReturnValue
+    public Builder setHardwareBufferJniWrapper(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ImageReaderAdapter.Factory} used to create internal {@link
+     * ImageReaderAdapter} instances.
+     */
+    @CanIgnoreReturnValue
+    public Builder setImageReaderAdapterFactory(
+        ImageReaderAdapter.Factory imageReaderAdapterFactory) {
+      this.imageReaderAdapterFactory = imageReaderAdapterFactory;
+      return this;
+    }
+
+    /**
+     * Sets the pixel format used by the {@linkplain InputSurface input surfaces}.
+     *
+     * <p>The default is {@link ImageFormat#PRIVATE} on API 28+ and {@link ImageFormat#YUV_420_888}
+     * below API 28.
+     *
+     * <p>Below API 28, only {@link ImageFormat#YUV_420_888} is supported. Some producers override
+     * this format, but the behavior is device-specific.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    public Builder setSurfacePixelFormat(int surfacePixelFormat) {
+      this.surfacePixelFormat = surfacePixelFormat;
+      return this;
+    }
+
+    /**
+     * Builds a {@link SequenceFrameReader} instance.
+     *
+     * <p>{@link #setComposition}, {@link #setSequenceIndex}, {@link #setFrameConsumer}, {@link
+     * #setPlaybackLooper}, {@link #setListener}, {@link #setHardwareBufferJniWrapper}, and {@link
+     * #setImageReaderAdapterFactory} must be called before building.
+     */
+    public SequenceFrameReader build() {
+      return new SequenceFrameReader(this);
+    }
+  }
+
   /** A {@link Surface} that a single producer, such as a decoder, renders frames into. */
   /* package */ final class InputSurface {
     private final ImageReaderAdapter imageReader;
-    private @Nullable Surface surface;
+    private final Surface surface;
+
+    @GuardedBy("SequenceFrameReader.this")
+    private int acquiredImageCount;
+
+    @GuardedBy("SequenceFrameReader.this")
+    private boolean isReleased;
 
     private InputSurface() {
       // The width and height are sensible defaults for tests and are typically ignored when
@@ -504,7 +649,7 @@ import org.jspecify.annotations.Nullable;
           imageReaderAdapterFactory.create(
               /* width= */ 640,
               /* height= */ 360,
-              defaultSurfacePixelFormat,
+              surfacePixelFormat,
               /* maxImages= */ CAPACITY,
               frameReaderImpl.getSurfaceUsageFlags());
       imageReader.setOnImageAvailableListener(
@@ -516,13 +661,11 @@ import org.jspecify.annotations.Nullable;
             }
           },
           playbackHandler);
+      surface = imageReader.getSurface();
     }
 
     /** Returns the {@link Surface} to render frames into. */
     Surface getSurface() {
-      if (surface == null) {
-        surface = imageReader.getSurface();
-      }
       return surface;
     }
 
@@ -576,20 +719,55 @@ import org.jspecify.annotations.Nullable;
       imageReader.notifyFrameQueued(presentationTimeUs);
     }
 
-    /** Releases this input surface. */
-    void release() {
+    /** Acquires the next available image from this input surface, if any. */
+    @Nullable ImageAdapter acquireNextImage() {
       synchronized (SequenceFrameReader.this) {
+        @Nullable ImageAdapter image = imageReader.acquireNextImage();
+        if (image != null) {
+          acquiredImageCount++;
+        }
+        return image;
+      }
+    }
+
+    /** Notifies this input surface that a previously acquired image has been closed. */
+    void onImageClosed() {
+      boolean shouldCloseImageReader;
+      synchronized (SequenceFrameReader.this) {
+        checkState(acquiredImageCount > 0);
+        acquiredImageCount--;
+        shouldCloseImageReader = isReleased && acquiredImageCount == 0;
+      }
+      if (shouldCloseImageReader) {
+        imageReader.close();
+      }
+    }
+
+    /**
+     * Releases this input surface, closing its image reader once all acquired images are closed.
+     */
+    void release() {
+      boolean shouldCloseImageReader;
+      synchronized (SequenceFrameReader.this) {
+        if (isReleased) {
+          return;
+        }
+        isReleased = true;
         inputSurfaces.remove(this);
+        shouldCloseImageReader = acquiredImageCount == 0;
       }
-      if (surface != null) {
-        surface.release();
+      surface.release();
+      if (shouldCloseImageReader) {
+        imageReader.close();
       }
-      imageReader.close();
     }
   }
 
   /** Frame-type-specific implementation of {@link SequenceFrameReader} operations. */
   private interface FrameReaderImpl {
+    /** Returns the pixel format for {@linkplain InputSurface input surfaces}. */
+    int getSurfacePixelFormat();
+
     /** Returns the {@link HardwareBuffer} usage flags for {@link ImageReaderAdapter} creation. */
     default long getSurfaceUsageFlags() {
       return 0;
@@ -606,6 +784,7 @@ import org.jspecify.annotations.Nullable;
     /** Creates an {@link AsyncFrame} from an acquired {@link ImageAdapter}. */
     AsyncFrame createAsyncFrameFromImage(
         ImageAdapter image,
+        InputSurface inputSurface,
         long presentationTimeUs,
         long sequenceOffsetUs,
         int indexOfItem,
@@ -627,6 +806,11 @@ import org.jspecify.annotations.Nullable;
     }
 
     @Override
+    public int getSurfacePixelFormat() {
+      return ImageFormat.PRIVATE;
+    }
+
+    @Override
     public long getSurfaceUsageFlags() {
       return SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0;
     }
@@ -642,6 +826,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public AsyncFrame createAsyncFrameFromImage(
         ImageAdapter image,
+        InputSurface inputSurface,
         long presentationTimeUs,
         long sequenceOffsetUs,
         int indexOfItem,
@@ -656,7 +841,7 @@ import org.jspecify.annotations.Nullable;
                   hardwareBuffer,
                   playbackExecutor,
                   /* releaseCallback= */ releaseFence ->
-                      releaseFrame(image, hardwareBuffer, releaseFence))
+                      releaseFrame(releaseFence, image, inputSurface, hardwareBuffer))
               .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
               .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
               .setFormat(resolveFrameFormat(format))
@@ -680,6 +865,11 @@ import org.jspecify.annotations.Nullable;
   private final class ImagePlanesFrameReaderImpl implements FrameReaderImpl {
 
     @Override
+    public int getSurfacePixelFormat() {
+      return ImageFormat.YUV_420_888;
+    }
+
+    @Override
     public Format decorateSurfaceFrameFormat(Format format) {
       return format.buildUpon().setPixelFormat(ImageFormat.YUV_420_888).build();
     }
@@ -694,6 +884,7 @@ import org.jspecify.annotations.Nullable;
     @Override
     public AsyncFrame createAsyncFrameFromImage(
         ImageAdapter image,
+        InputSurface inputSurface,
         long presentationTimeUs,
         long sequenceOffsetUs,
         int indexOfItem,
@@ -705,7 +896,7 @@ import org.jspecify.annotations.Nullable;
                   resolveFrameFormat(format),
                   playbackExecutor,
                   /* releaseCallback= */ releaseFence ->
-                      releaseFrame(image, /* hardwareBuffer= */ null, releaseFence))
+                      releaseFrame(releaseFence, image, inputSurface))
               .setContentTimeUs(presentationTimeUs + sequenceOffsetUs)
               .setMetadata(createFrameMetadata(presentationTimeUs, indexOfItem, additionalMetadata))
               .setInternalImage(image.getInternalImage())

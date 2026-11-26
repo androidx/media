@@ -23,7 +23,9 @@ import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.ImageFormat;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.os.Build;
@@ -201,6 +203,14 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
         logSessionId);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>{@link Format#pixelFormat} is normally {@link Format#NO_VALUE} for encoded video; if the
+   * caller sets it to {@link ImageFormat#YUV_420_888} (for example, when {@code outputSurface} is a
+   * {@link ImageFormat#YUV_420_888} {@link android.media.ImageReader} surface), this method
+   * configures the decoder with {@link CodecCapabilities#COLOR_FormatYUV420Flexible}.
+   */
   @SuppressLint("InlinedApi")
   @Override
   public DefaultCodec createForVideoDecoding(
@@ -239,6 +249,13 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     }
 
     MediaFormat mediaFormat = createMediaFormatFromFormat(format);
+    if (format.pixelFormat == ImageFormat.YUV_420_888) {
+      // Default COLOR_FormatSurface should match outputSurface, but some decoders still output
+      // tiled layouts to a YUV_420_888 ImageReader and crash Image.getPlanes(). Only set when
+      // targeting YUV_420_888, as it slows down decoding to opaque surfaces.
+      mediaFormat.setInteger(
+          MediaFormat.KEY_COLOR_FORMAT, CodecCapabilities.COLOR_FormatYUV420Flexible);
+    }
     if (decoderSupportsKeyAllowFrameDrop(context)) {
       // This key ensures no frame dropping when the decoder's output surface is full. This allows
       // transformer to decode as many frames as possible in one render cycle.

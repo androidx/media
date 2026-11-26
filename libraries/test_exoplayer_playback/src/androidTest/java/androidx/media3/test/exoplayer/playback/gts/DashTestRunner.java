@@ -16,12 +16,11 @@
 package androidx.media3.test.exoplayer.playback.gts;
 
 import static androidx.media3.common.C.WIDEVINE_UUID;
+import static androidx.media3.test.exoplayer.playback.gts.GtsTestUtil.isL1WidevineAvailable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
-import android.media.MediaDrm;
-import android.media.UnsupportedSchemeException;
 import android.os.Build;
 import android.view.Display;
 import android.view.Surface;
@@ -49,7 +48,6 @@ import androidx.media3.exoplayer.drm.FrameworkMediaDrm;
 import androidx.media3.exoplayer.drm.HttpMediaDrmCallback;
 import androidx.media3.exoplayer.drm.MediaDrmCallback;
 import androidx.media3.exoplayer.drm.UnsupportedDrmException;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -90,7 +88,6 @@ import org.jspecify.annotations.Nullable;
   // frame rates).
   private static final float MAX_REFRESH_RATE_DEVIATION_SKIP_FRACTION = 0.005f;
 
-  private static final String WIDEVINE_SECURITY_LEVEL_1 = "L1";
   private static final String WIDEVINE_SECURITY_LEVEL_3 = "L3";
   private static final String SECURITY_LEVEL_PROPERTY = "securityLevel";
 
@@ -110,27 +107,6 @@ import org.jspecify.annotations.Nullable;
   private boolean useL1Widevine;
   private String widevineLicenseUrl;
   private DataSource.Factory dataSourceFactory;
-
-  @SuppressWarnings("ResourceType")
-  public static boolean isL1WidevineAvailable(String mimeType) {
-    MediaDrm mediaDrm = null;
-    try {
-      mediaDrm = new MediaDrm(WIDEVINE_UUID);
-      // Force L3 if secure decoder is not available.
-      if (MediaCodecUtil.getDecoderInfo(mimeType, /* secure= */ true, /* tunneling= */ false)
-          == null) {
-        return false;
-      }
-      String securityProperty = mediaDrm.getPropertyString(SECURITY_LEVEL_PROPERTY);
-      return WIDEVINE_SECURITY_LEVEL_1.equals(securityProperty);
-    } catch (UnsupportedSchemeException | MediaCodecUtil.DecoderQueryException e) {
-      throw new IllegalStateException(e);
-    } finally {
-      if (mediaDrm != null) {
-        mediaDrm.close();
-      }
-    }
-  }
 
   public DashTestRunner(@Size(max = 23) String tag, HostActivity activity) {
     this.tag = tag;

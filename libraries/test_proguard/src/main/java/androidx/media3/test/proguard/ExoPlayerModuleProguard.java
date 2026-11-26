@@ -15,32 +15,47 @@
  */
 package androidx.media3.test.proguard;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
+import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.RendererConfiguration;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.SampleStream;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
+import com.google.common.collect.ImmutableList;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class exercising reflection code in the ExoPlayer module that relies on a correct proguard
@@ -72,13 +87,46 @@ public final class ExoPlayerModuleProguard {
 
   /** Creates a Libdav1dVideoRenderer with {@link DefaultRenderersFactory}. */
   public static void createLibdav1dVideoRendererWithDefaultRenderersFactory(Context context) {
-    for (Renderer renderer : createDefaultRenderersFactoryRenderers(context)) {
-      // Don't use instanceof to prevent including the class in the apk directly.
-      if (renderer.getName().equals("Libdav1dVideoRenderer")) {
-        return;
+    Flags.disableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    try {
+      Renderer[] renderers = createDefaultRenderersFactoryRenderers(context);
+      try {
+        for (Renderer renderer : renderers) {
+          // Don't use instanceof to prevent including the class in the apk directly.
+          if (renderer.getName().equals("Libdav1dVideoRenderer")) {
+            return;
+          }
+        }
+      } finally {
+        for (Renderer renderer : renderers) {
+          renderer.release();
+        }
       }
+    } finally {
+      Flags.resetForTesting();
     }
     throw new IllegalStateException();
+  }
+
+  /**
+   * Queries AV1 support and initializes a {@code Dav1dCodecAdapter} via {@link
+   * DefaultRenderersFactory} without falling back to platform {@code MediaCodec} decoders.
+   */
+  public static void createDav1dCodecAdapterWithDefaultRenderersFactory(Context context)
+      throws Exception {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+    try {
+      Format format =
+          new Format.Builder()
+              .setSampleMimeType(MimeTypes.VIDEO_AV1)
+              .setWidth(320)
+              .setHeight(240)
+              .build();
+      initializeExtensionCodecViaDefaultRenderersFactory(
+          context, MediaCodecVideoRenderer.class, format);
+    } finally {
+      Flags.resetForTesting();
+    }
   }
 
   /** Creates a ExperimentalFfmpegVideoRenderer with {@link DefaultRenderersFactory}. */
@@ -261,6 +309,91 @@ public final class ExoPlayerModuleProguard {
     PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
         new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl).build();
     playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0).initialize(new Format.Builder().build());
+  }
+
+  private static void initializeExtensionCodecViaDefaultRenderersFactory(
+      Context context, Class<? extends Renderer> rendererClass, Format format) throws Exception {
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setMediaCodecSelector(
+                (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> ImmutableList.of());
+    Renderer[] renderers =
+        renderersFactory.createRenderers(
+            Util.createHandlerForCurrentOrMainLooper(),
+            new VideoRendererEventListener() {},
+            new AudioRendererEventListener() {},
+            /* textRendererOutput= */ cues -> {},
+            /* metadataRendererOutput= */ metadata -> {});
+    try {
+      for (Renderer renderer : renderers) {
+        if (!rendererClass.isInstance(renderer)) {
+          continue;
+        }
+        AtomicBoolean formatRead = new AtomicBoolean();
+        AtomicBoolean sampleBufferRequested = new AtomicBoolean();
+        try {
+          renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+          checkState(
+              RendererCapabilities.getFormatSupport(
+                      renderer.getCapabilities().supportsFormat(format))
+                  == C.FORMAT_HANDLED);
+          SampleStream formatOnlySampleStream =
+              new SampleStream() {
+                @Override
+                public boolean isReady() {
+                  return true;
+                }
+
+                @Override
+                public void maybeThrowError() {}
+
+                @Override
+                public int readData(
+                    FormatHolder formatHolder,
+                    DecoderInputBuffer buffer,
+                    @ReadFlags int readFlags) {
+                  if (!formatRead.getAndSet(true)) {
+                    formatHolder.format = format;
+                    return C.RESULT_FORMAT_READ;
+                  }
+                  if ((readFlags & FLAG_OMIT_SAMPLE_DATA) == 0) {
+                    sampleBufferRequested.set(true);
+                  }
+                  return C.RESULT_NOTHING_READ;
+                }
+
+                @Override
+                public int skipData(long positionUs) {
+                  return 0;
+                }
+              };
+          renderer.enable(
+              RendererConfiguration.DEFAULT,
+              new Format[] {format},
+              formatOnlySampleStream,
+              /* positionUs= */ 0,
+              /* joining= */ false,
+              /* mayRenderStartOfStream= */ true,
+              /* startPositionUs= */ 0,
+              /* offsetUs= */ 0,
+              new MediaSource.MediaPeriodId(new Object()));
+          renderer.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+        } finally {
+          if (renderer.getState() == Renderer.STATE_ENABLED) {
+            renderer.disable();
+          }
+          renderer.reset();
+        }
+        checkState(formatRead.get() && sampleBufferRequested.get());
+        return;
+      }
+      throw new IllegalStateException();
+    } finally {
+      for (Renderer renderer : renderers) {
+        renderer.release();
+      }
+    }
   }
 
   private static Renderer[] createDefaultRenderersFactoryRenderers(Context context) {

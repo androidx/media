@@ -65,6 +65,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
@@ -102,18 +103,18 @@ public class SequenceFrameReaderTest {
     HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
     when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
     sequenceFrameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            /* frameConsumer= */ asyncFrame -> {
-              receivedFrames.add(asyncFrame);
-            },
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            /* listener= */ e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-            mockJniWrapper);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(receivedFrames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(
+                    Util.getCurrentOrMainLooper(), /* callback= */ null))
+            .setHardwareBufferJniWrapper(mockJniWrapper)
+            .build();
     inputSurface = sequenceFrameReader.createInputSurface();
   }
 
@@ -481,16 +482,18 @@ public class SequenceFrameReaderTest {
         new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem))).build();
     List<AsyncFrame> frames = new ArrayList<>();
     SequenceFrameReader frameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            /* frameConsumer= */ frames::add,
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            /* listener= */ e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-            mockJniWrapper);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(frames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(
+                    Util.getCurrentOrMainLooper(), /* callback= */ null))
+            .setHardwareBufferJniWrapper(mockJniWrapper)
+            .build();
 
     TimestampIterator thirtyFrames =
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f);
@@ -540,16 +543,18 @@ public class SequenceFrameReaderTest {
             .build();
     List<AsyncFrame> frames = new ArrayList<>();
     SequenceFrameReader frameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            /* frameConsumer= */ frames::add,
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            /* listener= */ e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-            mockJniWrapper);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(frames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(
+                    Util.getCurrentOrMainLooper(), /* callback= */ null))
+            .setHardwareBufferJniWrapper(mockJniWrapper)
+            .build();
 
     TimestampIterator singleFrame1 =
         new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
@@ -720,6 +725,78 @@ public class SequenceFrameReaderTest {
   }
 
   @Test
+  @Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
+  public void releaseInputSurface_withFrameInUse_doesNotCloseImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    SequenceFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface surface = frameReader.createInputSurface();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+
+    surface.release();
+
+    assertThat(imageReader.isClosed()).isFalse();
+  }
+
+  @Test
+  @Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
+  public void
+      releaseFrame_afterInputSurfaceReleasedWithRemainingFrameInUse_doesNotCloseImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    SequenceFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface surface = frameReader.createInputSurface();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 33_333,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+    surface.release();
+
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(imageReader.isClosed()).isFalse();
+  }
+
+  @Test
+  @Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
+  public void releaseFrame_afterInputSurfaceReleased_closesImageReader() {
+    FakeImageReaderAdapter imageReader = new FakeImageReaderAdapter();
+    SequenceFrameReader frameReader =
+        createFrameReader((width, height, format, maxImages, usage) -> imageReader);
+    InputSurface surface = frameReader.createInputSurface();
+    surface.queueFrame(
+        /* presentationTimeUs= */ 0,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        new Format.Builder().build(),
+        /* additionalMetadata= */ ImmutableMap.of());
+    shadowOf(handlerThread.getLooper()).idle();
+    surface.release();
+
+    releaseIfNeeded(receivedFrames.get(0).frame, /* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(imageReader.isClosed()).isTrue();
+  }
+
+  @Test
   public void queueFrame_withDifferentInputSurfaces_outputsFramesInOrder() {
     SequenceFrameReader frameReader = createFrameReader(new FakeImageReaderAdapterFactory());
     InputSurface inputSurface1 = frameReader.createInputSurface();
@@ -762,6 +839,47 @@ public class SequenceFrameReaderTest {
 
     assertThat(receivedFrames).hasSize(1);
     assertThat(receivedFrames.get(0).frame.getMetadata()).containsEntry("key", "value");
+    frameReader.release();
+  }
+
+  @Test
+  @Config(maxSdk = 27)
+  public void createInputSurface_belowApi28_createsImageReaderWithYuv420Format() {
+    AtomicInteger capturedPixelFormat = new AtomicInteger();
+    SequenceFrameReader frameReader =
+        createFrameReader(createPixelFormatCapturingImageReaderFactory(capturedPixelFormat));
+
+    InputSurface unused = frameReader.createInputSurface();
+
+    assertThat(capturedPixelFormat.get()).isEqualTo(ImageFormat.YUV_420_888);
+    frameReader.release();
+  }
+
+  @Test
+  @Config(minSdk = 28)
+  public void createInputSurface_fromApi28_createsImageReaderWithPrivateFormatByDefault() {
+    AtomicInteger capturedPixelFormat = new AtomicInteger();
+    SequenceFrameReader frameReader =
+        createFrameReader(createPixelFormatCapturingImageReaderFactory(capturedPixelFormat));
+
+    InputSurface unused = frameReader.createInputSurface();
+
+    assertThat(capturedPixelFormat.get()).isEqualTo(ImageFormat.PRIVATE);
+    frameReader.release();
+  }
+
+  @Test
+  @Config(minSdk = 28)
+  public void createInputSurface_fromApi28WithCustomSurfacePixelFormat_usesProvidedFormat() {
+    AtomicInteger capturedPixelFormat = new AtomicInteger();
+    SequenceFrameReader frameReader =
+        createFrameReaderBuilder(createPixelFormatCapturingImageReaderFactory(capturedPixelFormat))
+            .setSurfacePixelFormat(ImageFormat.YUV_420_888)
+            .build();
+
+    InputSurface unused = frameReader.createInputSurface();
+
+    assertThat(capturedPixelFormat.get()).isEqualTo(ImageFormat.YUV_420_888);
     frameReader.release();
   }
 
@@ -813,21 +931,34 @@ public class SequenceFrameReaderTest {
 
   private SequenceFrameReader createFrameReader(
       ImageReaderAdapter.Factory imageReaderAdapterFactory) {
+    return createFrameReaderBuilder(imageReaderAdapterFactory).build();
+  }
+
+  private SequenceFrameReader.Builder createFrameReaderBuilder(
+      ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
     Composition composition =
         new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem, editedMediaItem)))
             .build();
-    return new SequenceFrameReader(
-        composition,
-        /* sequenceIndex= */ 0,
-        /* frameConsumer= */ receivedFrames::add,
-        handlerThread.getLooper(),
-        /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-        imageReaderAdapterFactory,
-        /* listener= */ e -> sequenceFrameReaderException.set(e),
-        SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-        mock(HardwareBufferJniWrapper.class));
+    return new SequenceFrameReader.Builder()
+        .setComposition(composition)
+        .setSequenceIndex(0)
+        .setFrameConsumer(receivedFrames::add)
+        .setPlaybackLooper(handlerThread.getLooper())
+        .setImageReaderAdapterFactory(imageReaderAdapterFactory)
+        .setListener(
+            e -> sequenceFrameReaderException.set(e),
+            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null))
+        .setHardwareBufferJniWrapper(mock(HardwareBufferJniWrapper.class));
+  }
+
+  private static ImageReaderAdapter.Factory createPixelFormatCapturingImageReaderFactory(
+      AtomicInteger capturedPixelFormat) {
+    return (width, height, format, maxImages, usage) -> {
+      capturedPixelFormat.set(format);
+      return new FakeImageReaderAdapter();
+    };
   }
 
   private static long getPresentationTimeUs(AsyncFrame asyncFrame) {

@@ -44,7 +44,7 @@ to clone this GitHub repository and depend on the modules locally.
 
 ### From the Google Maven repository
 
-#### 1. Add module dependencies
+#### Add module dependencies
 
 The easiest way to get started using AndroidX Media is to add Gradle
 dependencies on the libraries you need in the `build.gradle.kts` file of your
@@ -79,26 +79,6 @@ details.
 
 [AndroidX Media3 developer.android.com page]: https://developer.android.com/jetpack/androidx/releases/media3#declaring_dependencies
 [libraries directory]: libraries
-
-#### 2. Turn on Java 8 support
-
-If not enabled already, you also need to turn on Java 8 support in all
-`build.gradle.kts` files depending on AndroidX Media, by adding the following to
-the `android` section:
-
-```kotlin
-compileOptions {
-  targetCompatibility = JavaVersion.VERSION_1_8
-}
-```
-
-Or in Gradle Groovy DSL `build.gradle`:
-
-```groovy
-compileOptions {
-    targetCompatibility JavaVersion.VERSION_1_8
-}
-```
 
 ### Locally
 

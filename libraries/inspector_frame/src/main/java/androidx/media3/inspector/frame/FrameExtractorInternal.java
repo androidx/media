@@ -61,6 +61,7 @@ import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -89,6 +90,7 @@ import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.metadata.ThumbnailMetadata;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionSequencer;
 import com.google.common.util.concurrent.Futures;
@@ -429,7 +431,10 @@ import org.jspecify.annotations.Nullable;
         mediaSourceFactoryToUse = request.mediaSourceFactory;
       } else {
         mediaSourceFactoryToUse =
-            new DefaultMediaSourceFactory(request.context, new DefaultExtractorsFactory());
+            new DefaultMediaSourceFactory(
+                new DefaultDataSource.Factory(request.context),
+                new DefaultExtractorsFactory(SubtitleParser.Factory.UNSUPPORTED),
+                SubtitleParser.Factory.UNSUPPORTED);
       }
 
       LoadControl loadControl =

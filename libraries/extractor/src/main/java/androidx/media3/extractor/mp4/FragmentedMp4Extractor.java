@@ -256,6 +256,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
   // Outputs.
   private ExtractorOutput extractorOutput;
+  private @Nullable SubtitleTranscodingExtractorOutput subtitleTranscodingExtractorOutput;
   private TrackOutput[] emsgTrackOutputs;
   private TrackOutput[] ceaTrackOutputs;
 
@@ -469,10 +470,13 @@ public class FragmentedMp4Extractor implements Extractor {
 
   @Override
   public void init(ExtractorOutput output) {
-    extractorOutput =
-        (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    if ((flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0) {
+      subtitleTranscodingExtractorOutput =
+          new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory);
+      extractorOutput = subtitleTranscodingExtractorOutput;
+    } else {
+      extractorOutput = output;
+    }
     enterReadingAtomHeaderState();
     initExtraTracks();
     if (sideloadedTrack != null) {
@@ -517,6 +521,9 @@ public class FragmentedMp4Extractor implements Extractor {
     atomData = null;
     seekPositionBeforeMfraProcessing = C.INDEX_UNSET;
     enterReadingAtomHeaderState();
+    if (subtitleTranscodingExtractorOutput != null) {
+      subtitleTranscodingExtractorOutput.resetSubtitleParsers();
+    }
   }
 
   @Override

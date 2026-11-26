@@ -144,20 +144,7 @@ public interface LoadControl {
    *
    * @param playerId The {@linkplain PlayerId ID of the player} that prepared a new source.
    */
-  @SuppressWarnings("deprecation") // Calling deprecated version of this method.
-  default void onPrepared(PlayerId playerId) {
-    onPrepared();
-  }
-
-  /**
-   * @deprecated Use {@link #onPrepared(PlayerId)} instead.
-   */
-  @Deprecated
-  default void onPrepared() {
-    // Media3 ExoPlayer will never call this method. This default implementation provides an
-    // implementation to please the compiler only.
-    throw new IllegalStateException("onPrepared not implemented");
-  }
+  void onPrepared(PlayerId playerId);
 
   /**
    * Called by the player when a track selection occurs.

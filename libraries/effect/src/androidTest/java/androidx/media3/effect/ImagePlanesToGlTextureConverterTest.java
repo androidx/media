@@ -873,7 +873,7 @@ public final class ImagePlanesToGlTextureConverterTest {
    * are views of the same interleaved chroma, each ending at its own last sample (matching {@code
    * ImageReader} plane buffers).
    */
-  // Switch expressions need Java 14+, but Gradle compiles Media3 tests with Java 8.
+  // Switch expressions need Java 14+, but Gradle compiles Media3 tests with Java 11.
   // TODO(b/561916275): Remove once test targets apply Media3 javacopts.
   @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static ImmutableList<Plane> createYuvPlanes(

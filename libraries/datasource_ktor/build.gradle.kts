@@ -26,6 +26,6 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.ktor.client.okhttp)
-  androidTestImplementation(libs.okhttp.mockwebserver)
+  androidTestImplementation(libs.okhttp.mockwebserver3)
   androidTestImplementation(libs.test.parameter.injector)
 }

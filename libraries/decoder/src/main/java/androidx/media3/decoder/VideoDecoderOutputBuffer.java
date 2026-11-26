@@ -15,6 +15,7 @@
  */
 package androidx.media3.decoder;
 
+import androidx.annotation.CallSuper;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
@@ -74,6 +75,13 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
    */
   public VideoDecoderOutputBuffer(Owner<VideoDecoderOutputBuffer> owner) {
     this.owner = owner;
+  }
+
+  @Override
+  @CallSuper
+  public void clear() {
+    super.clear();
+    format = null;
   }
 
   @Override

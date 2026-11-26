@@ -33,7 +33,6 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.graphics.Bitmap;
-import android.graphics.ImageFormat;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -402,16 +401,17 @@ public final class SequenceRenderersFactoryTest {
     Composition composition = new Composition.Builder(sequence, createSequence()).build();
     HardwareBufferJniWrapper mockJniWrapper = mock(HardwareBufferJniWrapper.class);
     when(mockJniWrapper.nativeCopyBitmapToHardwareBuffer(any(), any())).thenReturn(true);
-    return new SequenceFrameReader(
-        composition,
-        /* sequenceIndex= */ 0,
-        /* frameConsumer= */ receivedFrames::add,
-        looper,
-        /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-        imageReaderAdapterFactory,
-        /* listener= */ e -> {},
-        SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null),
-        mockJniWrapper);
+    return new SequenceFrameReader.Builder()
+        .setComposition(composition)
+        .setSequenceIndex(0)
+        .setFrameConsumer(receivedFrames::add)
+        .setPlaybackLooper(looper)
+        .setImageReaderAdapterFactory(imageReaderAdapterFactory)
+        .setListener(
+            e -> {},
+            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null))
+        .setHardwareBufferJniWrapper(mockJniWrapper)
+        .build();
   }
 
   private static void enableRenderer(Renderer renderer, Timeline timeline)

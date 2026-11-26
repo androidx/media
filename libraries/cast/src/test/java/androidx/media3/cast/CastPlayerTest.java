@@ -28,7 +28,6 @@ import static org.mockito.MockitoAnnotations.openMocks;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.os.Looper;
-import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -101,17 +100,11 @@ public final class CastPlayerTest {
     when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_OFF);
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
-    // We cannot pass a non-null context here because it's used to create a MediaRouter2, which is
-    // not supported in Robolectric tests. See b/372731599.
+    // Pre-initialize the Cast singleton with mockCastContext so RemoteCastPlayer.Builder reuses
+    // it instead of attempting to load the real GMS CastContext.
+    Cast unused = Cast.getSingletonInstance(mockCastContext);
     remoteCastPlayer =
-        new RemoteCastPlayer(
-            /* context= */ null,
-            Cast.getSingletonInstance(mockCastContext),
-            new DefaultMediaItemConverter(),
-            /* trackSelector= */ null,
-            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
-            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
-            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+        new RemoteCastPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
     verify(mockSessionManager)
         .addSessionManagerListener(sessionManagerListenerCaptor.capture(), eq(CastSession.class));

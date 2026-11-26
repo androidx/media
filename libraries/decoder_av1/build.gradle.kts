@@ -52,6 +52,7 @@ dependencies {
   implementation(libs.androidx.annotation)
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
+  testImplementation(libs.test.parameter.injector)
   androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)

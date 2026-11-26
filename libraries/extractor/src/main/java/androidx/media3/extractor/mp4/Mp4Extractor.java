@@ -282,6 +282,7 @@ public final class Mp4Extractor implements Extractor {
 
   // Extractor outputs.
   private ExtractorOutput extractorOutput;
+  private @Nullable SubtitleTranscodingExtractorOutput subtitleTranscodingExtractorOutput;
   private Mp4Track[] tracks;
 
   private long @Nullable [][] accumulatedSampleSizes;
@@ -356,10 +357,13 @@ public final class Mp4Extractor implements Extractor {
 
   @Override
   public void init(ExtractorOutput output) {
-    extractorOutput =
-        (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    if ((flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0) {
+      subtitleTranscodingExtractorOutput =
+          new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory);
+      extractorOutput = subtitleTranscodingExtractorOutput;
+    } else {
+      extractorOutput = output;
+    }
   }
 
   @Override
@@ -379,6 +383,8 @@ public final class Mp4Extractor implements Extractor {
     chapterSampleTables.clear();
     quickTimeChapters.clear();
     if (position == 0) {
+      readingAuxiliaryTracks = false;
+      sampleOffsetForAuxiliaryTracks = 0;
       // Reading the SEF data occurs before normal MP4 parsing. Therefore we can not transition to
       // reading the atom header until that has completed.
       if (parserState != STATE_READING_SEF) {
@@ -394,6 +400,9 @@ public final class Mp4Extractor implements Extractor {
           track.trueHdSampleRechunker.reset();
         }
       }
+    }
+    if (subtitleTranscodingExtractorOutput != null) {
+      subtitleTranscodingExtractorOutput.resetSubtitleParsers();
     }
   }
 

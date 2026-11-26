@@ -59,6 +59,8 @@ public final class Dav1dDecoder
   @GuardedBy("lock")
   private final DecoderInputBuffer[] availableInputBuffers;
 
+  private final VideoDecoderOutputBuffer[] allOutputBuffers;
+
   @GuardedBy("lock")
   private final VideoDecoderOutputBuffer[] availableOutputBuffers;
 
@@ -98,8 +100,6 @@ public final class Dav1dDecoder
 
   @GuardedBy("lock")
   private @Nullable Executor executor;
-
-  private @Nullable Surface surface;
 
   /**
    * Creates a Dav1dDecoder.
@@ -146,10 +146,12 @@ public final class Dav1dDecoder
       allInputBuffers[i].ensureSpaceForWrite(initialInputBufferSize);
       availableInputBuffers[i] = allInputBuffers[i];
     }
+    allOutputBuffers = new VideoDecoderOutputBuffer[numOutputBuffers];
     availableOutputBuffers = new VideoDecoderOutputBuffer[numOutputBuffers];
     availableOutputBufferCount = numOutputBuffers;
     for (int i = 0; i < availableOutputBufferCount; i++) {
-      availableOutputBuffers[i] = new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+      allOutputBuffers[i] = new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+      availableOutputBuffers[i] = allOutputBuffers[i];
     }
     decodeThread =
         new Thread("ExoPlayer:Dav1dDecoder") {
@@ -213,11 +215,10 @@ public final class Dav1dDecoder
   public final @Nullable DecoderInputBuffer dequeueInputBuffer() throws Dav1dDecoderException {
     synchronized (lock) {
       maybeThrowException();
-      checkState(dequeuedInputBuffer == null || flushed);
+      checkState(dequeuedInputBuffer == null);
       if (flushed) {
-        // A flush is pending on the decode thread. Leave any previously dequeued buffer in place
-        // so flushInternal() returns it to availableInputBuffers; overwriting it here would leak
-        // it.
+        // A flush is pending on the decode thread. Do not dequeue post-flush input until
+        // flushInternal() finishes draining queuedInputBuffers.
         return null;
       }
       dequeuedInputBuffer =
@@ -252,8 +253,28 @@ public final class Dav1dDecoder
   }
 
   @Override
+  public final int getAndResetSkippedOutputBufferCount() {
+    synchronized (lock) {
+      if (flushed) {
+        return 0;
+      }
+      int count = skippedOutputBufferCount;
+      skippedOutputBufferCount = 0;
+      for (VideoDecoderOutputBuffer queuedOutputBuffer : queuedOutputBuffers) {
+        count += queuedOutputBuffer.skippedOutputBufferCount;
+        queuedOutputBuffer.skippedOutputBufferCount = 0;
+      }
+      return count;
+    }
+  }
+
+  @Override
   public final void flush() {
     synchronized (lock) {
+      if (dequeuedInputBuffer != null) {
+        releaseInputBufferInternal(dequeuedInputBuffer);
+        dequeuedInputBuffer = null;
+      }
       flushed = true;
       lock.notify();
     }
@@ -267,10 +288,11 @@ public final class Dav1dDecoder
   }
 
   @Override
-  public final void setCallback(Callback callback, Executor executor) {
+  public final void setCallback(@Nullable Callback callback, @Nullable Executor executor) {
+    checkArgument(callback == null || executor != null);
     synchronized (lock) {
       this.callback = callback;
-      this.executor = executor;
+      this.executor = callback != null ? executor : null;
     }
   }
 
@@ -316,7 +338,7 @@ public final class Dav1dDecoder
       maybeThrowException();
       // Re-check inside the synchronized block, as the decoder could have been released between
       // the first check and acquiring the lock.
-      if (dav1dDecoderContext == 0) {
+      if (released || dav1dDecoderContext == 0) {
         throw new Dav1dDecoderException("Decoder is released.");
       }
       if (outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV) {
@@ -359,16 +381,13 @@ public final class Dav1dDecoder
     return new Dav1dDecoderException("Unexpected decode error", error);
   }
 
-  // Setting and checking deprecated decode-only flag for compatibility with custom decoders that
-  // are still using it.
   private boolean decode() throws InterruptedException {
-    DecoderInputBuffer inputBuffer;
-    VideoDecoderOutputBuffer outputBuffer;
+    @Nullable DecoderInputBuffer inputBuffer;
+    @Nullable VideoDecoderOutputBuffer outputBuffer;
+    @Nullable Callback callbackToNotify = null;
+    @Nullable Executor executorToUse = null;
     // Wait until we have an input and output buffer to decode.
     synchronized (lock) {
-      if (flushed) {
-        flushInternal();
-      }
       while (!released && !(canDecodeInputBuffer() && canDecodeOutputBuffer()) && !flushed) {
         lock.wait();
       }
@@ -378,42 +397,41 @@ public final class Dav1dDecoder
       if (flushed) {
         // Flushed may have changed after lock.wait() is finished.
         flushInternal();
-        // Queued Input Buffers have been cleared, there is no data to decode.
-        return true;
+        if (availableInputBufferCount > 0) {
+          callbackToNotify = this.callback;
+          executorToUse = this.executor;
+        }
+        inputBuffer = null;
+        outputBuffer = null;
+      } else {
+        inputBuffer = queuedInputBuffers.removeFirst();
+        outputBuffer = availableOutputBuffers[--availableOutputBufferCount];
       }
-      inputBuffer = queuedInputBuffers.removeFirst();
-      outputBuffer = availableOutputBuffers[--availableOutputBufferCount];
+    }
+    if (inputBuffer == null || outputBuffer == null) {
+      if (callbackToNotify != null && executorToUse != null) {
+        executorToUse.execute(callbackToNotify::onInputBufferAvailable);
+      }
+      // Queued Input Buffers have been cleared, there is no data to decode.
+      return true;
     }
 
-    if (inputBuffer.isEndOfStream()) {
-      outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
-      releaseInputBuffer(inputBuffer);
-      synchronized (lock) {
-        if (flushed) {
-          outputBuffer.release();
-          flushInternal();
-        } else {
-          outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
-          skippedOutputBufferCount = 0;
-          queuedOutputBuffers.addLast(outputBuffer);
-          Decoder.Callback currentCallback = this.callback;
-          Executor currentExecutor = this.executor;
-          if (currentCallback != null && currentExecutor != null) {
-            currentExecutor.execute(currentCallback::onOutputBufferAvailable);
-          }
+    boolean isEndOfStream = inputBuffer.isEndOfStream();
+    @Nullable Dav1dDecoderException exception = null;
+    try {
+      int status;
+      if (isEndOfStream) {
+        releaseInputBuffer(inputBuffer);
+      } else {
+        @C.BufferFlags int flags = 0;
+        boolean decodeOnly =
+            !isAtLeastOutputStartTimeUs(inputBuffer.timeUs) && !inputBuffer.isLastSample();
+        if (inputBuffer.isFirstSample()) {
+          flags |= C.BUFFER_FLAG_FIRST_SAMPLE;
         }
-      }
-    } else {
-      @C.BufferFlags int flags = 0;
-      boolean decodeOnly = false;
-      if (!isAtLeastOutputStartTimeUs(inputBuffer.timeUs)) {
-        decodeOnly = true;
-      }
-      if (inputBuffer.isFirstSample()) {
-        flags |= C.BUFFER_FLAG_FIRST_SAMPLE;
-      }
-      @Nullable Dav1dDecoderException exception = null;
-      try {
+        if (inputBuffer.isLastSample()) {
+          flags |= C.BUFFER_FLAG_LAST_SAMPLE;
+        }
         ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
         int inputOffset = inputData.position();
         int inputSize = inputData.remaining();
@@ -424,7 +442,7 @@ public final class Dav1dDecoder
             break;
           }
         }
-        int status =
+        status =
             dav1dDecode(
                 dav1dDecoderContext,
                 inputBuffer,
@@ -446,69 +464,105 @@ public final class Dav1dDecoder
             queuedInputBuffers.addFirst(inputBuffer);
           }
         }
-        while ((status = dav1dGetFrame(dav1dDecoderContext, outputBuffer)) == DAV1D_OK
-            || status == DAV1D_DECODE_ONLY) {
-          if (status == DAV1D_DECODE_ONLY) {
-            outputBuffer.shouldBeSkipped = true;
-          }
-          synchronized (lock) {
-            if (flushed) {
-              outputBuffer.release();
-              flushInternal();
-              break;
-            } else if (!isAtLeastOutputStartTimeUs(outputBuffer.timeUs)
-                || outputBuffer.shouldBeSkipped) {
-              skippedOutputBufferCount++;
-              outputBuffer.release();
-            } else {
-              outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
-              skippedOutputBufferCount = 0;
-              queuedOutputBuffers.addLast(outputBuffer);
-              Decoder.Callback currentCallback = this.callback;
-              Executor currentExecutor = this.executor;
-              if (currentCallback != null && currentExecutor != null) {
-                currentExecutor.execute(currentCallback::onOutputBufferAvailable);
-              }
-            }
-            while (!released && !canDecodeOutputBuffer() && !flushed) {
-              lock.wait();
-            }
-            if (released) {
-              return false;
-            }
-            if (flushed) {
-              flushInternal();
-              return true;
-            }
-            outputBuffer = availableOutputBuffers[--availableOutputBufferCount];
-          }
-        }
-        if (status == DAV1D_ERROR) {
-          throw new Dav1dDecoderException(
-              "dav1dGetFrame error: " + dav1dGetErrorMessage(dav1dDecoderContext));
-        } else if (status == DAV1D_EAGAIN) {
-          outputBuffer.release();
-        }
-      } catch (RuntimeException e) {
-        // This can occur if a sample is malformed in a way that the decoder is not robust against.
-        // We don't want the process to die in this case, but we do want to propagate the error.
-        exception = createUnexpectedDecodeException(e);
-      } catch (OutOfMemoryError e) {
-        // This can occur if a sample is malformed in a way that causes the decoder to think it
-        // needs to allocate a large amount of memory. We don't want the process to die in this
-        // case, but we do want to propagate the error.
-        exception = createUnexpectedDecodeException(e);
-      } catch (Dav1dDecoderException e) {
-        exception = e;
       }
-      if (exception != null) {
+      while ((status = dav1dGetFrame(dav1dDecoderContext, outputBuffer)) == DAV1D_OK
+          || status == DAV1D_DECODE_ONLY) {
+        if (status == DAV1D_DECODE_ONLY) {
+          outputBuffer.shouldBeSkipped = true;
+        }
+        if (!queueOrSkipOutputBuffer(outputBuffer)) {
+          return true;
+        }
+        if (!isEndOfStream) {
+          // dav1d_get_picture sets c->drain = 1, so a second consecutive dav1dGetFrame call
+          // without an intervening dav1dDecode synchronously drains delayed worker frames when
+          // maxFrameDelay > 1. Any additional frame already ready in libdav1d will be emitted on
+          // the next decode() iteration when dav1dDecode returns DAV1D_EAGAIN.
+          break;
+        }
         synchronized (lock) {
-          this.exception = exception;
+          while (!released && !canDecodeOutputBuffer() && !flushed) {
+            lock.wait();
+          }
+          if (released) {
+            return false;
+          }
+          if (flushed) {
+            return true;
+          }
+          outputBuffer = availableOutputBuffers[--availableOutputBufferCount];
         }
-        return false;
       }
+      if (status == DAV1D_ERROR) {
+        throw new Dav1dDecoderException(
+            "dav1dGetFrame error: " + dav1dGetErrorMessage(dav1dDecoderContext));
+      }
+      if (isEndOfStream) {
+        outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM);
+        if (!queueOrSkipOutputBuffer(outputBuffer)) {
+          return true;
+        }
+      } else if (status == DAV1D_EAGAIN) {
+        outputBuffer.release();
+      }
+    } catch (RuntimeException e) {
+      // This can occur if a sample is malformed in a way that the decoder is not robust against.
+      // We don't want the process to die in this case, but we do want to propagate the error.
+      exception = createUnexpectedDecodeException(e);
+    } catch (OutOfMemoryError e) {
+      // This can occur if a sample is malformed in a way that causes the decoder to think it
+      // needs to allocate a large amount of memory. We don't want the process to die in this
+      // case, but we do want to propagate the error.
+      exception = createUnexpectedDecodeException(e);
+    } catch (Dav1dDecoderException e) {
+      exception = e;
+    }
+    if (exception != null) {
+      synchronized (lock) {
+        this.exception = exception;
+        callbackToNotify = this.callback;
+        executorToUse = this.executor;
+      }
+      if (callbackToNotify != null && executorToUse != null) {
+        executorToUse.execute(callbackToNotify::onOutputBufferAvailable);
+      }
+      return false;
     }
     releaseUnusedInputBuffers(dav1dDecoderContext, this);
+    return true;
+  }
+
+  /**
+   * Queues or skips {@code outputBuffer}, or releases it if a flush is pending.
+   *
+   * @return {@code false} if a flush is pending and the caller should return early to process it;
+   *     {@code true} otherwise.
+   */
+  private boolean queueOrSkipOutputBuffer(VideoDecoderOutputBuffer outputBuffer) {
+    @Nullable Callback callbackToNotify = null;
+    @Nullable Executor executorToUse = null;
+    synchronized (lock) {
+      if (flushed) {
+        outputBuffer.release();
+        return false;
+      }
+      if ((!outputBuffer.isEndOfStream()
+              && !isAtLeastOutputStartTimeUs(outputBuffer.timeUs)
+              && !outputBuffer.isLastSample())
+          || outputBuffer.shouldBeSkipped) {
+        skippedOutputBufferCount++;
+        outputBuffer.release();
+      } else {
+        outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
+        skippedOutputBufferCount = 0;
+        queuedOutputBuffers.addLast(outputBuffer);
+        callbackToNotify = this.callback;
+        executorToUse = this.executor;
+      }
+    }
+    if (callbackToNotify != null && executorToUse != null) {
+      executorToUse.execute(callbackToNotify::onOutputBufferAvailable);
+    }
     return true;
   }
 
@@ -520,30 +574,31 @@ public final class Dav1dDecoder
   }
 
   private void releaseInputBuffer(DecoderInputBuffer inputBuffer) {
+    @Nullable Callback callbackToNotify = null;
+    @Nullable Executor executorToUse = null;
     synchronized (lock) {
-      releaseInputBufferInternal(inputBuffer);
+      // Prevent the EAGAIN double-free race condition:
+      if (!queuedInputBuffers.contains(inputBuffer)) {
+        releaseInputBufferInternal(inputBuffer);
+        if (!flushed && !released) {
+          callbackToNotify = this.callback;
+          executorToUse = this.executor;
+        }
+      }
+    }
+    if (callbackToNotify != null && executorToUse != null) {
+      executorToUse.execute(callbackToNotify::onInputBufferAvailable);
     }
   }
 
   private void releaseInputBuffer(int bufferIndex) {
-    synchronized (lock) {
-      DecoderInputBuffer inputBuffer = allInputBuffers[bufferIndex];
-      // Prevent the EAGAIN double-free race condition:
-      if (!queuedInputBuffers.contains(inputBuffer)) {
-        releaseInputBufferInternal(inputBuffer);
-      }
-    }
+    releaseInputBuffer(allInputBuffers[bufferIndex]);
   }
 
   @GuardedBy("lock")
   private void releaseInputBufferInternal(DecoderInputBuffer inputBuffer) {
     inputBuffer.clear();
     availableInputBuffers[availableInputBufferCount++] = inputBuffer;
-    Decoder.Callback currentCallback = this.callback;
-    Executor currentExecutor = this.executor;
-    if (currentCallback != null && currentExecutor != null) {
-      currentExecutor.execute(currentCallback::onInputBufferAvailable);
-    }
   }
 
   @GuardedBy("lock")
@@ -572,10 +627,6 @@ public final class Dav1dDecoder
   @GuardedBy("lock")
   private void flushInternal() {
     skippedOutputBufferCount = 0;
-    if (dequeuedInputBuffer != null) {
-      releaseInputBufferInternal(dequeuedInputBuffer);
-      dequeuedInputBuffer = null;
-    }
     while (!queuedOutputBuffers.isEmpty()) {
       queuedOutputBuffers.removeFirst().release();
     }
@@ -613,10 +664,19 @@ public final class Dav1dDecoder
     synchronized (lock) {
       if (this.dav1dDecoderContext != 0) {
         context = this.dav1dDecoderContext;
-        // Release any queued output buffers before closing the decoder context, as their release
-        // method depends on a valid context.
-        while (!queuedOutputBuffers.isEmpty()) {
-          queuedOutputBuffers.removeFirst().release();
+        // Clear queued output buffers before closing the decoder context.
+        queuedOutputBuffers.clear();
+        // Free the native frames still attached to output buffers that the caller has dequeued but
+        // not released yet (e.g. a renderer releasing the decoder while holding a frame). Once the
+        // context is cleared, releaseOutputBuffer() can no longer free them, so they would leak.
+        // dav1dReleaseFrame clears the attached frame, so a later release() of the same buffer only
+        // returns it to the pool. Skip buffers without an attached frame: besides avoiding needless
+        // JNI calls, this keeps the init-failure path (where the JNI field IDs may not be set up)
+        // from calling into the native code at all.
+        for (VideoDecoderOutputBuffer outputBuffer : allOutputBuffers) {
+          if (outputBuffer.decoderPrivate != 0) {
+            dav1dReleaseFrame(context, outputBuffer);
+          }
         }
         this.dav1dDecoderContext = 0;
       }

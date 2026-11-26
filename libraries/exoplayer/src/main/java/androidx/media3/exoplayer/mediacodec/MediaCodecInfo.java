@@ -44,7 +44,6 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.os.Build;
 import android.util.Pair;
 import android.util.Range;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -68,7 +67,7 @@ import org.jspecify.annotations.Nullable;
 /** Information about a {@link MediaCodec} for a given MIME type. */
 @SuppressWarnings("InlinedApi")
 @UnstableApi
-public final class MediaCodecInfo {
+public class MediaCodecInfo {
 
   public static final String TAG = "MediaCodecInfo";
 
@@ -241,7 +240,21 @@ public final class MediaCodecInfo {
         isDetachedSurfaceSupported(capabilities));
   }
 
-  @VisibleForTesting
+  /**
+   * Creates a new instance.
+   *
+   * @param name The name of the codec.
+   * @param mimeType A MIME type for which the codec can be used.
+   * @param codecMimeType The MIME type handled by the codec itself.
+   * @param capabilities The {@link CodecCapabilities} of the codec, or {@code null} if unknown.
+   * @param hardwareAccelerated Whether the codec is hardware accelerated.
+   * @param softwareOnly Whether the codec is software only.
+   * @param vendor Whether the codec is provided by the device vendor.
+   * @param adaptive Whether the codec supports seamless resolution changes.
+   * @param tunneling Whether the codec supports tunneling.
+   * @param secure Whether the codec is secure.
+   * @param detachedSurfaceSupported Whether the codec supports detached surfaces.
+   */
   /* package */ MediaCodecInfo(
       String name,
       String mimeType,
@@ -687,10 +700,10 @@ public final class MediaCodecInfo {
 
   /**
    * Returns the max video frame rate that this codec can support at the provided resolution, or
-   * {@link C#RATE_UNSET} if this is not a video codec.
+   * {@link C#RATE_UNSET} if this is not a video codec or frame rate capabilities are unknown.
    */
   public float getMaxSupportedFrameRate(int width, int height) {
-    if (!isVideo) {
+    if (!isVideo || capabilities == null) {
       return C.RATE_UNSET;
     }
     if (maxFrameRate != C.RATE_UNSET

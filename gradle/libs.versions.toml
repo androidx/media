@@ -1,16 +1,18 @@
 [versions]
-releaseVersion = "1.12.0-beta01"
-releaseVersionCode = "1012000101"
+releaseVersion = "1.12.0-rc01"
+releaseVersionCode = "1012000201"
 # SDK
 appTargetSdkVersion = "37"
 minSdkVersion = "24"
 libTestTargetSdkVersion = "36"
 compileSdkVersion = "37"
+# Compose 1.13 requires compiling against API level 37.1 or later.
+compileSdkMinorVersion = "1"
 # See https://developer.android.com/training/cars/media/automotive-os#automotive-module
 automotiveMinSdkVersion = "28"
 
 # Gradle Plugins
-androidGradlePlugin = "9.1.1"
+androidGradlePlugin = "9.5.2"
 kotlinComposeCompiler = "2.2.0"
 kotlinGradlePlugin = "2.2.0"
 protobufGradlePlugin = "0.10.0"
@@ -25,7 +27,7 @@ androidxAnnotationVersion = "1.6.0"
 androidxAppCompatVersion = "1.7.0"
 androidxCollectionVersion = "1.2.0"
 # See https://developer.android.com/develop/ui/compose/bom/bom-mapping
-androidxComposeBomVersion = "2026.05.00" # TODO: b/502167525 - Upgade
+androidxComposeBomVersion = "2026.11.01"
 androidxConcurrentFuturesVersion = "1.2.0"
 androidxConstraintLayoutVersion = "2.1.4"
 androidxCoreVersion = "1.9.0"
@@ -72,6 +74,9 @@ ktorVersion = "3.5.1"
 leakCanaryVersion = "2.10"
 lottieVersion = "6.6.0"
 mockitoVersion = "3.12.4"
+# MockWebServer's new API (mockwebserver3) is only published with OkHttp 5. Used for tests only;
+# okhttpVersion below is what the library depends on.
+okhttpMockwebserver3Version = "5.3.2"
 okhttpVersion = "4.12.0"
 playServicesCronetVersion = "18.0.1"
 playServicesMediaEffectEnhancementVersion = "16.0.0-beta08"
@@ -166,6 +171,7 @@ material = { group = "com.google.android.material", name = "material", version.r
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoVersion" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttpVersion" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
+okhttp-mockwebserver3 = { group = "com.squareup.okhttp3", name = "mockwebserver3", version.ref = "okhttpMockwebserver3Version" }
 okhttp-urlconnection = { group = "com.squareup.okhttp3", name = "okhttp-urlconnection", version.ref = "okhttpVersion" }
 play-services-cronet = { group = "com.google.android.gms", name = "play-services-cronet", version.ref = "playServicesCronetVersion" }
 play-services-media-effect-enhancement = { group = "com.google.android.gms", name = "play-services-media-effect-enhancement", version.ref = "playServicesMediaEffectEnhancementVersion" }

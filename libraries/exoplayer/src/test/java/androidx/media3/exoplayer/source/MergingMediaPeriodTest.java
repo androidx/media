@@ -39,7 +39,9 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import org.jspecify.annotations.Nullable;
 import org.junit.Test;
@@ -480,6 +482,141 @@ public final class MergingMediaPeriodTest {
     assertThat(streams[1].getFlags()).isEqualTo(0);
   }
 
+  @Test
+  public void setEndPositionUs_whenAllChildrenSupportEndPosition_returnsEndPosition() {
+    EndPositionTrackingFakeMediaPeriod childPeriod0 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    EndPositionTrackingFakeMediaPeriod childPeriod1 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0},
+            childPeriod0,
+            childPeriod1);
+
+    long actualEndPositionUs = mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 5_000L);
+
+    assertThat(actualEndPositionUs).isEqualTo(5_000L);
+    assertThat(childPeriod0.setEndPositionUsCalls).containsExactly(5_000L);
+    assertThat(childPeriod1.setEndPositionUsCalls).containsExactly(5_000L);
+  }
+
+  @Test
+  public void setEndPositionUs_oneChildRejects_resetsAllChildrenAndReturnsEndOfSource() {
+    EndPositionTrackingFakeMediaPeriod childPeriod0 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    EndPositionTrackingFakeMediaPeriod childPeriod1 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ false);
+    EndPositionTrackingFakeMediaPeriod childPeriod2 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0, 0},
+            childPeriod0,
+            childPeriod1,
+            childPeriod2);
+
+    long actualEndPositionUs = mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 5_000L);
+
+    assertThat(actualEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(childPeriod0.setEndPositionUsCalls)
+        .containsExactly(5_000L, C.TIME_END_OF_SOURCE)
+        .inOrder();
+    assertThat(childPeriod1.setEndPositionUsCalls)
+        .containsExactly(5_000L, C.TIME_END_OF_SOURCE)
+        .inOrder();
+    assertThat(childPeriod2.setEndPositionUsCalls).containsExactly(C.TIME_END_OF_SOURCE);
+  }
+
+  @Test
+  public void setEndPositionUs_whenChildRejectsUpdateAfterPreviousSuccess_resetsAllChildren() {
+    EndPositionTrackingFakeMediaPeriod childPeriod0 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    EndPositionTrackingFakeMediaPeriod childPeriod1 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    EndPositionTrackingFakeMediaPeriod childPeriod2 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0, 0},
+            childPeriod0,
+            childPeriod1,
+            childPeriod2);
+    assertThat(mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 5_000L)).isEqualTo(5_000L);
+    childPeriod1.supportsEndPosition = false;
+
+    long actualEndPositionUs = mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 3_000L);
+
+    assertThat(actualEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(childPeriod0.lastEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(childPeriod1.lastEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(childPeriod2.lastEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+  }
+
+  @Test
+  public void setEndPositionUs_whenRejectingChildLaterAccepts_updatesAllChildrenAndReturnsEnd() {
+    EndPositionTrackingFakeMediaPeriod childPeriod0 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    EndPositionTrackingFakeMediaPeriod childPeriod1 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ false);
+    EndPositionTrackingFakeMediaPeriod childPeriod2 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0, 0},
+            childPeriod0,
+            childPeriod1,
+            childPeriod2);
+    assertThat(mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 5_000L))
+        .isEqualTo(C.TIME_END_OF_SOURCE);
+    childPeriod1.supportsEndPosition = true;
+
+    long actualEndPositionUs = mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 3_000L);
+
+    assertThat(actualEndPositionUs).isEqualTo(3_000L);
+    assertThat(childPeriod0.lastEndPositionUs).isEqualTo(3_000L);
+    assertThat(childPeriod1.lastEndPositionUs).isEqualTo(3_000L);
+    assertThat(childPeriod2.lastEndPositionUs).isEqualTo(3_000L);
+  }
+
+  @Test
+  public void setEndPositionUs_whenFirstChildReturnsAdjustedEndPosition_resetsChild() {
+    EndPositionTrackingFakeMediaPeriod childPeriod0 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    childPeriod0.adjustedEndPositionUs = 4_000L;
+    EndPositionTrackingFakeMediaPeriod childPeriod1 =
+        createEndPositionTrackingFakeMediaPeriod(/* supportsEndPosition= */ true);
+    MergingMediaPeriod mergingMediaPeriod =
+        new MergingMediaPeriod(
+            new DefaultCompositeSequenceableLoaderFactory(),
+            /* periodTimeOffsetsUs= */ new long[] {0, 0},
+            childPeriod0,
+            childPeriod1);
+
+    long actualEndPositionUs = mergingMediaPeriod.setEndPositionUs(/* endPositionUs= */ 5_000L);
+
+    assertThat(actualEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(childPeriod0.setEndPositionUsCalls)
+        .containsExactly(5_000L, C.TIME_END_OF_SOURCE)
+        .inOrder();
+    assertThat(childPeriod0.lastEndPositionUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(childPeriod1.setEndPositionUsCalls).containsExactly(C.TIME_END_OF_SOURCE);
+  }
+
+  private static EndPositionTrackingFakeMediaPeriod createEndPositionTrackingFakeMediaPeriod(
+      boolean supportsEndPosition) {
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(
+            new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build()));
+    Allocator allocator =
+        new DefaultAllocator(/* trimOnReset= */ false, /* individualAllocationSize= */ 1024);
+    return new EndPositionTrackingFakeMediaPeriod(trackGroupArray, allocator, supportsEndPosition);
+  }
+
   private MergingMediaPeriod prepareMergingPeriod(MergingPeriodDefinition... definitions)
       throws Exception {
     return prepareMergingPeriod(/* singleTrackGroup= */ false, definitions);
@@ -534,6 +671,38 @@ public final class MergingMediaPeriodTest {
     prepareCountDown.await();
 
     return mergingMediaPeriod;
+  }
+
+  private static final class EndPositionTrackingFakeMediaPeriod extends FakeMediaPeriod {
+
+    private final List<Long> setEndPositionUsCalls;
+    private boolean supportsEndPosition;
+    private long lastEndPositionUs;
+    private long adjustedEndPositionUs;
+
+    private EndPositionTrackingFakeMediaPeriod(
+        TrackGroupArray trackGroupArray, Allocator allocator, boolean supportsEndPosition) {
+      super(trackGroupArray, allocator, /* singleSampleTimeUs= */ 0, new EventDispatcher());
+      this.supportsEndPosition = supportsEndPosition;
+      this.setEndPositionUsCalls = new ArrayList<>();
+      this.lastEndPositionUs = C.TIME_END_OF_SOURCE;
+      this.adjustedEndPositionUs = C.TIME_UNSET;
+    }
+
+    @Override
+    public long setEndPositionUs(long endPositionUs) {
+      setEndPositionUsCalls.add(endPositionUs);
+      if (endPositionUs == C.TIME_END_OF_SOURCE) {
+        lastEndPositionUs = endPositionUs;
+        return endPositionUs;
+      }
+      if (supportsEndPosition) {
+        lastEndPositionUs =
+            adjustedEndPositionUs != C.TIME_UNSET ? adjustedEndPositionUs : endPositionUs;
+        return lastEndPositionUs;
+      }
+      return C.TIME_END_OF_SOURCE;
+    }
   }
 
   private static final class FakeMediaPeriodWithSelectionParameters extends FakeMediaPeriod {

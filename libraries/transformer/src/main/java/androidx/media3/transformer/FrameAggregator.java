@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -31,6 +32,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
 import androidx.media3.common.video.Frame;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -277,31 +279,39 @@ import org.jspecify.annotations.Nullable;
       }
       // Retain the matched secondary frames. We need to reference count them because
       // the same secondary frame might be reused for multiple future primary frames.
-      for (int i = 0; i < matches.size(); i++) {
-        checkState(matches.get(i).frame instanceof DefaultHardwareBufferFrame);
-        DefaultHardwareBufferFrame matchedFrame = (DefaultHardwareBufferFrame) matches.get(i).frame;
-        DefaultHardwareBufferFrame.Builder frameBuilder =
-            matchedFrame.buildUpon().shouldIncrementReferenceCount();
-        // In the frameRate-unset case, physical Sequence 0 defines the primary output presentation
-        // timestamp. Under a virtual clock, primary track frames may be duplicated and those new
-        // frames must be retimed. We retime all the frames here for the sake of consistency and
-        // simplicity.
-        if (frameRate != null) {
-          long referenceContentTimeUs = referenceFrame.frame.getContentTimeUs();
-          long shiftDeltaUs = referenceContentTimeUs - matchedFrame.getContentTimeUs();
-          long matchPresentationTimeUs =
-              (Long) checkNotNull(matchedFrame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US));
-          long newPresentationTimeUs = matchPresentationTimeUs + shiftDeltaUs;
-          ImmutableMap<String, Object> newMetadata =
-              ImmutableMap.<String, Object>builder()
-                  .putAll(matchedFrame.getMetadata())
-                  // TODO(b/553446699): Verify that KEY_PRESENTATION_TIME_US is used correctly.
-                  .put(Frame.KEY_PRESENTATION_TIME_US, newPresentationTimeUs)
-                  .put(Frame.KEY_DISPLAY_TIME_NS, referenceContentTimeUs * 1_000L)
-                  .buildKeepingLast();
-          frameBuilder.setContentTimeUs(referenceContentTimeUs).setMetadata(newMetadata);
+      try {
+        for (int i = 0; i < matches.size(); i++) {
+          Frame matchedFrame = matches.get(i).frame;
+          long contentTimeUs = matchedFrame.getContentTimeUs();
+          ImmutableMap<String, Object> metadata = matchedFrame.getMetadata();
+          // In the frameRate-unset case, physical Sequence 0 defines the primary output
+          // presentation timestamp. Under a virtual clock, primary track frames may be duplicated
+          // and those new frames must be retimed. We retime all the frames here for the sake of
+          // consistency and simplicity.
+          if (frameRate != null) {
+            long referenceContentTimeUs = referenceFrame.frame.getContentTimeUs();
+            long shiftDeltaUs = referenceContentTimeUs - matchedFrame.getContentTimeUs();
+            long matchPresentationTimeUs =
+                (Long) checkNotNull(matchedFrame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US));
+            long newPresentationTimeUs = matchPresentationTimeUs + shiftDeltaUs;
+            metadata =
+                ImmutableMap.<String, Object>builder()
+                    .putAll(matchedFrame.getMetadata())
+                    // TODO(b/553446699): Verify that KEY_PRESENTATION_TIME_US is used correctly.
+                    .put(Frame.KEY_PRESENTATION_TIME_US, newPresentationTimeUs)
+                    .put(Frame.KEY_DISPLAY_TIME_NS, referenceContentTimeUs * 1_000L)
+                    .buildKeepingLast();
+            contentTimeUs = referenceContentTimeUs;
+          }
+          Frame retainedFrame = retainFrame(matchedFrame, contentTimeUs, metadata);
+          outputFramesBuilder.add(new AsyncFrame(retainedFrame, matches.get(i).acquireFence));
         }
-        outputFramesBuilder.add(new AsyncFrame(frameBuilder.build(), matches.get(i).acquireFence));
+      } catch (RuntimeException e) {
+        ImmutableList<AsyncFrame> builtFrames = outputFramesBuilder.build();
+        for (int i = frameRate == null ? 1 : 0; i < builtFrames.size(); i++) {
+          TransformerUtil.releaseIfNeeded(builtFrames.get(i).frame, /* releaseFence= */ null);
+        }
+        throw e;
       }
       if (frameRate == null) {
         // Remove the primary frame because each one is only matched once.
@@ -321,6 +331,26 @@ import org.jspecify.annotations.Nullable;
       }
       downstreamConsumer.accept(outputFrames);
     }
+  }
+
+  private static Frame retainFrame(
+      Frame frame, long contentTimeUs, ImmutableMap<String, Object> metadata) {
+    if (SDK_INT >= 26 && frame instanceof DefaultHardwareBufferFrame) {
+      return ((DefaultHardwareBufferFrame) frame)
+          .buildUpon()
+          .shouldIncrementReferenceCount()
+          .setContentTimeUs(contentTimeUs)
+          .setMetadata(metadata)
+          .build();
+    } else if (frame instanceof DefaultImagePlanesFrame) {
+      return ((DefaultImagePlanesFrame) frame)
+          .buildUpon()
+          .shouldIncrementReferenceCount()
+          .setContentTimeUs(contentTimeUs)
+          .setMetadata(metadata)
+          .build();
+    }
+    throw new IllegalArgumentException("Unsupported frame type: " + frame);
   }
 
   /**

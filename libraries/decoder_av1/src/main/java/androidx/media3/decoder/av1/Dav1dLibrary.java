@@ -15,9 +15,14 @@
  */
 package androidx.media3.decoder.av1;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import androidx.annotation.RestrictTo;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.UnstableApi;
+import org.jspecify.annotations.Nullable;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi
@@ -37,6 +42,7 @@ public final class Dav1dLibrary {
 
   private Dav1dLibrary() {}
 
+  // LINT.IfChange(is_available)
   /** Returns whether the underlying library is available, loading it if necessary. */
   public static boolean isAvailable() {
     try {
@@ -44,5 +50,26 @@ public final class Dav1dLibrary {
     } catch (Exception e) {
       return false;
     }
+  }
+
+  // LINT.ThenChange(
+  //     ../../../../../../../../exoplayer/proguard-rules.txt,
+  //
+  // ../../../../../../../../exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecUtil.java:dav1d_extension_discovery)
+
+  /**
+   * Overrides whether the underlying library is available for testing.
+   *
+   * <p>Passing {@code true} skips loading the native library, so it must only be used in Java-layer
+   * unit tests (such as Robolectric tests) where code paths relying on native methods are not
+   * invoked.
+   *
+   * @param isAvailable Whether the underlying library should be reported as available, or {@code
+   *     null} to restore default loading behavior.
+   */
+  @RestrictTo(LIBRARY_GROUP)
+  @VisibleForTesting
+  public static void setAvailableForTesting(@Nullable Boolean isAvailable) {
+    LOADER.setAvailableForTesting(isAvailable);
   }
 }

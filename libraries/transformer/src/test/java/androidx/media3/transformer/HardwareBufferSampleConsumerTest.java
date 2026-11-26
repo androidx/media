@@ -165,6 +165,41 @@ public class HardwareBufferSampleConsumerTest {
   }
 
   @Test
+  public void registerVideoFrame_withInitialTimestampOffset_addsItemOffsetsToInitialOffset() {
+    sampleConsumer.release();
+    sampleConsumer =
+        createSampleConsumer(
+            createComposition(/* itemCount= */ 2),
+            /* sequenceIndex= */ 0,
+            /* initialTimestampOffsetUs= */ 1_000_000);
+    long item1DurationUs = 100_000;
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
+    sampleConsumer.onMediaItemChanged(
+        /* editedMediaItem= */ null,
+        item1DurationUs,
+        /* decodedFormat= */ format,
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+    sampleConsumer.onMediaItemChanged(
+        /* editedMediaItem= */ null,
+        /* durationUs= */ 500_000,
+        /* decodedFormat= */ format,
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    boolean accepted = sampleConsumer.registerVideoFrame(/* presentationTimeUs= */ 33_333);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(accepted).isTrue();
+    assertThat(receivedFrames).hasSize(1);
+    AsyncFrame frame = receivedFrames.get(0);
+    assertThat(getPresentationTimeUs(frame)).isEqualTo(33_333);
+    assertThat(frame.frame.getContentTimeUs()).isEqualTo(1_133_333);
+    assertThat(getDisplayTimeNs(frame)).isEqualTo(1_133_333_000L);
+    assertThat(getItemIndex(frame)).isEqualTo(1);
+  }
+
+  @Test
   public void onMediaItemChanged_accumulatesOffsetsAcrossMultipleItems() {
     sampleConsumer.release();
     sampleConsumer = createSampleConsumer(createComposition(/* itemCount= */ 3));
@@ -373,11 +408,14 @@ public class HardwareBufferSampleConsumerTest {
   }
 
   private HardwareBufferSampleConsumer createSampleConsumer(Composition composition) {
-    return createSampleConsumer(composition, /* sequenceIndex= */ composition.sequences.size() - 1);
+    return createSampleConsumer(
+        composition,
+        /* sequenceIndex= */ composition.sequences.size() - 1,
+        /* initialTimestampOffsetUs= */ 0);
   }
 
   private HardwareBufferSampleConsumer createSampleConsumer(
-      Composition composition, int sequenceIndex) {
+      Composition composition, int sequenceIndex, long initialTimestampOffsetUs) {
     Looper looper = handlerThread.getLooper();
     HandlerWrapper handlerWrapper = SystemClock.DEFAULT.createHandler(looper, /* callback= */ null);
 
@@ -386,6 +424,7 @@ public class HardwareBufferSampleConsumerTest {
     return new HardwareBufferSampleConsumer(
         composition,
         sequenceIndex,
+        initialTimestampOffsetUs,
         looper,
         handlerWrapper,
         frame -> receivedFrames.add(frame),

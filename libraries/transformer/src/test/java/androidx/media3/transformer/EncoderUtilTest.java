@@ -20,6 +20,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel4;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -179,6 +180,105 @@ public class EncoderUtilTest {
     assertThat(
             (double) closestSupportedResolution.getWidth() / closestSupportedResolution.getHeight())
         .isEqualTo(7500.0 / 5000);
+  }
+
+  @Test
+  public void getSupportedResolution_clampedMaxWidthUnaligned_returnsAlignedResolution() {
+    MediaCodecInfo encoderInfo =
+        TestUtil.createVideoEncoderInfo(
+            "encoder.odd.max.width",
+            VIDEO_H264,
+            /* minWidth= */ 16,
+            /* maxWidth= */ 1919,
+            /* minHeight= */ 16,
+            /* maxHeight= */ 1080,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4));
+
+    @Nullable Size closestSupportedResolution =
+        EncoderUtil.getSupportedResolution(
+            encoderInfo, VIDEO_H264, /* width= */ 7500, /* height= */ 5000);
+
+    assertThat(closestSupportedResolution).isEqualTo(new Size(1620, 1080));
+  }
+
+  @Test
+  public void getSupportedResolution_clampedMinWidthUnaligned_returnsAlignedResolution() {
+    MediaCodecInfo encoderInfo =
+        TestUtil.createVideoEncoderInfo(
+            "encoder.odd.min.width",
+            VIDEO_H264,
+            /* minWidth= */ 17,
+            /* maxWidth= */ 1920,
+            /* minHeight= */ 18,
+            /* maxHeight= */ 1080,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4));
+
+    @Nullable Size closestSupportedResolution =
+        EncoderUtil.getSupportedResolution(
+            encoderInfo, VIDEO_H264, /* width= */ 10, /* height= */ 10);
+
+    assertThat(closestSupportedResolution).isEqualTo(new Size(18, 18));
+  }
+
+  @Test
+  public void getSupportedResolution_noAlignedWidthInRange_returnsNull() {
+    MediaCodecInfo encoderInfo =
+        TestUtil.createVideoEncoderInfo(
+            "encoder.impossible.width",
+            VIDEO_H264,
+            /* minWidth= */ 17,
+            /* maxWidth= */ 17,
+            /* minHeight= */ 16,
+            /* maxHeight= */ 1080,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4));
+
+    @Nullable Size closestSupportedResolution =
+        EncoderUtil.getSupportedResolution(
+            encoderInfo, VIDEO_H264, /* width= */ 1920, /* height= */ 1080);
+
+    assertThat(closestSupportedResolution).isNull();
+  }
+
+  @Test
+  public void getSupportedResolution_unalignedWidthInRangeAndTallHeight_returnsAlignedResolution() {
+    MediaCodecInfo encoderInfo =
+        TestUtil.createVideoEncoderInfo(
+            "encoder.aligned.bounds",
+            VIDEO_H264,
+            /* minWidth= */ 16,
+            /* maxWidth= */ 1920,
+            /* minHeight= */ 16,
+            /* maxHeight= */ 1080,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4));
+
+    @Nullable Size closestSupportedResolution =
+        EncoderUtil.getSupportedResolution(
+            encoderInfo, VIDEO_H264, /* width= */ 501, /* height= */ 5000);
+
+    assertThat(closestSupportedResolution).isEqualTo(new Size(108, 1080));
+  }
+
+  @Test
+  public void getSupportedResolution_getSupportedHeightsForThrows_returnsNull() {
+    MediaCodecInfo encoderInfo =
+        TestUtil.createVideoEncoderInfo(
+            "encoder.macroblock.limit",
+            VIDEO_H264,
+            /* minWidth= */ 16,
+            /* maxWidth= */ 3840,
+            /* minHeight= */ 1080,
+            /* maxHeight= */ 2160,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4));
+    MediaCodecInfo.VideoCapabilities videoCapabilities =
+        checkNotNull(encoderInfo.getCapabilitiesForType(VIDEO_H264).getVideoCapabilities());
+    assertThrows(
+        IllegalArgumentException.class, () -> videoCapabilities.getSupportedHeightsFor(3840));
+
+    @Nullable Size closestSupportedResolution =
+        EncoderUtil.getSupportedResolution(
+            encoderInfo, VIDEO_H264, /* width= */ 16000, /* height= */ 9000);
+
+    assertThat(closestSupportedResolution).isNull();
   }
 
   /**

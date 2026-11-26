@@ -18,8 +18,11 @@ package androidx.media3.extractor.mp3;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assume.assumeFalse;
 
+import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.Util;
@@ -33,6 +36,8 @@ import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.ExtractorAsserts.AssertionConfig;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.Id3TestUtil;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Ascii;
@@ -42,6 +47,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.nio.ByteBuffer;
 import org.jspecify.annotations.Nullable;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -49,6 +55,8 @@ import org.robolectric.RobolectricTestParameterInjector;
 /** Unit test for {@link Mp3Extractor}. */
 @RunWith(RobolectricTestParameterInjector.class)
 public final class Mp3ExtractorTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   private enum XingHeaderFlagConfig {
     NONE(/* flags= */ 0),
@@ -269,6 +277,351 @@ public final class Mp3ExtractorTest {
     assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
   }
 
+  @Test
+  public void read_disableCbrAssumptionOnly_returnsUnseekableSeekMap() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(output.seekMap.getSeekPoints(/* timeUs= */ 0).first)
+        .isEqualTo(new SeekPoint(/* timeUs= */ 0, /* position= */ 224));
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionAndIndexSeeking_usesIndexSeeker() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+    @Mp3Extractor.Flags
+    int flags =
+        Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+            | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING;
+
+    FakeExtractorOutput initialOutput =
+        extractUntilSeekMap(new Mp3Extractor(flags), fileBytes, /* simulateUnknownLength= */ false);
+    FakeExtractorOutput fullOutput =
+        TestUtil.extractAllSamplesFromByteArray(new Mp3Extractor(flags), fileBytes);
+
+    assertThat(initialOutput.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(initialOutput.seekMap.isSeekable()).isTrue();
+    assertThat(initialOutput.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(fullOutput.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(fullOutput.seekMap.getDurationUs()).isEqualTo(2_807_979);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionAndCbrSeeking_usesCbrSeeker() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(ConstantBitrateSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionCbrSeekingUnknownLength_unseekable() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionCbrSeekingAlwaysUnknownLength_usesCbr() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(ConstantBitrateSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionWithIndexAndCbrSeeking_prefersIndexSeeker()
+      throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-vbr-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  private enum ExplicitMetadataSample {
+    XING("media/mp3/bear-vbr-xing-header.mp3", XingSeeker.class),
+    VBRI("media/mp3/bear-vbr-vbri-header.mp3", VbriSeeker.class),
+    INFO("media/mp3/test-cbr-info-header.mp3", ConstantBitrateSeeker.class),
+    MLLT("media/mp3/bear-id3.mp3", MlltSeeker.class);
+
+    private final String assetPath;
+    private final Class<? extends Seeker> expectedSeekerClass;
+
+    ExplicitMetadataSample(String assetPath, Class<? extends Seeker> expectedSeekerClass) {
+      this.assetPath = assetPath;
+      this.expectedSeekerClass = expectedSeekerClass;
+    }
+  }
+
+  @Test
+  public void read_explicitMetadataWithDisableCbrAssumption_usesMetadataSeeker(
+      @TestParameter ExplicitMetadataSample sample) throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), sample.assetPath);
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(sample.expectedSeekerClass);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionWithTlen_usesTlenDuration() throws Exception {
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            "2800");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(2_800_000);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(109_029);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionAndCbrSeekingWithTlen_usesTlenDuration() throws Exception {
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            "2800");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(ConstantBitrateSeeker.class);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(2_800_000);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(109_029);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionAndIndexSeekingWithTlen_usesTlenThenRefines()
+      throws Exception {
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            "2800");
+    @Mp3Extractor.Flags
+    int flags =
+        Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+            | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING;
+
+    FakeExtractorOutput initialOutput =
+        extractUntilSeekMap(new Mp3Extractor(flags), fileBytes, /* simulateUnknownLength= */ false);
+    FakeExtractorOutput fullOutput =
+        TestUtil.extractAllSamplesFromByteArray(new Mp3Extractor(flags), fileBytes);
+
+    assertThat(initialOutput.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(initialOutput.seekMap.getDurationUs()).isEqualTo(2_800_000);
+    assertThat(fullOutput.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(fullOutput.seekMap.getDurationUs()).isEqualTo(2_807_979);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionIndexAndDisableId3WithTlen_stillUsesTlen() throws Exception {
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            "2800");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING
+                    | Mp3Extractor.FLAG_DISABLE_ID3_METADATA),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(2_800_000);
+    assertThat(output.trackOutputs.get(0).lastFormat.metadata).isNull();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionIndexDisableId3WithId3v22Tle_usesTle() throws Exception {
+    byte[] fileBytes =
+        prependId3v22TleFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            "2800");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING
+                    | Mp3Extractor.FLAG_DISABLE_ID3_METADATA),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(2_800_000);
+    assertThat(output.trackOutputs.get(0).lastFormat.metadata).isNull();
+  }
+
+  @Test
+  public void read_disableCbrAssumptionWithMalformedTlen_ignoresTlen(
+      @TestParameter({"1776.4", "", "0", "-100", "invalid"}) String tlenValue) throws Exception {
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            tlenValue);
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(
+                Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION
+                    | Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+  }
+
+  @Test
+  public void read_unknownLengthIndexSeekingWithTlen_usesTlenAsInitialDuration() throws Exception {
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3"),
+            "2821");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(2_821_000);
+  }
+
+  @Test
+  public void read_disableCbrAssumptionWithTlenAndFlagDisabled_ignoresTlen() throws Exception {
+    Flags.disableFlag(Flags.FLAG_USE_MP3_ID3_TLEN_DURATION);
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-vbr-no-seek-table.mp3"),
+            "2800");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION),
+            fileBytes,
+            /* simulateUnknownLength= */ false);
+
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void read_unknownLengthIndexSeekingWithTlenAndFlagDisabled_ignoresTlen() throws Exception {
+    Flags.disableFlag(Flags.FLAG_USE_MP3_ID3_TLEN_DURATION);
+    byte[] fileBytes =
+        prependId3v23TlenFrame(
+            TestUtil.getByteArray(
+                ApplicationProvider.getApplicationContext(),
+                "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3"),
+            "2821");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(C.TIME_UNSET);
+  }
+
   // https://github.com/androidx/media/issues/1563
   @Test
   public void mp3CbrSampleWithNoSeekTableAndTrailingGarbage(
@@ -457,6 +810,24 @@ public final class Mp3ExtractorTest {
       assertThat(extractor.read(input, positionHolder)).isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
     }
     return output;
+  }
+
+  private static byte[] prependId3v23TlenFrame(byte[] mp3Bytes, String tlenValue) {
+    return Bytes.concat(
+        Id3TestUtil.buildSingleFrameTag(
+            /* majorVersion= */ 3,
+            "TLEN",
+            Bytes.concat(new byte[] {0}, tlenValue.getBytes(ISO_8859_1))),
+        mp3Bytes);
+  }
+
+  private static byte[] prependId3v22TleFrame(byte[] mp3Bytes, String tleValue) {
+    return Bytes.concat(
+        Id3TestUtil.buildSingleFrameTag(
+            /* majorVersion= */ 2,
+            "TLE",
+            Bytes.concat(new byte[] {0}, tleValue.getBytes(ISO_8859_1))),
+        mp3Bytes);
   }
 
   private static int findMpegFramePositionBeforeTag(ByteBuffer data, int tagOffset) {

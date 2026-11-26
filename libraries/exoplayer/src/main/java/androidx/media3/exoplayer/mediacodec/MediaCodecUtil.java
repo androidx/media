@@ -32,10 +32,12 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -43,10 +45,13 @@ import androidx.media3.container.NalUnitUtil;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.InlineMe;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -72,6 +77,9 @@ public final class MediaCodecUtil {
 
   @GuardedBy("MediaCodecUtil.class")
   private static final HashMap<CodecKey, List<MediaCodecInfo>> decoderInfosCache = new HashMap<>();
+
+  private static final ExtensionDecoderLoader DAV1D_EXTENSION_LOADER =
+      new ExtensionDecoderLoader(MimeTypes.VIDEO_AV1);
 
   // Lazily initialized.
   private static int maxH264DecodableFrameSize = -1;
@@ -161,6 +169,38 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a list of available extension decoders for the specified MIME type when {@link
+   * Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled.
+   *
+   * <p>This method is experimental and may be renamed or removed in a future release.
+   *
+   * @param mimeType The MIME type, or {@code null} if unknown.
+   * @param requiresSecureDecoder Whether a secure decoder is required.
+   * @param requiresTunnelingDecoder Whether a tunneling decoder is required.
+   * @return An unmodifiable list of {@link MediaCodecInfo} instances for extension decoders, or an
+   *     empty list if {@link Flags#FLAG_UNIFIED_DECODER_RENDERER} is disabled, {@code mimeType} is
+   *     {@code null}, secure or tunneling decoding is required, or no matching extension decoder is
+   *     available.
+   */
+  @ExperimentalApi // TODO(b/562381449): Remove or make non-experimental.
+  public static List<MediaCodecInfo> getExtensionDecoderInfos(
+      @Nullable String mimeType, boolean requiresSecureDecoder, boolean requiresTunnelingDecoder) {
+    if (!Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)
+        || mimeType == null
+        || requiresSecureDecoder
+        || requiresTunnelingDecoder) {
+      return ImmutableList.of();
+    }
+
+    String normalizedMimeType = MimeTypes.normalizeMimeType(mimeType);
+    if (!normalizedMimeType.equals(MimeTypes.VIDEO_AV1)) {
+      return ImmutableList.of();
+    }
+
+    return DAV1D_EXTENSION_LOADER.getCodecInfos();
+  }
+
+  /**
    * Returns a list of decoders that can decode media in the specified format, in the priority order
    * specified by the {@link MediaCodecSelector}.
    *
@@ -188,8 +228,10 @@ public final class MediaCodecUtil {
       boolean requiresTunnelingDecoder)
       throws DecoderQueryException {
     List<MediaCodecInfo> decoderInfos =
-        mediaCodecSelector.getDecoderInfos(
-            format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+        filterOutExtensionDecodersIfEncrypted(
+            mediaCodecSelector.getDecoderInfos(
+                format.sampleMimeType, requiresSecureDecoder, requiresTunnelingDecoder),
+            format);
     List<MediaCodecInfo> alternativeDecoderInfos =
         getAlternativeDecoderInfos(
             mediaCodecSelector, format, requiresSecureDecoder, requiresTunnelingDecoder);
@@ -276,8 +318,10 @@ public final class MediaCodecUtil {
     if (alternativeMimeType == null) {
       return ImmutableList.of();
     }
-    return mediaCodecSelector.getDecoderInfos(
-        alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    return filterOutUnsupportedAlternativeExtensionDecoders(
+        mediaCodecSelector.getDecoderInfos(
+            alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder),
+        format);
   }
 
   /**
@@ -335,15 +379,37 @@ public final class MediaCodecUtil {
 
   /**
    * Returns a copy of the provided decoder list sorted such that decoders with functional format
-   * support are listed first. The returned list is modifiable for convenience.
+   * support are listed first. When an extension decoder fully supports {@code format} and no
+   * higher-priority non-extension decoder fully supports {@code format} (or has unknown {@code
+   * null} {@link MediaCodecInfo#capabilities} while functionally supporting {@code format}), that
+   * extension decoder is listed ahead of decoders with only functional support. Ties preserve the
+   * order of {@code decoderInfos}. The returned list is modifiable for convenience.
    */
   @CheckResult
   public static List<MediaCodecInfo> getDecoderInfosSortedByFormatSupport(
       Context context, List<MediaCodecInfo> decoderInfos, Format format) {
     decoderInfos = new ArrayList<>(decoderInfos);
+    Set<MediaCodecInfo> promotableExtensionDecoders = new HashSet<>();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (decoderInfo instanceof ExtensionCodecInfo) {
+        if (decoderInfo.isFormatSupported(context, format)) {
+          promotableExtensionDecoders.add(decoderInfo);
+        }
+      } else if (decoderInfo.isFormatSupported(context, format)
+          || (decoderInfo.capabilities == null
+              && decoderInfo.isFormatFunctionallySupported(context, format))) {
+        break;
+      }
+    }
     sortByScore(
         decoderInfos,
-        decoderInfo -> decoderInfo.isFormatFunctionallySupported(context, format) ? 1 : 0);
+        decoderInfo -> {
+          if (promotableExtensionDecoders.contains(decoderInfo)) {
+            return 2;
+          }
+          return decoderInfo.isFormatFunctionallySupported(context, format) ? 1 : 0;
+        });
     return decoderInfos;
   }
 
@@ -502,6 +568,50 @@ public final class MediaCodecUtil {
   }
 
   // Internal methods.
+
+  private static List<MediaCodecInfo> filterOutExtensionDecodersIfEncrypted(
+      List<MediaCodecInfo> decoderInfos, Format format) {
+    if (decoderInfos.isEmpty()
+        || (format.cryptoType == C.CRYPTO_TYPE_NONE && format.drmInitData == null)) {
+      return decoderInfos;
+    }
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (!(decoderInfo instanceof ExtensionCodecInfo)
+          || ((ExtensionCodecInfo) decoderInfo).isFormatDrmSupported(format)) {
+        result.add(decoderInfo);
+      }
+    }
+    return result.build();
+  }
+
+  private static List<MediaCodecInfo> filterOutUnsupportedAlternativeExtensionDecoders(
+      List<MediaCodecInfo> decoderInfos, Format format) {
+    boolean hasExtensionDecoder = false;
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      if (decoderInfos.get(i) instanceof ExtensionCodecInfo) {
+        hasExtensionDecoder = true;
+        break;
+      }
+    }
+    if (!hasExtensionDecoder) {
+      return decoderInfos;
+    }
+    ImmutableList.Builder<MediaCodecInfo> result = ImmutableList.builder();
+    for (int i = 0; i < decoderInfos.size(); i++) {
+      MediaCodecInfo decoderInfo = decoderInfos.get(i);
+      if (!(decoderInfo instanceof ExtensionCodecInfo)) {
+        result.add(decoderInfo);
+      } else {
+        ExtensionCodecInfo extensionInfo = (ExtensionCodecInfo) decoderInfo;
+        if (extensionInfo.isFormatDrmSupported(format) && extensionInfo.isFormatSupported(format)) {
+          result.add(decoderInfo);
+        }
+      }
+    }
+    return result.build();
+  }
 
   /**
    * Returns whether the device supports decoding E-AC3 JOC streams using a standard E-AC3 decoder
@@ -815,6 +925,80 @@ public final class MediaCodecUtil {
   /** Stably sorts the provided {@code list} in-place, in order of decreasing score. */
   private static <T> void sortByScore(List<T> list, ScoreProvider<T> scoreProvider) {
     list.sort((a, b) -> scoreProvider.getScore(b) - scoreProvider.getScore(a));
+  }
+
+  private static final class ExtensionDecoderLoader {
+
+    private final String mimeType;
+
+    @GuardedBy("this")
+    private boolean extensionLoaded;
+
+    @GuardedBy("this")
+    private @Nullable Method isAvailableMethod;
+
+    @GuardedBy("this")
+    private ImmutableList<MediaCodecInfo> codecInfos;
+
+    ExtensionDecoderLoader(String mimeType) {
+      this.mimeType = mimeType;
+      this.codecInfos = ImmutableList.of();
+    }
+
+    List<MediaCodecInfo> getCodecInfos() {
+      @Nullable Method isAvailableMethod;
+      ImmutableList<MediaCodecInfo> codecInfos;
+      synchronized (this) {
+        if (!extensionLoaded) {
+          if (!mimeType.equals(MimeTypes.VIDEO_AV1)) {
+            throw new IllegalArgumentException("Unsupported extension MIME type: " + mimeType);
+          }
+          // LINT.IfChange(dav1d_extension_discovery)
+          @Nullable Class<?> libraryClass = null;
+          try {
+            libraryClass = Class.forName("androidx.media3.decoder.av1.Dav1dLibrary");
+          } catch (ClassNotFoundException e) {
+            // Expected if extension artifact is not bundled.
+          }
+          if (libraryClass != null) {
+            try {
+              Method loadedIsAvailableMethod = libraryClass.getMethod("isAvailable");
+              MediaCodecInfo codecInfo =
+                  Class.forName("androidx.media3.decoder.av1.Dav1dCodecInfo")
+                      .asSubclass(MediaCodecInfo.class)
+                      .getConstructor()
+                      .newInstance();
+              // LINT.ThenChange(
+              //     ../../../../../../../proguard-rules.txt,
+              //
+              // ../../../../../../../../decoder_av1/src/main/java/androidx/media3/decoder/av1/Dav1dLibrary.java:is_available,
+              //
+              // ../../../../../../../../decoder_av1/src/main/java/androidx/media3/decoder/av1/Dav1dCodecInfo.java:constructor)
+              this.isAvailableMethod = loadedIsAvailableMethod;
+              this.codecInfos = ImmutableList.of(codecInfo);
+            } catch (Exception e) {
+              // The extension is present, but reflective lookup or instantiation failed.
+              throw new IllegalStateException("Error loading extension for " + mimeType, e);
+            }
+          }
+          extensionLoaded = true;
+        }
+        isAvailableMethod = this.isAvailableMethod;
+        codecInfos = this.codecInfos;
+      }
+      if (isAvailableMethod == null) {
+        return ImmutableList.of();
+      }
+      try {
+        // isAvailable() is a static method, so passing a null receiver to Method.invoke is safe.
+        @SuppressWarnings("nullness:argument")
+        boolean isLibraryAvailable =
+            Objects.equals(isAvailableMethod.invoke(/* obj= */ null), true);
+        return isLibraryAvailable ? codecInfos : ImmutableList.of();
+      } catch (Exception e) {
+        throw new IllegalStateException("Error querying extension for " + mimeType, e);
+      }
+    }
   }
 
   /** Interface for providers of item scores. */

@@ -17,6 +17,9 @@ package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import androidx.media3.common.C;
@@ -34,6 +37,7 @@ import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrackOutput.CryptoData;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -178,6 +182,82 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_auxiliary_tracks");
     DumpFileAsserts.assertOutput(context, auxiliaryTracksOutput, dumpFilePath);
+  }
+
+  @Test
+  public void seek_toStartAfterExtractingAuxiliaryTracks_reExtractsAuxiliaryTracks()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String nonInterleavedFilePath = "media/mp4/sample_with_fake_auxiliary_tracks.mp4";
+    String interleavedFilePath =
+        "media/mp4/sample_with_fake_auxiliary_tracks_interleaved_with_primary_video_tracks.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
+
+    FakeExtractorOutput initialOutput =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, nonInterleavedFilePath);
+    mp4Extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+    FakeExtractorOutput outputAfterSeek =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, nonInterleavedFilePath);
+    mp4Extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+    FakeExtractorOutput interleavedOutputAfterSeek =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, interleavedFilePath);
+
+    String nonInterleavedDumpPath =
+        getDumpFilePath(nonInterleavedFilePath, "_with_flag_read_auxiliary_tracks");
+    DumpFileAsserts.assertOutput(context, initialOutput, nonInterleavedDumpPath);
+    DumpFileAsserts.assertOutput(context, outputAfterSeek, nonInterleavedDumpPath);
+    DumpFileAsserts.assertOutput(
+        context,
+        interleavedOutputAfterSeek,
+        getDumpFilePath(interleavedFilePath, "_with_flag_read_auxiliary_tracks"));
+  }
+
+  @Test
+  public void seek_toNonZeroPositionWithAuxiliaryTracks_extractsRemainingSamples()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    byte[] data = TestUtil.getByteArray(context, "media/mp4/sample_with_fake_auxiliary_tracks.mp4");
+    FakeExtractorOutput expectedOutput =
+        TestUtil.extractAllSamplesFromByteArray(
+            new Mp4Extractor(
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS),
+            data);
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS);
+    FakeExtractorOutput output = TestUtil.extractAllSamplesFromByteArray(mp4Extractor, data);
+    SeekMap.SeekPoints seekPoints = output.seekMap.getSeekPoints(/* timeUs= */ 0);
+    output.clearTrackOutputs();
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(data).build();
+    input.setPosition((int) seekPoints.first.position);
+
+    mp4Extractor.seek(seekPoints.first.position, seekPoints.first.timeUs);
+    PositionHolder positionHolder = new PositionHolder();
+    int readResult = Extractor.RESULT_CONTINUE;
+    while (readResult != Extractor.RESULT_END_OF_INPUT) {
+      readResult = mp4Extractor.read(input, positionHolder);
+      if (readResult == Extractor.RESULT_SEEK) {
+        input.setPosition((int) positionHolder.position);
+      }
+    }
+
+    assertThat(seekPoints.first.position).isGreaterThan(0);
+    assertThat(output.numberOfTracks).isEqualTo(expectedOutput.numberOfTracks);
+    for (int trackIndex = 0; trackIndex < expectedOutput.numberOfTracks; trackIndex++) {
+      FakeTrackOutput expectedTrack = expectedOutput.trackOutputs.valueAt(trackIndex);
+      FakeTrackOutput actualTrack = output.trackOutputs.valueAt(trackIndex);
+      actualTrack.assertSampleCount(expectedTrack.getSampleCount());
+      for (int sampleIndex = 0; sampleIndex < expectedTrack.getSampleCount(); sampleIndex++) {
+        actualTrack.assertSample(
+            sampleIndex,
+            expectedTrack.getSampleData(sampleIndex),
+            expectedTrack.getSampleTimeUs(sampleIndex),
+            expectedTrack.getSampleFlags(sampleIndex),
+            expectedTrack.getSampleCryptoData(sampleIndex));
+      }
+    }
   }
 
   @Test
@@ -517,6 +597,28 @@ public final class Mp4ExtractorNonParameterizedTest {
     assertThat(audioTrack.lastFormat.sampleMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
     assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(1_024);
     assertThat(audioTrack.lastFormat.encoderPadding).isEqualTo(384);
+  }
+
+  @Test
+  public void seek_resetsSubtitleParser() throws Exception {
+    List<SubtitleParser> createdParsers = new ArrayList<>();
+    SubtitleParser.Factory subtitleParserFactory =
+        new ForwardingSubtitleParserFactory(new DefaultSubtitleParserFactory()) {
+          @Override
+          public SubtitleParser create(Format format) {
+            SubtitleParser parser = mock(SubtitleParser.class, delegatesTo(super.create(format)));
+            createdParsers.add(parser);
+            return parser;
+          }
+        };
+    Mp4Extractor extractor = new Mp4Extractor(subtitleParserFactory);
+    TestUtil.extractAllSamplesFromFile(
+        extractor, ApplicationProvider.getApplicationContext(), "media/mp4/sample_with_vobsub.mp4");
+    SubtitleParser subtitleParser = Iterables.getOnlyElement(createdParsers);
+
+    extractor.seek(/* position= */ 0, /* timeUs= */ 0);
+
+    verify(subtitleParser).reset();
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {

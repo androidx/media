@@ -164,4 +164,8 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
   public void unsubscribeFromVendorParameters(List<String> names) {
     delegate.unsubscribeFromVendorParameters(names);
   }
+
+  /* package */ MediaCodecAdapter getDelegate() {
+    return delegate;
+  }
 }

@@ -30,6 +30,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -112,9 +113,14 @@ internal fun EditMediaItemDialog(
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          val speedSliderState = remember { SliderState(value = speedToSliderValue(speed)) }
           Slider(
-            value = speedToSliderValue(speed),
-            onValueChange = { sliderValue -> speed = sliderValueToSpeed(sliderValue) },
+            state = speedSliderState,
+            onValueChange = { sliderValue ->
+              speed = sliderValueToSpeed(sliderValue)
+              // Snap the thumb to the rounded speed.
+              speedSliderState.value = speedToSliderValue(speed)
+            },
             modifier = Modifier.weight(1f),
           )
           Text(

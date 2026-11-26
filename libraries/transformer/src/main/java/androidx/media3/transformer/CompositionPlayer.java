@@ -41,7 +41,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.ImageFormat;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
@@ -1631,28 +1630,27 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       final FrameAggregator currentFrameAggregator = frameAggregator;
       sequenceFrameReaderSupplier =
           Suppliers.memoize(() ->
-              new SequenceFrameReader(
-                  composition,
-                  sequenceIndex,
-                  /* frameConsumer= */ asyncFrame -> {
+              new SequenceFrameReader.Builder()
+                  .setComposition(composition)
+                  .setSequenceIndex(sequenceIndex)
+                  .setFrameConsumer(asyncFrame -> {
                     if (asyncFrame == END_OF_STREAM_ASYNC_FRAME) {
                       checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
                     } else {
                       checkNotNull(currentFrameAggregator).queueFrame(asyncFrame, sequenceIndex);
                     }
-                  },
-                  checkNotNull(playbackThread).getLooper(),
-                  // TODO(b/531653682): Move surface pixel format selection into
-                  // SequenceFrameReader.
-                  /* defaultSurfacePixelFormat= */ SDK_INT >= 28
-                      ? ImageFormat.PRIVATE
-                      : ImageFormat.YUV_420_888,
-                  imageReaderAdapterFactory,
-                  e ->
-                      maybeUpdatePlaybackError(
-                          "SequenceFrameReader error", e, PlaybackException.ERROR_CODE_UNSPECIFIED),
-                  compositionInternalListenerHandler,
-                  checkNotNull(hardwareBufferJniWrapper)));
+                  })
+                  .setPlaybackLooper(checkNotNull(playbackThread).getLooper())
+                  .setImageReaderAdapterFactory(imageReaderAdapterFactory)
+                  .setListener(
+                      e ->
+                          maybeUpdatePlaybackError(
+                              "SequenceFrameReader error",
+                              e,
+                              PlaybackException.ERROR_CODE_UNSPECIFIED),
+                      compositionInternalListenerHandler)
+                  .setHardwareBufferJniWrapper(checkNotNull(hardwareBufferJniWrapper))
+                  .build());
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,
