@@ -449,9 +449,6 @@ public class MatroskaExtractorNonParameterizedTest {
       throws Exception {
     byte[] baseData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
-    // Chain of secondary SeekHeads whose Cues entries each point to the next SeekHead. The last
-    // two SeekHeads point to each other. The chain is longer than the index seek budget, so the
-    // cycle at the end is only reached once the visited positions can no longer be tracked.
     int seekHeadSize = 21;
     int seekHeadCount = MatroskaExtractor.MAX_INDEX_SEEKS + 2;
     long firstSeekHeadPos = baseData.length;
@@ -491,7 +488,6 @@ public class MatroskaExtractorNonParameterizedTest {
     byte[] baseData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
     long secondarySeekHeadPos = baseData.length;
-    // The file ends right after the secondary SeekHead, so this position is beyond the input.
     long outOfRangeCuesPos = secondarySeekHeadPos + 21 + 1000;
     byte[] secondarySeekHead = buildSeekHead(ID_CUES_BYTES, outOfRangeCuesPos);
     updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, secondarySeekHeadPos);
@@ -513,13 +509,39 @@ public class MatroskaExtractorNonParameterizedTest {
   }
 
   @Test
+  public void read_withTruncatedSecondarySeekHeadAtEndOfInput_seeksBackAndOutputsSamples()
+      throws Exception {
+    byte[] baseData =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
+    long secondarySeekHeadPos = baseData.length;
+    long declaredSeekHeadEndPos = secondarySeekHeadPos + 22;
+    byte[] seekHeadHeader = concat(ID_SEEK_HEAD_BYTES, new byte[] {(byte) 0x91});
+    byte[] seekHeader = new byte[] {0x4D, (byte) 0xBB, (byte) 0x8E};
+    byte[] seekIdForCues = concat(new byte[] {0x53, (byte) 0xAB, (byte) 0x84}, ID_CUES_BYTES);
+    updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, secondarySeekHeadPos);
+    byte[] testData = concat(baseData, seekHeadHeader, seekHeader, seekIdForCues);
+    updateSegmentSize(testData, declaredSeekHeadEndPos);
+
+    MatroskaExtractor extractor = new MatroskaExtractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(testData).build();
+    List<Long> seeks = readToEndAndRecordSeeks(extractor, input);
+
+    assertThat(seeks).containsExactly(secondarySeekHeadPos, CLUSTER_CONTENT_POSITION).inOrder();
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.isSeekable()).isFalse();
+    assertThat(output.trackOutputs.get(1).getSampleCount()).isGreaterThan(0);
+    assertThat(output.trackOutputs.get(1).getSampleTimeUs(0)).isEqualTo(67_000);
+  }
+
+  @Test
   public void read_withCuesReferenceBeyondSegmentEnd_doesNotSeekAndOutputsSamples()
       throws Exception {
     byte[] baseData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), "media/mkv/sample.mkv");
     long secondarySeekHeadPos = baseData.length;
     long segmentEndPos = secondarySeekHeadPos + 21;
-    // Void element after the end of the Segment: inside the input but outside the Segment.
     byte[] trailingVoid = new byte[] {(byte) 0xEC, (byte) 0x84, 0, 0, 0, 0};
     byte[] secondarySeekHead = buildSeekHead(ID_CUES_BYTES, segmentEndPos);
     updatePrimarySeekHeadTarget(baseData, ID_SEEK_HEAD_BYTES, secondarySeekHeadPos);
