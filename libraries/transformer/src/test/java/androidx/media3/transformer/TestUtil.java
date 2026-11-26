@@ -28,6 +28,9 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.graphics.SurfaceTexture;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.media.MediaFormat;
 import android.os.Handler;
 import android.util.Rational;
 import android.view.Surface;
@@ -77,6 +80,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
+import org.robolectric.shadows.MediaCodecInfoBuilder;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi
@@ -156,6 +160,35 @@ public final class TestUtil {
   public static Effects createAudioEffects(AudioProcessor... audioProcessors) {
     return new Effects(
         ImmutableList.copyOf(audioProcessors), /* videoEffects= */ ImmutableList.of());
+  }
+
+  /** Creates a Robolectric video encoder {@link MediaCodecInfo} with the given supported range. */
+  public static MediaCodecInfo createVideoEncoderInfo(
+      String name,
+      String mimeType,
+      int minWidth,
+      int maxWidth,
+      int minHeight,
+      int maxHeight,
+      CodecProfileLevel... profileLevels) {
+    MediaFormat encoderSupportedFormat = new MediaFormat();
+    encoderSupportedFormat.setString(MediaFormat.KEY_MIME, mimeType);
+    encoderSupportedFormat.setInteger(MediaFormat.KEY_WIDTH, minWidth);
+    encoderSupportedFormat.setInteger(MediaFormat.KEY_MAX_WIDTH, maxWidth);
+    encoderSupportedFormat.setInteger(MediaFormat.KEY_HEIGHT, minHeight);
+    encoderSupportedFormat.setInteger(MediaFormat.KEY_MAX_HEIGHT, maxHeight);
+    return MediaCodecInfoBuilder.newBuilder()
+        .setName(name)
+        .setIsEncoder(true)
+        .setCapabilities(
+            MediaCodecInfoBuilder.CodecCapabilitiesBuilder.newBuilder()
+                .setMediaFormat(encoderSupportedFormat)
+                .setIsEncoder(true)
+                .setColorFormats(
+                    new int[] {MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible})
+                .setProfileLevels(profileLevels)
+                .build())
+        .build();
   }
 
   public static SonicAudioProcessor createSampleRateChangingAudioProcessor(int sampleRate) {

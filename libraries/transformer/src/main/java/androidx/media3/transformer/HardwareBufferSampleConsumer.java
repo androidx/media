@@ -15,13 +15,10 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
-import android.graphics.ImageFormat;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.VisibleForTesting;
@@ -36,6 +33,7 @@ import androidx.media3.common.video.ImagePlanesFrame;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.transformer.SequenceFrameReader.Listener;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -45,7 +43,7 @@ import org.jspecify.annotations.Nullable;
  * A {@link GraphInput} that wraps {@link SequenceFrameReader}.
  *
  * <p>Offsets {@link Frame#KEY_DISPLAY_TIME_NS} based on preceding media item durations to ensure a
- * continuous timeline within the sequence.
+ * continuous timeline within the sequence, starting from an initial timestamp offset.
  */
 /* package */ final class HardwareBufferSampleConsumer implements GraphInput {
 
@@ -59,12 +57,15 @@ import org.jspecify.annotations.Nullable;
   private int currentMediaItemIndex = C.INDEX_UNSET;
   private long currentTimeOffsetUs;
   private long nextTimeOffsetUs;
+  private volatile @Nullable Runnable wakeupListener;
 
   /**
    * Creates a new instance.
    *
    * @param composition The {@link Composition} containing the sequences being exported.
    * @param sequenceIndex The index of the sequence this consumer belongs to.
+   * @param initialTimestampOffsetUs The offset to add to the timestamps of all output frames, in
+   *     microseconds. A negative value shifts the timestamps earlier.
    * @param playbackLooper The {@link Looper} for playback operations.
    * @param listenerHandler The {@link HandlerWrapper} for scheduling to dispatch {@link Listener}
    *     callbacks.
@@ -76,6 +77,7 @@ import org.jspecify.annotations.Nullable;
   public HardwareBufferSampleConsumer(
       Composition composition,
       int sequenceIndex,
+      long initialTimestampOffsetUs,
       Looper playbackLooper,
       HandlerWrapper listenerHandler,
       Consumer<AsyncFrame> frameConsumer,
@@ -84,6 +86,7 @@ import org.jspecify.annotations.Nullable;
     this(
         composition,
         sequenceIndex,
+        initialTimestampOffsetUs,
         playbackLooper,
         listenerHandler,
         frameConsumer,
@@ -100,6 +103,7 @@ import org.jspecify.annotations.Nullable;
   /* package */ HardwareBufferSampleConsumer(
       Composition composition,
       int sequenceIndex,
+      long initialTimestampOffsetUs,
       Looper playbackLooper,
       HandlerWrapper listenerHandler,
       Consumer<AsyncFrame> frameConsumer,
@@ -108,6 +112,7 @@ import org.jspecify.annotations.Nullable;
       ImageReaderAdapter.Factory imageReaderAdapterFactory) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
+    currentTimeOffsetUs = initialTimestampOffsetUs;
     // Modify the release times of frames exiting the sequenceFrameReader to account for item
     // duration.
     Consumer<AsyncFrame> intermediateConsumer =
@@ -134,20 +139,18 @@ import org.jspecify.annotations.Nullable;
           frameConsumer.accept(asyncFrame);
         };
     this.sequenceFrameReader =
-        new SequenceFrameReader(
-            checkNotNull(composition),
-            sequenceIndex,
-            intermediateConsumer,
-            playbackLooper,
-            // TODO(b/531653682): Move surface pixel format selection into SequenceFrameReader.
-            /* defaultSurfacePixelFormat= */ SDK_INT >= 28
-                ? ImageFormat.PRIVATE
-                : ImageFormat.YUV_420_888,
-            imageReaderAdapterFactory,
-            e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
-            listenerHandler,
-            hardwareBufferJniWrapper);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(sequenceIndex)
+            .setFrameConsumer(intermediateConsumer)
+            .setPlaybackLooper(playbackLooper)
+            .setImageReaderAdapterFactory(imageReaderAdapterFactory)
+            .setListener(
+                e -> errorConsumer.accept(ExportException.createForUnexpected(e)), listenerHandler)
+            .setHardwareBufferJniWrapper(hardwareBufferJniWrapper)
+            .build();
     inputSurface = sequenceFrameReader.createInputSurface();
+    sequenceFrameReader.addRendererWakeupListener(this::maybeWakeupRenderer);
   }
 
   @Override
@@ -218,8 +221,22 @@ import org.jspecify.annotations.Nullable;
     return 0;
   }
 
+  @CanIgnoreReturnValue
+  @Override
+  public boolean setWakeupListener(@Nullable Runnable wakeupListener) {
+    this.wakeupListener = wakeupListener;
+    return true;
+  }
+
   /** Releases resources associated with the underlying {@link SequenceFrameReader}. */
   public void release() {
     sequenceFrameReader.release();
+  }
+
+  private void maybeWakeupRenderer() {
+    @Nullable Runnable listener = wakeupListener;
+    if (listener != null) {
+      listener.run();
+    }
   }
 }

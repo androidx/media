@@ -33,10 +33,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.media3.demo.composition.R
@@ -92,7 +92,7 @@ internal fun VideoSequenceDialog(
               val duration = item.durationUs.toDuration(DurationUnit.MICROSECONDS)
               val durationString =
                 String.format(
-                  Locale.current.platformLocale,
+                  LocalLocale.current.platformLocale,
                   "%02d:%02d",
                   duration.inWholeMinutes,
                   duration.inWholeSeconds % 60,

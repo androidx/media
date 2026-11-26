@@ -20,6 +20,8 @@ plugins {
 android {
   namespace = "androidx.media3.demo.compose"
 
+  compileOptions { isCoreLibraryDesugaringEnabled = true }
+
   buildTypes {
     getByName("release") {
       isShrinkResources = true
@@ -35,6 +37,7 @@ android {
 }
 
 dependencies {
+  coreLibraryDesugaring(libs.desugar.jdk.libs)
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.lifecycle.runtime.compose)
@@ -47,6 +50,7 @@ dependencies {
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-exoplayer-dash"))
   implementation(project(":lib-exoplayer-hls"))
+  implementation(project(":lib-exoplayer-ima"))
   implementation(project(":lib-effect"))
   implementation(project(":lib-inspector"))
   implementation(project(":lib-inspector-frame"))

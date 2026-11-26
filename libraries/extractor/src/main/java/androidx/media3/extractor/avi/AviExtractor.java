@@ -150,6 +150,7 @@ public final class AviExtractor implements Extractor {
 
   private @State int state;
   private ExtractorOutput extractorOutput;
+  private @Nullable SubtitleTranscodingExtractorOutput subtitleTranscodingExtractorOutput;
   private @MonotonicNonNull AviMainHeaderChunk aviHeader;
   private long durationUs;
   private ChunkReader[] chunkReaders;
@@ -195,10 +196,13 @@ public final class AviExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     this.state = STATE_SKIPPING_TO_HDRL;
-    this.extractorOutput =
-        parseSubtitlesDuringExtraction
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    if (parseSubtitlesDuringExtraction) {
+      subtitleTranscodingExtractorOutput =
+          new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory);
+      this.extractorOutput = subtitleTranscodingExtractorOutput;
+    } else {
+      this.extractorOutput = output;
+    }
     pendingReposition = C.INDEX_UNSET;
   }
 
@@ -322,6 +326,9 @@ public final class AviExtractor implements Extractor {
     currentChunkReader = null;
     for (ChunkReader chunkReader : chunkReaders) {
       chunkReader.seekToPosition(position);
+    }
+    if (subtitleTranscodingExtractorOutput != null) {
+      subtitleTranscodingExtractorOutput.resetSubtitleParsers();
     }
     if (position == 0) {
       if (chunkReaders.length == 0) {

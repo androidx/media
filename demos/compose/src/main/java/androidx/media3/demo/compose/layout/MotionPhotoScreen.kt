@@ -88,9 +88,9 @@ private val PRESETS =
 
 private val BOUNDARIES =
   listOf(
-    MotionPhotoConfig.BOUNDARY_START_OF_VIDEO,
-    MotionPhotoConfig.BOUNDARY_PHOTO_FRAME,
-    MotionPhotoConfig.BOUNDARY_END_OF_VIDEO,
+    MotionPhotoConfig.Boundary.START_OF_VIDEO,
+    MotionPhotoConfig.Boundary.PHOTO_FRAME,
+    MotionPhotoConfig.Boundary.END_OF_VIDEO,
   )
 
 private enum class ConfigMode {
@@ -245,31 +245,29 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
         ) {
           BoundaryControl(
             title = "Start",
-            boundary = config.startBoundary,
-            offsetMs = config.startBoundaryOffsetMs,
-            onChange = { boundary, offsetMs ->
-              motionPhotoState.config =
-                motionPhotoState.config.copy(
-                  startBoundary = boundary,
-                  startBoundaryOffsetMs = offsetMs,
-                )
+            boundary = config.rangeStart,
+            onChange = { rangeStart ->
+              motionPhotoState.config = motionPhotoState.config.copy(rangeStart = rangeStart)
             },
           )
           BoundaryControl(
             title = "End",
-            boundary = config.endBoundary,
-            offsetMs = config.endBoundaryOffsetMs,
-            onChange = { boundary, offsetMs ->
-              motionPhotoState.config =
-                motionPhotoState.config.copy(endBoundary = boundary, endBoundaryOffsetMs = offsetMs)
+            boundary = config.rangeEnd,
+            onChange = { rangeEnd ->
+              motionPhotoState.config = motionPhotoState.config.copy(rangeEnd = rangeEnd)
             },
           )
           HorizontalDivider()
           ConfigSwitchRow(
             label = "Loop motion",
-            checked = config.isLooping,
+            checked = config.loopMode != MotionPhotoConfig.LOOP_MODE_OFF,
             onCheckedChange = { isLooping ->
-              motionPhotoState.config = motionPhotoState.config.copy(isLooping = isLooping)
+              motionPhotoState.config =
+                motionPhotoState.config.copy(
+                  loopMode =
+                    if (isLooping) MotionPhotoConfig.LOOP_MODE_FROM_RANGE_START
+                    else MotionPhotoConfig.LOOP_MODE_OFF
+                )
             },
           )
           ConfigSwitchRow(
@@ -291,20 +289,17 @@ internal fun MotionPhotoScreen(mediaItem: MediaItem, modifier: Modifier = Modifi
 @Composable
 private fun BoundaryControl(
   title: String,
-  boundary: @MotionPhotoConfig.PlaybackBoundary Int,
-  offsetMs: Long,
-  onChange: (@MotionPhotoConfig.PlaybackBoundary Int, Long) -> Unit,
+  boundary: MotionPhotoConfig.Boundary,
+  onChange: (MotionPhotoConfig.Boundary) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val offsetRangeMs = offsetRangeMs(boundary)
   Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Text(title, style = MaterialTheme.typography.labelLarge)
     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
       BOUNDARIES.forEachIndexed { index, option ->
         SegmentedButton(
-          selected = option == boundary,
-          // MotionPhotoConfig rejects offsets on the wrong side of the video start or end.
-          onClick = { onChange(option, offsetMs.coerceIn(offsetRangeMs(option))) },
+          selected = option == boundary.origin,
+          onClick = { onChange(option.plusMs(boundary.offsetMs)) },
           shape = SegmentedButtonDefaults.itemShape(index = index, count = BOUNDARIES.size),
           label = { Text(boundaryLabel(option), maxLines = 1) },
         )
@@ -315,8 +310,8 @@ private fun BoundaryControl(
       horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       FilledTonalIconButton(
-        onClick = { onChange(boundary, offsetMs - OFFSET_STEP_MS) },
-        enabled = offsetMs - OFFSET_STEP_MS >= offsetRangeMs.first,
+        onClick = { onChange(boundary.minusMs(OFFSET_STEP_MS)) },
+        enabled = boundary.offsetMs - OFFSET_STEP_MS >= -MAX_OFFSET_MS,
       ) {
         Icon(
           painterResource(R.drawable.media3_icon_minus),
@@ -324,20 +319,20 @@ private fun BoundaryControl(
         )
       }
       Text(
-        text = formatOffsetMs(offsetMs),
+        text = formatOffsetMs(boundary.offsetMs),
         modifier = Modifier.width(72.dp),
         textAlign = TextAlign.Center,
       )
       FilledTonalIconButton(
-        onClick = { onChange(boundary, offsetMs + OFFSET_STEP_MS) },
-        enabled = offsetMs + OFFSET_STEP_MS <= offsetRangeMs.last,
+        onClick = { onChange(boundary.plusMs(OFFSET_STEP_MS)) },
+        enabled = boundary.offsetMs + OFFSET_STEP_MS <= MAX_OFFSET_MS,
       ) {
         Icon(
           painterResource(R.drawable.media3_icon_plus),
           contentDescription = "Increase ${title.lowercase(Locale.ROOT)} offset",
         )
       }
-      Text(offsetDescription(boundary, offsetMs), style = MaterialTheme.typography.bodySmall)
+      Text(offsetDescription(boundary), style = MaterialTheme.typography.bodySmall)
     }
   }
 }
@@ -369,29 +364,19 @@ private fun ConfigSwitchRow(
   }
 }
 
-private fun offsetRangeMs(boundary: @MotionPhotoConfig.PlaybackBoundary Int): LongRange =
-  when (boundary) {
-    MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L..MAX_OFFSET_MS
-    MotionPhotoConfig.BOUNDARY_END_OF_VIDEO -> -MAX_OFFSET_MS..0L
-    else -> -MAX_OFFSET_MS..MAX_OFFSET_MS
-  }
-
-private fun offsetDescription(
-  boundary: @MotionPhotoConfig.PlaybackBoundary Int,
-  offsetMs: Long,
-): String {
-  val anchor = boundaryLabel(boundary).lowercase(Locale.ROOT)
+private fun offsetDescription(boundary: MotionPhotoConfig.Boundary): String {
+  val boundaryName = boundaryLabel(boundary.origin).lowercase(Locale.ROOT)
   return when {
-    offsetMs > 0L -> "${offsetMs}ms after $anchor"
-    offsetMs < 0L -> "${-offsetMs}ms before $anchor"
-    else -> "at $anchor"
+    boundary.offsetMs > 0L -> "${boundary.offsetMs}ms after $boundaryName"
+    boundary.offsetMs < 0L -> "${-boundary.offsetMs}ms before $boundaryName"
+    else -> "at $boundaryName"
   }
 }
 
-private fun boundaryLabel(boundary: @MotionPhotoConfig.PlaybackBoundary Int): String =
-  when (boundary) {
-    MotionPhotoConfig.BOUNDARY_PHOTO_FRAME -> "Photo frame"
-    MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> "Video start"
+private fun boundaryLabel(origin: MotionPhotoConfig.Boundary): String =
+  when (origin) {
+    MotionPhotoConfig.Boundary.PHOTO_FRAME -> "Photo frame"
+    MotionPhotoConfig.Boundary.START_OF_VIDEO -> "Video start"
     else -> "Video end"
   }
 

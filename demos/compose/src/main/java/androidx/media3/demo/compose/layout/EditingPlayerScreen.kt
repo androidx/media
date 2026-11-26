@@ -51,7 +51,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.demo.compose.R
-import androidx.media3.demo.compose.editing.ClippingSlider
 import androidx.media3.demo.compose.viewmodel.PlayerLifecycleViewModel
 import androidx.media3.demo.compose.viewmodel.rememberPlayerWithLifecycle
 import androidx.media3.effect.Presentation
@@ -61,6 +60,7 @@ import androidx.media3.inspector.frame.FrameExtractor
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.MuteButton
+import androidx.media3.ui.compose.material3.editing.ClippingSlider
 import androidx.media3.ui.compose.state.rememberProgressStateWithTickCount
 import com.google.common.collect.ImmutableList
 import java.util.Collections

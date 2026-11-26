@@ -24,9 +24,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.ExtensionCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.test.core.app.ApplicationProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import org.junit.After;
@@ -401,6 +403,20 @@ public final class Dav1dCodecAdapterTest {
 
     assertThat(thrown).hasCauseThat().isInstanceOf(Dav1dDecoderException.class);
     assertThat(thrown).hasCauseThat().hasMessageThat().contains("Failed to load decoder");
+  }
+
+  @Test
+  public void createAdapter_withDav1dCodecInfoWhenLibraryNotAvailable_throwsIOException() {
+    Dav1dLibrary.setAvailableForTesting(false);
+    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_AV1).build();
+    MediaCodecAdapter.Configuration configuration = createConfiguration(format, new MediaFormat());
+    DefaultMediaCodecAdapterFactory defaultFactory =
+        new DefaultMediaCodecAdapterFactory(ApplicationProvider.getApplicationContext());
+
+    IOException thrown =
+        assertThrows(IOException.class, () -> defaultFactory.createAdapter(configuration));
+
+    assertThat(thrown).hasCauseThat().isInstanceOf(Dav1dDecoderException.class);
   }
 
   private MediaCodecAdapter.Configuration createConfiguration(

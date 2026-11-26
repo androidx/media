@@ -44,6 +44,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowBuild;
+import org.robolectric.shadows.ShadowMediaCodecList;
 
 /** Unit test for {@link DefaultEncoderFactory}. */
 @RunWith(AndroidJUnit4.class)
@@ -108,6 +109,59 @@ public class DefaultEncoderFactoryTest {
 
     assertThat(actualVideoFormat.width).isEqualTo(1920);
     assertThat(actualVideoFormat.height).isEqualTo(1080);
+  }
+
+  @Test
+  public void
+      createForVideoEncoding_withUnalignedRangeEncoder_skipsUnsupportedAndSelectsCompatibleEncoder()
+          throws Exception {
+    ShadowMediaCodecList.reset();
+    ShadowMediaCodecList.addCodec(
+        TestUtil.createVideoEncoderInfo(
+            "encoder.unaligned.range",
+            MimeTypes.VIDEO_H264,
+            /* minWidth= */ 17,
+            /* maxWidth= */ 17,
+            /* minHeight= */ 16,
+            /* maxHeight= */ 1080,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4)));
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AVC_LEVEL4);
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    Format actualVideoFormat =
+        new DefaultEncoderFactory.Builder(context)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null)
+            .getConfigurationFormat();
+
+    assertThat(actualVideoFormat.width).isEqualTo(1920);
+    assertThat(actualVideoFormat.height).isEqualTo(1080);
+  }
+
+  @Test
+  public void createForVideoEncoding_withOnlyUnalignedRangeEncoder_throwsExportException() {
+    ShadowMediaCodecList.reset();
+    ShadowMediaCodecList.addCodec(
+        TestUtil.createVideoEncoderInfo(
+            "encoder.unaligned.range",
+            MimeTypes.VIDEO_H264,
+            /* minWidth= */ 17,
+            /* maxWidth= */ 17,
+            /* minHeight= */ 16,
+            /* maxHeight= */ 1080,
+            createCodecProfileLevel(AVCProfileHigh, AVCLevel4)));
+    EncoderUtil.clearCachedEncoders();
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    ExportException exception =
+        assertThrows(
+            ExportException.class,
+            () ->
+                new DefaultEncoderFactory.Builder(context)
+                    .build()
+                    .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null));
+
+    assertThat(exception.errorCode).isEqualTo(ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
   }
 
   @Test

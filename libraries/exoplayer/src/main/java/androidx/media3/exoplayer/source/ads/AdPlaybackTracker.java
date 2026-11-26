@@ -211,6 +211,11 @@ public final class AdPlaybackTracker {
     /**
      * Called when all scheduled ads for {@code adsId} have completed, skipped, or errored.
      *
+     * <p>When {@code adPlaybackState} {@linkplain AdPlaybackState#endsWithLivePostrollPlaceHolder()
+     * ends with a live postroll placeholder}, this callback is withheld while the content is
+     * dynamic (meaning new ad groups may still arrive) and fires once the stream becomes static
+     * (and no ad group is active).
+     *
      * @param adsId The session identifier.
      * @param adPlaybackState The current {@link AdPlaybackState}.
      */
@@ -700,6 +705,9 @@ public final class AdPlaybackTracker {
       player.addListener(playerListener);
     }
     notifyBridge(bridge -> bridge.onPlayerChanged(player));
+    if (player != null && this.player == player) {
+      playerListener.updateCurrentSessionDynamicState(player);
+    }
   }
 
   private void stopSession(AdSession session) {
@@ -814,21 +822,72 @@ public final class AdPlaybackTracker {
   private final class PlayerListener implements Player.Listener {
 
     private final Timeline.Period scratchPeriod = new Timeline.Period();
+    private final Timeline.Window scratchWindow = new Timeline.Window();
 
     @Override
     public void onTimelineChanged(Timeline timeline, @Player.TimelineChangeReason int reason) {
       @Nullable Player currentPlayer = player;
-      if (currentPlayer == null || timeline.isEmpty()) {
+      if (currentPlayer == null || sessionsByAdsId.isEmpty()) {
+        return;
+      }
+      Timeline currentTimeline = currentPlayer.getCurrentTimeline();
+      if (currentTimeline.isEmpty()) {
         return;
       }
       @Nullable AdSession currentSession = getCurrentSession(currentPlayer, scratchPeriod);
-      if (currentSession == null) {
+      if (currentSession != null) {
+        updateSessionDynamicState(currentSession, currentPlayer, currentTimeline);
+        currentSession.reconcileActiveAd(
+            currentPlayer.isPlayingAd(),
+            currentPlayer.getCurrentAdGroupIndex(),
+            currentPlayer.getCurrentAdIndexInAdGroup());
+      }
+    }
+
+    @Override
+    public void onMediaItemTransition(
+        @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+      @Nullable Player currentPlayer = player;
+      if (currentPlayer == null) {
         return;
       }
-      currentSession.reconcileActiveAd(
-          currentPlayer.isPlayingAd(),
-          currentPlayer.getCurrentAdGroupIndex(),
-          currentPlayer.getCurrentAdIndexInAdGroup());
+      updateCurrentSessionDynamicState(currentPlayer);
+    }
+
+    private void updateCurrentSessionDynamicState(Player currentPlayer) {
+      if (sessionsByAdsId.isEmpty()) {
+        return;
+      }
+      Timeline timeline = currentPlayer.getCurrentTimeline();
+      if (timeline.isEmpty()) {
+        return;
+      }
+      @Nullable AdSession currentSession = getCurrentSession(currentPlayer, scratchPeriod);
+      if (currentSession != null) {
+        updateSessionDynamicState(currentSession, currentPlayer, timeline);
+      }
+    }
+
+    private void updateSessionDynamicState(
+        AdSession currentSession, Player currentPlayer, Timeline timeline) {
+      int windowIndex = currentPlayer.getCurrentMediaItemIndex();
+      if (windowIndex >= 0 && windowIndex < timeline.getWindowCount()) {
+        currentSession.setIsDynamic(isContentDynamic(timeline, windowIndex));
+      }
+    }
+
+    private boolean isContentDynamic(Timeline timeline, int windowIndex) {
+      timeline.getWindow(windowIndex, scratchWindow);
+      // A placeholder window doesn't hold the real window information yet, so it's unknown whether
+      // the content is static.
+      if (scratchWindow.isDynamic || scratchWindow.isPlaceholder) {
+        return true;
+      }
+      if (!scratchWindow.isLive()) {
+        return false;
+      }
+      timeline.getPeriod(scratchWindow.lastPeriodIndex, scratchPeriod);
+      return scratchPeriod.durationUs == C.TIME_UNSET;
     }
 
     @Override

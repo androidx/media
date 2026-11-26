@@ -1197,7 +1197,8 @@ public final class Transformer {
    * @param composition The {@link Composition} to resume export.
    * @param outputFilePath The path to the output file. This must be different from the output path
    *     of the cancelled export.
-   * @param oldFilePath The output path of the the cancelled export.
+   * @param oldFilePath The output path of the cancelled export. This file must be writable and may
+   *     be overwritten while the export is resumed.
    */
   // TODO: b/450253391 - Add support for resumption with #setSpeed().
   public void resume(Composition composition, String outputFilePath, String oldFilePath) {

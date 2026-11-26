@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.demo.compose.editing
+package androidx.media3.ui.compose.material3.editing
 
+import androidx.annotation.RestrictTo
+import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.Color
  *   selected clipping range on the slider track. The underlying content remains visible if the
  *   color's alpha is less than 1f.
  */
+@RestrictTo(LIBRARY_GROUP)
 @Immutable
 class ClippingSliderColors(
   val clippingFrameColor: Color,
@@ -74,6 +77,7 @@ class ClippingSliderColors(
 }
 
 /** Contains the default values used by [ClippingSlider]. */
+@RestrictTo(LIBRARY_GROUP)
 object ClippingSliderDefaults {
 
   /**
@@ -99,4 +103,3 @@ object ClippingSliderDefaults {
       inactiveTrackColor = inactiveTrackColor,
     )
 }
-

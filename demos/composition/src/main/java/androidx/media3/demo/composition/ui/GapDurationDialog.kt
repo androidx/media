@@ -30,11 +30,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -46,7 +43,7 @@ import androidx.media3.demo.composition.ui.theme.spacing
 
 @Composable
 internal fun GapDurationDialog(onDismissRequest: () -> Unit, onConfirm: (Long) -> Unit) {
-  var durationSeconds by remember { mutableFloatStateOf(5f) }
+  val durationSliderState = rememberSliderState(value = 5f, steps = 299, trackRange = 0.1f..30f)
 
   Dialog(onDismissRequest) {
     Card(shape = RoundedCornerShape(16.dp)) {
@@ -56,12 +53,10 @@ internal fun GapDurationDialog(onDismissRequest: () -> Unit, onConfirm: (Long) -
       ) {
         Text(text = stringResource(R.string.gap_duration_title), fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = stringResource(R.string.seconds_label, durationSeconds))
+        Text(text = stringResource(R.string.seconds_label, durationSliderState.value))
         Slider(
-          value = durationSeconds,
-          onValueChange = { durationSeconds = it },
-          valueRange = 0.1f..30f,
-          steps = 299,
+          state = durationSliderState,
+          onValueChange = { durationSliderState.value = it },
           modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -69,7 +64,7 @@ internal fun GapDurationDialog(onDismissRequest: () -> Unit, onConfirm: (Long) -
             Text(text = stringResource(R.string.cancel))
           }
           Spacer(modifier = Modifier.width(8.dp))
-          Button(onClick = { onConfirm((durationSeconds * 1_000_000).toLong()) }) {
+          Button(onClick = { onConfirm((durationSliderState.value * 1_000_000).toLong()) }) {
             Text(text = stringResource(R.string.ok))
           }
         }

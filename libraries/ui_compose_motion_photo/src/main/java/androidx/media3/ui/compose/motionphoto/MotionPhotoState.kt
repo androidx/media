@@ -69,7 +69,7 @@ import kotlinx.coroutines.launch
  * [Player.playWhenReady] is driven by the motion/still-photo state (callers should pause via
  * [MotionPhotoState.showStillPhoto] or detach by passing `player = null` rather than calling
  * [Player.pause] or [Player.stop] directly), and [Player.repeatMode] is set to
- * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping]
+ * [Player.REPEAT_MODE_ONE] or [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.loopMode]
  * and is not restored when [player] is detached.
  *
  * This state holder does not pause, stop, or release [player] when [player] is replaced with a
@@ -116,10 +116,10 @@ fun rememberMotionPhotoState(
  * [Player.setMediaItem] so that [mediaItem] is the only item in the playlist, and prepares
  * playback. Playback boundary changes update [mediaItem]'s [MediaItem.ClippingConfiguration] in
  * place via [Player.replaceMediaItem], keeping the current playback position when only the end
- * boundary changes (unless the current position is at or beyond the new end) and seeking to the
- * start position when the start boundary changes. The start and end positions of [mediaItem]'s
- * [MediaItem.ClippingConfiguration] are overridden by the resolved boundaries. Callers should not
- * modify the [Player]'s playlist while it is bound to this state.
+ * boundary changes (unless the current position is at or beyond the new end) and restarting from
+ * scratch (see [MotionPhotoConfig.loopMode]) when the start boundary changes. The start and end
+ * positions of [mediaItem]'s [MediaItem.ClippingConfiguration] are overridden by the resolved
+ * boundaries. Callers should not modify the [Player]'s playlist while it is bound to this state.
  *
  * The supplied [Player] must support updating an item's [MediaItem.ClippingConfiguration] in-place
  * using [Player.replaceMediaItem]; see [rememberMotionPhotoState] for how to configure `ExoPlayer`.
@@ -128,7 +128,7 @@ fun rememberMotionPhotoState(
  * [Player.playWhenReady] is driven by the motion/still-photo state (callers should pause via
  * [showStillPhoto] or detach by passing `player = null` rather than calling [Player.pause] or
  * [Player.stop] directly), and [Player.repeatMode] is set to [Player.REPEAT_MODE_ONE] or
- * [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.isLooping] and is not restored when the
+ * [Player.REPEAT_MODE_OFF] according to [MotionPhotoConfig.loopMode] and is not restored when the
  * [Player] is detached.
  *
  * @property mediaItem The [MediaItem] representing the motion photo, guaranteed to have a non-null
@@ -207,22 +207,30 @@ internal constructor(
         isMotionUnavailable = false
         isPlaybackRangeEmpty = false
         hasRenderedFirstFrame = false
+        isAwaitingStartSeekReady = false
         videoDurationUs = C.TIME_UNSET
         photoPresentationTimestampUs = C.TIME_UNSET
         hasKnownTracks = false
         hasWarnedAboutPhotoFrameFallback = false
+        appliedPhotoFrameStartPositionMs = C.TIME_UNSET
+        isNewItemAwaitingInitialStart = false
+        loadedClippingHasPhotoFrameEndTolerance = false
       }
     }
 
   private var isMotionUnavailable by mutableStateOf(false)
   private var isPlaybackRangeEmpty by mutableStateOf(false)
   private var hasRenderedFirstFrame by mutableStateOf(false)
+  private var isAwaitingStartSeekReady by mutableStateOf(false)
   private var motionTarget by
     mutableStateOf(if (initialShowMotion) MotionTarget.MOTION else MotionTarget.PHOTO_FORCED)
   private var videoDurationUs: Long = C.TIME_UNSET
   private var photoPresentationTimestampUs: Long = C.TIME_UNSET
   private var hasKnownTracks = false
   private var hasWarnedAboutPhotoFrameFallback = false
+  private var appliedPhotoFrameStartPositionMs: Long = C.TIME_UNSET
+  private var isNewItemAwaitingInitialStart = false
+  private var loadedClippingHasPhotoFrameEndTolerance = false
 
   private val isPhotoTarget: Boolean
     get() = motionTarget != MotionTarget.MOTION
@@ -262,6 +270,9 @@ internal constructor(
     val wasPhotoTarget = isPhotoTarget
     motionTarget = MotionTarget.PHOTO_FORCED
     if (!wasPhotoTarget) {
+      if (hasRenderedFirstFrame && player?.playWhenReady == true) {
+        isNewItemAwaitingInitialStart = false
+      }
       player?.let { transitionToStillPhoto(it) }
     }
   }
@@ -285,6 +296,9 @@ internal constructor(
       return
     }
     motionTarget = MotionTarget.MOTION_ENDED
+    if (player?.playWhenReady == true) {
+      isNewItemAwaitingInitialStart = false
+    }
     player?.let { transitionToStillPhoto(it) }
   }
 
@@ -294,8 +308,11 @@ internal constructor(
    * The [MotionPhotoConfig] governing motion playback behavior.
    *
    * This value is initialized from `initialConfig` and can be updated by the application to change
-   * playback behavior dynamically. Setting this property syncs the attached [Player] accordingly.
+   * playback behavior dynamically. Setting this property syncs the attached [Player] accordingly,
+   * except changes to the photo-frame start position implied by [MotionPhotoConfig.loopMode], which
+   * are not reconciled immediately while stationary.
    */
+  // TODO(b/544627271): Reconcile loopMode start-position updates immediately while stationary.
   var config: MotionPhotoConfig
     get() = _config
     set(value) {
@@ -322,10 +339,8 @@ internal constructor(
         return
       }
       if (
-        previousConfig.startBoundary != _config.startBoundary ||
-          previousConfig.startBoundaryOffsetMs != _config.startBoundaryOffsetMs ||
-          previousConfig.endBoundary != _config.endBoundary ||
-          previousConfig.endBoundaryOffsetMs != _config.endBoundaryOffsetMs
+        previousConfig.rangeStart != _config.rangeStart ||
+          previousConfig.rangeEnd != _config.rangeEnd
       ) {
         syncMediaItem(currentPlayer)
       }
@@ -352,7 +367,8 @@ internal constructor(
           player == null ||
           isMotionUnavailable ||
           isPlaybackRangeEmpty ||
-          !hasRenderedFirstFrame,
+          !hasRenderedFirstFrame ||
+          isAwaitingStartSeekReady,
       transitionDurationMs = _config.transitionDurationMs,
     )
   }
@@ -362,7 +378,14 @@ internal constructor(
     isRewindPending = !_config.resumeVideoFromPreviousPosition
     updateMotionPhotoMetadata(currentPlayer)
     updateVideoDuration(currentPlayer)
+    val wasUnpreparedAtStart =
+      currentPlayer.playbackState == Player.STATE_IDLE &&
+        currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
+        currentPlayer.currentPosition == 0L
     val didUpdateMediaItem = syncMediaItem(currentPlayer)
+    if (wasUnpreparedAtStart) {
+      isNewItemAwaitingInitialStart = true
+    }
     // If no new item or clipping update was applied, an existing error is not stale.
     prepare(currentPlayer, allowPrepareOnError = didUpdateMediaItem)
     updateMotionAvailability(currentPlayer)
@@ -372,6 +395,9 @@ internal constructor(
     val didDurationChange = updateVideoDuration(currentPlayer)
     if (didMetadataChange || didDurationChange) {
       syncMediaItem(currentPlayer)
+    }
+    if (_config.resumeVideoFromPreviousPosition) {
+      reconcileStartPosition(currentPlayer)
     }
     if (isPhotoTarget) {
       syncStillPhoto(currentPlayer)
@@ -424,30 +450,68 @@ internal constructor(
           Player.EVENT_TIMELINE_CHANGED,
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
         ) && updateVideoDuration(this)
-      if (
+      val isTracksCleared =
+        events.contains(Player.EVENT_TRACKS_CHANGED) &&
+          (!isCommandAvailable(Player.COMMAND_GET_TRACKS) || currentTracks.isEmpty)
+      val isStoppedToIdle =
+        events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_IDLE
+      val shouldResetRenderedFrame = isTracksCleared || isStoppedToIdle
+      if (shouldResetRenderedFrame) {
+        hasRenderedFirstFrame = false
+        if (isStoppedToIdle && !_config.resumeVideoFromPreviousPosition) {
+          isRewindPending = true
+        }
+      }
+      val didSyncMediaItem =
         didMetadataChange ||
           didDurationChange ||
           events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)
-      ) {
+      if (didSyncMediaItem) {
         syncMediaItem(this)
+      }
+      if (
+        isRewindPending &&
+          deferredRewindJob == null &&
+          !isPlaybackRangeEmpty &&
+          playbackState != Player.STATE_IDLE &&
+          playbackState != Player.STATE_ENDED
+      ) {
+        rewind(this)
+      } else if (
+        !didSyncMediaItem &&
+          events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
+          playbackState != Player.STATE_IDLE &&
+          playbackState != Player.STATE_ENDED
+      ) {
+        reconcileStartPosition(this)
       }
       if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
         syncPlaybackState(this)
       }
-      if (
-        events.contains(Player.EVENT_TRACKS_CHANGED) &&
-          (!isCommandAvailable(Player.COMMAND_GET_TRACKS) || currentTracks.isEmpty)
-      ) {
-        hasRenderedFirstFrame = false
-        // The still photo covers the item being prepared again, so motion must wait for the first
-        // frame underneath it once more.
+      if (shouldResetRenderedFrame) {
+        // An item being prepared again or stopped resets to its unrendered state, so motion waits
+        // for a new first frame underneath the still photo.
         syncPlayWhenReady(this)
       }
-      if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
+      if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME) && !isStoppedToIdle) {
         hasRenderedFirstFrame = true
+        if (!isPhotoTarget && !isPlaybackRangeEmpty && !isAwaitingStartSeekReady) {
+          isNewItemAwaitingInitialStart = false
+        }
         if (isPlayPendingFirstFrame) {
           syncPlayWhenReady(this)
         }
+      }
+      if (
+        isAwaitingStartSeekReady &&
+          events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
+          playbackState != Player.STATE_BUFFERING
+      ) {
+        isAwaitingStartSeekReady = false
+        if (!isPhotoTarget && !isPlaybackRangeEmpty && hasRenderedFirstFrame) {
+          isNewItemAwaitingInitialStart = false
+        }
+        syncPlayWhenReady(this)
       }
       if (
         events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
@@ -458,22 +522,16 @@ internal constructor(
         syncPlayWhenReady(this)
       }
       if (
-        events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_IDLE
-      ) {
-        hasRenderedFirstFrame = false
-        // A stopped player resets to its unrendered initial state, so motion waits for a new
-        // first frame on subsequent preparation.
-        syncPlayWhenReady(this)
-      }
-      if (
         events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && playbackState == Player.STATE_ENDED
       ) {
+        isNewItemAwaitingInitialStart = false
         if (!_config.isLooping) {
           markMotionEnded()
         } else if (!isPhotoTarget) {
           // Repeat mode is unsupported or was not applied by the player, so emulate
           // REPEAT_MODE_ONE manually.
           if (isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+            appliedPhotoFrameStartPositionMs = C.TIME_UNSET
             seekToDefaultPosition()
           } else {
             markMotionEnded()
@@ -493,6 +551,7 @@ internal constructor(
     isMotionUnavailable = currentPlayer.playerError != null || hasNoVideoTrack
     if (isMotionUnavailable) {
       hasRenderedFirstFrame = false
+      isAwaitingStartSeekReady = false
     }
     return isMotionUnavailable != wasMotionUnavailable
   }
@@ -516,7 +575,7 @@ internal constructor(
       hasKnownTracks = false
     }
     // A player that is ready or ended without reporting tracks is also treated as having known
-    // tracks, so a pending BOUNDARY_PHOTO_FRAME falls back rather than staying unresolved.
+    // tracks, so a pending Boundary.PHOTO_FRAME falls back rather than staying unresolved.
     hasKnownTracks =
       hasKnownTracks ||
         currentPlayer.playbackState == Player.STATE_READY ||
@@ -558,6 +617,46 @@ internal constructor(
     syncPlayWhenReady(currentPlayer)
   }
 
+  /**
+   * Reconciles [currentPlayer]'s start position when photo-frame metadata, duration, or seek
+   * capabilities resolve while the still photo is shown (or [allowAfterFirstFrame] is `true` when
+   * exiting an empty playback range, which also showed the still photo) or before the first frame
+   * of motion has rendered.
+   *
+   * Only seeks when a photo-frame start position becomes actionable and has not yet been applied,
+   * or falls back to the start of the range when reverting a previously applied photo-frame start,
+   * avoiding unnecessary seeks during preparation when motion starts at the range start anyway.
+   */
+  @CanIgnoreReturnValue
+  private fun reconcileStartPosition(
+    currentPlayer: Player,
+    allowAfterFirstFrame: Boolean = false,
+  ): Boolean {
+    if (
+      isPlaybackRangeEmpty ||
+        deferredRewindJob?.isActive == true ||
+        (!hasKnownTracks && currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS)) ||
+        (currentPlayer.playbackState == Player.STATE_IDLE &&
+          appliedPhotoFrameStartPositionMs == C.TIME_UNSET) ||
+        (!isPhotoTarget &&
+          hasRenderedFirstFrame &&
+          !allowAfterFirstFrame &&
+          !isAwaitingStartSeekReady) ||
+        (_config.resumeVideoFromPreviousPosition && !isNewItemAwaitingInitialStart)
+    ) {
+      return false
+    }
+    if (resolvedPhotoFrameStartPositionMs(currentPlayer) == appliedPhotoFrameStartPositionMs) {
+      return false
+    }
+    val didSeek = seekToStartPosition(currentPlayer, fallbackToDefaultPosition = false)
+    if (didSeek) {
+      cancelDeferredRewind()
+      isRewindPending = false
+    }
+    return didSeek
+  }
+
   private fun prepare(currentPlayer: Player, allowPrepareOnError: Boolean) {
     if (
       currentPlayer.playbackState == Player.STATE_IDLE &&
@@ -573,13 +672,8 @@ internal constructor(
 
   private fun rewind(currentPlayer: Player) {
     cancelDeferredRewind()
-    if (
-      currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) &&
-        currentPlayer.currentMediaItem != null &&
-        currentPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
-    ) {
+    if (seekToStartPosition(currentPlayer)) {
       isRewindPending = false
-      currentPlayer.seekToDefaultPosition()
     }
   }
 
@@ -648,7 +742,14 @@ internal constructor(
     if (isMotionUnavailable) {
       cancelDeferredPlay()
       // There is no frame to fade in, so there is nothing to wait for.
+      isNewItemAwaitingInitialStart = false
       currentPlayer.playWhenReady = true
+      return
+    }
+    if (isAwaitingStartSeekReady) {
+      deferredPlayJob?.cancel()
+      deferredPlayJob = null
+      currentPlayer.playWhenReady = false
       return
     }
     if (!hasRenderedFirstFrame) {
@@ -678,11 +779,13 @@ internal constructor(
     if (_config.transitionDurationMs > 0L) {
       deferredPlayJob = launchAfterTransition {
         if (currentPlayer.isCommandAvailable(Player.COMMAND_PLAY_PAUSE)) {
+          isNewItemAwaitingInitialStart = false
           currentPlayer.playWhenReady = true
         }
       }
     } else {
       cancelDeferredPlay()
+      isNewItemAwaitingInitialStart = false
       currentPlayer.playWhenReady = true
     }
   }
@@ -717,6 +820,113 @@ internal constructor(
       delay(transitionDurationMs)
       action()
     }
+  }
+
+  /**
+   * Seeks [currentPlayer] to where motion playback starts from scratch: the photo frame if
+   * [MotionPhotoConfig.loopMode] is [MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME] and applies (see
+   * [motionStartPositionMs]), otherwise the start of the playback range.
+   *
+   * A player that cannot seek within the current item is left alone if it already reports the photo
+   * frame as its position; otherwise it seeks to the start of the range when
+   * [fallbackToDefaultPosition] is `true`, or is left alone so a later update can apply the photo
+   * frame once seeking becomes available.
+   */
+  @CanIgnoreReturnValue
+  private fun seekToStartPosition(
+    currentPlayer: Player,
+    fallbackToDefaultPosition: Boolean = true,
+  ): Boolean {
+    if (
+      !currentPlayer.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) ||
+        currentPlayer.currentMediaItem == null
+    ) {
+      return false
+    }
+    val wasAwaitingStartSeekReady = isAwaitingStartSeekReady
+    val startPositionMs = resolvedPhotoFrameStartPositionMs(currentPlayer)
+    if (startPositionMs != C.TIME_UNSET) {
+      if (currentPlayer.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
+        currentPlayer.seekTo(startPositionMs)
+        appliedPhotoFrameStartPositionMs = startPositionMs
+        isAwaitingStartSeekReady = currentPlayer.playbackState == Player.STATE_BUFFERING
+        if (isAwaitingStartSeekReady || wasAwaitingStartSeekReady) {
+          syncPlayWhenReady(currentPlayer)
+        }
+        return true
+      }
+      if (
+        currentPlayer.playbackState != Player.STATE_ENDED &&
+          currentPlayer.currentPosition == startPositionMs
+      ) {
+        appliedPhotoFrameStartPositionMs = startPositionMs
+        return true
+      }
+      if (!fallbackToDefaultPosition) {
+        return false
+      }
+    }
+    if (currentPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+      val hadAppliedPhotoFrame = appliedPhotoFrameStartPositionMs != C.TIME_UNSET
+      appliedPhotoFrameStartPositionMs = C.TIME_UNSET
+      currentPlayer.seekToDefaultPosition()
+      isAwaitingStartSeekReady =
+        (wasAwaitingStartSeekReady || hadAppliedPhotoFrame) &&
+          currentPlayer.playbackState == Player.STATE_BUFFERING
+      if (isAwaitingStartSeekReady || wasAwaitingStartSeekReady) {
+        syncPlayWhenReady(currentPlayer)
+      }
+      return true
+    }
+    return false
+  }
+
+  private fun resolvedPhotoFrameStartPositionMs(currentPlayer: Player): Long {
+    if (isPlaybackRangeEmpty) {
+      return C.TIME_UNSET
+    }
+    val loadedClippingConfiguration =
+      getMatchingMediaItemFromPlayer(currentPlayer)?.clippingConfiguration ?: return C.TIME_UNSET
+    return motionStartPositionMs(
+      loadedClippingConfiguration.startPositionUs,
+      loadedClippingConfiguration.endPositionUs,
+    )
+  }
+
+  /**
+   * Returns the position within the playback range `[rangeStartUs, rangeEndUs)` (relative to its
+   * start, in milliseconds) from which motion playback starts from scratch, or [C.TIME_UNSET] to
+   * start from the start of the range.
+   *
+   * With [MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME], playback starts from the photo frame when
+   * its timestamp is known from the metadata and lies inside the range, so that the crossfade from
+   * the still photo reveals the matching video frame. A range that starts at the photo frame needs
+   * no seek, and a range that ends at it (such as [MotionPhotoConfig.PLAY_TO_PHOTO]) would leave
+   * nothing to play, so both start from their start.
+   */
+  private fun motionStartPositionMs(rangeStartUs: Long, rangeEndUs: Long): Long {
+    if (
+      _config.loopMode != MotionPhotoConfig.LOOP_MODE_FROM_PHOTO_FRAME ||
+        photoPresentationTimestampUs == C.TIME_UNSET
+    ) {
+      return C.TIME_UNSET
+    }
+    val offsetMs = Util.usToMs(photoPresentationTimestampUs - rangeStartUs)
+    val endToleranceUs =
+      if (loadedClippingHasPhotoFrameEndTolerance) {
+        PHOTO_FRAME_TIMESTAMP_TOLERANCE_US
+      } else {
+        0L
+      }
+    val isAtOrBeforeStart = offsetMs <= 0L
+    val isAtOrBeyondEnd =
+      (rangeEndUs != C.TIME_END_OF_SOURCE &&
+        rangeEndUs - endToleranceUs <= photoPresentationTimestampUs) ||
+        (videoDurationUs != C.TIME_UNSET && photoPresentationTimestampUs >= videoDurationUs)
+    if (isAtOrBeforeStart || isAtOrBeyondEnd) {
+      return C.TIME_UNSET
+    }
+    return offsetMs
   }
 
   /**
@@ -767,20 +977,21 @@ internal constructor(
   }
 
   /**
-   * Returns the boundary to resolve [boundary] as: [MotionPhotoConfig.BOUNDARY_PHOTO_FRAME] falls
-   * back to [MotionPhotoConfig.BOUNDARY_END_OF_VIDEO], treating the still photo as the last frame
-   * of the video, once the tracks of the item are known to carry no usable [MotionPhotoMetadata]
-   * (or when [currentPlayer] cannot report tracks), and stays unresolved while the tracks are not
-   * known yet.
+   * Returns the [MotionPhotoConfig.Boundary] to resolve [boundary] as:
+   * [MotionPhotoConfig.Boundary.PHOTO_FRAME] falls back to
+   * [MotionPhotoConfig.Boundary.END_OF_VIDEO] (preserving [MotionPhotoConfig.Boundary.offsetMs]),
+   * treating the still photo as the last frame of the video, once the tracks of the item are known
+   * to carry no usable [MotionPhotoMetadata] (or when [currentPlayer] cannot report tracks), and
+   * stays unresolved while the tracks are not known yet.
    */
   private fun resolveBoundary(
     currentPlayer: Player,
-    boundary: @MotionPhotoConfig.PlaybackBoundary Int,
-  ): @MotionPhotoConfig.PlaybackBoundary Int {
+    boundary: MotionPhotoConfig.Boundary,
+  ): MotionPhotoConfig.Boundary {
     val areTracksKnownOrUnavailable =
       hasKnownTracks || !currentPlayer.isCommandAvailable(Player.COMMAND_GET_TRACKS)
     if (
-      boundary != MotionPhotoConfig.BOUNDARY_PHOTO_FRAME ||
+      boundary.origin != MotionPhotoConfig.Boundary.PHOTO_FRAME ||
         photoPresentationTimestampUs != C.TIME_UNSET ||
         !areTracksKnownOrUnavailable
     ) {
@@ -790,16 +1001,38 @@ internal constructor(
       hasWarnedAboutPhotoFrameFallback = true
       Log.w(
         TAG,
-        "BOUNDARY_PHOTO_FRAME requested but no usable MotionPhotoMetadata is available; treating" +
+        "Boundary.PHOTO_FRAME requested but no usable MotionPhotoMetadata is available; treating" +
           " the still photo as the last frame of the video.",
       )
     }
-    return MotionPhotoConfig.BOUNDARY_END_OF_VIDEO
+    return MotionPhotoConfig.Boundary.END_OF_VIDEO.plusMs(boundary.offsetMs)
   }
 
-  private fun resolveStartPositionUs(startBoundary: @MotionPhotoConfig.PlaybackBoundary Int): Long {
-    val offsetUs = Util.msToUs(_config.startBoundaryOffsetMs)
-    if (startBoundary == MotionPhotoConfig.BOUNDARY_START_OF_VIDEO && offsetUs == 0L) {
+  private fun addOffsetUs(baseUs: Long, offsetUs: Long): Long =
+    if (offsetUs > 0L && baseUs > Long.MAX_VALUE - offsetUs) {
+      Long.MAX_VALUE
+    } else {
+      // A position before the start of the video is its start. This also keeps extreme negative
+      // offsets away from the C.TIME_UNSET and C.TIME_END_OF_SOURCE sentinels.
+      maxOf(0L, baseUs + offsetUs)
+    }
+
+  private fun resolvePositionUs(boundary: MotionPhotoConfig.Boundary): Long {
+    val baseUs =
+      when (boundary.origin) {
+        MotionPhotoConfig.Boundary.START_OF_VIDEO -> 0L
+        MotionPhotoConfig.Boundary.PHOTO_FRAME -> photoPresentationTimestampUs
+        else -> videoDurationUs
+      }
+    return if (baseUs == C.TIME_UNSET) {
+      C.TIME_UNSET
+    } else {
+      addOffsetUs(baseUs, Util.msToUs(boundary.offsetMs))
+    }
+  }
+
+  private fun resolveStartPositionUs(boundary: MotionPhotoConfig.Boundary): Long {
+    if (boundary.origin == MotionPhotoConfig.Boundary.START_OF_VIDEO && boundary.offsetMs <= 0L) {
       return 0L
     }
     // Any other start may lie at or beyond the end of the video, which leaves nothing to play and
@@ -810,43 +1043,23 @@ internal constructor(
     if (videoDurationUs == C.TIME_UNSET) {
       return C.TIME_UNSET
     }
-    val baseUs =
-      when (startBoundary) {
-        MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L
-        MotionPhotoConfig.BOUNDARY_PHOTO_FRAME -> photoPresentationTimestampUs
-        else -> videoDurationUs
-      }
-    return if (baseUs != C.TIME_UNSET) baseUs + offsetUs else C.TIME_UNSET
+    return resolvePositionUs(boundary)
   }
 
-  private fun resolveEndPositionUs(endBoundary: @MotionPhotoConfig.PlaybackBoundary Int): Long {
-    val offsetUs = Util.msToUs(_config.endBoundaryOffsetMs)
-    if (endBoundary == MotionPhotoConfig.BOUNDARY_END_OF_VIDEO && offsetUs >= 0L) {
-      // The offset of a BOUNDARY_PHOTO_FRAME end that fell back may be positive, so an end beyond
-      // the end of the video is clamped to it.
+  private fun resolveEndPositionUs(boundary: MotionPhotoConfig.Boundary): Long {
+    if (boundary.origin == MotionPhotoConfig.Boundary.END_OF_VIDEO && boundary.offsetMs >= 0L) {
+      // An end at or beyond the end of the video (including after a Boundary.PHOTO_FRAME fallback)
+      // is clamped to it.
       return C.TIME_END_OF_SOURCE
     }
-    val baseUs =
-      when (endBoundary) {
-        MotionPhotoConfig.BOUNDARY_START_OF_VIDEO -> 0L
-        MotionPhotoConfig.BOUNDARY_PHOTO_FRAME -> photoPresentationTimestampUs
-        else -> videoDurationUs
-      }
-    if (baseUs == C.TIME_UNSET) {
-      return C.TIME_UNSET
-    }
-    return baseUs + offsetUs
+    return resolvePositionUs(boundary)
   }
 
   @CanIgnoreReturnValue
   private fun syncMediaItem(currentPlayer: Player): Boolean {
-    val startBoundary = resolveBoundary(currentPlayer, _config.startBoundary)
-    val resolvedStartPositionUs = resolveStartPositionUs(startBoundary)
-    // A start before the start of the video is clamped to it, as the player would do.
-    val startPositionUs =
-      if (resolvedStartPositionUs == C.TIME_UNSET) C.TIME_UNSET
-      else maxOf(0L, resolvedStartPositionUs)
-    val endBoundary = resolveBoundary(currentPlayer, _config.endBoundary)
+    val startBoundary = resolveBoundary(currentPlayer, _config.rangeStart)
+    val startPositionUs = resolveStartPositionUs(startBoundary)
+    val endBoundary = resolveBoundary(currentPlayer, _config.rangeEnd)
     val endPositionUs = resolveEndPositionUs(endBoundary)
     val isStartOutOfBounds =
       startPositionUs == C.TIME_UNSET ||
@@ -860,6 +1073,14 @@ internal constructor(
         // Ensure mediaItem is set on the player when boundaries cannot be resolved until the
         // player prepares the item and reports its timeline.
         loadedMediaItem == null && syncMediaItem(currentPlayer, mediaItem.clippingConfiguration)
+      if (
+        !isPlaybackRangeEmpty &&
+          !isPhotoTarget &&
+          hasRenderedFirstFrame &&
+          !_config.resumeVideoFromPreviousPosition
+      ) {
+        isRewindPending = true
+      }
       isPlaybackRangeEmpty = true
       syncPlaybackState(currentPlayer)
       return didUpdateMediaItem
@@ -877,15 +1098,14 @@ internal constructor(
     ) {
       isRewindPending = true
     }
-    // The photo frame itself must be decoded at the end of a range ending at BOUNDARY_PHOTO_FRAME
+    // The photo frame itself must be decoded at the end of a range ending at Boundary.PHOTO_FRAME
     // without an offset (see PHOTO_FRAME_TIMESTAMP_TOLERANCE_US), so that end position is moved
     // later. The un-toleranced position is used for everything else, in particular for deciding
     // whether the range is empty.
+    val hasPhotoFrameEndTolerance = endBoundary == MotionPhotoConfig.Boundary.PHOTO_FRAME
     val clippingEndPositionUs =
-      if (
-        endBoundary == MotionPhotoConfig.BOUNDARY_PHOTO_FRAME && _config.endBoundaryOffsetMs == 0L
-      ) {
-        endPositionUs + PHOTO_FRAME_TIMESTAMP_TOLERANCE_US
+      if (hasPhotoFrameEndTolerance) {
+        addOffsetUs(endPositionUs, PHOTO_FRAME_TIMESTAMP_TOLERANCE_US)
       } else {
         endPositionUs
       }
@@ -897,13 +1117,26 @@ internal constructor(
         .setStartPositionUs(startPositionUs)
         .setEndPositionUs(clippingEndPositionUs)
         .build()
+    val isClippingAlreadyLoaded = clippingConfiguration == loadedMediaItem?.clippingConfiguration
+    if (isClippingAlreadyLoaded) {
+      loadedClippingHasPhotoFrameEndTolerance = hasPhotoFrameEndTolerance
+    }
     val didUpdateMediaItem =
-      clippingConfiguration != loadedMediaItem?.clippingConfiguration &&
-        syncMediaItem(currentPlayer, clippingConfiguration, endPositionUs = endPositionUs)
+      !isClippingAlreadyLoaded &&
+        syncMediaItem(
+          currentPlayer,
+          clippingConfiguration,
+          endPositionUs = endPositionUs,
+          hasPhotoFrameEndTolerance = hasPhotoFrameEndTolerance,
+          wasPlaybackRangeEmpty = wasPlaybackRangeEmpty,
+        )
     if (didUpdateMediaItem && loadedMediaItem == null && !wasPlaybackRangeEmpty) {
       // The first frame of the newly set item renders underneath the still photo before motion
       // resumes.
       syncPlayWhenReady(currentPlayer)
+    }
+    if (!didUpdateMediaItem) {
+      reconcileStartPosition(currentPlayer, allowAfterFirstFrame = wasPlaybackRangeEmpty)
     }
     if (wasPlaybackRangeEmpty) {
       if (isPhotoTarget) {
@@ -922,12 +1155,15 @@ internal constructor(
    *
    * An in-place update that keeps the start position preserves the current playback position
    * (unless [isPhotoTarget] and [isRewindPending] are `true`, or the current position is at or
-   * beyond the new end position), while a change of the start position restarts from the new start.
+   * beyond the new end position), while a change of the start position restarts from scratch (see
+   * [motionStartPositionMs]).
    */
   private fun syncMediaItem(
     currentPlayer: Player,
     clippingConfiguration: MediaItem.ClippingConfiguration,
     endPositionUs: Long = clippingConfiguration.endPositionUs,
+    hasPhotoFrameEndTolerance: Boolean = false,
+    wasPlaybackRangeEmpty: Boolean = false,
   ): Boolean {
     val clippedMediaItem =
       mediaItem.buildUpon().setClippingConfiguration(clippingConfiguration).build()
@@ -939,7 +1175,11 @@ internal constructor(
       cancelDeferredRewind()
       isRewindPending = false
       currentPlayer.setMediaItem(clippedMediaItem)
+      loadedClippingHasPhotoFrameEndTolerance = hasPhotoFrameEndTolerance
       hasRenderedFirstFrame = false
+      isAwaitingStartSeekReady = false
+      appliedPhotoFrameStartPositionMs = C.TIME_UNSET
+      isNewItemAwaitingInitialStart = true
       return true
     }
     if (!currentPlayer.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
@@ -947,6 +1187,7 @@ internal constructor(
     }
     val previousClippingConfiguration = loadedMediaItem.clippingConfiguration
     currentPlayer.replaceMediaItem(0, clippedMediaItem)
+    loadedClippingHasPhotoFrameEndTolerance = hasPhotoFrameEndTolerance
     val isCurrentPositionPastEnd =
       if (
         previousClippingConfiguration.startPositionUs == clippingConfiguration.startPositionUs &&
@@ -957,12 +1198,15 @@ internal constructor(
       } else {
         false
       }
-    if (
-      previousClippingConfiguration.startPositionUs != clippingConfiguration.startPositionUs ||
-        (isPhotoTarget && isRewindPending) ||
-        isCurrentPositionPastEnd
-    ) {
+    val didStartChange =
+      previousClippingConfiguration.startPositionUs != clippingConfiguration.startPositionUs
+    if (didStartChange) {
+      isNewItemAwaitingInitialStart = true
+    }
+    if (didStartChange || (isPhotoTarget && isRewindPending) || isCurrentPositionPastEnd) {
       rewind(currentPlayer)
+    } else {
+      reconcileStartPosition(currentPlayer, allowAfterFirstFrame = wasPlaybackRangeEmpty)
     }
     return true
   }
@@ -976,12 +1220,13 @@ internal constructor(
   companion object {
     private const val TAG = "MotionPhotoState"
 
-    // Tolerance added to a clipping end position resolved from BOUNDARY_PHOTO_FRAME, so that the
-    // photo frame itself is decoded at the end of the range: ClippingSampleStream's end position is
-    // exclusive (buffer.timeUs >= endUs), and the XMP timestamp and the sample timestamps the
-    // extractor derives from the track timescale (rounded down) can disagree by up to one timescale
-    // tick. 1ms covers track timescales down to 1kHz while staying well below the shortest frame
-    // interval (about 8ms at 120fps), so no neighbouring frame is included.
+    // Tolerance added to a clipping end position resolved from Boundary.PHOTO_FRAME without an
+    // offset, so that the photo frame itself is decoded at the end of the range:
+    // ClippingSampleStream's end position is exclusive (buffer.timeUs >= endUs), and the XMP
+    // timestamp and the sample timestamps the extractor derives from the track timescale (rounded
+    // down) can disagree by up to one timescale tick. 1ms covers track timescales down to 1kHz
+    // while staying well below the shortest frame interval (about 8ms at 120fps), so no
+    // neighbouring frame is included.
     private const val PHOTO_FRAME_TIMESTAMP_TOLERANCE_US = 1_000L
 
     init {
@@ -997,31 +1242,35 @@ internal constructor(
  * [Player.setMediaItem] and updated in place via [Player.replaceMediaItem]; see
  * [rememberMotionPhotoState] for how to configure `ExoPlayer`.
  *
- * @property isLooping Whether the motion video should loop continuously instead of returning to the
- *   still photo when playback reaches the end. If the [Player] supports neither
+ * @property loopMode The [LoopMode] controlling whether and how motion playback loops. With
+ *   [LOOP_MODE_OFF], playback plays the configured range once and returns to the still photo. With
+ *   [LOOP_MODE_FROM_RANGE_START], playback loops continuously starting from [rangeStart]. With
+ *   [LOOP_MODE_FROM_PHOTO_FRAME], playback loops continuously and starts from scratch at the still
+ *   photo frame (when playback begins or rewinds after returning to the still photo) so that the
+ *   crossfade from the photo reveals the matching video frame, continues to [rangeEnd], and wraps
+ *   around to [rangeStart] so the whole range is still played; if container metadata has no usable
+ *   timestamp, or it does not lie strictly inside the playback range, playback falls back to
+ *   starting from [rangeStart] (unlike setting [rangeStart] to [Boundary.PHOTO_FRAME], which leaves
+ *   an empty range when metadata is absent). [LOOP_MODE_FROM_PHOTO_FRAME] requires a [Player] that
+ *   can seek within the item ([Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM]), which `ExoPlayer` can
+ *   for motion photos. For looping modes, if the [Player] supports neither
  *   [Player.COMMAND_SET_REPEAT_MODE] nor [Player.COMMAND_SEEK_TO_DEFAULT_POSITION], playback
  *   returns to the still photo instead of looping.
  * @property resumeVideoFromPreviousPosition Whether resuming motion playback should continue from
- *   the paused position rather than rewinding to the start position when returning to the still
- *   photo. When `false`, the rewind is deferred until the crossfade to the still photo has
- *   completed, so that it happens underneath the opaque photo.
+ *   the paused position rather than rewinding to where motion starts from scratch (see [loopMode])
+ *   when returning to the still photo. When `false`, the rewind is deferred until the crossfade to
+ *   the still photo has completed, so that it happens underneath the opaque photo.
  * @property transitionDurationMs The duration of the alpha crossfade transition between the still
  *   photo and video in milliseconds. Must be non-negative. Motion playback starts once the first
  *   frame has rendered underneath the still photo and the crossfade has completed, so that the
  *   still photo fades out over a stationary frame.
- * @property startBoundary The [PlaybackBoundary] anchor from which motion playback starts.
- * @property startBoundaryOffsetMs The offset in milliseconds added to [startBoundary] to compute
- *   the start position. Must be non-negative when [startBoundary] is [BOUNDARY_START_OF_VIDEO] and
- *   non-positive when [startBoundary] is [BOUNDARY_END_OF_VIDEO]. A start position before the start
- *   of the video is clamped to it. A start position at or beyond the end of the video (including
- *   [BOUNDARY_END_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the still photo stays
- *   visible without mutating the requested motion state.
- * @property endBoundary The [PlaybackBoundary] anchor at which motion playback ends.
- * @property endBoundaryOffsetMs The offset in milliseconds added to [endBoundary] to compute the
- *   end position. Must be non-negative when [endBoundary] is [BOUNDARY_START_OF_VIDEO] and
- *   non-positive when [endBoundary] is [BOUNDARY_END_OF_VIDEO]. An end position beyond the end of
- *   the video is clamped to it by the player. An end position at or before the start position
- *   (including [BOUNDARY_START_OF_VIDEO] with an offset of `0`) leaves nothing to play, so the
+ * @property rangeStart The [Boundary] at which motion playback starts. A start position before the
+ *   start of the video is clamped to it. A start position at or beyond the end of the video
+ *   (including [Boundary.END_OF_VIDEO] with a non-negative offset) leaves nothing to play, so the
+ *   still photo stays visible without mutating the requested motion state.
+ * @property rangeEnd The [Boundary] at which motion playback ends. An end position beyond the end
+ *   of the video is clamped to it by the player. An end position at or before the start position
+ *   (including [Boundary.START_OF_VIDEO] with a non-positive offset) leaves nothing to play, so the
  *   still photo stays visible without mutating the requested motion state.
  */
 // TODO(b/544627271): Add custom key photo frame anchor timestamp
@@ -1029,127 +1278,171 @@ internal constructor(
 @Immutable
 @RestrictTo(LIBRARY_GROUP)
 class MotionPhotoConfig(
-  val isLooping: Boolean = false,
+  val loopMode: @LoopMode Int = LOOP_MODE_OFF,
   val resumeVideoFromPreviousPosition: Boolean = false,
   @IntRange(from = 0) val transitionDurationMs: Long = DEFAULT_TRANSITION_DURATION_MS,
-  val startBoundary: @PlaybackBoundary Int = BOUNDARY_START_OF_VIDEO,
-  val startBoundaryOffsetMs: Long = 0L,
-  val endBoundary: @PlaybackBoundary Int = BOUNDARY_END_OF_VIDEO,
-  val endBoundaryOffsetMs: Long = 0L,
+  val rangeStart: Boundary = Boundary.START_OF_VIDEO,
+  val rangeEnd: Boundary = Boundary.END_OF_VIDEO,
 ) {
 
   init {
     require(transitionDurationMs >= 0) { "transitionDurationMs must be non-negative." }
     require(
-      startBoundary == BOUNDARY_START_OF_VIDEO ||
-        startBoundary == BOUNDARY_PHOTO_FRAME ||
-        startBoundary == BOUNDARY_END_OF_VIDEO
+      loopMode == LOOP_MODE_OFF ||
+        loopMode == LOOP_MODE_FROM_RANGE_START ||
+        loopMode == LOOP_MODE_FROM_PHOTO_FRAME
     ) {
-      "Invalid startBoundary: $startBoundary"
-    }
-    require(startBoundary != BOUNDARY_START_OF_VIDEO || startBoundaryOffsetMs >= 0L) {
-      "startBoundaryOffsetMs must be non-negative when startBoundary is BOUNDARY_START_OF_VIDEO."
-    }
-    require(startBoundary != BOUNDARY_END_OF_VIDEO || startBoundaryOffsetMs <= 0L) {
-      "startBoundaryOffsetMs must be non-positive when startBoundary is BOUNDARY_END_OF_VIDEO."
-    }
-    require(
-      endBoundary == BOUNDARY_START_OF_VIDEO ||
-        endBoundary == BOUNDARY_PHOTO_FRAME ||
-        endBoundary == BOUNDARY_END_OF_VIDEO
-    ) {
-      "Invalid endBoundary: $endBoundary"
-    }
-    require(endBoundary != BOUNDARY_START_OF_VIDEO || endBoundaryOffsetMs >= 0L) {
-      "endBoundaryOffsetMs must be non-negative when endBoundary is BOUNDARY_START_OF_VIDEO."
-    }
-    require(endBoundary != BOUNDARY_END_OF_VIDEO || endBoundaryOffsetMs <= 0L) {
-      "endBoundaryOffsetMs must be non-positive when endBoundary is BOUNDARY_END_OF_VIDEO."
+      "Invalid loopMode: $loopMode"
     }
   }
 
+  internal val isLooping: Boolean
+    get() = loopMode != LOOP_MODE_OFF
+
   /** Returns a copy of this [MotionPhotoConfig] with the given properties updated. */
   fun copy(
-    isLooping: Boolean = this.isLooping,
+    loopMode: @LoopMode Int = this.loopMode,
     resumeVideoFromPreviousPosition: Boolean = this.resumeVideoFromPreviousPosition,
     @IntRange(from = 0) transitionDurationMs: Long = this.transitionDurationMs,
-    startBoundary: @PlaybackBoundary Int = this.startBoundary,
-    startBoundaryOffsetMs: Long = this.startBoundaryOffsetMs,
-    endBoundary: @PlaybackBoundary Int = this.endBoundary,
-    endBoundaryOffsetMs: Long = this.endBoundaryOffsetMs,
+    rangeStart: Boundary = this.rangeStart,
+    rangeEnd: Boundary = this.rangeEnd,
   ): MotionPhotoConfig =
     MotionPhotoConfig(
-      isLooping = isLooping,
+      loopMode = loopMode,
       resumeVideoFromPreviousPosition = resumeVideoFromPreviousPosition,
       transitionDurationMs = transitionDurationMs,
-      startBoundary = startBoundary,
-      startBoundaryOffsetMs = startBoundaryOffsetMs,
-      endBoundary = endBoundary,
-      endBoundaryOffsetMs = endBoundaryOffsetMs,
+      rangeStart = rangeStart,
+      rangeEnd = rangeEnd,
     )
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is MotionPhotoConfig) return false
-    return isLooping == other.isLooping &&
+    return loopMode == other.loopMode &&
       resumeVideoFromPreviousPosition == other.resumeVideoFromPreviousPosition &&
       transitionDurationMs == other.transitionDurationMs &&
-      startBoundary == other.startBoundary &&
-      startBoundaryOffsetMs == other.startBoundaryOffsetMs &&
-      endBoundary == other.endBoundary &&
-      endBoundaryOffsetMs == other.endBoundaryOffsetMs
+      rangeStart == other.rangeStart &&
+      rangeEnd == other.rangeEnd
   }
 
   override fun hashCode(): Int {
-    var result = isLooping.hashCode()
+    var result = loopMode
     result = 31 * result + resumeVideoFromPreviousPosition.hashCode()
     result = 31 * result + transitionDurationMs.hashCode()
-    result = 31 * result + startBoundary
-    result = 31 * result + startBoundaryOffsetMs.hashCode()
-    result = 31 * result + endBoundary
-    result = 31 * result + endBoundaryOffsetMs.hashCode()
+    result = 31 * result + rangeStart.hashCode()
+    result = 31 * result + rangeEnd.hashCode()
     return result
   }
 
   /**
-   * Boundary anchor points for Motion Photo playback. One of [BOUNDARY_START_OF_VIDEO],
-   * [BOUNDARY_PHOTO_FRAME], or [BOUNDARY_END_OF_VIDEO].
+   * Looping behavior for Motion Photo playback. One of [LOOP_MODE_OFF],
+   * [LOOP_MODE_FROM_RANGE_START], or [LOOP_MODE_FROM_PHOTO_FRAME].
    *
-   * @see BOUNDARY_START_OF_VIDEO
-   * @see BOUNDARY_PHOTO_FRAME
-   * @see BOUNDARY_END_OF_VIDEO
+   * @see LOOP_MODE_OFF
+   * @see LOOP_MODE_FROM_RANGE_START
+   * @see LOOP_MODE_FROM_PHOTO_FRAME
    */
   @Retention(AnnotationRetention.SOURCE)
   @Target(AnnotationTarget.TYPE)
   @MustBeDocumented
-  @IntDef(BOUNDARY_START_OF_VIDEO, BOUNDARY_PHOTO_FRAME, BOUNDARY_END_OF_VIDEO)
-  annotation class PlaybackBoundary
+  @IntDef(LOOP_MODE_OFF, LOOP_MODE_FROM_RANGE_START, LOOP_MODE_FROM_PHOTO_FRAME)
+  annotation class LoopMode
 
-  companion object {
-    /** Boundary at the start of the video track (`0ms`). */
-    const val BOUNDARY_START_OF_VIDEO = 1
+  /**
+   * Reference point and millisecond offset defining a boundary of a Motion Photo playback range.
+   *
+   * Start from [START_OF_VIDEO], [PHOTO_FRAME], or [END_OF_VIDEO], and optionally shift it with
+   * [plusMs] or [minusMs]. Offsets are kept as given and only clamped to the video when the range
+   * is resolved, so `START_OF_VIDEO.minusMs(500L)` is a different value from [START_OF_VIDEO] that
+   * plays the same.
+   *
+   * @property offsetMs The offset in milliseconds added to [origin].
+   */
+  @Immutable
+  class Boundary private constructor(private val type: Int, val offsetMs: Long) {
+
+    /** This boundary without its offset: [START_OF_VIDEO], [PHOTO_FRAME], or [END_OF_VIDEO]. */
+    val origin: Boundary
+      get() =
+        when (type) {
+          TYPE_START_OF_VIDEO -> START_OF_VIDEO
+          TYPE_PHOTO_FRAME -> PHOTO_FRAME
+          else -> END_OF_VIDEO
+        }
 
     /**
-     * Boundary at the presentation timestamp of the still photo frame from container metadata
-     * ([MotionPhotoMetadata.photoPresentationTimestampUs]). A photo frame at or before the start
-     * position leaves nothing to play when used as the end, and a photo frame at or beyond the end
-     * of the video leaves nothing to play when used as the start, whereas a photo frame end beyond
-     * the end of the video is clamped to it by the player.
-     *
-     * Once the tracks of the item are known to carry no usable metadata, or if the player cannot
-     * report tracks, the still photo is treated as the last frame of the video: the boundary falls
-     * back to [BOUNDARY_END_OF_VIDEO], keeping its offset. For example, [PLAY_TO_PHOTO] degrades to
-     * the whole video, a start of `BOUNDARY_PHOTO_FRAME - 300ms` with an end of
-     * `BOUNDARY_PHOTO_FRAME + 300ms` to the last 300ms of the video, and a start at the photo frame
-     * itself leaves nothing to play. The timestamp is read from the track metadata the extractor
-     * exposes via `Format.metadata` on a direct in-process [Player] such as `ExoPlayer`
-     * (`MediaController` is not supported); a [Player] implementation or source that does not
-     * expose `Format` metadata triggers the fallback.
+     * Returns a [Boundary] shifted forward by [durationMs] milliseconds (or backward when
+     * negative).
      */
-    const val BOUNDARY_PHOTO_FRAME = 2
+    fun plusMs(durationMs: Long): Boundary =
+      if (durationMs == 0L) this else Boundary(type, offsetMs + durationMs)
 
-    /** Boundary at the end of the video track (`duration`). */
-    const val BOUNDARY_END_OF_VIDEO = 3
+    /**
+     * Returns a [Boundary] shifted backward by [durationMs] milliseconds (or forward when
+     * negative).
+     */
+    fun minusMs(durationMs: Long): Boundary =
+      if (durationMs == 0L) this else Boundary(type, offsetMs - durationMs)
+
+    override fun equals(other: Any?): Boolean {
+      if (this === other) return true
+      if (other !is Boundary) return false
+      return type == other.type && offsetMs == other.offsetMs
+    }
+
+    override fun hashCode(): Int {
+      var result = type
+      result = 31 * result + offsetMs.hashCode()
+      return result
+    }
+
+    companion object {
+      private const val TYPE_START_OF_VIDEO = 1
+      private const val TYPE_PHOTO_FRAME = 2
+      private const val TYPE_END_OF_VIDEO = 3
+
+      /** Boundary at the start of the video track (`0ms`). */
+      @JvmField val START_OF_VIDEO = Boundary(TYPE_START_OF_VIDEO, offsetMs = 0L)
+
+      /**
+       * Boundary at the presentation timestamp of the still photo frame from container metadata
+       * ([MotionPhotoMetadata.photoPresentationTimestampUs]). A photo frame at or before the start
+       * position leaves nothing to play when used as the end, and a photo frame at or beyond the
+       * end of the video leaves nothing to play when used as the start, whereas a photo frame end
+       * beyond the end of the video is clamped to it by the player.
+       *
+       * Once the tracks of the item are known to carry no usable metadata, or if the player cannot
+       * report tracks, the still photo is treated as the last frame of the video: the boundary
+       * falls back to [END_OF_VIDEO], keeping [offsetMs]. For example,
+       * [MotionPhotoConfig.PLAY_TO_PHOTO] degrades to the whole video, a start of
+       * `Boundary.PHOTO_FRAME.minusMs(300L)` with an end of `Boundary.PHOTO_FRAME.plusMs(300L)`
+       * degrades to the last 300ms of the video, and a start at the photo frame itself leaves
+       * nothing to play. The timestamp is read from the track metadata the extractor exposes via
+       * `Format.metadata` on a direct in-process [Player] such as `ExoPlayer` (`MediaController` is
+       * not supported); a [Player] implementation or source that does not expose `Format` metadata
+       * triggers the fallback.
+       */
+      @JvmField val PHOTO_FRAME = Boundary(TYPE_PHOTO_FRAME, offsetMs = 0L)
+
+      /** Boundary at the end of the video track (`duration`). */
+      @JvmField val END_OF_VIDEO = Boundary(TYPE_END_OF_VIDEO, offsetMs = 0L)
+    }
+  }
+
+  companion object {
+    /** Play the configured range once and return to the still photo when playback ends. */
+    const val LOOP_MODE_OFF = 0
+
+    /** Loop the configured playback range continuously, starting from [rangeStart]. */
+    const val LOOP_MODE_FROM_RANGE_START = 1
+
+    /**
+     * Loop the configured playback range continuously, starting from the still photo frame when its
+     * timestamp is known from container metadata and lies strictly inside the playback range (and
+     * wrapping around to [rangeStart] after reaching [rangeEnd]), or starting from [rangeStart]
+     * otherwise.
+     */
+    const val LOOP_MODE_FROM_PHOTO_FRAME = 2
 
     /** Default crossfade transition duration in milliseconds. */
     const val DEFAULT_TRANSITION_DURATION_MS = 200L
@@ -1159,16 +1452,18 @@ class MotionPhotoConfig(
 
     /**
      * Configuration preset that plays motion from the start of the video up to the key photo frame
-     * ([BOUNDARY_PHOTO_FRAME]) and returns to the still photo. A photo frame at the start of the
+     * ([Boundary.PHOTO_FRAME]) and returns to the still photo. A photo frame at the start of the
      * video (`photoPresentationTimestampUs == 0`) leaves nothing to play, so the still photo stays
-     * visible. If no usable `MotionPhotoMetadata` is available, [BOUNDARY_PHOTO_FRAME] falls back
-     * to [BOUNDARY_END_OF_VIDEO] so the full video plays instead.
+     * visible. If no usable `MotionPhotoMetadata` is available, [Boundary.PHOTO_FRAME] falls back
+     * to [Boundary.END_OF_VIDEO] so the full video plays instead.
      */
     @JvmField
     val PLAY_TO_PHOTO =
-      MotionPhotoConfig(startBoundary = BOUNDARY_START_OF_VIDEO, endBoundary = BOUNDARY_PHOTO_FRAME)
+      MotionPhotoConfig(rangeStart = Boundary.START_OF_VIDEO, rangeEnd = Boundary.PHOTO_FRAME)
 
-    /** Configuration preset that loops motion playback continuously. */
-    @JvmField val LOOP = MotionPhotoConfig(isLooping = true)
+    /**
+     * Configuration preset that loops motion playback continuously from [Boundary.START_OF_VIDEO].
+     */
+    @JvmField val LOOP = MotionPhotoConfig(loopMode = LOOP_MODE_FROM_RANGE_START)
   }
 }

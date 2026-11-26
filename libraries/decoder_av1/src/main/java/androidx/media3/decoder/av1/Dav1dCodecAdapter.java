@@ -52,6 +52,7 @@ public final class Dav1dCodecAdapter extends VideoExtensionCodecAdapter {
     private boolean useCustomAllocator;
     private int threadPriority;
 
+    // LINT.IfChange(factory_constructor)
     /** Creates a factory for {@link Dav1dCodecAdapter} instances with default settings. */
     public Factory() {
       numInputBuffers = DEFAULT_NUM_INPUT_BUFFERS;
@@ -62,6 +63,11 @@ public final class Dav1dCodecAdapter extends VideoExtensionCodecAdapter {
       useCustomAllocator = false;
       threadPriority = C.THREAD_PRIORITY_NO_OP;
     }
+
+    // LINT.ThenChange(
+    //     ../../../../../../../../exoplayer/proguard-rules.txt,
+    //
+    // ../../../../../../../../exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/DefaultMediaCodecAdapterFactory.java:dav1d_adapter_factory)
 
     /**
      * Sets the number of input buffers. The default value is {@link #DEFAULT_NUM_INPUT_BUFFERS}.

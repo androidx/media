@@ -33,6 +33,7 @@ import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -51,6 +52,7 @@ import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.exoplayer.Renderer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -101,7 +103,7 @@ import org.jspecify.annotations.Nullable;
   private final Composition composition;
   private final int sequenceIndex;
   private final Consumer<AsyncFrame> frameConsumer;
-  private final int defaultSurfacePixelFormat;
+  private final int surfacePixelFormat;
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
@@ -137,49 +139,31 @@ import org.jspecify.annotations.Nullable;
   @GuardedBy("this")
   private int framesInUse;
 
-  /**
-   * Creates an instance.
-   *
-   * @param composition The {@link Composition} for which this reader produces frames.
-   * @param sequenceIndex The index of the {@link EditedMediaItemSequence} in the composition.
-   * @param frameConsumer The downstream consumer of frames.
-   * @param playbackLooper The looper associated with the playback thread.
-   * @param defaultSurfacePixelFormat The default pixel format used by the {@linkplain InputSurface
-   *     input surfaces}. Some producers override this format, but the behavior is device-specific.
-   * @param imageReaderAdapterFactory The {@link ImageReaderAdapter.Factory} used to create the
-   *     internal {@link ImageReaderAdapter} instances.
-   * @param listener The listener.
-   * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
-   * @param hardwareBufferJniWrapper A {@link HardwareBufferJniWrapper} used to convert software
-   *     bitmaps to hardware buffers.
-   */
-  /* package */ SequenceFrameReader(
-      Composition composition,
-      int sequenceIndex,
-      Consumer<AsyncFrame> frameConsumer,
-      Looper playbackLooper,
-      int defaultSurfacePixelFormat,
-      ImageReaderAdapter.Factory imageReaderAdapterFactory,
-      Listener listener,
-      HandlerWrapper listenerHandler,
-      HardwareBufferJniWrapper hardwareBufferJniWrapper) {
-    this.composition = composition;
-    this.sequenceIndex = sequenceIndex;
-    this.frameConsumer = frameConsumer;
-    this.defaultSurfacePixelFormat = defaultSurfacePixelFormat;
-    this.imageReaderAdapterFactory = imageReaderAdapterFactory;
-    this.listener = listener;
-    this.listenerHandler = listenerHandler;
-    playbackHandler = new Handler(playbackLooper);
+  private SequenceFrameReader(Builder builder) {
+    checkState(builder.sequenceIndex >= 0);
+    this.composition = checkNotNull(builder.composition);
+    this.sequenceIndex = builder.sequenceIndex;
+    this.frameConsumer = checkNotNull(builder.frameConsumer);
+    this.imageReaderAdapterFactory = checkNotNull(builder.imageReaderAdapterFactory);
+    this.listener = checkNotNull(builder.listener);
+    this.listenerHandler = checkNotNull(builder.listenerHandler);
+    playbackHandler = new Handler(checkNotNull(builder.playbackLooper));
     playbackExecutor =
         new HandlerExecutor(playbackHandler, e -> listenerHandler.post(() -> listener.onError(e)));
     rendererWakeupListenerList = new ArrayList<>();
     pendingFrameInfo = new ArrayDeque<>();
     inputSurfaces = new ArrayList<>();
+    HardwareBufferJniWrapper hardwareBufferJniWrapper =
+        checkNotNull(builder.hardwareBufferJniWrapper);
     frameReaderImpl =
         SDK_INT >= 28
             ? new HardwareBufferFrameReaderImpl(hardwareBufferJniWrapper)
             : new ImagePlanesFrameReaderImpl();
+    surfacePixelFormat =
+        builder.surfacePixelFormat != Format.NO_VALUE
+            ? builder.surfacePixelFormat
+            : frameReaderImpl.getSurfacePixelFormat();
+    checkState(SDK_INT >= 28 || surfacePixelFormat == ImageFormat.YUV_420_888);
   }
 
   /**
@@ -540,6 +524,113 @@ import org.jspecify.annotations.Nullable;
     return ColorInfo.SRGB_BT709_FULL;
   }
 
+  /** A builder for {@link SequenceFrameReader} instances. */
+  /* package */ static final class Builder {
+
+    private @MonotonicNonNull Composition composition;
+    private int sequenceIndex;
+    private @MonotonicNonNull Consumer<AsyncFrame> frameConsumer;
+    private @MonotonicNonNull Looper playbackLooper;
+    private @MonotonicNonNull Listener listener;
+    private @MonotonicNonNull HandlerWrapper listenerHandler;
+    private @MonotonicNonNull HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    private ImageReaderAdapter.@MonotonicNonNull Factory imageReaderAdapterFactory;
+    private int surfacePixelFormat;
+
+    /** Creates a builder. */
+    /* package */ Builder() {
+      sequenceIndex = C.INDEX_UNSET;
+      surfacePixelFormat = Format.NO_VALUE;
+    }
+
+    /** Sets the {@link Composition} for which this reader produces frames. */
+    @CanIgnoreReturnValue
+    public Builder setComposition(Composition composition) {
+      this.composition = composition;
+      return this;
+    }
+
+    /** Sets the index of the {@link EditedMediaItemSequence} in the composition. */
+    @CanIgnoreReturnValue
+    public Builder setSequenceIndex(int sequenceIndex) {
+      this.sequenceIndex = sequenceIndex;
+      return this;
+    }
+
+    /** Sets the downstream {@link Consumer} of frames. */
+    @CanIgnoreReturnValue
+    public Builder setFrameConsumer(Consumer<AsyncFrame> frameConsumer) {
+      this.frameConsumer = frameConsumer;
+      return this;
+    }
+
+    /** Sets the {@link Looper} associated with the playback thread. */
+    @CanIgnoreReturnValue
+    public Builder setPlaybackLooper(Looper playbackLooper) {
+      this.playbackLooper = playbackLooper;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Listener} and the {@link HandlerWrapper} on which its callbacks are
+     * dispatched.
+     */
+    @CanIgnoreReturnValue
+    public Builder setListener(Listener listener, HandlerWrapper listenerHandler) {
+      this.listener = listener;
+      this.listenerHandler = listenerHandler;
+      return this;
+    }
+
+    /**
+     * Sets the {@link HardwareBufferJniWrapper} used to convert software bitmaps to hardware
+     * buffers.
+     */
+    @CanIgnoreReturnValue
+    public Builder setHardwareBufferJniWrapper(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ImageReaderAdapter.Factory} used to create internal {@link
+     * ImageReaderAdapter} instances.
+     */
+    @CanIgnoreReturnValue
+    public Builder setImageReaderAdapterFactory(
+        ImageReaderAdapter.Factory imageReaderAdapterFactory) {
+      this.imageReaderAdapterFactory = imageReaderAdapterFactory;
+      return this;
+    }
+
+    /**
+     * Sets the pixel format used by the {@linkplain InputSurface input surfaces}.
+     *
+     * <p>The default is {@link ImageFormat#PRIVATE} on API 28+ and {@link ImageFormat#YUV_420_888}
+     * below API 28.
+     *
+     * <p>Below API 28, only {@link ImageFormat#YUV_420_888} is supported. Some producers override
+     * this format, but the behavior is device-specific.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    public Builder setSurfacePixelFormat(int surfacePixelFormat) {
+      this.surfacePixelFormat = surfacePixelFormat;
+      return this;
+    }
+
+    /**
+     * Builds a {@link SequenceFrameReader} instance.
+     *
+     * <p>{@link #setComposition}, {@link #setSequenceIndex}, {@link #setFrameConsumer}, {@link
+     * #setPlaybackLooper}, {@link #setListener}, {@link #setHardwareBufferJniWrapper}, and {@link
+     * #setImageReaderAdapterFactory} must be called before building.
+     */
+    public SequenceFrameReader build() {
+      return new SequenceFrameReader(this);
+    }
+  }
+
   /** A {@link Surface} that a single producer, such as a decoder, renders frames into. */
   /* package */ final class InputSurface {
     private final ImageReaderAdapter imageReader;
@@ -558,7 +649,7 @@ import org.jspecify.annotations.Nullable;
           imageReaderAdapterFactory.create(
               /* width= */ 640,
               /* height= */ 360,
-              defaultSurfacePixelFormat,
+              surfacePixelFormat,
               /* maxImages= */ CAPACITY,
               frameReaderImpl.getSurfaceUsageFlags());
       imageReader.setOnImageAvailableListener(
@@ -674,6 +765,9 @@ import org.jspecify.annotations.Nullable;
 
   /** Frame-type-specific implementation of {@link SequenceFrameReader} operations. */
   private interface FrameReaderImpl {
+    /** Returns the pixel format for {@linkplain InputSurface input surfaces}. */
+    int getSurfacePixelFormat();
+
     /** Returns the {@link HardwareBuffer} usage flags for {@link ImageReaderAdapter} creation. */
     default long getSurfaceUsageFlags() {
       return 0;
@@ -709,6 +803,11 @@ import org.jspecify.annotations.Nullable;
 
     private HardwareBufferFrameReaderImpl(HardwareBufferJniWrapper hardwareBufferJniWrapper) {
       this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+    }
+
+    @Override
+    public int getSurfacePixelFormat() {
+      return ImageFormat.PRIVATE;
     }
 
     @Override
@@ -764,6 +863,11 @@ import org.jspecify.annotations.Nullable;
 
   /** Implementation of {@link FrameReaderImpl} backed by {@link DefaultImagePlanesFrame}. */
   private final class ImagePlanesFrameReaderImpl implements FrameReaderImpl {
+
+    @Override
+    public int getSurfacePixelFormat() {
+      return ImageFormat.YUV_420_888;
+    }
 
     @Override
     public Format decorateSurfaceFrameFormat(Format format) {

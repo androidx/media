@@ -232,14 +232,12 @@ import org.jspecify.annotations.Nullable;
         activeOperation = head;
         isReloadingFromQueueEnd = true;
         MediaQueueItem[] itemsToLoad = timelineTracker.toMediaQueueItems(targetSnapshot.timeline);
-        long startPositionMs =
-            targetSnapshot.maskedPositionMs != C.TIME_UNSET ? targetSnapshot.maskedPositionMs : 0L;
         QueuedOperation.executeLoad(
                 remoteMediaClient,
                 itemsToLoad,
                 playerTransferStateSupplier.get(),
                 targetSnapshot.currentWindowIndex,
-                startPositionMs)
+                head.getReloadStartPositionMs())
             .setResultCallback(mediaChannelResult ->
                 onOperationResult(head, mediaChannelResult, remoteMediaClient));
         return;

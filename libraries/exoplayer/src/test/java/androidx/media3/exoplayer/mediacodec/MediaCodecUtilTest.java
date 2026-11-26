@@ -33,15 +33,18 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.Flags;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
+import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import org.junit.After;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowBuild;
@@ -49,6 +52,8 @@ import org.robolectric.shadows.ShadowBuild;
 /** Unit tests for {@link MediaCodecUtil}. */
 @RunWith(AndroidJUnit4.class)
 public final class MediaCodecUtilTest {
+
+  @Rule public final Media3FlagsRule flagsRule = new Media3FlagsRule(this);
 
   @After
   public void tearDown() {
@@ -663,6 +668,19 @@ public final class MediaCodecUtilTest {
   }
 
   @Test
+  public void getExtensionDecoderInfos_forNullMimeType_returnsEmpty() {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+
+    List<MediaCodecInfo> decoders =
+        MediaCodecUtil.getExtensionDecoderInfos(
+            /* mimeType= */ null,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoders).isEmpty();
+  }
+
+  @Test
   public void getDecoderInfosSoftMatch_withDrmInitDataOnly_excludesExtensionDecoders()
       throws Exception {
     MediaCodecInfo platformCodecInfo =
@@ -804,6 +822,19 @@ public final class MediaCodecUtilTest {
             /* requiresTunnelingDecoder= */ false);
 
     assertThat(decoderInfos).containsExactly(platformCodecInfo);
+  }
+
+  @Test
+  public void getExtensionDecoderInfos_forVideoAv1WithoutExtensionBundled_returnsEmpty() {
+    Flags.enableFlag(Flags.FLAG_UNIFIED_DECODER_RENDERER);
+
+    List<MediaCodecInfo> decoders =
+        MediaCodecUtil.getExtensionDecoderInfos(
+            MimeTypes.VIDEO_AV1,
+            /* requiresSecureDecoder= */ false,
+            /* requiresTunnelingDecoder= */ false);
+
+    assertThat(decoders).isEmpty();
   }
 
   @Test

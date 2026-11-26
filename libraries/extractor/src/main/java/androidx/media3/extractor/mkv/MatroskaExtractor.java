@@ -542,6 +542,7 @@ public class MatroskaExtractor implements Extractor {
 
   // Extractor outputs.
   private @MonotonicNonNull ExtractorOutput extractorOutput;
+  private @Nullable SubtitleTranscodingExtractorOutput subtitleTranscodingExtractorOutput;
 
   /**
    * @deprecated Use {@link #MatroskaExtractor(SubtitleParser.Factory)} instead.
@@ -617,10 +618,13 @@ public class MatroskaExtractor implements Extractor {
 
   @Override
   public final void init(ExtractorOutput output) {
-    extractorOutput =
-        parseSubtitlesDuringExtraction
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    if (parseSubtitlesDuringExtraction) {
+      subtitleTranscodingExtractorOutput =
+          new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory);
+      extractorOutput = subtitleTranscodingExtractorOutput;
+    } else {
+      extractorOutput = output;
+    }
   }
 
   @CallSuper
@@ -645,6 +649,9 @@ public class MatroskaExtractor implements Extractor {
     }
     for (int i = 0; i < tracks.size(); i++) {
       tracks.valueAt(i).reset();
+    }
+    if (subtitleTranscodingExtractorOutput != null) {
+      subtitleTranscodingExtractorOutput.resetSubtitleParsers();
     }
   }
 

@@ -27,6 +27,7 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -220,5 +221,19 @@ public interface SampleConsumer {
    */
   default void signalEndOfVideoInput() {
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Sets a listener that's called when the consumer can accept more input.
+   *
+   * <p>The listener may be called from any thread.
+   *
+   * @param wakeupListener The wakeup listener, or {@code null} to clear a previously set listener.
+   * @return Whether wakeup notifications are supported by this consumer.
+   */
+  @CanIgnoreReturnValue
+  @RestrictTo(Scope.LIBRARY_GROUP)
+  default boolean setWakeupListener(@Nullable Runnable wakeupListener) {
+    return false;
   }
 }

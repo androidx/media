@@ -15,26 +15,33 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_COMPOSITION_SEQUENCE_INDEX;
 import static androidx.media3.transformer.Composition.KEY_COMPOSITION_ITEM_INDEX;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_EXPECT_NO_FRAMES;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_AT_OR_AFTER_TARGET;
 import static androidx.media3.transformer.FrameAggregator.STRATEGY_MATCH_FRAME_CLOSEST_TO_TARGET;
 import static androidx.media3.transformer.TransformerUtil.END_OF_STREAM_ASYNC_FRAME;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import android.util.Rational;
+import androidx.media3.common.Format;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.Frame;
 import androidx.media3.transformer.FrameAggregator.AggregationStrategy;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -43,10 +50,15 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link FrameAggregator}. */
 @RunWith(AndroidJUnit4.class)
+@Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
 public class FrameAggregatorTest {
+
+  private static final Format IMAGE_PLANES_FORMAT =
+      new Format.Builder().setWidth(1).setHeight(1).setPixelFormat(PixelFormat.RGBA_8888).build();
 
   /**
    * The set of timestamps that have been released. This is a List in order to preserve duplicates,
@@ -56,20 +68,22 @@ public class FrameAggregatorTest {
 
   private ArrayList<List<AsyncFrame>> outputFrames;
   private ArrayList<Integer> flushedSequences;
-  private HardwareBuffer placeholderBuffer;
+  private @Nullable HardwareBuffer placeholderBuffer;
 
   @Before
   public void setUp() {
     releasedFrameTimestamps = new ArrayList<>();
     outputFrames = new ArrayList<>();
     flushedSequences = new ArrayList<>();
-    placeholderBuffer =
-        HardwareBuffer.create(
-            /* width= */ 16,
-            /* height= */ 16,
-            /* format= */ HardwareBuffer.RGBA_8888,
-            /* layers= */ 1,
-            /* usage= */ 0);
+    if (SDK_INT >= 28) {
+      placeholderBuffer =
+          HardwareBuffer.create(
+              /* width= */ 16,
+              /* height= */ 16,
+              /* format= */ HardwareBuffer.RGBA_8888,
+              /* layers= */ 1,
+              /* usage= */ 0);
+    }
   }
 
   @After
@@ -2578,6 +2592,88 @@ public class FrameAggregatorTest {
     assertThat(outputFrames.get(3)).containsExactly(END_OF_STREAM_ASYNC_FRAME);
   }
 
+  @Test
+  public void queueFrame_upsampledSecondaryFrame_releasesOnlyAfterAllHandlesReleased() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ null,
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+    // Secondary frame at 200us (>= both 0us and 100us) is matched into both output packets and
+    // also kept in sequence 1's queue until close().
+    AsyncFrame primaryFrame0 =
+        createFrame(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0);
+    AsyncFrame primaryFrame1 =
+        createFrame(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
+    AsyncFrame secondaryFrame =
+        createFrame(
+            /* presentationTimeUs= */ 200,
+            /* sequencePresentationTimeUs= */ 200,
+            /* sequenceIndex= */ 1);
+
+    frameAggregator.queueFrame(primaryFrame0, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(primaryFrame1, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
+    frameAggregator.close();
+    outputFrames
+        .get(0)
+        .forEach(frame -> TransformerUtil.releaseIfNeeded(frame.frame, /* releaseFence= */ null));
+    ImmutableList<Long> releasedAfterFirstPacket = ImmutableList.copyOf(releasedFrameTimestamps);
+    outputFrames
+        .get(1)
+        .forEach(frame -> TransformerUtil.releaseIfNeeded(frame.frame, /* releaseFence= */ null));
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(releasedAfterFirstPacket).containsExactly(0L);
+    assertThat(releasedFrameTimestamps).containsExactly(0L, 100L, 200L);
+  }
+
+  @Test
+  public void queueFrame_unsupportedSecondaryFrame_throwsIllegalArgumentException() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* frameRate= */ null,
+            /* downstreamConsumer= */ this::recordOutputFrames,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 2);
+    AsyncFrame primaryFrame =
+        createFrame(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
+    AsyncFrame unsupportedFrame =
+        new AsyncFrame(
+            new Frame() {
+              @Override
+              public Format getFormat() {
+                return IMAGE_PLANES_FORMAT;
+              }
+
+              @Override
+              public ImmutableMap<String, Object> getMetadata() {
+                return createFrameMetadata(
+                    /* presentationTimeUs= */ 100,
+                    /* sequencePresentationTimeUs= */ 100,
+                    /* sequenceIndex= */ 1,
+                    /* itemIndex= */ 0);
+              }
+
+              @Override
+              public long getContentTimeUs() {
+                return 100;
+              }
+            },
+            /* acquireFence= */ null);
+
+    frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> frameAggregator.queueFrame(unsupportedFrame, /* sequenceIndex= */ 1));
+
+    assertThat(thrown).hasMessageThat().contains("Unsupported frame type");
+  }
+
   private static void assertOutputPacket(
       List<AsyncFrame> outputPacket,
       int expectedSize,
@@ -2623,27 +2719,56 @@ public class FrameAggregatorTest {
 
   private AsyncFrame createFrame(
       long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex, int itemIndex) {
+    if (SDK_INT < 28) {
+      return createImagePlanesFrame(
+          presentationTimeUs, sequencePresentationTimeUs, sequenceIndex, itemIndex);
+    }
     DefaultHardwareBufferFrame frame =
         new DefaultHardwareBufferFrame.Builder(
-                placeholderBuffer,
+                checkNotNull(placeholderBuffer),
                 directExecutor(),
                 releaseFence -> releasedFrameTimestamps.add(presentationTimeUs))
             .setContentTimeUs(sequencePresentationTimeUs)
             .setMetadata(
-                ImmutableMap.of(
-                    Frame.KEY_PRESENTATION_TIME_US,
-                    presentationTimeUs,
-                    Frame.KEY_DISPLAY_TIME_NS,
-                    sequencePresentationTimeUs * 1_000L,
-                    KEY_COMPOSITION_SEQUENCE_INDEX,
-                    sequenceIndex,
-                    KEY_COMPOSITION_ITEM_INDEX,
-                    itemIndex,
-                    "SOURCE_FRAME_METADATA",
-                    new SourceFrame(sequenceIndex, presentationTimeUs, sequencePresentationTimeUs)))
+                createFrameMetadata(
+                    presentationTimeUs, sequencePresentationTimeUs, sequenceIndex, itemIndex))
             .setInternalImage(this)
             .build();
     return new AsyncFrame(frame, /* acquireFence= */ null);
+  }
+
+  private AsyncFrame createImagePlanesFrame(
+      long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex, int itemIndex) {
+    DefaultPlane plane =
+        new DefaultPlane(ByteBuffer.allocateDirect(4), /* rowStride= */ 4, /* pixelStride= */ 4);
+    DefaultImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(plane),
+                IMAGE_PLANES_FORMAT,
+                directExecutor(),
+                releaseFence -> releasedFrameTimestamps.add(presentationTimeUs))
+            .setContentTimeUs(sequencePresentationTimeUs)
+            .setMetadata(
+                createFrameMetadata(
+                    presentationTimeUs, sequencePresentationTimeUs, sequenceIndex, itemIndex))
+            .setInternalImage(this)
+            .build();
+    return new AsyncFrame(frame, /* acquireFence= */ null);
+  }
+
+  private static ImmutableMap<String, Object> createFrameMetadata(
+      long presentationTimeUs, long sequencePresentationTimeUs, int sequenceIndex, int itemIndex) {
+    return ImmutableMap.of(
+        Frame.KEY_PRESENTATION_TIME_US,
+        presentationTimeUs,
+        Frame.KEY_DISPLAY_TIME_NS,
+        sequencePresentationTimeUs * 1_000L,
+        KEY_COMPOSITION_SEQUENCE_INDEX,
+        sequenceIndex,
+        KEY_COMPOSITION_ITEM_INDEX,
+        itemIndex,
+        "SOURCE_FRAME_METADATA",
+        new SourceFrame(sequenceIndex, presentationTimeUs, sequencePresentationTimeUs));
   }
 
   private List<AsyncFrame> createFrameList(int numFrames, float frameRate, int sequenceIndex) {

@@ -69,8 +69,6 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.shadows.ShadowLooper
 
-import org.junit.Ignore
-
 /** Unit test for [MediaRouteButton]. */
 @RunWith(AndroidJUnit4::class)
 class MediaRouteButtonTest {
@@ -490,7 +488,6 @@ class MediaRouteButtonTest {
     assertThat(state.isPickerVisible).isFalse()
   }
 
-  @Ignore("Fails on gradle until Robolectric is updated to 4.17+: b/112049705")
   @Test
   @Config(sdk = [Build.VERSION_CODES.TIRAMISU])
   fun mediaRouteButton_clickWithOutputSwitcherAndMediaTransferEnabled_launchesOutputSwitcher() {

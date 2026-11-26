@@ -175,6 +175,7 @@ public final class TsExtractor implements Extractor {
   // Accessed only by the loading thread.
   private @MonotonicNonNull TsBinarySearchSeeker tsBinarySearchSeeker;
   private ExtractorOutput output;
+  private @Nullable SubtitleTranscodingExtractorOutput subtitleTranscodingExtractorOutput;
   private int remainingPmts;
   private boolean tracksEnded;
   private boolean hasOutputSeekMap;
@@ -358,10 +359,13 @@ public final class TsExtractor implements Extractor {
 
   @Override
   public void init(ExtractorOutput output) {
-    this.output =
-        (extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0
-            ? new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory)
-            : output;
+    if ((extractorFlags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0) {
+      subtitleTranscodingExtractorOutput =
+          new SubtitleTranscodingExtractorOutput(output, subtitleParserFactory);
+      this.output = subtitleTranscodingExtractorOutput;
+    } else {
+      this.output = output;
+    }
     tsPacketBuffer.ensureCapacity(BUFFER_SIZE);
     tsPacketBuffer.reset(/* limit= */ 0);
   }
@@ -399,6 +403,9 @@ public final class TsExtractor implements Extractor {
     continuityCounters.clear();
     for (int i = 0; i < tsPayloadReaders.size(); i++) {
       tsPayloadReaders.valueAt(i).seek();
+    }
+    if (subtitleTranscodingExtractorOutput != null) {
+      subtitleTranscodingExtractorOutput.resetSubtitleParsers();
     }
     bytesSinceLastSync = 0;
   }

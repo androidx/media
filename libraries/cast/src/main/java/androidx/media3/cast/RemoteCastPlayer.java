@@ -564,7 +564,6 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (!isCastSessionActive() || mediaItems.isEmpty()) {
       return;
     }
-    startPositionMs = startPositionMs == C.TIME_UNSET ? 0 : startPositionMs;
     if (startIndex == C.INDEX_UNSET) {
       startIndex = getCurrentMediaItemIndex();
       startPositionMs = getCurrentPosition();
@@ -746,9 +745,6 @@ public final class RemoteCastPlayer extends BasePlayer {
     Timeline currentTimeline = getCurrentTimeline();
     if (currentTimeline.isEmpty() || mediaItemIndex >= currentTimeline.getWindowCount()) {
       return;
-    }
-    if (positionMs == C.TIME_UNSET) {
-      positionMs = currentTimeline.getWindow(mediaItemIndex, window).getDefaultPositionMs();
     }
     if (isCastSessionActive()) {
       boolean isWindowChange = getCurrentMediaItemIndex() != mediaItemIndex;

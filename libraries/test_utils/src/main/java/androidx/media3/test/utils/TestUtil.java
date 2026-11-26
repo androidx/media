@@ -78,6 +78,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.truth.Correspondence;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -638,6 +639,7 @@ public class TestUtil {
    * @throws IOException If an error occurred reading from the input, or if the extractor finishes
    *     reading from input without extracting any {@link SeekMap}.
    */
+  @CanIgnoreReturnValue
   public static FakeExtractorOutput extractAllSamplesFromFile(
       Extractor extractor, Context context, String fileName) throws IOException {
     byte[] data = TestUtil.getByteArray(context, fileName);

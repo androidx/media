@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.graphics.ImageFormat;
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import androidx.media3.common.C;
@@ -25,6 +26,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.video.Frame;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.source.SampleStream;
 import com.google.common.collect.ImmutableMap;
 import java.nio.ByteBuffer;
@@ -38,9 +40,19 @@ import org.jspecify.annotations.Nullable;
 
   private static final String TAG = "ExoAssetLoaderVideoRenderer";
 
+  /**
+   * Duration to progress, in microseconds, when {@link #sampleConsumer} supports {@linkplain
+   * SampleConsumer#setWakeupListener wakeup notifications}.
+   *
+   * <p>Wakeup notifications only signal downstream consumer capacity, so periodic {@link #render}
+   * calls are still needed to poll the synchronous {@link #decoder}.
+   */
+  private static final long WAKEUP_SUPPORTED_DURATION_TO_PROGRESS_US = 2_000L;
+
   private final boolean flattenForSlowMotion;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
+  private final boolean decodeVideoToYuv420;
   private final List<Long> decodeOnlyPresentationTimestamps;
 
   /** The metadata of the frames queued to the decoder. */
@@ -52,11 +64,14 @@ import org.jspecify.annotations.Nullable;
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;
   private long nextDecoderOutputExpectedTimestampUs;
+  private volatile @Nullable WakeupListener wakeupListener;
+  private boolean sampleConsumerSupportsWakeup;
 
   public ExoAssetLoaderVideoRenderer(
       boolean flattenForSlowMotion,
       Codec.DecoderFactory decoderFactory,
       @Composition.HdrMode int hdrMode,
+      boolean decodeVideoToYuv420,
       TransformerMediaClock mediaClock,
       AssetLoader.Listener assetLoaderListener,
       @Nullable LogSessionId logSessionId,
@@ -65,6 +80,7 @@ import org.jspecify.annotations.Nullable;
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.decoderFactory = decoderFactory;
     this.hdrMode = hdrMode;
+    this.decodeVideoToYuv420 = decodeVideoToYuv420;
     this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
     pendingFrameMetadata = new FrameMetadataQueue();
@@ -79,16 +95,31 @@ import org.jspecify.annotations.Nullable;
     return TAG;
   }
 
+  @Override
+  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    if (messageType == MSG_SET_WAKEUP_LISTENER) {
+      wakeupListener = (WakeupListener) message;
+    } else {
+      super.handleMessage(messageType, message);
+    }
+  }
+
   /**
    * {@inheritDoc}
    *
-   * <p>The duration is calculated based on the number of {@linkplain #maxDecoderPendingFrameCount
-   * allowed pending frames}.
+   * <p>When {@link #sampleConsumer} supports {@linkplain SampleConsumer#setWakeupListener wakeup
+   * notifications}, returns {@link #WAKEUP_SUPPORTED_DURATION_TO_PROGRESS_US}; otherwise, the
+   * duration is calculated based on the number of {@linkplain #maxDecoderPendingFrameCount allowed
+   * pending frames}.
    */
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
-    if (getState() == STATE_ENABLED) {
+    if (getState() == STATE_ENABLED || isEnded()) {
       return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
+    if (sampleConsumerSupportsWakeup) {
+      return WAKEUP_SUPPORTED_DURATION_TO_PROGRESS_US;
     }
     if (maxDecoderPendingFrameCount == C.INDEX_UNSET) {
       return DEFAULT_DURATION_TO_PROGRESS_US;
@@ -96,6 +127,16 @@ import org.jspecify.annotations.Nullable;
     // TODO: b/258809496 - Consider using async API and dynamic scheduling when decoder input
     //  slots are available.
     return maxDecoderPendingFrameCount * 2_000L;
+  }
+
+  @Override
+  protected void onReset() {
+    if (sampleConsumer != null) {
+      sampleConsumer.setWakeupListener(null);
+    }
+    sampleConsumerSupportsWakeup = false;
+    wakeupListener = null;
+    super.onReset();
   }
 
   @Override
@@ -127,6 +168,11 @@ import org.jspecify.annotations.Nullable;
   }
 
   @Override
+  protected void onSampleConsumerInitialized(SampleConsumer sampleConsumer) {
+    sampleConsumerSupportsWakeup = sampleConsumer.setWakeupListener(this::maybeWakeup);
+  }
+
+  @Override
   protected void initDecoder(Format inputFormat) throws ExportException {
     // TODO: b/278259383 - Move surface creation out of sampleConsumer. Init decoder before
     //  sampleConsumer.
@@ -134,9 +180,13 @@ import org.jspecify.annotations.Nullable;
     boolean isDecoderToneMappingRequired =
         ColorInfo.isTransferHdr(inputFormat.colorInfo)
             && hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
+    Format decoderInputFormat =
+        decodeVideoToYuv420
+            ? inputFormat.buildUpon().setPixelFormat(ImageFormat.YUV_420_888).build()
+            : inputFormat;
     decoder =
         decoderFactory.createForVideoDecoding(
-            inputFormat,
+            decoderInputFormat,
             checkNotNull(sampleConsumer.getInputSurface()),
             isDecoderToneMappingRequired,
             logSessionId);
@@ -262,5 +312,12 @@ import org.jspecify.annotations.Nullable;
       }
     }
     return false;
+  }
+
+  private void maybeWakeup() {
+    @Nullable WakeupListener listener = wakeupListener;
+    if (listener != null) {
+      listener.onWakeup();
+    }
   }
 }

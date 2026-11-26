@@ -114,6 +114,7 @@ public final class PacketConsumerVideoSampleExporterTest {
                 /* appendVideoFormat= */ null),
             /* errorConsumer= */ e -> {},
             fallbackListener,
+            /* initialTimestampOffsetUs= */ 0,
             /* allowedEncodingRotationDegrees= */ ImmutableList.of(0, 90, 180, 270),
             /* logSessionId= */ null,
             playbackLooper,

@@ -103,16 +103,24 @@ public class SequenceFrameReaderAndroidTest {
     receivedFrames = new LinkedBlockingQueue<>();
 
     sequenceFrameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            hardwareBufferFrame -> receivedFrames.add(hardwareBufferFrame),
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null),
-            /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(receivedFrames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            // These tests write frames with ImageWriter (instead of MediaCodec in prod). Prior to
+            // API 33 (ImageWriter.Builder#setUsage), ImageWriter sets no buffer usage flags for
+            // ImageFormat.PRIVATE, so dequeueInputImage() throws when allocating buffers because
+            // the graphics allocator cannot determine the underlying pixel format.
+            // TODO(b/588358123): Try using the default ImageFormat.PRIVATE on API 33+ with
+            // ImageWriter.Builder#setUsage.
+            .setSurfacePixelFormat(ImageFormat.YUV_420_888)
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null))
+            .setHardwareBufferJniWrapper(HardwareBufferJni.INSTANCE)
+            .build();
     inputSurface = sequenceFrameReader.createInputSurface();
   }
 
@@ -465,16 +473,17 @@ public class SequenceFrameReaderAndroidTest {
       outputBitmap_withBitmapToHardwareBufferConverter_reusesHardwareBufferForRepeatedBitmap()
           throws Exception {
     SequenceFrameReader frameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            hardwareBufferFrame -> receivedFrames.add(hardwareBufferFrame),
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null),
-            HardwareBufferJni.INSTANCE);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(receivedFrames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null))
+            .setHardwareBufferJniWrapper(HardwareBufferJni.INSTANCE)
+            .build();
 
     try {
       Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
@@ -516,16 +525,17 @@ public class SequenceFrameReaderAndroidTest {
       outputBitmap_withBitmapToHardwareBufferConverter_differentBitmap_createsNewHardwareBuffer()
           throws Exception {
     SequenceFrameReader frameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            hardwareBufferFrame -> receivedFrames.add(hardwareBufferFrame),
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null),
-            HardwareBufferJni.INSTANCE);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(receivedFrames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null))
+            .setHardwareBufferJniWrapper(HardwareBufferJni.INSTANCE)
+            .build();
 
     try {
       TimestampIterator singleFrame1 =
@@ -565,16 +575,17 @@ public class SequenceFrameReaderAndroidTest {
       outputBitmap_withBitmapToHardwareBufferConverter_releaseOutputFrameAndReader_closesHardwareBuffer()
           throws Exception {
     SequenceFrameReader frameReader =
-        new SequenceFrameReader(
-            composition,
-            /* sequenceIndex= */ 0,
-            hardwareBufferFrame -> receivedFrames.add(hardwareBufferFrame),
-            handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
-            new DefaultImageReaderAdapter.Factory(),
-            e -> sequenceFrameReaderException.set(e),
-            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null),
-            HardwareBufferJni.INSTANCE);
+        new SequenceFrameReader.Builder()
+            .setComposition(composition)
+            .setSequenceIndex(0)
+            .setFrameConsumer(receivedFrames::add)
+            .setPlaybackLooper(handlerThread.getLooper())
+            .setImageReaderAdapterFactory(new DefaultImageReaderAdapter.Factory())
+            .setListener(
+                e -> sequenceFrameReaderException.set(e),
+                SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null))
+            .setHardwareBufferJniWrapper(HardwareBufferJni.INSTANCE)
+            .build();
 
     try {
       Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);

@@ -135,6 +135,7 @@ public final class Flags {
    *   <li>{@link #FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR}
    *   <li>{@link #FLAG_ENABLE_PCM_AUDIO_OFFLOAD}
    *   <li>{@link #FLAG_UNIFIED_DECODER_RENDERER}
+   *   <li>{@link #FLAG_USE_MP3_ID3_TLEN_DURATION}
    * </ul>
    */
   @Documented
@@ -164,6 +165,7 @@ public final class Flags {
         FLAG_WAKE_UP_RENDERER_ON_MEDIACODEC_ERROR,
         FLAG_ENABLE_PCM_AUDIO_OFFLOAD,
         FLAG_UNIFIED_DECODER_RENDERER,
+        FLAG_USE_MP3_ID3_TLEN_DURATION,
       })
   public @interface Flag {}
 
@@ -403,7 +405,20 @@ public final class Flags {
   @ExperimentalApi // TODO(b/562381449): Remove this flag.
   public static final int FLAG_UNIFIED_DECODER_RENDERER = 21;
 
-  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 22;
+  /**
+   * Flag to use ID3 {@code TLEN} (or ID3v2.2 {@code TLE}) duration metadata in {@code Mp3Extractor}
+   * when no seek-frame duration is available.
+   *
+   * <p>When enabled, {@code Mp3Extractor} parses {@code TLEN}/{@code TLE} frames even when {@code
+   * FLAG_DISABLE_ID3_METADATA} is set, and uses valid positive values as the initial duration when
+   * constant-bitrate assumptions are not used (including when falling back to index seeking or
+   * constant-bitrate seeking) or when falling back to index seeking for unknown-length streams.
+   * When disabled, {@code TLEN}/{@code TLE} is only used for {@code MLLT} seek metadata.
+   */
+  @ExperimentalApi // TODO(b/590116371): Remove this flag (earliest cleanup: 2027-04-07).
+  public static final int FLAG_USE_MP3_ID3_TLEN_DURATION = 22;
+
+  @VisibleForTesting /* package */ static final int NEXT_FLAG_ID = 23;
 
   private static final SparseBooleanArray STATIC_FLAG_STATES = new SparseBooleanArray();
 

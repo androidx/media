@@ -681,6 +681,11 @@ import org.jspecify.annotations.Nullable;
       }
     }
 
+    @Override
+    public boolean setWakeupListener(@Nullable Runnable wakeupListener) {
+      return sampleConsumer.setWakeupListener(wakeupListener);
+    }
+
     private void onAudioGapSignalled() {
       checkState(trackType == C.TRACK_TYPE_AUDIO);
       int nonEndedTracks = nonEndedTrackCount.decrementAndGet();

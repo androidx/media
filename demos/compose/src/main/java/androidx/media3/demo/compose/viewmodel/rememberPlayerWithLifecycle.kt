@@ -85,6 +85,7 @@ internal fun rememberPlayerWithLifecycle(
       val activity = context.findActivity()
       if (activity?.isChangingConfigurations != true) {
         playerViewModel.releasePlayer()
+        playerViewModel.releaseAdsLoader()
         playerViewModel.clearSavedState()
       }
     }

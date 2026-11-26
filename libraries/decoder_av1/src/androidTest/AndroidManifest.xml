@@ -17,11 +17,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-sdk/>
 
   <application
       android:allowBackup="false"
-      tools:ignore="MissingApplicationIcon,HardcodedDebugMode"/>
+      tools:ignore="MissingApplicationIcon,HardcodedDebugMode">
+    <activity android:name="androidx.media3.test.utils.HostActivity"
+        android:configChanges="keyboardHidden|orientation|screenSize"
+        android:label="ExoPlayerTest"/>
+  </application>
 
   <instrumentation
       android:targetPackage="androidx.media3.decoder.av1.test"

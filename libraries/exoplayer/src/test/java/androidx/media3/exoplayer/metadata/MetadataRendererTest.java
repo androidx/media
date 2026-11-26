@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.metadata;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -50,6 +49,7 @@ import androidx.media3.extractor.metadata.scte35.TimeSignalCommand;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.Id3TestUtil;
 import androidx.media3.test.utils.Media3FlagsRule;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.TestUtil;
@@ -514,37 +514,14 @@ public class MetadataRendererTest {
    * </ul>
    */
   private static byte[] encodeTxxxId3Frame(String description, String value) {
-    byte[] id3FrameData =
+    return Id3TestUtil.buildSingleFrameTag(
+        "TXXX",
         Bytes.concat(
-            "TXXX".getBytes(ISO_8859_1), // ID for a 'user defined text information frame'
-            TestUtil.createByteArray(0, 0, 0, 0), // Frame size (set later)
-            TestUtil.createByteArray(0, 0), // Frame flags
             TestUtil.createByteArray(0), // Character encoding = ISO-8859-1
             description.getBytes(ISO_8859_1),
             TestUtil.createByteArray(0), // String null terminator
             value.getBytes(ISO_8859_1),
-            TestUtil.createByteArray(0)); // String null terminator
-    int frameSizeIndex = 7;
-    int frameSize = id3FrameData.length - 10;
-    checkArgument(
-        frameSize < 128,
-        "frameSize must fit in 7 bits to avoid synch-safe encoding: %s",
-        frameSize);
-    id3FrameData[frameSizeIndex] = (byte) frameSize;
-
-    byte[] id3Bytes =
-        Bytes.concat(
-            "ID3".getBytes(ISO_8859_1), // identifier
-            TestUtil.createByteArray(0x04, 0x00), // version
-            TestUtil.createByteArray(0), // Tag flags
-            TestUtil.createByteArray(0, 0, 0, 0), // Tag size (set later)
-            id3FrameData);
-    int tagSizeIndex = 9;
-    int tagSize = id3Bytes.length - 10;
-    checkArgument(
-        tagSize < 128, "tagSize must fit in 7 bits to avoid synch-safe encoding: %s", tagSize);
-    id3Bytes[tagSizeIndex] = (byte) tagSize;
-    return id3Bytes;
+            TestUtil.createByteArray(0))); // String null terminator
   }
 
   @Test

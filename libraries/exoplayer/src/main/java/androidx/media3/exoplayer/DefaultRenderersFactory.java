@@ -27,6 +27,7 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
+import androidx.media3.common.Flags;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -39,8 +40,11 @@ import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
+import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
 import androidx.media3.exoplayer.text.TextOutput;
@@ -49,6 +53,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionRenderer;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
@@ -57,6 +62,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /** Default {@link RenderersFactory} implementation. */
@@ -70,8 +76,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
   public static final long DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS = 5000;
 
   /**
-   * Modes for using extension renderers. One of {@link #EXTENSION_RENDERER_MODE_OFF}, {@link
-   * #EXTENSION_RENDERER_MODE_ON} or {@link #EXTENSION_RENDERER_MODE_PREFER}.
+   * Modes for using extension renderers and extension decoders. One of {@link
+   * #EXTENSION_RENDERER_MODE_OFF}, {@link #EXTENSION_RENDERER_MODE_ON} or {@link
+   * #EXTENSION_RENDERER_MODE_PREFER}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -79,22 +86,27 @@ public class DefaultRenderersFactory implements RenderersFactory {
   @IntDef({EXTENSION_RENDERER_MODE_OFF, EXTENSION_RENDERER_MODE_ON, EXTENSION_RENDERER_MODE_PREFER})
   public @interface ExtensionRendererMode {}
 
-  /** Do not allow use of extension renderers. */
+  /** Do not allow use of extension renderers or extension decoders. */
   public static final int EXTENSION_RENDERER_MODE_OFF = 0;
 
   /**
-   * Allow use of extension renderers. Extension renderers are indexed after core renderers of the
-   * same type. A {@link TrackSelector} that prefers the first suitable renderer will therefore
-   * prefer to use a core renderer to an extension renderer in the case that both are able to play a
-   * given track.
+   * Allow use of extension renderers and extension decoders. Extension renderers are indexed after
+   * core renderers of the same type. A {@link TrackSelector} that prefers the first suitable
+   * renderer will therefore prefer to use a core renderer to an extension renderer in the case that
+   * both are able to play a given track. For extensions integrated into core renderers when {@link
+   * Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled, extension decoders are ordered after platform
+   * decoders in the core renderer's {@link MediaCodecSelector} (unless promoted ahead of a platform
+   * decoder whose capabilities are exceeded).
    */
   public static final int EXTENSION_RENDERER_MODE_ON = 1;
 
   /**
-   * Allow use of extension renderers. Extension renderers are indexed before core renderers of the
-   * same type. A {@link TrackSelector} that prefers the first suitable renderer will therefore
-   * prefer to use an extension renderer to a core renderer in the case that both are able to play a
-   * given track.
+   * Allow use of extension renderers and extension decoders. Extension renderers are indexed before
+   * core renderers of the same type. A {@link TrackSelector} that prefers the first suitable
+   * renderer will therefore prefer to use an extension renderer to a core renderer in the case that
+   * both are able to play a given track. For extensions integrated into core renderers when {@link
+   * Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled, extension decoders are ordered before platform
+   * decoders in the core renderer's {@link MediaCodecSelector}.
    */
   public static final int EXTENSION_RENDERER_MODE_PREFER = 2;
 
@@ -138,9 +150,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * Sets the extension renderer mode, which determines if and how available extension renderers are
-   * used. Note that extensions must be included in the application build for them to be considered
-   * available.
+   * Sets the extension renderer mode, which determines if and how available extension renderers and
+   * extension decoders are used. Note that extensions must be included in the application build for
+   * them to be considered available.
    *
    * <p>The default value is {@link #EXTENSION_RENDERER_MODE_OFF}.
    *
@@ -195,6 +207,37 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
+   * Sets the {@link MediaCodecAdapter.Factory} to use for a specific extension decoder when {@link
+   * Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled.
+   *
+   * <p>The provided {@code factory} must return an extension codec adapter (for example from a
+   * configured {@code Dav1dCodecAdapter.Factory}), optionally decorated with {@link
+   * ForwardingMediaCodecAdapter}. Note that decorators around extension codec adapters do not
+   * intercept {@link MediaCodecAdapter#getInputBuffer}, {@link MediaCodecAdapter#setOutputSurface},
+   * or {@link MediaCodecAdapter#detachOutputSurface}.
+   *
+   * <p>This configures the default {@link DefaultMediaCodecAdapterFactory} returned by {@link
+   * #getCodecAdapterFactory()}. Subclasses that override {@link #getCodecAdapterFactory()} without
+   * delegating to {@code super.getCodecAdapterFactory()} must configure extension adapter factories
+   * on their custom factory directly.
+   *
+   * <p>This method is experimental and may be renamed or removed in a future release.
+   *
+   * @param codecName The non-empty name of the extension decoder (e.g. {@code
+   *     "c2.media3.av1.dav1d.decoder"}).
+   * @param factory The {@link MediaCodecAdapter.Factory} to use for creating the adapter.
+   * @return This factory, for convenience.
+   * @throws IllegalArgumentException If {@code codecName} is empty.
+   */
+  @ExperimentalApi // TODO(b/562381449): Remove or make non-experimental.
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory setExtensionAdapterFactory(
+      String codecName, MediaCodecAdapter.Factory factory) {
+    codecAdapterFactory.setExtensionAdapterFactory(codecName, factory);
+    return this;
+  }
+
+  /**
    * Sets whether to enable fallback to lower-priority decoders if decoder initialization fails.
    * This may result in using a decoder that is less efficient or slower than the primary decoder.
    *
@@ -210,6 +253,13 @@ public class DefaultRenderersFactory implements RenderersFactory {
 
   /**
    * Sets a {@link MediaCodecSelector} for use by {@link MediaCodec} based renderers.
+   *
+   * <p>When {@link Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled and the {@link
+   * #setExtensionRendererMode(int) extension renderer mode} is {@link #EXTENSION_RENDERER_MODE_ON}
+   * or {@link #EXTENSION_RENDERER_MODE_PREFER}, available extension decoders from {@link
+   * MediaCodecUtil#getExtensionDecoderInfos} that are not already present in the list returned by
+   * {@code mediaCodecSelector} are automatically added (appended for {@link
+   * #EXTENSION_RENDERER_MODE_ON}, or prepended for {@link #EXTENSION_RENDERER_MODE_PREFER}).
    *
    * <p>The default value is {@link MediaCodecSelector#DEFAULT}.
    *
@@ -410,33 +460,15 @@ public class DefaultRenderersFactory implements RenderersFactory {
     return renderersList.toArray(new Renderer[0]);
   }
 
-  private MediaCodecVideoRenderer createMediaCodecVideoRenderer(
-      Context context,
-      MediaCodecSelector mediaCodecSelector,
-      boolean enableDecoderFallback,
-      Handler eventHandler,
-      VideoRendererEventListener eventListener,
-      long allowedVideoJoiningTimeMs) {
-    MediaCodecVideoRenderer.Builder builder =
-        new MediaCodecVideoRenderer.Builder(context)
-            .setCodecAdapterFactory(getCodecAdapterFactory())
-            .setMediaCodecSelector(mediaCodecSelector)
-            .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
-            .setEnableDecoderFallback(enableDecoderFallback)
-            .setEventHandler(eventHandler)
-            .setEventListener(eventListener)
-            .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
-            .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
-            .setEarlySchedulingThresholdUs(videoRendererEarlySchedulingThresholdUs);
-    return builder.build();
-  }
-
   /**
    * Builds video renderers for use by the player.
    *
    * @param context The {@link Context} associated with the player.
    * @param extensionRendererMode The extension renderer mode.
-   * @param mediaCodecSelector A decoder selector.
+   * @param mediaCodecSelector A decoder selector. When {@link Flags#FLAG_UNIFIED_DECODER_RENDERER}
+   *     is enabled, available extension decoders from {@link
+   *     MediaCodecUtil#getExtensionDecoderInfos} are combined with this selector only when
+   *     instantiating the default renderer.
    * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
    *     initialization fails. This may result in using a decoder that is slower/less efficient than
    *     the primary decoder.
@@ -458,6 +490,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
     out.add(
         createMediaCodecVideoRenderer(
             context,
+            extensionRendererMode,
             mediaCodecSelector,
             enableDecoderFallback,
             eventHandler,
@@ -501,33 +534,35 @@ public class DefaultRenderersFactory implements RenderersFactory {
       throw new IllegalStateException("Error instantiating VP9 extension", e);
     }
 
-    try {
-      // LINT.IfChange
-      Class<?> clazz = Class.forName("androidx.media3.decoder.av1.Libdav1dVideoRenderer");
-      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
-      // move.
-      @SuppressWarnings("UnnecessarilyFullyQualified")
-      Constructor<?> constructor =
-          clazz.getConstructor(
-              long.class,
-              Handler.class,
-              androidx.media3.exoplayer.video.VideoRendererEventListener.class,
-              int.class);
-      // LINT.ThenChange(../../../../../../proguard-rules.txt)
-      Renderer renderer =
-          (Renderer)
-              constructor.newInstance(
-                  allowedVideoJoiningTimeMs,
-                  eventHandler,
-                  eventListener,
-                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
-      out.add(extensionRendererIndex++, renderer);
-      Log.i(TAG, "Loaded Libdav1dVideoRenderer.");
-    } catch (ClassNotFoundException e) {
-      // Expected if the app was built without the extension.
-    } catch (Exception e) {
-      // The extension is present, but instantiation failed.
-      throw new IllegalStateException("Error instantiating AV1 extension", e);
+    if (!Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)) {
+      try {
+        // LINT.IfChange
+        Class<?> clazz = Class.forName("androidx.media3.decoder.av1.Libdav1dVideoRenderer");
+        // Full class names used for media3 constructor args so the LINT rule triggers if any of
+        // them move.
+        @SuppressWarnings("UnnecessarilyFullyQualified")
+        Constructor<?> constructor =
+            clazz.getConstructor(
+                long.class,
+                Handler.class,
+                androidx.media3.exoplayer.video.VideoRendererEventListener.class,
+                int.class);
+        // LINT.ThenChange(../../../../../../proguard-rules.txt)
+        Renderer renderer =
+            (Renderer)
+                constructor.newInstance(
+                    allowedVideoJoiningTimeMs,
+                    eventHandler,
+                    eventListener,
+                    MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+        out.add(extensionRendererIndex++, renderer);
+        Log.i(TAG, "Loaded Libdav1dVideoRenderer.");
+      } catch (ClassNotFoundException e) {
+        // Expected if the app was built without the extension.
+      } catch (Exception e) {
+        // The extension is present, but instantiation failed.
+        throw new IllegalStateException("Error instantiating AV1 extension", e);
+      }
     }
 
     try {
@@ -890,7 +925,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param renderer The primary {@link Renderer} for which to create the secondary.
    * @param context The {@link Context} associated with the player.
    * @param extensionRendererMode The extension renderer mode.
-   * @param mediaCodecSelector A decoder selector.
+   * @param mediaCodecSelector A decoder selector. When {@link Flags#FLAG_UNIFIED_DECODER_RENDERER}
+   *     is enabled, available extension decoders from {@link
+   *     MediaCodecUtil#getExtensionDecoderInfos} are combined with this selector only when
+   *     instantiating the default renderer.
    * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
    *     initialization fails. This may result in using a decoder that is slower/less efficient than
    *     the primary decoder.
@@ -913,6 +951,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         && renderer.getClass() == MediaCodecVideoRenderer.class) {
       return createMediaCodecVideoRenderer(
           context,
+          extensionRendererMode,
           mediaCodecSelector,
           enableDecoderFallback,
           eventHandler,
@@ -925,6 +964,18 @@ public class DefaultRenderersFactory implements RenderersFactory {
   /**
    * Returns the {@link MediaCodecAdapter.Factory} that will be used when creating {@link
    * androidx.media3.exoplayer.mediacodec.MediaCodecRenderer} instances.
+   *
+   * <p>Note: {@link #forceEnableMediaCodecAsynchronousQueueing()}, {@link
+   * #forceDisableMediaCodecAsynchronousQueueing()}, {@link
+   * #experimentalSetMediaCodecAsyncCryptoFlagEnabled(boolean)}, and {@link
+   * #setExtensionAdapterFactory(String, MediaCodecAdapter.Factory)} mutate the default factory
+   * returned by this method; subclasses overriding this method without delegating to {@code
+   * super.getCodecAdapterFactory()} will bypass those settings, and custom factories that do not
+   * delegate to {@link DefaultMediaCodecAdapterFactory} must handle extension decoders themselves
+   * when {@link Flags#FLAG_UNIFIED_DECODER_RENDERER} is enabled. Custom decorators wrapping the
+   * returned adapters should extend {@link ForwardingMediaCodecAdapter}; note that decorators
+   * around extension codec adapters do not intercept {@link MediaCodecAdapter#getInputBuffer},
+   * {@link MediaCodecAdapter#setOutputSurface}, or {@link MediaCodecAdapter#detachOutputSurface}.
    */
   protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
     return codecAdapterFactory;
@@ -934,5 +985,74 @@ public class DefaultRenderersFactory implements RenderersFactory {
   @ForOverride
   protected ImageDecoder.Factory getImageDecoderFactory(Context context) {
     return new BitmapFactoryImageDecoder.Factory(context);
+  }
+
+  private MediaCodecVideoRenderer createMediaCodecVideoRenderer(
+      Context context,
+      @ExtensionRendererMode int extensionRendererMode,
+      MediaCodecSelector mediaCodecSelector,
+      boolean enableDecoderFallback,
+      Handler eventHandler,
+      VideoRendererEventListener eventListener,
+      long allowedVideoJoiningTimeMs) {
+    MediaCodecVideoRenderer.Builder builder =
+        new MediaCodecVideoRenderer.Builder(context)
+            .setCodecAdapterFactory(getCodecAdapterFactory())
+            .setMediaCodecSelector(
+                resolveMediaCodecSelector(mediaCodecSelector, extensionRendererMode))
+            .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
+            .setEnableDecoderFallback(enableDecoderFallback)
+            .setEventHandler(eventHandler)
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+            .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
+            .setEarlySchedulingThresholdUs(videoRendererEarlySchedulingThresholdUs);
+    return builder.build();
+  }
+
+  private static MediaCodecSelector resolveMediaCodecSelector(
+      MediaCodecSelector mediaCodecSelector, @ExtensionRendererMode int extensionRendererMode) {
+    if (!Flags.isEnabled(Flags.FLAG_UNIFIED_DECODER_RENDERER)
+        || extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) {
+      return mediaCodecSelector;
+    }
+    boolean preferExtensionDecoders = extensionRendererMode == EXTENSION_RENDERER_MODE_PREFER;
+    return (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+      List<MediaCodecInfo> baseDecoders =
+          mediaCodecSelector.getDecoderInfos(
+              mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+      List<MediaCodecInfo> extensionDecoders =
+          MediaCodecUtil.getExtensionDecoderInfos(
+              mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+      if (extensionDecoders.isEmpty()) {
+        return baseDecoders;
+      }
+      // TODO: b/562381449 - Consider sorting software extension decoders ahead of hardware decoders
+      // when MediaCodecSelector.PREFER_SOFTWARE is used.
+      ImmutableList.Builder<MediaCodecInfo> combined =
+          ImmutableList.builderWithExpectedSize(baseDecoders.size() + extensionDecoders.size());
+      if (!preferExtensionDecoders) {
+        combined.addAll(baseDecoders);
+      }
+      for (int i = 0; i < extensionDecoders.size(); i++) {
+        MediaCodecInfo extensionDecoder = extensionDecoders.get(i);
+        if (!containsCodecWithName(baseDecoders, extensionDecoder.name)) {
+          combined.add(extensionDecoder);
+        }
+      }
+      if (preferExtensionDecoders) {
+        combined.addAll(baseDecoders);
+      }
+      return combined.build();
+    };
+  }
+
+  private static boolean containsCodecWithName(List<MediaCodecInfo> decoders, String codecName) {
+    for (int i = 0; i < decoders.size(); i++) {
+      if (decoders.get(i).name.equals(codecName)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

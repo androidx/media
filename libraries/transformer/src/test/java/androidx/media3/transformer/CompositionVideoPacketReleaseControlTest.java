@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
@@ -24,12 +25,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.hardware.HardwareBuffer;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame;
+import androidx.media3.common.video.DefaultImagePlanesFrame.DefaultPlane;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
@@ -48,20 +52,24 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import org.jspecify.annotations.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link CompositionVideoPacketReleaseControl}. */
 @RunWith(AndroidJUnit4.class)
+@Config(sdk = Config.ALL_SDKS) // TODO(b/507008072): Remove when ALL_SDKS is the default.
 public class CompositionVideoPacketReleaseControlTest {
+
+  private static final Format IMAGE_PLANES_FORMAT =
+      new Format.Builder().setWidth(1).setHeight(1).setPixelFormat(PixelFormat.RGBA_8888).build();
 
   private CompositionVideoPacketReleaseControl compositionVideoPacketReleaseControl;
   private VideoFrameReleaseControl videoFrameReleaseControl;
@@ -69,7 +77,7 @@ public class CompositionVideoPacketReleaseControlTest {
   private FakeClock fakeClock;
   private CapturingFrameProcessor frameProcessor;
   private List<Long> releasedFrameTimestamps;
-  private HardwareBuffer placeholderBuffer;
+  private @Nullable HardwareBuffer placeholderBuffer;
   // The first packet is required to be sent to the CompositionVideoPacketReleaseControl to
   // initialize the VideoFrameReleaseControl so subsequent behaviour can be tested.
   private ImmutableList<AsyncFrame> firstPacket;
@@ -78,13 +86,15 @@ public class CompositionVideoPacketReleaseControlTest {
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
     releasedFrameTimestamps = new ArrayList<>();
-    placeholderBuffer =
-        HardwareBuffer.create(
-            /* width= */ 16,
-            /* height= */ 16,
-            /* format= */ HardwareBuffer.RGBA_8888,
-            /* layers= */ 1,
-            /* usage= */ 0);
+    if (SDK_INT >= 28) {
+      placeholderBuffer =
+          HardwareBuffer.create(
+              /* width= */ 16,
+              /* height= */ 16,
+              /* format= */ HardwareBuffer.RGBA_8888,
+              /* layers= */ 1,
+              /* usage= */ 0);
+    }
     firstPacket = createPacket(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0);
     fakeFrameTimingEvaluator = new FakeFrameTimingEvaluator();
     fakeClock = new FakeClock(/* initialTimeMs= */ 0);
@@ -240,8 +250,7 @@ public class CompositionVideoPacketReleaseControlTest {
     // Update the release time of the first packet to match, to verify that scheduled release time
     // is correct.
     FramesEvent firstEvent = (FramesEvent) frameProcessor.getQueuedEvents().get(0);
-    DefaultHardwareBufferFrame firstFrame =
-        (DefaultHardwareBufferFrame) firstEvent.frames.get(0).frame;
+    Frame firstFrame = firstEvent.frames.get(0).frame;
     long releaseTimeNs = (Long) firstFrame.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
     ImmutableList<AsyncFrame> expectedFirstFrame =
         updatePacketWithReleaseTime(firstPacket, releaseTimeNs);
@@ -701,14 +710,12 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimePositionUs= */ 100_000,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    Frame nonMatchingFrame =
+        createPacket(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0).get(0).frame;
 
-    DefaultHardwareBufferFrame frame =
-        new DefaultHardwareBufferFrame.Builder(checkNotNull(placeholderBuffer))
-            .setFormat(new Format.Builder().build())
-            .setContentTimeUs(0)
-            .build();
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        nonMatchingFrame, /* releaseFence= */ null);
 
-    compositionVideoPacketReleaseControl.onFrameProcessed(frame, /* releaseFence= */ null);
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -833,8 +840,8 @@ public class CompositionVideoPacketReleaseControlTest {
     assertThat(events).hasSize(2);
     AsyncFrame redrawnFrame = ((FramesEvent) events.get(1)).frames.get(0);
     assertFramesEqual(
-        (DefaultHardwareBufferFrame) redrawnFrame.frame,
-        (DefaultHardwareBufferFrame) ((FramesEvent) events.get(0)).frames.get(0).frame,
+        redrawnFrame.frame,
+        ((FramesEvent) events.get(0)).frames.get(0).frame,
         /* ignoreReleaseTime= */ true);
   }
 
@@ -996,22 +1003,8 @@ public class CompositionVideoPacketReleaseControlTest {
 
     releaseControl.onStarted();
 
-    Set<Long> releasedTimestamps = new HashSet<>();
-    DefaultHardwareBufferFrame commonFrame =
-        new DefaultHardwareBufferFrame.Builder(
-                placeholderBuffer,
-                directExecutor(),
-                releaseFence -> releasedTimestamps.add(100_000L))
-            .setContentTimeUs(100_000L)
-            .setMetadata(
-                ImmutableMap.of(
-                    Frame.KEY_PRESENTATION_TIME_US,
-                    100_000L,
-                    Frame.KEY_DISPLAY_TIME_NS,
-                    C.TIME_UNSET))
-            .build();
     ImmutableList<AsyncFrame> packet =
-        ImmutableList.of(new AsyncFrame(commonFrame, /* acquireFence= */ null));
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
 
     releaseControl.queue(packet);
 
@@ -1021,13 +1014,13 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertThat(releasedTimestamps).isEmpty();
+    assertThat(releasedFrameTimestamps).isEmpty();
 
     for (AsyncFrame frame : packet) {
       TransformerUtil.releaseIfNeeded(frame.frame, /* releaseFence= */ null);
     }
 
-    assertThat(releasedTimestamps).containsExactly(100_000L);
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
   }
 
   @Test
@@ -1073,6 +1066,9 @@ public class CompositionVideoPacketReleaseControlTest {
 
   private ImmutableList<AsyncFrame> createPacket(
       long presentationTimeUs, long sequencePresentationTimeUs) {
+    if (SDK_INT < 28) {
+      return createImagePlanesPacket(presentationTimeUs, sequencePresentationTimeUs);
+    }
     DefaultHardwareBufferFrame commonFrame =
         new DefaultHardwareBufferFrame.Builder(
                 checkNotNull(placeholderBuffer),
@@ -1087,6 +1083,27 @@ public class CompositionVideoPacketReleaseControlTest {
                     C.TIME_UNSET))
             .build();
     return ImmutableList.of(new AsyncFrame(commonFrame, /* acquireFence= */ null));
+  }
+
+  private ImmutableList<AsyncFrame> createImagePlanesPacket(
+      long presentationTimeUs, long sequencePresentationTimeUs) {
+    DefaultPlane plane =
+        new DefaultPlane(ByteBuffer.allocateDirect(4), /* rowStride= */ 4, /* pixelStride= */ 4);
+    DefaultImagePlanesFrame frame =
+        new DefaultImagePlanesFrame.Builder(
+                ImmutableList.of(plane),
+                IMAGE_PLANES_FORMAT,
+                directExecutor(),
+                releaseFence -> releasedFrameTimestamps.add(presentationTimeUs))
+            .setContentTimeUs(sequencePresentationTimeUs)
+            .setMetadata(
+                ImmutableMap.of(
+                    Frame.KEY_PRESENTATION_TIME_US,
+                    presentationTimeUs,
+                    Frame.KEY_DISPLAY_TIME_NS,
+                    C.TIME_UNSET))
+            .build();
+    return ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null));
   }
 
   private static FramesEvent toFramesEvent(List<AsyncFrame> packet) {
@@ -1109,33 +1126,37 @@ public class CompositionVideoPacketReleaseControlTest {
         assertThat(receivedFrames).hasSize(expectedFrames.size());
         for (int j = 0; j < receivedFrames.size(); j++) {
           AsyncFrame receivedAsyncFrame = receivedFrames.get(j);
-          assertThat(receivedAsyncFrame.frame).isInstanceOf(DefaultHardwareBufferFrame.class);
-          DefaultHardwareBufferFrame receivedFrame =
-              (DefaultHardwareBufferFrame) receivedAsyncFrame.frame;
-
           AsyncFrame expectedAsyncFrame = expectedFrames.get(j);
-          assertThat(expectedAsyncFrame.frame).isInstanceOf(DefaultHardwareBufferFrame.class);
-          DefaultHardwareBufferFrame expectedFrame =
-              (DefaultHardwareBufferFrame) expectedAsyncFrame.frame;
-
-          assertFramesEqual(receivedFrame, expectedFrame, ignoreReleaseTime);
+          assertFramesEqual(receivedAsyncFrame.frame, expectedAsyncFrame.frame, ignoreReleaseTime);
         }
       }
     }
   }
 
-  /**
-   * Verifies that the fields on the received and expected {@link DefaultHardwareBufferFrame} are
-   * equal.
-   */
-  private static void assertFramesEqual(
-      DefaultHardwareBufferFrame received,
-      DefaultHardwareBufferFrame expected,
-      boolean ignoreReleaseTime) {
+  /** Verifies that the fields on the received and expected {@link Frame} are equal. */
+  private static void assertFramesEqual(Frame received, Frame expected, boolean ignoreReleaseTime) {
+    assertThat(received.getClass()).isEqualTo(expected.getClass());
     assertThat(received.getContentTimeUs()).isEqualTo(expected.getContentTimeUs());
-    assertThat(received.getHardwareBuffer()).isEqualTo(expected.getHardwareBuffer());
     assertThat(received.getFormat()).isEqualTo(expected.getFormat());
-    assertThat(received.getInternalImage()).isEqualTo(expected.getInternalImage());
+    if (SDK_INT >= 26 && received instanceof DefaultHardwareBufferFrame) {
+      DefaultHardwareBufferFrame receivedHardwareBufferFrame =
+          (DefaultHardwareBufferFrame) received;
+      DefaultHardwareBufferFrame expectedHardwareBufferFrame =
+          (DefaultHardwareBufferFrame) expected;
+      assertThat(receivedHardwareBufferFrame.getHardwareBuffer())
+          .isEqualTo(expectedHardwareBufferFrame.getHardwareBuffer());
+      assertThat(receivedHardwareBufferFrame.getInternalImage())
+          .isEqualTo(expectedHardwareBufferFrame.getInternalImage());
+    } else if (received instanceof DefaultImagePlanesFrame) {
+      DefaultImagePlanesFrame receivedImagePlanesFrame = (DefaultImagePlanesFrame) received;
+      DefaultImagePlanesFrame expectedImagePlanesFrame = (DefaultImagePlanesFrame) expected;
+      assertThat(receivedImagePlanesFrame.getPlanes())
+          .isEqualTo(expectedImagePlanesFrame.getPlanes());
+      assertThat(receivedImagePlanesFrame.getInternalImage())
+          .isEqualTo(expectedImagePlanesFrame.getInternalImage());
+    } else {
+      throw new IllegalArgumentException("Unsupported frame type: " + received);
+    }
 
     Long receivedPresentationTimeUs =
         (Long) received.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US);
@@ -1154,18 +1175,33 @@ public class CompositionVideoPacketReleaseControlTest {
       ImmutableList<AsyncFrame> packet, long releaseTimeNs) {
     ImmutableList.Builder<AsyncFrame> updatedPacketBuilder = new ImmutableList.Builder<>();
     for (AsyncFrame asyncFrame : packet) {
-      DefaultHardwareBufferFrame commonFrame = (DefaultHardwareBufferFrame) asyncFrame.frame;
       ImmutableMap.Builder<String, Object> metadataBuilder =
-          ImmutableMap.<String, Object>builder().putAll(commonFrame.getMetadata());
+          ImmutableMap.<String, Object>builder().putAll(asyncFrame.frame.getMetadata());
       metadataBuilder.put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
-      DefaultHardwareBufferFrame updatedCommonFrame =
-          new DefaultHardwareBufferFrame.Builder(commonFrame.getHardwareBuffer())
-              .setFormat(commonFrame.getFormat())
-              .setContentTimeUs(commonFrame.getContentTimeUs())
-              .setMetadata(metadataBuilder.buildKeepingLast())
-              .setInternalImage(commonFrame.getInternalImage())
-              .build();
-      updatedPacketBuilder.add(new AsyncFrame(updatedCommonFrame, asyncFrame.acquireFence));
+      ImmutableMap<String, Object> updatedMetadata = metadataBuilder.buildKeepingLast();
+      Frame updatedFrame;
+      if (SDK_INT >= 26 && asyncFrame.frame instanceof DefaultHardwareBufferFrame) {
+        DefaultHardwareBufferFrame commonFrame = (DefaultHardwareBufferFrame) asyncFrame.frame;
+        updatedFrame =
+            new DefaultHardwareBufferFrame.Builder(commonFrame.getHardwareBuffer())
+                .setFormat(commonFrame.getFormat())
+                .setContentTimeUs(commonFrame.getContentTimeUs())
+                .setMetadata(updatedMetadata)
+                .setInternalImage(commonFrame.getInternalImage())
+                .build();
+      } else if (asyncFrame.frame instanceof DefaultImagePlanesFrame) {
+        DefaultImagePlanesFrame imagePlanesFrame = (DefaultImagePlanesFrame) asyncFrame.frame;
+        updatedFrame =
+            new DefaultImagePlanesFrame.Builder(
+                    imagePlanesFrame.getPlanes(), imagePlanesFrame.getFormat())
+                .setContentTimeUs(imagePlanesFrame.getContentTimeUs())
+                .setMetadata(updatedMetadata)
+                .setInternalImage(imagePlanesFrame.getInternalImage())
+                .build();
+      } else {
+        throw new IllegalArgumentException("Unsupported frame type: " + asyncFrame.frame);
+      }
+      updatedPacketBuilder.add(new AsyncFrame(updatedFrame, asyncFrame.acquireFence));
     }
     return updatedPacketBuilder.build();
   }

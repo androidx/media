@@ -16,6 +16,8 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -23,6 +25,7 @@ import android.media.MediaCodec;
 import android.os.HandlerThread;
 import androidx.annotation.IntDef;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -33,6 +36,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.HashMap;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,7 +47,9 @@ import org.jspecify.annotations.Nullable;
  * instances on devices with API level &gt;= 31 (Android 12+). For devices with older API versions,
  * the default behavior is to create {@link SynchronousMediaCodecAdapter} instances. The factory
  * offers APIs to force the creation of {@link AsynchronousMediaCodecAdapter} or {@link
- * SynchronousMediaCodecAdapter} instances.
+ * SynchronousMediaCodecAdapter} instances. When {@link MediaCodecAdapter.Configuration#codecInfo}
+ * represents an extension decoder, this factory delegates to the registered or default adapter
+ * factory for that extension codec.
  */
 @UnstableApi
 public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.Factory {
@@ -62,6 +69,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   private final @Nullable Context context;
   private final @Nullable Supplier<HandlerThread> callbackThreadSupplier;
   private final @Nullable Supplier<HandlerThread> queueingThreadSupplier;
+  private final Map<String, MediaCodecAdapter.Factory> extensionAdapterFactories;
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;
@@ -75,6 +83,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     context = null;
     callbackThreadSupplier = null;
     queueingThreadSupplier = null;
+    extensionAdapterFactories = new HashMap<>();
   }
 
   /**
@@ -103,6 +112,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     asyncCryptoFlagEnabled = true;
     this.callbackThreadSupplier = callbackThreadSupplier;
     this.queueingThreadSupplier = queueingThreadSupplier;
+    extensionAdapterFactories = new HashMap<>();
   }
 
   /**
@@ -139,9 +149,38 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     return this;
   }
 
+  /**
+   * Sets the {@link MediaCodecAdapter.Factory} to use for a specific extension decoder.
+   *
+   * <p>The provided {@code factory} must return an extension codec adapter (for example from a
+   * configured {@code Dav1dCodecAdapter.Factory}), optionally decorated with {@link
+   * ForwardingMediaCodecAdapter}. Note that decorators around extension codec adapters do not
+   * intercept {@link MediaCodecAdapter#getInputBuffer}, {@link MediaCodecAdapter#setOutputSurface},
+   * or {@link MediaCodecAdapter#detachOutputSurface}.
+   *
+   * <p>This method is experimental and may be renamed or removed in a future release.
+   *
+   * @param codecName The non-empty name of the extension decoder (e.g. {@code
+   *     "c2.media3.av1.dav1d.decoder"}).
+   * @param factory The {@link MediaCodecAdapter.Factory} to use for creating the adapter.
+   * @return This factory, for convenience.
+   * @throws IllegalArgumentException If {@code codecName} is empty.
+   */
+  @ExperimentalApi // TODO(b/562381449): Remove or make non-experimental.
+  @CanIgnoreReturnValue
+  public DefaultMediaCodecAdapterFactory setExtensionAdapterFactory(
+      String codecName, MediaCodecAdapter.Factory factory) {
+    checkArgument(!codecName.isEmpty());
+    extensionAdapterFactories.put(codecName, checkNotNull(factory));
+    return this;
+  }
+
   @Override
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {
+    if (configuration.codecInfo instanceof ExtensionCodecInfo) {
+      return createExtensionAdapter(configuration);
+    }
     if (asynchronousMode == MODE_ENABLED
         || (asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode())) {
       int trackType = MimeTypes.getTrackType(configuration.format.sampleMimeType);
@@ -158,6 +197,38 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
       return factory.createAdapter(configuration);
     }
     return new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration);
+  }
+
+  private MediaCodecAdapter createExtensionAdapter(MediaCodecAdapter.Configuration configuration)
+      throws IOException {
+    MediaCodecAdapter.@Nullable Factory customFactory =
+        extensionAdapterFactories.get(configuration.codecInfo.name);
+    if (customFactory != null) {
+      return customFactory.createAdapter(configuration);
+    }
+    MediaCodecAdapter.Factory defaultFactory;
+    try {
+      // LINT.IfChange(dav1d_adapter_factory)
+      if (configuration.codecInfo.name.equals("c2.media3.av1.dav1d.decoder")) {
+        defaultFactory =
+            Class.forName("androidx.media3.decoder.av1.Dav1dCodecAdapter$Factory")
+                .asSubclass(MediaCodecAdapter.Factory.class)
+                .getConstructor()
+                .newInstance();
+        // LINT.ThenChange(
+        //     ../../../../../../../proguard-rules.txt,
+        //
+        // ../../../../../../../../decoder_av1/src/main/java/androidx/media3/decoder/av1/Dav1dCodecInfo.java:codec_name,
+        //
+        // ../../../../../../../../decoder_av1/src/main/java/androidx/media3/decoder/av1/Dav1dCodecAdapter.java:factory_constructor)
+      } else {
+        throw new IllegalArgumentException(
+            "Unsupported extension decoder: " + configuration.codecInfo.name);
+      }
+    } catch (Exception e) {
+      throw new IOException("Failed to create extension codec adapter", e);
+    }
+    return defaultFactory.createAdapter(configuration);
   }
 
   private boolean shouldUseAsynchronousAdapterInDefaultMode() {
