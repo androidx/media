@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -101,17 +102,7 @@ public class TransformerPauseResumeTest {
             /* clippingStartPositionMs= */ 0,
             /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
             /* mediaItemsInSequence= */ 1);
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     // Resume the export.
     ExportTestResult result =
@@ -197,17 +188,7 @@ public class TransformerPauseResumeTest {
             .run(testId, composition)
             .exportResult;
     // Export with resume.
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     // Resume the export.
     ExportTestResult resultWithResume =
@@ -259,17 +240,7 @@ public class TransformerPauseResumeTest {
             .run(testId, composition)
             .exportResult;
     // Export with resume.
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     // Resume the export.
     ExportTestResult resultWithResume =
@@ -311,17 +282,7 @@ public class TransformerPauseResumeTest {
             /* clippingStartPositionMs= */ 0,
             /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
             /* mediaItemsInSequence= */ 2);
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -376,17 +337,7 @@ public class TransformerPauseResumeTest {
             .run(testId, composition)
             .exportResult;
     // Export with resume.
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     ExportTestResult resultWithResume =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -427,17 +378,7 @@ public class TransformerPauseResumeTest {
             /* clippingStartPositionMs= */ 0,
             /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
             /* mediaItemsInSequence= */ 1);
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
     // Prepare transformer to resume and to get progress.
     SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer.Listener transformerListener =
@@ -502,17 +443,7 @@ public class TransformerPauseResumeTest {
             /* clippingStartPositionMs= */ 0,
             /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
             /* mediaItemsInSequence= */ 1);
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
     // Prepare transformer to resume and to get progress.
     SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer.Listener transformerListener =
@@ -699,17 +630,7 @@ public class TransformerPauseResumeTest {
             /* clippingStartPositionMs= */ 0,
             /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
             /* mediaItemsInSequence= */ 2);
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -758,17 +679,7 @@ public class TransformerPauseResumeTest {
             .run(testId, composition);
     ExportResult exportResultWithoutResume = resultWithoutResume.exportResult;
     // Export with resume.
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
 
     ExportTestResult resultWithResume =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -809,23 +720,9 @@ public class TransformerPauseResumeTest {
             /* clippingStartPositionMs= */ 0,
             /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
             /* mediaItemsInSequence= */ 1);
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer =
-        glFrameProcessorTestRule
-            .createTransformerBuilder(context)
-            .setMuxerFactory(
-                new AndroidTestUtil.FrameBlockingMuxerFactory(
-                    PRESENTATION_TIME_US_TO_BLOCK_FRAME, countDownLatch::countDown))
-            .build();
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath =
+        createPartialOutput(
+            composition, glFrameProcessorTestRule.createTransformerBuilder(context));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(
@@ -850,17 +747,7 @@ public class TransformerPauseResumeTest {
   private void resumeAndPollProgress(
       Composition composition, Queue<Integer> progressStates, Queue<Integer> progresses)
       throws Exception {
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
-    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
-      throw new TimeoutException(
-          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
-    }
-    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    String firstOutputPath = createPartialOutput(composition);
     SettableFuture<@Nullable Exception> transformerExceptionFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -966,13 +853,45 @@ public class TransformerPauseResumeTest {
         .build();
   }
 
-  private static Transformer buildBlockingTransformer(
-      AndroidTestUtil.FrameBlockingMuxer.Listener listener) {
-    return new Transformer.Builder(getApplicationContext())
-        .setMuxerFactory(
-            new AndroidTestUtil.FrameBlockingMuxerFactory(
-                PRESENTATION_TIME_US_TO_BLOCK_FRAME, listener))
-        .build();
+  /**
+   * Calls {@link #createPartialOutput(Composition, Transformer.Builder)} with a default {@link
+   * Transformer.Builder}.
+   */
+  private String createPartialOutput(Composition composition)
+      throws IOException, InterruptedException, TimeoutException {
+    return createPartialOutput(composition, new Transformer.Builder(context));
+  }
+
+  /**
+   * Returns the path of a partial export of {@code composition}.
+   *
+   * <p>Starts exporting with a {@link Transformer} built from {@code transformerBuilder} and
+   * cancels the export once the muxer drops the first video sample at or after {@link
+   * #PRESENTATION_TIME_US_TO_BLOCK_FRAME}. Replaces any {@linkplain
+   * Transformer.Builder#setMuxerFactory muxer factory} already set on {@code transformerBuilder}.
+   */
+  private String createPartialOutput(
+      Composition composition, Transformer.Builder transformerBuilder)
+      throws IOException, InterruptedException, TimeoutException {
+    CountDownLatch frameBlockedLatch = new CountDownLatch(1);
+    Transformer blockingTransformer =
+        transformerBuilder
+            .setMuxerFactory(
+                new AndroidTestUtil.FrameBlockingMuxerFactory(
+                    PRESENTATION_TIME_US_TO_BLOCK_FRAME, frameBlockedLatch::countDown))
+            .build();
+    String partialOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> blockingTransformer.start(composition, partialOutputPath));
+    try {
+      if (!frameBlockedLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
+        throw new TimeoutException(
+            "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
+      }
+    } finally {
+      InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+    }
+    return partialOutputPath;
   }
 
   private static boolean shouldSkipDevice() {
