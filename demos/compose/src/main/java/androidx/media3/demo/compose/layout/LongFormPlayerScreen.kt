@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,6 +101,7 @@ import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.material3.buttons.LiveButton
 import androidx.media3.ui.compose.material3.buttons.MuteButton
+import androidx.media3.ui.compose.material3.indicator.DurationText
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberPresentationState
@@ -320,12 +323,16 @@ internal fun LongFormPlayerScreen(
                 if (isRemotePlayback) {
                   PlayerDefaults.CenterControls(player, Modifier.fillMaxWidth())
                 } else {
-                  Box(Modifier.fillMaxWidth()) {
-                    LiveButton(player, Modifier.align(Alignment.CenterStart))
-                    Row(Modifier.align(Alignment.CenterEnd)) {
-                      MuteButton(player)
-                      FullscreenButton(isFullscreen, onClick = { isFullscreen = !isFullscreen })
-                    }
+                  LiveButton(player)
+                }
+              },
+              right = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  DurationText(player, Modifier.padding(start = TIME_TEXT_PADDING))
+                  if (!isRemotePlayback) {
+                    Spacer(Modifier.width(DURATION_TO_BUTTONS_SPACING))
+                    MuteButton(player)
+                    FullscreenButton(isFullscreen, onClick = { isFullscreen = !isFullscreen })
                   }
                 }
               },
@@ -419,5 +426,14 @@ internal fun rememberTintedPainter(painter: Painter, tint: Color): Painter {
 }
 
 private val CONTROLS_VISIBILITY_TIMEOUT = 3000.milliseconds
+
+// The padding that PlayerDefaults.BottomControls uses between its default time texts and the
+// progress slider.
+private val TIME_TEXT_PADDING = 8.dp
+
+// Matches the empty space on one side of a 48.dp IconButton (12.dp around the 24.dp icon plus 3.dp
+// of transparent padding inside the icon drawable), so the gap between duration and mute matches
+// the gap between mute and fullscreen.
+private val DURATION_TO_BUTTONS_SPACING = 15.dp
 
 private class JobHolder(var job: Job? = null)
