@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.common.Flags.FLAG_USE_MP3_ID3_TLEN_DURATION;
+import static androidx.media3.common.Flags.isEnabled;
 import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -47,6 +49,7 @@ import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.extractor.mp3.Seeker.UnseekableSeeker;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import java.io.EOFException;
 import java.io.IOException;
 import java.lang.annotation.Documented;
@@ -172,7 +175,12 @@ public final class Mp3Extractor implements Extractor {
   private static final FramePredicate REQUIRED_ID3_FRAME_PREDICATE =
       (majorVersion, id0, id1, id2, id3) ->
           ((id0 == 'C' && id1 == 'O' && id2 == 'M' && (id3 == 'M' || majorVersion == 2))
-              || (id0 == 'M' && id1 == 'L' && id2 == 'L' && (id3 == 'T' || majorVersion == 2)));
+              || (id0 == 'M' && id1 == 'L' && id2 == 'L' && (id3 == 'T' || majorVersion == 2))
+              || (id0 == 'T'
+                  && id1 == 'L'
+                  && id2 == 'E'
+                  && (id3 == 'N' || majorVersion == 2)
+                  && isEnabled(FLAG_USE_MP3_ID3_TLEN_DURATION)));
 
   /**
    * The maximum number of bytes to peek when synchronizing or sniffing (excluding the ID3 header)
@@ -545,7 +553,10 @@ public final class Mp3Extractor implements Extractor {
     Seeker metadataSeeker = maybeHandleSeekMetadata(id3Metadata, input.getPosition());
 
     if (disableSeeking) {
-      return new UnseekableSeeker(/* dataStartPosition= */ 0, /* dataEndPosition= */ C.INDEX_UNSET);
+      return new UnseekableSeeker(
+          /* durationUs= */ C.TIME_UNSET,
+          /* dataStartPosition= */ 0,
+          /* dataEndPosition= */ C.INDEX_UNSET);
     }
 
     Seeker resultSeeker;
@@ -556,15 +567,22 @@ public final class Mp3Extractor implements Extractor {
     } else if ((flags & FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION) != 0) {
       long dataEndPosition =
           input.getLength() != C.LENGTH_UNSET ? input.getLength() : C.INDEX_UNSET;
+      long durationUs =
+          isEnabled(FLAG_USE_MP3_ID3_TLEN_DURATION) ? getId3TlenUs(id3Metadata) : C.TIME_UNSET;
       resultSeeker =
-          new UnseekableSeeker(/* dataStartPosition= */ input.getPosition(), dataEndPosition);
+          new UnseekableSeeker(
+              durationUs, /* dataStartPosition= */ input.getPosition(), dataEndPosition);
     } else {
       resultSeeker = getConstantBitrateSeeker(input);
     }
 
     if ((flags & FLAG_ENABLE_INDEX_SEEKING) != 0 && !resultSeeker.isSeekable()) {
+      long durationUs = resultSeeker.getDurationUs();
+      if (durationUs == C.TIME_UNSET && isEnabled(FLAG_USE_MP3_ID3_TLEN_DURATION)) {
+        durationUs = getId3TlenUs(id3Metadata);
+      }
       return new IndexSeeker(
-          resultSeeker.getDurationUs(),
+          durationUs,
           /* dataStartPosition= */ input.getPosition(),
           resultSeeker.getDataEndPosition());
     }
@@ -810,10 +828,12 @@ public final class Mp3Extractor implements Extractor {
       return C.TIME_UNSET;
     }
     TextInformationFrame tlenFrame =
-        metadata.getFirstMatchingEntry(TextInformationFrame.class, tif -> tif.id.equals("TLEN"));
+        metadata.getFirstMatchingEntry(
+            TextInformationFrame.class, tif -> tif.id.equals("TLEN") || tif.id.equals("TLE"));
     if (tlenFrame == null) {
       return C.TIME_UNSET;
     }
-    return Util.msToUs(Long.parseLong(tlenFrame.values.get(0)));
+    @Nullable Long tlenMs = Longs.tryParse(tlenFrame.values.get(0));
+    return tlenMs != null && tlenMs > 0 ? Util.msToUs(tlenMs) : C.TIME_UNSET;
   }
 }

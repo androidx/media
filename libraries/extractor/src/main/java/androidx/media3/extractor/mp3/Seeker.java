@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
+
 import androidx.media3.common.C;
 import androidx.media3.extractor.SeekMap;
 
@@ -56,11 +58,16 @@ import androidx.media3.extractor.SeekMap;
 
     private final long dataStartPosition;
     private final long dataEndPosition;
+    private final int averageBitrate;
 
-    public UnseekableSeeker(long dataStartPosition, long dataEndPosition) {
-      super(/* durationUs= */ C.TIME_UNSET, dataStartPosition);
+    public UnseekableSeeker(long durationUs, long dataStartPosition, long dataEndPosition) {
+      super(durationUs, dataStartPosition);
       this.dataStartPosition = dataStartPosition;
       this.dataEndPosition = dataEndPosition;
+      this.averageBitrate =
+          dataEndPosition != C.INDEX_UNSET
+              ? computeAverageBitrate(dataEndPosition - dataStartPosition, durationUs)
+              : C.RATE_UNSET_INT;
     }
 
     @Override
@@ -80,7 +87,7 @@ import androidx.media3.extractor.SeekMap;
 
     @Override
     public int getAverageBitrate() {
-      return C.RATE_UNSET_INT;
+      return averageBitrate;
     }
   }
 }

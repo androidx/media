@@ -32,6 +32,12 @@
         or bitrate metadata, allowing fallback to `FLAG_ENABLE_INDEX_SEEKING`
         for variable-bitrate MP3s lacking a VBR header
         ([#3492](https://github.com/androidx/media/issues/3492)).
+    *   MP3: Use valid ID3 `TLEN` frames as the initial duration when
+        `FLAG_DISABLE_CONSTANT_BITRATE_ASSUMPTION` or
+        `FLAG_ENABLE_INDEX_SEEKING` is used without seek-frame duration
+        metadata, and ignore malformed non-integer or non-positive `TLEN` values
+        instead of throwing `NumberFormatException`
+        ([#3492](https://github.com/androidx/media/issues/3492)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
