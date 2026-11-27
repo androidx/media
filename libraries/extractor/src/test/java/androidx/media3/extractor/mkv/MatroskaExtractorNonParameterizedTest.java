@@ -22,16 +22,21 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
+import androidx.media3.extractor.text.CueDecoder;
+import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.ForwardingSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -44,6 +49,52 @@ import org.junit.runner.RunWith;
 /** Non-parameterized tests for {@link MatroskaExtractor}. */
 @RunWith(AndroidJUnit4.class)
 public class MatroskaExtractorNonParameterizedTest {
+
+  @Test
+  public void read_webmWebVttSubtitlesAndCaptions_outputsTimedCues() throws Exception {
+    String fileName = "media/mkv/sample_with_webm_webvtt.webm";
+    MatroskaExtractor extractor = new MatroskaExtractor(new DefaultSubtitleParserFactory());
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor, ApplicationProvider.getApplicationContext(), fileName);
+
+    List<FakeTrackOutput> textTracks = output.getTrackOutputsForType(C.TRACK_TYPE_TEXT);
+    assertThat(textTracks).hasSize(2);
+    CueDecoder decoder = new CueDecoder();
+    for (FakeTrackOutput track : textTracks) {
+      assertThat(track.getSampleCount()).isEqualTo(1);
+      byte[] data = track.getSampleData(0);
+      CuesWithTiming cues = decoder.decode(track.getSampleTimeUs(0), data, 0, data.length);
+      assertThat(cues.startTimeUs).isEqualTo(250_000);
+      assertThat(cues.durationUs).isEqualTo(875_000);
+      assertThat(Iterables.getOnlyElement(cues.cues).text.toString())
+          .isEqualTo("First line\nSecond line");
+      assertThat(Iterables.getOnlyElement(cues.cues).line).isEqualTo(0.18f);
+    }
+  }
+
+  @Test
+  public void read_webmWebVttWithRawSubtitleOutput_reconstructsIdentifierAndSettings()
+      throws Exception {
+    MatroskaExtractor extractor =
+        new MatroskaExtractor(
+            SubtitleParser.Factory.UNSUPPORTED, MatroskaExtractor.FLAG_EMIT_RAW_SUBTITLE_DATA);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mkv/sample_with_webm_webvtt.webm");
+
+    List<FakeTrackOutput> textTracks = output.getTrackOutputsForType(C.TRACK_TYPE_TEXT);
+    assertThat(textTracks).hasSize(2);
+    for (FakeTrackOutput track : textTracks) {
+      assertThat(Util.fromUtf8Bytes(track.getSampleData(0)))
+          .isEqualTo(
+              "WEBVTT\n\nfirst-cue\n00:00:00.000 --> 00:00:00.875 line:18%\nFirst line\nSecond line");
+    }
+  }
 
   @Test
   public void seek_afterSeekMapSent_seekMapRemainsValid() throws Exception {

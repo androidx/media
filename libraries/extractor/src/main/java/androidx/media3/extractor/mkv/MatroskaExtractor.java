@@ -184,6 +184,8 @@ public class MatroskaExtractor implements Extractor {
   private static final String CODEC_ID_ASS = "S_TEXT/ASS";
   private static final String CODEC_ID_SSA = "S_TEXT/SSA";
   private static final String CODEC_ID_VTT = "S_TEXT/WEBVTT";
+  private static final String CODEC_ID_WEBM_VTT_SUBTITLES = "D_WEBVTT/SUBTITLES";
+  private static final String CODEC_ID_WEBM_VTT_CAPTIONS = "D_WEBVTT/CAPTIONS";
   private static final String CODEC_ID_VOBSUB = "S_VOBSUB";
   private static final String CODEC_ID_PGS = "S_HDMV/PGS";
   private static final String CODEC_ID_DVBSUB = "S_DVBSUB";
@@ -1793,16 +1795,22 @@ public class MatroskaExtractor implements Extractor {
       track.trueHdSampleRechunker.sampleMetadata(
           track.output, timeUs, flags, size, offset, track.cryptoData);
     } else {
+      boolean webmWebVtt = isWebmWebVtt(track.codecId);
       if (CODEC_ID_SUBRIP.equals(track.codecId)
           || CODEC_ID_ASS.equals(track.codecId)
           || CODEC_ID_SSA.equals(track.codecId)
-          || CODEC_ID_VTT.equals(track.codecId)) {
+          || CODEC_ID_VTT.equals(track.codecId)
+          || webmWebVtt) {
         if (blockSampleCount > 1) {
           Log.w(TAG, "Skipping subtitle sample in laced block.");
         } else if (blockDurationUs == C.TIME_UNSET) {
           Log.w(TAG, "Skipping subtitle sample with no duration.");
+        } else if (webmWebVtt && !formatWebmWebVttSample(blockDurationUs)) {
+          Log.w(TAG, "Skipping malformed WebM WebVTT sample.");
         } else {
-          setSubtitleEndTime(track.codecId, blockDurationUs, subtitleSample.getData());
+          if (!webmWebVtt) {
+            setSubtitleEndTime(track.codecId, blockDurationUs, subtitleSample.getData());
+          }
           // The Matroska spec doesn't clearly define whether subtitle samples are null-terminated
           // or the sample should instead be sized precisely. We truncate the sample at a null-byte
           // to gracefully handle null-terminated strings followed by garbage bytes.
@@ -1873,6 +1881,9 @@ public class MatroskaExtractor implements Extractor {
       return finishWriteSampleData();
     } else if (CODEC_ID_VTT.equals(track.codecId)) {
       writeSubtitleSampleData(input, VTT_PREFIX, size);
+      return finishWriteSampleData();
+    } else if (isWebmWebVtt(track.codecId)) {
+      writeSubtitleSampleData(input, Util.EMPTY_BYTE_ARRAY, size);
       return finishWriteSampleData();
     }
 
@@ -2102,6 +2113,34 @@ public class MatroskaExtractor implements Extractor {
     // the correct end timecode, which we might not have yet.
   }
 
+  /** Reconstructs a WebVTT cue from the identifier, settings and text in a WebM Block. */
+  private boolean formatWebmWebVttSample(long durationUs) {
+    @Nullable String identifier = subtitleSample.readLine();
+    @Nullable String settings = subtitleSample.readLine();
+    if (identifier == null || settings == null) {
+      return false;
+    }
+    byte settingsTerminator = subtitleSample.getData()[subtitleSample.getPosition() - 1];
+    if (settingsTerminator != '\n' && settingsTerminator != '\r') {
+      return false;
+    }
+    StringBuilder cue = new StringBuilder("WEBVTT\n\n");
+    if (!identifier.isEmpty()) {
+      cue.append(identifier).append('\n');
+    }
+    cue.append("00:00:00.000 --> ")
+        .append(
+            Util.fromUtf8Bytes(
+                formatSubtitleTimecode(
+                    durationUs, VTT_TIMECODE_FORMAT, VTT_TIMECODE_LAST_VALUE_SCALING_FACTOR)));
+    if (!settings.isEmpty()) {
+      cue.append(' ').append(settings);
+    }
+    cue.append('\n').append(subtitleSample.readString(subtitleSample.bytesLeft()));
+    subtitleSample.reset(Util.getUtf8Bytes(cue.toString()));
+    return true;
+  }
+
   /**
    * Overwrites the end timecode in {@code subtitleData} with the correctly formatted time derived
    * from {@code durationUs}.
@@ -2244,6 +2283,11 @@ public class MatroskaExtractor implements Extractor {
     return Util.scaleLargeTimestamp(unscaledTimecode, timecodeScale, 1000);
   }
 
+  private static boolean isWebmWebVtt(String codecId) {
+    return CODEC_ID_WEBM_VTT_SUBTITLES.equals(codecId)
+        || CODEC_ID_WEBM_VTT_CAPTIONS.equals(codecId);
+  }
+
   private static boolean isCodecSupported(String codecId) {
     switch (codecId) {
       case CODEC_ID_VP8:
@@ -2278,6 +2322,8 @@ public class MatroskaExtractor implements Extractor {
       case CODEC_ID_ASS:
       case CODEC_ID_SSA:
       case CODEC_ID_VTT:
+      case CODEC_ID_WEBM_VTT_SUBTITLES:
+      case CODEC_ID_WEBM_VTT_CAPTIONS:
       case CODEC_ID_VOBSUB:
       case CODEC_ID_PGS:
       case CODEC_ID_DVBSUB:
@@ -2712,6 +2758,8 @@ public class MatroskaExtractor implements Extractor {
           initializationData = ImmutableList.of(SSA_DIALOGUE_FORMAT, getCodecPrivate(codecId));
           break;
         case CODEC_ID_VTT:
+        case CODEC_ID_WEBM_VTT_SUBTITLES:
+        case CODEC_ID_WEBM_VTT_CAPTIONS:
           mimeType = MimeTypes.TEXT_VTT;
           break;
         case CODEC_ID_VOBSUB:
