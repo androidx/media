@@ -55,6 +55,133 @@ import org.junit.runner.RunWith;
 public final class DashMediaSourceOverlappingSlateRegressionTest {
   private static final String URL = "https://example.invalid/manifest.mpd";
 
+  // A successful loader callback returning null is not expected from the default
+  // DASH parser, but custom manifest parsers can return null. Exercise the
+  // defensive initial-load guard without changing standard loader error handling.
+  @Test public void initialNullManifest_reportsParserErrorWithoutNpe() throws Exception {
+    String xml = mpd(new String[] {CONTENT, NEXT}, 0, SlateTiming.SAME_AS_CONTENT, 33);
+    AtomicInteger callbacks = new AtomicInteger();
+    DashMediaSource source = new DashMediaSource.Factory(manifestDataSourceFactory(xml))
+        .setManifestParser((uri, input) -> null)
+        .createMediaSource(MediaItem.fromUri(URL));
+    MediaSource.MediaSourceCaller caller = (unused, timeline) -> callbacks.incrementAndGet();
+    source.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    try {
+      RobolectricUtil.runMainLooperUntil(() -> {
+        try {
+          return field(source, "manifestFatalError") != null;
+        } catch (Exception e) {
+          throw new AssertionError("Failed to inspect manifestFatalError", e);
+        }
+      });
+      assertThat(field(source, "manifest")).isNull();
+      assertThat(field(source, "manifestLoadPending")).isEqualTo(false);
+      assertThat(callbacks.get()).isEqualTo(0);
+      assertThat(field(source, "manifestFatalError"))
+          .isInstanceOf(androidx.media3.common.ParserException.class);
+      try {
+        source.maybeThrowSourceInfoRefreshError();
+        throw new AssertionError("Expected a fatal parser error for initial null manifest");
+      } catch (androidx.media3.common.ParserException expected) {
+        assertThat(expected).hasMessageThat().contains("Initial DASH manifest load returned null");
+      }
+    } finally {
+      source.releaseSource(caller);
+    }
+  }
+
+  @Test public void nullManifestRefresh_keepsPreviousManifestAndPeriodUids()
+      throws Exception {
+    String[] ids = {CONTENT, NEXT};
+    String xml = mpd(ids, 0, SlateTiming.SAME_AS_CONTENT, 33);
+    AtomicInteger parses = new AtomicInteger();
+    AtomicInteger opens = new AtomicInteger();
+    AtomicInteger callbacks = new AtomicInteger();
+    AtomicReference<Timeline> latest = new AtomicReference<>();
+    DashManifestParser standardParser = new DashManifestParser();
+    DashMediaSource source = new DashMediaSource.Factory(manifestDataSourceFactory(xml, opens))
+        .setManifestParser((uri, input) ->
+            parses.incrementAndGet() == 1 ? standardParser.parse(uri, input) : null)
+        .createMediaSource(MediaItem.fromUri(URL));
+    MediaSource.MediaSourceCaller caller = (unused, timeline) -> {
+      latest.set(timeline);
+      callbacks.incrementAndGet();
+    };
+    source.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    try {
+      await(source, latest, callbacks, opens, 1, 1, ids);
+      DashManifest previous = (DashManifest) field(source, "manifest");
+      Timeline previousTimeline = latest.get();
+      int previousFirstId = (int) field(source, "firstPeriodId");
+      Object contentUid = uidOf(previousTimeline, CONTENT);
+      Object nextUid = uidOf(previousTimeline, NEXT);
+
+      source.onDashManifestRefreshRequested();
+      RobolectricUtil.runMainLooperUntil(() -> callbacks.get() >= 2);
+
+      assertThat(parses.get()).isEqualTo(2);
+      assertThat(field(source, "manifest")).isSameInstanceAs(previous);
+      assertThat((int) field(source, "firstPeriodId")).isEqualTo(previousFirstId);
+      assertThat(uidOf(latest.get(), CONTENT)).isEqualTo(contentUid);
+      assertThat(uidOf(latest.get(), NEXT)).isEqualTo(nextUid);
+      assertThat(field(source, "manifestFatalError")).isNull();
+      source.maybeThrowSourceInfoRefreshError();
+    } finally {
+      source.releaseSource(caller);
+    }
+  }
+
+  @Test public void validInitialManifest_noFatalErrorAndStableInitialUids()
+      throws Exception {
+    String[] ids = {CONTENT, NEXT};
+    String xml = mpd(ids, 0, SlateTiming.SAME_AS_CONTENT, 33);
+    AtomicInteger opens = new AtomicInteger();
+    AtomicInteger callbacks = new AtomicInteger();
+    AtomicReference<Timeline> latest = new AtomicReference<>();
+    DashMediaSource source = new DashMediaSource.Factory(manifestDataSourceFactory(xml, opens))
+        .createMediaSource(MediaItem.fromUri(URL));
+    MediaSource.MediaSourceCaller caller = (unused, timeline) -> {
+      latest.set(timeline);
+      callbacks.incrementAndGet();
+    };
+    source.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+    try {
+      await(source, latest, callbacks, opens, 1, 1, ids);
+      assertThat(field(source, "manifest")).isNotNull();
+      assertThat(field(source, "manifestFatalError")).isNull();
+      assertThat((int) field(source, "firstPeriodId")).isEqualTo(0);
+      assertThat(uidOf(latest.get(), CONTENT)).isEqualTo(0);
+      assertThat(uidOf(latest.get(), NEXT)).isEqualTo(1);
+      source.maybeThrowSourceInfoRefreshError();
+    } finally {
+      source.releaseSource(caller);
+    }
+  }
+
+  private static DataSource.Factory manifestDataSourceFactory(String xml) {
+    return manifestDataSourceFactory(xml, new AtomicInteger());
+  }
+
+  private static DataSource.Factory manifestDataSourceFactory(
+      String xml, AtomicInteger opens) {
+    return () -> new DataSource() {
+      private ByteArrayDataSource delegate;
+      @Override public void addTransferListener(TransferListener listener) {}
+      @Override public long open(DataSpec spec) throws IOException {
+        opens.incrementAndGet();
+        delegate = new ByteArrayDataSource(xml.getBytes(StandardCharsets.UTF_8));
+        return delegate.open(spec);
+      }
+      @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+        return delegate.read(buffer, offset, length);
+      }
+      @Override public Uri getUri() { return delegate == null ? null : delegate.getUri(); }
+      @Override public void close() throws IOException {
+        if (delegate != null) { delegate.close(); delegate = null; }
+      }
+    };
+  }
+
   private enum SlateTiming { INSIDE_CONTENT, SAME_AS_CONTENT, OVERLAPS_AD_AND_CONTENT }
 
   // Both 330-ms and 1000-ms slate cases are verified for each timing pattern.
